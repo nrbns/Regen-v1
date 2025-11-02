@@ -1,0 +1,23 @@
+{
+  "name": "@omni/backend",
+  "version": "0.1.0",
+  "description": "OmniBrowser backend services",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:*\"",
+    "dev:api": "cd apps/api && npm run dev",
+    "dev:worker": "cd apps/worker && npm run dev",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.2.0",
+    "typescript": "^5.3.0"
+  }
+}
+

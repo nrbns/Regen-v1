@@ -1,0 +1,22 @@
+{
+  "id": "ob-sample-plugin",
+  "name": "ob-sample-plugin",
+  "version": "1.0.0",
+  "description": "Sample plugin demonstrating the OmniBrowser plugin API",
+  "author": "OmniBrowser Team",
+  "permissions": [
+    "network",
+    "storage:scoped",
+    "export:csv",
+    "ui:panel",
+    "events"
+  ],
+  "entry": "dist/worker.js",
+  "ui": {
+    "panel": "dist/panel.js"
+  },
+  "settings": {
+    "maxConcurrency": 3,
+    "autoExport": false
+  }
+}

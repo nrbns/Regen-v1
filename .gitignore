@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+.temp/
+tmp/
+
+# Electron
+*.asar
+
+# Documentation (implementation notes)
+*_IMPLEMENTATION*.md
+*_ROADMAP*.md
+*_STATUS*.md
+*_COMPLETE*.md
+FILES_STRUCTURE.md
+PRIVACY_STACK_IMPLEMENTATION.md
+
