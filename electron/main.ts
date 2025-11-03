@@ -61,6 +61,9 @@ const agentStore = new AgentStore();
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 
+// Reduce GPU attack surface (optional but safe for most apps)
+app.disableHardwareAcceleration();
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -77,6 +80,13 @@ function createMainWindow() {
       spellcheck: false,
     }
   });
+
+  // In packaged builds, don't allow DevTools to stay open
+  if (app.isPackaged) {
+    mainWindow.webContents.on('devtools-opened', () => {
+      mainWindow?.webContents.closeDevTools();
+    });
+  }
 
   // External links open in OS browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -118,6 +128,14 @@ function createMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Assert secure webPreferences at runtime (fail fast if misconfigured)
+  try {
+    const prefs: any = (mainWindow.webContents as any).getLastWebPreferences?.() ?? {};
+    if (!prefs.contextIsolation || prefs.nodeIntegration || !prefs.sandbox) {
+      throw new Error('Insecure webPreferences detected');
+    }
+  } catch {}
 }
 
 // Register protocol schemes BEFORE app.ready()

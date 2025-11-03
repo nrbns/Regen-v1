@@ -25,6 +25,18 @@ export function applySecurityPolicies() {
     });
   });
 
+  // Deny-by-default permissions for all new sessions
+  app.on('session-created', (ses) => {
+    try {
+      ses.setPermissionCheckHandler((_wc, _permission) => {
+        return false; // Explicit allow-list elsewhere if needed
+      });
+      ses.setPermissionRequestHandler((_wc, _permission, cb) => {
+        cb(false);
+      });
+    } catch {}
+  });
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const isDev = process.env.NODE_ENV === 'development';
     const vite = "http://localhost:5173";
