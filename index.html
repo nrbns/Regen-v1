@@ -13,12 +13,18 @@
     </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root" class="app-shell"></div>
     <div id="portal-root"></div>
     <script>
       try {
         const t = localStorage.getItem('theme');
         if (t === 'dark') document.documentElement.classList.add('dark');
+        // Respond to OS theme changes at runtime (if no explicit user choice)
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener?.('change', (e) => {
+          if (localStorage.getItem('theme')) return; // user override present
+          document.documentElement.classList.toggle('dark', !!e.matches);
+        });
       } catch (e) {}
     </script>
     <script type="module" src="/src/main.tsx"></script>

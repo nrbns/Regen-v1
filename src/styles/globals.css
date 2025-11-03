@@ -25,6 +25,27 @@ body {
 /* Webview sizing */
 webview, .webview { display: block; width: 100%; height: 100%; }
 
+/* When overlays/modals are open, mask webview to avoid focus/hover steal */
+.webview--masked { pointer-events: none; }
+
+/* Show focus only for keyboard/navigation users */
+:where(button, [role="button"], a, input, textarea, select) { outline: none; }
+:where(button, [role="button"], a, input, textarea, select):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Safe-area padding for system UI (notches/taskbars) */
+.app-shell {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* Scrollbar utilities */
 .scrollbar-hide {
   -ms-overflow-style: none;
