@@ -10,7 +10,20 @@ html, body, #root {
 body { 
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
+
+/* Prevent white flash on dark startup if using class strategy */
+:root { color-scheme: light dark; }
+
+/* Drag regions for custom titlebar */
+.drag { -webkit-app-region: drag; }
+.no-drag { -webkit-app-region: no-drag; }
+
+/* Webview sizing */
+webview, .webview { display: block; width: 100%; height: 100%; }
 
 /* Scrollbar utilities */
 .scrollbar-hide {

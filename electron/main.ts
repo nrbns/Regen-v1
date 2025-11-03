@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 import * as path from 'node:path';
 import { applySecurityPolicies } from './security';
 import { randomUUID } from 'node:crypto';
@@ -58,6 +58,8 @@ import { registerStreamingIpc } from './services/agent/streaming-ipc';
 let mainWindow: BrowserWindow | null = null;
 const agentStore = new AgentStore();
 
+const isDev = !!process.env.VITE_DEV_SERVER_URL;
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -65,18 +67,31 @@ function createMainWindow() {
     title: 'OmniBrowser',
     backgroundColor: '#1A1D28',
     webPreferences: {
-      preload: path.join(process.cwd(), 'electron', 'preload.cjs'),
+      // vite-plugin-electron outputs preload to dist-electron/preload.js (same dir as main.js)
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      spellcheck: false,
     }
   });
 
-  const rendererUrl = app.isPackaged
-    ? `file://${path.join(process.cwd(), 'dist', 'renderer', 'index.html')}`
-    : 'http://localhost:5173';
-  mainWindow.loadURL(rendererUrl);
+  // External links open in OS browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  if (isDev) {
+    // Development: load from Vite dev server
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL!);
+    // Optional: open DevTools in development
+    // mainWindow.webContents.openDevTools({ mode: 'detach' });
+  } else {
+    // Production: load from built files
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
 
   // Maximize window on startup (full screen)
   mainWindow.maximize();
