@@ -6,22 +6,35 @@ export function applySecurityPolicies() {
       e.preventDefault();
     });
 
-    // Set up permission handlers for all sessions
-    contents.session.setPermissionRequestHandler((_wc, perm, cb) => {
-      // Allow media permissions for video playback
-      if (perm === 'media' || perm === 'display-capture' || perm === 'notifications') {
-        cb(true);
-        return;
+    // Permission policy: deny-by-default with optional allow-list
+    const ALLOW_MEDIA_ON = new Set<string>([
+      // e.g., 'https://meet.example.com'
+    ]);
+
+    contents.session.setPermissionRequestHandler((wc, permission, cb) => {
+      try {
+        const url = wc?.getURL?.() || '';
+        if (permission === 'media') {
+          const allowed = Array.from(ALLOW_MEDIA_ON).some((origin) => url.startsWith(origin));
+          cb(allowed);
+          return;
+        }
+        cb(false);
+      } catch {
+        cb(false);
       }
-      cb(false);
     });
-    
-    // Allow permission checks for media
-    contents.session.setPermissionCheckHandler((_wc, permission, _origin) => {
-      if (permission === 'media') {
-        return true;
+
+    contents.session.setPermissionCheckHandler((wc, permission) => {
+      try {
+        const url = wc?.getURL?.() || '';
+        if (permission === 'media') {
+          return Array.from(ALLOW_MEDIA_ON).some((origin) => url.startsWith(origin));
+        }
+        return false;
+      } catch {
+        return false;
       }
-      return false;
     });
   });
 
@@ -48,6 +61,16 @@ export function applySecurityPolicies() {
       ...details.responseHeaders,
       'Content-Security-Policy': [csp]
     } as Record<string, string | string[]>;
+
+    // COOP/COEP for local app assets (enables SAB/WASM when needed)
+    try {
+      const url = details.url || '';
+      const isAppAsset = url.startsWith('file://');
+      if (isAppAsset) {
+        headers['Cross-Origin-Opener-Policy'] = ['same-origin'];
+        headers['Cross-Origin-Embedder-Policy'] = ['require-corp'];
+      }
+    } catch {}
 
     callback({ responseHeaders: headers });
   });
