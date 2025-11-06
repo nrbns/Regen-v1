@@ -955,12 +955,16 @@ function setActiveTab(win: BrowserWindow, id: string) {
     // Add the active BrowserView
     win.addBrowserView(rec.view);
     
-    // Update bounds immediately
-    updateBrowserViewBounds(win, id);
+    // Update bounds immediately (guard if destroyed)
+    if (!win.isDestroyed()) {
+      updateBrowserViewBounds(win, id);
+    }
     
     // Force bounds update again after a brief delay to ensure proper positioning
     setTimeout(() => {
-      updateBrowserViewBounds(win, id);
+      if (!win.isDestroyed()) {
+        updateBrowserViewBounds(win, id);
+      }
     }, 50);
     
     // Emit tab update with proper error handling
@@ -997,6 +1001,7 @@ function setActiveTab(win: BrowserWindow, id: string) {
 }
 
 function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
+  if (!win || win.isDestroyed()) return null;
   const tabId = id || activeTabIdByWindow.get(win.id);
   if (!tabId) return null;
   const tabs = getTabs(win);
@@ -1007,6 +1012,8 @@ function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
   }
   
   try {
+    // Skip if view or webContents is destroyed
+    if (!rec.view || rec.view.webContents.isDestroyed()) return null;
     const bounds = win.getContentBounds();
     const right = rightDockPxByWindow.get(win.id) || 0;
     const sidebarWidth = 0; // Sidebar removed
@@ -1024,7 +1031,7 @@ function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
     };
     
     rec.view.setBounds(viewBounds);
-    rec.view.setAutoResize({ width: true, height: true, horizontal: false, vertical: false });
+    try { rec.view.setAutoResize({ width: true, height: true, horizontal: false, vertical: false }); } catch {}
     
     // Ensure BrowserView is visible
     try {
@@ -1045,9 +1052,14 @@ function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
 // Update BrowserView bounds on window resize
 let resizeTimer: NodeJS.Timeout | null = null;
 export function setupBrowserViewResize(win: BrowserWindow) {
-  win.on('resize', () => {
+  // Prevent duplicate listener registration per window
+  if ((win as any).__ob_resize_setup) return;
+  (win as any).__ob_resize_setup = true;
+
+  const onResize = () => {
     if (resizeTimer) clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
+      if (win.isDestroyed()) return;
       // Check if window is in fullscreen
       if (win.isFullScreen()) {
         const display = screen.getPrimaryDisplay();
@@ -1056,38 +1068,50 @@ export function setupBrowserViewResize(win: BrowserWindow) {
         const activeId = activeTabIdByWindow.get(win.id);
         if (activeId) {
           const rec = tabs.find(t => t.id === activeId);
-          if (rec) {
-            rec.view.setBounds({ x: 0, y: 0, width, height });
+          if (rec && rec.view && !rec.view.webContents.isDestroyed()) {
+            try { rec.view.setBounds({ x: 0, y: 0, width, height }); } catch {}
           }
         }
       } else {
         updateBrowserViewBounds(win);
       }
     }, 100);
-  });
+  };
+  win.on('resize', onResize);
 
   // Handle fullscreen state changes
-  win.on('enter-full-screen', () => {
+  const onEnterFs = () => {
     win.webContents.send('app:fullscreen-changed', { fullscreen: true });
     setTimeout(() => {
+      if (win.isDestroyed()) return;
       const display = screen.getPrimaryDisplay();
       const { width, height } = display.workAreaSize;
       const tabs = getTabs(win);
       const activeId = activeTabIdByWindow.get(win.id);
       if (activeId) {
         const rec = tabs.find(t => t.id === activeId);
-        if (rec) {
-          rec.view.setBounds({ x: 0, y: 0, width, height });
+        if (rec && rec.view && !rec.view.webContents.isDestroyed()) {
+          try { rec.view.setBounds({ x: 0, y: 0, width, height }); } catch {}
         }
       }
     }, 100);
-  });
+  };
+  win.on('enter-full-screen', onEnterFs);
 
-  win.on('leave-full-screen', () => {
+  const onLeaveFs = () => {
     win.webContents.send('app:fullscreen-changed', { fullscreen: false });
     setTimeout(() => {
-      updateBrowserViewBounds(win);
+      if (!win.isDestroyed()) updateBrowserViewBounds(win);
     }, 100);
+  };
+  win.on('leave-full-screen', onLeaveFs);
+
+  // Cleanup on close
+  win.once('closed', () => {
+    if (resizeTimer) { clearTimeout(resizeTimer); resizeTimer = null; }
+    try { win.removeListener('resize', onResize); } catch {}
+    try { win.removeListener('enter-full-screen', onEnterFs); } catch {}
+    try { win.removeListener('leave-full-screen', onLeaveFs); } catch {}
   });
 }
 
