@@ -25,6 +25,7 @@ export function TabStrip() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [contextMenu, setContextMenu] = useState<{ tabId: string; url: string; x: number; y: number } | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const stripRef = (typeof window !== 'undefined') ? (window as any).__tabStripRef || { current: null } : { current: null } as React.RefObject<HTMLDivElement> as any;
 
   // Load tabs on mount and listen for updates
   useEffect(() => {
@@ -296,14 +297,25 @@ export function TabStrip() {
     }
   };
 
+  // Ensure active tab stays visible
+  useEffect(() => {
+    try {
+      const active = tabs.find(t => t.active);
+      if (!active || !stripRef?.current) return;
+      const el = stripRef.current.querySelector(`[data-tab="${CSS.escape(active.id)}"]`);
+      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    } catch {}
+  }, [tabs, stripRef]);
+
   return (
-    <div className="flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide">
+    <div ref={stripRef as any} className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide">
       <div className="flex items-center gap-2 min-w-0 flex-1">
         <AnimatePresence mode="popLayout">
           {tabs.length > 0 ? (
             tabs.map((tab) => (
               <TabHoverCard key={tab.id} tabId={tab.id}>
                 <motion.div
+                  data-tab={tab.id}
                   layout
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -318,6 +330,7 @@ export function TabStrip() {
                     }
                   `}
                   onClick={() => activateTab(tab.id)}
+                  onAuxClick={(e: any) => { e.preventDefault(); closeTab(tab.id); }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
