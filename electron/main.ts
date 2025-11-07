@@ -206,6 +206,8 @@ app.whenReady().then(async () => {
     registerLedgerIpc();
     registerHistoryIpc();
     registerResearchIpc();
+    const { registerResearchEnhancedIpc } = await import('./services/research-enhanced');
+    registerResearchEnhancedIpc();
     registerPluginIpc();
     registerProfileIpc();
     registerAgentIpc();

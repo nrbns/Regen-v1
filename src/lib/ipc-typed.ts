@@ -207,6 +207,14 @@ export const ipc = {
       ipcCall<{ url: string }, { notes: string; highlights: any[] }>('research:getNotes', { url }),
     export: (format: 'markdown' | 'csv' | 'json', sources: string[], includeNotes?: boolean) =>
       ipcCall('research:export', { format, sources, includeNotes: includeNotes ?? true }),
+    queryEnhanced: (query: string, options?: {
+      maxSources?: number;
+      includeCounterpoints?: boolean;
+      region?: string;
+      recencyWeight?: number;
+      authorityWeight?: number;
+    }) => ipcCall('research:queryEnhanced', { query, ...options }),
+    clearCache: () => ipcCall('research:clearCache', {}),
   },
   downloads: {
     list: () => ipcCall<unknown, any[]>('downloads:list', {}),
