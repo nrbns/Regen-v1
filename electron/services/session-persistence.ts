@@ -88,12 +88,22 @@ async function saveSessionState(): Promise<void> {
       sessions,
     };
 
+    // Ensure directory exists
+    const dir = path.dirname(SNAPSHOT_FILE);
+    await fs.mkdir(dir, { recursive: true }).catch(() => {
+      // Directory might already exist, ignore error
+    });
+    
     // Atomic write: write to temp file, then rename
     const tempFile = `${SNAPSHOT_FILE}.tmp`;
     await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
     await fs.rename(tempFile, SNAPSHOT_FILE);
 
     // Also append to JSONL for audit trail (keep last 100 entries)
+    // Ensure directory exists
+    const jsonlDir = path.dirname(SESSION_FILE);
+    await fs.mkdir(jsonlDir, { recursive: true }).catch(() => {});
+    
     const jsonlLine = JSON.stringify(snapshot) + '\n';
     await fs.appendFile(SESSION_FILE, jsonlLine, 'utf-8').catch(() => {
       // If file doesn't exist, create it

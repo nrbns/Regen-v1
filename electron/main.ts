@@ -132,6 +132,9 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
     mainWindow.maximize();
   }
 
+  // Increase max listeners to prevent warnings
+  mainWindow.setMaxListeners(20);
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });

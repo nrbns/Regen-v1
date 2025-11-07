@@ -51,7 +51,20 @@ export function getTabs(win: BrowserWindow) {
   return windowIdToTabs.get(win.id)!;
 }
 
+// Track which windows have had IPC registered to prevent duplicate registration
+const registeredWindows = new WeakSet<BrowserWindow>();
+
 export function registerTabIpc(win: BrowserWindow) {
+  // Prevent duplicate registration
+  if (registeredWindows.has(win)) {
+    console.warn('Tab IPC already registered for this window, skipping');
+    return;
+  }
+  registeredWindows.add(win);
+  
+  // Increase max listeners for this window to prevent warnings
+  win.setMaxListeners(20);
+  
   setupBrowserViewResize(win);
   const emit = () => {
     const tabs = getTabs(win);
@@ -943,13 +956,34 @@ export function registerTabIpc(win: BrowserWindow) {
   });
 }
 
+// Track recently warned tab IDs to avoid spam
+const warnedTabIds = new Set<string>();
+const WARN_CLEAR_INTERVAL = 60000; // Clear warnings after 1 minute
+
+// Clear old warnings periodically
+setInterval(() => {
+  warnedTabIds.clear();
+}, WARN_CLEAR_INTERVAL);
+
 function setActiveTab(win: BrowserWindow, id: string) {
+  // Skip if window is destroyed
+  if (win.isDestroyed()) {
+    return;
+  }
+  
   const tabs = getTabs(win);
   const rec = tabs.find(t => t.id === id);
   if (!rec) {
-    console.warn(`Tab ${id} not found for activation`);
+    // Only warn once per tab ID to avoid spam
+    if (!warnedTabIds.has(id)) {
+      warnedTabIds.add(id);
+      console.warn(`Tab ${id} not found for activation`);
+    }
     return;
   }
+  
+  // Clear warning for this tab if it exists
+  warnedTabIds.delete(id);
   
   try {
     // Remove all BrowserViews first
@@ -1138,8 +1172,8 @@ export function setupBrowserViewResize(win: BrowserWindow) {
   };
   win.on('leave-full-screen', onLeaveFs);
 
-  // Cleanup on close
-  win.once('closed', () => {
+  // Cleanup on close (use once to prevent duplicate listeners)
+  const cleanup = () => {
     clearResizeTimer();
     try { win.removeListener('resize', onResize); } catch {}
     try { win.removeListener('enter-full-screen', onEnterFs); } catch {}
@@ -1150,7 +1184,14 @@ export function setupBrowserViewResize(win: BrowserWindow) {
         pendingBoundsUpdateTimers.delete(key);
       }
     }
-  });
+    // Remove from registered windows
+    registeredWindows.delete(win);
+  };
+  
+  // Only add listener if not already added
+  if (!win.listenerCount('closed')) {
+    win.once('closed', cleanup);
+  }
 }
 
 ipcMain.handle('ui:setRightDock', (_e, px: number) => {
