@@ -303,9 +303,79 @@ export function TabStrip() {
       const active = tabs.find(t => t.active);
       if (!active || !stripRef?.current) return;
       const el = stripRef.current.querySelector(`[data-tab="${CSS.escape(active.id)}"]`);
-      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
     } catch {}
   }, [tabs, stripRef]);
+
+  // Keyboard navigation (Left/Right/Home/End)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if TabStrip is focused or no other input is focused
+      if (document.activeElement?.tagName === 'INPUT' || 
+          document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl+Tab / Ctrl+Shift+Tab: Switch tabs
+      if (modifier && e.key === 'Tab') {
+        e.preventDefault();
+        const currentIndex = tabs.findIndex(t => t.active);
+        if (currentIndex >= 0) {
+          const nextIndex = e.shiftKey 
+            ? (currentIndex - 1 + tabs.length) % tabs.length
+            : (currentIndex + 1) % tabs.length;
+          if (tabs[nextIndex]) {
+            activateTab(tabs[nextIndex].id);
+          }
+        }
+        return;
+      }
+
+      // Home: First tab
+      if (e.key === 'Home' && !modifier) {
+        e.preventDefault();
+        if (tabs.length > 0 && !tabs[0].active) {
+          activateTab(tabs[0].id);
+        }
+        return;
+      }
+
+      // End: Last tab
+      if (e.key === 'End' && !modifier) {
+        e.preventDefault();
+        if (tabs.length > 0 && !tabs[tabs.length - 1].active) {
+          activateTab(tabs[tabs.length - 1].id);
+        }
+        return;
+      }
+
+      // Left Arrow: Previous tab
+      if (e.key === 'ArrowLeft' && modifier && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        const currentIndex = tabs.findIndex(t => t.active);
+        if (currentIndex > 0) {
+          activateTab(tabs[currentIndex - 1].id);
+        }
+        return;
+      }
+
+      // Right Arrow: Next tab
+      if (e.key === 'ArrowRight' && modifier && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        const currentIndex = tabs.findIndex(t => t.active);
+        if (currentIndex < tabs.length - 1) {
+          activateTab(tabs[currentIndex + 1].id);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [tabs]);
 
   return (
     <div ref={stripRef as any} className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide">

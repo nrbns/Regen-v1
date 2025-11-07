@@ -10,10 +10,11 @@ import { ipc } from '../../lib/ipc-typed';
 interface TabContextMenuProps {
   tabId: string;
   url: string;
+  containerId?: string;
   onClose: () => void;
 }
 
-export function TabContextMenu({ tabId, url, onClose }: TabContextMenuProps) {
+export function TabContextMenu({ tabId, url, containerId, onClose }: TabContextMenuProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +69,7 @@ export function TabContextMenu({ tabId, url, onClose }: TabContextMenuProps) {
 
   const handleDuplicate = async () => {
     try {
-      await ipc.tabs.create(url || 'about:blank');
+      await ipc.tabs.create({ url: url || 'about:blank', containerId });
       onClose();
     } catch (error) {
       console.error('Failed to duplicate tab:', error);

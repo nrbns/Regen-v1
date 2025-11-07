@@ -1,52 +1,81 @@
 import { useEffect, useState } from 'react';
-import { Download, FolderOpen, CheckCircle, XCircle, Clock, Loader } from 'lucide-react';
+import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
-import { useIPCEvent } from '../lib/use-ipc-event';
 import { DownloadUpdate } from '../lib/ipc-events';
+import { ipcEvents } from '../lib/ipc-events';
 
 type DownloadItem = { 
   id: string; 
   url: string; 
   filename?: string;
-  status: 'downloading' | 'completed' | 'failed' | 'cancelled' | 'in-progress'; 
+  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'in-progress'; 
   path?: string; 
   createdAt: number;
   progress?: number;
   receivedBytes?: number;
   totalBytes?: number;
+  checksum?: string;
 };
 
 export default function DownloadsPage() {
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load initial downloads
   useEffect(() => {
     const loadDownloads = async () => {
       try {
-        const list = await ipc.downloads.list() as DownloadItem[];
-        setItems(list || []);
+        const list = (await ipc.downloads.list()) as DownloadItem[];
+        if (Array.isArray(list)) {
+          setItems(list.sort((a, b) => b.createdAt - a.createdAt));
+        }
       } catch (error) {
         console.error('Failed to load downloads:', error);
       } finally {
         setLoading(false);
       }
     };
+
     loadDownloads();
-  }, []);
 
-  // Listen for download updates
-  useIPCEvent<DownloadUpdate>('downloads:started', () => {
-    ipc.downloads.list().then((list: any) => setItems(list || [])).catch(console.error);
-  }, []);
+    const updateItem = (update: DownloadUpdate) => {
+      if (!update?.id) return;
+      setItems(prev => {
+        const existingIndex = prev.findIndex(item => item.id === update.id);
+        const updatedItem: DownloadItem = {
+          id: update.id,
+          url: update.url,
+          filename: update.filename,
+          status: (update.status as DownloadItem['status']) || 'downloading',
+          path: update.path,
+          checksum: update.checksum,
+          createdAt: update.createdAt || Date.now(),
+          progress: update.progress,
+          receivedBytes: update.receivedBytes,
+          totalBytes: update.totalBytes,
+        };
 
-  useIPCEvent<DownloadUpdate>('downloads:progress', () => {
-    ipc.downloads.list().then((list: any) => setItems(list || [])).catch(console.error);
-  }, []);
+        if (existingIndex >= 0) {
+          const next = [...prev];
+          next[existingIndex] = {
+            ...next[existingIndex],
+            ...updatedItem,
+            createdAt: next[existingIndex].createdAt || updatedItem.createdAt,
+          };
+          return next.sort((a, b) => b.createdAt - a.createdAt);
+        }
 
-  useIPCEvent<DownloadUpdate>('downloads:done', () => {
-    ipc.downloads.list().then((list: any) => setItems(list || [])).catch(console.error);
+        return [updatedItem, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+      });
+    };
+
+    const progressUnsub = ipcEvents.on<DownloadUpdate>('downloads:progress', updateItem);
+    const doneUnsub = ipcEvents.on<DownloadUpdate>('downloads:done', updateItem);
+
+    return () => {
+      progressUnsub();
+      doneUnsub();
+    };
   }, []);
 
   const formatBytes = (bytes?: number) => {
@@ -58,6 +87,17 @@ export default function DownloadsPage() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const calcPercent = (item: DownloadItem) => {
+    if (typeof item.progress === 'number') {
+      return Math.min(100, Math.max(0, Math.round(item.progress * 100)));
+    }
+    if (item.totalBytes && item.totalBytes > 0) {
+      return Math.min(100, Math.round(((item.receivedBytes || 0) / item.totalBytes) * 100));
+    }
+    if (item.status === 'completed') return 100;
+    return 0;
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -67,6 +107,8 @@ export default function DownloadsPage() {
       case 'downloading':
       case 'in-progress':
         return <Loader size={16} className="text-blue-400 animate-spin" />;
+      case 'cancelled':
+        return <XCircle size={16} className="text-gray-500" />;
       default:
         return <Clock size={16} className="text-gray-400" />;
     }
@@ -106,7 +148,7 @@ export default function DownloadsPage() {
       <div className="flex-1 overflow-y-auto p-6">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <Download size={48} className="text-gray-600 mb-4" />
+            <DownloadIcon size={48} className="text-gray-600 mb-4" />
             <h3 className="text-lg font-semibold text-gray-300 mb-2">No downloads yet</h3>
             <p className="text-sm text-gray-500">Files you download will appear here</p>
           </div>
@@ -133,13 +175,13 @@ export default function DownloadsPage() {
                       <div className="mb-2">
                         <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
                           <span>{formatBytes(d.receivedBytes)} / {formatBytes(d.totalBytes)}</span>
-                          <span>{d.progress ? Math.round(d.progress * 100) : 0}%</span>
+                          <span>{calcPercent(d)}%</span>
                         </div>
                         <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
                           <motion.div
                             className="h-full bg-blue-500"
                             initial={{ width: 0 }}
-                            animate={{ width: `${(d.progress || 0) * 100}%` }}
+                            animate={{ width: `${calcPercent(d)}%` }}
                             transition={{ duration: 0.3 }}
                           />
                         </div>
@@ -159,11 +201,76 @@ export default function DownloadsPage() {
                           </span>
                         )}
                       </div>
+                      {d.checksum && (
+                        <div className="text-xs text-gray-500 truncate" title={`SHA-256: ${d.checksum}`}>
+                          SHA-256: {d.checksum.slice(0, 12)}…
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   {/* Action buttons */}
                   <div className="flex items-center gap-2">
+                    {(d.status === 'downloading' || d.status === 'in-progress') && (
+                      <>
+                        <motion.button
+                          onClick={async () => {
+                            try {
+                              await ipc.downloads.pause(d.id);
+                              setItems(prev => prev.map(item => 
+                                item.id === d.id ? { ...item, status: 'in-progress' as const } : item
+                              ));
+                            } catch (error) {
+                              console.error('Failed to pause download:', error);
+                            }
+                          }}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-yellow-400 transition-colors"
+                          title="Pause download"
+                        >
+                          <Pause size={18} />
+                        </motion.button>
+                        <motion.button
+                          onClick={async () => {
+                            try {
+                              await ipc.downloads.cancel(d.id);
+                              setItems(prev => prev.map(item => 
+                                item.id === d.id ? { ...item, status: 'cancelled' as const } : item
+                              ));
+                            } catch (error) {
+                              console.error('Failed to cancel download:', error);
+                            }
+                          }}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-red-400 transition-colors"
+                          title="Cancel download"
+                        >
+                          <X size={18} />
+                        </motion.button>
+                      </>
+                    )}
+                    {d.status === 'in-progress' && (
+                      <motion.button
+                        onClick={async () => {
+                          try {
+                            await ipc.downloads.resume(d.id);
+                            setItems(prev => prev.map(item => 
+                              item.id === d.id ? { ...item, status: 'downloading' as const } : item
+                            ));
+                          } catch (error) {
+                            console.error('Failed to resume download:', error);
+                          }
+                        }}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-green-400 transition-colors"
+                        title="Resume download"
+                      >
+                        <Play size={18} />
+                      </motion.button>
+                    )}
                     {d.status === 'completed' && d.path && (
                       <>
                         <motion.button
@@ -173,7 +280,7 @@ export default function DownloadsPage() {
                           className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-colors"
                           title="Open file"
                         >
-                          <Download size={18} />
+                          <DownloadIcon size={18} />
                         </motion.button>
                         <motion.button
                           onClick={() => handleOpenFolder(d.path)}

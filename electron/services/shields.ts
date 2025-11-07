@@ -95,7 +95,27 @@ class ShieldsService extends EventEmitter {
       }
       const { fetch } = await import('undici');
 
-      this.adblocker = await ElectronBlocker.fromPrebuiltAdsOnly(fetch);
+      // Load comprehensive blocklists: EasyList, EasyPrivacy, and uBO annoyances
+      try {
+        // Try to load full lists (ads + privacy + annoyances)
+        this.adblocker = await ElectronBlocker.fromLists(
+          fetch,
+          [
+            // EasyList (ads)
+            'https://easylist.to/easylist/easylist.txt',
+            // EasyPrivacy (tracking)
+            'https://easylist.to/easylist/easyprivacy.txt',
+            // uBlock Origin annoyances (popups, newsletter, etc.)
+            'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances.txt',
+            // uBlock Origin badware (malware)
+            'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/badware.txt',
+          ]
+        );
+      } catch (error) {
+        console.warn('[Shields] Failed to load custom lists, falling back to prebuilt:', error);
+        // Fallback to prebuilt ads-only if custom lists fail
+        this.adblocker = await ElectronBlocker.fromPrebuiltAdsOnly(fetch);
+      }
       
       // Enable blocking - API might vary between versions
       if (typeof this.adblocker.enableBlockingInSession === 'function') {

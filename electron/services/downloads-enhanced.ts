@@ -22,6 +22,7 @@ export interface DownloadConsent {
 }
 
 const pendingConsents = new Map<string, DownloadConsent>();
+const activeDownloads = new Map<string, DownloadItem>(); // Track active downloads for pause/resume
 
 /**
  * Calculate SHA-256 checksum of a file
@@ -274,6 +275,76 @@ export function registerDownloadsIpc() {
     }
   });
 
+  // Pause download
+  registerHandler('downloads:pause', z.object({ id: z.string() }), async (_event, request) => {
+    const item = activeDownloads.get(request.id);
+    if (!item) {
+      return { success: false, error: 'Download not found' };
+    }
+    try {
+      if (item.isPaused()) {
+        return { success: false, error: 'Download already paused' };
+      }
+      item.pause();
+      addDownloadRecord({
+        id: request.id,
+        url: item.getURL(),
+        filename: item.getFilename(),
+        status: 'in-progress',
+        path: item.getSavePath(),
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // Resume download
+  registerHandler('downloads:resume', z.object({ id: z.string() }), async (_event, request) => {
+    const item = activeDownloads.get(request.id);
+    if (!item) {
+      return { success: false, error: 'Download not found' };
+    }
+    try {
+      if (!item.isPaused()) {
+        return { success: false, error: 'Download is not paused' };
+      }
+      item.resume();
+      addDownloadRecord({
+        id: request.id,
+        url: item.getURL(),
+        filename: item.getFilename(),
+        status: 'downloading',
+        path: item.getSavePath(),
+      });
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // Cancel download
+  registerHandler('downloads:cancel', z.object({ id: z.string() }), async (_event, request) => {
+    const item = activeDownloads.get(request.id);
+    if (!item) {
+      return { success: false, error: 'Download not found' };
+    }
+    try {
+      item.cancel();
+      addDownloadRecord({
+        id: request.id,
+        url: item.getURL(),
+        filename: item.getFilename(),
+        status: 'cancelled',
+        path: item.getSavePath(),
+      });
+      activeDownloads.delete(request.id);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
   // Set up will-download handler
   const sess = session.defaultSession;
   
@@ -294,6 +365,10 @@ export function registerDownloadsIpc() {
     };
     
     addDownloadRecord(downloadRecord);
+    const initialWin = BrowserWindow.fromWebContents(webContents) || getMainWindow();
+    if (initialWin && !initialWin.isDestroyed()) {
+      initialWin.webContents.send('downloads:progress', downloadRecord);
+    }
 
     // Determine save path
     const isPrivate = false; // Check if tab is private
@@ -306,6 +381,9 @@ export function registerDownloadsIpc() {
     
     const savePath = path.join(downloadDir, filename || 'download');
     item.setSavePath(savePath);
+    
+    // Track active download
+    activeDownloads.set(id, item);
     
     item.on('updated', (_ev, state) => {
       const received = item.getReceivedBytes();
@@ -337,6 +415,9 @@ export function registerDownloadsIpc() {
     item.once('done', async (_ev, state) => {
       const finalPath = item.getSavePath();
       const finalStatus = state === 'completed' ? 'completed' : state === 'cancelled' ? 'cancelled' : 'failed';
+      
+      // Remove from active downloads
+      activeDownloads.delete(id);
       
       let checksum: string | undefined;
       if (finalStatus === 'completed' && finalPath) {

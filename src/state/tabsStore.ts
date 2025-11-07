@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Tab = { id: string; title: string; active?: boolean; url?: string };
+export type Tab = { id: string; title: string; active?: boolean; url?: string; containerId?: string; containerColor?: string; containerName?: string };
 
 type TabsState = {
   tabs: Tab[];

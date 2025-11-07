@@ -214,6 +214,9 @@ export const ipc = {
       ipcCall('downloads:requestConsent', { url, filename, size }),
     openFile: (path: string) => ipcCall('downloads:openFile', { path }),
     showInFolder: (path: string) => ipcCall('downloads:showInFolder', { path }),
+    pause: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:pause', { id }),
+    resume: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:resume', { id }),
+    cancel: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:cancel', { id }),
   },
   history: {
     list: () => ipcCall<unknown, any[]>('history:list', {}),

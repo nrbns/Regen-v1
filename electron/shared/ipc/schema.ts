@@ -24,6 +24,7 @@ export const IPCResponse = z.object({
 export const TabCreateRequest = z.object({
   url: z.string().url().or(z.literal('about:blank')).optional().default('about:blank'),
   profileId: z.string().optional(),
+  containerId: z.string().optional(),
 });
 
 export const TabCreateResponse = z.object({
@@ -77,7 +78,32 @@ export const TabListResponse = z.array(z.object({
   title: z.string(),
   active: z.boolean(),
   url: z.string().optional(),
+  containerId: z.string().optional(),
+  containerName: z.string().optional(),
+  containerColor: z.string().optional(),
 }));
+// Container schemas
+export const ContainerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: z.string(),
+  icon: z.string().optional(),
+  partition: z.string(),
+  createdAt: z.number(),
+});
+
+export const ContainerListResponse = z.array(ContainerSchema);
+
+export const ContainerCreateRequest = z.object({
+  name: z.string().min(1).max(100),
+  color: z.string().optional(),
+  icon: z.string().optional(),
+});
+
+export const ContainerSetActiveRequest = z.object({
+  containerId: z.string(),
+});
+
 
 export const TabInfo = z.object({
   id: z.string(),

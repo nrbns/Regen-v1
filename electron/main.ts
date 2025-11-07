@@ -64,10 +64,12 @@ const isDev = !!process.env.VITE_DEV_SERVER_URL;
 // Reduce GPU attack surface (optional but safe for most apps)
 app.disableHardwareAcceleration();
 
-function createMainWindow() {
+function createMainWindow(restoreBounds?: { x: number; y: number; width: number; height: number; isMaximized: boolean }) {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: restoreBounds?.width || 1280,
+    height: restoreBounds?.height || 800,
+    x: restoreBounds?.x,
+    y: restoreBounds?.y,
     title: 'OmniBrowser',
     backgroundColor: '#1A1D28',
     webPreferences: {
@@ -125,8 +127,10 @@ function createMainWindow() {
     mainWindow.loadFile(htmlPath);
   }
 
-  // Maximize window on startup (full screen)
-  mainWindow.maximize();
+  // Restore window state
+  if (restoreBounds?.isMaximized) {
+    mainWindow.maximize();
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -168,7 +172,19 @@ app.whenReady().then(async () => {
     networkControls.disableIPv6();
   }
   
-  createMainWindow();
+  // Start session persistence (auto-save every 2s)
+  const { startSessionPersistence, loadSessionState } = await import('./services/session-persistence');
+  startSessionPersistence();
+  
+  // Try to restore previous session
+  const snapshot = await loadSessionState();
+  if (snapshot && snapshot.windows.length > 0) {
+    // Restore windows from snapshot
+    const firstWindow = snapshot.windows[0];
+    createMainWindow(firstWindow.bounds);
+  } else {
+    createMainWindow();
+  }
   
   // Set agent store for session bundles
   setAgentStore(agentStore);

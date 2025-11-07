@@ -67,6 +67,43 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
       const results: Suggestion[] = [];
       const queryLower = query.toLowerCase().trim();
 
+      // Quick Actions
+      if (queryLower.startsWith('/ai ') || queryLower === '/ai') {
+        results.push({
+          type: 'command',
+          title: `AI Search: ${query.slice(4).trim() || 'Enter your question'}`,
+          url: query,
+        });
+      }
+      if (queryLower.startsWith('/calc ') || queryLower === '/calc') {
+        results.push({
+          type: 'command',
+          title: `Calculate: ${query.slice(6).trim() || 'Enter expression'}`,
+          url: query,
+        });
+      }
+      if (queryLower.startsWith('/yt ') || queryLower === '/yt') {
+        results.push({
+          type: 'command',
+          title: `YouTube: ${query.slice(4).trim() || 'Enter search'}`,
+          url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query.slice(4).trim())}`,
+        });
+      }
+      if (queryLower.startsWith('/g ') || queryLower === '/g') {
+        results.push({
+          type: 'command',
+          title: `Google: ${query.slice(3).trim() || 'Enter search'}`,
+          url: `https://www.google.com/search?q=${encodeURIComponent(query.slice(3).trim())}`,
+        });
+      }
+      if (queryLower.startsWith('/t ') || queryLower === '/t') {
+        results.push({
+          type: 'command',
+          title: `Twitter/X: ${query.slice(3).trim() || 'Enter search'}`,
+          url: `https://twitter.com/search?q=${encodeURIComponent(query.slice(3).trim())}`,
+        });
+      }
+
       // Commands
       if (queryLower.startsWith('?') || queryLower.startsWith('ask ')) {
         results.push({
@@ -75,7 +112,7 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
           url: query,
         });
       }
-      if (queryLower.startsWith('/')) {
+      if (queryLower.startsWith('/') && !queryLower.match(/^\/(ai|calc|yt|g|t)(\s|$)/)) {
         results.push({
           type: 'command',
           title: `Run Command: ${query.slice(1)}`,
@@ -180,37 +217,79 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
       return;
     }
 
-    // Agent query
-    if (targetUrl.startsWith('?') || targetUrl.toLowerCase().startsWith('ask ')) {
+    // Normalize URL
+    let finalUrl = targetUrl.trim();
+    const queryLower = finalUrl.toLowerCase().trim();
+    
+    // Quick Actions
+    if (queryLower.startsWith('/calc ')) {
+      const expression = finalUrl.slice(6).trim();
+      try {
+        // Safe evaluation for calculations
+        const result = Function(`"use strict"; return (${expression})`)();
+        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(`${expression} = ${result}`)}`;
+      } catch {
+        // If evaluation fails, just search for it
+        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(expression)}`;
+      }
+    } else if (queryLower.startsWith('/ai ')) {
+      const query = finalUrl.slice(4).trim();
+      try {
+        const tabUrl = activeTab?.url;
+        await ipc.agent.ask(query, tabUrl ? { url: tabUrl } : undefined);
+        // Navigate to agent console or show result
+        finalUrl = `ob://agent?q=${encodeURIComponent(query)}`;
+      } catch (error: any) {
+        console.error('AI search error:', error);
+        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      }
+    } else if (queryLower.startsWith('/yt ')) {
+      const query = finalUrl.slice(4).trim();
+      finalUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    } else if (queryLower.startsWith('/g ')) {
+      const query = finalUrl.slice(3).trim();
+      finalUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    } else if (queryLower.startsWith('/t ')) {
+      const query = finalUrl.slice(3).trim();
+      finalUrl = `https://twitter.com/search?q=${encodeURIComponent(query)}`;
+    } else if (targetUrl.startsWith('?') || queryLower.startsWith('ask ')) {
+      // Agent query (legacy)
       const query = targetUrl.startsWith('?') ? targetUrl.slice(1).trim() : targetUrl.slice(4).trim();
       try {
         const tabUrl = activeTab?.url;
-        const response = await ipc.agent.ask(query, tabUrl ? { url: tabUrl } : undefined);
-        alert(`Agent: ${response.answer}`);
+        await ipc.agent.ask(query, tabUrl ? { url: tabUrl } : undefined);
+        finalUrl = `ob://agent?q=${encodeURIComponent(query)}`;
       } catch (error: any) {
         console.error('Agent error:', error);
-        alert(`Agent error: ${error.message || 'Unknown error'}`);
+        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
       }
-      return;
     }
-
-    // Normalize URL
-    let finalUrl = targetUrl.trim();
     
-    // If it's already a valid URL, use it
-    if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) {
-      // URL is valid, use as-is
-    } else if (finalUrl.startsWith('about:')) {
-      // Special protocol, use as-is
-    } else {
-      // Check if it looks like a domain
-      const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
-      if (domainPattern.test(finalUrl) || finalUrl.includes('.')) {
-        // Looks like a domain, add https://
-        finalUrl = `https://${finalUrl}`;
+    // URL normalization (only if not already handled by quick actions)
+    const isQuickAction = queryLower.startsWith('/calc ') || 
+                         queryLower.startsWith('/ai ') || 
+                         queryLower.startsWith('/yt ') || 
+                         queryLower.startsWith('/g ') || 
+                         queryLower.startsWith('/t ') ||
+                         targetUrl.startsWith('?') || 
+                         queryLower.startsWith('ask ');
+    
+    if (!isQuickAction) {
+      // If it's already a valid URL, use it
+      if (finalUrl.startsWith('http://') || finalUrl.startsWith('https://')) {
+        // URL is valid, use as-is
+      } else if (finalUrl.startsWith('about:')) {
+        // Special protocol, use as-is
       } else {
-        // Search query
-        finalUrl = `https://www.google.com/search?q=${encodeURIComponent(finalUrl)}`;
+        // Check if it looks like a domain
+        const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
+        if (domainPattern.test(finalUrl) || finalUrl.includes('.')) {
+          // Looks like a domain, add https://
+          finalUrl = `https://${finalUrl}`;
+        } else {
+          // Search query
+          finalUrl = `https://www.google.com/search?q=${encodeURIComponent(finalUrl)}`;
+        }
       }
     }
 
