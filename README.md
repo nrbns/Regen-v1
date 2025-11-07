@@ -9,7 +9,12 @@ Electron + React + TypeScript + Vite multi-mode desktop browser with:
 - 🧩 **Plugin runtime** ready ✅
 - ⚡ **Performance-first** with tab hibernation ✅
 
-**Status**: ✅ **MVP Complete - Ready for Production**
+**Status**: 🟡 **In Active Development (v0.1.0-alpha)**
+
+[![CI](https://github.com/nrbns/Omnibrowser/workflows/CI/badge.svg)](https://github.com/nrbns/Omnibrowser/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **Note**: Currently in Phase 4 (Pre-Launch Hardening). See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed status.
 
 ## Quick Start
 
@@ -20,10 +25,12 @@ npm run dev
 
 ## Documentation
 
-- `PROJECT_STATUS.md` - Current features and status
-- `EXTENDED_ROADMAP.md` - Post-MVP feature roadmap
-- `MVP_ROADMAP.md` - Original MVP roadmap
-- `PRIVACY_STACK_IMPLEMENTATION.md` - Privacy features guide
+- [PROJECT_STATUS.md](./PROJECT_STATUS.md) - Current features and status
+- [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) - 90-day build plan checklist
+- [CHANGELOG.md](./CHANGELOG.md) - Release notes and changelog
+- [ISSUES.md](./ISSUES.md) - Issue tracking and roadmap
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Architecture documentation
+- [SECURITY.md](./SECURITY.md) - Security documentation
 
 ## Prerequisites
 - Node 20+

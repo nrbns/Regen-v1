@@ -2,40 +2,73 @@
 
 All notable changes to OmniBrowser will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### Added
-- **Private/Ghost Mode**: In-memory partitions, content protection, automatic cleanup
-- **Burn Tab**: Instant data clearing per tab
-- **Panic Wipe**: Emergency data clearing for all tabs/sessions
-- **Forensic Cleanse**: Deep cache clearing including disk cache
-- **Enhanced Downloads**: Consent-gated downloads with SHA-256 checksums
-- **Private Downloads**: Downloads from private tabs route to temp directory
-- **CI/CD Workflows**: GitHub Actions for lint, typecheck, build, and release
-- **E2E Tests**: Playwright tests for private mode, downloads, shields
-- **Project Documentation**: CONTRIBUTING.md, SECURITY.md, PRIVACY.md
-
-### Enhanced
-- **Browser Navigation**: Back/forward/refresh with keyboard shortcuts
-- **Fullscreen Support**: Proper BrowserView resizing in fullscreen mode
-- **IPC Events**: Real-time event bus for tabs, shields, downloads, agent, network
+- GitHub Actions CI/CD workflows
+- Issue templates for bugs, features, and tasks
+- Project status tracking documentation
 
 ### Changed
-- Exported `getTabs` from `tabs.ts` for use in burn/panic functions
-- Added `checksum` field to Download type for file verification
+- Updated documentation structure
 
-### Fixed
-- TypeScript errors in private-guards.ts, burn.ts, downloads-enhanced.ts
-- Fullscreen BrowserView bounds calculation
-- Navigation state updates on tab activation
-
-## [0.1.0] - 2025-01-XX
+## [0.1.0-alpha] - 2025-01-27
 
 ### Added
-- Initial release
-- Agentic browser with multi-mode support
-- Privacy stack (Tor, Shields, VPN, DoH)
-- Research mode with content extraction
-- Multi-session support
-- Video call optimization
+- **Core Browser**
+  - Session persistence with atomic JSONL store (auto-save every 2s)
+  - Download manager with pause/resume/cancel functionality
+  - Privacy blocklists (EasyList, EasyPrivacy, uBO annoyances, badware)
+  - Tab keyboard navigation (←/→/Home/End/Ctrl+Tab)
+  - Omnibox quick actions (/ai, /calc, /yt, /g, /t)
+  - Window state restoration (positions, sizes, maximized state)
 
+- **Research Mode v1**
+  - Multi-source retrieval (5-12 sources, parallel fetching)
+  - Source voting mechanism with type diversification
+  - Summarization with inline citations and confidence scores
+  - Verification service with hallucination detection
+  - Contradiction detection for expert disagreements
+  - Research Mode UI with confidence bars and source classification
+
+- **Document Review v1**
+  - Document ingestion (PDF, DOCX, Web URL)
+  - Section TOC generation
+  - Entity extraction (persons, organizations, locations, dates)
+  - Timeline extraction from documents
+  - Cross-check pipeline (3-8 sources per claim)
+  - Claim verification (verified/unverified/disputed status)
+  - Export functionality (Markdown, HTML)
+  - Citation styles (APA, MLA, Chicago, IEEE, Harvard)
+
+### Changed
+- Enhanced security policies (popup/nav guards, deny-by-default permissions)
+- Improved IPC error handling
+- Better session management
+
+### Fixed
+- Tab strip keyboard navigation
+- Download progress tracking
+- Session restore on crash
+
+### Known Limitations
+- Auto-update not yet implemented
+- Code signing not configured
+- Settings UI incomplete
+- Performance optimization needed (cold start)
+- Test coverage < 50%
+- Accessibility improvements needed
+
+## [0.0.1] - 2024-12-01
+
+### Added
+- Initial project setup
+- Basic Electron + React + Vite architecture
+- Core browser functionality
+- Security hardening
+
+[Unreleased]: https://github.com/nrbns/Omnibrowser/compare/v0.1.0-alpha...HEAD
+[0.1.0-alpha]: https://github.com/nrbns/Omnibrowser/releases/tag/v0.1.0-alpha

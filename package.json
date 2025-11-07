@@ -1,6 +1,6 @@
 {
   "name": "omnibrowser",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha",
   "private": true,
   "description": "OmniBrowser: Electron + React + TypeScript + Vite multi-mode desktop browser",
   "main": "electron/main.cjs",
