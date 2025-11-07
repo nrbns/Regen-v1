@@ -111,70 +111,80 @@ async function saveSessionState(): Promise<void> {
       sessions,
     };
 
-    // Ensure directory exists (multiple attempts with different methods)
+    // Ensure directory exists - use synchronous mkdirSync with recursive flag
+    // This is the most reliable way to ensure the directory exists before file operations
     const dir = path.dirname(SNAPSHOT_FILE);
     
-    // Method 1: Synchronous check and create
-    if (!existsSync(dir)) {
-      try {
-        mkdirSync(dir, { recursive: true });
-      } catch (error: any) {
-        // Ignore if already exists
-        if (error.code !== 'EEXIST') {
-          // Try async method as fallback
-          await fs.mkdir(dir, { recursive: true }).catch(() => {});
+    try {
+      // Force create directory synchronously - mkdirSync with recursive will create all parent dirs
+      // and won't fail if directory already exists (no need to check existsSync first)
+      mkdirSync(dir, { recursive: true });
+    } catch (error: any) {
+      // Only fail if it's not EEXIST (directory already exists)
+      if (error.code !== 'EEXIST') {
+        // Directory creation failed - skip this save silently
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Session] Failed to create directory:', error.message);
         }
+        return;
       }
     }
     
-    // Method 2: Verify with async access
-    try {
-      await fs.access(dir);
-    } catch {
-      // Directory doesn't exist, create it
-      try {
-        await fs.mkdir(dir, { recursive: true });
-      } catch (createError: any) {
-        // If creation fails, skip this save (non-critical)
-        if (createError.code !== 'EEXIST') {
-          return; // Silent fail - session persistence is non-critical
-        }
+    // Double-check directory exists before proceeding
+    if (!existsSync(dir)) {
+      // Directory still doesn't exist after mkdirSync - this shouldn't happen but handle it
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Session] Directory does not exist after creation attempt');
       }
+      return;
     }
     
     // Atomic write: write to temp file, then rename
     const tempFile = `${SNAPSHOT_FILE}.tmp`;
+    const snapshotJson = JSON.stringify(snapshot, null, 2);
+    
     try {
-      // Write temp file
-      await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
+      // Write temp file directly to the directory (which we know exists)
+      await fs.writeFile(tempFile, snapshotJson, 'utf-8');
       
-      // Rename (atomic operation)
+      // Verify temp file was created successfully
+      try {
+        await fs.access(tempFile);
+      } catch {
+        // Temp file wasn't created - skip rename
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Session] Temp file was not created');
+        }
+        return;
+      }
+      
+      // Rename (atomic operation) - directory is guaranteed to exist at this point
       await fs.rename(tempFile, SNAPSHOT_FILE);
+      
     } catch (error: any) {
-      // If rename fails because directory doesn't exist, create it and retry once
+      // Clean up temp file if it exists
+      try {
+        await fs.unlink(tempFile).catch(() => {});
+      } catch {}
+      
+      // If rename fails with ENOENT, directory might have been deleted (unlikely but possible)
       if (error.code === 'ENOENT') {
+        // Try one more time to create directory and retry
         try {
-          // Create directory synchronously this time
-          if (!existsSync(dir)) {
-            mkdirSync(dir, { recursive: true });
-          }
-          // Retry write and rename
-          await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
+          mkdirSync(dir, { recursive: true });
+          await fs.writeFile(tempFile, snapshotJson, 'utf-8');
           await fs.rename(tempFile, SNAPSHOT_FILE);
         } catch (retryError: any) {
-          // Final failure - delete temp file if it exists and silently fail
-          try {
-            await fs.unlink(tempFile).catch(() => {});
-          } catch {}
-          // Don't log error - session persistence failures are non-critical
-          return;
+          // Final failure - silent fail in production, log in dev
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[Session] Failed to save after retry:', retryError.message);
+          }
         }
       } else {
-        // Other errors (permissions, disk full, etc.) - silent fail
-        try {
-          await fs.unlink(tempFile).catch(() => {});
-        } catch {}
-        return;
+        // Other errors (permissions, disk full, etc.) - silent fail in production
+        if (process.env.NODE_ENV === 'development' && error.code !== 'EBUSY') {
+          console.warn('[Session] Failed to save snapshot:', error.message);
+        }
       }
     }
 
@@ -212,8 +222,11 @@ async function saveSessionState(): Promise<void> {
     } catch {
       // File might not exist yet, that's ok
     }
-  } catch (error) {
-    console.error('Failed to save session state:', error);
+  } catch (error: any) {
+    // Top-level error handler - only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[Session] Failed to save session state:', error.message || error);
+    }
   }
 }
 
