@@ -88,27 +88,69 @@ async function saveSessionState(): Promise<void> {
       sessions,
     };
 
-    // Ensure directory exists
+    // Ensure directory exists - create with recursive: true and handle race conditions
     const dir = path.dirname(SNAPSHOT_FILE);
-    await fs.mkdir(dir, { recursive: true }).catch(() => {
-      // Directory might already exist, ignore error
-    });
+    try {
+      await fs.mkdir(dir, { recursive: true });
+    } catch (error: any) {
+      // Directory might already exist (EEXIST) or might be created by another process
+      // Only log if it's not a "file exists" error
+      if (error.code !== 'EEXIST') {
+        console.warn('[Session] Failed to create directory:', error.message);
+      }
+    }
+    
+    // Verify directory exists before writing
+    try {
+      await fs.access(dir);
+    } catch {
+      // Directory still doesn't exist, try once more
+      await fs.mkdir(dir, { recursive: true }).catch(() => {});
+    }
     
     // Atomic write: write to temp file, then rename
     const tempFile = `${SNAPSHOT_FILE}.tmp`;
-    await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
-    await fs.rename(tempFile, SNAPSHOT_FILE);
+    try {
+      await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
+      await fs.rename(tempFile, SNAPSHOT_FILE);
+    } catch (error: any) {
+      // If rename fails because directory doesn't exist, create it and retry
+      if (error.code === 'ENOENT') {
+        try {
+          await fs.mkdir(dir, { recursive: true });
+          await fs.writeFile(tempFile, JSON.stringify(snapshot, null, 2), 'utf-8');
+          await fs.rename(tempFile, SNAPSHOT_FILE);
+        } catch (retryError) {
+          console.error('[Session] Failed to save snapshot after retry:', retryError);
+        }
+      } else {
+        console.error('[Session] Failed to save snapshot:', error);
+      }
+    }
 
     // Also append to JSONL for audit trail (keep last 100 entries)
-    // Ensure directory exists
+    // Ensure directory exists (same directory as snapshot)
     const jsonlDir = path.dirname(SESSION_FILE);
-    await fs.mkdir(jsonlDir, { recursive: true }).catch(() => {});
+    try {
+      await fs.mkdir(jsonlDir, { recursive: true });
+    } catch (error: any) {
+      if (error.code !== 'EEXIST') {
+        // Silent fail - directory might already exist
+      }
+    }
     
     const jsonlLine = JSON.stringify(snapshot) + '\n';
-    await fs.appendFile(SESSION_FILE, jsonlLine, 'utf-8').catch(() => {
+    try {
+      await fs.appendFile(SESSION_FILE, jsonlLine, 'utf-8');
+    } catch {
       // If file doesn't exist, create it
-      return fs.writeFile(SESSION_FILE, jsonlLine, 'utf-8');
-    });
+      try {
+        await fs.writeFile(SESSION_FILE, jsonlLine, 'utf-8');
+      } catch (error) {
+        // Silent fail for JSONL - it's just an audit trail
+        console.warn('[Session] Failed to write JSONL:', error);
+      }
+    }
 
     // Trim JSONL to last 100 entries
     try {

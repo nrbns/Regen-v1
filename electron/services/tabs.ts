@@ -63,7 +63,8 @@ export function registerTabIpc(win: BrowserWindow) {
   registeredWindows.add(win);
   
   // Increase max listeners for this window to prevent warnings
-  win.setMaxListeners(20);
+  // Multiple IPC handlers and event listeners can add up quickly
+  win.setMaxListeners(50);
   
   setupBrowserViewResize(win);
   const emit = () => {

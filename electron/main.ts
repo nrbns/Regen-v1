@@ -154,8 +154,8 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
     mainWindow.maximize();
   }
 
-  // Increase max listeners to prevent warnings
-  mainWindow.setMaxListeners(20);
+  // Increase max listeners to prevent warnings (some IPC handlers add multiple listeners)
+  mainWindow.setMaxListeners(50);
   
   isCreatingWindow = false; // Window created successfully
 
