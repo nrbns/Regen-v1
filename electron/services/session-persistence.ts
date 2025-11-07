@@ -233,12 +233,22 @@ export async function restoreWindows(
  * Start automatic persistence (every 2 seconds)
  */
 export function startSessionPersistence(): void {
-  // Save immediately on start
-  saveSessionState();
+  // Ensure directory exists before starting persistence
+  const dir = path.dirname(SNAPSHOT_FILE);
+  fs.mkdir(dir, { recursive: true }).catch(() => {
+    // Directory creation failed, but we'll try again on first save
+  });
+
+  // Save immediately on start (but don't block if it fails)
+  saveSessionState().catch(() => {
+    // Silent fail - will retry on next interval
+  });
 
   // Save every 2 seconds
   persistenceTimer = setInterval(() => {
-    saveSessionState();
+    saveSessionState().catch(() => {
+      // Silent fail - don't spam console with errors
+    });
   }, 2000);
 
   // Save on app close
