@@ -57,6 +57,7 @@ import { registerE2EESyncIpc } from './services/sync/e2ee-sync-ipc';
 import { registerStreamingIpc } from './services/agent/streaming-ipc';
 
 let mainWindow: BrowserWindow | null = null;
+let isCreatingWindow = false; // Prevent duplicate window creation
 const agentStore = new AgentStore();
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
@@ -65,6 +66,13 @@ const isDev = !!process.env.VITE_DEV_SERVER_URL;
 app.disableHardwareAcceleration();
 
 function createMainWindow(restoreBounds?: { x: number; y: number; width: number; height: number; isMaximized: boolean }) {
+  // Prevent duplicate window creation
+  if (isCreatingWindow || mainWindow && !mainWindow.isDestroyed()) {
+    console.warn('Window already exists or is being created, skipping');
+    return mainWindow;
+  }
+  
+  isCreatingWindow = true;
   mainWindow = new BrowserWindow({
     width: restoreBounds?.width || 1280,
     height: restoreBounds?.height || 800,
@@ -148,9 +156,12 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
 
   // Increase max listeners to prevent warnings
   mainWindow.setMaxListeners(20);
+  
+  isCreatingWindow = false; // Window created successfully
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    isCreatingWindow = false;
   });
 
   // Assert secure webPreferences at runtime (fail fast if misconfigured)
@@ -190,15 +201,18 @@ app.whenReady().then(async () => {
   }
   
   // Start session persistence (auto-save every 2s)
-  const { startSessionPersistence, loadSessionState } = await import('./services/session-persistence');
+  const { startSessionPersistence, loadSessionState, restoreWindows } = await import('./services/session-persistence');
   startSessionPersistence();
   
   // Try to restore previous session
   const snapshot = await loadSessionState();
+  let shouldRestoreTabs = false;
+  
   if (snapshot && snapshot.windows.length > 0) {
     // Restore windows from snapshot
     const firstWindow = snapshot.windows[0];
     createMainWindow(firstWindow.bounds);
+    shouldRestoreTabs = firstWindow.tabs && firstWindow.tabs.length > 0;
   } else {
     createMainWindow();
   }
@@ -213,6 +227,45 @@ app.whenReady().then(async () => {
     
     registerRecorderIpc(mainWindow);
     registerTabIpc(mainWindow);
+    
+    // Restore tabs from session snapshot if available
+    if (shouldRestoreTabs && snapshot && snapshot.windows.length > 0) {
+      const firstWindow = snapshot.windows[0];
+      // Signal renderer that we're restoring tabs (prevents auto-creation)
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.send('session:restoring', true);
+        
+        // Wait a bit for IPC to be ready, then restore tabs via IPC calls from renderer
+        setTimeout(async () => {
+          try {
+            // Send restore tab messages to renderer - it will create tabs via IPC
+            for (const tabState of firstWindow.tabs) {
+              mainWindow.webContents.send('session:restore-tab', {
+                url: tabState.url || 'about:blank',
+                id: tabState.id
+              });
+              // Small delay between tab creations to avoid race conditions
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            // Signal renderer that restoration is complete
+            setTimeout(() => {
+              mainWindow.webContents.send('session:restoring', false);
+              
+              // Activate the previously active tab
+              if (firstWindow.activeTabId) {
+                setTimeout(() => {
+                  mainWindow.webContents.send('tabs:activate', { id: firstWindow.activeTabId });
+                }, 200);
+              }
+            }, 500);
+          } catch (error) {
+            console.error('Failed to restore tabs from session:', error);
+            mainWindow.webContents.send('session:restoring', false);
+          }
+        }, 1500);
+      });
+    }
     registerProxyIpc();
     registerDownloadsIpc();
     registerScrapingIpc();
@@ -281,15 +334,17 @@ app.whenReady().then(async () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createMainWindow();
-    if (mainWindow) mainWindow.maximize();
-  } else {
-    // If window exists but is minimized, restore and maximize
-    const existingWindow = BrowserWindow.getAllWindows()[0];
-    if (existingWindow) {
-      existingWindow.maximize();
-      existingWindow.focus();
+  // On macOS, re-create window if all are closed
+  if (process.platform === 'darwin') {
+    if (BrowserWindow.getAllWindows().length === 0 && !isCreatingWindow) {
+      createMainWindow();
+    } else {
+      // Focus existing window
+      const existingWindow = BrowserWindow.getAllWindows()[0];
+      if (existingWindow && !existingWindow.isDestroyed()) {
+        if (existingWindow.isMinimized()) existingWindow.restore();
+        existingWindow.focus();
+      }
     }
   }
 });

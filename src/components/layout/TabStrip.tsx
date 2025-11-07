@@ -25,6 +25,7 @@ export function TabStrip() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [contextMenu, setContextMenu] = useState<{ tabId: string; url: string; x: number; y: number } | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const stripRef = (typeof window !== 'undefined') ? (window as any).__tabStripRef || { current: null } : { current: null } as React.RefObject<HTMLDivElement> as any;
 
   // Load tabs on mount and listen for updates
@@ -57,7 +58,8 @@ export function TabStrip() {
           }
         } else {
           // Only create initial tab on first mount, not every time tabs are empty
-          if (isInitialLoad && !hasInitialized) {
+          // AND only if we're not restoring from session
+          if (isInitialLoad && !hasInitialized && !isRestoring) {
             try {
               const result = await ipc.tabs.create('about:blank');
               if (result) {
@@ -87,6 +89,24 @@ export function TabStrip() {
         }
       }
     };
+
+    // Listen for session restoration state
+    const handleRestoring = (restoring: boolean) => {
+      setIsRestoring(restoring);
+    };
+    
+    const unsubscribeRestoring = ipcEvents.on<boolean>('session:restoring', handleRestoring);
+    
+    // Listen for restore tab messages
+    const handleRestoreTab = async (tabState: any) => {
+      try {
+        await ipc.tabs.create(tabState.url || 'about:blank');
+      } catch (error) {
+        console.error('Failed to restore tab from session:', error);
+      }
+    };
+    
+    const unsubscribeRestoreTab = ipcEvents.on<any>('session:restore-tab', handleRestoreTab);
 
     // Initial load only - don't auto-create tabs on subsequent updates
     loadTabs(true);
@@ -155,8 +175,10 @@ export function TabStrip() {
 
     return () => {
       unsubscribe();
+      unsubscribeRestoring();
+      unsubscribeRestoreTab();
     };
-  }, [setAllTabs, setActiveTab, activeId]);
+  }, [setAllTabs, setActiveTab, activeId, isRestoring]);
 
   const addTab = async () => {
     try {
