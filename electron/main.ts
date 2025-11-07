@@ -116,11 +116,25 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
   });
 
   if (isDev) {
-    // Development: load from Vite dev server with fallback and DevTools
-    const devUrl = process.env.VITE_DEV_SERVER_URL!;
-    // Always load dev server; avoid falling back to dist in dev to prevent ERR_FILE_NOT_FOUND
-    mainWindow.loadURL(devUrl).catch((e) => console.warn('[Dev] loadURL failed:', e));
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    // Development: load from Vite dev server
+    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    // Wait a bit for Vite to be ready, then load
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.loadURL(devUrl).catch((e) => {
+          console.warn('[Dev] loadURL failed, retrying...', e);
+          // Retry once after a short delay
+          setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(devUrl).catch((err) => 
+                console.error('[Dev] Failed to load after retry:', err)
+              );
+            }
+          }, 2000);
+        });
+        mainWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+    }, 500);
   } else {
     // Production: load from built files
     const htmlPath = path.resolve(app.getAppPath(), 'dist', 'index.html');
