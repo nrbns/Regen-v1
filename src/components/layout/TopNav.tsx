@@ -2,7 +2,7 @@
  * TopNav - Complete navigation bar with all components
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, ArrowRight, RefreshCw, Camera, PictureInPicture, Search, Download, History, Settings, Bot, ChevronDown, Workflow, Home, ZoomIn, ZoomOut, Code, FileText, Network, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +33,44 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
   const [agentActive, setAgentActive] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
+  const closeDropdown = useCallback(() => setDropdownOpen(false), []);
+  const closeHierarchy = useCallback(() => setHierarchyOpen(false), []);
+  const navigationStateRef = useRef({
+    activeId: activeId ?? null,
+    canGoBack: false,
+    canGoForward: false,
+  });
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    navigationStateRef.current = {
+      activeId: activeId ?? null,
+      canGoBack,
+      canGoForward,
+    };
+  }, [activeId, canGoBack, canGoForward]);
+
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!dropdownOpen && !hierarchyOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        if (dropdownOpen) closeDropdown();
+        if (hierarchyOpen) closeHierarchy();
+      }
+    };
+    const options: AddEventListenerOptions = { capture: true };
+    window.addEventListener('keydown', handleEscape, options);
+    return () => window.removeEventListener('keydown', handleEscape, options);
+  }, [dropdownOpen, hierarchyOpen, closeDropdown, closeHierarchy]);
 
   // Listen for download updates
   useIPCEvent<DownloadUpdate>('downloads:started', () => {
@@ -60,84 +98,93 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
     }).catch(() => {});
   }, []);
 
-  const handleBack = async () => {
-    if (!activeId) return;
+  const handleBack = useCallback(async () => {
+    const { activeId: currentActiveId } = navigationStateRef.current;
+    if (!currentActiveId) return;
     try {
-      await ipc.tabs.goBack(activeId);
+      await ipc.tabs.goBack(currentActiveId);
       // Navigation state will be updated via IPC event
     } catch (error) {
       console.error('Failed to go back:', error);
     }
-  };
+  }, []);
 
-  const handleForward = async () => {
-    if (!activeId) return;
+  const handleForward = useCallback(async () => {
+    const { activeId: currentActiveId } = navigationStateRef.current;
+    if (!currentActiveId) return;
     try {
-      await ipc.tabs.goForward(activeId);
+      await ipc.tabs.goForward(currentActiveId);
       // Navigation state will be updated via IPC event
     } catch (error) {
       console.error('Failed to go forward:', error);
     }
-  };
+  }, []);
 
-  const handleRefresh = async () => {
-    if (!activeId) return;
+  const handleRefresh = useCallback(async () => {
+    const { activeId: currentActiveId } = navigationStateRef.current;
+    if (!currentActiveId) return;
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
     setIsLoading(true);
     try {
-      await ipc.tabs.reload(activeId);
+      await ipc.tabs.reload(currentActiveId);
       // Reset loading state after a delay
-      setTimeout(() => setIsLoading(false), 1000);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = setTimeout(() => {
+        setIsLoading(false);
+        refreshTimerRef.current = null;
+      }, 1000);
     } catch (error) {
       console.error('Failed to refresh:', error);
       setIsLoading(false);
     }
-  };
+  }, []);
 
   // Keyboard shortcuts for navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const { activeId: currentActiveId, canGoBack: currentCanGoBack, canGoForward: currentCanGoForward } = navigationStateRef.current;
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
       const altModifier = e.altKey;
 
-      // Alt+← / ⌘←: Go back
       if ((modifier || altModifier) && e.key === 'ArrowLeft' && !e.shiftKey) {
-        if (canGoBack && activeId) {
+        if (currentCanGoBack && currentActiveId) {
           e.preventDefault();
-          handleBack();
+          void handleBack();
         }
         return;
       }
 
-      // Alt+→ / ⌘→: Go forward
       if ((modifier || altModifier) && e.key === 'ArrowRight' && !e.shiftKey) {
-        if (canGoForward && activeId) {
+        if (currentCanGoForward && currentActiveId) {
           e.preventDefault();
-          handleForward();
+          void handleForward();
         }
         return;
       }
 
-      // Ctrl+R / ⌘R: Refresh (prevent default browser refresh)
       if (modifier && e.key.toLowerCase() === 'r' && !e.shiftKey) {
-        if (activeId) {
+        if (currentActiveId) {
           e.preventDefault();
-          handleRefresh();
+          void handleRefresh();
         }
         return;
       }
 
-      // F5: Refresh
-      if (e.key === 'F5' && activeId) {
+      if (e.key === 'F5' && currentActiveId) {
         e.preventDefault();
-        handleRefresh();
-        return;
+        void handleRefresh();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeId, canGoBack, canGoForward]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [handleBack, handleForward, handleRefresh]);
 
   // Listen for navigation state updates from backend
   useIPCEvent<{ tabId: string; canGoBack: boolean; canGoForward: boolean }>(
@@ -305,11 +352,18 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
           <AnimatePresence>
             {dropdownOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setDropdownOpen(false)}
+                <motion.button
+                  key="dropdown-backdrop"
+                  type="button"
+                  aria-label="Close options menu"
+                  className="fixed inset-0 z-40 bg-transparent pointer-events-auto focus:outline-none"
+                  onClick={closeDropdown}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                 />
                 <motion.div
+                  key="dropdown-menu"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -320,7 +374,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                       if (activeId) {
                         ipc.tabs.devtools(activeId).catch(console.error);
                       }
-                      setDropdownOpen(false);
+                      closeDropdown();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -332,7 +386,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                       if (activeId) {
                         // Zoom in - would implement via IPC
                       }
-                      setDropdownOpen(false);
+                      closeDropdown();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -344,7 +398,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                       if (activeId) {
                         // Zoom out - would implement via IPC
                       }
-                      setDropdownOpen(false);
+                      closeDropdown();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -355,7 +409,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                   <button
                     onClick={() => {
                       navigate('/workspace');
-                      setDropdownOpen(false);
+                      closeDropdown();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -365,7 +419,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                   <button
                     onClick={() => {
                       navigate('/playbooks');
-                      setDropdownOpen(false);
+                      closeDropdown();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -394,11 +448,18 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
           <AnimatePresence>
             {hierarchyOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setHierarchyOpen(false)}
+                <motion.button
+                  key="hierarchy-backdrop"
+                  type="button"
+                  aria-label="Close hierarchy menu"
+                  className="fixed inset-0 z-40 bg-transparent pointer-events-auto focus:outline-none"
+                  onClick={closeHierarchy}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                 />
                 <motion.div
+                  key="hierarchy-menu"
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -407,7 +468,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                   <button
                     onClick={() => {
                       navigate('/');
-                      setHierarchyOpen(false);
+                      closeHierarchy();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -418,7 +479,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                     onClick={() => {
                       // Would open history graph view
                       navigate('/history');
-                      setHierarchyOpen(false);
+                      closeHierarchy();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -431,7 +492,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                       if (activeId) {
                         ipc.tabs.devtools(activeId).catch(console.error);
                       }
-                      setHierarchyOpen(false);
+                      closeHierarchy();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >
@@ -442,7 +503,7 @@ export function TopNav({ onAgentToggle, onCommandPalette }: TopNavProps) {
                   <button
                     onClick={() => {
                       navigate('/runs');
-                      setHierarchyOpen(false);
+                      closeHierarchy();
                     }}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors"
                   >

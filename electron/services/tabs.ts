@@ -34,6 +34,17 @@ type TabRecord = {
 const windowIdToTabs = new Map<number, TabRecord[]>();
 let activeTabIdByWindow = new Map<number, string | null>();
 let rightDockPxByWindow = new Map<number, number>();
+const resizeTimers = new WeakMap<BrowserWindow, NodeJS.Timeout>();
+const pendingBoundsUpdateTimers = new Map<string, NodeJS.Timeout>();
+
+const clearPendingBoundsTimerForTab = (winId: number, tabId: string) => {
+  const timerKey = `${winId}:${tabId}`;
+  const timer = pendingBoundsUpdateTimers.get(timerKey);
+  if (timer) {
+    clearTimeout(timer);
+    pendingBoundsUpdateTimers.delete(timerKey);
+  }
+};
 
 export function getTabs(win: BrowserWindow) {
   if (!windowIdToTabs.has(win.id)) windowIdToTabs.set(win.id, []);
@@ -398,6 +409,7 @@ export function registerTabIpc(win: BrowserWindow) {
     
     const [rec] = tabs.splice(idx, 1);
     const wasActive = activeTabIdByWindow.get(win.id) === request.id;
+    clearPendingBoundsTimerForTab(win.id, request.id);
     
     // Unregister from sleep and memory monitoring
     try {
@@ -759,6 +771,7 @@ export function registerTabIpc(win: BrowserWindow) {
       const idx = tabs.findIndex(t => t.id === request.id);
       if (idx >= 0) {
         const [rec] = tabs.splice(idx, 1);
+        clearPendingBoundsTimerForTab(win.id, request.id);
         win.removeBrowserView(rec.view);
         rec.view.webContents.close();
         if (activeTabIdByWindow.get(win.id) === request.id) activeTabIdByWindow.set(win.id, null);
@@ -961,11 +974,21 @@ function setActiveTab(win: BrowserWindow, id: string) {
     }
     
     // Force bounds update again after a brief delay to ensure proper positioning
-    setTimeout(() => {
-      if (!win.isDestroyed()) {
-        updateBrowserViewBounds(win, id);
-      }
+    const timerKey = `${win.id}:${id}`;
+    const existingTimer = pendingBoundsUpdateTimers.get(timerKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      pendingBoundsUpdateTimers.delete(timerKey);
+    }
+    const delayedBoundsUpdate = setTimeout(() => {
+      pendingBoundsUpdateTimers.delete(timerKey);
+      if (win.isDestroyed()) return;
+      const tabsSnapshot = getTabs(win);
+      const activeRecord = tabsSnapshot.find(t => t.id === id);
+      if (!activeRecord || !activeRecord.view || activeRecord.view.webContents.isDestroyed()) return;
+      updateBrowserViewBounds(win, id);
     }, 50);
+    pendingBoundsUpdateTimers.set(timerKey, delayedBoundsUpdate);
     
     // Emit tab update with proper error handling
     const active = activeTabIdByWindow.get(win.id);
@@ -1050,15 +1073,23 @@ function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
 }
 
 // Update BrowserView bounds on window resize
-let resizeTimer: NodeJS.Timeout | null = null;
 export function setupBrowserViewResize(win: BrowserWindow) {
   // Prevent duplicate listener registration per window
   if ((win as any).__ob_resize_setup) return;
   (win as any).__ob_resize_setup = true;
 
+  const clearResizeTimer = () => {
+    const existing = resizeTimers.get(win);
+    if (existing) {
+      clearTimeout(existing);
+      resizeTimers.delete(win);
+    }
+  };
+
   const onResize = () => {
-    if (resizeTimer) clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
+    clearResizeTimer();
+    const timer = setTimeout(() => {
+      resizeTimers.delete(win);
       if (win.isDestroyed()) return;
       // Check if window is in fullscreen
       if (win.isFullScreen()) {
@@ -1076,6 +1107,7 @@ export function setupBrowserViewResize(win: BrowserWindow) {
         updateBrowserViewBounds(win);
       }
     }, 100);
+    resizeTimers.set(win, timer);
   };
   win.on('resize', onResize);
 
@@ -1108,10 +1140,16 @@ export function setupBrowserViewResize(win: BrowserWindow) {
 
   // Cleanup on close
   win.once('closed', () => {
-    if (resizeTimer) { clearTimeout(resizeTimer); resizeTimer = null; }
+    clearResizeTimer();
     try { win.removeListener('resize', onResize); } catch {}
     try { win.removeListener('enter-full-screen', onEnterFs); } catch {}
     try { win.removeListener('leave-full-screen', onLeaveFs); } catch {}
+    for (const [key, timer] of pendingBoundsUpdateTimers.entries()) {
+      if (key.startsWith(`${win.id}:`)) {
+        clearTimeout(timer);
+        pendingBoundsUpdateTimers.delete(key);
+      }
+    }
   });
 }
 
