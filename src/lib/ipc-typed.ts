@@ -211,7 +211,7 @@ export const ipc = {
     reload: (id: string) => ipcCall('tabs:reload', { id }).catch(err => console.warn('Failed to reload:', err)),
     list: async () => {
       try {
-        const result = await ipcCall<unknown, Array<{ id: string; title: string; active: boolean; url?: string }>>('tabs:list', {});
+        const result = await ipcCall<unknown, Array<{ id: string; title: string; active: boolean; url?: string; mode?: 'normal' | 'ghost' | 'private' }>>('tabs:list', {});
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.warn('Failed to list tabs:', error);
@@ -220,7 +220,7 @@ export const ipc = {
     },
     hibernate: (id: string) => ipcCall('tabs:hibernate', { id }),
     burn: (id: string) => ipcCall('tabs:burn', { id }),
-    onUpdated: (callback: (tabs: Array<{ id: string; title: string; active: boolean; url?: string }>) => void) => {
+    onUpdated: (callback: (tabs: Array<{ id: string; title: string; active: boolean; url?: string; mode?: 'normal' | 'ghost' | 'private' }>) => void) => {
       if ((window.ipc as any)?.on) {
         (window.ipc as any).on('tabs:updated', (_event: any, tabs: any[]) => callback(tabs));
       }

@@ -46,40 +46,31 @@ const TabHoverCardComponent = React.forwardRef<HTMLDivElement, TabHoverCardProps
         {children}
         <AnimatePresence>
           {isHovered && preview && (
-            <>
-              <div 
-                className="fixed inset-0 z-[9998]" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsHovered(false);
-                }}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ pointerEvents: isHovered ? 'auto' : 'none' }}
-              />
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl z-[9999] w-80 p-4"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                style={{ pointerEvents: 'auto' }}
-              >
-                {preview.thumbnail && (
-                  <img
-                    src={preview.thumbnail}
-                    alt={preview.title}
-                    className="w-full h-32 object-cover rounded mb-2"
-                  />
-                )}
-                <div className="text-sm font-medium text-gray-200 mb-1 truncate">
-                  {preview.title}
-                </div>
-                <div className="text-xs text-gray-400 truncate">
-                  {preview.url}
-                </div>
-              </motion.div>
-            </>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="absolute bottom-full left-0 mb-2 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl z-[40] w-80 p-4"
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{ pointerEvents: 'auto' }}
+            >
+              {preview.thumbnail && (
+                <img
+                  src={preview.thumbnail}
+                  alt={preview.title}
+                  className="w-full h-32 object-cover rounded mb-2"
+                />
+              )}
+              <div className="text-sm font-medium text-gray-200 mb-1 truncate">
+                {preview.title}
+              </div>
+              <div className="text-xs text-gray-400 truncate">
+                {preview.url}
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

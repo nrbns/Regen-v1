@@ -32,7 +32,7 @@ export function registerPrivateIpc() {
     if (!mainWindow) {
       throw new Error('No main window available');
     }
-    const tabId = createGhostTab(mainWindow, request.url || 'about:blank');
+    const tabId = await createGhostTab(mainWindow, request.url || 'about:blank');
     return { tabId };
   });
 

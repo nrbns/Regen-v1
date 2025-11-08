@@ -47,6 +47,7 @@ export function TabStrip() {
         title: t.title || 'New Tab',
         url: t.url || 'about:blank',
         active: t.active || false,
+        mode: t.mode || 'normal',
       }));
 
       const ids = mappedTabs.map(t => t.id).sort().join(',');
@@ -54,7 +55,7 @@ export function TabStrip() {
 
       setTabs(mappedTabs);
       tabsRef.current = mappedTabs;
-      setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+      setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
       const activeTab = mappedTabs.find(t => t.active);
       if (activeTab) {
@@ -146,7 +147,7 @@ export function TabStrip() {
           if (previousTabIdsRef.current !== tabIds) {
             previousTabIdsRef.current = tabIds;
             setTabs(mappedTabs);
-            setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+            setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
           }
           
           // Set active tab in store (only if changed - use ref to avoid dependency)
@@ -306,7 +307,7 @@ export function TabStrip() {
       // This ensures UI stays in sync even if optimistic updates were wrong
       setTabs(mappedTabs);
       tabsRef.current = mappedTabs;
-      setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+      setAllTabs(mappedTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
       
       // Update previousTabIdsRef to track changes
       if (currentTabIds !== newTabIds) {
@@ -428,7 +429,7 @@ export function TabStrip() {
     setTabs(remainingTabs);
     tabsRef.current = remainingTabs;
     previousTabIdsRef.current = remainingTabs.map(t => t.id).sort().join(',');
-    setAllTabs(remainingTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+    setAllTabs(remainingTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
     // If closing active tab, activate the next one
     if (wasActive && remainingTabs.length > 0) {
@@ -467,7 +468,7 @@ export function TabStrip() {
         setTabs(snapshotTabs);
         tabsRef.current = snapshotTabs;
         previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
-        setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+        setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
         if (previousActiveId) {
           setActiveTab(previousActiveId);
@@ -484,7 +485,7 @@ export function TabStrip() {
       setTabs(snapshotTabs);
       tabsRef.current = snapshotTabs;
       previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
-      setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+      setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
       if (previousActiveId) {
         setActiveTab(previousActiveId);
@@ -529,7 +530,7 @@ export function TabStrip() {
     }));
     setTabs(updatedTabs);
     tabsRef.current = updatedTabs;
-    setAllTabs(updatedTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+    setAllTabs(updatedTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[TabStrip] Activating tab (optimistic):', tabId, 'previous:', previousActiveId);
@@ -556,7 +557,7 @@ export function TabStrip() {
         setTabs(snapshotTabs);
         tabsRef.current = snapshotTabs;
         previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
-        setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+        setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
         if (previousActiveId) {
           setActiveTab(previousActiveId);
@@ -575,7 +576,7 @@ export function TabStrip() {
       setTabs(snapshotTabs);
       tabsRef.current = snapshotTabs;
       previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
-      setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active })));
+      setAllTabs(snapshotTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
       if (previousActiveId) {
         setActiveTab(previousActiveId);
@@ -698,7 +699,7 @@ export function TabStrip() {
                   data-tab={tab.id}
                   role="tab"
                   aria-selected={tab.active}
-                  aria-label={`Tab: ${tab.title}`}
+                  aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}`}
                   tabIndex={tab.active ? 0 : -1}
                   layout
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -713,6 +714,8 @@ export function TabStrip() {
                       ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
                       : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
                     }
+                    ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
+                    ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
                   `}
                   style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none' }}
                   onClick={(e) => {
@@ -750,6 +753,18 @@ export function TabStrip() {
                       <div className="w-2 h-2 bg-gray-400 rounded-full" />
                     )}
                   </div>
+
+                  {tab.mode && tab.mode !== 'normal' && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                        tab.mode === 'ghost'
+                          ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                          : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+                      }`}
+                    >
+                      {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
+                    </span>
+                  )}
 
                   {/* Title */}
                   <span className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}>
@@ -815,6 +830,7 @@ export function TabStrip() {
         <TabContextMenu
           tabId={contextMenu.tabId}
           url={contextMenu.url}
+          mode={tabs.find(t => t.id === contextMenu.tabId)?.mode}
           onClose={() => setContextMenu(null)}
         />
       )}

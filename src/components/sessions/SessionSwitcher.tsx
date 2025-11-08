@@ -35,7 +35,8 @@ export function SessionSwitcher() {
     try {
       // Wait for IPC to be ready
       if (!window.ipc || typeof window.ipc.invoke !== 'function') {
-        return; // Will retry on next interval
+        setTimeout(loadSessions, 300);
+        return; // Will retry shortly
       }
       
       const [allSessions, active] = await Promise.all([
@@ -44,7 +45,19 @@ export function SessionSwitcher() {
       ]);
       
       // Only update if sessions actually changed
-      const sessionsArray = Array.isArray(allSessions) ? allSessions as BrowserSession[] : [];
+      let sessionsArray = Array.isArray(allSessions) ? allSessions as BrowserSession[] : [];
+
+      // Ensure at least the default session exists
+      if (sessionsArray.length === 0) {
+        sessionsArray = [{
+          id: 'default',
+          name: 'Default',
+          profileId: 'default',
+          createdAt: Date.now(),
+          tabCount: 0,
+          color: '#3b82f6',
+        }];
+      }
       const sessionsKey = sessionsArray.map(s => s.id).sort().join(',');
       
       if (previousSessionsRef.current !== sessionsKey) {
@@ -53,7 +66,10 @@ export function SessionSwitcher() {
       }
       
       // Update active session only if changed
-      const activeSessionObj = active && typeof active === 'object' ? active as BrowserSession : null;
+      let activeSessionObj = active && typeof active === 'object' ? active as BrowserSession : null;
+      if (!activeSessionObj) {
+        activeSessionObj = sessionsArray.find(s => s.id === 'default') ?? sessionsArray[0] ?? null;
+      }
       const currentActiveId = activeSessionObj?.id || null;
       const previousActiveId = activeSession?.id || null;
       

@@ -3,10 +3,10 @@
  * In-memory partitions, content protection, automatic cleanup
  */
 
-import { BrowserWindow, BrowserView, session } from 'electron';
+import { app, BrowserWindow, session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
-import { getMainWindow } from './windows';
+import { registerTabIpc } from './tabs';
 
 export interface PrivateWindowOptions {
   url?: string;
@@ -34,6 +34,11 @@ export function createPrivateWindow(options: PrivateWindowOptions = {}): Browser
   sess.clearStorageData();
   sess.clearCache();
 
+  const isDev = !!process.env.VITE_DEV_SERVER_URL;
+  const preloadPath = isDev
+    ? path.join(process.cwd(), 'electron', 'preload.cjs')
+    : path.join(__dirname, 'preload.js');
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -46,6 +51,8 @@ export function createPrivateWindow(options: PrivateWindowOptions = {}): Browser
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
+      spellcheck: false,
+      preload: preloadPath,
     },
     // macOS content protection
     ...(options.contentProtection !== false && process.platform === 'darwin' ? {
@@ -58,11 +65,20 @@ export function createPrivateWindow(options: PrivateWindowOptions = {}): Browser
     win.setContentProtection(true);
   }
 
-  // Load URL
-  if (options.url) {
-    win.loadURL(options.url);
+  registerTabIpc(win);
+  (win as any).__ob_tabModeDefault = 'private';
+  (win as any).__ob_defaultPartitionOverride = partition;
+
+  if (isDev) {
+    const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    setTimeout(() => {
+      if (!win.isDestroyed()) {
+        win.loadURL(devUrl).catch(err => console.error('Failed to load dev URL in private window:', err));
+      }
+    }, 100);
   } else {
-    win.loadURL('about:blank');
+    const htmlPath = path.resolve(app.getAppPath(), 'dist', 'index.html');
+    win.loadFile(htmlPath).catch(err => console.error('Failed to load index in private window:', err));
   }
 
   // Auto-close timer
@@ -99,37 +115,52 @@ export function createPrivateWindow(options: PrivateWindowOptions = {}): Browser
     }
   });
 
+  const attemptInitialTab = () => {
+    const createTabFn = (win as any).__ob_createTab as ((opts: any) => Promise<{ id: string }>) | undefined;
+    if (createTabFn) {
+      createTabFn({
+        url: options.url || 'about:blank',
+        partitionOverride: partition,
+        mode: 'private',
+      }).catch((error: any) => {
+        console.error('Failed to create initial private tab:', error);
+      });
+      return true;
+    }
+    return false;
+  };
+
+  const scheduleInitialTab = (attempt = 0) => {
+    if (win.isDestroyed()) return;
+    if (attemptInitialTab()) return;
+    if (attempt < 10) {
+      setTimeout(() => scheduleInitialTab(attempt + 1), 150);
+    }
+  };
+
+  // Wait briefly to ensure registerTabIpc has initialized helpers
+  setTimeout(() => scheduleInitialTab(0), 200);
+
   return win;
 }
 
 /**
  * Create a ghost tab (enhanced private tab in existing window)
  */
-export function createGhostTab(
+export async function createGhostTab(
   window: BrowserWindow,
   url: string = 'about:blank'
-): string {
-  const partition = `temp:ghost:${randomUUID()}`;
-  const sess = session.fromPartition(partition, { cache: false });
-  
-  const { BrowserView } = require('electron');
-  const view = new BrowserView({
-    webPreferences: {
-      session: sess,
-      partition,
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-    },
+): Promise<string> {
+  const createTabFn = (window as any).__ob_createTab as ((opts: any) => Promise<{ id: string }>) | undefined;
+  if (!createTabFn) {
+    throw new Error('Tab system not initialized for window');
+  }
+  const result = await createTabFn({
+    url,
+    mode: 'ghost',
+    activate: true,
   });
-
-  view.webContents.loadURL(url);
-
-  // Track ghost tab
-  // Would integrate with tabs.ts to add ghost tab to window
-  // For now, return tab ID placeholder
-  return randomUUID();
+  return result.id;
 }
 
 /**

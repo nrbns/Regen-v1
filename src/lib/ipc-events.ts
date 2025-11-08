@@ -13,6 +13,7 @@ export interface TabUpdate {
   favicon?: string;
   progress?: number;
   isLoading?: boolean;
+  mode?: 'normal' | 'ghost' | 'private';
 }
 
 export interface ShieldsCounters {

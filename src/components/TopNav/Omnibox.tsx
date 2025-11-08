@@ -410,11 +410,11 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
             aria-label="Address bar - Search or enter URL"
             aria-autocomplete="list"
             aria-expanded={focused && suggestions.length > 0}
-            placeholder="Search, enter URL, or ? Ask Agent (⌘L to focus, ⌘K for commands)"
+            placeholder="Search or enter URL"
             className={`
               w-full h-9 px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} pr-10
               bg-gray-800/60 backdrop-blur-sm border border-gray-700/50 rounded-xl
-              text-sm text-gray-200 placeholder-gray-500
+              text-sm text-white placeholder-gray-400
               focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50
               hover:bg-gray-800/80 transition-all
             `}
@@ -431,9 +431,8 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
           )}
 
           {/* Search Icon */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
             <Search size={14} className="text-gray-500" />
-            <kbd className="hidden sm:inline px-1.5 py-0.5 bg-gray-900/50 rounded border border-gray-700/50 text-xs text-gray-500">⌘K</kbd>
           </div>
         </div>
       </motion.div>

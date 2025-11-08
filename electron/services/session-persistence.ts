@@ -100,6 +100,9 @@ async function saveSessionState(): Promise<void> {
 
       const tabs = getTabs(win);
       const tabsState = tabs.map(t => {
+        if (t.mode && t.mode !== 'normal') {
+          return null;
+        }
         try {
           return {
             id: t.id,

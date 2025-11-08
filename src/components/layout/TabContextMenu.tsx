@@ -11,10 +11,11 @@ interface TabContextMenuProps {
   tabId: string;
   url: string;
   containerId?: string;
+  mode?: 'normal' | 'ghost' | 'private';
   onClose: () => void;
 }
 
-export function TabContextMenu({ tabId, url, containerId, onClose }: TabContextMenuProps) {
+export function TabContextMenu({ tabId, url, containerId, mode, onClose }: TabContextMenuProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -76,12 +77,15 @@ export function TabContextMenu({ tabId, url, containerId, onClose }: TabContextM
     }
   };
 
+  const isGhost = mode === 'ghost';
+  const isPrivate = mode === 'private';
+
   const menuItems = [
-    { icon: Copy, label: 'Duplicate Tab', action: handleDuplicate },
-    { icon: Ghost, label: 'Open as Ghost', action: handleOpenAsGhost },
+    { icon: Copy, label: 'Duplicate Tab', action: handleDuplicate, disabled: isGhost || isPrivate },
+    { icon: Ghost, label: 'Open as Ghost', action: handleOpenAsGhost, hide: isGhost },
     { icon: Flame, label: 'Burn Tab', action: handleBurnTab, danger: true },
     { icon: Clock, label: 'Start 10-min Timer', action: handleStartTimer },
-  ];
+  ].filter(item => !item.hide);
 
   return (
     <AnimatePresence>
@@ -102,11 +106,12 @@ export function TabContextMenu({ tabId, url, containerId, onClose }: TabContextM
           return (
             <motion.button
               key={idx}
-              whileHover={{ backgroundColor: item.danger ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)' }}
+              whileHover={item.disabled ? undefined : { backgroundColor: item.danger ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)' }}
               onClick={item.action}
               className={`w-full flex items-center gap-2 px-3 py-2 text-sm ${
-                item.danger ? 'text-red-400 hover:text-red-300' : 'text-gray-300 hover:text-gray-100'
+                item.danger ? 'text-red-400 hover:text-red-300' : item.disabled ? 'text-gray-500 cursor-not-allowed' : 'text-gray-300 hover:text-gray-100'
               } transition-colors`}
+              disabled={item.disabled}
             >
               <Icon size={16} />
               <span>{item.label}</span>

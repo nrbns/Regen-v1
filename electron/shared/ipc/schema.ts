@@ -78,6 +78,7 @@ export const TabListResponse = z.array(z.object({
   title: z.string(),
   active: z.boolean(),
   url: z.string().optional(),
+  mode: z.enum(['normal', 'ghost', 'private']).optional(),
   containerId: z.string().optional(),
   containerName: z.string().optional(),
   containerColor: z.string().optional(),

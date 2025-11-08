@@ -24,11 +24,14 @@ import {
   TabListResponse,
 } from '../shared/ipc/schema';
 
+type TabMode = 'normal' | 'ghost' | 'private';
+
 type TabRecord = {
   id: string;
   view: BrowserView;
   partition: string;
   sessionId?: string; // Track which session this tab belongs to
+  mode: TabMode;
 };
 
 const windowIdToTabs = new Map<number, TabRecord[]>();
@@ -37,6 +40,16 @@ let rightDockPxByWindow = new Map<number, number>();
 const resizeTimers = new WeakMap<BrowserWindow, NodeJS.Timeout>();
 const pendingBoundsUpdateTimers = new Map<string, NodeJS.Timeout>();
 const cleanupRegistered = new WeakMap<BrowserWindow, boolean>(); // Track cleanup registration
+
+interface CreateTabOptions {
+  url?: string;
+  profileId?: string;
+  sessionId?: string;
+  partitionOverride?: string;
+  mode?: TabMode;
+  activate?: boolean;
+  fromSessionRestore?: boolean;
+}
 
 // Track warned tab IDs with timestamp to prevent spam (only warn once per tab ID per minute)
 const warnedTabIds = new Map<string, number>();
@@ -92,7 +105,8 @@ export function registerTabIpc(win: BrowserWindow) {
         id: t.id, 
         title, 
         url,
-        active: t.id === active 
+        active: t.id === active,
+        mode: t.mode,
       };
     });
     // Send to both legacy and typed IPC listeners
@@ -104,6 +118,229 @@ export function registerTabIpc(win: BrowserWindow) {
       } catch {}
     }
   };
+
+  const createTabInternal = async (options: CreateTabOptions = {}) => {
+    const id = randomUUID();
+    const defaultMode: TabMode = (win as any).__ob_tabModeDefault ?? 'normal';
+    const mode: TabMode = options.mode ?? defaultMode;
+    const targetUrl = options.url || 'about:blank';
+    let partition = options.partitionOverride;
+    let basePartition: string | undefined;
+    let sessionId: string | undefined = mode === 'normal' ? options.sessionId : undefined;
+    let sess: Electron.Session;
+
+    const sessionManager = getSessionManager();
+    const activeSession = sessionManager.getActiveSession();
+
+    if (!partition) {
+      if (mode === 'ghost') {
+        partition = `temp:ghost:${randomUUID()}`;
+      } else if (mode === 'private') {
+        basePartition = (win as any).__ob_defaultPartitionOverride || `temp:private:${randomUUID()}`;
+      } else {
+        if (options.profileId) {
+          basePartition = `persist:profile:${options.profileId}`;
+        } else if (sessionId) {
+          basePartition = sessionManager.getSessionPartition(sessionId);
+        } else if (activeSession) {
+          basePartition = sessionManager.getSessionPartition(activeSession.id);
+          sessionId = activeSession.id;
+        } else {
+          basePartition = `ephemeral:${randomUUID()}`;
+          sessionId = 'default';
+        }
+      }
+
+      if (!partition && basePartition) {
+        try {
+          const urlObj = new URL(targetUrl);
+          const origin = urlObj.origin;
+          const originHash = createHash('sha256').update(origin).digest('hex').slice(0, 16);
+          partition = `${basePartition}:site:${originHash}`;
+        } catch {
+          partition = basePartition;
+        }
+      }
+    }
+
+    if (!partition) {
+      partition = `temp:default:${randomUUID()}`;
+    }
+
+    const partitionOptions = mode === 'normal' ? undefined : { cache: false };
+    sess = session.fromPartition(partition, partitionOptions);
+    if (mode !== 'normal') {
+      sessionId = undefined;
+    }
+
+    const view = new BrowserView({
+      webPreferences: {
+        session: sess,
+        contextIsolation: true,
+        sandbox: false,
+        nodeIntegration: false,
+        webSecurity: true,
+        allowRunningInsecureContent: false,
+        experimentalFeatures: true,
+        plugins: true,
+        autoplayPolicy: 'no-user-gesture-required',
+      },
+    });
+
+    // Fullscreen handlers
+    view.webContents.on('enter-html-full-screen', () => {
+      try {
+        win.setFullScreen(true);
+        win.webContents.send('app:fullscreen-changed', { fullscreen: true });
+        setTimeout(() => {
+          const display = screen.getPrimaryDisplay();
+          const { width, height } = display.workAreaSize;
+          view.setBounds({ x: 0, y: 0, width, height });
+        }, 100);
+      } catch (e) {
+        console.error('Failed to enter fullscreen:', e);
+      }
+    });
+    view.webContents.on('leave-html-full-screen', () => {
+      try {
+        win.setFullScreen(false);
+        win.webContents.send('app:fullscreen-changed', { fullscreen: false });
+        setTimeout(() => updateBrowserViewBounds(win, id), 100);
+      } catch (e) {
+        console.error('Failed to leave fullscreen:', e);
+      }
+    });
+
+    // Permission handlers
+    sess.setPermissionRequestHandler((_wc, permission, callback) => {
+      if (['media', 'display-capture', 'notifications', 'fullscreen'].includes(permission)) {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    });
+    sess.setPermissionCheckHandler((_wc, permission) => {
+      if (permission === 'media' || permission === 'fullscreen') {
+        return true;
+      }
+      return false;
+    });
+
+    const shouldRecordHistory = mode === 'normal';
+
+    const sendNavigationState = () => {
+      try {
+        if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+          win.webContents.send('tabs:navigation-state', {
+            tabId: id,
+            canGoBack: view.webContents.canGoBack(),
+            canGoForward: view.webContents.canGoForward(),
+          });
+        }
+      } catch {}
+    };
+
+    view.webContents.loadURL(targetUrl).catch(() => {});
+    view.webContents.on('page-title-updated', () => emit());
+    view.webContents.on('did-navigate', async (_e2, navUrl) => {
+      emit();
+      sendNavigationState();
+
+      try {
+        const urlObj = new URL(navUrl);
+        const isVideoSite = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv'].some(domain =>
+          urlObj.hostname.includes(domain)
+        );
+
+        if (!isVideoSite) {
+          const shieldsService = getShieldsService();
+          shieldsService.injectFingerprintProtection(view.webContents);
+          shieldsService.blockWebRTC(view.webContents);
+        }
+      } catch {}
+
+      if (shouldRecordHistory) {
+        try {
+          const title = view.webContents.getTitle();
+          const hostname = new URL(navUrl).hostname;
+          pushHistory(navUrl, title || navUrl);
+          win.webContents.send('history:updated');
+          const text: string = await view.webContents
+            .executeJavaScript('document.body.innerText.slice(0,5000)', true)
+            .catch(() => '');
+          const entities = Array.from(new Set((text.match(/\b[A-Z][a-zA-Z]{2,}\b/g) || []).slice(0, 10)));
+          addToGraph({ key: navUrl, title, type: 'page' }, [{ src: hostname, dst: navUrl, rel: 'contains', weight: 1 }]);
+          addToGraph({ key: hostname, title: hostname, type: 'site' });
+          for (const ent of entities) {
+            addToGraph({ key: `ent:${ent}`, title: ent, type: 'entity' }, [{ src: navUrl, dst: `ent:${ent}`, rel: 'mentions', weight: 1 }]);
+          }
+        } catch {}
+      }
+    });
+
+    view.webContents.on('dom-ready', () => {
+      try {
+        const currentUrl = view.webContents.getURL();
+        if (!currentUrl) return;
+
+        const urlObj = new URL(currentUrl);
+        const isVideoSite = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv'].some(domain =>
+          urlObj.hostname.includes(domain)
+        );
+
+        if (!isVideoSite) {
+          const shieldsService = getShieldsService();
+          shieldsService.injectFingerprintProtection(view.webContents);
+          shieldsService.blockWebRTC(view.webContents);
+        }
+      } catch {}
+    });
+
+    view.webContents.on('did-navigate-in-page', () => {
+      sendNavigationState();
+    });
+
+    if (mode === 'ghost') {
+      const cleanup = () => {
+        try {
+          sess.clearStorageData();
+          sess.clearCache();
+          sess.clearHostResolverCache();
+        } catch {}
+      };
+      view.webContents.on('destroyed', cleanup);
+    }
+
+    const tabs = getTabs(win);
+    tabs.push({ id, view, partition: partition!, sessionId: sessionId || undefined, mode });
+
+    if (options.activate !== false) {
+      setActiveTab(win, id);
+    }
+
+    if (mode === 'normal' && sessionId) {
+      const sessionTabs = tabs.filter(t => t.sessionId === sessionId);
+      sessionManager.updateTabCount(sessionId, sessionTabs.length, id);
+    }
+
+    emit();
+    setTimeout(sendNavigationState, 150);
+
+    const optimizer = getVideoCallOptimizer();
+    view.webContents.once('did-finish-load', () => {
+      const url = view.webContents.getURL();
+      if (url) {
+        optimizer.setupForWebContents(view.webContents, url);
+      }
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tabs] Tab created successfully:', id, 'mode:', mode);
+    }
+    return { id };
+  };
+
+  (win as any).__ob_createTab = createTabInternal;
 
   // Typed IPC handlers
   registerHandler('tabs:list', z.object({}), async () => {
@@ -117,6 +354,7 @@ export function registerTabIpc(win: BrowserWindow) {
           title: t.view.webContents.getTitle() || 'New Tab', 
           active: t.id === active,
           url: url || 'about:blank',
+          mode: t.mode,
         };
       } catch (e) {
         // If webContents is destroyed, return basic info
@@ -125,6 +363,7 @@ export function registerTabIpc(win: BrowserWindow) {
           title: 'New Tab',
           active: t.id === active,
           url: 'about:blank',
+          mode: t.mode,
         };
       }
     }) as z.infer<typeof TabListResponse>;
@@ -134,306 +373,22 @@ export function registerTabIpc(win: BrowserWindow) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Tabs] Creating tab with request:', request);
     }
-    const id = randomUUID();
-    
-    // Get partition from active session or profile
-    // Enhanced with site isolation: each origin gets its own partition for security
-    let partition: string;
-    let basePartition: string;
-    
-    if (request.profileId) {
-      basePartition = `persist:profile:${request.profileId}`;
-    } else {
-      const sessionManager = getSessionManager();
-      const activeSession = sessionManager.getActiveSession();
-      if (activeSession) {
-        basePartition = sessionManager.getSessionPartition(activeSession.id);
-      } else {
-        basePartition = `ephemeral:${randomUUID()}`; // Ephemeral container
-      }
-    }
-    
-    // Add site isolation: hash origin to create unique partition per site
-    try {
-      const url = new URL(request.url || 'about:blank');
-      const origin = url.origin;
-      const originHash = createHash('sha256').update(origin).digest('hex').slice(0, 16);
-      partition = `${basePartition}:site:${originHash}`;
-    } catch {
-      // Fallback to base partition if URL parsing fails
-      partition = basePartition;
-    }
-    
-    const sess = session.fromPartition(partition);
-    
-    // Determine session for this tab
-    const sessionManager = getSessionManager();
-    const activeSession = sessionManager.getActiveSession();
-    const sessionId = activeSession?.id || 'default';
-    
-    // Configure BrowserView with proper settings for video playback
-    const view = new BrowserView({ 
-      webPreferences: { 
-        session: sess, 
-        contextIsolation: true, 
-        sandbox: false, // YouTube videos require sandbox: false for proper playback
-        nodeIntegration: false,
-        webSecurity: true,
-        allowRunningInsecureContent: false,
-        experimentalFeatures: true,
-        // Enable plugins and autoplay for video sites
-        plugins: true,
-        autoplayPolicy: 'no-user-gesture-required',
-      } 
-    });
-    
-    // Set up fullscreen handlers
-    view.webContents.on('enter-html-full-screen', () => { 
-      try { 
-        win.setFullScreen(true);
-        // Notify renderer about fullscreen state
-        win.webContents.send('app:fullscreen-changed', { fullscreen: true });
-        // Wait for fullscreen to be set, then resize BrowserView
-        setTimeout(() => {
-          const display = screen.getPrimaryDisplay();
-          const { width, height } = display.workAreaSize;
-          view.setBounds({ x: 0, y: 0, width, height });
-        }, 100);
-      } catch (e) {
-        console.error('Failed to enter fullscreen:', e);
-      } 
-    });
-    view.webContents.on('leave-html-full-screen', () => { 
-      try { 
-        win.setFullScreen(false);
-        // Notify renderer about fullscreen state
-        win.webContents.send('app:fullscreen-changed', { fullscreen: false });
-        // Restore BrowserView to normal bounds
-        setTimeout(() => {
-          updateBrowserViewBounds(win, id);
-        }, 100);
-      } catch (e) {
-        console.error('Failed to leave fullscreen:', e);
-      } 
-    });
-    
-    // Set up media permissions for video playback
-    sess.setPermissionRequestHandler((_wc, permission, callback) => {
-      // Allow all media-related permissions for video sites
-      if (['media', 'display-capture', 'notifications'].includes(permission)) {
-        callback(true);
-      } else {
-        callback(false);
-      }
-    });
-    
-    // Set up permission check handler
-    sess.setPermissionCheckHandler((_wc, permission, _origin) => {
-      // Allow media permissions
-      if (permission === 'media') {
-        return true;
-      }
-      return false;
-    });
-    
-    view.webContents.loadURL(request.url || 'about:blank').catch(()=>{});
-    view.webContents.on('page-title-updated', () => emit());
-    view.webContents.on('did-navigate', async (_e2, navUrl) => {
-      emit();
-      
-      // Inject shields protection (only for non-video sites)
-      try {
-        const urlObj = new URL(navUrl);
-        const isVideoSite = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv'].some(domain => 
-          urlObj.hostname.includes(domain)
-        );
-        
-        if (!isVideoSite) {
-          const shieldsService = getShieldsService();
-          shieldsService.injectFingerprintProtection(view.webContents);
-          shieldsService.blockWebRTC(view.webContents);
-        }
-      } catch {}
-      
-      try {
-        const title = view.webContents.getTitle();
-        const hostname = new URL(navUrl).hostname;
-        pushHistory(navUrl, title || navUrl);
-        win.webContents.send('history:updated');
-        // Simple entity extraction: top capitalized tokens from body text
-        const text: string = await view.webContents.executeJavaScript('document.body.innerText.slice(0,5000)', true).catch(()=> '');
-        const entities = Array.from(new Set((text.match(/\b[A-Z][a-zA-Z]{2,}\b/g) || []).slice(0, 10)));
-        addToGraph({ key: navUrl, title, type: 'page' }, [ { src: hostname, dst: navUrl, rel: 'contains', weight: 1 } ]);
-        addToGraph({ key: hostname, title: hostname, type: 'site' });
-        for (const ent of entities) addToGraph({ key: `ent:${ent}`, title: ent, type: 'entity' }, [{ src: navUrl, dst: `ent:${ent}`, rel: 'mentions', weight: 1 }]);
-      } catch {}
-    });
-    
-    // Inject shields on DOM ready (skip for video sites)
-    view.webContents.on('dom-ready', () => {
-      try {
-        const currentUrl = view.webContents.getURL();
-        if (!currentUrl) return;
-        
-        const urlObj = new URL(currentUrl);
-        const isVideoSite = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv'].some(domain => 
-          urlObj.hostname.includes(domain)
-        );
-        
-        if (!isVideoSite) {
-          const shieldsService = getShieldsService();
-          shieldsService.injectFingerprintProtection(view.webContents);
-          shieldsService.blockWebRTC(view.webContents);
-        }
-      } catch {}
-    });
-    const tabs = getTabs(win);
-    tabs.push({ id, view, partition, sessionId });
-    setActiveTab(win, id);
-    
-    // Update session tab count
-    const sessionTabs = tabs.filter(t => t.sessionId === sessionId);
-    sessionManager.updateTabCount(sessionId, sessionTabs.length, id);
-    
-    emit();
-    
-    // Setup video call optimizer for video calling sites
-    const optimizer = getVideoCallOptimizer();
-    view.webContents.once('did-finish-load', () => {
-      const url = view.webContents.getURL();
-      if (url) {
-        optimizer.setupForWebContents(view.webContents, url);
-      }
-    });
-    
-    // Return the created tab ID
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Tabs] Tab created successfully:', id);
-    }
-    return { id } as z.infer<typeof TabCreateResponse>;
+    const defaultMode: TabMode = (win as any).__ob_tabModeDefault ?? 'normal';
+    return createTabInternal({
+      url: request.url,
+      profileId: request.profileId,
+      mode: defaultMode,
+    }) as Promise<z.infer<typeof TabCreateResponse>>;
   });
 
   registerHandler('tabs:createWithProfile', TabCreateWithProfileRequest, async (_event, request) => {
-    const id = randomUUID();
-    const partition = `persist:acct:${request.accountId}`;
-    const sess = session.fromPartition(partition);
-    
-    // Configure BrowserView with proper settings for video playback
-    const view = new BrowserView({ 
-      webPreferences: { 
-        session: sess, 
-        contextIsolation: true, 
-        sandbox: false, // YouTube videos require sandbox: false
-        nodeIntegration: false,
-        webSecurity: true,
-        allowRunningInsecureContent: false,
-        experimentalFeatures: true,
-        plugins: true,
-        autoplayPolicy: 'no-user-gesture-required',
-      } 
-    });
-    
-    // Set up fullscreen handlers
-    view.webContents.on('enter-html-full-screen', () => { 
-      try { 
-        win.setFullScreen(true);
-        win.webContents.send('app:fullscreen-changed', { fullscreen: true });
-        setTimeout(() => {
-          const display = screen.getPrimaryDisplay();
-          const { width, height } = display.workAreaSize;
-          view.setBounds({ x: 0, y: 0, width, height });
-        }, 100);
-      } catch (e) {
-        console.error('Failed to enter fullscreen:', e);
-      } 
-    });
-    view.webContents.on('leave-html-full-screen', () => { 
-      try { 
-        win.setFullScreen(false);
-        win.webContents.send('app:fullscreen-changed', { fullscreen: false });
-        setTimeout(() => {
-          updateBrowserViewBounds(win, id);
-        }, 100);
-      } catch (e) {
-        console.error('Failed to leave fullscreen:', e);
-      } 
-    });
-    
-    // Set up media permissions
-    sess.setPermissionRequestHandler((_wc, permission, callback) => {
-      if (['media', 'display-capture', 'notifications'].includes(permission)) {
-        callback(true);
-      } else {
-        callback(false);
-      }
-    });
-    
-    sess.setPermissionCheckHandler((_wc, permission, _origin) => {
-      if (permission === 'media') {
-        return true;
-      }
-      return false;
-    });
-    
-    // Set up navigation state tracking
-    const sendNavigationState = () => {
-      win.webContents.send('tabs:navigation-state', {
-        tabId: id,
-        canGoBack: view.webContents.canGoBack(),
-        canGoForward: view.webContents.canGoForward(),
-      });
-    };
-    
-    view.webContents.loadURL(request.url || 'about:blank').catch(()=>{});
-    view.webContents.on('page-title-updated', async () => {
-      emit();
-      // Update history with new title when page title updates
-      try {
-        const currentUrl = view.webContents.getURL();
-        if (currentUrl && !currentUrl.startsWith('about:') && !currentUrl.startsWith('chrome:')) {
-          const title = view.webContents.getTitle();
-          pushHistory(currentUrl, title || currentUrl);
-          win.webContents.send('history:updated');
-        }
-      } catch {}
-    });
-    view.webContents.on('did-navigate', async (_e2, navUrl) => {
-      emit();
-      sendNavigationState();
-      try {
-        const title = view.webContents.getTitle();
-        const hostname = new URL(navUrl).hostname;
-        pushHistory(navUrl, title || navUrl);
-        win.webContents.send('history:updated');
-        const text: string = await view.webContents.executeJavaScript('document.body.innerText.slice(0,5000)', true).catch(()=> '');
-        const entities = Array.from(new Set((text.match(/\b[A-Z][a-zA-Z]{2,}\b/g) || []).slice(0, 10)));
-        addToGraph({ key: navUrl, title, type: 'page' }, [ { src: hostname, dst: navUrl, rel: 'contains', weight: 1 } ]);
-        addToGraph({ key: hostname, title: hostname, type: 'site' });
-        for (const ent of entities) addToGraph({ key: `ent:${ent}`, title: ent, type: 'entity' }, [{ src: navUrl, dst: `ent:${ent}`, rel: 'mentions', weight: 1 }]);
-      } catch {}
-    });
-
-    view.webContents.on('did-navigate-in-page', () => {
-      sendNavigationState();
-    });
-    
-    const tabs = getTabs(win);
-    tabs.push({ id, view, partition });
-    setActiveTab(win, id);
-    emit();
-    
-    // Setup video call optimizer for video calling sites
-    const optimizer = getVideoCallOptimizer();
-    view.webContents.once('did-finish-load', () => {
-      const url = view.webContents.getURL();
-      if (url) {
-        optimizer.setupForWebContents(view.webContents, url);
-      }
-    });
-    
-    // Send initial navigation state after a brief delay to ensure page has loaded
-    setTimeout(() => sendNavigationState(), 100);
-    return { id } as TabCreateResponse;
+    const defaultMode: TabMode = (win as any).__ob_tabModeDefault ?? 'normal';
+    return createTabInternal({
+      url: request.url,
+      partitionOverride: `persist:acct:${request.accountId}`,
+      mode: defaultMode,
+      activate: true,
+    }) as Promise<z.infer<typeof TabCreateResponse>>;
   });
 
   registerHandler('tabs:close', TabCloseRequest, async (_event, request) => {
@@ -553,7 +508,8 @@ export function registerTabIpc(win: BrowserWindow) {
           id: t.id, 
           title: t.view.webContents.getTitle() || 'New Tab', 
           url: url || 'about:blank',
-          active: t.id === active 
+          active: t.id === active,
+          mode: t.mode,
         };
       } catch (e) {
         return {
@@ -561,6 +517,7 @@ export function registerTabIpc(win: BrowserWindow) {
           title: 'New Tab',
           url: 'about:blank',
           active: t.id === active,
+          mode: t.mode,
         };
       }
     });
@@ -631,7 +588,8 @@ export function registerTabIpc(win: BrowserWindow) {
             id: t.id, 
             title, 
             url,
-            active: t.id === active 
+            active: t.id === active,
+            mode: t.mode,
           };
         });
         win.webContents.send('tabs:updated', tabList);
@@ -847,7 +805,7 @@ export function registerTabIpc(win: BrowserWindow) {
       
       // Set up media permissions
       sess.setPermissionRequestHandler((_wc, permission, callback) => {
-        if (['media', 'display-capture', 'notifications'].includes(permission)) {
+        if (['media', 'display-capture', 'notifications', 'fullscreen'].includes(permission)) {
           callback(true);
         } else {
           callback(false);
@@ -855,7 +813,7 @@ export function registerTabIpc(win: BrowserWindow) {
       });
       
       sess.setPermissionCheckHandler((_wc, permission, _origin) => {
-        if (permission === 'media') {
+        if (permission === 'media' || permission === 'fullscreen') {
           return true;
         }
         return false;
@@ -980,7 +938,7 @@ export function registerTabIpc(win: BrowserWindow) {
       
       // Set up media permissions
       sess.setPermissionRequestHandler((_wc, permission, callback) => {
-        if (['media', 'display-capture', 'notifications'].includes(permission)) {
+        if (['media', 'display-capture', 'notifications', 'fullscreen'].includes(permission)) {
           callback(true);
         } else {
           callback(false);
@@ -988,7 +946,7 @@ export function registerTabIpc(win: BrowserWindow) {
       });
       
       sess.setPermissionCheckHandler((_wc, permission, _origin) => {
-        if (permission === 'media') {
+        if (permission === 'media' || permission === 'fullscreen') {
           return true;
         }
         return false;
@@ -1164,7 +1122,8 @@ function setActiveTab(win: BrowserWindow, id: string) {
           id: t.id, 
           title, 
           url: url || 'about:blank',
-          active: t.id === active 
+          active: t.id === active,
+          mode: t.mode,
         };
       } catch (e) {
         return {
@@ -1172,6 +1131,7 @@ function setActiveTab(win: BrowserWindow, id: string) {
           title: 'New Tab',
           url: 'about:blank',
           active: t.id === active,
+          mode: t.mode,
         };
       }
     });

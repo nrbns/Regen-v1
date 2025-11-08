@@ -90,11 +90,12 @@ export function registerSessionsIpc() {
           const newSessionTabs = tabs.filter(t => t.sessionId === request.sessionId);
           if (newSessionTabs.length > 0) {
             // Tab activation will be handled by tabs:activate
-            win.webContents.send('tabs:updated', newSessionTabs.map(t => ({
+        win.webContents.send('tabs:updated', newSessionTabs.map(t => ({
               id: t.id,
               title: t.view.webContents.getTitle() || 'New Tab',
               url: t.view.webContents.getURL() || 'about:blank',
-              active: false,
+          active: false,
+          mode: t.mode,
             })));
           }
         }
@@ -132,6 +133,7 @@ export function registerSessionsIpc() {
           title: t.view.webContents.getTitle() || 'New Tab',
           url: t.view.webContents.getURL() || 'about:blank',
           active: false,
+          mode: t.mode,
         })));
       }
     }
