@@ -16,6 +16,8 @@ import { TabContextMenu } from './TabContextMenu';
 import { usePeekPreviewStore } from '../../state/peekStore';
 import { Portal } from '../common/Portal';
 
+const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
+
 interface Tab {
   id: string;
   title: string;
@@ -835,6 +837,25 @@ export function TabStrip() {
                     ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
                   `}
                   style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none' }}
+                  draggable
+                  onDragStart={(event) => {
+                    try {
+                      event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
+                      if (tab.title) {
+                        event.dataTransfer?.setData('text/plain', tab.title);
+                      }
+                      if (event.dataTransfer) {
+                        event.dataTransfer.effectAllowed = 'copy';
+                      }
+                    } catch (error) {
+                      if (process.env.NODE_ENV === 'development') {
+                        console.warn('[TabStrip] Drag start failed', error);
+                      }
+                    }
+                  }}
+                  onDragEnd={() => {
+                    window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
+                  }}
                   onClick={(e) => {
                     // Primary click handler - ensure it fires
                     e.preventDefault();

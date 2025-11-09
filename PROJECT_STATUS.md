@@ -45,6 +45,9 @@ Track Tor proxy integration, CSP rollout, and telemetry opt-in rates; no blockin
 - Tor/VPN status indicators + toggles integrated into top nav + status bar.
 - Redix memory API now blocks high-risk PII via configurable server guardrails.
 - CSP tightened and iframe allow-list proxy shipped for embedded research widgets.
+- Extension memory queue now AES-GCM encrypted via WebCrypto.
+- Tab graph now accepts drag-and-drop from tab strip and highlights focused tabs.
+- Omnibox surfaces smart `@redix` suggestions and Redix badges by default.
 
 ## Upcoming Milestones
 1. **Milestone M1 – Beta Release Candidate (target 2025-11-30):**

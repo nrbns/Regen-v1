@@ -33,6 +33,7 @@
 | **Action Cards** | 8/10 | Large, bold, hover lift — **Arc-level clarity**. |
 | **Status Bar** | 7/10 | Shows CPU/RAM, privacy mode, model — **transparent**. |
 | **Tab Hibernation Indicator** | 8/10 | Fades inactive tabs — **saves RAM visibly**. |
+| **Redix Omnibox** | 8/10 | Pre-suggests `@redix` prompts with live badges. |
 
 #### **Critical UI Issues (Fix in 48h)**
 
@@ -81,7 +82,7 @@
 | CSP Headers | **SHIPPED** | Hardened CSP with allow-listed frames + COOP/COEP |
 | iframe Proxy | **SHIPPED** | Allow-listed hosts bypass `X-Frame-Options` via Electron `webRequest` |
 | Consent Ledger | **IMPROVED** | Dashboard overlay, approve/revoke wiring live |
-| Local Storage Encryption | **NO** | Use `crypto.subtle` for memory |
+| Local Storage Encryption | **YES** | Extension queue encrypted with AES-GCM (WebCrypto) |
 | PII Guardrails | **NEW** | Server-side detectors block high-risk writes (SSN/CC) |
 | PII Guardrails | **NEW** | Server-side detectors block high-risk writes (SSN/CC) |
 
@@ -97,6 +98,7 @@
 | **Local AI (Ollama)** | YES | `ollama run llama3.2` → no cloud |
 | **Battery Monitor** | YES | Predicts <30% drop, auto-throttle prompt |
 | **Tab Graph Overlay** | YES | `Ctrl+Shift+G` → live container/domain graph |
+| **Drag-to-Graph** | YES | Drag tab onto canvas → auto highlight + fetch DNA |
 
 ---
 

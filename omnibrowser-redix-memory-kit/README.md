@@ -55,6 +55,11 @@ Default is `high`, so SSNs/credit cards return `422` unless you explicitly allow
 Some data sources lock down `X-Frame-Options`. The desktop shell strips those headers for a small allow-list (TradingView, YouTube, Vimeo, Google Calendar, Spotify).  
 Add more hosts with `IFRAME_ALLOWLIST=example.com,sub.domain.com` before launching Electron to relax framing for additional domains.
 
+### 3.3 Local Queue Encryption
+
+Queued memories in the extension are encrypted at rest using `crypto.subtle` (AES-GCM 256).  
+The key lives in `chrome.storage.local` and rotates automatically if import fails. Legacy plaintext queues are migrated on first load.
+
 ## 4. Extension Overview
 
 - `background.js` handles queueing, throttled flushes, and mode cycling.

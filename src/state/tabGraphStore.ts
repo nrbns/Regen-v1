@@ -42,10 +42,13 @@ interface TabGraphState {
   loading: boolean;
   error: string | null;
   data: TabGraphData | null;
+  focusedTabId: string | null;
   open: () => Promise<void>;
   close: () => void;
   toggle: () => Promise<void>;
   refresh: () => Promise<void>;
+  setFocusedTab: (tabId: string | null) => void;
+  focusTab: (tabId: string) => Promise<void>;
 }
 
 export const useTabGraphStore = create<TabGraphState>((set, get) => ({
@@ -53,6 +56,7 @@ export const useTabGraphStore = create<TabGraphState>((set, get) => ({
   loading: false,
   error: null,
   data: null,
+  focusedTabId: null,
   async open() {
     if (!get().visible) {
       set({ visible: true });
@@ -60,11 +64,11 @@ export const useTabGraphStore = create<TabGraphState>((set, get) => ({
     await get().refresh();
   },
   close() {
-    set({ visible: false });
+    set({ visible: false, focusedTabId: null });
   },
   async toggle() {
     if (get().visible) {
-      set({ visible: false });
+      set({ visible: false, focusedTabId: null });
     } else {
       set({ visible: true });
       await get().refresh();
@@ -81,5 +85,12 @@ export const useTabGraphStore = create<TabGraphState>((set, get) => ({
     } catch (error) {
       set({ loading: false, error: error instanceof Error ? error.message : String(error) });
     }
+  },
+  setFocusedTab(tabId) {
+    set({ focusedTabId: tabId });
+  },
+  async focusTab(tabId) {
+    set({ visible: true, focusedTabId: tabId });
+    await get().refresh();
   },
 }));

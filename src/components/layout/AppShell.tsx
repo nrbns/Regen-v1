@@ -12,6 +12,7 @@ import { ipc } from '../../lib/ipc-typed';
 import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
 import { formatDistanceToNow } from 'date-fns';
+import { useTabGraphStore } from '../../state/tabGraphStore';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -204,6 +205,82 @@ export function AppShell() {
   const onboardingVisible = useOnboardingStore((state) => state.visible);
   const startOnboarding = useOnboardingStore((state) => state.start);
   const finishOnboarding = useOnboardingStore((state) => state.finish);
+  const [graphDropHint, setGraphDropHint] = useState(false);
+  useEffect(() => {
+    let dragCounter = 0;
+
+    const isGraphDrag = (event: DragEvent) => {
+      const types = event.dataTransfer?.types;
+      if (!types) return false;
+      return Array.from(types).includes('application/x-omnibrowser-tab-id');
+    };
+
+    const handleDragEnter = (event: DragEvent) => {
+      if (!isGraphDrag(event)) return;
+      event.preventDefault();
+      dragCounter += 1;
+      setGraphDropHint(true);
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      if (!isGraphDrag(event)) return;
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDragLeave = (event: DragEvent) => {
+      if (!isGraphDrag(event)) return;
+      dragCounter = Math.max(0, dragCounter - 1);
+      if (dragCounter === 0) {
+        setGraphDropHint(false);
+      }
+    };
+
+    const handleDragEnd = () => {
+      dragCounter = 0;
+      setGraphDropHint(false);
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      if (!isGraphDrag(event)) return;
+      event.preventDefault();
+      dragCounter = 0;
+      setGraphDropHint(false);
+      const tabId = event.dataTransfer?.getData('application/x-omnibrowser-tab-id');
+      if (tabId) {
+        try {
+          void useTabGraphStore.getState().focusTab(tabId);
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AppShell] Failed to focus tab graph from drop', error);
+          }
+        }
+      }
+    };
+
+    const handleCustomDragEnd = () => {
+      dragCounter = 0;
+      setGraphDropHint(false);
+    };
+
+    document.addEventListener('dragenter', handleDragEnter);
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('dragleave', handleDragLeave);
+    document.addEventListener('dragend', handleDragEnd);
+    document.addEventListener('drop', handleDrop);
+    window.addEventListener('tabgraph:dragend', handleCustomDragEnd as EventListener);
+
+    return () => {
+      document.removeEventListener('dragenter', handleDragEnter);
+      document.removeEventListener('dragover', handleDragOver);
+      document.removeEventListener('dragleave', handleDragLeave);
+      document.removeEventListener('dragend', handleDragEnd);
+      document.removeEventListener('drop', handleDrop);
+      window.removeEventListener('tabgraph:dragend', handleCustomDragEnd as EventListener);
+    };
+  }, []);
   const consentVisible = useConsentOverlayStore((state) => state.visible);
   const tabsState = useTabsStore();
   const activeTab = tabsState.tabs.find(tab => tab.id === tabsState.activeId);
@@ -627,6 +704,18 @@ export function AppShell() {
           </ErrorBoundary>
         </Portal>
       </Suspense>
+
+      {graphDropHint && (
+        <Portal>
+          <div className="pointer-events-none fixed inset-0 z-[1030] flex items-center justify-center">
+            <div className="rounded-3xl border border-purple-500/40 bg-purple-900/50 px-8 py-6 text-center shadow-[0_0_60px_rgba(168,85,247,0.35)] backdrop-blur-sm">
+              <div className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">Tab graph</div>
+              <div className="mt-2 text-lg font-semibold text-purple-100">Drop to map this tab&apos;s DNA</div>
+              <div className="mt-1 text-xs text-purple-200/80">Release anywhere to open the graph overlay.</div>
+            </div>
+          </div>
+        </Portal>
+      )}
 
       <Suspense fallback={null}>
         <Portal>

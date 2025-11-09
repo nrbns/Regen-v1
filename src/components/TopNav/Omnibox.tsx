@@ -405,7 +405,7 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
       }
       const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
 
-      const pushSuggestion = (suggestion: Suggestion) => {
+      const pushSuggestion = (suggestion: Suggestion, front = false) => {
         if (!suggestion.title) return;
         const exists = results.some(
           (item) =>
@@ -415,7 +415,11 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
             item.type === suggestion.type,
         );
         if (!exists) {
-          results.push(suggestion);
+          if (front) {
+            results.unshift(suggestion);
+          } else {
+            results.push(suggestion);
+          }
         }
       };
 
@@ -425,6 +429,48 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
         if (quickSuggestion) {
           pushSuggestion(quickSuggestion);
         }
+      }
+
+      const trimmed = normalized.trim();
+      const shouldSuggestRedix =
+        trimmed.length > 0 && !trimmed.startsWith('@') && !trimmed.startsWith('/');
+      if (
+        shouldSuggestRedix &&
+        !(quickAction && (quickAction.type === 'agent' || quickAction.type === 'ai'))
+      ) {
+        pushSuggestion(
+          {
+            type: 'command',
+            title: `Ask @redix: ${trimmed}`,
+            subtitle: 'Stream the Redix agent answer inline',
+            action: { type: 'agent', prompt: trimmed },
+            badge: '@redix',
+            icon: 'sparkles',
+          },
+          true,
+        );
+      } else if (!trimmed) {
+        const defaultPrompts = [
+          activeTab?.title ? `Summarize "${activeTab.title}"` : 'Summarize this tab',
+          'Why did regen mode fire?',
+          'What related sources am I tracking?',
+        ];
+        defaultPrompts
+          .slice()
+          .reverse()
+          .forEach((prompt, index) =>
+            pushSuggestion(
+              {
+                type: 'command',
+                title: `Ask @redix: ${prompt}`,
+                subtitle: index === defaultPrompts.length - 1 ? 'Redix agent' : undefined,
+                action: { type: 'agent', prompt },
+                badge: '@redix',
+                icon: 'sparkles',
+              },
+              true,
+            ),
+          );
       }
 
       if (queryLower.length > 0 && !queryLower.startsWith('http') && !queryLower.includes('.')) {
@@ -499,7 +545,7 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
 
       setSuggestions(results.slice(0, 8));
     }, 150),
-    [tabs, recentItems]
+    [tabs, recentItems, activeTab?.id, activeTab?.title]
   );
 
   const debouncedLiveSearch = useMemo(
@@ -993,6 +1039,11 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
                     </div>
                   )}
                 </div>
+                {suggestion.badge && (
+                  <div className="ml-auto flex-shrink-0 rounded-full border border-purple-500/40 bg-purple-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-200">
+                    {suggestion.badge}
+                  </div>
+                )}
               </motion.button>
             ))}
           </motion.div>

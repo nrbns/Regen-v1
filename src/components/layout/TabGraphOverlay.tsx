@@ -26,13 +26,15 @@ const getPosition = (index: number, total: number) => {
 };
 
 export function TabGraphOverlay() {
-  const { visible, data, loading, error, close, refresh } = useTabGraphStore((state) => ({
+  const { visible, data, loading, error, close, refresh, focusedTabId, setFocusedTab } = useTabGraphStore((state) => ({
     visible: state.visible,
     data: state.data,
     loading: state.loading,
     error: state.error,
     close: state.close,
     refresh: state.refresh,
+    focusedTabId: state.focusedTabId,
+    setFocusedTab: state.setFocusedTab,
   }));
   const [hovered, setHovered] = useState<TabGraphNode | null>(null);
 
@@ -68,6 +70,22 @@ export function TabGraphOverlay() {
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
     return { positions, edges };
   }, [data]);
+
+  useEffect(() => {
+    if (!graph || !focusedTabId) {
+      return;
+    }
+    const target = graph.positions.find((item) => item.node.id === focusedTabId);
+    if (target) {
+      setHovered(target.node);
+    }
+  }, [graph, focusedTabId]);
+
+  const handleClose = () => {
+    setHovered(null);
+    setFocusedTab(null);
+    close();
+  };
 
   if (!visible) {
     return null;
@@ -116,7 +134,7 @@ export function TabGraphOverlay() {
             </button>
             <button
               type="button"
-              onClick={() => close()}
+              onClick={handleClose}
               className="rounded-full border border-slate-700/60 bg-slate-900/70 p-2 text-gray-300 hover:bg-slate-900/90 transition-colors"
               aria-label="Close tab graph overlay"
             >
@@ -158,12 +176,22 @@ export function TabGraphOverlay() {
 
                 {graph?.positions.map(({ node, x, y }) => {
                   const isHovered = hovered?.id === node.id;
+                  const isFocused = focusedTabId === node.id;
                   return (
                     <g key={node.id} transform={`translate(${x}, ${y})`}>
+                      {isFocused && (
+                        <motion.circle
+                          r={NODE_RADIUS + 14}
+                          className="fill-transparent stroke-purple-400/70"
+                          strokeWidth={1.5}
+                          animate={{ scale: [1, 1.08, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                        />
+                      )}
                       <motion.circle
                         r={NODE_RADIUS}
-                        className={`stroke-2 ${node.active ? 'stroke-emerald-400' : 'stroke-slate-700/70'}`}
-                        fill={node.active ? '#10b98133' : '#1f293733'}
+                        className={`stroke-2 ${isFocused ? 'stroke-purple-400' : node.active ? 'stroke-emerald-400' : 'stroke-slate-700/70'}`}
+                        fill={isFocused ? '#a855f73d' : node.active ? '#10b98133' : '#1f293733'}
                         whileHover={{ scale: 1.05 }}
                         onMouseEnter={() => setHovered(node)}
                         onMouseLeave={() => setHovered(null)}
