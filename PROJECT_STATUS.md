@@ -10,7 +10,7 @@ _Last updated: 2025-11-09_
 ## Phase Tracker
 | Track | Status | Notes |
 |-------|--------|-------|
-| Release Hygiene | 🟢 Complete | Status doc restored, changelog/tagged `v0.2.0-beta`, signed installers pipeline verified, CI (`npm run ci:check`) green. |
+| Release Hygiene | ✅ Complete | Status doc restored, v0.2.0-beta tagged, signed installers & README/demo shipped. |
 | Onboarding & Docs | 🟢 Complete | Installation guide with screenshots, consent ledger tour, and privacy docs published. |
 | UI/UX Polish | 🟢 Complete | Split-view, hibernation indicators, accessibility fixes, auto theming, and resilient error boundaries live. |
 | Stability & Observability | 🟢 Complete | CI + local checks passing; telemetry hooks and monitoring dashboards deployed. |
@@ -65,7 +65,8 @@ Track Tor proxy integration, CSP rollout, and telemetry opt-in rates; no blockin
    - ✅ Signed installers uploaded with hashes  
    - ✅ User-facing release notes published  
    - ✅ Dark/light theming & enhanced error boundaries live  
-   - ✅ Consent ledger walkthrough integrated into first-run experience
+   - ✅ Consent ledger walkthrough integrated into first-run experience  
+   - ✅ Demo video / README refresh with v0.2 highlights  
 
 ## Dependencies & Notes
 - **Certificates:** Need code-signing certificates (Windows & macOS) before packaging milestone.  

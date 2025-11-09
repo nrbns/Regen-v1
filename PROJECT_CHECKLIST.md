@@ -8,9 +8,9 @@ Curated from the deep review and roadmap discussion. Tasks are grouped by milest
 
 ### Release Hygiene
 - [x] Restore public status doc (`PROJECT_STATUS.md`) with phase tracker and blockers
-- [ ] Tag `v0.2.0-beta` with release notes and changelog
+- [x] Tag `v0.2.0-beta` with release notes and changelog
 - [x] Ensure CI runs lint (`npm run lint`), tests, and `npm audit`
-- [ ] Add signed Windows (NSIS) and macOS (DMG) installers with published hashes
+- [x] Add signed Windows (NSIS) and macOS (DMG) installers with published hashes
 
 ### Onboarding & Docs
 - [x] Publish user-friendly installation guide with screenshots _(screenshots pending, text guide available at `docs/INSTALLATION_GUIDE.md`)_
@@ -70,11 +70,11 @@ Curated from the deep review and roadmap discussion. Tasks are grouped by milest
 
 ## Operational & Support Tasks (Ongoing)
 
-- [ ] Launch community channel (Discord or GitHub Discussions) for testers
-- [ ] Document Ethical AI Manifesto highlighting consent ledger and telemetry stance
-- [ ] Schedule quarterly security reviews (Tor/VPN leakage tests, dependency audits)
-- [ ] Collect beta telemetry (opt-in) to guide UX iterations
-- [ ] Maintain public roadmap aligning releases with Arc/Brave/Atlas/Comet competitive analysis
-- [ ] Publish CI health dashboard (link to Actions) for external testers
+- [x] Launch community channel (Discord or GitHub Discussions) for testers
+- [x] Document Ethical AI Manifesto highlighting consent ledger and telemetry stance
+- [x] Schedule quarterly security reviews (Tor/VPN leakage tests, dependency audits)
+- [x] Collect beta telemetry (opt-in) to guide UX iterations
+- [x] Maintain public roadmap aligning releases with Arc/Brave/Atlas/Comet competitive analysis
+- [x] Publish CI health dashboard (link to Actions) for external testers
 
 

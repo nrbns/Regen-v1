@@ -100,4 +100,4 @@
 | **Tab Hibernation** | YES | Hide tab → RAM drops 40% |
 | **Local AI (Ollama)** | YES | `ollama run llama3.2` → no cloud |
 | **Battery Monitor** | YES | Predicts <30% drop, auto-throttle prompt |
-| **Tab Graph Overlay** | YES | `Ctrl+Shift+G`
+| **Tab Graph Overlay** | YES | `Ctrl+Shift+G` → live container/domain graph |

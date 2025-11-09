@@ -72,11 +72,11 @@ Use these seven issue outlines to track the daily deliverables from the real-tim
   - Follow `docs/DEMO_SCRIPT.md` to capture <3m clip.
   - README (root + memory kit) references new GIF & features.
   - Post to release channels (Reddit/HN/X) after QA sign-off.
-- **Status:** 🔄 Demo script prepared; recording pending.
+- **Status:** ✅ Completed (demo recorded, README updated)
 - **Checklist:**
-  - [ ] Capture demo video/GIF
-  - [ ] Update README(s)
-  - [ ] Publish to channels
+  - [x] Capture demo video/GIF
+  - [x] Update README(s)
+  - [x] Publish to channels
 
 ---
 
