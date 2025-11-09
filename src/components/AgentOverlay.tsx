@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Play, Square, Clock, Zap, FileText, Shield, Eye, Brain, ScrollText, CheckCircle2, XCircle } from 'lucide-react';
+import { Bot, Play, Square, Clock, Zap, FileText, Shield, Eye, Brain, ScrollText, CheckCircle2, XCircle, Sparkles, Loader2 } from 'lucide-react';
 import { useIPCEvent } from '../lib/use-ipc-event';
 import { ipc } from '../lib/ipc-typed';
 
@@ -19,6 +19,25 @@ interface AgentStep {
   status: 'pending' | 'running' | 'completed' | 'error';
   timestamp: number;
 }
+
+const SparkleTrail = () => (
+  <span className="flex items-center gap-1 text-purple-300/80">
+    <Sparkles size={14} />
+  </span>
+);
+
+const LoaderDots = () => (
+  <span className="flex items-center gap-1">
+    {[0, 0.2, 0.4].map((delay) => (
+      <motion.span
+        key={delay}
+        className="h-1.5 w-1.5 rounded-full bg-blue-200/80"
+        animate={{ opacity: [0.2, 1, 0.2], y: [0, -3, 0] }}
+        transition={{ duration: 1.2, repeat: Infinity, delay }}
+      />
+    ))}
+  </span>
+);
 
 interface AgentPlan {
   taskId: string;
@@ -290,6 +309,58 @@ export function AgentOverlay() {
                 </div>
               </div>
 
+              {plan.steps.length > 0 && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                    <SparkleTrail />
+                    Redix thinking
+                  </h4>
+                  <div className="flex flex-wrap gap-3">
+                    {plan.steps.map((step, idx) => {
+                      const action = actions.find((a) => a.id === step.id);
+                      let status: 'pending' | 'running' | 'completed' | 'error' = 'pending';
+                      if (action?.status === 'completed') status = 'completed';
+                      else if (action?.status === 'error') status = 'error';
+                      else if (action?.status === 'running' || currentStep === step.id) status = 'running';
+
+                      return (
+                        <motion.div
+                          key={`bubble-${step.id}`}
+                          className="flex flex-col items-center gap-1"
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                        >
+                          <div
+                            className={`relative flex h-12 w-12 items-center justify-center rounded-full border transition-all ${
+                              status === 'completed'
+                                ? 'border-emerald-400/60 bg-emerald-500/15 text-emerald-200'
+                                : status === 'error'
+                                ? 'border-rose-400/60 bg-rose-500/15 text-rose-200'
+                                : status === 'running'
+                                ? 'border-blue-400/70 bg-blue-500/15 text-blue-100'
+                                : 'border-slate-600/70 bg-slate-800/60 text-slate-300'
+                            } ${status === 'pending' ? 'opacity-70' : ''}`}
+                          >
+                            {status === 'running' && (
+                              <motion.div
+                                className="absolute inset-[3px] rounded-full bg-gradient-to-r from-blue-400/40 via-purple-400/40 to-blue-400/40"
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                              />
+                            )}
+                            <span className="relative z-10 text-xs font-semibold text-white/90">{idx + 1}</span>
+                          </div>
+                          <span className="w-20 text-center text-[10px] text-gray-400 line-clamp-2">
+                            {step.tool || step.description}
+                          </span>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <h4 className="text-sm font-semibold text-gray-300 mb-2">Steps ({plan.steps.length})</h4>
                 <div className="space-y-2">
@@ -353,9 +424,26 @@ export function AgentOverlay() {
               className="space-y-2"
             >
               {actions.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <Zap size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No actions yet</p>
+                <div className="space-y-2">
+                  {plan?.steps.slice(0, 3).map((step, index) => (
+                    <div
+                      key={`skeleton-${step.id}`}
+                      className="overflow-hidden rounded-lg border border-blue-500/30 bg-blue-500/5 p-3"
+                    >
+                      <div className="mb-2 flex items-center gap-2 text-sm text-blue-200/80">
+                        <div className="h-2 w-2 animate-ping rounded-full bg-blue-400/80" />
+                        <span>{step.tool || step.description}</span>
+                      </div>
+                        <div className="flex flex-col gap-2 text-xs text-blue-100/70">
+                          <div className="h-1.5 w-full animate-pulse rounded bg-blue-300/30" />
+                          <div className="h-1.5 w-3/4 animate-pulse rounded bg-blue-300/20" />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 py-3 text-xs text-blue-200/80">
+                    <LoaderDots />
+                    Waiting for Redix to execute actions…
+                  </div>
                 </div>
               ) : (
                 actions.map((action) => (

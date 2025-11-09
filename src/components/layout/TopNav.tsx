@@ -2,7 +2,7 @@
  * TopNav - Complete navigation bar with all components
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -48,6 +48,8 @@ import { ProfileQuickSwitcher } from '../sessions/ProfileQuickSwitcher';
 import { ContainerSwitcher } from '../sessions/ContainerSwitcher';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { DownloadUpdate, TabNavigationState } from '../../lib/ipc-events';
+import { ThemeSwitcher } from '../TopNav/ThemeSwitcher';
+import { useAppStore } from '../../state/appStore';
 
 type MenuId = 'view' | 'workspace' | 'tools' | 'agent' | 'security';
 
@@ -64,6 +66,12 @@ type MenuEntry =
   | {
       type: 'divider';
       key: string;
+    }
+  | {
+      type: 'section';
+      key: string;
+      label: string;
+      description?: string;
     };
 
 interface TopNavProps {
@@ -75,6 +83,7 @@ interface TopNavProps {
 
 export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onReaderToggle }: TopNavProps) {
   const { activeId } = useTabsStore();
+  const mode = useAppStore((state) => state.mode);
   const navigate = useNavigate();
   const toggleTabGraph = useTabGraphStore((state) => state.toggle);
   const openTabGraph = useTabGraphStore((state) => state.open);
@@ -450,54 +459,113 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
     },
   ];
 
-  const workspaceMenuEntries: MenuEntry[] = [
-    {
-      type: 'item',
-      key: 'knowledge-graph',
-      icon: Layers,
-      label: 'Knowledge Graph',
-      onSelect: () => {
-        navigate('/');
+  const workspaceMenuEntries = useMemo<MenuEntry[]>(() => {
+    const base: Record<string, MenuEntry & { type: 'item' }> = {
+      'knowledge-graph': {
+        type: 'item',
+        key: 'knowledge-graph',
+        icon: Layers,
+        label: 'Research Graph',
+        onSelect: () => navigate('/'),
       },
-    },
-    {
-      type: 'item',
-      key: 'history-graph',
-      icon: Network,
-      label: 'History Graph',
-      onSelect: () => {
-        navigate('/history');
+      'history-graph': {
+        type: 'item',
+        key: 'history-graph',
+        icon: Network,
+        label: 'History Graph',
+        onSelect: () => navigate('/history'),
       },
-    },
-    { type: 'divider', key: 'workspace-divider' },
-    {
-      type: 'item',
-      key: 'workspaces',
-      icon: FileText,
-      label: 'Workspaces',
-      onSelect: () => {
-        navigate('/workspace');
+      workspaces: {
+        type: 'item',
+        key: 'workspaces',
+        icon: FileText,
+        label: 'Workspace Library',
+        onSelect: () => navigate('/workspace'),
       },
-    },
-    {
-      type: 'item',
-      key: 'playbooks',
-      icon: Workflow,
-      label: 'Playbooks',
-      onSelect: () => {
-        navigate('/playbooks');
+      playbooks: {
+        type: 'item',
+        key: 'playbooks',
+        icon: Workflow,
+        label: 'Auto-Research Playbooks',
+        onSelect: () => navigate('/playbooks'),
       },
-    },
-    {
-      type: 'item',
-      key: 'automation-runs',
-      icon: Bot,
-      label: 'Automation Runs',
-      onSelect: () => {
-        navigate('/runs');
+      'automation-runs': {
+        type: 'item',
+        key: 'automation-runs',
+        icon: Bot,
+        label: 'Automation Runs',
+        onSelect: () => navigate('/runs'),
       },
-    },
-  ];
+      consent: {
+        type: 'item',
+        key: 'consent-ledger',
+        icon: Shield,
+        label: 'Consent Ledger',
+        onSelect: () => void openConsentDashboard(),
+      },
+      'tab-graph': {
+        type: 'item',
+        key: 'tab-graph',
+        icon: Network,
+        label: 'Tab DNA Overlay',
+        onSelect: () => void openTabGraph(),
+      },
+    };
+
+    const focusMap: Record<string, { label: string; description: string; keys: string[] }> = {
+      Research: {
+        label: 'Research Focus',
+        description: 'Suggested graph + consent tooling',
+        keys: ['knowledge-graph', 'tab-graph', 'consent'],
+      },
+      Trade: {
+        label: 'Trade Focus',
+        description: 'Stay ahead of market changes',
+        keys: ['history-graph', 'playbooks', 'automation-runs'],
+      },
+      Games: {
+        label: 'Gaming Focus',
+        description: 'Keep streams and overlays lean',
+        keys: ['tab-graph', 'history-graph'],
+      },
+      Browse: {
+        label: 'Everyday Focus',
+        description: 'Quick jump to your spaces',
+        keys: ['workspaces', 'history-graph', 'knowledge-graph'],
+      },
+    };
+
+    const persona = focusMap[mode] ?? focusMap.Browse;
+    const used = new Set<string>();
+    const entries: MenuEntry[] = [];
+
+    entries.push({
+      type: 'section',
+      key: 'persona-section',
+      label: persona.label,
+      description: persona.description,
+    });
+
+    persona.keys.forEach((key) => {
+      const entry = base[key];
+      if (entry && !used.has(key)) {
+        entries.push(entry);
+        used.add(key);
+      }
+    });
+
+    entries.push({ type: 'divider', key: 'persona-divider' });
+    entries.push({ type: 'section', key: 'all-tools', label: 'All workspace tools' });
+
+    Object.entries(base).forEach(([key, entry]) => {
+      if (!used.has(key)) {
+        entries.push(entry);
+        used.add(key);
+      }
+    });
+
+    return entries;
+  }, [mode, navigate, openConsentDashboard, openTabGraph]);
 
   const toolsMenuEntries: MenuEntry[] = [
     {
@@ -697,8 +765,8 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-haspopup="true"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-700/50 bg-gray-800/60 text-sm text-gray-300 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-            isOpen ? 'bg-gray-800/80 text-gray-100' : 'hover:bg-gray-800/80 hover:text-gray-100'
+          className={`button-surface flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm ${
+            isOpen ? 'button-surface--active text-primary' : 'text-muted'
           }`}
           title={`${label} menu`}
         >
@@ -725,29 +793,42 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-56 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl z-50 py-2"
+                className="absolute right-0 top-full mt-2 w-60 bg-surface-elevated border border-surface rounded-lg shadow-2xl z-50 py-2"
               >
-                {entries.map((entry) =>
-                  entry.type === 'divider' ? (
-                    <div key={entry.key} className="h-px my-1 bg-gray-700/50" />
-                  ) : (
+                {entries.map((entry) => {
+                  if (entry.type === 'divider') {
+                    return <div key={entry.key} className="h-px my-1 bg-[var(--surface-border)]/60" />;
+                  }
+                  if (entry.type === 'section') {
+                    return (
+                      <div key={entry.key} className="px-4 pt-1 pb-2 text-[10px] uppercase tracking-[0.24em] text-muted">
+                        <div>{entry.label}</div>
+                        {entry.description && (
+                          <div className="mt-1 text-[10px] normal-case tracking-normal text-muted/80">
+                            {entry.description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return (
                     <button
                       key={entry.key}
                       type="button"
                       disabled={entry.disabled}
                       onClick={() => handleMenuSelect(entry)}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:bg-gray-800/60"
+                      className="menu-item w-full"
                     >
-                      <entry.icon size={16} className="text-gray-400" />
+                      <entry.icon size={16} className="text-muted" />
                       <span className="flex-1 text-left">{entry.label}</span>
                       {entry.shortcut && (
-                        <kbd className="text-xs text-gray-500 bg-gray-800/80 border border-gray-700/50 rounded px-1.5 py-0.5">
+                        <kbd className="text-xs text-muted border border-surface rounded px-1.5 py-0.5">
                           {entry.shortcut}
                         </kbd>
                       )}
                     </button>
-                  )
-                )}
+                  );
+                })}
               </motion.div>
             </>
           )}
@@ -757,7 +838,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
   };
 
   return (
-    <div className="drag h-14 flex items-center px-4 gap-4 bg-gray-900/80 backdrop-blur-xl border-b border-gray-800/50 shadow-lg">
+    <div className="drag h-14 flex items-center px-4 gap-4 bg-surface-panel border-b border-surface shadow-lg text-primary transition-colors">
       {/* Left: Mode & Session controls */}
       <div className="no-drag flex items-center gap-2">
         <ModeSwitch />
@@ -776,7 +857,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-label="Go to home"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="no-drag p-2.5 rounded-lg bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="no-drag p-2.5 rounded-lg button-surface hover:text-primary"
           title="Home (Go to home screen)"
         >
           <Home size={18} />
@@ -789,10 +870,8 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-disabled={!canGoBack || !activeId}
           whileHover={{ scale: canGoBack && activeId ? 1.05 : 1 }}
           whileTap={{ scale: canGoBack && activeId ? 0.95 : 1 }}
-          className={`no-drag p-2.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-            canGoBack && activeId
-              ? 'bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-gray-100 cursor-pointer'
-              : 'text-gray-600 cursor-not-allowed opacity-50'
+          className={`no-drag p-2.5 rounded-lg button-surface ${
+            canGoBack && activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
           }`}
           title="Back (Alt+← / ⌘←)"
         >
@@ -805,10 +884,8 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-disabled={!canGoForward || !activeId}
           whileHover={{ scale: canGoForward && activeId ? 1.05 : 1 }}
           whileTap={{ scale: canGoForward && activeId ? 0.95 : 1 }}
-          className={`no-drag p-2.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-            canGoForward && activeId
-              ? 'bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-gray-100 cursor-pointer'
-              : 'text-gray-600 cursor-not-allowed opacity-50'
+          className={`no-drag p-2.5 rounded-lg button-surface ${
+            canGoForward && activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
           }`}
           title="Forward (Alt+→ / ⌘→)"
         >
@@ -821,10 +898,8 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-disabled={!activeId}
           whileHover={{ scale: activeId ? 1.05 : 1 }}
           whileTap={{ scale: activeId ? 0.95 : 1 }}
-          className={`no-drag p-2.5 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${
-            activeId
-              ? 'bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-300 hover:text-gray-100 cursor-pointer'
-              : 'text-gray-600 cursor-not-allowed opacity-50'
+          className={`no-drag p-2.5 rounded-lg button-surface ${
+            activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
           }`}
           title="Refresh (Ctrl+R / ⌘R)"
         >
@@ -851,6 +926,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         {renderMenuButton('workspace', 'Workspace', workspaceMenuEntries)}
         {renderMenuButton('tools', 'Tools', toolsMenuEntries)}
         {renderMenuButton('security', 'Security', securityMenuEntries)}
+        <ThemeSwitcher />
         <div className="hidden 2xl:flex items-center gap-1.5">
           <ShieldsButton />
           <NetworkButton />
@@ -862,7 +938,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-label={`Downloads${downloadCount > 0 ? ` (${downloadCount} active)` : ''}`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="no-drag relative p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="no-drag relative p-2 rounded-lg button-surface hover:text-primary"
           title={`Downloads${downloadCount > 0 ? ` (${downloadCount} active)` : ''}`}
         >
           <Download size={18} />
@@ -882,7 +958,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-label="Open settings"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="no-drag p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="no-drag p-2 rounded-lg button-surface hover:text-primary"
           title="Settings"
         >
           <Settings size={18} />
@@ -892,7 +968,9 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           aria-label={`Agent console${agentActive ? ' (active)' : ''}`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="no-drag relative p-2 rounded-lg bg-gradient-to-br from-purple-600/60 to-blue-600/60 hover:from-purple-600/80 hover:to-blue-600/80 border border-purple-500/30 text-white transition-all shadow-lg shadow-purple-500/20 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className={`no-drag p-2 rounded-lg button-surface ${
+            agentActive ? 'button-surface--active shadow-[0_0_18px_rgba(59,130,246,0.35)] text-primary' : 'hover:text-primary'
+          }`}
           title="Agent Console (⌘⇧A)"
         >
           <Bot size={18} />

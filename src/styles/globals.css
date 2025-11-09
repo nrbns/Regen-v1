@@ -2,21 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root { 
-  height: 100%; 
-  overflow: hidden;
+:root {
+  color-scheme: dark;
+  --surface-root: #0f172a;
+  --surface-panel: rgba(15, 23, 42, 0.88);
+  --surface-elevated: rgba(30, 41, 59, 0.85);
+  --surface-hover: rgba(148, 163, 184, 0.14);
+  --surface-border: rgba(148, 163, 184, 0.35);
+  --surface-border-strong: rgba(148, 163, 184, 0.55);
+  --text-primary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #60a5fa;
 }
 
-body { 
+:root[data-theme='light'] {
+  color-scheme: light;
+  --surface-root: #f8fafc;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-elevated: rgba(248, 250, 252, 0.92);
+  --surface-hover: rgba(15, 23, 42, 0.08);
+  --surface-border: rgba(79, 89, 107, 0.18);
+  --surface-border-strong: rgba(79, 89, 107, 0.32);
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --accent: #2563eb;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  background-color: var(--surface-root);
+  color: var(--text-primary);
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
-/* Prevent white flash on dark startup if using class strategy */
-:root { color-scheme: light dark; }
+.bg-surface-panel {
+  background-color: var(--surface-panel);
+}
+
+.bg-surface-elevated {
+  background-color: var(--surface-elevated);
+}
+
+.border-surface {
+  border-color: var(--surface-border);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.button-surface {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  backdrop-filter: blur(12px);
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.button-surface:hover,
+.button-surface:focus-visible,
+.button-surface--active {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+  border-color: var(--surface-border-strong);
+}
+
+.button-surface[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.theme-pill {
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+
+.theme-pill-active {
+  color: var(--text-primary);
+  border: 1px solid var(--surface-border-strong);
+}
+
+html, body, #root { 
+  height: 100%; 
+  overflow: hidden;
+}
 
 /* Drag regions for custom titlebar */
 .drag { -webkit-app-region: drag; }
@@ -73,6 +154,41 @@ webview, .webview { display: block; width: 100%; height: 100%; }
   100% {
     transform: translateX(100%);
   }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background-color: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-item svg {
+  color: var(--text-muted);
+}
+
+.menu-item:hover svg,
+.menu-item:focus-visible svg {
+  color: var(--text-primary);
 }
 
 

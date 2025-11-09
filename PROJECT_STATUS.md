@@ -48,6 +48,9 @@ Track Tor proxy integration, CSP rollout, and telemetry opt-in rates; no blockin
 - Extension memory queue now AES-GCM encrypted via WebCrypto.
 - Tab graph now accepts drag-and-drop from tab strip and highlights focused tabs.
 - Omnibox surfaces smart `@redix` suggestions and Redix badges by default.
+- Adaptive top nav menus surface persona-specific shortcuts and include a live theme switcher.
+- Hibernation alerts surface (“Rested N tabs · ≈MB saved”) when regen auto-sleeps tabs.
+- Agent overlay now shows Redix “thinking bubbles” with live skeleton feedback.
 
 ## Upcoming Milestones
 1. **Milestone M1 – Beta Release Candidate (target 2025-11-30):**

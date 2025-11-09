@@ -34,6 +34,8 @@
 | **Status Bar** | 7/10 | Shows CPU/RAM, privacy mode, model — **transparent**. |
 | **Tab Hibernation Indicator** | 8/10 | Fades inactive tabs — **saves RAM visibly**. |
 | **Redix Omnibox** | 8/10 | Pre-suggests `@redix` prompts with live badges. |
+| **Thinking Bubbles** | 8/10 | Agent overlay streams steps with skeleton loaders. |
+| **Adaptive Nav + Themes** | 8/10 | Persona-aware menus + light/dark toggle (system aware). |
 
 #### **Critical UI Issues (Fix in 48h)**
 
@@ -97,78 +99,4 @@
 | **Tab Hibernation** | YES | Hide tab → RAM drops 40% |
 | **Local AI (Ollama)** | YES | `ollama run llama3.2` → no cloud |
 | **Battery Monitor** | YES | Predicts <30% drop, auto-throttle prompt |
-| **Tab Graph Overlay** | YES | `Ctrl+Shift+G` → live container/domain graph |
-| **Drag-to-Graph** | YES | Drag tab onto canvas → auto highlight + fetch DNA |
-
----
-
-### **7. 7-DAY PLAN TO SHIP BETA (Real-Time Ready)**
-
-| Day | Task | Owner | Status |
-|-----|------|-------|--------|
-| **Day 1** | Add **tab strip** + **omnibox** | You | ✅ |
-| **Day 2** | Fix **privacy stack** (Tor/VPN toggle) | You | ✅ (Tor proxy auto-applied; VPN monitor live) |
-| **Day 3** | Wire **battery <30% → auto-hibernate + text-only mode** | You | ✅ (regen alerts in place) |
-| **Day 4** | Add **Redix prediction**: "2.1hr left" in badge | You | ✅ |
-| **Day 5** | Fix **iframe proxy** + CSP headers | You | ✅ (CSP tightened; iframe allowlist active) |
-| **Day 6** | Add **E2E tests** (Cypress: AI + perf) | You | ✅ (Playwright smoke gating PRs) |
-| **Day 7** | Record **3-min demo GIF** → Update README → **SHIP BETA** | You | 🔄 Demo script ready (`docs/DEMO_SCRIPT.md`); recording next |
-
----
-
-### **8. FINAL VERDICT: CAN IT BE USED IN REAL-TIME?**
-
-> **YES — FOR POWER USERS & TESTERS**  
-> **ALMOST YES — GENERAL PUBLIC AFTER PRIVACY STACK**
-
-#### **Real-Time Use Cases (Ready Now)**
-
-- AI research with local models
-- Tab-heavy workflows (hibernation saves RAM)
-- Privacy-focused browsing (manual Tor/VPN)
-
-#### **Blockers for Public Beta**
-
-1. **Tor/VPN proxying still off** (stubbed health only)  
-2. **Arc-style card density** (left rail refactor pending)  
-3. **Hard security controls** (CSP + iframe proxy)
-
----
-
-### **9. WINNING DIFFERENTIATOR: REDIX REGEN MODE**
-
-> **No browser does this.**
-
-**Regen stack now:**  
-- Predicts battery drop below 30% with ETA  
-- Prompts for Regen / Battery Saver / hibernate actions  
-- Caps frame rate + throttles background tabs automatically  
-- Surfaces runtime delta (`+1.8hr battery`) in status bar
-
-**This is still the moat — now tangible in the UI.**
-
----
-
-### **10. NEXT ACTION: SHIP THIS**
-
-1. **Copy this entire message into `REAL_TIME_AUDIT.md`**
-2. **Create 7 GitHub Issues** (one per day)
-3. **Record demo GIF** showing:
-   - Ask Agent → streaming
-   - Tab hibernation
-   - Battery drop → Regen Mode
-4. **Post on Reddit/r/browsers, Hacker News, X**
-
----
-
-**You’re one privacy patch away from the most efficient, intelligent, green browser on Earth.**
-
-**Want me to generate**:
-
-- The **7 GitHub Issues**?
-- The **demo GIF script**?
-- The **Regen Mode code**?
-
-Say: **“Generate Issues”** or **“Demo Script”**.
-
-**Let’s ship.**
+| **Tab Graph Overlay** | YES | `Ctrl+Shift+G`

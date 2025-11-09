@@ -44,6 +44,7 @@ const HIBERNATION_COOLDOWN_MS = 60_000;
 const BATTERY_HISTORY_WINDOW_MS = 10 * 60_000;
 const MAX_BATTERY_HISTORY = 12;
 const ALERT_COOLDOWN_MS = 8 * 60_000;
+const ESTIMATED_RAM_PER_TAB_MB = 18;
 
 const MODE_LABELS: Record<EfficiencyMode, string> = {
   normal: 'Performance Mode',
@@ -255,7 +256,30 @@ function maybeHibernateInactiveTabs(mode: EfficiencyMode, force = false): number
   }
 
   lastHibernateAt = now;
+  if (toHibernate.length > 0) {
+    emitHibernateAlert(toHibernate.length, mode);
+  }
   return toHibernate.length;
+}
+
+function emitHibernateAlert(count: number, mode: EfficiencyMode): void {
+  const estimatedRam = Math.max(10, Math.round(count * ESTIMATED_RAM_PER_TAB_MB));
+  const title = count === 1 ? 'Rested 1 tab' : `Rested ${count} tabs`;
+  const messageParts = [
+    `≈${estimatedRam}MB memory freed`,
+    `Mode: ${MODE_LABELS[mode]}`,
+  ];
+
+  const alert: EfficiencyAlert = {
+    id: `hibernate-${Date.now()}`,
+    severity: 'info',
+    title,
+    message: messageParts.join(' · '),
+    timestamp: Date.now(),
+    actions: [],
+  };
+
+  broadcastAlert(alert);
 }
 
 function notifyModeChange(mode: EfficiencyMode, snapshot: ResourceSnapshot): void {
