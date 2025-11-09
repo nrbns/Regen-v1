@@ -49,6 +49,7 @@ Track Tor proxy integration, CSP rollout, and telemetry opt-in rates; no blockin
 - Tab graph now accepts drag-and-drop from tab strip and highlights focused tabs.
 - Omnibox surfaces smart `@redix` suggestions and Redix badges by default.
 - Adaptive top nav menus surface persona-specific shortcuts and include a live theme switcher.
+- Personalized onboarding tour asks for focus (Research/Trade/etc.) and preloads matching defaults.
 - Hibernation alerts surface (“Rested N tabs · ≈MB saved”) when regen auto-sleeps tabs.
 - Agent overlay now shows Redix “thinking bubbles” with live skeleton feedback.
 

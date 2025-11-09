@@ -36,6 +36,7 @@
 | **Redix Omnibox** | 8/10 | Pre-suggests `@redix` prompts with live badges. |
 | **Thinking Bubbles** | 8/10 | Agent overlay streams steps with skeleton loaders. |
 | **Adaptive Nav + Themes** | 8/10 | Persona-aware menus + light/dark toggle (system aware). |
+| **Guided Tour + Persona** | YES | Onboarding asks focus (Research/Trade/etc.) and applies tailored defaults. |
 
 #### **Critical UI Issues (Fix in 48h)**
 
