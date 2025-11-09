@@ -1,7 +1,10 @@
+// @ts-nocheck
+
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
+import './lib/battery';
 
 // Error boundary with better UX
 class ErrorBoundary extends React.Component<

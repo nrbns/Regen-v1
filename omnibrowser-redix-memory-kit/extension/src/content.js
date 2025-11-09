@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global chrome, document, window, location */
+
 import { ensureOmnibar, toggleOmnibar, updateResults, updateModeLabel } from "./omnibar.js";
 
 let currentMode = "research";
@@ -12,7 +15,7 @@ initMode().catch(() => {
   /* ignore */
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "collect-snapshot") {
     const snapshot = collectSnapshot();
     sendResponse(snapshot);

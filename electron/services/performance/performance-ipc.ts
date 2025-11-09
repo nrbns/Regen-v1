@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { registerHandler } from '../../shared/ipc/router';
 import { getGPUControls } from './gpu-controls';
 import { getCrashRecovery } from './crash-recovery';
+import { updateBatteryState } from './resource-monitor';
 
 export function registerPerformanceIpc(): void {
   // GPU Controls
@@ -37,6 +38,25 @@ export function registerPerformanceIpc(): void {
     const gpu = getGPUControls();
     return { config: gpu.getConfig() };
   });
+
+  registerHandler(
+    'performance:battery:update',
+    z.object({
+      level: z.number().min(0).max(1).nullable().optional(),
+      charging: z.boolean().nullable().optional(),
+      chargingTime: z.number().nullable().optional(),
+      dischargingTime: z.number().nullable().optional(),
+    }),
+    async (_event, data) => {
+      updateBatteryState({
+        level: typeof data.level === 'number' ? data.level : null,
+        charging: typeof data.charging === 'boolean' ? data.charging : null,
+        chargingTime: typeof data.chargingTime === 'number' ? data.chargingTime : null,
+        dischargingTime: typeof data.dischargingTime === 'number' ? data.dischargingTime : null,
+      });
+      return { success: true };
+    },
+  );
 
   // Crash Recovery
   registerHandler('performance:snapshot:create', z.object({

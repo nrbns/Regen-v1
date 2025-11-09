@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global chrome, fetch */
+
 const DEFAULT_SETTINGS = {
   MEMORY_BASE: "http://localhost:8080",
   JWT: "dev",

@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global chrome */
+
 const QUEUE_KEY = "memoryQueue";
 
 export async function getQueue() {

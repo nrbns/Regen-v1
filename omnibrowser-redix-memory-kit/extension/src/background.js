@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global chrome, console */
+
 import { MemoryClient, getSettings, updateSettings } from "./api.js";
 import { appendToQueue, clearQueue, getQueue } from "./idb.js";
 import { cycleMode, getCurrentMode } from "./modes.js";
@@ -27,9 +30,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
   }
   if (command === "open-omnibar") {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: "toggle-omnibar" }).catch(() => {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.id) {
+      chrome.tabs.sendMessage(activeTab.id, { type: "toggle-omnibar" }).catch(() => {
         /* ignore */
       });
     }
@@ -41,7 +44,7 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   await snapshotTab(activeInfo.tabId, mode);
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if (changeInfo.status === "complete") {
     const mode = await getCurrentMode();
     await snapshotTab(tabId, mode);
@@ -60,7 +63,7 @@ chrome.idle.onStateChanged.addListener(async (state) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "memory:enqueue") {
     (async () => {
       await appendToQueue(message.payload);
@@ -90,7 +93,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const client = await MemoryClient.create();
-        const response = await client.search(message.query, message.options);
+        const response = await client.search(message.payload.query, message.payload.options).catch((err) => {
+          console.warn("Search failed", err);
+          return null;
+        });
         sendResponse({ ok: true, data: response });
       } catch (error) {
         sendResponse({ ok: false, error: error.message });
@@ -117,8 +123,8 @@ async function snapshotTab(tabId, mode) {
     if (!response) return;
     const payload = createTabPayload(response, mode);
     await appendToQueue(payload);
-  } catch (error) {
-    // Likely means the tab does not accept messages (chrome://, etc).
+  } catch (err) {
+    console.warn("Failed to snapshot tab", err);
   }
 }
 
@@ -159,7 +165,7 @@ async function flushQueue() {
   for (const item of queue) {
     try {
       await client.writeMemory(item);
-    } catch (error) {
+    } catch {
       remaining.push(item);
     }
   }

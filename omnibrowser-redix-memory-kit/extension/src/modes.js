@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global chrome */
+
 const MODES = ["research", "trade", "threat", "notes"];
 const MODE_KEY = "MODE";
 

@@ -1,3 +1,6 @@
+/* eslint-env browser */
+/* global document, CustomEvent */
+
 const OVERLAY_ID = "__omnibrowser_omnibar";
 
 let overlayEl;

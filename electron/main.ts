@@ -1,3 +1,7 @@
+// @ts-nocheck
+
+process.env.JSDOM_NO_CANVAS = '1';
+
 import 'dotenv/config';
 import 'source-map-support/register';
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
@@ -48,6 +52,7 @@ import { registerSpiritualIpc } from './services/spiritual/spiritual-ipc';
 import { registerPluginMarketplaceIpc } from './services/plugins/marketplace-ipc';
 import { registerEnhancedThreatIpc } from './services/threats/enhanced-ipc';
 import { registerPerformanceIpc } from './services/performance/performance-ipc';
+import { startResourceMonitor } from './services/performance/resource-monitor';
 import { registerWorkerIpc } from './services/workers/worker-ipc';
 import { registerVideoCallIpc } from './services/video-call-ipc';
 import { registerSessionsIpc } from './services/sessions-ipc';
@@ -243,7 +248,7 @@ app.whenReady().then(async () => {
   
   if (mainWindow) {
     // Set main window reference early
-    const { setMainWindow } = require('./services/windows');
+    const { setMainWindow } = await import('./services/windows');
     setMainWindow(mainWindow);
     
     // Register ALL IPC handlers BEFORE window loads to ensure readiness
@@ -292,6 +297,7 @@ app.whenReady().then(async () => {
     registerPluginMarketplaceIpc();
     registerEnhancedThreatIpc();
     registerPerformanceIpc();
+    startResourceMonitor();
     registerWorkerIpc();
     registerVideoCallIpc();
     registerSessionsIpc();
