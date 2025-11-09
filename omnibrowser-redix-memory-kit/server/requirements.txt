@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+qdrant-client
+redis
+pydantic
+python-jose[cryptography]
+sentence-transformers
+optimum[onnxruntime]
+onnxruntime
+numpy
+

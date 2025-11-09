@@ -1,0 +1,33 @@
+### Write a memory item
+POST http://localhost:8080/v1/memory.write
+Content-Type: application/json
+x-tenant: dev
+x-user: u42
+
+{
+  "project": "omnibrowser",
+  "type": "tab",
+  "title": "Redix Memory Design",
+  "mode": "research",
+  "text": "OmniBrowser integrates with the Redix core to persist browsing context.",
+  "tags": ["mode:research", "url:omnibrowser.dev"],
+  "origin": {
+    "app": "omnibrowser",
+    "mode": "research"
+  }
+}
+
+### Search for prior work
+POST http://localhost:8080/v1/memory.search
+Content-Type: application/json
+x-tenant: dev
+x-user: u42
+
+{
+  "query": "Redix memory design",
+  "top_k": 5,
+  "filters": {
+    "project": "omnibrowser"
+  }
+}
+

@@ -1,0 +1,35 @@
+{
+  "tools": [
+    {
+      "name": "memory.search",
+      "description": "Search the OmniBrowser memory graph for prior browsing, notes, and agent activity.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "filters": { "type": "object" },
+          "top_k": { "type": "integer", "default": 10 }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "memory.write",
+      "description": "Persist raw text or tab note data into the Redix memory layer.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "project": { "type": "string", "default": "omnibrowser" },
+          "type": { "type": "string", "default": "tab" },
+          "title": { "type": "string" },
+          "text": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "origin": { "type": "object" },
+          "rich": { "type": "object" }
+        },
+        "required": ["text"]
+      }
+    }
+  ]
+}
+

@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "OmniBrowser Memory Bridge",
+  "description": "Ingest tab, note, and agent activity into the Redix memory core.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "identity"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "OmniBrowser Memory Bridge"
+  },
+  "commands": {
+    "cycle-mode": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M"
+      },
+      "description": "Cycle OmniBrowser operating mode."
+    },
+    "open-omnibar": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K"
+      },
+      "description": "Open the mode-aware recall omnibar."
+    }
+  },
+  "host_permissions": ["<all_urls>"]
+}
+
