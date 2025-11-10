@@ -3,7 +3,7 @@
  * BrowserView is managed by Electron main process, we show it here
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
 import { ipcEvents } from '../../lib/ipc-events';
@@ -19,6 +19,17 @@ export function MainView() {
   const [activeTabTitle, setActiveTabTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const isElectron = useMemo(() => typeof window !== 'undefined' && Boolean((window as any).electron), []);
+
+  const canEmbedInIframe = useMemo(() => {
+    if (!activeTabUrl) return false;
+    try {
+      const url = new URL(activeTabUrl, activeTabUrl.startsWith('http') ? undefined : 'https://localhost');
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, [activeTabUrl]);
 
   // Update browser view bounds when container size changes
   useEffect(() => {
@@ -186,7 +197,7 @@ export function MainView() {
       {/* Browser Webview Container - Full Width */}
       {/* BrowserView is rendered by Electron main process and positioned by window coordinates */}
       {/* This container div is just for reference - BrowserView uses window coordinates, not DOM coordinates */}
-      <div 
+      <div
         id="browser-view-container"
         style={{
           position: 'absolute',
@@ -196,13 +207,32 @@ export function MainView() {
           bottom: 0,
           width: '100%',
           height: '100%',
-          pointerEvents: 'none', // Critical: Allow clicks to pass through to BrowserView
-          zIndex: 0, // Keep at bottom so BrowserView can be on top
+          pointerEvents: 'none',
+          zIndex: 0,
         }}
-      >
-        {/* BrowserView is managed by Electron main process */}
-        {/* Electron positions BrowserView using window.getContentBounds() coordinates */}
-      </div>
+      />
+
+      {/* In non-Electron builds (e.g., web preview) render a safe iframe fallback */}
+      {!isElectron && canEmbedInIframe && (
+        <iframe
+          key={activeTabUrl}
+          src={activeTabUrl}
+          title={activeTabTitle || activeTabUrl}
+          className="absolute inset-0 h-full w-full border-0"
+          style={{ zIndex: 1, pointerEvents: 'auto' }}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
+      )}
+
+      {!isElectron && !canEmbedInIframe && activeTabUrl && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/95 px-6 text-center text-sm text-gray-600" style={{ zIndex: 1 }}>
+          <span className="text-base font-medium text-gray-800">Preview unavailable for this URL</span>
+          <p>
+            The current site cannot be embedded in a web preview. Open OmniBrowser desktop or copy the link below to view it.
+          </p>
+          <code className="max-w-full break-all rounded bg-gray-100 px-3 py-1 text-xs text-gray-700">{activeTabUrl}</code>
+        </div>
+      )}
       
       {/* Loading indicator overlay - Only show at top, don't block BrowserView */}
       {isLoading && activeId && (
