@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Eye } from 'lucide-react';
+import { X, Plus, Eye, Sparkles } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { ipcEvents } from '../../lib/ipc-events';
@@ -15,6 +15,10 @@ import { TabHoverCard } from '../TopNav/TabHoverCard';
 import { TabContextMenu } from './TabContextMenu';
 import { usePeekPreviewStore } from '../../state/peekStore';
 import { Portal } from '../common/Portal';
+import { useTabGraphStore } from '../../state/tabGraphStore';
+import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
+import { HolographicPreviewOverlay } from '../hologram';
+import { useCrossRealityStore } from '../../state/crossRealityStore';
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
 
@@ -35,9 +39,120 @@ interface Tab {
   sleeping?: boolean;
 }
 
+interface PredictiveClusterChipProps {
+  clusters: Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>;
+  onApply: (clusterId: string) => void;
+  summary?: string | null;
+}
+
+const PredictiveClusterChip = ({ clusters, onApply, summary }: PredictiveClusterChipProps) => {
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (clusters.length === 0) {
+      setOpen(false);
+      setIndex(0);
+    } else {
+      setOpen(true);
+      setIndex(0);
+    }
+  }, [clusters]);
+
+  if (!open || clusters.length === 0) return null;
+
+  const cluster = clusters[Math.min(index, clusters.length - 1)];
+  if (!cluster) return null;
+
+  const rotate = () => {
+    setIndex((current) => (current + 1) % clusters.length);
+  };
+
+  const confidence = typeof cluster.confidence === 'number' ? Math.round(cluster.confidence * 100) : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -10 }}
+      className="no-drag flex items-center gap-2 mr-3"
+    >
+      <button
+        type="button"
+        onClick={() => onApply(cluster.id)}
+        className="px-3 py-1.5 rounded-full border border-blue-500/40 bg-blue-500/15 text-xs text-blue-100 hover:bg-blue-500/25 transition-colors"
+        title={summary ?? 'Redix suggests regrouping these tabs'}
+      >
+        Regroup <span className="font-semibold">{cluster.label}</span>
+        {confidence !== null && (
+          <span className="ml-1 text-[11px] text-blue-200/80">{confidence}%</span>
+        )}
+      </button>
+      {clusters.length > 1 && (
+        <button
+          type="button"
+          onClick={rotate}
+          className="p-1.5 rounded-full border border-slate-700/60 text-slate-300 text-[10px] hover:text-slate-100"
+          aria-label="Next suggestion"
+        >
+          ●
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
+const PredictivePrefetchHint = ({
+  entry,
+  onOpen,
+}: {
+  entry: { tabId: string; url: string; reason: string; confidence?: number } | null;
+  onOpen: (entry: { tabId: string; url: string; reason: string; confidence?: number }) => void;
+}) => {
+  if (!entry) return null;
+
+  let host = entry.url;
+  try {
+    host = new URL(entry.url).hostname.replace(/^www\./, '');
+  } catch {
+    // keep raw
+  }
+  const confidence = typeof entry.confidence === 'number' ? Math.round(entry.confidence * 100) : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -10 }}
+      className="no-drag flex items-center gap-2 mr-3"
+    >
+      <button
+        type="button"
+        onClick={() => onOpen(entry)}
+        className="px-3 py-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-xs text-emerald-100 hover:bg-emerald-500/25 transition-colors"
+        title={entry.reason}
+      >
+        Prep <span className="font-semibold">{host}</span>
+        {confidence !== null && (
+          <span className="ml-1 text-[11px] text-emerald-200/80">{confidence}%</span>
+        )}
+      </button>
+    </motion.div>
+  );
+};
+
 export function TabStrip() {
   const { tabs: storeTabs, setAll: setAllTabs, setActive: setActiveTab, activeId } = useTabsStore();
   const [tabs, setTabs] = useState<Tab[]>([]);
+  const [predictedClusters, setPredictedClusters] = useState<Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>>([]);
+  const [prefetchEntries, setPrefetchEntries] = useState<Array<{ tabId: string; url: string; reason: string; confidence?: number }>>([]);
+  const [predictionSummary, setPredictionSummary] = useState<string | null>(null);
+  const [holographicPreviewTabId, setHolographicPreviewTabId] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewMetadata, setPreviewMetadata] = useState<{ url?: string; title?: string } | null>(null);
+  const [hologramSupported, setHologramSupported] = useState<boolean | null>(null);
+  const [handoffStatus, setHandoffStatus] = useState<{ platform: string; lastSentAt: number | null }>({ platform: 'desktop', lastSentAt: null });
+  const registerHandoff = useCrossRealityStore((state) => state.registerHandoff);
   const [contextMenu, setContextMenu] = useState<{
     tabId: string;
     url: string;
@@ -58,11 +173,69 @@ export function TabStrip() {
   const stripRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<Tab[]>(tabs);
   const openPeek = usePeekPreviewStore((state) => state.open);
+  const predictiveRequestRef = useRef<Promise<void> | null>(null);
+  const lastPredictionSignatureRef = useRef<string>('');
   
   // Keep ref in sync with activeId (doesn't cause re-renders)
   useEffect(() => {
     currentActiveIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    if (!hasInitialized) return;
+    void fetchPredictiveSuggestions({ force: true });
+  }, [hasInitialized, fetchPredictiveSuggestions]);
+
+  const fetchPredictiveSuggestions = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (predictiveRequestRef.current && !options?.force) {
+        return predictiveRequestRef.current;
+      }
+
+      const signature = tabsRef.current
+        .map((tab) => `${tab.id}:${tab.lastActiveAt ?? 0}`)
+        .sort()
+        .join('|');
+
+      if (!options?.force && signature && signature === lastPredictionSignatureRef.current && predictedClusters.length > 0) {
+        return;
+      }
+
+      const requestPromise = (async () => {
+        try {
+          const response = await ipc.tabs.predictiveGroups(options?.force ? { force: true } : {});
+          lastPredictionSignatureRef.current = signature;
+          if (!response) {
+            setPredictedClusters([]);
+            setPrefetchEntries([]);
+            setPredictionSummary(null);
+            return;
+          }
+
+          setPredictedClusters(Array.isArray(response.groups) ? response.groups : []);
+          setPrefetchEntries(Array.isArray(response.prefetch) ? response.prefetch : []);
+          setPredictionSummary(response.summary?.explanation ?? null);
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[TabStrip] Predictive suggestions failed', error);
+          }
+          if (options?.force) {
+            setPredictedClusters([]);
+            setPrefetchEntries([]);
+            setPredictionSummary(null);
+          }
+        } finally {
+          if (predictiveRequestRef.current === requestPromise) {
+            predictiveRequestRef.current = null;
+          }
+        }
+      })();
+
+      predictiveRequestRef.current = requestPromise;
+      return requestPromise;
+    },
+    [predictedClusters.length]
+  );
 
   const refreshTabsFromMain = useCallback(async () => {
     try {
@@ -112,12 +285,30 @@ export function TabStrip() {
         setActiveTab(null);
         currentActiveIdRef.current = null;
       }
+
+      void fetchPredictiveSuggestions();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[TabStrip] Failed to refresh tabs from main process:', error);
       }
     }
-  }, [setActiveTab, setAllTabs]);
+  }, [setActiveTab, setAllTabs, fetchPredictiveSuggestions]);
+
+  useEffect(() => {
+    const checkHologramSupport = () => {
+      const supported = typeof navigator !== 'undefined' && 'xr' in navigator;
+      setHologramSupported(supported);
+      if (supported) {
+        setHandoffStatus((prev) => ({ ...prev, platform: 'xr-ready' }));
+      }
+    };
+    checkHologramSupport();
+  }, []);
+
+  useEffect(() => {
+    if (!handoffStatus.lastSentAt) return;
+    void ipc.crossReality.sendHandoffStatus(handoffStatus);
+  }, [handoffStatus]);
 
   // Wait for IPC to be ready before making calls
   useEffect(() => {
@@ -697,6 +888,58 @@ export function TabStrip() {
     }
   };
 
+  const handleApplyCluster = useCallback((clusterId: string) => {
+    const cluster = predictedClusters.find((c) => c.id === clusterId);
+    if (!cluster) return;
+    if (!cluster.tabIds.length) return;
+
+    const currentTabs = tabsRef.current;
+    const matching = currentTabs.filter((tab) => cluster.tabIds.includes(tab.id));
+    if (matching.length <= 1) return;
+
+    let etld = 'workspace';
+    try {
+      if (matching[0]?.url) {
+        etld = new URL(matching[0].url).hostname.replace(/^www\./, '') || 'workspace';
+      }
+    } catch {
+      etld = 'workspace';
+    }
+
+    const label = matching.length >= 3 ? `${etld} cluster` : cluster.label;
+
+    void ipc.tabs.create({
+      url: 'about:blank',
+      containerId: etld,
+      activate: true,
+    }).then(async (result: any) => {
+      if (!result?.id) return;
+      for (const tab of matching) {
+        try {
+          await ipc.tabs.moveToWorkspace({ tabId: tab.id, workspaceId: result.id, label });
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[TabStrip] Failed to regroup tab', error);
+          }
+        }
+      }
+      setTimeout(() => {
+        void useTabGraphStore.getState().refresh();
+      }, 300);
+      void fetchPredictiveSuggestions({ force: true });
+    });
+  }, [predictedClusters, fetchPredictiveSuggestions]);
+
+  const handlePrefetchOpen = useCallback(
+    (entry: { tabId: string; url: string; reason: string; confidence?: number }) => {
+      if (!entry?.url) return;
+      void ipc.tabs.create({ url: entry.url, activate: true }).then(() => {
+        void fetchPredictiveSuggestions({ force: true });
+      });
+    },
+    [fetchPredictiveSuggestions]
+  );
+
   // Ensure active tab stays visible (only when activeId changes)
   useEffect(() => {
     if (!activeId || !stripRef.current) return;
@@ -799,270 +1042,346 @@ export function TabStrip() {
   }, [activateTab]);
 
   return (
-    <div 
-      ref={stripRef} 
-      role="tablist"
-      aria-label="Browser tabs"
-      className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide"
-      style={{ pointerEvents: 'auto' }}
-      onKeyDown={handleKeyNavigation}
-      data-onboarding="tabstrip"
-    >
-      <div className="flex items-center gap-2 min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
-        <AnimatePresence mode="popLayout">
-          {tabs.length > 0 ? (
-            tabs.map((tab) => (
-              <TabHoverCard key={tab.id} tabId={tab.id}>
-                <motion.div
-                  data-tab={tab.id}
-                  role="tab"
-                  aria-selected={tab.active}
-                  aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}`}
-                  tabIndex={tab.active ? 0 : -1}
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  className={`
-                    relative flex items-center gap-2 px-4 py-2 rounded-lg
-                    min-w-[100px] max-w-[220px] cursor-pointer group
-                    transition-all duration-200
-                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                    ${tab.active
-                      ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
-                      : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
-                    }
-                    ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
-                    ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
-                    ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
-                  `}
-                  style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none' }}
-                  draggable
-                  onDragStart={(event) => {
-                    try {
-                      event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
-                      if (tab.title) {
-                        event.dataTransfer?.setData('text/plain', tab.title);
+    <>
+      <div 
+        ref={stripRef} 
+        role="tablist"
+        aria-label="Browser tabs"
+        className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide"
+        style={{ pointerEvents: 'auto' }}
+        onKeyDown={handleKeyNavigation}
+        data-onboarding="tabstrip"
+      >
+        <PredictivePrefetchHint entry={prefetchEntries[0] ?? null} onOpen={handlePrefetchOpen} />
+        <PredictiveClusterChip clusters={predictedClusters} onApply={handleApplyCluster} summary={predictionSummary} />
+        <div className="flex items-center gap-2 min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
+          <AnimatePresence mode="popLayout">
+            {tabs.length > 0 ? (
+              tabs.map((tab) => {
+                const prefetchForTab = prefetchEntries.find((entry) => entry.tabId === tab.id);
+                return (
+                <TabHoverCard key={tab.id} tabId={tab.id}>
+                  <motion.div
+                    data-tab={tab.id}
+                    role="tab"
+                    aria-selected={tab.active}
+                    aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}`}
+                    tabIndex={tab.active ? 0 : -1}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className={`
+                      relative flex items-center gap-2 px-4 py-2 rounded-lg
+                      min-w-[100px] max-w-[220px] cursor-pointer group
+                      transition-all duration-200
+                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                      ${tab.active
+                        ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
+                        : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
                       }
-                      if (event.dataTransfer) {
-                        event.dataTransfer.effectAllowed = 'copy';
+                      ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
+                      ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
+                      ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
+                    `}
+                    style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none' }}
+                    draggable
+                    onDragStart={(event) => {
+                      try {
+                        event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
+                        if (tab.title) {
+                          event.dataTransfer?.setData('text/plain', tab.title);
+                        }
+                        if (event.dataTransfer) {
+                          event.dataTransfer.effectAllowed = 'copy';
+                        }
+                      } catch (error) {
+                        if (process.env.NODE_ENV === 'development') {
+                          console.warn('[TabStrip] Drag start failed', error);
+                        }
                       }
-                    } catch (error) {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.warn('[TabStrip] Drag start failed', error);
-                      }
-                    }
-                  }}
-                  onDragEnd={() => {
-                    window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
-                  }}
-                  onClick={(e) => {
-                    // Primary click handler - ensure it fires
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Call activateTab immediately
-                    activateTab(tab.id);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    }}
+                    onDragEnd={() => {
+                      window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
+                    }}
+                    onClick={(e) => {
+                      // Primary click handler - ensure it fires
                       e.preventDefault();
                       e.stopPropagation();
+                      // Call activateTab immediately
                       activateTab(tab.id);
-                      return;
-                    }
-
-                    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-                      e.preventDefault();
-                      e.stopPropagation();
-
-                      const currentIndex = tabs.findIndex((t) => t.id === tab.id);
-                      if (currentIndex === -1) {
-                        return;
-                      }
-
-                      let nextIndex = currentIndex;
-                      switch (e.key) {
-                        case 'Home':
-                          nextIndex = 0;
-                          break;
-                        case 'End':
-                          nextIndex = tabs.length - 1;
-                          break;
-                        case 'ArrowLeft':
-                          nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-                          break;
-                        case 'ArrowRight':
-                          nextIndex = (currentIndex + 1) % tabs.length;
-                          break;
-                      }
-
-                      const nextTab = tabs[nextIndex];
-                      if (nextTab) {
-                        activateTab(nextTab.id);
-                      }
-                    }
-                  }}
-                  onAuxClick={(e: any) => { 
-                    e.preventDefault(); 
-                    e.stopPropagation();
-                    if (e.button === 1) { // Middle click
-                      closeTab(tab.id); 
-                    }
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
-                    setContextMenu({
-                      tabId: tab.id,
-                      url: tab.url,
-                      containerId: tab.containerId,
-                    containerName: tab.containerName,
-                    containerColor: tab.containerColor,
-                      mode: tab.mode,
-                      sleeping: tab.sleeping,
-                      x: e.clientX,
-                      y: e.clientY,
-                    });
-                  }}
-                >
-                  {/* Favicon */}
-                  <div className="flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
-                    {tab.favicon ? (
-                      <img src={tab.favicon} alt="" className="w-full h-full rounded-full" />
-                    ) : (
-                      <div className="w-2 h-2 bg-gray-400 rounded-full" />
-                    )}
-                  </div>
-
-                  {tab.mode && tab.mode !== 'normal' && (
-                    <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                        tab.mode === 'ghost'
-                          ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
-                          : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
-                      }`}
-                    >
-                      {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
-                    </span>
-                  )}
-
-                  {tab.containerId && tab.containerId !== 'default' && (
-                    <div
-                      className="w-2.5 h-2.5 rounded-full border border-gray-700/60"
-                      style={{ backgroundColor: tab.containerColor || '#6366f1' }}
-                      title={`${tab.containerName || 'Custom'} container`}
-                    />
-                  )}
-
-                  {tab.sleeping && (
-                    <span className="flex items-center" title="Tab is hibernating">
-                      <motion.span
-                        className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
-                        animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
-                        transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                      />
-                    </span>
-                  )}
-
-                  {/* Title */}
-                  <span className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}>
-                    {tab.title}
-                  </span>
-
-                  {/* Peek Button */}
-                  <motion.button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      openPeek(tab);
-                    }}
-                    aria-label={`Peek preview: ${tab.title}`}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
-                    style={{ pointerEvents: 'auto', zIndex: 2 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.96 }}
-                    title="Peek preview"
-                  >
-                    <Eye size={14} />
-                  </motion.button>
-
-                  {/* Close Button */}
-                  <motion.button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      closeTab(tab.id);
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button === 1) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        closeTab(tab.id);
-                      }
-                    }}
-                    onMouseDown={(e) => {
-                      // Stop propagation but don't prevent default
-                      // Preventing default can interfere with click events
-                      e.stopPropagation();
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
-                        closeTab(tab.id);
+                        activateTab(tab.id);
+                        return;
+                      }
+
+                      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const currentIndex = tabs.findIndex((t) => t.id === tab.id);
+                        if (currentIndex === -1) {
+                          return;
+                        }
+
+                        let nextIndex = currentIndex;
+                        switch (e.key) {
+                          case 'Home':
+                            nextIndex = 0;
+                            break;
+                          case 'End':
+                            nextIndex = tabs.length - 1;
+                            break;
+                          case 'ArrowLeft':
+                            nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+                            break;
+                          case 'ArrowRight':
+                            nextIndex = (currentIndex + 1) % tabs.length;
+                            break;
+                        }
+
+                        const nextTab = tabs[nextIndex];
+                        if (nextTab) {
+                          activateTab(nextTab.id);
+                        }
                       }
                     }}
-                    aria-label={`Close tab: ${tab.title}`}
-                    className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity ml-1 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag"
-                    style={{ pointerEvents: 'auto', zIndex: 2 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    title="Close tab (Middle click)"
+                    onAuxClick={(e: any) => { 
+                      e.preventDefault(); 
+                      e.stopPropagation();
+                      if (e.button === 1) { // Middle click
+                        closeTab(tab.id); 
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
+                      setContextMenu({
+                        tabId: tab.id,
+                        url: tab.url,
+                        containerId: tab.containerId,
+                      containerName: tab.containerName,
+                      containerColor: tab.containerColor,
+                        mode: tab.mode,
+                        sleeping: tab.sleeping,
+                        x: e.clientX,
+                        y: e.clientY,
+                      });
+                    }}
+                    onMouseEnter={() => {
+                      if (tab === tabs[tabs.length - 1]) {
+                        setHolographicPreviewTabId(tab.id);
+                        setPreviewMetadata({ url: tab.url, title: tab.title });
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      if (holographicPreviewTabId === tab.id) {
+                        setHolographicPreviewTabId(null);
+                        setPreviewMetadata(null);
+                      }
+                    }}
                   >
-                    <X size={14} className="text-gray-400" />
-                  </motion.button>
-                </motion.div>
-              </TabHoverCard>
-            ))
-          ) : null}
-        </AnimatePresence>
+                    {prefetchForTab && (
+                      <span
+                        className="absolute top-1 right-2 text-emerald-300 text-[11px] font-semibold"
+                        title={`Suggested follow-up: ${prefetchForTab.reason}`}
+                      >
+                        ⚡
+                      </span>
+                    )}
+                  {hologramSupported !== false && holographicPreviewTabId === tab.id && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      className="absolute -bottom-9 left-1/2 flex -translate-x-1/2 items-center gap-2"
+                    >
+                      <motion.button
+                        type="button"
+                        className="flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] text-cyan-100 shadow-lg backdrop-blur transition-colors hover:bg-cyan-500/25"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setHandoffStatus({ platform: 'xr', lastSentAt: Date.now() });
+                          window.dispatchEvent(
+                            new CustomEvent('tab:holographic-preview', {
+                              detail: { tabId: tab.id },
+                            }),
+                          );
+                          void ipc.crossReality.handoff(tab.id, 'xr');
+                        }}
+                      >
+                        <Sparkles size={12} /> XR Hologram
+                      </motion.button>
+                      <motion.button
+                        type="button"
+                        className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-[10px] text-amber-100 shadow-lg backdrop-blur transition-colors hover:bg-amber-500/25"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setHandoffStatus({ platform: 'mobile', lastSentAt: Date.now() });
+                          void ipc.crossReality.handoff(tab.id, 'mobile');
+                        }}
+                      >
+                        <span role="img" aria-label="mobile">📱</span> Send
+                      </motion.button>
+                    </motion.div>
+                  )}
+                    {/* Favicon */}
+                    <div className="flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
+                      {tab.favicon ? (
+                        <img src={tab.favicon} alt="" className="w-full h-full rounded-full" />
+                      ) : (
+                        <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                      )}
+                    </div>
 
-        {/* New Tab Button */}
-        <motion.button
-          onClick={addTab}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              addTab();
-            }
-          }}
-          aria-label="New tab"
-          className="flex-shrink-0 p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          title="New Tab (Ctrl+T / ⌘T)"
-        >
-          <Plus size={18} />
-        </motion.button>
+                    {tab.mode && tab.mode !== 'normal' && (
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                          tab.mode === 'ghost'
+                            ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                            : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+                        }`}
+                      >
+                        {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
+                      </span>
+                    )}
+
+                    {tab.containerId && tab.containerId !== 'default' && (
+                      <div
+                        className="w-2.5 h-2.5 rounded-full border border-gray-700/60"
+                        style={{ backgroundColor: tab.containerColor || '#6366f1' }}
+                        title={`${tab.containerName || 'Custom'} container`}
+                      />
+                    )}
+
+                    {tab.sleeping && (
+                      <span className="flex items-center" title="Tab is hibernating">
+                        <motion.span
+                          className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
+                          animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+                          transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+                        />
+                      </span>
+                    )}
+
+                    {/* Title */}
+                    <span className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}>
+                      {tab.title}
+                    </span>
+
+                    {/* Peek Button */}
+                    <motion.button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openPeek(tab);
+                      }}
+                      aria-label={`Peek preview: ${tab.title}`}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
+                      style={{ pointerEvents: 'auto', zIndex: 2 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.96 }}
+                      title="Peek preview"
+                    >
+                      <Eye size={14} />
+                    </motion.button>
+
+                    {/* Close Button */}
+                    <motion.button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeTab(tab.id);
+                      }}
+                      onAuxClick={(e) => {
+                        if (e.button === 1) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          closeTab(tab.id);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        // Stop propagation but don't prevent default
+                        // Preventing default can interfere with click events
+                        e.stopPropagation();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          closeTab(tab.id);
+                        }
+                      }}
+                      aria-label={`Close tab: ${tab.title}`}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity ml-1 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag"
+                      style={{ pointerEvents: 'auto', zIndex: 2 }}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      title="Close tab (Middle click)"
+                    >
+                      <X size={14} className="text-gray-400" />
+                    </motion.button>
+                  </motion.div>
+                </TabHoverCard>
+              );
+            })
+          ) : null}
+          </AnimatePresence>
+
+          {/* New Tab Button */}
+          <motion.button
+            onClick={addTab}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                addTab();
+              }
+            }}
+            aria-label="New tab"
+            className="flex-shrink-0 p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            title="New Tab (Ctrl+T / ⌘T)"
+          >
+            <Plus size={18} />
+          </motion.button>
+        </div>
+
+        {/* Context Menu */}
+        {contextMenu && (
+          <Portal>
+            <TabContextMenu
+              tabId={contextMenu.tabId}
+              url={contextMenu.url}
+              containerId={contextMenu.containerId ?? tabs.find(t => t.id === contextMenu.tabId)?.containerId}
+              containerName={contextMenu.containerName ?? tabs.find(t => t.id === contextMenu.tabId)?.containerName}
+              containerColor={contextMenu.containerColor ?? tabs.find(t => t.id === contextMenu.tabId)?.containerColor}
+              mode={contextMenu.mode ?? tabs.find(t => t.id === contextMenu.tabId)?.mode}
+              sleeping={contextMenu.sleeping ?? tabs.find(t => t.id === contextMenu.tabId)?.sleeping}
+              onClose={() => setContextMenu(null)}
+            />
+          </Portal>
+        )}
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && (
-        <Portal>
-          <TabContextMenu
-            tabId={contextMenu.tabId}
-            url={contextMenu.url}
-            containerId={contextMenu.containerId ?? tabs.find(t => t.id === contextMenu.tabId)?.containerId}
-            containerName={contextMenu.containerName ?? tabs.find(t => t.id === contextMenu.tabId)?.containerName}
-            containerColor={contextMenu.containerColor ?? tabs.find(t => t.id === contextMenu.tabId)?.containerColor}
-            mode={contextMenu.mode ?? tabs.find(t => t.id === contextMenu.tabId)?.mode}
-            sleeping={contextMenu.sleeping ?? tabs.find(t => t.id === contextMenu.tabId)?.sleeping}
-            onClose={() => setContextMenu(null)}
-          />
-        </Portal>
-      )}
-    </div>
+      <HolographicPreviewOverlay
+        visible={Boolean(holographicPreviewTabId)}
+        tabId={holographicPreviewTabId}
+        url={previewMetadata?.url}
+        title={previewMetadata?.title}
+        onClose={() => {
+          setHolographicPreviewTabId(null);
+          setPreviewMetadata(null);
+        }}
+      />
+    </>
   );
 }

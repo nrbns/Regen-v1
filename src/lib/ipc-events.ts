@@ -177,6 +177,8 @@ export interface EfficiencyModeEvent {
     ramMb: number;
     cpuLoad1: number;
     activeTabs: number;
+    carbonIntensity?: number | null;
+    carbonRegion?: string | null;
   };
 }
 
@@ -194,6 +196,47 @@ export interface EfficiencyAlert {
   message: string;
   timestamp: number;
   actions: EfficiencyAlertAction[];
+}
+
+export interface ShadowVisitedEntry {
+  url: string;
+  title: string;
+  firstSeen: number;
+}
+
+export interface ShadowSessionSummaryEvent {
+  sessionId: string;
+  persona?: string;
+  startedAt: number;
+  endedAt: number;
+  durationMs: number;
+  totalVisits: number;
+  uniqueHosts: number;
+  visited: ShadowVisitedEntry[];
+  recommendations: string[];
+}
+
+export interface ShadowSessionEndedEvent {
+  sessionId: string;
+  summary: ShadowSessionSummaryEvent | null;
+}
+
+export interface PrivacyAuditSummary {
+  score: number;
+  grade: 'low' | 'moderate' | 'high';
+  trackers: Array<{ host: string; count: number }>;
+  thirdPartyHosts: Array<{ host: string; count: number }>;
+  message: string;
+  suggestions: string[];
+  timestamp: number;
+  ai?: {
+    riskScore: number;
+    riskLevel: 'low' | 'medium' | 'high';
+    summary: string;
+    actions: string[];
+    issues: Array<{ category: string; detail: string; severity: 'low' | 'medium' | 'high' }>;
+    generatedAt?: string;
+  } | null;
 }
 
 // Event bus for renderer-side state management

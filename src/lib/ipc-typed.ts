@@ -7,6 +7,10 @@
 
 import { z } from 'zod';
 import { ResearchResult } from '../types/research';
+import type { PrivacyAuditSummary } from './ipc-events';
+import type { EcoImpactForecast } from '../types/ecoImpact';
+import type { TrustSummary } from '../types/trustWeaver';
+import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
 
 type IPCResponse<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -265,6 +269,31 @@ export const ipc = {
         return [];
       }
     },
+    predictiveGroups: async (options?: { windowId?: number; force?: boolean }) => {
+      try {
+        const response = await ipcCall<
+          { windowId?: number; force?: boolean },
+          {
+            groups?: Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>;
+            prefetch?: Array<{ tabId: string; url: string; reason?: string; confidence?: number }>;
+            summary?: { generatedAt?: string; explanation?: string };
+          }
+        >('tabs:predictiveGroups', options ?? {});
+
+        return {
+          groups: Array.isArray(response?.groups) ? response.groups : [],
+          prefetch: Array.isArray(response?.prefetch) ? response.prefetch : [],
+          summary: response?.summary,
+        };
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Failed to fetch predictive tab groups:', error);
+        }
+        return { groups: [], prefetch: [], summary: undefined } as const;
+      }
+    },
+    moveToWorkspace: (request: { tabId: string; workspaceId: string; label?: string }) =>
+      ipcCall('tabs:moveToWorkspace', request),
     hibernate: (id: string) => ipcCall('tabs:hibernate', { id }),
     wake: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:wake', { id }),
     burn: (id: string) => ipcCall('tabs:burn', { id }),
@@ -502,12 +531,47 @@ export const ipc = {
         summary: { totalTabs: number; activeTabs: number; domains: number; containers: number };
         updatedAt: number;
       }>('graph:tabs', {}),
+    workflow: (options?: { maxSteps?: number }) =>
+      ipcCall<{ maxSteps?: number }, {
+        planId: string;
+        goal: string;
+        summary: string;
+        generatedAt: number;
+        confidence: number;
+        steps: Array<{
+          id: string;
+          title: string;
+          description: string;
+          tabIds: string[];
+          recommendedActions: string[];
+          primaryDomain?: string;
+          confidence?: number;
+        }>;
+        sources: Array<{ domain: string; tabIds: string[] }>;
+      }>('graph:workflowWeaver', options ?? {}),
   },
   efficiency: {
     applyMode: (mode: 'normal' | 'battery-saver' | 'extreme') =>
       ipcCall<{ mode: 'normal' | 'battery-saver' | 'extreme' }, { success: boolean }>('efficiency:applyMode', { mode }),
     clearOverride: () => ipcCall<unknown, { success: boolean }>('efficiency:clearOverride', {}),
     hibernateInactiveTabs: () => ipcCall<unknown, { success: boolean; count: number }>('efficiency:hibernate', {}),
+    ecoImpact: (options?: { horizonMinutes?: number }) =>
+      ipcCall<{ horizonMinutes?: number }, EcoImpactForecast>('efficiency:ecoImpact', options ?? {}),
+  },
+  trust: {
+    list: () => ipcCall<unknown, { records: TrustSummary[] }>('trust:list', {}),
+    get: (domain: string) =>
+      ipcCall<{ domain: string }, { found: boolean; summary?: TrustSummary }>('trust:get', { domain }),
+    submit: (signal: {
+      domain: string;
+      url?: string;
+      title?: string;
+      score: number;
+      confidence?: number;
+      tags?: string[];
+      comment?: string;
+      sourcePeer?: string;
+    }) => ipcCall<typeof signal, { summary: TrustSummary | null }>('trust:submit', signal),
   },
   downloads: {
     list: () =>
@@ -559,6 +623,13 @@ export const ipc = {
     list: (filter?: { type?: string; approved?: boolean }) =>
       ipcCall<{ type?: string; approved?: boolean }, import('../types/consent').ConsentRecord[]>('consent:list', filter ?? {}),
     export: () => ipcCall<unknown, string>('consent:export', {}),
+    vault: {
+      export: () => ipcCall<unknown, {
+        entries: Array<{ consentId: string; actionType: string; approved: boolean; timestamp: number; signature: string; chainHash: string; metadata: Record<string, unknown> }>;
+        anchor: string;
+        updatedAt: number;
+      }>('consent:vault:export', {}),
+    },
   },
   permissions: {
     request: (type: string, origin: string, description?: string) => ipcCall('permissions:request', { type, origin, description }),
@@ -572,6 +643,10 @@ export const ipc = {
     getOrigins: () => ipcCall('privacy:getOrigins', {}),
     purgeOrigin: (origin: string) => ipcCall('privacy:purgeOrigin', { origin }),
     export: () => ipcCall('privacy:export', {}),
+    sentinel: {
+      audit: (tabId: string | null) =>
+        ipcCall<{ tabId?: string }, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
+    },
   },
   dns: {
     enableDoH: (provider?: 'cloudflare' | 'quad9') => ipcCall('dns:enableDoH', { provider: provider || 'cloudflare' }),
@@ -833,6 +908,24 @@ export const ipc = {
     installed: () => ipcCall<unknown, { plugins: string[] }>('plugin-marketplace:installed', {}),
     isInstalled: (pluginId: string) => ipcCall<unknown, { installed: boolean }>('plugin-marketplace:isInstalled', { pluginId }),
   },
+  extensionNexus: {
+    list: () => ipcCall<unknown, NexusListResponse>('plugins:nexus:list', {}),
+    publish: (metadata: {
+      pluginId: string;
+      name: string;
+      version: string;
+      description: string;
+      author: string;
+      sourcePeer: string;
+      carbonScore?: number;
+      tags?: string[];
+    }) => ipcCall<typeof metadata, NexusPluginEntry>('plugins:nexus:publish', metadata),
+    trust: (pluginId: string, trusted: boolean) =>
+      ipcCall<{ pluginId: string; trusted: boolean }, { plugin: NexusPluginEntry | null }>('plugins:nexus:trust', {
+        pluginId,
+        trusted,
+      }),
+  },
   performance: {
     gpu: {
       enableRaster: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:enableRaster', {}),
@@ -879,10 +972,22 @@ export const ipc = {
       ipcCall<{ url?: string; autoCloseAfter?: number; contentProtection?: boolean; ghostMode?: boolean }, { windowId: number }>('private:createWindow', options || {}),
     createGhostTab: (options?: { url?: string }) =>
       ipcCall<{ url?: string }, { tabId: string }>('private:createGhostTab', options || {}),
+    createShadowSession: (options?: { url?: string; persona?: string; summary?: boolean }) =>
+      ipcCall<{ url?: string; persona?: string; summary?: boolean }, { sessionId: string }>('private:shadow:start', options || {}),
+    endShadowSession: (sessionId: string, options?: { forensic?: boolean }) =>
+      ipcCall<{ sessionId: string; forensic?: boolean }, { success: boolean }>('private:shadow:end', { sessionId, forensic: options?.forensic ?? false }),
     closeAll: () =>
       ipcCall<unknown, { count: number }>('private:closeAll', {}),
     panicWipe: (options?: { forensic?: boolean }) =>
       ipcCall<{ forensic?: boolean }, { success: boolean }>('private:panicWipe', options || {}),
+  },
+  crossReality: {
+    handoff: (tabId: string, target: 'mobile' | 'xr') =>
+      ipcCall<{ tabId: string; target: 'mobile' | 'xr' }, { success: boolean; handoff: any }>('cross-reality:handoff', {
+        tabId,
+        target,
+      }),
+    queue: () => ipcCall<unknown, { handoffs: any[] }>('cross-reality:queue', {}),
   },
 };
 

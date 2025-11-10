@@ -3,13 +3,16 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Brain, Zap, FileText, Shield, ListChecks, Activity, Sparkles } from 'lucide-react';
+import { X, Brain, Zap, FileText, Shield, ListChecks, Activity, Sparkles, Share2, Leaf, ShieldCheck } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { ipc } from '../../lib/ipc-typed';
 import { AgentPlan, AgentStep, ConsentRequest } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { AgentPlanner } from '../AgentPlanner';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
+import { ExtensionNexusPanel } from '../plugins';
+import { EcoImpactSimulator } from '../eco';
+import { TrustWeaverPanel } from '../trust';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -48,6 +51,9 @@ const tabs = [
   { id: 'logs', icon: Activity, label: 'Logs' },
   { id: 'memory', icon: FileText, label: 'Memory' },
   { id: 'consent', icon: Shield, label: 'Consent' },
+  { id: 'trust', icon: ShieldCheck, label: 'Trust' },
+  { id: 'eco', icon: Leaf, label: 'Eco' },
+  { id: 'nexus', icon: Share2, label: 'Nexus' },
 ];
 
 export function RightPanel({ open, onClose }: RightPanelProps) {
@@ -288,6 +294,12 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                 )}
               </div>
             )}
+
+            {activeTab === 'trust' && <TrustWeaverPanel />}
+
+            {activeTab === 'eco' && <EcoImpactSimulator />}
+
+            {activeTab === 'nexus' && <ExtensionNexusPanel />}
           </div>
 
           {/* Footer: Controls */}

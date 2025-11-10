@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, RefreshCw, Filter, Download, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { X, RefreshCw, Filter, Download, ShieldAlert, ShieldCheck, AlertTriangle, Clock, Loader2 } from 'lucide-react';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { ipc } from '../../lib/ipc-typed';
 import type { ConsentRecord, ConsentActionType, ConsentRisk } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
+import { ConsentVaultPanel } from './ConsentVaultPanel';
 
 const statusLabel = (record: ConsentRecord): { label: string; tone: string } => {
   if (record.revokedAt) {
@@ -260,6 +261,8 @@ export function ConsentDashboard() {
           )}
         </div>
       </motion.div>
+
+      <ConsentVaultPanel />
     </div>
   );
 }

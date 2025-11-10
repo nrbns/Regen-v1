@@ -20,11 +20,23 @@ const TELEMETRY_INTERVAL_MS = Number(process.env.REDIX_TELEMETRY_INTERVAL ?? 60_
 let monitorTimer: NodeJS.Timer | null = null;
 let lastPayloadHash = '';
 
+let lastSuccessfulHibernateCount = 0;
+
+export function getLastHibernateCount(): number {
+  return lastSuccessfulHibernateCount;
+}
+
+export function setLastHibernateCount(count: number): void {
+  lastSuccessfulHibernateCount = count;
+}
+
 type BatteryState = {
   level?: number | null;
   charging?: boolean | null;
   chargingTime?: number | null;
   dischargingTime?: number | null;
+  carbonIntensity?: number | null;
+  regionCode?: string | null;
 };
 
 const batteryState: BatteryState = {};
@@ -34,6 +46,8 @@ export function updateBatteryState(update: BatteryState): void {
   batteryState.charging = update.charging ?? batteryState.charging ?? null;
   batteryState.chargingTime = update.chargingTime ?? batteryState.chargingTime ?? null;
   batteryState.dischargingTime = update.dischargingTime ?? batteryState.dischargingTime ?? null;
+  batteryState.carbonIntensity = update.carbonIntensity ?? batteryState.carbonIntensity ?? null;
+  batteryState.regionCode = update.regionCode ?? batteryState.regionCode ?? null;
 }
 
 function getActiveTabCount(): number {
@@ -66,6 +80,9 @@ async function pushTelemetry(): Promise<void> {
   const activeTabs = getActiveTabCount();
   const batteryPct = typeof batteryState.level === 'number' ? Math.round(batteryState.level * 100) : null;
 
+  const carbonIntensity = batteryState.carbonIntensity ?? null;
+  const carbonRegion = batteryState.regionCode ?? null;
+
   const payload = {
     project: REDIX_PROJECT,
     type: 'telemetry',
@@ -77,6 +94,8 @@ async function pushTelemetry(): Promise<void> {
       ram_mb: ramMb,
       cpu_load1: Number(cpuLoad1.toFixed(2)),
       active_tabs: activeTabs,
+      carbon_intensity: carbonIntensity,
+      carbon_region: carbonRegion,
     },
     origin: { app: 'omnibrowser', module: 'resource-monitor' },
   } as const;
@@ -89,6 +108,8 @@ async function pushTelemetry(): Promise<void> {
       ramMb,
       cpuLoad1,
       activeTabs,
+      carbonIntensity,
+      carbonRegion,
     });
     return;
   }
@@ -106,6 +127,8 @@ async function pushTelemetry(): Promise<void> {
       ramMb,
       cpuLoad1,
       activeTabs,
+      carbonIntensity,
+      carbonRegion,
     });
 
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/memory.write`, {

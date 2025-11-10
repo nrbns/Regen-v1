@@ -52,6 +52,14 @@ let rightDockPxByWindow = new Map<number, number>();
 const resizeTimers = new WeakMap<BrowserWindow, NodeJS.Timeout>();
 const pendingBoundsUpdateTimers = new Map<string, NodeJS.Timeout>();
 const cleanupRegistered = new WeakMap<BrowserWindow, boolean>(); // Track cleanup registration
+const predictiveCache = new Map<
+  string,
+  {
+    groups: Array<{ id: string; label: string; tabIds: string[]; confidence: number }>;
+    prefetch: Array<{ tabId: string; url: string; reason: string; confidence: number }>;
+    summary?: { generatedAt: string; explanation?: string };
+  }
+>();
 
 const findTabByWebContents = (wc: Electron.WebContents): TabRecord | undefined => {
   for (const tabs of windowIdToTabs.values()) {
@@ -770,6 +778,163 @@ export function registerTabIpc(win: BrowserWindow) {
     return closeTabInternal(request.id);
   });
 
+  registerHandler(
+    'tabs:predictiveGroups',
+    z.object({
+      windowId: z.number().optional(),
+      force: z.boolean().optional(),
+    }),
+    async (_event, request) => {
+      const windowId = request.windowId ?? win.id;
+      const tabs = windowIdToTabs.get(windowId) ?? [];
+      const cacheKey = `${windowId}:${tabs.map((t) => t.id).join(',')}:${tabs
+        .map((t) => t.lastActiveAt)
+        .join(',')}`;
+
+      if (!request.force && predictiveCache.has(cacheKey)) {
+        return predictiveCache.get(cacheKey);
+      }
+
+      const payload = {
+        windowId,
+        timestamp: Date.now(),
+        tabs: tabs.map((tab) => ({
+          id: tab.id,
+          title: (() => {
+            try {
+              return tab.view?.webContents.getTitle?.() || 'New Tab';
+            } catch {
+              return 'New Tab';
+            }
+          })(),
+          url: (() => {
+            try {
+              return tab.view?.webContents.getURL?.() || 'about:blank';
+            } catch {
+              return 'about:blank';
+            }
+          })(),
+          containerId: tab.containerId,
+          containerName: tab.containerName,
+          containerColor: tab.containerColor,
+          mode: tab.mode,
+          createdAt: tab.createdAt,
+          lastActiveAt: tab.lastActiveAt,
+          sessionId: tab.sessionId,
+          profileId: tab.profileId,
+        })),
+        activeTabId: activeTabIdByWindow.get(windowId) ?? null,
+      };
+
+      const baseUrl =
+        process.env.PREDICTIVE_API_BASE ||
+        process.env.TAB_PREDICTOR_API ||
+        process.env.REDIX_API_BASE ||
+        process.env.API_BASE_URL;
+
+      try {
+        let result:
+          | {
+              groups?: Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>;
+              prefetch?: Array<{ tabId: string; url: string; reason?: string; confidence?: number }>;
+              summary?: { generatedAt?: string; explanation?: string };
+            }
+          | null = null;
+
+        if (baseUrl) {
+          const response = await fetch(`${baseUrl.replace(/\/$/, '')}/tabs/predict`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
+            result = (await response.json()) as any;
+          } else if (process.env.NODE_ENV === 'development') {
+            console.warn('[Tabs] Predictive API failed', response.status, await response.text());
+          }
+        }
+
+        if (!result) {
+          const domainGroups = new Map<
+            string,
+            { id: string; label: string; tabIds: string[]; confidence: number }
+          >();
+
+          for (const tab of tabs) {
+            let domain = 'unknown';
+            try {
+              const url = tab.view?.webContents.getURL?.();
+              if (url) {
+                domain = new URL(url).hostname.replace(/^www\./, '');
+              }
+            } catch {
+              domain = 'unknown';
+            }
+
+            if (!domainGroups.has(domain)) {
+              domainGroups.set(domain, {
+                id: `group:${domain}`,
+                label: domain,
+                tabIds: [],
+                confidence: 0.4,
+              });
+            }
+            domainGroups.get(domain)!.tabIds.push(tab.id);
+          }
+
+          result = {
+            groups: Array.from(domainGroups.values()).filter((group) => group.tabIds.length > 1),
+            prefetch: [],
+            summary: {
+              generatedAt: new Date().toISOString(),
+              explanation: 'Domain affinity heuristic applied (offline fallback).',
+            },
+          };
+        }
+
+        const normalized = {
+          groups:
+            result.groups?.map((group) => ({
+              id: group.id,
+              label: group.label,
+              tabIds: group.tabIds,
+              confidence: group.confidence ?? 0.5,
+            })) ?? [],
+          prefetch:
+            result.prefetch?.map((entry) => ({
+              tabId: entry.tabId,
+              url: entry.url,
+              reason: entry.reason ?? 'Suggested continuation',
+              confidence: entry.confidence ?? 0.4,
+            })) ?? [],
+          summary: {
+            generatedAt: result.summary?.generatedAt ?? new Date().toISOString(),
+            explanation: result.summary?.explanation,
+          },
+        };
+
+        predictiveCache.clear();
+        predictiveCache.set(cacheKey, normalized);
+        return normalized;
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Tabs] Predictive grouping failed', error);
+        }
+        return {
+          groups: [],
+          prefetch: [],
+          summary: {
+            generatedAt: new Date().toISOString(),
+            explanation: 'Predictive service unavailable.',
+          },
+        };
+      }
+    }
+  );
+
   registerHandler('tabs:activate', TabActivateRequest, async (_event, request) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Main][tabs:activate] request received:', request);
@@ -1250,6 +1415,27 @@ export function registerTabIpc(win: BrowserWindow) {
     if (!rec) return false;
     await rec.view.webContents.executeJavaScript('window.__omnib_overlay_cleanup && window.__omnib_overlay_cleanup()', true).catch(()=>{});
     return true;
+  });
+
+  ipcMain.handle('tabs:moveToWorkspace', async (_event, request: { tabId: string; workspaceId: string; label?: string }) => {
+    const { tabId, workspaceId, label } = request;
+    if (!tabId || !workspaceId) return { success: false, error: 'Missing parameters' };
+
+    const targetWindow = BrowserWindow.fromId(Number(workspaceId));
+    const tab = getTabById(tabId);
+    if (!tab) return { success: false, error: 'Tab not found' };
+
+    try {
+      if (targetWindow) {
+        await moveTabToWindow(tabId, targetWindow);
+      } else {
+        const newWin = await createWindowWithTab(tab, label || 'Workspace');
+        await moveTabToWindow(tabId, newWin);
+      }
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   });
 }
 

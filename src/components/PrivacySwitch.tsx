@@ -4,18 +4,26 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Eye, Network } from 'lucide-react';
+import { Lock, Eye, Network, MoonStar } from 'lucide-react';
 import { ipc } from '../lib/ipc-typed';
 import { useProfileStore } from '../state/profileStore';
+import { useShadowStore } from '../state/shadowStore';
 
 type PrivacyMode = 'Normal' | 'Private' | 'Ghost';
 
 export function PrivacySwitch() {
   const [mode, setMode] = useState<PrivacyMode>('Normal');
   const policy = useProfileStore((state) => state.policies[state.activeProfileId]);
+  const {
+    activeSessionId: shadowSessionId,
+    startShadowSession,
+    endShadowSession,
+    loading: shadowLoading,
+  } = useShadowStore();
 
   const privateDisabled = policy ? !policy.allowPrivateWindows : false;
   const ghostDisabled = policy ? !policy.allowGhostTabs : false;
+  const shadowDisabled = policy ? !policy.allowPrivateWindows : false;
 
   const modes: Array<{ value: PrivacyMode; icon: typeof Lock; label: string; color: string; disabled?: boolean }> = [
     { value: 'Normal', icon: Lock, label: 'Normal', color: 'text-gray-400' },
@@ -84,6 +92,41 @@ export function PrivacySwitch() {
           </motion.button>
         );
       })}
+      <motion.button
+        key="Shadow"
+        whileHover={{ scale: shadowLoading || shadowDisabled ? 1 : 1.05 }}
+        whileTap={{ scale: shadowLoading || shadowDisabled ? 1 : 0.95 }}
+        disabled={shadowDisabled || shadowLoading}
+        onClick={async () => {
+          if (shadowDisabled || shadowLoading) return;
+          try {
+            if (shadowSessionId) {
+              await endShadowSession();
+            } else {
+              await startShadowSession({ summary: true });
+            }
+          } catch (error) {
+            console.error('Shadow session error:', error);
+          }
+        }}
+        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+          shadowSessionId
+            ? 'bg-purple-500/20 text-purple-200 border border-purple-400/30'
+            : shadowDisabled
+            ? 'text-gray-600 cursor-not-allowed'
+            : 'text-gray-400 hover:text-gray-300'
+        }`}
+        title={
+          shadowDisabled
+            ? 'Shadow Mode disabled by profile policy'
+            : shadowSessionId
+            ? 'End Shadow Mode session'
+            : 'Start Shadow Mode (simulated private browsing)'
+        }
+      >
+        <MoonStar size={14} />
+        <span>{shadowSessionId ? 'Shadow On' : 'Shadow'}</span>
+      </motion.button>
     </div>
   );
 }

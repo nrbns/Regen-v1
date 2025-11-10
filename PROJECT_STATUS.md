@@ -44,6 +44,7 @@ Track Tor proxy integration, CSP rollout, and telemetry opt-in rates; no blockin
 - Consent playground overlay landed with approve/revoke flow.
 - Tor/VPN status indicators + toggles integrated into top nav + status bar.
 - Redix memory API now blocks high-risk PII via configurable server guardrails.
+- AI Privacy Sentinel badge audits each tab in real-time and returns actionable tracker guidance.
 - CSP tightened and iframe allow-list proxy shipped for embedded research widgets.
 - Extension memory queue now AES-GCM encrypted via WebCrypto.
 - Tab graph now accepts drag-and-drop from tab strip and highlights focused tabs.

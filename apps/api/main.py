@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 import uvicorn
 
-from apps.api.routes import auth, workspaces, agent, downloads, notes, search
+from apps.api.routes import auth, workspaces, agent, downloads, notes, search, sentinel
 from apps.api.database import init_db, get_db
 
 # WebSocket connection manager
@@ -66,6 +66,7 @@ app.include_router(agent.router, prefix="/agent", tags=["agent"])
 app.include_router(downloads.router, prefix="/downloads", tags=["downloads"])
 app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(search.router, prefix="/search", tags=["search"])
+app.include_router(sentinel.router, prefix="/sentinel", tags=["sentinel"])
 
 @app.get("/")
 async def root():

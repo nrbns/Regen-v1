@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X } from 'lucide-react';
+import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X, PlayCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { DownloadUpdate } from '../lib/ipc-events';
 import { ipcEvents } from '../lib/ipc-events';
+import { MediaPlayer, getMediaKind } from '../components/MediaPlayer';
 
 type DownloadSafety = {
   status: 'pending' | 'clean' | 'warning' | 'blocked' | 'unknown';
@@ -33,6 +34,7 @@ type DownloadItem = {
 export default function DownloadsPage() {
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewItem, setPreviewItem] = useState<DownloadItem | null>(null);
 
   useEffect(() => {
     const loadDownloads = async () => {
@@ -132,6 +134,11 @@ export default function DownloadsPage() {
     if (minutes > 0 || hours > 0) parts.push(`${minutes}m`);
     parts.push(`${secs}s`);
     return parts.join(' ');
+  };
+
+  const isPreviewable = (item: DownloadItem) => {
+    if (!item?.path || item.status !== 'completed') return false;
+    return Boolean(getMediaKind(item.filename || item.path));
   };
 
   const getStatusIcon = (status: string) => {
@@ -373,6 +380,17 @@ export default function DownloadsPage() {
                             <DownloadIcon size={18} />
                           </motion.button>
                         )}
+                        {d.status === 'completed' && d.path && isPreviewable(d) && (
+                          <motion.button
+                            onClick={() => setPreviewItem(d)}
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-purple-400 transition-colors"
+                            title="Preview media"
+                          >
+                            <PlayCircle size={18} />
+                          </motion.button>
+                        )}
                         <motion.button
                           onClick={() => handleOpenFolder(d.path)}
                           whileHover={{ scale: 1.1 }}
@@ -391,6 +409,13 @@ export default function DownloadsPage() {
           </div>
         )}
       </div>
+      {previewItem && previewItem.path && (
+        <MediaPlayer
+          filePath={previewItem.path}
+          fileName={previewItem.filename}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </div>
   );
 }

@@ -145,9 +145,14 @@ function initializePaths(): void {
 // Initialize paths when app is ready (defer initialization to avoid issues)
 // Don't initialize at module load - wait for explicit call from startSessionPersistence
 
-let persistenceTimer: NodeJS.Timeout | null = null;
+const persistenceTimerRef: { current: NodeJS.Timeout | null } = { current: null };
+let isSaving = false;
 let isShuttingDown = false;
-let isSaving = false; // Prevent concurrent saves
+const SHADOW_SESSION_MARKER = '__ob_shadowSessionId';
+
+function isShadowWindow(win: BrowserWindow): boolean {
+  return Boolean((win as any)[SHADOW_SESSION_MARKER]);
+}
 
 /**
  * Save session state atomically (write to temp file, then rename)
@@ -181,6 +186,7 @@ async function saveSessionState(): Promise<void> {
 
     for (const win of windows) {
       if (win.isDestroyed()) continue;
+      if (isShadowWindow(win)) continue;
 
       const tabs = getTabs(win);
       const tabsState = tabs.map(t => {
@@ -311,8 +317,7 @@ async function saveSessionState(): Promise<void> {
             try {
               await fs.access(tempFile);
               await fs.rename(tempFile, SNAPSHOT_FILE);
-            } catch (retryError: any) {
-              // Temp file doesn't exist or rename failed - clean up and skip
+            } catch {
               try {
                 await fs.unlink(tempFile).catch(() => {});
               } catch {}
@@ -573,7 +578,7 @@ export function startSessionPersistence(): void {
   });
 
   // Save every 2 seconds
-  persistenceTimer = setInterval(() => {
+  persistenceTimerRef.current = setInterval(() => {
     saveSessionState().catch(() => {
       // Silent fail - session persistence is non-critical
     });
@@ -582,9 +587,9 @@ export function startSessionPersistence(): void {
   // Save on app close
   app.on('before-quit', () => {
     isShuttingDown = true;
-    if (persistenceTimer) {
-      clearInterval(persistenceTimer);
-      persistenceTimer = null;
+    if (persistenceTimerRef.current) {
+      clearInterval(persistenceTimerRef.current);
+      persistenceTimerRef.current = null;
     }
     // Final save (synchronous to ensure it completes)
     saveSessionState().catch(() => {
@@ -613,9 +618,9 @@ export function startSessionPersistence(): void {
  * Stop automatic persistence
  */
 export function stopSessionPersistence(): void {
-  if (persistenceTimer) {
-    clearInterval(persistenceTimer);
-    persistenceTimer = null;
+  if (persistenceTimerRef.current) {
+    clearInterval(persistenceTimerRef.current);
+    persistenceTimerRef.current = null;
   }
 }
 

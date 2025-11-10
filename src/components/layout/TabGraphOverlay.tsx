@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RefreshCw, Share2 } from 'lucide-react';
+import { X, RefreshCw, Share2, Wand2 } from 'lucide-react';
 import { useTabGraphStore, TabGraphNode } from '../../state/tabGraphStore';
+import { useWorkflowWeaverStore } from '../../state/workflowWeaverStore';
 import { formatDistanceToNow } from 'date-fns';
 
 const EDGE_COLORS: Record<string, string> = {
@@ -36,6 +37,18 @@ export function TabGraphOverlay() {
     focusedTabId: state.focusedTabId,
     setFocusedTab: state.setFocusedTab,
   }));
+  const {
+    plan,
+    loading: planLoading,
+    error: planError,
+    fetch: fetchPlan,
+  } = useWorkflowWeaverStore((state) => ({
+    plan: state.plan,
+    loading: state.loading,
+    error: state.error,
+    fetch: state.fetch,
+  }));
+  const clusters = data?.clusters ?? [];
   const [hovered, setHovered] = useState<TabGraphNode | null>(null);
 
   useEffect(() => {
@@ -48,6 +61,15 @@ export function TabGraphOverlay() {
     }, 15000);
     return () => clearInterval(interval);
   }, [visible, data, loading, refresh]);
+
+  useEffect(() => {
+    if (!visible) return;
+    void fetchPlan({ maxSteps: 5, force: true });
+    const interval = setInterval(() => {
+      void fetchPlan({ maxSteps: 5 });
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [visible, fetchPlan]);
 
   const graph = useMemo(() => {
     if (!data) {
@@ -123,7 +145,10 @@ export function TabGraphOverlay() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => refresh()}
+              onClick={() => {
+                void refresh();
+                void fetchPlan({ maxSteps: 5, force: true });
+              }}
               disabled={loading}
               className="rounded-xl border border-slate-700/60 bg-slate-900/70 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-slate-900/90 transition-colors disabled:cursor-wait disabled:opacity-50"
             >
@@ -265,6 +290,60 @@ export function TabGraphOverlay() {
                   </div>
                 ) : (
                   <div className="text-[11px] text-gray-500">Hover a node to inspect metadata.</div>
+                )}
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 text-xs text-gray-200">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-purple-200">
+                    <Wand2 size={14} /> Neural Workflow Weaver
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void fetchPlan({ maxSteps: 5, force: true })}
+                    className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-2 py-1 text-[11px] text-purple-100 hover:bg-purple-500/20 transition-colors"
+                    disabled={planLoading}
+                  >
+                    {planLoading ? 'Generating…' : 'Regenerate'}
+                  </button>
+                </div>
+                {planError && (
+                  <div className="mb-2 rounded border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-[11px] text-rose-100">
+                    {planError}
+                  </div>
+                )}
+                {planLoading && !plan && (
+                  <div className="text-[11px] text-purple-200/70">Analyzing your open tabs…</div>
+                )}
+                {!planLoading && plan && (
+                  <div className="space-y-2">
+                    <div className="text-[11px] text-purple-100/80">{plan.summary}</div>
+                    <div className="space-y-2">
+                      {plan.steps.length === 0 ? (
+                        <div className="text-[11px] text-purple-200/70">Open a few research tabs to generate a workflow.</div>
+                      ) : (
+                        plan.steps.map((step, index) => (
+                          <div key={step.id} className="rounded-lg border border-purple-400/30 bg-purple-500/10 p-2 text-[11px] text-purple-100/90">
+                            <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-purple-200/80">
+                              <span>Step {index + 1}</span>
+                              {typeof step.confidence === 'number' && (
+                                <span>{Math.round(step.confidence * 100)}% confidence</span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-[12px] font-semibold text-purple-50">{step.title}</div>
+                            <div className="mt-1 text-[11px] text-purple-100/80">{step.description}</div>
+                            {step.recommendedActions?.length > 0 && (
+                              <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-purple-100/70">
+                                {step.recommendedActions.map((action, actionIdx) => (
+                                  <li key={`${step.id}-action-${actionIdx}`}>{action}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

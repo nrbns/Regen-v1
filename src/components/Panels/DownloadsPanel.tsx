@@ -6,10 +6,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Download, CheckCircle2, XCircle, Loader2, FolderOpen, ExternalLink, ShieldCheck, Trash2 } from 'lucide-react';
+import { Download, CheckCircle2, XCircle, Loader2, FolderOpen, ExternalLink, ShieldCheck, Trash2, PlayCircle } from 'lucide-react';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { ipc } from '../../lib/ipc-typed';
 import { DownloadUpdate } from '../../lib/ipc-events';
+import { MediaPlayer, getMediaKind } from '../MediaPlayer';
 
 interface DownloadItem {
   id: string;
@@ -37,6 +38,7 @@ interface DownloadItem {
 export function DownloadsPanel() {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewItem, setPreviewItem] = useState<DownloadItem | null>(null);
 
   // Load initial downloads
   useEffect(() => {
@@ -185,6 +187,11 @@ export function DownloadsPanel() {
   const formatSpeed = (bytesPerSecond?: number) => {
     if (!bytesPerSecond || !Number.isFinite(bytesPerSecond)) return '';
     return `${formatBytes(bytesPerSecond)}/s`;
+  };
+
+  const isPreviewable = (download: DownloadItem) => {
+    if (!download?.path || download.status !== 'completed') return false;
+    return Boolean(getMediaKind(download.filename || download.path));
   };
 
   const completed = downloads.filter(d => d.status === 'completed').length;
@@ -398,6 +405,20 @@ export function DownloadsPanel() {
                             Copy checksum
                           </motion.button>
                         )}
+                        {isPreviewable(download) && (
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewItem(download);
+                            }}
+                            className="flex items-center gap-1.5 px-2 py-1 text-xs bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded text-purple-300 transition-colors"
+                          >
+                            <PlayCircle size={12} />
+                            Preview
+                          </motion.button>
+                        )}
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
@@ -464,6 +485,13 @@ export function DownloadsPanel() {
           )}
         </AnimatePresence>
       </div>
+      {previewItem && previewItem.path && (
+        <MediaPlayer
+          filePath={previewItem.path}
+          fileName={previewItem.filename}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </div>
   );
 }

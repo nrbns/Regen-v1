@@ -9,6 +9,7 @@ import { createPrivateWindow, createGhostTab, closeAllPrivateWindows } from './p
 import { getMainWindow } from './windows';
 import { panicWipe, forensicCleanse } from './burn';
 import { getActiveProfileForWindow, profileAllows } from './profiles';
+import { startShadowSession, endShadowSession } from './private-shadow';
 
 export function registerPrivateIpc() {
   registerHandler('private:createWindow', z.object({
@@ -66,6 +67,42 @@ export function registerPrivateIpc() {
   registerHandler('private:closeAll', z.object({}), async () => {
     const count = closeAllPrivateWindows();
     return { count };
+  });
+
+  registerHandler('private:shadow:start', z.object({
+    url: z.string().url().optional(),
+    persona: z.string().max(160).optional(),
+    summary: z.boolean().optional(),
+  }), async (event, request) => {
+    const sourceWin = BrowserWindow.fromWebContents(event.sender) || getMainWindow();
+    const activeProfile = getActiveProfileForWindow(sourceWin || null);
+
+    if (!profileAllows(activeProfile.id, 'private-window')) {
+      if (sourceWin && !sourceWin.isDestroyed()) {
+        sourceWin.webContents.send('profiles:policy-blocked', {
+          action: 'private-window',
+          profileId: activeProfile.id,
+        });
+      }
+      throw new Error('Shadow Mode is disabled by your current profile policy.');
+    }
+
+    const session = await startShadowSession({
+      url: request.url,
+      persona: request.persona,
+      summary: request.summary,
+      profileId: activeProfile.id,
+      sourceWindowId: sourceWin?.id,
+    });
+    return session;
+  });
+
+  registerHandler('private:shadow:end', z.object({
+    sessionId: z.string().uuid(),
+    forensic: z.boolean().optional(),
+  }), async (_event, request) => {
+    const result = await endShadowSession(request.sessionId, { forensic: request.forensic });
+    return result;
   });
 
   registerHandler('private:panicWipe', z.object({

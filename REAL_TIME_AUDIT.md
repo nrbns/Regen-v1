@@ -87,7 +87,7 @@
 | Consent Ledger | **IMPROVED** | Dashboard overlay, approve/revoke wiring live |
 | Local Storage Encryption | **YES** | Extension queue encrypted with AES-GCM (WebCrypto) |
 | PII Guardrails | **NEW** | Server-side detectors block high-risk writes (SSN/CC) |
-| PII Guardrails | **NEW** | Server-side detectors block high-risk writes (SSN/CC) |
+| AI Privacy Sentinel | **NEW** | Real-time tracker scoring per tab with actionable fixes |
 
 ---
 
@@ -101,3 +101,4 @@
 | **Local AI (Ollama)** | YES | `ollama run llama3.2` → no cloud |
 | **Battery Monitor** | YES | Predicts <30% drop, auto-throttle prompt |
 | **Tab Graph Overlay** | YES | `Ctrl+Shift+G` → live container/domain graph |
+| **AI Privacy Sentinel** | YES | Click Sentinel badge → live tracker audit |

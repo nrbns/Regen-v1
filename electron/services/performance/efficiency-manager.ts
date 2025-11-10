@@ -10,6 +10,8 @@ export type ResourceSnapshot = {
   ramMb: number;
   cpuLoad1: number;
   activeTabs: number;
+  carbonIntensity?: number | null;
+  carbonRegion?: string | null;
 };
 
 export type EfficiencyAlertSeverity = 'info' | 'warning' | 'critical';
@@ -26,11 +28,54 @@ export type EfficiencyAlert = {
 };
 
 type BatterySample = { timestamp: number; pct: number };
+type CarbonSample = { timestamp: number; intensity: number };
 
-type AutoThreshold = {
+export type BatteryProjectionPoint = {
   level: number;
-  minMinutes: number;
-  severity: EfficiencyAlertSeverity;
+  minutes: number | null;
+  label: string;
+};
+
+export type BatteryForecast = {
+  currentPct: number | null;
+  charging: boolean | null;
+  slopePerMinute: number | null;
+  slopePerHour: number | null;
+  minutesToEmpty: number | null;
+  minutesToFull: number | null;
+  projections: BatteryProjectionPoint[];
+  samples: BatterySample[];
+};
+
+export type CarbonForecast = {
+  currentIntensity: number | null;
+  region: string | null;
+  slopePerHour: number | null;
+  trend: 'rising' | 'falling' | 'stable' | 'unknown';
+  forecastIntensity: number | null;
+  confidence: number;
+  samples: CarbonSample[];
+};
+
+export type EcoImpactRecommendation = {
+  id: string;
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  category: 'battery' | 'carbon' | 'system';
+};
+
+export type EcoImpactForecast = {
+  generatedAt: number;
+  horizonMinutes: number;
+  battery: BatteryForecast;
+  carbon: CarbonForecast;
+  recommendations: EcoImpactRecommendation[];
+  summary: string;
+};
+
+export type EcoImpactOptions = {
+  horizonMinutes?: number;
 };
 
 const BATTERY_SAVER_THRESHOLD = 30; // %
@@ -43,8 +88,13 @@ const CPU_EXTREME_THRESHOLD = 2.5;
 const HIBERNATION_COOLDOWN_MS = 60_000;
 const BATTERY_HISTORY_WINDOW_MS = 10 * 60_000;
 const MAX_BATTERY_HISTORY = 12;
+const CARBON_HISTORY_WINDOW_MS = 90 * 60_000;
+const MAX_CARBON_HISTORY = 48;
 const ALERT_COOLDOWN_MS = 8 * 60_000;
 const ESTIMATED_RAM_PER_TAB_MB = 18;
+const BATTERY_FORECAST_LEVELS_DISCHARGE = [80, 60, 40, 30, 20, 10, 5];
+const BATTERY_FORECAST_LEVELS_CHARGE = [40, 60, 80, 95, 100];
+const TREND_HYSTERESIS = 12; // gCO2 per hour threshold for trend change
 
 const MODE_LABELS: Record<EfficiencyMode, string> = {
   normal: 'Performance Mode',
@@ -64,6 +114,9 @@ const MODE_TAGS: Record<EfficiencyMode, string[]> = {
   extreme: ['eco', 'action', 'mode:extreme', 'regen'],
 };
 
+const CARBON_THRESHOLD_HIGH = Number(process.env.CARBON_INTENSITY_EXTREME ?? 600); // gCO2/kWh
+const CARBON_THRESHOLD_MEDIUM = Number(process.env.CARBON_INTENSITY_SAVER ?? 450);
+
 const ALERT_THRESHOLDS: AutoThreshold[] = [
   { level: 30, minMinutes: 25, severity: 'warning' },
   { level: 20, minMinutes: 15, severity: 'critical' },
@@ -81,14 +134,18 @@ let lastSnapshot: ResourceSnapshot = {
   ramMb: 0,
   cpuLoad1: 0,
   activeTabs: 0,
+  carbonIntensity: null,
+  carbonRegion: null,
 };
 
 const batteryHistory: BatterySample[] = [];
+const carbonHistory: CarbonSample[] = [];
 const lastAlertAt = new Map<string, number>();
 
 export function applyEfficiencyPolicies(snapshot: ResourceSnapshot): void {
   lastSnapshot = snapshot;
   recordBatterySample(snapshot);
+  recordCarbonSample(snapshot);
   maybeReleaseOverride(snapshot);
 
   const autoMode = determineAutoMode(snapshot);
@@ -134,7 +191,7 @@ export function forceHibernateTabs(): number {
 }
 
 function determineAutoMode(snapshot: ResourceSnapshot): EfficiencyMode {
-  const { batteryPct, charging, ramMb, cpuLoad1 } = snapshot;
+  const { batteryPct, charging, ramMb, cpuLoad1, carbonIntensity } = snapshot;
   const onBattery = charging === false || charging === null;
   let nextMode: EfficiencyMode = 'normal';
 
@@ -149,6 +206,16 @@ function determineAutoMode(snapshot: ResourceSnapshot): EfficiencyMode {
       nextMode = 'extreme';
     } else if (batteryPct <= BATTERY_SAVER_THRESHOLD) {
       nextMode = nextMode === 'extreme' ? 'extreme' : 'battery-saver';
+    }
+  }
+
+  if (typeof carbonIntensity === 'number' && Number.isFinite(carbonIntensity)) {
+    if (carbonIntensity >= CARBON_THRESHOLD_HIGH) {
+      nextMode = 'extreme';
+    } else if (carbonIntensity >= CARBON_THRESHOLD_MEDIUM) {
+      nextMode = nextMode === 'extreme' ? 'extreme' : 'battery-saver';
+    } else if (carbonIntensity < CARBON_THRESHOLD_MEDIUM / 2 && nextMode === 'battery-saver') {
+      nextMode = manualOverride ?? 'normal';
     }
   }
 
@@ -236,6 +303,7 @@ function maybeHibernateInactiveTabs(mode: EfficiencyMode, force = false): number
   }
 
   if (candidates.length === 0) {
+    setLastHibernateCount(0);
     return 0;
   }
 
@@ -256,6 +324,7 @@ function maybeHibernateInactiveTabs(mode: EfficiencyMode, force = false): number
   }
 
   lastHibernateAt = now;
+  setLastHibernateCount(toHibernate.length);
   if (toHibernate.length > 0) {
     emitHibernateAlert(toHibernate.length, mode);
   }
@@ -367,7 +436,8 @@ function recordBatterySample(snapshot: ResourceSnapshot): void {
   }
 
   const now = Date.now();
-  batteryHistory.push({ timestamp: now, pct: snapshot.batteryPct });
+  const pct = Math.max(0, Math.min(100, snapshot.batteryPct));
+  batteryHistory.push({ timestamp: now, pct });
 
   while (batteryHistory.length > MAX_BATTERY_HISTORY) {
     batteryHistory.shift();
@@ -375,6 +445,23 @@ function recordBatterySample(snapshot: ResourceSnapshot): void {
 
   while (batteryHistory.length > 0 && now - batteryHistory[0].timestamp > BATTERY_HISTORY_WINDOW_MS) {
     batteryHistory.shift();
+  }
+}
+
+function recordCarbonSample(snapshot: ResourceSnapshot): void {
+  if (typeof snapshot.carbonIntensity !== 'number' || !Number.isFinite(snapshot.carbonIntensity)) {
+    return;
+  }
+
+  const now = Date.now();
+  carbonHistory.push({ timestamp: now, intensity: snapshot.carbonIntensity });
+
+  while (carbonHistory.length > MAX_CARBON_HISTORY) {
+    carbonHistory.shift();
+  }
+
+  while (carbonHistory.length > 0 && now - carbonHistory[0].timestamp > CARBON_HISTORY_WINDOW_MS) {
+    carbonHistory.shift();
   }
 }
 
@@ -409,6 +496,264 @@ function estimateMinutesToLevel(targetPct: number): number | null {
   }
 
   return minutes;
+}
+
+function computeBatteryTrend(): {
+  slopePerMinute: number;
+  slopePerHour: number;
+  samples: BatterySample[];
+  latest: BatterySample;
+} | null {
+  if (batteryHistory.length < 2) {
+    return null;
+  }
+
+  const now = Date.now();
+  const samples = batteryHistory.filter((sample) => now - sample.timestamp <= BATTERY_HISTORY_WINDOW_MS);
+  if (samples.length < 2) {
+    return null;
+  }
+
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  const deltaMinutes = (last.timestamp - first.timestamp) / 60000;
+
+  if (deltaMinutes <= 0) {
+    return null;
+  }
+
+  const slopePerMinute = (last.pct - first.pct) / deltaMinutes;
+  const slopePerHour = slopePerMinute * 60;
+
+  if (!Number.isFinite(slopePerMinute)) {
+    return null;
+  }
+
+  return { slopePerMinute, slopePerHour, samples, latest: last };
+}
+
+function computeCarbonTrend(): {
+  slopePerHour: number;
+  samples: CarbonSample[];
+  latest: CarbonSample;
+} | null {
+  if (carbonHistory.length < 2) {
+    return null;
+  }
+
+  const now = Date.now();
+  const samples = carbonHistory.filter((sample) => now - sample.timestamp <= CARBON_HISTORY_WINDOW_MS);
+  if (samples.length < 2) {
+    return null;
+  }
+
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  const deltaHours = (last.timestamp - first.timestamp) / 3_600_000;
+
+  if (deltaHours <= 0) {
+    return null;
+  }
+
+  const slopePerHour = (last.intensity - first.intensity) / deltaHours;
+  if (!Number.isFinite(slopePerHour)) {
+    return null;
+  }
+
+  return { slopePerHour, samples, latest: last };
+}
+
+function minutesToReachLevel(currentPct: number, slopePerMinute: number, targetLevel: number): number | null {
+  if (!Number.isFinite(slopePerMinute) || slopePerMinute === 0) {
+    return null;
+  }
+
+  const delta = targetLevel - currentPct;
+  const minutes = delta / slopePerMinute;
+
+  if (!Number.isFinite(minutes) || minutes < 0) {
+    return null;
+  }
+
+  return minutes;
+}
+
+function formatMinutes(minutes: number | null): string {
+  if (minutes === null || !Number.isFinite(minutes)) {
+    return 'unknown';
+  }
+
+  const total = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+
+  if (hours <= 0) {
+    return `${mins}m`;
+  }
+
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${mins}m`;
+}
+
+export function getEcoImpactForecast(options: EcoImpactOptions = {}): EcoImpactForecast {
+  const horizonMinutes = Math.max(30, Math.min(options.horizonMinutes ?? 120, 240));
+  const now = Date.now();
+
+  const batteryTrend = computeBatteryTrend();
+  const carbonTrend = computeCarbonTrend();
+
+  const currentPct = batteryTrend?.latest.pct ?? (typeof lastSnapshot.batteryPct === 'number' ? lastSnapshot.batteryPct : null);
+  const charging = lastSnapshot.charging;
+  const slopePerMinute = batteryTrend?.slopePerMinute ?? null;
+  const slopePerHour = batteryTrend?.slopePerHour ?? (slopePerMinute !== null ? slopePerMinute * 60 : null);
+
+  const minutesToEmpty = currentPct !== null && slopePerMinute !== null && slopePerMinute < 0
+    ? minutesToReachLevel(currentPct, slopePerMinute, 0)
+    : null;
+
+  const minutesToFull = currentPct !== null && slopePerMinute !== null && slopePerMinute > 0
+    ? minutesToReachLevel(currentPct, slopePerMinute, 100)
+    : null;
+
+  const dischargeProjections = slopePerMinute !== null && slopePerMinute < 0 && currentPct !== null
+    ? BATTERY_FORECAST_LEVELS_DISCHARGE
+        .filter((level) => level < currentPct)
+        .map<BatteryProjectionPoint>((level) => ({
+          level,
+          minutes: minutesToReachLevel(currentPct, slopePerMinute, level),
+          label: `${level}%`,
+        }))
+    : [];
+
+  const chargeProjections = slopePerMinute !== null && slopePerMinute > 0 && currentPct !== null
+    ? BATTERY_FORECAST_LEVELS_CHARGE
+        .filter((level) => level > currentPct)
+        .map<BatteryProjectionPoint>((level) => ({
+          level,
+          minutes: minutesToReachLevel(currentPct, slopePerMinute, level),
+          label: `${level}%`,
+        }))
+    : [];
+
+  const battery: BatteryForecast = {
+    currentPct,
+    charging,
+    slopePerMinute,
+    slopePerHour,
+    minutesToEmpty,
+    minutesToFull,
+    projections: charging ? chargeProjections : dischargeProjections,
+    samples: batteryTrend?.samples ?? batteryHistory.slice(-Math.min(batteryHistory.length, MAX_BATTERY_HISTORY)),
+  };
+
+  const carbonCurrent = carbonTrend?.latest.intensity ?? (Number.isFinite(lastSnapshot.carbonIntensity ?? NaN) ? lastSnapshot.carbonIntensity ?? null : null);
+  const carbonSlope = carbonTrend?.slopePerHour ?? null;
+  const carbonForecastValue = carbonCurrent !== null && carbonSlope !== null
+    ? carbonCurrent + carbonSlope * (horizonMinutes / 60)
+    : null;
+
+  let carbonTrendLabel: CarbonForecast['trend'] = 'unknown';
+  if (carbonSlope !== null) {
+    if (carbonSlope > TREND_HYSTERESIS) {
+      carbonTrendLabel = 'rising';
+    } else if (carbonSlope < -TREND_HYSTERESIS) {
+      carbonTrendLabel = 'falling';
+    } else {
+      carbonTrendLabel = 'stable';
+    }
+  }
+
+  const carbon: CarbonForecast = {
+    currentIntensity: carbonCurrent,
+    region: lastSnapshot.carbonRegion ?? null,
+    slopePerHour: carbonSlope,
+    trend: carbonTrendLabel,
+    forecastIntensity: carbonForecastValue,
+    confidence: Math.min(1, (carbonTrend?.samples.length ?? 0) / 6),
+    samples: carbonTrend?.samples ?? carbonHistory.slice(-Math.min(carbonHistory.length, MAX_CARBON_HISTORY)),
+  };
+
+  const recommendations: EcoImpactRecommendation[] = [];
+
+  if (battery.minutesToEmpty !== null && charging !== true) {
+    if (battery.minutesToEmpty < 45) {
+      recommendations.push({
+        id: 'battery-saver',
+        title: 'Enable Battery Saver Mode',
+        description: `Projected ${formatMinutes(battery.minutesToEmpty)} until empty. Switching to Battery Saver extends runtime by throttling heavy tabs and reducing animations.`,
+        impact: battery.minutesToEmpty < 25 ? 'high' : 'medium',
+        category: 'battery',
+      });
+    }
+    if (battery.minutesToEmpty < 30) {
+      recommendations.push({
+        id: 'hibernate-tabs',
+        title: 'Hibernate idle workspaces',
+        description: 'Resting background tabs could free RAM and slow the discharge slope by ~15%.',
+        impact: 'medium',
+        category: 'system',
+      });
+    }
+  }
+
+  if (carbon.currentIntensity !== null) {
+    const forecast = carbon.forecastIntensity ?? carbon.currentIntensity;
+    if (forecast >= CARBON_THRESHOLD_HIGH) {
+      recommendations.push({
+        id: 'carbon-delay',
+        title: 'Delay heavy compute tasks',
+        description: `Grid intensity heading toward ${Math.round(forecast)} gCO₂/kWh. Consider postponing AI training, large downloads, or switch to offline tasks until the grid cools.`,
+        impact: 'high',
+        category: 'carbon',
+      });
+    } else if (carbon.currentIntensity <= CARBON_THRESHOLD_MEDIUM / 2 && (carbon.trend === 'falling' || carbon.trend === 'stable')) {
+      recommendations.push({
+        id: 'carbon-window',
+        title: 'Great window for energy-heavy work',
+        description: `Local grid intensity near ${Math.round(carbon.currentIntensity)} gCO₂/kWh. This is a low-carbon window for downloads, syncs, or GPU sessions.`,
+        impact: 'medium',
+        category: 'carbon',
+      });
+    }
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      id: 'status-green',
+      title: 'Systems balanced',
+      description: 'Battery trajectory and carbon footprint look balanced. Maintain normal workflow.',
+      impact: 'low',
+      category: 'system',
+    });
+  }
+
+  const summaryParts: string[] = [];
+  if (battery.currentPct !== null) {
+    summaryParts.push(`Battery ${Math.round(battery.currentPct)}%`);
+  }
+  if (charging === true && battery.minutesToFull !== null) {
+    summaryParts.push(`≈${formatMinutes(battery.minutesToFull)} to full`);
+  } else if (charging !== true && battery.minutesToEmpty !== null) {
+    summaryParts.push(`≈${formatMinutes(battery.minutesToEmpty)} to empty`);
+  }
+  if (carbon.currentIntensity !== null) {
+    summaryParts.push(`Carbon ${Math.round(carbon.currentIntensity)} gCO₂/kWh${carbon.trend !== 'unknown' ? ` • ${carbon.trend}` : ''}`);
+  }
+  if (carbon.forecastIntensity !== null && Math.abs((carbon.forecastIntensity ?? 0) - (carbon.currentIntensity ?? 0)) > 15) {
+    summaryParts.push(`Forecast ${Math.round(carbon.forecastIntensity)} g`);
+  }
+
+  return {
+    generatedAt: now,
+    horizonMinutes,
+    battery,
+    carbon,
+    recommendations,
+    summary: summaryParts.join(' · '),
+  };
 }
 
 function maybeEmitPredictiveAlerts(snapshot: ResourceSnapshot): void {

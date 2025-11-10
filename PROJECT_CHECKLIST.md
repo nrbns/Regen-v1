@@ -46,6 +46,7 @@ Curated from the deep review and roadmap discussion. Tasks are grouped by milest
 - [x] Automated privacy scans integrated into CI
 - [x] CSP hardening (iframe proxy + headers)
 - [x] Tor proxy auto-routing when enabled
+- [x] AI Privacy Sentinel badge with per-tab tracker scoring
 
 ---
 

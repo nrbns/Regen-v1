@@ -35,6 +35,7 @@ export type TabGraphData = {
   edges: TabGraphEdge[];
   summary: TabGraphSummary;
   updatedAt: number;
+  clusters?: Array<{ id: string; label: string; tabIds: string[]; domain?: string; strength: number }>;
 };
 
 interface TabGraphState {

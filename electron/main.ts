@@ -46,6 +46,7 @@ import { initializeNetworkControls } from './services/network-controls';
 import { registerOllamaIpc } from './services/agent/ollama-ipc';
 import { registerCitationGraphIpc } from './services/knowledge/citation-ipc';
 import { registerKnowledgeIpc } from './services/knowledge/knowledge-ipc';
+import { registerCrossRealityBridge } from './services/cross-reality-bridge';
 import { registerCognitiveIpc } from './services/cognitive/cognitive-ipc';
 import { registerWorkspaceV2Ipc } from './services/workspace-v2-ipc';
 import { registerSessionBundleIpc, setAgentStore } from './services/session-bundle-ipc';
@@ -54,8 +55,10 @@ import { registerOmniScriptIpc } from './services/omniscript-ipc';
 import { registerOmniBrainIpc } from './services/omni-brain-ipc';
 import { registerSpiritualIpc } from './services/spiritual/spiritual-ipc';
 import { registerPluginMarketplaceIpc } from './services/plugins/marketplace-ipc';
+import { registerExtensionNexusIpc } from './services/plugins/nexus-ipc';
 import { registerEnhancedThreatIpc } from './services/threats/enhanced-ipc';
 import { registerPerformanceIpc } from './services/performance/performance-ipc';
+import { registerEcoImpactIpc } from './services/performance/eco-impact-ipc';
 import { startResourceMonitor } from './services/performance/resource-monitor';
 import { registerWorkerIpc } from './services/workers/worker-ipc';
 import { registerVideoCallIpc } from './services/video-call-ipc';
@@ -68,6 +71,8 @@ import { registerCloudVectorIpc } from './services/knowledge/cloud-vector-ipc';
 import { registerHybridSearchIpc } from './services/search/hybrid-search-ipc';
 import { registerE2EESyncIpc } from './services/sync/e2ee-sync-ipc';
 import { registerStreamingIpc } from './services/agent/streaming-ipc';
+import { registerPrivacySentinelIpc } from './services/security/privacy-sentinel';
+import { registerTrustWeaverIpc } from './services/trust-weaver-ipc';
 
 let mainWindow: BrowserWindow | null = null;
 let isCreatingWindow = false; // Prevent duplicate window creation
@@ -295,6 +300,7 @@ app.whenReady().then(async () => {
     registerOllamaIpc();
     registerCitationGraphIpc();
     registerKnowledgeIpc();
+    registerCrossRealityBridge();
     registerCognitiveIpc();
     registerWorkspaceV2Ipc();
     registerSessionBundleIpc();
@@ -303,8 +309,10 @@ app.whenReady().then(async () => {
     registerOmniBrainIpc();
     registerSpiritualIpc();
     registerPluginMarketplaceIpc();
+    registerExtensionNexusIpc();
     registerEnhancedThreatIpc();
     registerPerformanceIpc();
+    registerEcoImpactIpc();
     startResourceMonitor();
     registerWorkerIpc();
     registerVideoCallIpc();
@@ -314,6 +322,8 @@ app.whenReady().then(async () => {
     registerHybridSearchIpc();
     registerE2EESyncIpc();
     registerStreamingIpc();
+    registerPrivacySentinelIpc();
+    registerTrustWeaverIpc();
     
     // Signal renderer that IPC is ready
     mainWindow.webContents.once('did-finish-load', () => {

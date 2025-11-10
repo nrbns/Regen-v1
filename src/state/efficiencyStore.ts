@@ -26,6 +26,8 @@ type Snapshot = {
   ramMb: number;
   cpuLoad1: number;
   activeTabs: number;
+  carbonIntensity?: number | null;
+  carbonRegion?: string | null;
 };
 
 type EfficiencyState = {
@@ -50,6 +52,8 @@ const defaultSnapshot: Snapshot = {
   ramMb: 0,
   cpuLoad1: 0,
   activeTabs: 0,
+  carbonIntensity: null,
+  carbonRegion: null,
 };
 
 export const useEfficiencyStore = create<EfficiencyState>((set) => ({

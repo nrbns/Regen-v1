@@ -50,6 +50,7 @@ import { useIPCEvent } from '../../lib/use-ipc-event';
 import { DownloadUpdate, TabNavigationState } from '../../lib/ipc-events';
 import { ThemeSwitcher } from '../TopNav/ThemeSwitcher';
 import { useAppStore } from '../../state/appStore';
+import { PrivacySentinelBadge } from '../TopNav/PrivacySentinelBadge';
 
 type MenuId = 'view' | 'workspace' | 'tools' | 'agent' | 'security';
 
@@ -926,6 +927,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         {renderMenuButton('workspace', 'Workspace', workspaceMenuEntries)}
         {renderMenuButton('tools', 'Tools', toolsMenuEntries)}
         {renderMenuButton('security', 'Security', securityMenuEntries)}
+        <PrivacySentinelBadge />
         <ThemeSwitcher />
         <div className="hidden 2xl:flex items-center gap-1.5">
           <ShieldsButton />

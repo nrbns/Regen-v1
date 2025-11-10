@@ -7,6 +7,7 @@
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
 import { ConsentLedger, ConsentActionSchema } from './consent-ledger';
+import { appendToVault, exportVaultSnapshot, generateVaultReceipt } from './consent-vault';
 
 const ledger = new ConsentLedger();
 
@@ -32,12 +33,15 @@ export function registerConsentIpc(): void {
     return { consentId: ledger.createRequest(request) };
   });
 
-  registerHandler('consent:approve', z.object({ consentId: z.string() }), async (_event, request) => {
+  registerHandler('consent:approve', z.object({ consentId: z.string().uuid() }), async (_event, request) => {
     const success = ledger.approve(request.consentId);
-    if (success) {
-      resolveConsent(request.consentId, true);
+    const consent = ledger.get(request.consentId);
+    if (success && consent) {
+      const entry = await appendToVault(consent);
+      const receipt = generateVaultReceipt(entry);
+      return { success, consent, receipt };
     }
-    return { success };
+    return { success, consent };
   });
 
   registerHandler('consent:revoke', z.object({ consentId: z.string() }), async (_event, request) => {
@@ -74,7 +78,12 @@ export function registerConsentIpc(): void {
   });
 
   registerHandler('consent:export', z.object({}), async () => {
-    return { ledger: ledger.export() };
+    return ledger.export();
+  });
+
+  registerHandler('consent:vault:export', z.object({}), async () => {
+    const snapshot = await exportVaultSnapshot();
+    return snapshot;
   });
 }
 
