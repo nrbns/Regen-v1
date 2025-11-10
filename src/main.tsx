@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './lib/battery';
+import { isDevEnv } from './lib/env';
 
 // Error boundary with better UX
 class ErrorBoundary extends React.Component<
@@ -260,8 +261,8 @@ if (!rootElement) {
 }
 
 try {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🚀 Mounting OmniBrowser...');
+  if (isDevEnv()) {
+    console.log('%c🚀 Mounting OmniBrowser...', 'color:#34d399;font-weight:bold;');
   }
 
   const rootKey = '__OMNIBROWSER_REACT_ROOT__';
@@ -287,8 +288,8 @@ try {
     </React.StrictMode>
   );
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ OmniBrowser mounted successfully');
+  if (isDevEnv()) {
+    console.log('%c✅ OmniBrowser mounted successfully', 'color:#60a5fa;font-weight:bold;');
   }
 } catch (error) {
   console.error('❌ Failed to mount application:', error);

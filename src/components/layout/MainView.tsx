@@ -8,6 +8,7 @@ import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
 import { ipcEvents } from '../../lib/ipc-events';
 import { ipc } from '../../lib/ipc-typed';
+import { isDevEnv } from '../../lib/env';
 
 export function MainView() {
   const { activeId, tabs } = useTabsStore();
@@ -20,6 +21,7 @@ export function MainView() {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const isElectron = useMemo(() => typeof window !== 'undefined' && Boolean((window as any).electron), []);
+  const isDev = useMemo(() => isDevEnv(), []);
 
   const canEmbedInIframe = useMemo(() => {
     if (!activeTabUrl) return false;
@@ -283,7 +285,7 @@ export function MainView() {
       
 
       {/* Debug info (can be removed in production) */}
-      {process.env.NODE_ENV === 'development' && activeTabUrl && activeId && (
+      {isDev && activeTabUrl && activeId && (
         <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded opacity-50 hover:opacity-100 transition-opacity z-50 pointer-events-none">
           {activeTabTitle} - {activeTabUrl}
         </div>

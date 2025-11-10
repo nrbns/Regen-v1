@@ -13,6 +13,7 @@ import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
+import { isDevEnv } from '../../lib/env';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -160,7 +161,7 @@ class ErrorBoundary extends React.Component<
               </div>
             )}
 
-            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+            {isDevEnv() && this.state.errorInfo && (
               <details className="text-xs text-gray-400">
                 <summary className="cursor-pointer text-gray-300">Stack trace</summary>
                 <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-black/40 p-3">
@@ -253,7 +254,7 @@ export function AppShell() {
         try {
           void useTabGraphStore.getState().focusTab(tabId);
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
+          if (isDevEnv()) {
             console.warn('[AppShell] Failed to focus tab graph from drop', error);
           }
         }

@@ -345,6 +345,35 @@ export function BottomStatus() {
       console.error('Failed to toggle DoH:', error);
     }
   };
+
+  const efficiencyDetails = [
+    efficiencyBadge || null,
+    typeof efficiencySnapshot.batteryPct === 'number' ? `${Math.round(efficiencySnapshot.batteryPct)}%` : null,
+    typeof carbonIntensity === 'number' ? `${Math.round(carbonIntensity)} gCO₂/kWh` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const efficiencyVariant: 'default' | 'positive' | 'info' = efficiencyLabel.includes('Regen')
+    ? 'positive'
+    : efficiencyLabel.includes('Battery')
+    ? 'info'
+    : 'default';
+
+  const torBadgeDescription = torStatusLabel.replace(/^Tor:?\s*/i, '');
+  const torBadgeVariant: 'default' | 'positive' | 'warning' | 'info' = torStatus.stub
+    ? 'warning'
+    : torStatus.running
+    ? 'info'
+    : 'default';
+
+  const vpnBadgeDescription = vpnStatus.connected
+    ? vpnStatus.type
+      ? vpnStatus.type.toUpperCase()
+      : 'Active'
+    : 'Disconnected';
+
+  const modelVariant: 'positive' | 'warning' = modelReady ? 'positive' : 'warning';
  
   return (
     <div

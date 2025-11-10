@@ -8,6 +8,15 @@ import { formatDistanceToNow } from 'date-fns';
 import { User, Plus, X, Edit2, Check, RotateCcw, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
+import type { BrowserSession } from '../../types/session';
+import { Avatar } from '../sessions/Avatar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, Check, X, LogOut, Trash2, Lock, Zap, Copy, PenSquare } from 'lucide-react';
+import { Tooltip } from '../common/Tooltip';
+import { useOnboardingStore } from '../../state/onboardingStore';
+import { isDevEnv } from '../../lib/env';
 
 interface BrowserSession {
   id: string;
@@ -20,6 +29,7 @@ interface BrowserSession {
 }
 
 export function SessionSwitcher() {
+  const IS_DEV = isDevEnv();
   const [sessions, setSessions] = useState<BrowserSession[]>([]);
   const [activeSession, setActiveSession] = useState<BrowserSession | null>(null);
   const [open, setOpen] = useState(false);
@@ -84,7 +94,7 @@ export function SessionSwitcher() {
     } catch (error) {
       // Silently handle - will retry on next interval
       // Only log if it's a real error, not just IPC not ready
-      if (process.env.NODE_ENV === 'development' && error instanceof Error && !error.message.includes('not available')) {
+      if (IS_DEV && error instanceof Error && !error.message.includes('not available')) {
         console.warn('Failed to load sessions:', error);
       }
     }
@@ -137,7 +147,7 @@ export function SessionSwitcher() {
       setCreating(false);
       await loadSessions();
     } catch (error) {
-      console.error('Failed to create session:', error);
+      if (IS_DEV) console.error('Failed to create session:', error);
     }
   };
 
@@ -147,7 +157,7 @@ export function SessionSwitcher() {
       await loadSessions();
       setOpen(false);
     } catch (error) {
-      console.error('Failed to switch session:', error);
+      if (IS_DEV) console.error('Failed to switch session:', error);
     }
   };
 
@@ -161,7 +171,7 @@ export function SessionSwitcher() {
       await ipc.sessions.delete({ sessionId });
       await loadSessions();
     } catch (error) {
-      console.error('Failed to delete session:', error);
+      if (IS_DEV) console.error('Failed to delete session:', error);
     }
   };
 

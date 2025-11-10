@@ -19,8 +19,10 @@ import { useTabGraphStore } from '../../state/tabGraphStore';
 import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
 import { HolographicPreviewOverlay } from '../hologram';
 import { useCrossRealityStore } from '../../state/crossRealityStore';
+import { isDevEnv } from '../../lib/env';
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
+const IS_DEV = isDevEnv();
 
 interface Tab {
   id: string;
@@ -110,7 +112,7 @@ export function TabStrip() {
           setPrefetchEntries(Array.isArray(response.prefetch) ? response.prefetch : []);
           setPredictionSummary(response.summary?.explanation ?? null);
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
+          if (IS_DEV) {
             console.warn('[TabStrip] Predictive suggestions failed', error);
           }
           if (options?.force) {
@@ -191,7 +193,7 @@ export function TabStrip() {
 
       fetchPredictiveSuggestionsRef.current?.();
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.error('[TabStrip] Failed to refresh tabs from main process:', error);
       }
     }
@@ -364,12 +366,12 @@ export function TabStrip() {
                 
                 const result = await ipc.tabs.create('about:blank');
                 if (result && result.id) {
-                  if (process.env.NODE_ENV === 'development') {
+                  if (IS_DEV) {
                     console.log('[TabStrip] Initial tab created after wait:', result.id);
                   }
                 }
               } catch (error) {
-                if (process.env.NODE_ENV === 'development') {
+                if (IS_DEV) {
                   console.error('[TabStrip] Failed to create initial tab:', error);
                 }
               } finally {
@@ -426,7 +428,7 @@ export function TabStrip() {
           fromSessionRestore: true,
         });
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.error('Failed to restore tab from session:', error);
         }
       } finally {
@@ -450,14 +452,14 @@ export function TabStrip() {
     const handleTabUpdate = (tabList: any[]) => {
       // Don't process updates if component is unmounted or invalid data
       if (!isMounted || !Array.isArray(tabList)) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('[TabStrip] handleTabUpdate: Invalid data or unmounted', { isMounted, tabList });
         }
         return;
       }
       
       // Only log in development if there's a significant change or error
-      if (process.env.NODE_ENV === 'development' && false) { // Disabled to reduce console noise
+      if (IS_DEV && false) { // Disabled to reduce console noise
         console.log('[TabStrip] handleTabUpdate received:', tabList.map(t => ({ id: t.id, active: t.active })));
       }
       
@@ -571,7 +573,7 @@ export function TabStrip() {
   const addTab = async () => {
     // Prevent multiple simultaneous tab creations (debounce)
     if (isCreatingTabRef.current) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.log('[TabStrip] Tab creation already in progress, skipping');
       }
       return;
@@ -587,16 +589,16 @@ export function TabStrip() {
       const result = await ipc.tabs.create('about:blank');
       if (result && result.id) {
         // Tab created successfully - IPC event will update the UI
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.log('[TabStrip] Tab created via addTab:', result.id);
         }
       } else {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('[TabStrip] Tab creation returned no ID:', result);
         }
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.error('Failed to create tab:', error);
       }
     } finally {
@@ -646,7 +648,7 @@ export function TabStrip() {
       currentActiveIdRef.current = null;
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (IS_DEV) {
       console.log('[TabStrip] Closing tab (optimistic):', tabId, 'previous active:', previousActiveId);
     }
 
@@ -658,12 +660,12 @@ export function TabStrip() {
         ),
       ]);
 
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.log('[TabStrip] tabs.close result:', result);
       }
 
       if (!result || !result.success) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('[TabStrip] Tab close failed or timed out, reverting:', tabId, result?.error);
         }
 
@@ -680,7 +682,7 @@ export function TabStrip() {
         await refreshTabsFromMain();
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.error('[TabStrip] Exception during tab close, reverting:', error);
       }
 
@@ -708,7 +710,7 @@ export function TabStrip() {
     const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
     const tabToActivate = currentTabs.find(t => t.id === tabId);
     if (!tabToActivate) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.warn('[TabStrip] Tab not found for activation:', tabId, 'Available tabs:', currentTabs.map(t => t.id));
       }
       return;
@@ -734,7 +736,7 @@ export function TabStrip() {
     tabsRef.current = updatedTabs;
     setAllTabs(updatedTabs.map(t => ({ id: t.id, title: t.title, active: t.active, url: t.url, mode: t.mode })));
 
-    if (process.env.NODE_ENV === 'development') {
+    if (IS_DEV) {
       console.log('[TabStrip] Activating tab (optimistic):', tabId, 'previous:', previousActiveId);
     }
 
@@ -746,12 +748,12 @@ export function TabStrip() {
         ),
       ]);
 
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.log('[TabStrip] tabs.activate result:', result);
       }
 
       if (!result || !result.success) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('[TabStrip] Tab activation failed or timed out, reverting:', tabId, result?.error);
         }
 
@@ -767,11 +769,11 @@ export function TabStrip() {
         }
 
         await refreshTabsFromMain();
-      } else if (process.env.NODE_ENV === 'development') {
+      } else if (IS_DEV) {
         console.log('[TabStrip] Tab activation acknowledged by IPC:', tabId);
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (IS_DEV) {
         console.error('[TabStrip] Exception during tab activation, reverting:', error);
       }
 
@@ -821,7 +823,7 @@ export function TabStrip() {
         try {
           await ipc.tabs.moveToWorkspace({ tabId: tab.id, workspaceId: result.id, label });
         } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
+          if (IS_DEV) {
             console.warn('[TabStrip] Failed to regroup tab', error);
           }
         }
@@ -999,7 +1001,7 @@ export function TabStrip() {
                           event.dataTransfer.effectAllowed = 'copy';
                         }
                       } catch (error) {
-                        if (process.env.NODE_ENV === 'development') {
+                        if (IS_DEV) {
                           console.warn('[TabStrip] Drag start failed', error);
                         }
                       }

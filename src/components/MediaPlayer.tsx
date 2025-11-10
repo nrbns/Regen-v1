@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Portal } from './common/Portal';
 import { ipc } from '../lib/ipc-typed';
+import { isDevEnv } from '../lib/env';
 
 type MediaKind = 'video' | 'audio';
 
@@ -182,8 +183,8 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
         await videoElement.requestPictureInPicture();
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('PiP toggle failed:', error);
+      if (isDevEnv()) {
+        console.warn('[MediaPlayer] Failed to request Picture-in-Picture:', error);
       }
     }
   };

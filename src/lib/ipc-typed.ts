@@ -8,9 +8,12 @@
 import { z } from 'zod';
 import { ResearchResult } from '../types/research';
 import type { PrivacyAuditSummary } from './ipc-events';
+import { getEnvVar, isDevEnv } from './env';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
+
+const IS_DEV = isDevEnv();
 
 type IPCResponse<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -47,7 +50,7 @@ if (typeof window !== 'undefined') {
     const resolvers = [...ipcReadyResolvers];
     ipcReadyResolvers = [];
     resolvers.forEach(resolve => resolve());
-    if (process.env.NODE_ENV === 'development') {
+    if (IS_DEV) {
       console.log('[IPC] Ready signal received');
     }
   };
@@ -126,9 +129,10 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   const isReady = await waitForIPC(10000);
   
   if (!isReady || !window.ipc || typeof window.ipc.invoke !== 'function') {
-    // Silently return default response - don't spam console
-    // The app will retry when IPC becomes available
-    return Promise.resolve((Array.isArray({} as TResponse) ? [] : null) as TResponse);
+    if (IS_DEV) {
+      console.warn(`[IPC] Channel ${channel} unavailable (renderer not attached to Electron)`);
+    }
+    throw new Error('IPC unavailable');
   }
   
   try {
@@ -147,8 +151,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     
     return response as TResponse;
   } catch (error) {
-    // Only log in development to avoid console spam
-    if (process.env.NODE_ENV === 'development') {
+    if (IS_DEV) {
       console.warn(`IPC call failed for ${channel}:`, error);
     }
     throw error;
@@ -192,12 +195,12 @@ export const ipc = {
           sessionId: payload.sessionId,
           fromSessionRestore: payload.fromSessionRestore,
         });
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.log('[IPC] Tab created:', result);
         }
         return result;
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.error('Failed to create tab:', error);
         }
         // Return a mock result to prevent UI from breaking
@@ -207,12 +210,12 @@ export const ipc = {
     close: async (request: { id: string }) => {
       try {
         const response = await ipcCall('tabs:close', request);
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.log('[IPC] tabs.close response:', response);
         }
         return response;
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('Failed to close tab:', err);
         }
         throw err;
@@ -221,12 +224,12 @@ export const ipc = {
     activate: async (request: { id: string }) => {
       try {
         const response = await ipcCall('tabs:activate', request);
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.log('[IPC] tabs.activate response:', response);
         }
         return response;
       } catch (err) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('Failed to activate tab:', err);
         }
         throw err;
@@ -286,7 +289,7 @@ export const ipc = {
           summary: response?.summary,
         };
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (IS_DEV) {
           console.warn('Failed to fetch predictive tab groups:', error);
         }
         return { groups: [], prefetch: [], summary: undefined } as const;

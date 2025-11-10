@@ -1,4 +1,5 @@
 import { ipc } from './ipc-typed';
+import { getEnvVar, isDevEnv, isElectronRuntime } from './env';
 
 type BatteryManager = {
   charging: boolean;
@@ -13,18 +14,18 @@ const carbonEndpoints: Record<string, string> = {
 };
 
 async function fetchCarbonIntensity(regionCode?: string | null): Promise<{ intensity: number | null; region: string | null }> {
-  const defaultRegion = process.env.CARBON_DEFAULT_REGION || 'global';
+  const defaultRegion = getEnvVar('CARBON_DEFAULT_REGION') || 'global';
   const region = regionCode ?? defaultRegion;
 
-  const apiBase = process.env.CARBON_API_URL ?? carbonEndpoints.global;
+  const apiBase = getEnvVar('CARBON_API_URL') ?? carbonEndpoints.global;
   if (!apiBase) {
     return { intensity: null, region };
   }
 
   try {
     const response = await fetch(`${apiBase}${encodeURIComponent(region)}`, {
-      headers: process.env.CARBON_API_TOKEN
-        ? { Authorization: `Bearer ${process.env.CARBON_API_TOKEN}` }
+      headers: getEnvVar('CARBON_API_TOKEN')
+        ? { Authorization: `Bearer ${getEnvVar('CARBON_API_TOKEN')}` }
         : undefined,
     });
 
@@ -38,7 +39,7 @@ async function fetchCarbonIntensity(regionCode?: string | null): Promise<{ inten
       return { intensity: direct, region };
     }
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevEnv()) {
       console.warn('[battery] Carbon intensity lookup failed', error);
     }
   }
@@ -48,6 +49,10 @@ async function fetchCarbonIntensity(regionCode?: string | null): Promise<{ inten
 
 async function watchBattery(): Promise<void> {
   if (typeof navigator === 'undefined' || typeof (navigator as any).getBattery !== 'function') {
+    return;
+  }
+
+  if (!isElectronRuntime()) {
     return;
   }
 
@@ -79,7 +84,7 @@ async function watchBattery(): Promise<void> {
           regionCode: lastRegionCode,
         });
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
+        if (isDevEnv()) {
           console.warn('[battery] Failed to push battery update', error);
         }
       }
@@ -92,7 +97,7 @@ async function watchBattery(): Promise<void> {
     battery.addEventListener('chargingtimechange', () => void pushUpdate());
     battery.addEventListener('dischargingtimechange', () => void pushUpdate());
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevEnv()) {
       console.warn('[battery] Battery API unavailable', error);
     }
   }
