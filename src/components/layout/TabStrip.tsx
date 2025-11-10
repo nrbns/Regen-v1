@@ -73,13 +73,14 @@ export function TabStrip() {
   const openPeek = usePeekPreviewStore((state) => state.open);
   const predictiveRequestRef = useRef<Promise<void> | null>(null);
   const lastPredictionSignatureRef = useRef<string>('');
+  const fetchPredictiveSuggestionsRef = useRef<(options?: { force?: boolean }) => Promise<void> | void>();
   
   // Keep ref in sync with activeId (doesn't cause re-renders)
   useEffect(() => {
     currentActiveIdRef.current = activeId;
   }, [activeId]);
 
-  const fetchPredictiveSuggestions = useCallback(
+  const runPredictiveSuggestions = useCallback(
     async (options?: { force?: boolean }) => {
       if (predictiveRequestRef.current && !options?.force) {
         return predictiveRequestRef.current;
@@ -131,9 +132,13 @@ export function TabStrip() {
   );
 
   useEffect(() => {
+    fetchPredictiveSuggestionsRef.current = runPredictiveSuggestions;
+  }, [runPredictiveSuggestions]);
+
+  useEffect(() => {
     if (!hasInitialized) return;
-    void fetchPredictiveSuggestions({ force: true });
-  }, [hasInitialized, fetchPredictiveSuggestions]);
+    fetchPredictiveSuggestionsRef.current?.({ force: true });
+  }, [hasInitialized]);
 
   const refreshTabsFromMain = useCallback(async () => {
     try {
@@ -184,13 +189,13 @@ export function TabStrip() {
         currentActiveIdRef.current = null;
       }
 
-      void fetchPredictiveSuggestions();
+      fetchPredictiveSuggestionsRef.current?.();
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('[TabStrip] Failed to refresh tabs from main process:', error);
       }
     }
-  }, [setActiveTab, setAllTabs, fetchPredictiveSuggestions]);
+  }, [setActiveTab, setAllTabs]);
 
   useEffect(() => {
     const checkHologramSupport = () => {
@@ -824,18 +829,18 @@ export function TabStrip() {
       setTimeout(() => {
         void useTabGraphStore.getState().refresh();
       }, 300);
-      void fetchPredictiveSuggestions({ force: true });
+      fetchPredictiveSuggestionsRef.current?.({ force: true });
     });
-  }, [predictedClusters, fetchPredictiveSuggestions]);
+  }, [predictedClusters]);
 
   const handlePrefetchOpen = useCallback(
     (entry: { tabId: string; url: string; reason: string; confidence?: number }) => {
       if (!entry?.url) return;
       void ipc.tabs.create({ url: entry.url, activate: true }).then(() => {
-        void fetchPredictiveSuggestions({ force: true });
+        fetchPredictiveSuggestionsRef.current?.({ force: true });
       });
     },
-    [fetchPredictiveSuggestions]
+    []
   );
 
   // Ensure active tab stays visible (only when activeId changes)
