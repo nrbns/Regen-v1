@@ -3,7 +3,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Lock, Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -170,13 +171,6 @@ export function BottomStatus() {
         ? 'Tor: On'
         : `Tor: ${Math.round(torStatus.progress)}%`
       : 'Tor: Off';
-  const torColorClass = torStatus.stub
-    ? 'text-amber-300'
-    : torStatus.running
-      ? torStatus.circuitEstablished
-        ? 'text-purple-300'
-        : 'text-amber-300'
-      : 'text-gray-500';
   const torTooltip = torStatus.error
     ? `Tor warning: ${torStatus.error}`
     : torStatus.stub
@@ -187,10 +181,6 @@ export function BottomStatus() {
           : 'Tor starting up. Click to stop.'
         : 'Route traffic through Tor. Click to enable.';
 
-  const vpnStatusLabel = vpnStatus.connected
-    ? `VPN: ${vpnStatus.type ? vpnStatus.type.toUpperCase() : 'Active'}`
-    : 'VPN: Disconnected';
-  const vpnColorClass = vpnStatus.connected ? 'text-emerald-300' : 'text-gray-500';
   const vpnTooltip = vpnStatus.connected
     ? `VPN connected${vpnStatus.name ? ` (${vpnStatus.name})` : ''}. Click to re-check.`
     : 'Check whether a system VPN is active.';
@@ -199,6 +189,107 @@ export function BottomStatus() {
     info: 'bg-blue-500/10 border-blue-400/40 text-blue-100',
     warning: 'bg-amber-500/10 border-amber-400/40 text-amber-100',
     critical: 'bg-red-500/10 border-red-400/40 text-red-100',
+  };
+ 
+  const clampPercent = (value?: number | null) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, Math.round(value)));
+  };
+
+  const StatusMeter = ({
+    icon: Icon,
+    label,
+    value,
+    percent,
+    gradient = 'from-blue-500 via-cyan-500 to-blue-500',
+    title,
+    onClick,
+  }: {
+    icon: LucideIcon;
+    label: string;
+    value: string;
+    percent?: number;
+    gradient?: string;
+    title?: string;
+    onClick?: () => void;
+  }) => {
+    const Component = onClick ? 'button' : 'div';
+    const pct = clampPercent(percent);
+
+    return (
+      <Component
+        type={onClick ? 'button' : undefined}
+        onClick={onClick}
+        title={title}
+        className={`flex items-center gap-1.5 rounded-full border border-gray-700/60 bg-gray-800/60 px-2 py-1 text-xs text-gray-200 ${
+          onClick ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/40' : ''
+        }`}
+      >
+        <Icon size={12} className="text-gray-400" />
+        <span className="font-semibold text-gray-100">{label}</span>
+        <span className="text-[11px] opacity-75">{value}</span>
+        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-700">
+          <div className={`h-full bg-gradient-to-r ${gradient}`} style={{ width: `${pct}%` }} />
+        </div>
+      </Component>
+    );
+  };
+
+  const StatusBadge = ({
+    icon: Icon,
+    label,
+    description,
+    variant = 'default',
+    title,
+    onClick,
+    pulse = false,
+    loading = false,
+    className,
+  }: {
+    icon: LucideIcon;
+    label: string;
+    description?: string;
+    variant?: 'default' | 'positive' | 'warning' | 'danger' | 'info';
+    title?: string;
+    onClick?: () => void;
+    pulse?: boolean;
+    loading?: boolean;
+    className?: string;
+  }) => {
+    const palette: Record<string, string> = {
+      default: 'border-gray-700/60 bg-gray-800/60 text-gray-200',
+      positive: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100',
+      warning: 'border-amber-500/30 bg-amber-500/10 text-amber-100',
+      danger: 'border-red-500/30 bg-red-500/10 text-red-100',
+      info: 'border-blue-500/30 bg-blue-500/10 text-blue-100',
+    };
+
+    const Component = onClick ? 'button' : 'div';
+
+    return (
+      <Component
+        type={onClick ? 'button' : undefined}
+        onClick={onClick}
+        title={title}
+        className={`${palette[variant]} ${className ?? ''} flex items-center gap-1.5 rounded-full px-2 py-1 text-xs ${
+          onClick ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/30' : ''
+        }`}
+      >
+        <Icon size={12} className="opacity-80" />
+        <span className="font-medium">{label}</span>
+        {description && <span className="text-[11px] opacity-75">{description}</span>}
+        {loading && <span className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent" />}
+        {pulse && (
+          <motion.span
+            className="inline-flex h-1.5 w-1.5 rounded-full bg-current"
+            animate={{ opacity: [0.4, 1, 0.4] }}
+            transition={{ duration: 1.6, repeat: Infinity }}
+          />
+        )}
+      </Component>
+    );
   };
 
   useEffect(() => {
@@ -223,45 +314,207 @@ export function BottomStatus() {
     }
   };
 
+  const handlePromptSubmit = async () => {
+    if (!prompt.trim() || !activeId) {
+      return;
+    }
+
+    try {
+      await ipc.agent.createTask({
+        title: 'User Prompt',
+        role: 'researcher',
+        goal: prompt.trim(),
+        budget: { tokens: 4096, seconds: 120, requests: 20 },
+      });
+      setPrompt('');
+    } catch (error) {
+      console.error('Failed to create agent task:', error);
+    }
+  };
+
+  const handleDoHToggle = async () => {
+    try {
+      if (dohStatus.enabled) {
+        await ipc.dns.disableDoH();
+        setDohStatus({ enabled: false, provider: 'cloudflare' });
+      } else {
+        await ipc.dns.enableDoH('cloudflare');
+        setDohStatus({ enabled: true, provider: 'cloudflare' });
+      }
+    } catch (error) {
+      console.error('Failed to toggle DoH:', error);
+    }
+  };
+ 
   return (
     <div
-      className="h-10 flex items-center justify-between px-4 bg-gray-800/90 backdrop-blur-sm border-t border-gray-700/50"
+      className="px-4 py-2 bg-gray-900/90 backdrop-blur-sm border-t border-gray-700/50 flex flex-col gap-2"
       data-onboarding="status-bar"
     >
-      {/* Left: Status Indicators */}
-      <div className="flex items-center gap-4 text-xs text-gray-300">
-        {/* Privacy Mode Switch */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300">
         <PrivacySwitch />
-        
-        {/* Efficiency Alerts */}
+
+        <StatusMeter
+          icon={Cpu}
+          label="CPU"
+          value={`${cpuUsage}%`}
+          percent={cpuUsage}
+          title="System CPU usage"
+          gradient="from-blue-500 via-cyan-500 to-blue-500"
+        />
+
+        <StatusMeter
+          icon={MemoryStick}
+          label="RAM"
+          value={`${memoryUsage}%`}
+          percent={memoryUsage}
+          title="System memory usage"
+          gradient="from-green-500 via-emerald-500 to-green-500"
+        />
+
+        <StatusBadge
+          icon={Activity}
+          label={efficiencyLabel}
+          description={efficiencyDetails || undefined}
+          variant={efficiencyVariant}
+          title={efficiencyBadge ?? efficiencyLabel}
+        />
+
+        <StatusBadge
+          icon={MoonStar}
+          label="Shadow"
+          description={shadowSessionId ? 'Active' : 'Idle'}
+          variant={shadowSessionId ? 'info' : 'default'}
+          pulse={shadowLoading}
+          title={shadowSessionId ? 'Shadow Mode active' : 'Shadow Mode inactive'}
+        />
+
+        <StatusBadge
+          icon={Network}
+          label="Mode"
+          description={privacyMode}
+          className={privacyModeColors[privacyMode]}
+          title={`Privacy mode: ${privacyMode}`}
+        />
+
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <StatusBadge
+            icon={Shield}
+            label="Tor"
+            description={torBadgeDescription}
+            variant={torBadgeVariant}
+            onClick={!torStatus.loading ? () => {
+              if (torStatus.running) {
+                void stopTor();
+              } else {
+                void startTor();
+              }
+            } : undefined}
+            loading={torStatus.loading}
+            title={torTooltip}
+            className={torStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}
+          />
+
+          {torStatus.running && !torStatus.stub && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!torStatus.loading) {
+                  void newTorIdentity();
+                }
+              }}
+              className="flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-[11px] text-purple-100 transition-colors hover:border-purple-400/60"
+              title="Request a new Tor identity"
+            >
+              <RefreshCw size={12} />
+              New ID
+            </button>
+          )}
+
+          <StatusBadge
+            icon={Wifi}
+            label="VPN"
+            description={vpnBadgeDescription}
+            variant={vpnStatus.connected ? 'positive' : 'default'}
+            onClick={!vpnStatus.loading ? () => void checkVpn() : undefined}
+            loading={vpnStatus.loading}
+            title={vpnTooltip}
+            className={vpnStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}
+          />
+
+          <StatusBadge
+            icon={Shield}
+            label="DoH"
+            description={dohStatus.enabled ? dohStatus.provider : 'Disabled'}
+            variant={dohStatus.enabled ? 'info' : 'default'}
+            onClick={handleDoHToggle}
+            title="Toggle DNS-over-HTTPS"
+          />
+
+          <StatusBadge
+            icon={Brain}
+            label="Model"
+            description={modelReady ? 'Ready' : 'Loading'}
+            variant={modelVariant}
+            pulse={modelReady}
+            title="Local AI model status"
+          />
+
+          <SymbioticVoiceCompanion />
+
+          <div className="relative w-64 min-w-[200px]">
+            <input
+              type="text"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void handlePromptSubmit();
+                }
+              }}
+              placeholder="Prompt agent (e.g., 'summarize this page')..."
+              className="h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-8 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            />
+            <button
+              type="button"
+              onClick={() => void handlePromptSubmit()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200"
+              title="Send prompt"
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-start gap-3">
         <AnimatePresence>
           {efficiencyAlert && (
             <motion.div
               key="efficiency-alert"
-              layout
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
-              className={`flex items-center gap-3 px-3 py-2 border rounded-lg shadow-inner ${severityStyles[efficiencyAlert.severity]}`}
+              className={`flex w-full max-w-xl items-center gap-3 rounded-lg border px-3 py-2 shadow-inner ${severityStyles[efficiencyAlert.severity]}`}
             >
               <AlertTriangle size={14} />
               <div className="flex flex-col gap-0.5">
                 <span className="text-xs font-semibold">{efficiencyAlert.title}</span>
                 <span className="text-[11px] opacity-80">{efficiencyAlert.message}</span>
               </div>
-              <div className="flex items-center gap-2 ml-2">
+              <div className="ml-auto flex items-center gap-2">
                 {efficiencyAlert.actions.map((action) => (
                   <button
                     key={action.id}
                     onClick={() => handleEfficiencyAction(action)}
-                    className="px-2 py-1 text-[11px] font-medium rounded bg-gray-900/60 hover:bg-gray-900/80 transition-colors"
+                    className="rounded bg-gray-900/60 px-2 py-1 text-[11px] font-medium transition-colors hover:bg-gray-900/80"
                   >
                     {action.label}
                   </button>
                 ))}
                 <button
                   onClick={() => setEfficiencyAlert(null)}
-                  className="p-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+                  className="p-1 text-xs opacity-70 transition-opacity hover:opacity-100"
                   aria-label="Dismiss efficiency alert"
                 >
                   <X size={12} />
@@ -271,98 +524,14 @@ export function BottomStatus() {
           )}
         </AnimatePresence>
 
-        {/* CPU & Memory Gauges (clickable) */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          className="flex items-center gap-1.5 hover:text-gray-200 transition-colors"
-          title="Click to open performance inspector"
-        >
-          <Cpu size={14} className="text-gray-500" />
-          <span>CPU: {cpuUsage}%</span>
-          <div className="w-12 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${cpuUsage}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </motion.button>
-        
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          className="flex items-center gap-1.5 hover:text-gray-200 transition-colors"
-          title="Memory usage"
-        >
-          <MemoryStick size={14} className="text-gray-500" />
-          <span>RAM: {memoryUsage}%</span>
-          <div className="w-12 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-gradient-to-r from-green-500 to-emerald-500"
-              initial={{ width: 0 }}
-              animate={{ width: `${memoryUsage}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </motion.button>
-
-        {/* Efficiency Mode */}
-        <div
-          className={`flex items-center gap-1.5 ${efficiencyColor}`}
-          title={
-            efficiencyBadge
-              ? `${efficiencyLabel} · ${efficiencyBadge}`
-              : efficiencyLabel
-          }
-        >
-          <Activity size={14} />
-          <span>{efficiencyLabel}</span>
-          {efficiencyBadge && (
-            <span className="text-xs text-emerald-300">{efficiencyBadge}</span>
-          )}
-          {typeof efficiencySnapshot.batteryPct === 'number' && (
-            <span className="text-xs text-gray-400">
-              ({Math.round(efficiencySnapshot.batteryPct)}%)
-            </span>
-          )}
-          {typeof carbonIntensity === 'number' && (
-            <span className="text-xs text-emerald-200/80" title={carbonTooltip}>
-              · {Math.round(carbonIntensity)} gCO₂/kWh
-            </span>
-          )}
-        </div>
-
-        {/* Shadow Mode Status */}
-        <div
-          className={`flex items-center gap-1.5 ${
-            shadowSessionId ? 'text-purple-300' : 'text-gray-500'
-          }`}
-          title={
-            shadowSessionId
-              ? 'Shadow Mode is active. Click the Shadow button to end.'
-              : 'Shadow Mode inactive.'
-          }
-        >
-          <MoonStar size={14} />
-          <span>{shadowSessionId ? 'Shadow: On' : 'Shadow: Off'}</span>
-          {shadowLoading && (
-            <motion.div
-              className="w-1.5 h-1.5 bg-purple-300 rounded-full"
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            />
-          )}
-        </div>
-
         <AnimatePresence>
           {shadowSummary && (
             <motion.div
               key="shadow-summary"
-              layout
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
-              className="flex items-start gap-3 px-3 py-2 border rounded-lg shadow-inner border-purple-500/40 bg-purple-500/10 text-xs text-purple-100 max-w-sm"
+              className="flex w-full max-w-xl items-start gap-3 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-2 text-xs text-purple-100 shadow-inner"
             >
               <FileText size={14} className="mt-0.5 flex-shrink-0" />
               <div className="flex-1 space-y-1">
@@ -370,7 +539,7 @@ export function BottomStatus() {
                   <span className="text-[11px] font-semibold uppercase tracking-wide">Shadow Summary</span>
                   <button
                     onClick={clearShadowSummary}
-                    className="p-1 text-[10px] text-purple-200/80 hover:text-purple-50 transition-colors"
+                    className="p-1 text-[10px] text-purple-200/80 transition-colors hover:text-purple-50"
                     aria-label="Dismiss shadow summary"
                   >
                     <X size={12} />
@@ -379,7 +548,7 @@ export function BottomStatus() {
                 <div className="text-[11px] opacity-90">
                   {shadowSummary.recommendations?.[0] ?? 'Review your shadow session.'}
                 </div>
-                <div className="text-[10px] flex flex-wrap gap-2 opacity-80">
+                <div className="flex flex-wrap gap-2 text-[10px] opacity-80">
                   <span>{Math.round(shadowSummary.durationMs / 1000)}s</span>
                   <span>Visits: {shadowSummary.totalVisits}</span>
                   <span>Domains: {shadowSummary.uniqueHosts}</span>
@@ -392,7 +561,7 @@ export function BottomStatus() {
                         <li key={`${entry.url}-${entry.firstSeen}`} className="truncate">
                           <a
                             href={entry.url}
-                            className="text-[11px] text-purple-200 hover:text-purple-50"
+                            className="text-[11px] text-purple-200 transition-colors hover:text-purple-50"
                             title={entry.url}
                           >
                             {entry.title || entry.url}
@@ -418,157 +587,6 @@ export function BottomStatus() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Tor / VPN Controls */}
-        <div className="flex items-center gap-2">
-          <motion.button
-            whileHover={{ scale: torStatus.loading ? 1 : 1.05 }}
-            onClick={() => {
-              if (torStatus.loading) return;
-              if (torStatus.running) {
-                void stopTor();
-              } else {
-                void startTor();
-              }
-            }}
-            disabled={torStatus.loading}
-            className={`flex items-center gap-1.5 transition-colors ${torColorClass} ${torStatus.loading ? 'opacity-60 cursor-not-allowed' : 'hover:text-gray-200'}`}
-            title={torTooltip}
-          >
-            <Shield size={14} />
-            <span>{torStatusLabel}</span>
-          </motion.button>
-          {torStatus.running && !torStatus.stub && (
-            <motion.button
-              whileHover={{ scale: torStatus.loading ? 1 : 1.05 }}
-              onClick={() => {
-                if (!torStatus.loading) {
-                  void newTorIdentity();
-                }
-              }}
-              disabled={torStatus.loading}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-60"
-              title="Request a new Tor identity"
-            >
-              <RefreshCw size={12} />
-              <span>New ID</span>
-            </motion.button>
-          )}
-          <motion.button
-            whileHover={{ scale: vpnStatus.loading ? 1 : 1.05 }}
-            onClick={() => {
-              if (!vpnStatus.loading) {
-                void checkVpn();
-              }
-            }}
-            disabled={vpnStatus.loading}
-            className={`flex items-center gap-1.5 transition-colors ${vpnColorClass} ${vpnStatus.loading ? 'opacity-60 cursor-not-allowed' : 'hover:text-gray-200'}`}
-            title={vpnTooltip}
-          >
-            <Wifi size={14} />
-            <span>{vpnStatusLabel}</span>
-          </motion.button>
-        </div>
-
-        {/* Network Status */}
-        <div className="flex items-center gap-1.5" title={`Network: ${privacyMode} mode`}>
-          <Network size={14} className={
-            privacyMode === 'Tor' ? 'text-purple-400' :
-            privacyMode === 'Ghost' ? 'text-blue-400' :
-            'text-gray-500'
-          } />
-          <span className={privacyModeColors[privacyMode]}>{privacyMode}</span>
-        </div>
-        
-        {/* DoH Toggle */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          onClick={async () => {
-            try {
-              if (dohStatus.enabled) {
-                await ipc.dns.disableDoH();
-                setDohStatus({ enabled: false, provider: 'cloudflare' });
-              } else {
-                await ipc.dns.enableDoH('cloudflare');
-                setDohStatus({ enabled: true, provider: 'cloudflare' });
-              }
-            } catch (error) {
-              console.error('Failed to toggle DoH:', error);
-            }
-          }}
-          className={`flex items-center gap-1.5 transition-colors ${
-            dohStatus.enabled ? 'text-purple-400' : 'text-gray-500'
-          } hover:text-gray-200`}
-          title="DNS-over-HTTPS"
-        >
-          <Shield size={14} />
-          <span className="text-xs">DoH</span>
-        </motion.button>
-
-        <SymbioticVoiceCompanion />
-        
-        {/* Model Status */}
-        <div className={`flex items-center gap-1.5 ${modelReady ? 'text-green-400' : 'text-yellow-400'}`}>
-          <Brain size={14} />
-          <span className="text-xs">Model: {modelReady ? 'Ready' : 'Loading...'}</span>
-          {modelReady && (
-            <motion.div
-              className="w-1.5 h-1.5 bg-green-400 rounded-full"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Right: AI Prompt Input */}
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={async (e) => {
-            if (e.key === 'Enter' && prompt.trim() && activeId) {
-              e.preventDefault();
-              try {
-                const taskId = await ipc.agent.createTask({
-                  title: 'User Prompt',
-                  role: 'researcher',
-                  goal: prompt,
-                  budget: { tokens: 4096, seconds: 120, requests: 20 },
-                });
-                console.log('Created agent task:', taskId);
-                setPrompt('');
-              } catch (error) {
-                console.error('Failed to create agent task:', error);
-              }
-            }
-          }}
-          placeholder="Prompt agent (e.g., 'summarize this page')..."
-          className="w-72 h-7 px-3 pr-8 bg-gray-700/60 border border-gray-600/50 rounded text-xs text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-500/50"
-        />
-        <button
-          onClick={async () => {
-            if (prompt.trim() && activeId) {
-              try {
-                const taskId = await ipc.agent.createTask({
-                  title: 'User Prompt',
-                  role: 'researcher',
-                  goal: prompt,
-                  budget: { tokens: 4096, seconds: 120, requests: 20 },
-                });
-                console.log('Created agent task:', taskId);
-                setPrompt('');
-              } catch (error) {
-                console.error('Failed to create agent task:', error);
-              }
-            }
-          }}
-          className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
-          title="Send prompt"
-        >
-          <Send size={14} />
-        </button>
       </div>
     </div>
   );
