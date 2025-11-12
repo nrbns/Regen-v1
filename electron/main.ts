@@ -159,7 +159,7 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
       preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false, // Temporarily disabled to debug IPC bridge issue
       webSecurity: true,
       spellcheck: false,
     }
