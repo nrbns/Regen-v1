@@ -537,8 +537,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     console.log('[Onboarding] isNextDisabled:', isNextDisabled);
     console.log('[Onboarding] canGoBack:', canGoBack);
 
-    // Use setTimeout to ensure DOM is ready
-    const timeoutId = setTimeout(() => {
+    let attached = false;
+    const attachListeners = () => {
+      if (attached) return;
       const nextButton = primaryButtonRef.current || document.querySelector('[data-onboarding-next]') as HTMLButtonElement;
       const skipButton = document.querySelector('[data-onboarding-skip]') as HTMLButtonElement;
       const backButton = document.querySelector('[data-onboarding-back]') as HTMLButtonElement;
@@ -565,37 +566,49 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       };
 
       const handleSkipClick = (e: Event) => {
-        console.log('[Onboarding] ✅ Native click detected on Skip button!', e);
+        console.log('[Onboarding] ✅✅✅ NATIVE CLICK DETECTED ON SKIP BUTTON! ✅✅✅', e);
         e.preventDefault();
         e.stopImmediatePropagation();
+        e.stopPropagation();
         try {
-          handleSkip();
+          setTimeout(() => {
+            handleSkip();
+          }, 0);
         } catch (err) {
           console.error('[Onboarding] Error in handleSkip from native listener:', err);
         }
+        return false;
       };
 
       const handleBackClick = (e: Event) => {
-        console.log('[Onboarding] ✅ Native click detected on Back button!', e);
+        console.log('[Onboarding] ✅✅✅ NATIVE CLICK DETECTED ON BACK BUTTON! ✅✅✅', e);
         e.preventDefault();
         e.stopImmediatePropagation();
+        e.stopPropagation();
         try {
-          goBack();
+          setTimeout(() => {
+            goBack();
+          }, 0);
         } catch (err) {
           console.error('[Onboarding] Error in goBack from native listener:', err);
         }
+        return false;
       };
 
       const handleCloseClick = (e: Event) => {
-        console.log('[Onboarding] ✅ Native click detected on Close button!', e);
+        console.log('[Onboarding] ✅✅✅ NATIVE CLICK DETECTED ON CLOSE BUTTON! ✅✅✅', e);
         e.preventDefault();
         e.stopImmediatePropagation();
+        e.stopPropagation();
         try {
-          finishOnboarding();
-          onClose();
+          setTimeout(() => {
+            finishOnboarding();
+            onClose();
+          }, 0);
         } catch (err) {
           console.error('[Onboarding] Error in close from native listener:', err);
         }
+        return false;
       };
 
       if (nextButton) {
@@ -682,16 +695,50 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           closeButton.removeEventListener('pointerdown', handleCloseClick, true);
         }
       };
-    }, 200); // Increased timeout to 200ms
+      
+      attached = true;
+      console.log('[Onboarding] ✅ All listeners attached successfully');
+    };
+
+    // Try multiple times with increasing delays
+    const timeouts = [
+      setTimeout(() => {
+        console.log('[Onboarding] Attempt 1: Attaching listeners (100ms delay)');
+        attachListeners();
+      }, 100),
+      setTimeout(() => {
+        console.log('[Onboarding] Attempt 2: Attaching listeners (300ms delay)');
+        attachListeners();
+      }, 300),
+      setTimeout(() => {
+        console.log('[Onboarding] Attempt 3: Attaching listeners (500ms delay)');
+        attachListeners();
+      }, 500),
+    ];
+
+    // Also use MutationObserver to catch when buttons appear
+    const observer = new MutationObserver(() => {
+      console.log('[Onboarding] DOM mutation detected, checking for buttons...');
+      attachListeners();
+    });
+
+    // Observe the document body for changes
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
 
     return () => {
-      clearTimeout(timeoutId);
+      timeouts.forEach(clearTimeout);
+      observer.disconnect();
       if ((window as any).__onboardingCleanup) {
         (window as any).__onboardingCleanup();
         delete (window as any).__onboardingCleanup;
       }
+      attached = false;
     };
-  }, [onboardingVisible, goNext, handleSkip, goBack, finishOnboarding, onClose]);
+  }, [onboardingVisible, goNext, handleSkip, goBack, finishOnboarding, onClose, stepIndex, isNextDisabled, canGoBack]);
 
   return (
     <AnimatePresence mode="wait">
