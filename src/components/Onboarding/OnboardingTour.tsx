@@ -537,6 +537,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
         className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        onClick={(e) => {
+          // Prevent clicks on backdrop from closing (only buttons should close)
+          e.stopPropagation();
+        }}
       >
         {spotlight && (
           <div
