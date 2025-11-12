@@ -729,9 +729,65 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       attributes: true,
     });
 
+    // ULTIMATE FALLBACK: Global document click handler
+    const globalClickHandler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      // Check if click is on any onboarding button
+      const isNextButton = target.closest('[data-onboarding-next]') || target.hasAttribute('data-onboarding-next');
+      const isSkipButton = target.closest('[data-onboarding-skip]') || target.hasAttribute('data-onboarding-skip');
+      const isBackButton = target.closest('[data-onboarding-back]') || target.hasAttribute('data-onboarding-back');
+      const isCloseButton = target.closest('[data-onboarding-close]') || target.hasAttribute('data-onboarding-close');
+
+      if (isNextButton) {
+        console.log('[Onboarding] 🔥🔥🔥 GLOBAL CLICK HANDLER: Next button clicked! 🔥🔥🔥');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        setTimeout(() => goNext(), 0);
+        return false;
+      }
+      if (isSkipButton) {
+        console.log('[Onboarding] 🔥🔥🔥 GLOBAL CLICK HANDLER: Skip button clicked! 🔥🔥🔥');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        setTimeout(() => handleSkip(), 0);
+        return false;
+      }
+      if (isBackButton) {
+        console.log('[Onboarding] 🔥🔥🔥 GLOBAL CLICK HANDLER: Back button clicked! 🔥🔥🔥');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        setTimeout(() => goBack(), 0);
+        return false;
+      }
+      if (isCloseButton) {
+        console.log('[Onboarding] 🔥🔥🔥 GLOBAL CLICK HANDLER: Close button clicked! 🔥🔥🔥');
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        setTimeout(() => {
+          finishOnboarding();
+          onClose();
+        }, 0);
+        return false;
+      }
+    };
+
+    // Add global handler with capture phase (runs before React)
+    document.addEventListener('click', globalClickHandler, true);
+    document.addEventListener('mousedown', globalClickHandler, true);
+
+    console.log('[Onboarding] ✅ Global click handlers attached to document');
+
     return () => {
       timeouts.forEach(clearTimeout);
       observer.disconnect();
+      document.removeEventListener('click', globalClickHandler, true);
+      document.removeEventListener('mousedown', globalClickHandler, true);
       if ((window as any).__onboardingCleanup) {
         (window as any).__onboardingCleanup();
         delete (window as any).__onboardingCleanup;
