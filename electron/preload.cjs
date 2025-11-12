@@ -168,11 +168,19 @@ const typedApi = {
 };
 
 // Expose IPC bridge to renderer
+console.log('[Preload] Starting IPC bridge exposure...');
+console.log('[Preload] typedApi type:', typeof typedApi);
+console.log('[Preload] typedApi.invoke type:', typeof typedApi.invoke);
+
 try {
   contextBridge.exposeInMainWorld('ipc', typedApi);
   console.log('[Preload] IPC bridge exposed successfully via contextBridge');
+  
+  // Try to verify it was exposed (this won't work in preload context, but helps with debugging)
+  console.log('[Preload] contextBridge.exposeInMainWorld completed without errors');
 } catch (error) {
   console.error('[Preload] Failed to expose IPC bridge:', error);
+  console.error('[Preload] Error stack:', error.stack);
 }
 
 // Listen for IPC ready signal from main process

@@ -180,25 +180,53 @@ let ipcReadyResolvers: Array<() => void> = [];
 if (typeof window !== 'undefined') {
   // Listen for custom event from preload script
   const handleIpcReady = () => {
-    ipcReady = true;
-    // Resolve all pending promises
-    const resolvers = [...ipcReadyResolvers];
-    ipcReadyResolvers = [];
-    resolvers.forEach(resolve => resolve());
-    if (IS_DEV) {
-      console.log('[IPC] Ready signal received');
+    // Double-check that window.ipc actually exists before marking as ready
+    if (window.ipc && typeof window.ipc.invoke === 'function') {
+      ipcReady = true;
+      // Resolve all pending promises
+      const resolvers = [...ipcReadyResolvers];
+      ipcReadyResolvers = [];
+      resolvers.forEach(resolve => resolve());
+      if (IS_DEV) {
+        console.log('[IPC] Ready signal received and window.ipc is available');
+      }
+    } else {
+      if (IS_DEV) {
+        console.warn('[IPC] Ready event received but window.ipc is not available');
+        console.warn('[IPC] window.ipc:', window.ipc);
+        console.warn('[IPC] window keys:', Object.keys(window).filter(k => k.includes('ipc') || k.includes('api')));
+      }
     }
   };
   
   window.addEventListener('ipc:ready', handleIpcReady);
   
   // Also check if IPC is already available (in case event fired before listener was added)
+  // Poll for window.ipc to appear (preload script might load after this code)
+  let pollCount = 0;
+  const maxPolls = 50; // Poll for up to 5 seconds (50 * 100ms)
+  const pollInterval = setInterval(() => {
+    pollCount++;
+    if (window.ipc && typeof window.ipc.invoke === 'function') {
+      clearInterval(pollInterval);
+      if (!ipcReady) {
+        handleIpcReady();
+      }
+    } else if (pollCount >= maxPolls) {
+      clearInterval(pollInterval);
+      if (IS_DEV) {
+        console.warn('[IPC] window.ipc never appeared after polling');
+        console.warn('[IPC] Available window properties:', Object.keys(window).filter(k => 
+          k.includes('ipc') || k.includes('api') || k.includes('electron')
+        ));
+      }
+    }
+  }, 100);
+  
+  // Also check immediately
   if (window.ipc && typeof window.ipc.invoke === 'function') {
-    // Check if we can make a test call
     setTimeout(() => {
       if (!ipcReady) {
-        // If IPC is available but we haven't received the ready event yet,
-        // mark as ready after a short delay
         handleIpcReady();
       }
     }, 100);

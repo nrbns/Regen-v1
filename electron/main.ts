@@ -136,6 +136,18 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
         ? path.join(process.cwd(), 'electron', 'preload.cjs')
         : path.join(__dirname, 'preload.js'));
 
+  // Log preload path for debugging
+  if (preloadPath) {
+    const preloadExists = fs.existsSync(preloadPath);
+    console.log(`[Main] Preload path: ${preloadPath}`);
+    console.log(`[Main] Preload exists: ${preloadExists}`);
+    if (!preloadExists) {
+      console.error(`[Main] ERROR: Preload file not found at ${preloadPath}`);
+    }
+  } else {
+    console.warn('[Main] Preload is disabled');
+  }
+
   mainWindow = new BrowserWindow({
     width: restoreBounds?.width || 1280,
     height: restoreBounds?.height || 800,
