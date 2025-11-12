@@ -539,8 +539,13 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         >
           <button
             className="absolute right-5 top-5 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200"
-            onClick={onClose}
-            aria-label="Skip onboarding"
+            onClick={() => {
+              finishOnboarding();
+              requestAnimationFrame(() => {
+                onClose();
+              });
+            }}
+            aria-label="Close onboarding"
           >
             <X size={16} />
           </button>
