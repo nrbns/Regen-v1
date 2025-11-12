@@ -183,6 +183,19 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
     };
   }, [clearMenuTimer]);
 
+  // Handle outside clicks for more menu
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const listenerOptions: AddEventListenerOptions = { capture: true };
+    const handleOutside = (event: MouseEvent) => {
+      if (!moreMenuRef.current) return;
+      if (moreMenuRef.current.contains(event.target as Node)) return;
+      setMoreMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside, listenerOptions);
+    return () => document.removeEventListener('mousedown', handleOutside, listenerOptions);
+  }, [moreMenuOpen]);
+
   useEffect(() => {
     if (!activeMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
