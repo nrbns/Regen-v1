@@ -553,16 +553,28 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       });
 
       const handleNextClick = (e: Event) => {
-        console.log('[Onboarding] ✅ Native click detected on Next button!', e, { isNextDisabled, stepIndex, selectedPersona });
+        console.log('[Onboarding] ✅✅✅ NATIVE CLICK DETECTED ON NEXT BUTTON! ✅✅✅', e);
+        console.log('[Onboarding] Event details:', {
+          type: e.type,
+          target: e.target,
+          currentTarget: e.currentTarget,
+          bubbles: e.bubbles,
+          cancelable: e.cancelable,
+        });
         e.preventDefault();
         e.stopImmediatePropagation();
+        e.stopPropagation();
         try {
           // Always call goNext - it will handle validation internally
           console.log('[Onboarding] Calling goNext() from native listener...');
-          goNext();
+          // Use setTimeout to ensure state updates happen
+          setTimeout(() => {
+            goNext();
+          }, 0);
         } catch (err) {
           console.error('[Onboarding] Error in goNext from native listener:', err);
         }
+        return false;
       };
 
       const handleSkipClick = (e: Event) => {
@@ -626,11 +638,22 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           nextButton.style.opacity = '1';
         }
         
+        // Attach listeners with capture phase and also without
         nextButton.addEventListener('click', handleNextClick, true);
+        nextButton.addEventListener('click', handleNextClick, false);
         nextButton.addEventListener('mousedown', handleNextClick, true);
+        nextButton.addEventListener('mousedown', handleNextClick, false);
         nextButton.addEventListener('pointerdown', handleNextClick, true);
         nextButton.addEventListener('touchstart', handleNextClick, true);
-        console.log('[Onboarding] ✅ Native listeners attached to Next button');
+        
+        // Also try direct onclick assignment as ultimate fallback
+        (nextButton as any).onclick = handleNextClick;
+        (nextButton as any).onmousedown = handleNextClick;
+        
+        console.log('[Onboarding] ✅ Native listeners attached to Next button (capture + bubble + direct)');
+        
+        // Test: Try programmatically clicking to see if button works
+        console.log('[Onboarding] Testing: Button clickable?', nextButton.offsetWidth > 0 && nextButton.offsetHeight > 0);
         
         // Test if button is actually clickable
         const computedStyle = window.getComputedStyle(nextButton);
