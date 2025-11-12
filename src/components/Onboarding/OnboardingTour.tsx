@@ -729,6 +729,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           </div>
         </motion.div>
       )}
+      </motion.div>
     </AnimatePresence>
   );
 }
