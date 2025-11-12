@@ -703,26 +703,38 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           <div className="mt-6 flex items-center justify-between text-sm">
             <button
               type="button"
-              onClick={goBack}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                goBack();
+              }}
               disabled={!canGoBack}
-              className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-300 transition hover:border-slate-500/80 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-300 transition hover:border-slate-500/80 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40 z-[1002] relative"
             >
               Back
             </button>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleSkip}
-                className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-400 transition hover:border-slate-500/80 hover:text-gray-200"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSkip(e);
+                }}
+                className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-400 transition hover:border-slate-500/80 hover:text-gray-200 z-[1002] relative"
               >
                 Skip
               </button>
               <button
                 type="button"
                 ref={primaryButtonRef}
-                onClick={goNext}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  goNext(e);
+                }}
                 disabled={isNextDisabled}
-                className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40 z-[1002] relative"
               >
                 {isLastStep ? 'Finish' : 'Next'}
               </button>
