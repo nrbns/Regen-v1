@@ -421,6 +421,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
   const goNext = useCallback((e?: React.MouseEvent) => {
     console.log('[Onboarding] goNext called - START, current stepIndex:', stepIndex);
+    console.log('[Onboarding] goNext - event:', e);
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -501,6 +502,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
   const handleSkip = useCallback((e?: React.MouseEvent) => {
     console.log('[Onboarding] handleSkip called - START');
+    console.log('[Onboarding] handleSkip - event:', e);
     if (e) {
       e.preventDefault();
       e.stopPropagation();
