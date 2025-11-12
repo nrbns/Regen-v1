@@ -978,7 +978,7 @@ export function TabStrip() {
     if (!activeId || !stripRef.current) return;
     try {
       const el = stripRef.current.querySelector(`[data-tab="${CSS.escape(activeId)}"]`);
-      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     } catch {}
   }, [activeId]); // Only depend on activeId, not tabs array
 
@@ -1000,6 +1000,16 @@ export function TabStrip() {
       `[data-tab="${CSS.escape(activeId)}"]`
     );
     target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeId, tabs.length]);
+
+  useEffect(() => {
+    if (!stripRef.current || !activeId) return;
+    const target = stripRef.current.querySelector<HTMLElement>(
+      `[data-tab="${CSS.escape(activeId)}"]`
+    );
+    if (target && document.activeElement !== target) {
+      target.focus({ preventScroll: true });
+    }
   }, [activeId, tabs.length]);
 
   const handleKeyNavigation = useCallback(
@@ -1091,13 +1101,17 @@ export function TabStrip() {
           <AnimatePresence mode="popLayout">
             {tabs.length > 0 ? (
               tabs.map((tab) => {
+                const tabDomId = `tab-${tab.id}`;
+                const panelDomId = `tabpanel-${tab.id}`;
                 const prefetchForTab = prefetchEntries.find((entry) => entry.tabId === tab.id);
                 return (
                 <TabHoverCard key={tab.id} tabId={tab.id}>
                   <motion.div
+                    id={tabDomId}
                     data-tab={tab.id}
                     role="tab"
                     aria-selected={tab.active}
+                    aria-controls={panelDomId}
                     aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}`}
                     tabIndex={tab.active ? 0 : -1}
                     layout

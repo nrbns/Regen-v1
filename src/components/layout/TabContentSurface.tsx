@@ -223,9 +223,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     }
   }, [isElectron, targetUrl]);
 
+  const panelId = tab?.id ? `tabpanel-${tab.id}` : 'tabpanel-empty';
+  const labelledById = tab?.id ? `tab-${tab.id}` : undefined;
+  const isInactive = !tab || !tab.active;
+
   if (!targetUrl) {
     return (
       <motion.div
+        id={panelId}
+        role="tabpanel"
+        aria-labelledby={labelledById}
+        aria-hidden={isInactive}
         className="h-full w-full overflow-hidden bg-slate-950/60"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -241,6 +249,10 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       ref={containerRef}
       className={`relative h-full w-full bg-slate-950 ${overlayActive ? 'pointer-events-none' : ''}`}
       key={targetUrl}
+      id={panelId}
+      role="tabpanel"
+      aria-labelledby={labelledById}
+      aria-hidden={isInactive}
       initial={{ opacity: 0.4 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
