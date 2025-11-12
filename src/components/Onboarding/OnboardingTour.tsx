@@ -446,11 +446,14 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         console.debug('[Onboarding] Finishing tour from step', stepIndex);
       }
       
-      // Finish and close - use setTimeout to ensure state updates complete
-      setTimeout(() => {
-        finishOnboarding();
+      // Finish onboarding (this updates the store and marks as completed)
+      finishOnboarding();
+      
+      // Close the tour (this triggers the onClose callback)
+      // Use requestAnimationFrame to ensure state updates are processed
+      requestAnimationFrame(() => {
         onClose();
-      }, 100);
+      });
       
       return;
     }
@@ -494,8 +497,13 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Onboarding] Skip pressed at step', stepIndex);
     }
+    // Finish onboarding (this updates the store and marks as completed)
     finishOnboarding();
-    onClose();
+    
+    // Close the tour (this triggers the onClose callback)
+    requestAnimationFrame(() => {
+      onClose();
+    });
   }, [finishOnboarding, onClose, stepIndex]);
 
   return (
