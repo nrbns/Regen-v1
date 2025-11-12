@@ -2,9 +2,9 @@
  * BottomStatus - Status bar with live indicators and AI prompt
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText } from 'lucide-react';
+import { Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText, Loader2, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -15,19 +15,24 @@ import { useEfficiencyStore } from '../../state/efficiencyStore';
 import { usePrivacyStore } from '../../state/privacyStore';
 import { useShadowStore } from '../../state/shadowStore';
 import { SymbioticVoiceCompanion } from '../voice';
+import { useMetricsStore } from '../../state/metricsStore';
+import { getEnvVar, isElectronRuntime } from '../../lib/env';
+import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 
 export function BottomStatus() {
   const { activeId } = useTabsStore();
   const [prompt, setPrompt] = useState('');
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
+  const extraRef = useRef<HTMLDivElement | null>(null);
   const [dohStatus, setDohStatus] = useState({ enabled: false, provider: 'cloudflare' });
   const [cpuUsage, setCpuUsage] = useState(0);
   const [memoryUsage, setMemoryUsage] = useState(0);
-  const [modelReady, setModelReady] = useState(true);
+  const [modelReady] = useState(true);
   const [privacyMode, setPrivacyMode] = useState<'Normal' | 'Ghost' | 'Tor'>('Normal');
   const [efficiencyAlert, setEfficiencyAlert] = useState<EfficiencyAlert | null>(null);
   const efficiencyLabel = useEfficiencyStore((state) => state.label);
   const efficiencyBadge = useEfficiencyStore((state) => state.badge);
-  const efficiencyColor = useEfficiencyStore((state) => state.colorClass);
   const efficiencySnapshot = useEfficiencyStore((state) => state.snapshot);
   const setEfficiencyEvent = useEfficiencyStore((state) => state.setEvent);
   const shadowSessionId = useShadowStore((state) => state.activeSessionId);
@@ -36,10 +41,6 @@ export function BottomStatus() {
   const handleShadowEnded = useShadowStore((state) => state.handleSessionEnded);
   const clearShadowSummary = useShadowStore((state) => state.clearSummary);
   const carbonIntensity = efficiencySnapshot.carbonIntensity ?? null;
-  const carbonTooltip =
-    typeof carbonIntensity === 'number'
-      ? `Local grid intensity ≈ ${Math.round(carbonIntensity)} gCO₂/kWh`
-      : 'Carbon intensity data unavailable';
   const torStatus = usePrivacyStore((state) => state.tor);
   const vpnStatus = usePrivacyStore((state) => state.vpn);
   const refreshTor = usePrivacyStore((state) => state.refreshTor);
@@ -48,6 +49,22 @@ export function BottomStatus() {
   const stopTor = usePrivacyStore((state) => state.stopTor);
   const newTorIdentity = usePrivacyStore((state) => state.newTorIdentity);
   const checkVpn = usePrivacyStore((state) => state.checkVpn);
+  const pushMetricSample = useMetricsStore((state) => state.pushSample);
+  const latestSample = useMetricsStore((state) => state.latest);
+  const metricsHistory = useMetricsStore((state) => state.history);
+  const isElectron = useMemo(() => isElectronRuntime(), []);
+  const apiBaseUrl = useMemo(
+    () => getEnvVar('API_BASE_URL') ?? getEnvVar('OMNIBROWSER_API_URL') ?? getEnvVar('OB_API_BASE_URL') ?? null,
+    [],
+  );
+  const metricsSocketRef = useRef<WebSocket | EventSource | null>(null);
+  const openTrustDashboard = useTrustDashboardStore((state) => state.open);
+  const trustRefresh = useTrustDashboardStore((state) => state.refresh);
+  const trustBadgeData = useTrustDashboardStore((state) => ({
+    pending: state.consentStats.pending,
+    blocked: state.blockedSummary.trackers,
+    loading: state.loading,
+  }));
 
   // Listen for network status
   useIPCEvent<NetworkStatus>('net:status', (status) => {
@@ -85,37 +102,69 @@ export function BottomStatus() {
     return () => window.clearInterval(interval);
   }, [refreshTor, refreshVpn]);
 
-  // Update CPU and memory (throttled) - use ref to prevent infinite loops
-  const statsUpdateRef = useRef<number>(0);
-  
   useEffect(() => {
-    const updateSystemStats = () => {
-      try {
-        // Would use actual IPC call to get process stats
-        // const stats = await ipc.system.getStats();
-        // setCpuUsage(stats.cpu);
-        // setMemoryUsage(stats.memory);
-        
-        // Mock for now - only update if interval has passed to prevent loops
-        const now = Date.now();
-        if (now - statsUpdateRef.current >= 1000) {
-          statsUpdateRef.current = now;
-          setCpuUsage(prev => {
-            const newVal = Math.floor(Math.random() * 30) + 5;
-            return prev !== newVal ? newVal : prev;
-          });
-          setMemoryUsage(prev => {
-            const newVal = Math.floor(Math.random() * 60) + 20;
-            return prev !== newVal ? newVal : prev;
-          });
-        }
-      } catch {}
+    const startupTimer = window.setTimeout(() => {
+      void trustRefresh();
+    }, 450);
+    const interval = window.setInterval(() => {
+      void trustRefresh();
+    }, 60000);
+    return () => {
+      window.clearTimeout(startupTimer);
+      window.clearInterval(interval);
     };
+  }, [trustRefresh]);
 
-    updateSystemStats();
-    const interval = setInterval(updateSystemStats, 1000); // Throttled to 1s
-    return () => clearInterval(interval);
-  }, []);
+  useEffect(() => {
+    if (latestSample) {
+      setCpuUsage((prev) => smoothValue(prev, latestSample.cpu));
+      setMemoryUsage((prev) => smoothValue(prev, latestSample.memory));
+    }
+  }, [latestSample]);
+
+  useEffect(() => {
+    if (!isElectron) {
+      if (!apiBaseUrl) {
+        console.warn('[metrics] API_BASE_URL not configured; skipping metrics websocket.');
+        return;
+      }
+      const socket = new WebSocket(`${apiBaseUrl.replace(/^http/, 'ws')}/ws/metrics`);
+      metricsSocketRef.current = socket;
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type !== 'metrics') return;
+          const sample = {
+            timestamp: typeof data.timestamp === 'number' ? data.timestamp : Date.now(),
+            cpu: typeof data.cpu === 'number' ? data.cpu : 0,
+            memory: typeof data.memory === 'number' ? data.memory : 0,
+            carbonIntensity: typeof data.carbon_intensity === 'number' ? data.carbon_intensity : undefined,
+          };
+          pushMetricSample(sample);
+        } catch (error) {
+          console.warn('[metrics] Failed to parse message', error);
+        }
+      };
+
+      socket.onopen = () => {
+        console.info('[metrics] Connected to metrics websocket');
+      };
+
+      socket.onerror = (event) => {
+        console.warn('[metrics] Metrics websocket error', event);
+      };
+
+      socket.onclose = () => {
+        console.info('[metrics] Metrics websocket closed');
+      };
+
+      return () => {
+        socket.close();
+        metricsSocketRef.current = null;
+      };
+    }
+  }, [isElectron, apiBaseUrl, pushMetricSample]);
 
   useEffect(() => {
     let isMounted = true;
@@ -164,6 +213,15 @@ export function BottomStatus() {
     Tor: 'text-purple-400',
   };
 
+  const trustVariant =
+    trustBadgeData.pending > 0 ? 'warning' : trustBadgeData.blocked > 0 ? 'info' : 'default';
+  const trustDescription =
+    trustBadgeData.pending > 0
+      ? `${trustBadgeData.pending} pending`
+      : trustBadgeData.blocked > 0
+        ? `${trustBadgeData.blocked} trackers blocked`
+        : 'Ledger clean';
+
   const torStatusLabel = torStatus.stub
     ? 'Tor: Stub'
     : torStatus.running
@@ -198,6 +256,13 @@ export function BottomStatus() {
     return Math.max(0, Math.min(100, Math.round(value)));
   };
 
+  const smoothValue = (previous: number, next: number, factor = 0.35) => {
+    if (!Number.isFinite(previous)) return next;
+    return previous + (next - previous) * factor;
+  };
+
+  const sparklinePoints = useMemo(() => metricsHistory.map((sample) => clampPercent(sample.cpu)), [metricsHistory]);
+
   const StatusMeter = ({
     icon: Icon,
     label,
@@ -206,6 +271,7 @@ export function BottomStatus() {
     gradient = 'from-blue-500 via-cyan-500 to-blue-500',
     title,
     onClick,
+    sparklinePoints,
   }: {
     icon: LucideIcon;
     label: string;
@@ -214,6 +280,7 @@ export function BottomStatus() {
     gradient?: string;
     title?: string;
     onClick?: () => void;
+    sparklinePoints?: number[];
   }) => {
     const Component = onClick ? 'button' : 'div';
     const pct = clampPercent(percent);
@@ -233,6 +300,25 @@ export function BottomStatus() {
         <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-700">
           <div className={`h-full bg-gradient-to-r ${gradient}`} style={{ width: `${pct}%` }} />
         </div>
+        {sparklinePoints && sparklinePoints.length > 4 && (
+          <svg viewBox="0 0 40 12" className="ml-2 h-3 w-10 text-blue-400/70">
+            <polyline
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={sparklinePoints
+                .slice(-12)
+                .map((value, index, arr) => {
+                  const x = (index / Math.max(arr.length - 1, 1)) * 40;
+                  const y = 12 - (value / 100) * 12;
+                  return `${x},${y}`;
+                })
+                .join(' ')}
+            />
+          </svg>
+        )}
       </Component>
     );
   };
@@ -284,8 +370,11 @@ export function BottomStatus() {
         {pulse && (
           <motion.span
             className="inline-flex h-1.5 w-1.5 rounded-full bg-current"
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.6, repeat: Infinity }}
+            animate={{ 
+              opacity: [0.4, 1, 0.4],
+              scale: [1, 1.2, 1]
+            }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
           />
         )}
       </Component>
@@ -315,11 +404,12 @@ export function BottomStatus() {
   };
 
   const handlePromptSubmit = async () => {
-    if (!prompt.trim() || !activeId) {
+    if (!prompt.trim() || !activeId || promptLoading) {
       return;
     }
 
     try {
+      setPromptLoading(true);
       await ipc.agent.createTask({
         title: 'User Prompt',
         role: 'researcher',
@@ -329,8 +419,22 @@ export function BottomStatus() {
       setPrompt('');
     } catch (error) {
       console.error('Failed to create agent task:', error);
+    } finally {
+      setPromptLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!extraOpen) return;
+    const listenerOptions: AddEventListenerOptions = { capture: true };
+    const handleOutside = (event: MouseEvent) => {
+      if (!extraRef.current) return;
+      if (extraRef.current.contains(event.target as Node)) return;
+      setExtraOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside, listenerOptions);
+    return () => document.removeEventListener('mousedown', handleOutside, listenerOptions);
+  }, [extraOpen]);
 
   const handleDoHToggle = async () => {
     try {
@@ -373,7 +477,6 @@ export function BottomStatus() {
       : 'Active'
     : 'Disconnected';
 
-  const modelVariant: 'positive' | 'warning' = modelReady ? 'positive' : 'warning';
  
   return (
     <div
@@ -388,8 +491,9 @@ export function BottomStatus() {
           label="CPU"
           value={`${cpuUsage}%`}
           percent={cpuUsage}
-          title="System CPU usage"
           gradient="from-blue-500 via-cyan-500 to-blue-500"
+          title="CPU usage"
+          sparklinePoints={sparklinePoints}
         />
 
         <StatusMeter
@@ -426,72 +530,42 @@ export function BottomStatus() {
           title={`Privacy mode: ${privacyMode}`}
         />
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <StatusBadge
+          icon={Shield}
+          label="Trust"
+          description={trustDescription}
+          variant={trustVariant}
+          onClick={() => void openTrustDashboard()}
+          title="Open trust & ethics dashboard"
+          loading={trustBadgeData.loading}
+        />
+
+        <div className="ml-auto flex items-center gap-2">
           <StatusBadge
-            icon={Shield}
-            label="Tor"
-            description={torBadgeDescription}
-            variant={torBadgeVariant}
-            onClick={!torStatus.loading ? () => {
-              if (torStatus.running) {
-                void stopTor();
-              } else {
-                void startTor();
-              }
-            } : undefined}
-            loading={torStatus.loading}
-            title={torTooltip}
-            className={torStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}
+            icon={Cpu}
+            label="CPU"
+            description={`${cpuUsage}%`}
+            variant={cpuUsage > 70 ? 'warning' : 'default'}
+            title="CPU usage"
           />
-
-          {torStatus.running && !torStatus.stub && (
-            <button
-              type="button"
-              onClick={() => {
-                if (!torStatus.loading) {
-                  void newTorIdentity();
-                }
-              }}
-              className="flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-[11px] text-purple-100 transition-colors hover:border-purple-400/60"
-              title="Request a new Tor identity"
-            >
-              <RefreshCw size={12} />
-              New ID
-            </button>
-          )}
-
           <StatusBadge
-            icon={Wifi}
-            label="VPN"
-            description={vpnBadgeDescription}
-            variant={vpnStatus.connected ? 'positive' : 'default'}
-            onClick={!vpnStatus.loading ? () => void checkVpn() : undefined}
-            loading={vpnStatus.loading}
-            title={vpnTooltip}
-            className={vpnStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}
+            icon={MemoryStick}
+            label="RAM"
+            description={`${memoryUsage}%`}
+            variant={memoryUsage > 75 ? 'warning' : 'default'}
+            title="Memory usage"
           />
-
-          <StatusBadge
-            icon={Shield}
-            label="DoH"
-            description={dohStatus.enabled ? dohStatus.provider : 'Disabled'}
-            variant={dohStatus.enabled ? 'info' : 'default'}
-            onClick={handleDoHToggle}
-            title="Toggle DNS-over-HTTPS"
-          />
-
           <StatusBadge
             icon={Brain}
             label="Model"
             description={modelReady ? 'Ready' : 'Loading'}
-            variant={modelVariant}
+            variant={modelReady ? 'positive' : 'default'}
             pulse={modelReady}
-            title="Local AI model status"
+            loading={!modelReady}
+            title="Local model status"
           />
 
-          <SymbioticVoiceCompanion />
-
-          <div className="relative w-64 min-w-[200px]">
+          <div className="relative w-60">
             <input
               type="text"
               value={prompt}
@@ -502,16 +576,105 @@ export function BottomStatus() {
                 }
               }}
               placeholder="Prompt agent (e.g., 'summarize this page')..."
-              className="h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-8 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+              disabled={promptLoading}
+              className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${promptLoading ? 'opacity-70 cursor-wait' : ''}`}
             />
+            {promptLoading ? (
+              <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-blue-300" aria-label="Sending prompt" />
+            ) : (
+              <button
+                type="button"
+                onClick={() => void handlePromptSubmit()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200"
+                title="Send prompt"
+              >
+                <Send size={14} />
+              </button>
+            )}
+          </div>
+
+          <SymbioticVoiceCompanion />
+
+          <div className="relative" ref={extraRef}>
             <button
               type="button"
-              onClick={() => void handlePromptSubmit()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200"
-              title="Send prompt"
+              className="flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
+              onClick={() => setExtraOpen((prev) => !prev)}
+              title="Security & network controls"
             >
-              <Send size={14} />
+              <MoreHorizontal size={14} />
+              More
             </button>
+            <AnimatePresence>
+              {extraOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ duration: 0.16 }}
+                  className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-800 bg-slate-950/95 p-3 shadow-xl"
+                >
+                  <div className="grid gap-2">
+                    <StatusBadge
+                      icon={Shield}
+                      label="Tor"
+                      description={torBadgeDescription}
+                      variant={torBadgeVariant}
+                      onClick={!torStatus.loading ? () => {
+                        if (torStatus.running) {
+                          void stopTor();
+                        } else {
+                          void startTor();
+                        }
+                      } : undefined}
+                      loading={torStatus.loading}
+                      title={torTooltip}
+                      className={`justify-start ${torStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    />
+                    {torStatus.running && !torStatus.stub && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!torStatus.loading) {
+                            void newTorIdentity();
+                          }
+                        }}
+                        className="flex items-center gap-2 rounded-md border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] text-purple-100 transition-colors hover:border-purple-400/60"
+                      >
+                        <RefreshCw size={12} />
+                        Request new Tor identity
+                      </button>
+                    )}
+                    <StatusBadge
+                      icon={Wifi}
+                      label="VPN"
+                      description={vpnBadgeDescription}
+                      variant={vpnStatus.connected ? 'positive' : 'default'}
+                      onClick={!vpnStatus.loading ? () => void checkVpn() : undefined}
+                      loading={vpnStatus.loading}
+                      title={vpnTooltip}
+                      className={`justify-start ${vpnStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    />
+                    <StatusBadge
+                      icon={Shield}
+                      label="DoH"
+                      description={dohStatus.enabled ? dohStatus.provider : 'Disabled'}
+                      variant={dohStatus.enabled ? 'info' : 'default'}
+                      onClick={handleDoHToggle}
+                      title="Toggle DNS-over-HTTPS"
+                      className="justify-start"
+                    />
+                    <StatusBadge
+                      icon={Activity}
+                      label="Efficiency"
+                      description={efficiencyLabel || 'Normal'}
+                      variant="default"
+                      className="justify-start"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </div>

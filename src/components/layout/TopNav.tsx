@@ -809,14 +809,27 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                 className="absolute right-0 top-full mt-2 w-60 bg-surface-elevated border border-surface rounded-lg shadow-2xl z-50 py-2"
               >
                 {menuLoading[menuId] ? (
-                  <div className="space-y-2 px-3 py-2">
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-2 px-3 py-2"
+                  >
                     {Array.from({ length: 4 }).map((_, index) => (
-                      <div
+                      <motion.div
                         key={`skeleton-${menuId}-${index}`}
-                        className="h-8 rounded-md bg-slate-800/70 animate-pulse"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.05, duration: 0.2 }}
+                        className="h-8 rounded-md bg-slate-800/70"
+                        style={{
+                          background: 'linear-gradient(90deg, rgba(30, 41, 59, 0.7) 25%, rgba(51, 65, 85, 0.7) 50%, rgba(30, 41, 59, 0.7) 75%)',
+                          backgroundSize: '200% 100%',
+                          animation: 'shimmer 1.5s infinite',
+                        }}
                       />
                     ))}
-                  </div>
+                  </motion.div>
                 ) : (
                   entries.map((entry) => {
                     if (entry.type === 'divider') {
@@ -838,12 +851,15 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                       );
                     }
                     return (
-                      <button
+                      <motion.button
                         key={entry.key}
                         type="button"
                         disabled={entry.disabled}
                         onClick={() => handleMenuSelect(entry)}
                         className="menu-item w-full"
+                        whileHover={{ x: 2 }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.15 }}
                       >
                         <entry.icon size={16} className="text-muted" />
                         <span className="flex-1 text-left">{entry.label}</span>
@@ -852,7 +868,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                             {entry.shortcut}
                           </kbd>
                         )}
-                      </button>
+                      </motion.button>
                     );
                   })
                 )}
