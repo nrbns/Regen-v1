@@ -6,11 +6,10 @@ import { addToGraph } from '../services/graph';
 import { pushHistory } from './history';
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
-import { registerTab, wakeTab, unregisterTab, hibernateTab, isTabSleeping } from './tab-sleep';
-import { registerTabMemory, unregisterTabMemory } from './memory';
+import { wakeTab, unregisterTab, hibernateTab, isTabSleeping } from './tab-sleep';
+import { unregisterTabMemory } from './memory';
 import { burnTab } from './burn';
 import { getShieldsService } from './shields';
-import { tabProxies } from './proxy';
 import { getVideoCallOptimizer } from './video-call-optimizer';
 import { getSessionManager } from './sessions';
 import { getContainerManager, ContainerPermission } from './containers';
@@ -47,11 +46,10 @@ type TabRecord = {
 };
 
 const windowIdToTabs = new Map<number, TabRecord[]>();
-let activeTabIdByWindow = new Map<number, string | null>();
-let rightDockPxByWindow = new Map<number, number>();
+const activeTabIdByWindow = new Map<number, string | null>();
+const rightDockPxByWindow = new Map<number, number>();
 const resizeTimers = new WeakMap<BrowserWindow, NodeJS.Timeout>();
 const pendingBoundsUpdateTimers = new Map<string, NodeJS.Timeout>();
-const cleanupRegistered = new WeakMap<BrowserWindow, boolean>(); // Track cleanup registration
 const predictiveCache = new Map<
   string,
   {
@@ -109,6 +107,19 @@ export function getActiveTabId(win: BrowserWindow): string | null {
   return activeTabIdByWindow.get(win.id) ?? null;
 }
 
+const getLiveWebContents = (view: BrowserView | undefined): Electron.WebContents | null => {
+  const wc = view?.webContents;
+  if (!wc) return null;
+  try {
+    if (typeof wc.isDestroyed === 'function' && wc.isDestroyed()) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return wc;
+};
+
 export function serializeTabsForWindow(win: BrowserWindow): SerializedTab[] {
   const tabs = windowIdToTabs.get(win.id) ?? [];
   const activeId = getActiveTabId(win);
@@ -116,10 +127,10 @@ export function serializeTabsForWindow(win: BrowserWindow): SerializedTab[] {
   const serialized: SerializedTab[] = [];
 
   for (const tab of tabs) {
-    const view = tab.view;
-    if (!view || view.webContents.isDestroyed()) {
+    const wc = getLiveWebContents(tab.view);
+    if (!wc) {
       try {
-        view?.webContents?.removeAllListeners?.();
+        tab.view?.webContents?.removeAllListeners?.();
       } catch {}
       continue;
     }
@@ -129,8 +140,8 @@ export function serializeTabsForWindow(win: BrowserWindow): SerializedTab[] {
     let title = 'New Tab';
     let url = 'about:blank';
     try {
-      title = view.webContents.getTitle() || title;
-      url = view.webContents.getURL() || url;
+      title = wc.getTitle?.() || title;
+      url = wc.getURL?.() || url;
     } catch {
       // Ignore errors from destroyed webContents
     }
@@ -248,10 +259,10 @@ export function registerTabIpc(win: BrowserWindow) {
       let title = 'New Tab';
       let url = 'about:blank';
       try {
-        const wc = t.view?.webContents;
-        if (wc && !wc.isDestroyed()) {
-          title = wc.getTitle() || title;
-          url = wc.getURL() || url;
+        const wc = getLiveWebContents(t.view);
+        if (wc) {
+          title = wc.getTitle?.() || title;
+          url = wc.getURL?.() || url;
         }
       } catch (error) {
         console.warn('Failed to read tab metadata', error);
@@ -370,6 +381,19 @@ export function registerTabIpc(win: BrowserWindow) {
     sess = session.fromPartition(partition, partitionOptions);
     if (mode !== 'normal') {
       sessionId = undefined;
+    }
+
+    // Apply per-tab proxy if configured
+    try {
+      const { tabProxies } = await import('./proxy');
+      const tabProxy = tabProxies.get(id);
+      if (tabProxy) {
+        const proxyStr = `${tabProxy.type}://${tabProxy.host}:${tabProxy.port}`;
+        await sess.setProxy({ proxyRules: proxyStr } as any);
+        console.log(`[Tabs] Applied per-tab proxy to tab ${id}:`, proxyStr);
+      }
+    } catch (error) {
+      console.warn(`[Tabs] Failed to apply per-tab proxy for tab ${id}:`, error);
     }
 
     const view = new BrowserView({
@@ -587,11 +611,12 @@ export function registerTabIpc(win: BrowserWindow) {
     const tabs = getTabs(win);
     const active = activeTabIdByWindow.get(win.id);
     return tabs.map(t => {
+      const wc = getLiveWebContents(t.view);
       try {
-        const url = t.view.webContents.getURL();
+        const url = wc?.getURL?.();
         return { 
           id: t.id, 
-          title: t.view.webContents.getTitle() || 'New Tab', 
+          title: wc?.getTitle?.() || 'New Tab', 
           active: t.id === active,
           url: url || 'about:blank',
           mode: t.mode,
@@ -603,7 +628,7 @@ export function registerTabIpc(win: BrowserWindow) {
           sessionId: t.sessionId,
           profileId: t.profileId,
         };
-      } catch (e) {
+      } catch {
         // If webContents is destroyed, return basic info
         return {
           id: t.id,
@@ -977,7 +1002,7 @@ export function registerTabIpc(win: BrowserWindow) {
     // Wake tab if sleeping
     try {
       wakeTab(request.id);
-    } catch (e) {
+    } catch {
       // Silent fail for wake - tab might not be in sleep registry
     }
     
@@ -995,7 +1020,7 @@ export function registerTabIpc(win: BrowserWindow) {
           active: t.id === active,
           mode: t.mode,
         };
-      } catch (e) {
+      } catch {
         return {
           id: t.id,
           title: 'New Tab',
@@ -1479,84 +1504,80 @@ function setActiveTab(win: BrowserWindow, id: string) {
     return;
   }
   
-  try {
-    // Remove all BrowserViews first
-    const currentViews = win.getBrowserViews();
-    for (const view of currentViews) {
-      try {
-        win.removeBrowserView(view);
-      } catch (e) {
-        // Ignore errors if view is already removed
-      }
-    }
-    
-    // Set active tab ID
-    activeTabIdByWindow.set(win.id, id);
-    rec.lastActiveAt = Date.now();
-    
-    // Add the active BrowserView
-    win.addBrowserView(rec.view);
-    
-    // Update bounds immediately (guard if destroyed)
-    if (!win.isDestroyed()) {
-      updateBrowserViewBounds(win, id);
-    }
-    
-    // Force bounds update again after a brief delay to ensure proper positioning
-    const timerKey = `${win.id}:${id}`;
-    const existingTimer = pendingBoundsUpdateTimers.get(timerKey);
-    if (existingTimer) {
-      clearTimeout(existingTimer);
-      pendingBoundsUpdateTimers.delete(timerKey);
-    }
-    const delayedBoundsUpdate = setTimeout(() => {
-      pendingBoundsUpdateTimers.delete(timerKey);
-      if (win.isDestroyed()) return;
-      const tabsSnapshot = getTabs(win);
-      const activeRecord = tabsSnapshot.find(t => t.id === id);
-      if (!activeRecord || !activeRecord.view || activeRecord.view.webContents.isDestroyed()) return;
-      updateBrowserViewBounds(win, id);
-    }, 50);
-    pendingBoundsUpdateTimers.set(timerKey, delayedBoundsUpdate);
-    
-    // Emit tab update with proper error handling
-    const active = activeTabIdByWindow.get(win.id);
-    const tabList = tabs.map(t => {
-      try {
-        const url = t.view.webContents.getURL();
-        const title = t.view.webContents.getTitle() || 'New Tab';
-        return { 
-          id: t.id, 
-          title, 
-          url: url || 'about:blank',
-          active: t.id === active,
-          mode: t.mode,
-          containerId: t.containerId,
-          containerName: t.containerName,
-          containerColor: t.containerColor,
-        };
-      } catch (e) {
-        return {
-          id: t.id,
-          title: 'New Tab',
-          url: 'about:blank',
-          active: t.id === active,
-          mode: t.mode,
-          containerId: t.containerId,
-          containerName: t.containerName,
-          containerColor: t.containerColor,
-        };
-      }
-    });
-    
+  // Remove all BrowserViews first
+  const currentViews = win.getBrowserViews();
+  for (const view of currentViews) {
     try {
-      win.webContents.send('tabs:updated', tabList);
-      win.webContents.send('ob://ipc/v1/tabs:updated', tabList);
-    } catch (e) {
-      console.warn('Error sending tab update:', e);
+      win.removeBrowserView(view);
+    } catch {
+      // Ignore errors if view is already removed
     }
-  } catch (e) {
-    console.error('Error setting active tab:', e);
+  }
+  
+  // Set active tab ID
+  activeTabIdByWindow.set(win.id, id);
+  rec.lastActiveAt = Date.now();
+  
+  // Add the active BrowserView
+  win.addBrowserView(rec.view);
+  
+  // Update bounds immediately (guard if destroyed)
+  if (!win.isDestroyed()) {
+    updateBrowserViewBounds(win, id);
+  }
+  
+  // Force bounds update again after a brief delay to ensure proper positioning
+  const timerKey = `${win.id}:${id}`;
+  const existingTimer = pendingBoundsUpdateTimers.get(timerKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    pendingBoundsUpdateTimers.delete(timerKey);
+  }
+  const delayedBoundsUpdate = setTimeout(() => {
+    pendingBoundsUpdateTimers.delete(timerKey);
+    if (win.isDestroyed()) return;
+    const tabsSnapshot = getTabs(win);
+    const activeRecord = tabsSnapshot.find(t => t.id === id);
+    if (!activeRecord || !activeRecord.view || activeRecord.view.webContents.isDestroyed()) return;
+    updateBrowserViewBounds(win, id);
+  }, 50);
+  pendingBoundsUpdateTimers.set(timerKey, delayedBoundsUpdate);
+  
+  // Emit tab update with proper error handling
+  const active = activeTabIdByWindow.get(win.id);
+  const tabList = tabs.map(t => {
+    try {
+      const url = t.view.webContents.getURL();
+      const title = t.view.webContents.getTitle() || 'New Tab';
+      return { 
+        id: t.id, 
+        title, 
+        url: url || 'about:blank',
+        active: t.id === active,
+        mode: t.mode,
+        containerId: t.containerId,
+        containerName: t.containerName,
+        containerColor: t.containerColor,
+      };
+    } catch {
+      return {
+        id: t.id,
+        title: 'New Tab',
+        url: 'about:blank',
+        active: t.id === active,
+        mode: t.mode,
+        containerId: t.containerId,
+        containerName: t.containerName,
+        containerColor: t.containerColor,
+      };
+    }
+  });
+  
+  try {
+    win.webContents.send('tabs:updated', tabList);
+    win.webContents.send('ob://ipc/v1/tabs:updated', tabList);
+  } catch (error) {
+    console.warn('Error sending tab update:', error);
   }
 }
 
@@ -1598,13 +1619,13 @@ function updateBrowserViewBounds(win: BrowserWindow, id?: string) {
       if (typeof rec.view.setVisible === 'function') {
         rec.view.setVisible(true);
       }
-    } catch (e) {
+    } catch {
       // setVisible might not exist in all Electron versions
     }
     
     return viewBounds;
-  } catch (e) {
-    console.error('Error updating BrowserView bounds:', e);
+  } catch (error) {
+    console.error('Error updating BrowserView bounds:', error);
     return null;
   }
 }
