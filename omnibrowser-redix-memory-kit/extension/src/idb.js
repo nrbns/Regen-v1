@@ -1,5 +1,5 @@
 /* eslint-env browser */
-/* global chrome, crypto */
+/* global TextEncoder, TextDecoder, btoa, atob, console, chrome, crypto */
 
 const QUEUE_KEY = "memoryQueue";
 const KEY_STORAGE_KEY = "memoryQueueKey";

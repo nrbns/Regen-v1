@@ -28,7 +28,7 @@ function broadcastHandoff(event: HandoffEvent) {
       win.webContents.send('cross-reality:handoff', event);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        logger.warn('Failed to send handoff event', error);
+        logger.warn('Failed to send handoff event', { error: error instanceof Error ? error.message : String(error) });
       }
     }
   }

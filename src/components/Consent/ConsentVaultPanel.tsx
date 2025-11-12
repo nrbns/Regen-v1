@@ -98,28 +98,29 @@ export function ConsentVaultPanel() {
           )}
           {snapshot && !loading && (
             <div className="divide-y divide-emerald-500/10 text-[11px]">
-              {snapshot.entries.map((entry) => (
-                <motion.div
-                  key={entry.chainHash}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.18 }}
-                  className="space-y-1 px-4 py-3"
-                >
-                  <div className="flex items-center justify-between text-emerald-100">
-                    <span className="font-medium uppercase tracking-wide text-[10px]">{entry.actionType}</span>
-                    <span className="text-emerald-200/70">{new Date(entry.timestamp).toLocaleString()}</span>
-                  </div>
-                  <div className="text-emerald-100/90 break-all">Chain hash: {entry.chainHash}</div>
-                  <div className="text-emerald-100/70 break-all">Signature: {entry.signature}</div>
-                  {entry.metadata?.risk && (
-                    <div className="text-emerald-100/70">Risk: {String(entry.metadata.risk)}</div>
-                  )}
-                  {entry.metadata?.target && (
-                    <div className="text-emerald-100/70 break-all">Target: {String(entry.metadata.target)}</div>
-                  )}
-                </motion.div>
-              ))}
+              {snapshot.entries.map((entry) => {
+                const metadata = typeof entry.metadata === 'object' && entry.metadata !== null ? (entry.metadata as Record<string, unknown>) : undefined;
+                const risk = typeof metadata?.risk === 'string' ? metadata.risk : undefined;
+                const target = typeof metadata?.target === 'string' ? metadata.target : undefined;
+                return (
+                  <motion.div
+                    key={entry.chainHash}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="space-y-1 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between text-emerald-100">
+                      <span className="font-medium uppercase tracking-wide text-[10px]">{entry.actionType}</span>
+                      <span className="text-emerald-200/70">{new Date(entry.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div className="text-emerald-100/90 break-all">Chain hash: {entry.chainHash}</div>
+                    <div className="text-emerald-100/70 break-all">Signature: {entry.signature}</div>
+                    {risk && <div className="text-emerald-100/70">Risk: {risk}</div>}
+                    {target && <div className="text-emerald-100/70 break-all">Target: {target}</div>}
+                  </motion.div>
+                );
+              })}
               {snapshot.entries.length === 0 && (
                 <div className="p-6 text-center text-xs text-emerald-200/70">
                   Ledger empty. Approve a consent request to generate the first block.

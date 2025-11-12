@@ -499,5 +499,4 @@ export function registerResearchIpc() {
   });
 
   // registerResearchPipelineIpc(); // Temporarily disabled
-  registerConsentIpc();
 }

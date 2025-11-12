@@ -63,7 +63,7 @@ class VPNService extends EventEmitter {
     if (JSON.stringify(newStatus) !== JSON.stringify(this.status)) {
       this.status = newStatus;
       this.emit('status', this.status);
-      this.logger.info('VPN status updated', this.status);
+      this.logger.info('VPN status updated', { status: this.status });
     }
 
     return this.status;

@@ -75,14 +75,16 @@ async function watchBattery(): Promise<void> {
       }
 
       try {
-        await ipc.performance.updateBattery({
-          level: typeof battery.level === 'number' ? battery.level : null,
-          charging: battery.charging,
-          chargingTime: Number.isFinite(battery.chargingTime) ? battery.chargingTime : null,
-          dischargingTime: Number.isFinite(battery.dischargingTime) ? battery.dischargingTime : null,
-          carbonIntensity: lastCarbonValue,
-          regionCode: lastRegionCode,
-        });
+        if (ipc.performance?.battery?.update) {
+          await ipc.performance.battery.update({
+            level: typeof battery.level === 'number' ? battery.level : null,
+            charging: battery.charging,
+            chargingTime: Number.isFinite(battery.chargingTime) ? battery.chargingTime : null,
+            dischargingTime: Number.isFinite(battery.dischargingTime) ? battery.dischargingTime : null,
+            carbonIntensity: lastCarbonValue,
+            regionCode: lastRegionCode,
+          });
+        }
       } catch (error) {
         if (isDevEnv()) {
           console.warn('[battery] Failed to push battery update', error);

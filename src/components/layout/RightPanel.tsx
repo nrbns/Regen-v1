@@ -3,7 +3,7 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Brain, Zap, FileText, Shield, ListChecks, Activity, Sparkles, Share2, Leaf, ShieldCheck } from 'lucide-react';
+import { X, Brain, Zap, FileText, Shield, ListChecks, Activity, Sparkles, Share2, Leaf, ShieldCheck, KeyRound } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { ipc } from '../../lib/ipc-typed';
 import { AgentPlan, AgentStep, ConsentRequest } from '../../lib/ipc-events';
@@ -15,6 +15,7 @@ import { EcoImpactSimulator } from '../eco';
 import { TrustWeaverPanel } from '../trust';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
+import { IdentityVaultPanel } from '../identity';
 
 const ACTION_LABELS: Record<ConsentActionType, string> = {
   download: 'Download file',
@@ -53,6 +54,7 @@ const tabs = [
   { id: 'consent', icon: Shield, label: 'Consent' },
   { id: 'trust', icon: ShieldCheck, label: 'Trust' },
   { id: 'eco', icon: Leaf, label: 'Eco' },
+  { id: 'identity', icon: KeyRound, label: 'Identity' },
   { id: 'nexus', icon: Share2, label: 'Nexus' },
 ];
 
@@ -298,6 +300,8 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
             {activeTab === 'trust' && <TrustWeaverPanel />}
 
             {activeTab === 'eco' && <EcoImpactSimulator />}
+
+            {activeTab === 'identity' && <IdentityVaultPanel />}
 
             {activeTab === 'nexus' && <ExtensionNexusPanel />}
           </div>

@@ -99,7 +99,7 @@ function configureSessionSecurity(ses: Session) {
     if (resourceType === 'subFrame' && isAllowlistedFrame(details.url)) {
       sanitizeHeaders(headers, 'x-frame-options');
       sanitizeHeaders(headers, 'content-security-policy');
-      logger.debug?.('Relaxed frame headers for allowlisted host', { url: details.url });
+      logger.info('Relaxed frame headers for allowlisted host', { url: details.url });
     }
 
     callback({ responseHeaders: headers });

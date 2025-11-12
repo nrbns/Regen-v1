@@ -27,6 +27,12 @@ export type EfficiencyAlert = {
   actions: EfficiencyAlertAction[];
 };
 
+interface AutoThreshold {
+  level: number;
+  minMinutes: number;
+  severity: EfficiencyAlertSeverity;
+}
+
 type BatterySample = { timestamp: number; pct: number };
 type CarbonSample = { timestamp: number; intensity: number };
 
@@ -137,6 +143,12 @@ let lastSnapshot: ResourceSnapshot = {
   carbonIntensity: null,
   carbonRegion: null,
 };
+
+let lastHibernateCount = 0;
+
+function setLastHibernateCount(count: number): void {
+  lastHibernateCount = count;
+}
 
 const batteryHistory: BatterySample[] = [];
 const carbonHistory: CarbonSample[] = [];
@@ -291,8 +303,8 @@ function maybeHibernateInactiveTabs(mode: EfficiencyMode, force = false): number
     const tabs = getTabs(win);
 
     for (const tab of tabs) {
-      if (tab.active) continue;
-      if (tab.sleeping) continue;
+      const metadata = extractTabMetadata(tab);
+      if (metadata.active) continue;
       if (isTabSleeping(tab.id)) continue;
 
       const lastActive = tab.lastActiveAt ?? 0;
@@ -794,7 +806,7 @@ function maybeEmitPredictiveAlerts(snapshot: ResourceSnapshot): void {
 
     if (currentMode !== 'extreme') {
       actions.push({ id: 'enable-regen', label: 'Enable Regen Mode', type: 'mode', mode: 'extreme' });
-    } else if (currentMode !== 'battery-saver') {
+    } else {
       actions.push({ id: 'enable-saver', label: 'Battery Saver', type: 'mode', mode: 'battery-saver' });
     }
 
@@ -852,5 +864,22 @@ function maybeReleaseOverride(snapshot: ResourceSnapshot): void {
   ) {
     manualOverride = null;
   }
+}
+
+function extractTabMetadata(tab: any): { title: string; url: string; active: boolean } {
+  let title = 'Untitled tab';
+  let url = 'about:blank';
+  let active = false;
+  try {
+    const wc = tab.view?.webContents;
+    if (wc && !wc.isDestroyed()) {
+      title = wc.getTitle() || title;
+      url = wc.getURL() || url;
+      active = Boolean(wc.isFocused?.());
+    }
+  } catch {
+    // ignore
+  }
+  return { title, url, active };
 }
 

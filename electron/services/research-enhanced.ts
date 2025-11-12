@@ -9,7 +9,7 @@ import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { randomUUID } from 'node:crypto';
 import { registerHandler } from '../shared/ipc/router';
-import { createLogger } from '../utils/logger';
+import { createLogger } from './utils/logger';
 import { z } from 'zod';
 import { verifyResearchResult, VerificationResult } from './research-verifier';
 import { getHybridSearchService, SearchResult as HybridSearchResult } from './search/hybrid-search';

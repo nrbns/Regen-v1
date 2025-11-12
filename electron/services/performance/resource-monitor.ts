@@ -17,7 +17,7 @@ const REDIX_PROJECT = ALLOWED_PROJECTS.has('redix') ? 'redix' : Array.from(ALLOW
 
 const TELEMETRY_INTERVAL_MS = Number(process.env.REDIX_TELEMETRY_INTERVAL ?? 60_000);
 
-let monitorTimer: NodeJS.Timer | null = null;
+let monitorTimer: NodeJS.Timeout | null = null;
 let lastPayloadHash = '';
 
 let lastSuccessfulHibernateCount = 0;

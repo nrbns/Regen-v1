@@ -66,7 +66,7 @@ async function persist(): Promise<void> {
     };
     await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
   } catch (error) {
-    logger.warn('Failed to persist extension nexus', error);
+    logger.warn('Failed to persist extension nexus', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 

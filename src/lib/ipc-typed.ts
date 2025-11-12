@@ -12,6 +12,8 @@ import { getEnvVar, isDevEnv, isElectronRuntime } from './env';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
+import type { IdentityCredential, IdentityRevealPayload, IdentityVaultSummary } from '../types/identity';
+import type { ConsentAction, ConsentRecord } from '../types/consent';
 
 const IS_DEV = isDevEnv();
 
@@ -70,6 +72,13 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'vpn:check': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
   'tabs:predictiveGroups': () => ({ groups: [], prefetch: [], summary: undefined }),
+  'identity:status': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
+  'identity:unlock': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
+  'identity:lock': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
+  'identity:list': () => [] as IdentityCredential[],
+  'identity:add': () => ({ id: 'demo', domain: 'example.com', username: 'demo', createdAt: Date.now(), updatedAt: Date.now() } satisfies IdentityCredential),
+  'identity:remove': () => ({ success: false }),
+  'identity:reveal': () => ({ id: 'demo', secret: 'demo' } satisfies IdentityRevealPayload),
 };
 
 const reportedMissingChannels = new Set<string>();
@@ -428,10 +437,6 @@ export const ipc = {
     revokeSitePermission: (containerId: string, permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen', origin: string) =>
       ipcCall<{ containerId: string; permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origin: string }, Array<{ permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origins: string[] }>>('containers:revokeSitePermission', { containerId, permission, origin }),
   },
-  performance: {
-    updateBattery: (payload: { level?: number | null; charging?: boolean | null; chargingTime?: number | null; dischargingTime?: number | null }) =>
-      ipcCall('performance:battery:update', payload),
-  },
   proxy: {
     set: (config: { type: 'socks5' | 'http'; host: string; port: number; username?: string; password?: string; tabId?: string; profileId?: string }) =>
       ipcCall('proxy:set', config),
@@ -704,153 +709,11 @@ export const ipc = {
       >('downloads:list', {}),
     openFile: (path: string) => ipcCall('downloads:openFile', { path }),
     showInFolder: (path: string) => ipcCall('downloads:showInFolder', { path }),
+    requestConsent: (url: string, filename: string, size?: number) =>
+      ipcCall('downloads:requestConsent', { url, filename, size }),
     pause: (id: string) => ipcCall('downloads:pause', { id }),
     resume: (id: string) => ipcCall('downloads:resume', { id }),
     cancel: (id: string) => ipcCall('downloads:cancel', { id }),
-  },
-  e2eeSync: {
-    config: (config: { enabled: boolean; syncEndpoint?: string; encryptionKey?: string; chainId?: string }) =>
-      ipcCall('sync:config', config),
-    init: (request: { password: string }) => ipcCall('sync:init', request),
-    sync: () => ipcCall('sync:sync', {}),
-    status: () => ipcCall<unknown, { synced: boolean; chainId?: string; enabled: boolean }>('sync:status', {}),
-    pull: () => ipcCall<unknown, { data: unknown[] }>('sync:pull', {}),
-  },
-  consent: {
-    createRequest: (action: unknown) => ipcCall('consent:createRequest', action),
-    approve: (consentId: string) => ipcCall('consent:approve', { consentId }),
-    revoke: (consentId: string) => ipcCall('consent:revoke', { consentId }),
-    check: (action: unknown) => ipcCall('consent:check', action),
-    get: (consentId: string) => ipcCall('consent:get', { consentId }),
-    list: (filter?: { type?: string; approved?: boolean }) =>
-      ipcCall<{ type?: string; approved?: boolean }, import('../types/consent').ConsentRecord[]>('consent:list', filter ?? {}),
-    export: () => ipcCall<unknown, string>('consent:export', {}),
-    vault: {
-      export: () => ipcCall<unknown, {
-        entries: Array<{ consentId: string; actionType: string; approved: boolean; timestamp: number; signature: string; chainHash: string; metadata: Record<string, unknown> }>;
-        anchor: string;
-        updatedAt: number;
-      }>('consent:vault:export', {}),
-    },
-  },
-  permissions: {
-    request: (type: string, origin: string, description?: string) => ipcCall('permissions:request', { type, origin, description }),
-    grant: (type: string, origin: string) => ipcCall('permissions:grant', { type, origin }),
-    revoke: (type: string, origin: string) => ipcCall('permissions:revoke', { type, origin }),
-    check: (type: string, origin: string) => ipcCall('permissions:check', { type, origin }),
-    list: (filter?: unknown) => ipcCall('permissions:list', filter || {}),
-    clearOrigin: (origin: string) => ipcCall('permissions:clearOrigin', { origin }),
-  },
-  privacy: {
-    getOrigins: () => ipcCall('privacy:getOrigins', {}),
-    purgeOrigin: (origin: string) => ipcCall('privacy:purgeOrigin', { origin }),
-    export: () => ipcCall('privacy:export', {}),
-    sentinel: {
-      audit: (tabId: string | null) =>
-        ipcCall<{ tabId?: string }, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
-    },
-  },
-  dns: {
-    enableDoH: (provider?: 'cloudflare' | 'quad9') => ipcCall('dns:enableDoH', { provider: provider || 'cloudflare' }),
-    disableDoH: () => ipcCall('dns:disableDoH', {}),
-    status: () => ipcCall('dns:status', {}),
-  },
-  threats: {
-    scanUrl: (url: string) => ipcCall('threats:scanUrl', { url }),
-    scanFile: (filePath: string) => ipcCall('threats:scanFile', { filePath }),
-    scanUrlEnhanced: (url: string) => ipcCall('threats:scanUrlEnhanced', { url }),
-    scanFileEnhanced: (filePath: string) => ipcCall('threats:scanFileEnhanced', { filePath }),
-    analyzeFile: (filePath: string) => ipcCall('threats:analyzeFile', { filePath }),
-    detectFingerprint: (html: string, headers: Record<string, string>) =>
-      ipcCall('threats:detectFingerprint', { html, headers }),
-    getThreatGraph: () => ipcCall<unknown, { graph: any }>('threats:getThreatGraph', {}),
-    clearThreatGraph: () => ipcCall('threats:clearThreatGraph', {}),
-  },
-  research: {
-    extractContent: (tabId?: string) =>
-      ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>('research:extractContent', { tabId }),
-    saveNotes: (url: string, notes: string, highlights?: any[]) =>
-      ipcCall('research:saveNotes', { url, notes, highlights }),
-    getNotes: (url: string) =>
-      ipcCall<{ url: string }, { notes: string; highlights: any[] }>('research:getNotes', { url }),
-    export: (
-      format: 'markdown' | 'obsidian' | 'notion',
-      sources: string[],
-      includeNotes?: boolean,
-    ) =>
-      ipcCall<
-        { format: 'markdown' | 'obsidian' | 'notion'; sources: string[]; includeNotes?: boolean },
-        {
-          success: boolean;
-          format: 'markdown' | 'obsidian' | 'notion';
-          path?: string;
-          folder?: string;
-          paths?: string[];
-          notionPages?: Array<{ id: string; url: string; title: string }>;
-        }
-      >('research:export', { format, sources, includeNotes: includeNotes ?? true }),
-    queryEnhanced: (query: string, options?: {
-      maxSources?: number;
-      includeCounterpoints?: boolean;
-      region?: string;
-      recencyWeight?: number;
-      authorityWeight?: number;
-    }) => ipcCall<
-      {
-        query: string;
-        maxSources?: number;
-        includeCounterpoints?: boolean;
-        region?: string;
-        recencyWeight?: number;
-        authorityWeight?: number;
-      },
-      ResearchResult
-    >('research:queryEnhanced', { query, ...options }),
-    clearCache: () => ipcCall('research:clearCache', {}),
-  },
-  reader: {
-    summarize: (request: { url?: string; title?: string; content: string; html?: string }) =>
-      ipcCall<
-        { url?: string; title?: string; content: string; html?: string },
-        {
-          mode: 'local' | 'cloud' | 'extractive';
-          bullets: Array<{ summary: string; citation?: { text: string; url?: string } }>;
-        }
-      >('reader:summarize', request),
-    export: (request: { url?: string; title?: string; html: string }) =>
-      ipcCall<
-        { url?: string; title?: string; html: string },
-        { success: boolean; path?: string }
-      >('reader:export', request),
-  },
-  document: {
-    ingest: (source: string, type: 'pdf' | 'docx' | 'web', title?: string) =>
-      ipcCall<{ source: string; type: 'pdf' | 'docx' | 'web'; title?: string }, DocumentReview>('document:ingest', { source, type, title }),
-    get: (id: string) =>
-      ipcCall<{ id: string }, DocumentReview>('document:get', { id }),
-    list: () =>
-      ipcCall<unknown, DocumentReview[]>('document:list', {}),
-    delete: (id: string) =>
-      ipcCall<{ id: string }, { success: boolean }>('document:delete', { id }),
-    reverify: (id: string) =>
-      ipcCall<{ id: string }, DocumentReview>('document:reverify', { id }),
-    export: (id: string, format: 'markdown' | 'html', outputPath: string, citationStyle?: 'apa' | 'mla' | 'chicago' | 'ieee' | 'harvard') =>
-      ipcCall<
-        { id: string; format: 'markdown' | 'html'; outputPath: string; citationStyle?: string },
-        { success: boolean; path: string }
-      >('document:export', { id, format, outputPath, citationStyle }),
-    exportToString: (id: string, format: 'markdown' | 'html', citationStyle?: 'apa' | 'mla' | 'chicago' | 'ieee' | 'harvard') =>
-      ipcCall<{ id: string; format: 'markdown' | 'html'; citationStyle?: string }, { content: string }>('document:exportToString', { id, format, citationStyle }),
-  },
-  downloads: {
-    list: () => ipcCall<unknown, any[]>('downloads:list', {}),
-    requestConsent: (url: string, filename: string, size?: number) =>
-      ipcCall('downloads:requestConsent', { url, filename, size }),
-    openFile: (path: string) => ipcCall('downloads:openFile', { path }),
-    showInFolder: (path: string) => ipcCall('downloads:showInFolder', { path }),
-    pause: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:pause', { id }),
-    resume: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:resume', { id }),
-    cancel: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('downloads:cancel', { id }),
   },
   watchers: {
     list: () => ipcCall<unknown, Array<{ id: string; url: string; createdAt: number; intervalMinutes: number; lastCheckedAt?: number; lastHash?: string; lastChangeAt?: number; status: string; error?: string }>>('watchers:list', {}),
@@ -1029,6 +892,16 @@ export const ipc = {
       }),
   },
   performance: {
+    battery: {
+      update: (payload: {
+        level?: number | null;
+        charging?: boolean | null;
+        chargingTime?: number | null;
+        dischargingTime?: number | null;
+        carbonIntensity?: number | null;
+        regionCode?: string | null;
+      }) => ipcCall('performance:battery:update', payload),
+    },
     gpu: {
       enableRaster: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:enableRaster', {}),
       disableRaster: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:disableRaster', {}),
@@ -1091,5 +964,84 @@ export const ipc = {
       }),
     queue: () => ipcCall<unknown, { handoffs: any[] }>('cross-reality:queue', {}),
   },
+  identity: {
+    status: () => ipcCall<unknown, IdentityVaultSummary>('identity:status', {}),
+    unlock: (passphrase: string) =>
+      ipcCall<{ passphrase: string }, IdentityVaultSummary>('identity:unlock', { passphrase }),
+    lock: () => ipcCall<unknown, IdentityVaultSummary>('identity:lock', {}),
+    list: () => ipcCall<unknown, IdentityCredential[]>('identity:list', {}),
+    add: (payload: { domain: string; username: string; secret: string; secretHint?: string | null; tags?: string[] }) =>
+      ipcCall<typeof payload, IdentityCredential>('identity:add', payload),
+    remove: (id: string) => ipcCall<{ id: string }, { success: boolean }>('identity:remove', { id }),
+    reveal: (id: string) => ipcCall<{ id: string }, IdentityRevealPayload>('identity:reveal', { id }),
+  },
+  consent: {
+    createRequest: (action: ConsentAction) =>
+      ipcCall<ConsentAction, { consentId: string }>('consent:createRequest', action),
+    approve: (consentId: string) =>
+      ipcCall<{ consentId: string }, { success: boolean; consent?: ConsentRecord | null; receipt?: { receiptId: string; proof: string } }>(
+        'consent:approve',
+        { consentId },
+      ),
+    revoke: (consentId: string) => ipcCall<{ consentId: string }, { success: boolean }>('consent:revoke', { consentId }),
+    check: (action: ConsentAction) =>
+      ipcCall<ConsentAction, { hasConsent: boolean }>('consent:check', action),
+    get: (consentId: string) => ipcCall<{ consentId: string }, ConsentRecord | undefined>('consent:get', { consentId }),
+    list: (filter?: { type?: ConsentAction['type']; approved?: boolean }) =>
+      ipcCall<typeof filter, ConsentRecord[]>('consent:list', filter ?? {}),
+    export: () => ipcCall<unknown, string>('consent:export', {}),
+    vault: {
+      export: () =>
+        ipcCall<unknown, ConsentVaultSnapshot>('consent:vault:export', {}),
+    },
+  },
+  research: {
+    extractContent: (tabId?: string) =>
+      ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>('research:extractContent', tabId ? { tabId } : {}),
+    saveNotes: (url: string, notes: string, highlights?: unknown[]) =>
+      ipcCall<{ url: string; notes: string; highlights?: unknown[] }, { success: boolean }>('research:saveNotes', {
+        url,
+        notes,
+        highlights,
+      }),
+    getNotes: (url: string) =>
+      ipcCall<{ url: string }, { notes: string; highlights: unknown[] }>('research:getNotes', { url }),
+    export: (payload: { format: 'markdown' | 'obsidian' | 'notion'; sources: string[]; includeNotes?: boolean }) =>
+      ipcCall<typeof payload, any>('research:export', payload),
+  },
+  reader: {
+    summarize: (payload: { url?: string; title?: string; content: string; html?: string }) =>
+      ipcCall<typeof payload, any>('reader:summarize', payload),
+    export: (payload: { url?: string; title?: string; html: string }) =>
+      ipcCall<typeof payload, { success: boolean; path: string }>('reader:export', payload),
+  },
+  dns: {
+    status: () => ipcCall<unknown, { enabled: boolean; provider: 'cloudflare' | 'quad9' }>('dns:status', {}),
+    enableDoH: (provider: 'cloudflare' | 'quad9' = 'cloudflare') =>
+      ipcCall<{ provider: 'cloudflare' | 'quad9' }>('dns:enableDoH', { provider }),
+    disableDoH: () => ipcCall('dns:disableDoH', {}),
+  },
+  privacy: {
+    sentinel: {
+      audit: (tabId?: string | null) =>
+        ipcCall<{ tabId?: string | null } | undefined, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
+    },
+  },
+};
+
+type ConsentVaultEntry = {
+  consentId: string;
+  actionType: ConsentAction['type'];
+  approved: boolean;
+  timestamp: number;
+  signature: string;
+  chainHash: string;
+  metadata: Record<string, unknown>;
+};
+
+type ConsentVaultSnapshot = {
+  entries: ConsentVaultEntry[];
+  anchor: string;
+  updatedAt: number;
 };
 

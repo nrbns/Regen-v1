@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle, BookOpen, Loader2, Sparkles, ShieldAlert, Calculator, Clock } from 'lucide-react';
 import { ipc } from '../lib/ipc-typed';
@@ -129,6 +129,7 @@ export function Research() {
   const [jobChannel, setJobChannel] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [lastCompletedAt, setLastCompletedAt] = useState<number | null>(null);
+  const researcherListenerRef = useRef<((event: any, payload: any) => void) | null>(null);
 
   const sourcesAsFlat = useMemo(() => {
     const entries: Array<{ cite: any; idx: number }> = [];
@@ -147,8 +148,8 @@ export function Research() {
 
   useEffect(() => {
     return () => {
-      if (jobChannel && window.ipc?.removeAllListeners) {
-        window.ipc.removeAllListeners(jobChannel);
+      if (jobChannel && researcherListenerRef.current && window.ipc?.removeListener) {
+        window.ipc.removeListener(jobChannel, researcherListenerRef.current);
       }
     };
   }, [jobChannel]);
@@ -175,7 +176,7 @@ export function Research() {
       setJobId(freshJobId);
 
       if (window.ipc?.on) {
-        window.ipc.on(channel, (_event: any, payload: any) => {
+        const listener = (_event: any, payload: any) => {
           switch (payload?.type) {
             case 'status':
               setLoading(true);
@@ -197,7 +198,9 @@ export function Research() {
               setLoading(false);
               break;
           }
-        });
+        };
+        researcherListenerRef.current = listener;
+        window.ipc.on(channel, listener);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

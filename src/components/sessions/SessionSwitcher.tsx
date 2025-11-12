@@ -17,16 +17,6 @@ import { Tooltip } from '../common/Tooltip';
 import { useOnboardingStore } from '../../state/onboardingStore';
 import { isDevEnv } from '../../lib/env';
 
-interface BrowserSession {
-  id: string;
-  name: string;
-  profileId: string;
-  createdAt: number;
-  tabCount: number;
-  activeTabId?: string;
-  color?: string;
-}
-
 export function SessionSwitcher() {
   const IS_DEV = isDevEnv();
   const [sessions, setSessions] = useState<BrowserSession[]>([]);

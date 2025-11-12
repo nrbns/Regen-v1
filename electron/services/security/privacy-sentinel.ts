@@ -1,4 +1,4 @@
-import { session, BrowserWindow } from 'electron';
+import { app, session, BrowserWindow } from 'electron';
 import { registerHandler } from '../../shared/ipc/router';
 import { z } from 'zod';
 import { getTabs } from '../tabs';
@@ -112,36 +112,58 @@ function findTabUrl(tabId: string): string | null {
   return null;
 }
 
-session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
-  try {
-    const tabId = findTabIdByWebContentsId(details.webContentsId);
-    if (!tabId) {
-      callback({});
-      return;
-    }
-    const host = getHost(details.url);
-    const entry = ensureEntry(tabId);
-    if (details.resourceType === 'mainFrame' && host) {
-      entry.mainDomain = normalizeDomain(host);
-    }
-    if (host) {
-      const normalized = normalizeDomain(host) ?? host;
-      entry.totalRequests += 1;
-      const isThirdParty = entry.mainDomain && normalized !== entry.mainDomain;
-      if (isThirdParty) {
-        entry.thirdPartyHosts.set(normalized, (entry.thirdPartyHosts.get(normalized) ?? 0) + 1);
-      }
-      if (isTracker(normalized)) {
-        entry.trackers.set(normalized, (entry.trackers.get(normalized) ?? 0) + 1);
-      }
-      entry.updatedAt = Date.now();
-    }
-  } catch {
-    // ignore
-  } finally {
-    callback({});
+let sentinelInitialized = false;
+let sentinelInitializationScheduled = false;
+
+function initializePrivacySentinel(): void {
+  if (sentinelInitialized) {
+    return;
   }
-});
+
+  if (!app.isReady()) {
+    if (!sentinelInitializationScheduled) {
+      sentinelInitializationScheduled = true;
+      app.once('ready', () => {
+        sentinelInitializationScheduled = false;
+        initializePrivacySentinel();
+      });
+    }
+    return;
+  }
+
+  session.defaultSession.webRequest.onBeforeRequest((details, callback) => {
+    try {
+      const tabId = findTabIdByWebContentsId(details.webContentsId);
+      if (!tabId) {
+        callback({});
+        return;
+      }
+      const host = getHost(details.url);
+      const entry = ensureEntry(tabId);
+      if (details.resourceType === 'mainFrame' && host) {
+        entry.mainDomain = normalizeDomain(host);
+      }
+      if (host) {
+        const normalized = normalizeDomain(host) ?? host;
+        entry.totalRequests += 1;
+        const isThirdParty = entry.mainDomain && normalized !== entry.mainDomain;
+        if (isThirdParty) {
+          entry.thirdPartyHosts.set(normalized, (entry.thirdPartyHosts.get(normalized) ?? 0) + 1);
+        }
+        if (isTracker(normalized)) {
+          entry.trackers.set(normalized, (entry.trackers.get(normalized) ?? 0) + 1);
+        }
+        entry.updatedAt = Date.now();
+      }
+    } catch {
+      // ignore
+    } finally {
+      callback({});
+    }
+  });
+
+  sentinelInitialized = true;
+}
 
 const PrivacyAuditSchema = z.object({
   tabId: z.string().optional(),
@@ -251,6 +273,7 @@ async function maybeFetchAiInsight(tabId: string | null, entry: TrackerEntry | u
 }
 
 export function registerPrivacySentinelIpc(): void {
+  initializePrivacySentinel();
   registerHandler('privacy:sentinel:audit', PrivacyAuditSchema, async (_event, request) => {
     const tabId = request.tabId ? request.tabId : null;
     const entry = tabId ? requestLog.get(tabId) : undefined;
@@ -259,3 +282,5 @@ export function registerPrivacySentinelIpc(): void {
     return audit;
   });
 }
+
+initializePrivacySentinel();

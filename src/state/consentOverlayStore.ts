@@ -21,7 +21,7 @@ interface ConsentOverlayState {
 }
 
 async function fetchRecords(filter: ConsentOverlayState['filter']): Promise<ConsentRecord[]> {
-  const payload: { type?: string; approved?: boolean } = {};
+  const payload: { type?: ConsentActionType; approved?: boolean } = {};
   if (filter.type && filter.type !== 'all') {
     payload.type = filter.type;
   }

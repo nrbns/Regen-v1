@@ -1,0 +1,2 @@
+export { IdentityVaultPanel } from './IdentityVaultPanel';
+

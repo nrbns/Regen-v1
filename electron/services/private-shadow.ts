@@ -51,12 +51,12 @@ async function clearShadowPartition(partition: string, forensic = false): Promis
   try {
     await sess.clearCache();
     await sess.clearStorageData({
-      storages: ['appcache', 'cookies', 'filesystem', 'indexdb', 'localstorage', 'serviceworkers', 'shadercache', 'websql', 'cachestorage'],
-      quotas: ['temporary', 'persistent', 'syncable'],
+      storages: ['cookies', 'filesystem', 'indexdb', 'localstorage', 'serviceworkers', 'shadercache', 'websql', 'cachestorage'],
+      quotas: ['temporary'],
     });
     if (forensic) {
       await sess.clearHostResolverCache();
-      await sess.clearCodeCaches({ onlyOlderThan: 0 });
+      await sess.clearCodeCaches({ urls: [] });
     }
     await sess.flushStorageData();
   } catch (error) {

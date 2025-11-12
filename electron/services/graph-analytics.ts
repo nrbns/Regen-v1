@@ -2,6 +2,9 @@ import { BrowserWindow } from 'electron';
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
 import { getTabs } from './tabs';
+import { createLogger } from './utils/logger';
+
+const logger = createLogger('graph-analytics');
 
 interface TabGraphNode {
   id: string;
@@ -48,7 +51,49 @@ interface TabGraphPayload {
   clusters?: TabCluster[];
 }
 
-const SHADOW_SESSION_MARKER = '__ob_shadowSessionId';
+const SHADOW_SESSION_MARKER = Symbol.for('omnibrowser.shadow-session');
+
+interface TabSnapshot {
+  url?: string;
+  title?: string;
+  active?: boolean;
+  containerId?: string | null;
+  containerName?: string | null;
+  containerColor?: string | null;
+  mode?: string | null;
+  createdAt?: number | null;
+  lastActiveAt?: number | null;
+}
+
+function getTabSnapshot(tab: any): TabSnapshot {
+  const snapshot: TabSnapshot = {
+    url: tab?.url ?? undefined,
+    title: tab?.title ?? undefined,
+    active: tab?.active ?? undefined,
+    containerId: tab?.containerId ?? null,
+    containerName: tab?.containerName ?? null,
+    containerColor: tab?.containerColor ?? null,
+    mode: tab?.mode ?? null,
+    createdAt: tab?.createdAt ?? null,
+    lastActiveAt: tab?.lastActiveAt ?? null,
+  };
+
+  try {
+    const view = tab?.view;
+    const webContents = view?.webContents;
+    if (webContents && !webContents.isDestroyed()) {
+      snapshot.url = webContents.getURL?.() || snapshot.url;
+      snapshot.title = webContents.getTitle?.() || snapshot.title;
+      snapshot.active = webContents.isFocused?.() ?? snapshot.active;
+    }
+  } catch (error) {
+    logger?.warn?.('Failed to extract tab snapshot', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  return snapshot;
+}
 
 const getDomain = (url?: string | null): string => {
   if (!url) return 'unknown';
@@ -75,19 +120,20 @@ function buildTabGraph(): TabGraphPayload {
   for (const win of windows) {
     const tabs = getTabs(win);
     tabs.forEach((tab) => {
-      const domain = getDomain(tab.url);
+      const snapshot = getTabSnapshot(tab);
+      const domain = snapshot.url ? getDomain(snapshot.url) : '';
       const node: TabGraphNode = {
         id: tab.id,
-        title: tab.title || domain || 'Untitled tab',
-        url: tab.url || 'about:blank',
+        title: snapshot.title || domain || 'Untitled tab',
+        url: snapshot.url || 'about:blank',
         domain,
-        containerId: tab.containerId || undefined,
-        containerName: tab.containerName || undefined,
-        containerColor: tab.containerColor || undefined,
-        mode: tab.mode,
-        active: Boolean(tab.active),
-        createdAt: tab.createdAt,
-        lastActiveAt: tab.lastActiveAt,
+        containerId: snapshot.containerId ?? undefined,
+        containerName: snapshot.containerName ?? undefined,
+        containerColor: snapshot.containerColor ?? undefined,
+        mode: (snapshot.mode as TabGraphNode['mode']) ?? undefined,
+        active: Boolean(snapshot.active),
+        createdAt: snapshot.createdAt ?? undefined,
+        lastActiveAt: snapshot.lastActiveAt ?? undefined,
       };
       nodes.push(node);
       if (node.containerId) {

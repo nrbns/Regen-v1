@@ -109,11 +109,11 @@ export function HolographicPreviewOverlay({ visible, tabId, url, title, onClose 
             {xrSupported && (
               <div ref={containerRef} className="relative h-[360px] w-full">
                 {/* A-Frame scene; keeps simple plane preview for now */}
-                {/* eslint-disable-next-line jsx-a11y/iframe-has-title */}
                 <iframe
                   src={`/hologram.html?tabId=${encodeURIComponent(tabId)}`}
                   className="h-full w-full rounded-xl border-none"
                   allow="xr-spatial-tracking; vr; webxr"
+                  title={`Holographic preview for tab ${tabId}`}
                 />
               </div>
             )}

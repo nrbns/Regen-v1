@@ -29,9 +29,10 @@ export const useShadowStore = create<ShadowState>((set, get) => ({
       if (!response || typeof response !== 'object') {
         throw new Error('Shadow session failed to start');
       }
+      const sessionResponse = response as { sessionId?: string | null; windowId?: number | null };
       set({
-        activeSessionId: response.sessionId ?? null,
-        windowId: typeof response.windowId === 'number' ? response.windowId : null,
+        activeSessionId: sessionResponse.sessionId ?? null,
+        windowId: typeof sessionResponse.windowId === 'number' ? sessionResponse.windowId : null,
         loading: false,
         summary: null,
       });
@@ -49,11 +50,12 @@ export const useShadowStore = create<ShadowState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await ipc.private.endShadowSession(sessionId, options);
+      const endResponse = response as { summary?: ShadowSessionSummaryEvent | null } | null;
       set({
         activeSessionId: null,
         windowId: null,
         loading: false,
-        summary: response?.summary ?? null,
+        summary: endResponse?.summary ?? null,
       });
     } catch (error) {
       set({

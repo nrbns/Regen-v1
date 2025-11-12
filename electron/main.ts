@@ -4,11 +4,9 @@ process.env.JSDOM_NO_CANVAS = '1';
 
 import 'dotenv/config';
 import 'source-map-support/register.js';
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import * as path from 'node:path';
-
-// Constrain the renderer V8 heap to keep memory footprint under ~150MB
-app.commandLine.appendSwitch('js-flags', '--max_old_space_size=150');
+import * as fs from 'node:fs';
 
 import { applySecurityPolicies } from './security';
 import { randomUUID } from 'node:crypto';
@@ -19,11 +17,6 @@ import { registerTabIpc } from './services/tabs';
 import { registerContainersIpc } from './services/containers';
 import { registerProxyIpc } from './services/proxy';
 import { registerDownloadsIpc } from './services/downloads-enhanced';
-import { registerWatchersIpc } from './services/watchers';
-import { registerScrapingIpc } from './services/scraping';
-import { registerVideoIpc } from './services/video';
-import { registerThreatsIpc } from './services/threats';
-import { registerGraphIpc } from './services/graph';
 import { registerLedgerIpc } from './services/ledger';
 import { registerHistoryIpc } from './services/history';
 import { registerResearchIpc } from './services/research';
@@ -39,7 +32,6 @@ import { registerPermissionsIpc } from './services/permissions-ipc';
 import { registerPrivacyIpc } from './services/privacy-ipc';
 import { registerDnsIpc } from './services/dns-ipc';
 import { registerTorIpc } from './services/tor-ipc';
-import { registerShieldsIpc } from './services/shields-ipc';
 import { registerVPNIpc } from './services/vpn-ipc';
 import { registerNetworkControlsIpc } from './services/network-controls-ipc';
 import { initializeNetworkControls } from './services/network-controls';
@@ -57,8 +49,9 @@ import { registerSpiritualIpc } from './services/spiritual/spiritual-ipc';
 import { registerPluginMarketplaceIpc } from './services/plugins/marketplace-ipc';
 import { registerExtensionNexusIpc } from './services/plugins/nexus-ipc';
 import { registerEnhancedThreatIpc } from './services/threats/enhanced-ipc';
-import { registerPerformanceIpc } from './services/performance/performance-ipc';
 import { registerEcoImpactIpc } from './services/performance/eco-impact-ipc';
+import { registerIdentityIpc } from './services/identity-ipc';
+import { registerGraphIpc } from './services/graph';
 import { startResourceMonitor } from './services/performance/resource-monitor';
 import { registerWorkerIpc } from './services/workers/worker-ipc';
 import { registerVideoCallIpc } from './services/video-call-ipc';
@@ -74,11 +67,57 @@ import { registerStreamingIpc } from './services/agent/streaming-ipc';
 import { registerPrivacySentinelIpc } from './services/security/privacy-sentinel';
 import { registerTrustWeaverIpc } from './services/trust-weaver-ipc';
 
+const isDev = !!process.env.VITE_DEV_SERVER_URL;
+const isWindows = process.platform === 'win32';
+const disableHeavyServices =
+  process.env.OB_DISABLE_HEAVY_SERVICES === '1' ||
+  (isDev && isWindows && process.env.OB_DISABLE_HEAVY_SERVICES !== '0');
+const enableResourceMonitor = !disableHeavyServices && process.env.OB_ENABLE_RESOURCE_MONITOR !== '0';
+const enablePrivacySentinel = !disableHeavyServices && process.env.OB_ENABLE_PRIVACY_SENTINEL !== '0';
+const enableVideoCallIpc = !disableHeavyServices && process.env.OB_ENABLE_VIDEO_CALL_IPC !== '0';
+const disablePreload =
+  process.env.OB_DISABLE_PRELOAD === '1' ||
+  (isDev && isWindows && process.env.OB_DISABLE_PRELOAD !== '0');
+
+console.log('[Main] disableHeavyServices:', disableHeavyServices, 'env:', process.env.OB_DISABLE_HEAVY_SERVICES);
+
+// Constrain the renderer V8 heap to keep memory footprint under ~150MB
+app.commandLine.appendSwitch('js-flags', '--max_old_space_size=150');
+if (!app.isPackaged) {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-features', 'SimpleCacheBackend');
+  const devUserData = path.join(app.getPath('temp'), `omnibrowser-dev-${randomUUID()}`);
+  const devCacheDir = path.join(devUserData, 'Cache');
+  try {
+    fs.mkdirSync(devUserData, { recursive: true });
+    fs.mkdirSync(devCacheDir, { recursive: true });
+    app.setPath('userData', devUserData);
+    console.log('[Main] Dev userData path:', devUserData);
+  } catch (error) {
+    console.warn('[Main] Failed to override userData path for dev session', error);
+  }
+  app.commandLine.appendSwitch('disable-http-cache');
+  app.commandLine.appendSwitch('disk-cache-dir', devCacheDir);
+  app.commandLine.appendSwitch('disk-cache-size', '0');
+
+  app.once('will-quit', () => {
+    try {
+      fs.rmSync(devUserData, { recursive: true, force: true });
+    } catch {}
+  });
+}
+
+if (isWindows && isDev) {
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-gpu-compositing');
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
+  app.commandLine.appendSwitch('use-gl', 'swiftshader');
+  app.commandLine.appendSwitch('disable-webgl');
+}
+
 let mainWindow: BrowserWindow | null = null;
 let isCreatingWindow = false; // Prevent duplicate window creation
 const agentStore = new AgentStore();
-
-const isDev = !!process.env.VITE_DEV_SERVER_URL;
 
 // Reduce GPU attack surface (optional but safe for most apps)
 app.disableHardwareAcceleration();
@@ -91,6 +130,12 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
   }
   
   isCreatingWindow = true;
+  const preloadPath = disablePreload
+    ? undefined
+    : (isDev
+        ? path.join(process.cwd(), 'electron', 'preload.cjs')
+        : path.join(__dirname, 'preload.js'));
+
   mainWindow = new BrowserWindow({
     width: restoreBounds?.width || 1280,
     height: restoreBounds?.height || 800,
@@ -100,9 +145,7 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
     backgroundColor: '#1A1D28',
     webPreferences: {
       // Use built preload in prod; use local CJS preload in dev (ts-node)
-      preload: isDev
-        ? path.join(process.cwd(), 'electron', 'preload.cjs')
-        : path.join(__dirname, 'preload.js'),
+      preload: preloadPath,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -170,7 +213,13 @@ function createMainWindow(restoreBounds?: { x: number; y: number; width: number;
             }
           }, 2000);
         });
-        mainWindow.webContents.openDevTools({ mode: 'detach' });
+        if (process.env.OB_OPEN_DEVTOOLS === '1') {
+          try {
+            mainWindow.webContents.openDevTools({ mode: 'detach' });
+          } catch (error) {
+            console.warn('[Dev] Failed to open devtools:', error);
+          }
+        }
       }
     }, 500);
   } else {
@@ -213,13 +262,19 @@ initProtocols();
 
 // Initialize network controls BEFORE app.ready() for command-line flags
 const networkControls = initializeNetworkControls();
+console.log('[Main] Network controls initialized');
 networkControls.initializeDefaults();
+console.log('[Main] Network defaults applied');
 
 app.whenReady().then(async () => {
+  console.log('[Main] app.whenReady resolved');
   applySecurityPolicies();
+  console.log('[Main] Security policies applied');
   initializeDiagnostics();
+  console.log('[Main] Diagnostics initialized');
 
   initializeProfiles();
+  console.log('[Main] Profiles initialized');
 
   // Initialize observability (OpenTelemetry)
   initializeTelemetry({
@@ -237,7 +292,9 @@ app.whenReady().then(async () => {
   
   // Start session persistence (auto-save every 2s)
   const { startSessionPersistence, loadSessionState, restoreWindowTabs, registerSessionStateIpc } = await import('./services/session-persistence');
+  console.log('[Main] Session persistence module loaded');
   startSessionPersistence();
+  console.log('[Main] Session persistence started');
   
   // Try to restore previous session
   const snapshot = await loadSessionState();
@@ -262,22 +319,49 @@ app.whenReady().then(async () => {
     
     // Register ALL IPC handlers BEFORE window loads to ensure readiness
     registerRecorderIpc(mainWindow);
+    console.log('[Main] Recorder IPC registered');
     registerTabIpc(mainWindow);
+    console.log('[Main] Tab IPC registered');
     registerContainersIpc();
+    console.log('[Main] Containers IPC registered');
     registerProxyIpc();
+    console.log('[Main] Proxy IPC registered');
     registerDownloadsIpc();
-    registerWatchersIpc();
-    registerScrapingIpc();
-    registerVideoIpc(mainWindow);
-    registerThreatsIpc();
+    console.log('[Main] Downloads IPC registered');
+    if (!disableHeavyServices) {
+      const [watchers, scraping, video, threats, enhancedThreat, performance] = await Promise.all([
+        import('./services/watchers'),
+        import('./services/scraping'),
+        import('./services/video'),
+        import('./services/threats'),
+        import('./services/threats/enhanced-ipc'),
+        import('./services/performance/performance-ipc'),
+      ]);
+      watchers.registerWatchersIpc();
+      scraping.registerScrapingIpc();
+      video.registerVideoIpc(mainWindow);
+      threats.registerThreatsIpc();
+      enhancedThreat.registerEnhancedThreatIpc();
+      performance.registerPerformanceIpc();
+    } else {
+      console.log('[Main] Heavy IPC services disabled');
+    }
     registerStorageIpc();
+    console.log('[Main] Storage IPC registered');
     registerSessionStateIpc();
+    console.log('[Main] Session state IPC registered');
     registerDiagnosticsIpc();
+    console.log('[Main] Diagnostics IPC registered');
     registerGraphIpc();
+    console.log('[Main] Graph IPC registered');
     registerLedgerIpc();
+    console.log('[Main] Ledger IPC registered');
     registerHistoryIpc();
+    console.log('[Main] History IPC registered');
     registerResearchIpc();
+    console.log('[Main] Research IPC registered');
     registerReaderIpc();
+    console.log('[Main] Reader IPC registered');
     const { registerResearchEnhancedIpc } = await import('./services/research-enhanced');
     registerResearchEnhancedIpc();
     const { registerLiveSearchIpc } = await import('./services/search/live-search');
@@ -294,7 +378,12 @@ app.whenReady().then(async () => {
     registerPrivacyIpc();
     registerDnsIpc();
     registerTorIpc();
-    registerShieldsIpc();
+    if (!disableHeavyServices) {
+      const { registerShieldsIpc } = await import('./services/shields-ipc');
+      registerShieldsIpc();
+    } else {
+      console.log('[Main] Shields IPC disabled');
+    }
     registerVPNIpc();
     registerNetworkControlsIpc();
     registerOllamaIpc();
@@ -311,18 +400,30 @@ app.whenReady().then(async () => {
     registerPluginMarketplaceIpc();
     registerExtensionNexusIpc();
     registerEnhancedThreatIpc();
-    registerPerformanceIpc();
     registerEcoImpactIpc();
-    startResourceMonitor();
+    registerIdentityIpc();
+    if (enableResourceMonitor) {
+      startResourceMonitor();
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('[Dev] Resource monitor disabled to improve stability on this platform');
+    }
     registerWorkerIpc();
-    registerVideoCallIpc();
+    if (enableVideoCallIpc) {
+      registerVideoCallIpc();
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('[Dev] Video call IPC disabled to improve stability on this platform');
+    }
     registerSessionsIpc();
     registerPrivateIpc();
     registerCloudVectorIpc();
     registerHybridSearchIpc();
     registerE2EESyncIpc();
     registerStreamingIpc();
-    registerPrivacySentinelIpc();
+    if (enablePrivacySentinel) {
+      registerPrivacySentinelIpc();
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('[Dev] Privacy Sentinel disabled to improve stability on this platform');
+    }
     registerTrustWeaverIpc();
     
     // Signal renderer that IPC is ready

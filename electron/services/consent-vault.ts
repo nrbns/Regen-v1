@@ -58,7 +58,7 @@ export async function appendToVault(record: ConsentRecord): Promise<VaultEntry> 
   try {
     await persistVault();
   } catch (error) {
-    logger.warn('Failed to persist vault', error);
+    logger.warn('Failed to persist vault', { error: error instanceof Error ? error.message : String(error) });
   }
 
   return entry;
@@ -92,7 +92,7 @@ export async function persistVault(): Promise<void> {
     const snapshot = await exportVaultSnapshot();
     await fs.writeFile(filePath, JSON.stringify(snapshot, null, 2), 'utf-8');
   } catch (error) {
-    logger.warn('Consent vault persistence failed', error);
+    logger.warn('Consent vault persistence failed', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 
