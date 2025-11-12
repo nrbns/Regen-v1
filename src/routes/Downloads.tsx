@@ -248,6 +248,9 @@ export default function DownloadsPage() {
             {items.map((d) => (
               <motion.div
                 key={d.id}
+                data-testid="download-card"
+                data-download-id={d.id}
+                data-filename={d.filename || ''}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-4 hover:bg-gray-900/80 transition-all"
