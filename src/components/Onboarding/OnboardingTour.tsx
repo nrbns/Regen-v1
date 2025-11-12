@@ -447,13 +447,11 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       }
       
       // Finish onboarding (this updates the store and marks as completed)
+      // This will cause the component to unmount via the visibility check
       finishOnboarding();
       
-      // Close the tour (this triggers the onClose callback)
-      // Use requestAnimationFrame to ensure state updates are processed
-      requestAnimationFrame(() => {
-        onClose();
-      });
+      // Call onClose for any cleanup
+      onClose();
       
       return;
     }
