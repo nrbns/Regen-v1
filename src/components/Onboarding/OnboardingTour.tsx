@@ -541,27 +541,27 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             e.stopPropagation();
           }}
         >
-        {spotlight && (
-          <div
-            className="pointer-events-none absolute rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
-            style={{
-              top: spotlight.top - 8,
-              left: spotlight.left - 8,
-              width: spotlight.width + 16,
-              height: spotlight.height + 16,
-              transition: 'all 0.25s ease',
-            }}
-          />
-        )}
+          {spotlight && (
+            <div
+              className="pointer-events-none absolute rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
+              style={{
+                top: spotlight.top - 8,
+                left: spotlight.left - 8,
+                width: spotlight.width + 16,
+                height: spotlight.height + 16,
+                transition: 'all 0.25s ease',
+              }}
+            />
+          )}
 
-        <motion.div
-          key={step.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.2 }}
-          className="relative w-[min(520px,90vw)] rounded-3xl border border-slate-700/70 bg-slate-950/95 p-6 text-gray-100 shadow-2xl"
-        >
+          <motion.div
+            key={step.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="relative w-[min(520px,90vw)] rounded-3xl border border-slate-700/70 bg-slate-950/95 p-6 text-gray-100 shadow-2xl"
+          >
           <button
             type="button"
             className="absolute right-5 top-5 z-10 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200"
@@ -727,9 +727,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           </div>
+          </motion.div>
         </motion.div>
       )}
-      </motion.div>
     </AnimatePresence>
   );
 }
