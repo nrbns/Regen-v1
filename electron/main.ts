@@ -411,7 +411,9 @@ app.whenReady().then(async () => {
           webrtcBlocked: false,
           fingerprinting: false,
         }));
-        console.log('[Main] Shields stub handler registered successfully');
+        const { isHandlerRegistered } = await import('./shared/ipc/router');
+        const isRegistered = isHandlerRegistered('shields:getStatus');
+        console.log('[Main] Shields stub handler registered successfully, verified:', isRegistered);
       } catch (error) {
         console.error('[Main] Failed to register Shields stub handler:', error);
       }
@@ -473,7 +475,9 @@ app.whenReady().then(async () => {
           timestamp: Date.now(),
           ai: null,
         }));
-        console.log('[Main] Privacy Sentinel stub handler registered successfully');
+        const { isHandlerRegistered } = await import('./shared/ipc/router');
+        const isRegistered = isHandlerRegistered('privacy:sentinel:audit');
+        console.log('[Main] Privacy Sentinel stub handler registered successfully, verified:', isRegistered);
       } catch (error) {
         console.error('[Main] Failed to register Privacy Sentinel stub handler:', error);
       }

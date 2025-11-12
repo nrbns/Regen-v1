@@ -123,3 +123,11 @@ export function getRegisteredChannels(): IPCChannel[] {
   return Array.from(handlers.keys());
 }
 
+/**
+ * Check if a handler is registered for a channel
+ */
+export function isHandlerRegistered(channel: IPCChannel): boolean {
+  const fullChannel = `ob://ipc/v1/${channel}`;
+  return handlers.has(fullChannel);
+}
+
