@@ -419,49 +419,64 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
   );
 
   const goNext = useCallback(() => {
-    setStepIndex((current) => {
-      const currentStep = STEPS[current];
+    try {
+      setStepIndex((current) => {
+        const currentStep = STEPS[current];
 
-      if (currentStep?.type === 'persona') {
-        if (!selectedPersona) {
+        if (currentStep?.type === 'persona') {
+          if (!selectedPersona) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[Onboarding] Cannot advance: no persona selected');
+            }
+            return current;
+          }
+          if (mode !== selectedPersona) {
+            setMode(selectedPersona);
+          }
+        }
+
+        // Check if we're on the last step (telemetry)
+        const isLastStep = current >= TOTAL_STEPS - 1;
+        const nextIndex = isLastStep ? current : Math.min(current + 1, TOTAL_STEPS - 1);
+        
+        // If we're finishing (on telemetry step), save opt-in preference and close
+        if (currentStep?.id === 'telemetry' || isLastStep) {
+          // Save telemetry opt-in preference asynchronously (don't wait for it)
+          ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
+            console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+          });
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('[Onboarding] Finishing tour from step', current);
+          }
+          
+          // Finish and close - use setTimeout to ensure state updates complete
+          setTimeout(() => {
+            finishOnboarding();
+            onClose();
+          }, 0);
+          
+          // Return current index since we're closing
           return current;
         }
-        if (mode !== selectedPersona) {
-          setMode(selectedPersona);
-        }
-      }
 
-      // Check if we're on the last step (telemetry)
-      const isLastStep = current >= TOTAL_STEPS - 1;
-      const nextIndex = isLastStep ? current : Math.min(current + 1, TOTAL_STEPS - 1);
-      
-      // If we're finishing (on telemetry step), save opt-in preference and close
-      if (currentStep?.id === 'telemetry' || isLastStep) {
-        // Save telemetry opt-in preference asynchronously (don't wait for it)
-        ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
-          console.warn('[Onboarding] Failed to save telemetry opt-in', error);
-        });
-        
         if (process.env.NODE_ENV === 'development') {
-          console.debug('[Onboarding] Finishing tour from step', current);
+          console.debug('[Onboarding] Next from step', current, '->', nextIndex);
         }
-        
-        // Finish and close - use setTimeout to ensure state updates complete
-        setTimeout(() => {
-          finishOnboarding();
-          onClose();
-        }, 0);
-        
-        // Return current index since we're closing
-        return current;
-      }
 
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[Onboarding] Next from step', current, '->', nextIndex);
-      }
-
-      return nextIndex;
-    });
+        return nextIndex;
+      });
+    } catch (error) {
+      console.error('[Onboarding] Error in goNext:', error);
+      // Still try to advance on error
+      setStepIndex((current) => {
+        const nextIndex = current >= TOTAL_STEPS - 1 ? current : current + 1;
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Onboarding] Error recovery: advancing to step', nextIndex);
+        }
+        return nextIndex;
+      });
+    }
   }, [selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
 
   const goBack = useCallback(() => {
