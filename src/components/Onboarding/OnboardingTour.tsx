@@ -234,6 +234,7 @@ interface Spotlight {
 export function OnboardingTour({ onClose }: { onClose: () => void }) {
   const { mode, setMode } = useAppStore();
   const finishOnboarding = useOnboardingStore((state) => state.finish);
+  const onboardingVisible = useOnboardingStore((state) => state.visible);
   const [telemetryOptIn, setTelemetryOptIn] = useState(false);
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
@@ -528,20 +529,26 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     }
   }, [finishOnboarding, onClose, stepIndex]);
 
+  // If not visible, don't render (AppShell will handle unmounting)
+  if (!onboardingVisible) {
+    return null;
+  }
+
   return (
-    <AnimatePresence>
-      <motion.div
-        key="onboarding-overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-        onClick={(e) => {
-          // Prevent clicks on backdrop from closing (only buttons should close)
-          e.stopPropagation();
-        }}
-      >
+    <AnimatePresence mode="wait">
+      {onboardingVisible && (
+        <motion.div
+          key="onboarding-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={(e) => {
+            // Prevent clicks on backdrop from closing (only buttons should close)
+            e.stopPropagation();
+          }}
+        >
         {spotlight && (
           <div
             className="pointer-events-none absolute rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
@@ -731,7 +738,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }
