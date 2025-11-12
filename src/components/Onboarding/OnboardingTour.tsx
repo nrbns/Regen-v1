@@ -714,8 +714,12 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           <div className="mt-6 flex items-center justify-between text-sm" style={{ pointerEvents: 'auto', zIndex: 1002, position: 'relative' }}>
             <button
               type="button"
-              onMouseDown={(e) => console.log('[Onboarding] Back button mousedown', e)}
+              onMouseDown={(e) => {
+                console.log('[Onboarding] Back button mousedown', e);
+                alert('Back button mousedown detected!');
+              }}
               onClick={(e) => {
+                alert('Back button clicked!');
                 console.log('[Onboarding] Back button clicked', e);
                 e.preventDefault();
                 e.stopPropagation();
@@ -731,8 +735,12 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
               <button
                 type="button"
-                onMouseDown={(e) => console.log('[Onboarding] Skip button mousedown', e)}
+                onMouseDown={(e) => {
+                  console.log('[Onboarding] Skip button mousedown', e);
+                  alert('Skip button mousedown detected!');
+                }}
                 onClick={(e) => {
+                  alert('Skip button clicked!');
                   console.log('[Onboarding] Skip button clicked', e);
                   e.preventDefault();
                   e.stopPropagation();
@@ -747,8 +755,12 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 ref={primaryButtonRef}
-                onMouseDown={(e) => console.log('[Onboarding] Next/Finish button mousedown', e)}
+                onMouseDown={(e) => {
+                  console.log('[Onboarding] Next/Finish button mousedown', e);
+                  alert('Next button mousedown detected!');
+                }}
                 onClick={(e) => {
+                  alert('Next button clicked!');
                   console.log('[Onboarding] Next/Finish button clicked', e);
                   e.preventDefault();
                   e.stopPropagation();

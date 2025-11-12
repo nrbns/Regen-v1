@@ -969,10 +969,12 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      console.log('[Omnibox] Enter key pressed, url:', url);
       e.preventDefault();
       const background = e.shiftKey && !e.altKey;
       const newWindow = e.altKey;
       if (selectedIndex >= 0 && suggestions[selectedIndex]) {
+        console.log('[Omnibox] Activating suggestion:', suggestions[selectedIndex]);
         const suggestion = suggestions[selectedIndex];
         await handleSuggestionActivate(suggestion, { background, newWindow });
       } else {
