@@ -781,7 +781,7 @@ export function AppShell() {
 
       {graphDropHint && (
         <Portal>
-          <div className="pointer-events-none fixed inset-0 z-[1030] flex items-center justify-center">
+          <div className="pointer-events-none fixed inset-0 z-tour flex items-center justify-center">
             <div className="rounded-3xl border border-purple-500/40 bg-purple-900/50 px-8 py-6 text-center shadow-[0_0_60px_rgba(168,85,247,0.35)] backdrop-blur-sm">
               <div className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">Tab graph</div>
               <div className="mt-2 text-lg font-semibold text-purple-100">Drop to map this tab&apos;s DNA</div>
