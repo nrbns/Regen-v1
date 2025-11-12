@@ -419,11 +419,26 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
   );
 
   const goNext = useCallback(() => {
+    // Save telemetry opt-in preference asynchronously before state update
+    // This prevents any IPC errors from blocking the state update
+    const currentStep = STEPS[stepIndex];
+    const isTelemetryStep = currentStep?.id === 'telemetry';
+    
+    if (isTelemetryStep) {
+      // Save telemetry opt-in preference asynchronously (don't wait for it)
+      // Use void to explicitly ignore the promise
+      void ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+        }
+      });
+    }
+
     try {
       setStepIndex((current) => {
-        const currentStep = STEPS[current];
+        const step = STEPS[current];
 
-        if (currentStep?.type === 'persona') {
+        if (step?.type === 'persona') {
           if (!selectedPersona) {
             if (process.env.NODE_ENV === 'development') {
               console.warn('[Onboarding] Cannot advance: no persona selected');
@@ -437,18 +452,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
         // Check if we're on the last step (telemetry)
         const isLastStep = current >= TOTAL_STEPS - 1;
-        const isTelemetryStep = currentStep?.id === 'telemetry';
+        const isTelemetry = step?.id === 'telemetry';
         
-        // If we're finishing (on telemetry step), save opt-in preference and close
-        if (isTelemetryStep || isLastStep) {
-          // Save telemetry opt-in preference asynchronously (don't wait for it)
-          // Use void to explicitly ignore the promise
-          void ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('[Onboarding] Failed to save telemetry opt-in', error);
-            }
-          });
-          
+        // If we're finishing (on telemetry step), close the tour
+        if (isTelemetry || isLastStep) {
           if (process.env.NODE_ENV === 'development') {
             console.debug('[Onboarding] Finishing tour from step', current);
           }
@@ -491,7 +498,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         return nextIndex;
       });
     }
-  }, [selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
+  }, [stepIndex, selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
 
   const goBack = useCallback(() => {
     setStepIndex((current) => {
