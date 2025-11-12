@@ -476,11 +476,25 @@ export function registerTabIpc(win: BrowserWindow) {
     const sendNavigationState = () => {
       try {
         if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
-          win.webContents.send('tabs:navigation-state', {
-            tabId: id,
-            canGoBack: view.webContents.canGoBack(),
-            canGoForward: view.webContents.canGoForward(),
-          });
+          try {
+            // Use new navigationHistory API if available, fallback to deprecated methods
+            const navHistory = (view.webContents as any).navigationHistory;
+            const canGoBack = navHistory?.canGoBack?.() ?? view.webContents.canGoBack?.();
+            const canGoForward = navHistory?.canGoForward?.() ?? view.webContents.canGoForward?.();
+            
+            win.webContents.send('tabs:navigation-state', {
+              tabId: id,
+              canGoBack: canGoBack ?? false,
+              canGoForward: canGoForward ?? false,
+            });
+          } catch (err) {
+            // Fallback if both APIs fail
+            win.webContents.send('tabs:navigation-state', {
+              tabId: id,
+              canGoBack: false,
+              canGoForward: false,
+            });
+          }
         }
       } catch {}
     };

@@ -5,7 +5,13 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      babel: {
+        parserOpts: {
+          plugins: ['jsx']
+        }
+      }
+    }),
     electron({
       main: {
         entry: 'electron/main.ts',
@@ -32,6 +38,10 @@ export default defineConfig({
   ],
   root: resolve(__dirname),
   publicDir: 'public',
+  esbuild: {
+    target: 'es2020', // Helps with JSX parsing
+    jsx: 'automatic',
+  },
   build: {
     outDir: 'dist-web',
     sourcemap: true,

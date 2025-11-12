@@ -5,6 +5,10 @@ process.env.JSDOM_NO_CANVAS = '1';
 import 'dotenv/config';
 import 'source-map-support/register.js';
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
+
+// Suppress verbose Chromium logs (media stream, DNS, etc.)
+app.commandLine.appendSwitch('log-level', '0'); // 0=INFO (hides VERBOSE)
+app.commandLine.appendSwitch('disable-logging'); // Disable file logging
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { z } from 'zod';

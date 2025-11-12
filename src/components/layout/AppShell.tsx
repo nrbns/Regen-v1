@@ -46,6 +46,11 @@ class ErrorBoundary extends React.Component<
       errorInfo,
     );
     this.setState({ error, errorInfo: errorInfo.componentStack ?? undefined });
+    
+    // Optional: Send to error tracking service (e.g., Sentry)
+    if (process.env.NODE_ENV === 'production') {
+      // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
+    }
   }
 
   private handleReload = () => {
