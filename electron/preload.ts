@@ -193,7 +193,7 @@ ipcRenderer.on('app:fullscreen-changed', (_e, data) => {
   window.dispatchEvent(new CustomEvent('app:fullscreen-changed', { detail: data }));
 });
 
-// Listen for IPC ready signal
+// Listen for IPC ready signal from main process
 ipcRenderer.on('ipc:ready', () => {
   window.dispatchEvent(new CustomEvent('ipc:ready'));
 });
@@ -201,6 +201,15 @@ ipcRenderer.on('ipc:ready', () => {
 // Ensure window.ipc is available for legacy code
 if (!window.ipc) {
   (window as any).ipc = typedApi;
+}
+
+// Immediately dispatch ready event if IPC is already set up
+// This handles cases where the preload script loads after the ready signal
+if (window.ipc && typeof window.ipc.invoke === 'function') {
+  // Use setTimeout to ensure event listeners are registered
+  setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('ipc:ready'));
+  }, 0);
 }
 
 

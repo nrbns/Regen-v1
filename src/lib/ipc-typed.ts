@@ -201,6 +201,18 @@ async function waitForIPC(timeout = 10000): Promise<boolean> {
     return true;
   }
   
+  // Check if window.ipc exists (even if not marked as ready)
+  if (window.ipc && typeof window.ipc.invoke === 'function') {
+    // Mark as ready if IPC bridge exists
+    if (!ipcReady) {
+      ipcReady = true;
+      const resolvers = [...ipcReadyResolvers];
+      ipcReadyResolvers = [];
+      resolvers.forEach(resolve => resolve());
+    }
+    return true;
+  }
+  
   // Wait for ready signal
   return new Promise((resolve) => {
     const startTime = Date.now();
@@ -225,12 +237,22 @@ async function waitForIPC(timeout = 10000): Promise<boolean> {
     
     ipcReadyResolvers.push(resolver);
     
-    // Also poll as fallback
+    // Also poll as fallback - check both ipcReady flag AND window.ipc existence
     const checkInterval = setInterval(() => {
-      if (ipcReady && window.ipc && typeof window.ipc.invoke === 'function') {
+      const hasIpc = window.ipc && typeof window.ipc.invoke === 'function';
+      if (ipcReady && hasIpc) {
         clearInterval(checkInterval);
         clearTimeout(timeoutId);
         ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
+        resolve(true);
+      } else if (hasIpc && !ipcReady) {
+        // IPC bridge exists but not marked ready - mark it now
+        ipcReady = true;
+        const allResolvers = [...ipcReadyResolvers];
+        ipcReadyResolvers = [];
+        allResolvers.forEach(r => r());
+        clearInterval(checkInterval);
+        clearTimeout(timeoutId);
         resolve(true);
       } else if (Date.now() - startTime > timeout) {
         clearInterval(checkInterval);
@@ -249,26 +271,33 @@ export async function ipcCall<TRequest, TResponse = unknown>(
 ): Promise<TResponse> {
   const fullChannel = `ob://ipc/v1/${channel}`;
  
-  if (!isElectronRuntime() || !window.ipc || typeof window.ipc.invoke !== 'function') {
-    const fallback = getFallback<TResponse>(channel);
-    if (fallback !== undefined) {
-      noteFallback(channel, 'non-Electron runtime');
-      return fallback;
-    }
-    if (IS_DEV) {
-      console.warn(`[IPC] Channel ${channel} unavailable (no Electron bridge detected)`);
-    }
-    throw new Error('IPC unavailable');
-  }
+  // First, check if we're in Electron (using user agent or other indicators)
+  // Don't rely on window.ipc existing yet - it might not be ready
+  const isElectron = isElectronRuntime() || 
+    (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron'));
 
-  const isReady = await waitForIPC(10000);
+  // Wait for IPC to be ready (with timeout)
+  const isReady = await waitForIPC(5000);
 
+  // Check if IPC bridge is actually available
   if (!isReady || !window.ipc || typeof window.ipc.invoke !== 'function') {
+    // If we're definitely not in Electron, use fallback immediately
+    if (!isElectron) {
+      const fallback = getFallback<TResponse>(channel);
+      if (fallback !== undefined) {
+        noteFallback(channel, 'non-Electron runtime');
+        return fallback;
+      }
+    }
+    
+    // If we're in Electron but IPC isn't ready, try fallback if available
     const fallback = getFallback<TResponse>(channel);
     if (fallback !== undefined) {
       noteFallback(channel, 'IPC bridge not ready');
       return fallback;
     }
+    
+    // If no fallback and we're in Electron, this is an error
     if (IS_DEV) {
       console.warn(`[IPC] Channel ${channel} unavailable (IPC bridge not ready)`);
     }
