@@ -418,71 +418,79 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     [mode, setMode]
   );
 
-  const goNext = useCallback(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[Onboarding] goNext called, current stepIndex:', stepIndex);
+  const goNext = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[Onboarding] goNext called, current stepIndex:', stepIndex);
+      }
 
-    // Get current step
-    const currentStep = STEPS[stepIndex];
-    const isTelemetryStep = currentStep?.id === 'telemetry';
-    const isLastStep = stepIndex >= TOTAL_STEPS - 1;
-    
-    // Save telemetry opt-in preference asynchronously before state update
-    // This prevents any IPC errors from blocking the state update
-    if (isTelemetryStep) {
-      // Save telemetry opt-in preference asynchronously (don't wait for it)
-      // Use void to explicitly ignore the promise
-      void ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
+      // Get current step
+      const currentStep = STEPS[stepIndex];
+      const isTelemetryStep = currentStep?.id === 'telemetry';
+      const isLastStep = stepIndex >= TOTAL_STEPS - 1;
+      
+      // Save telemetry opt-in preference asynchronously before state update
+      // This prevents any IPC errors from blocking the state update
+      if (isTelemetryStep) {
+        // Save telemetry opt-in preference asynchronously (don't wait for it)
+        // Use void to explicitly ignore the promise
+        void ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+          }
+        });
+      }
+
+      // If we're on the last step (telemetry), finish and close
+      if (isTelemetryStep || isLastStep) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+          console.debug('[Onboarding] Finishing tour from step', stepIndex);
         }
-      });
-    }
-
-    // If we're on the last step (telemetry), finish and close
-    if (isTelemetryStep || isLastStep) {
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[Onboarding] Finishing tour from step', stepIndex);
-      }
-      
-      // Finish onboarding (this updates the store and marks as completed)
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[Onboarding] Calling finishOnboarding()');
-      }
-      finishOnboarding();
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[Onboarding] finishOnboarding() called, calling onClose()');
-      }
-      
-      // Call onClose for any cleanup
-      onClose();
-      
-      return;
-    }
-
-    // Handle persona step validation
-    if (currentStep?.type === 'persona') {
-      if (!selectedPersona) {
+        
+        // Finish onboarding (this updates the store and marks as completed)
         if (process.env.NODE_ENV === 'development') {
-          console.warn('[Onboarding] Cannot advance: no persona selected');
+          console.debug('[Onboarding] Calling finishOnboarding()');
         }
+        finishOnboarding();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Onboarding] finishOnboarding() called, calling onClose()');
+        }
+        
+        // Call onClose for any cleanup
+        onClose();
+        
         return;
       }
-      if (mode !== selectedPersona) {
-        setMode(selectedPersona);
+
+      // Handle persona step validation
+      if (currentStep?.type === 'persona') {
+        if (!selectedPersona) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[Onboarding] Cannot advance: no persona selected');
+          }
+          return;
+        }
+        if (mode !== selectedPersona) {
+          setMode(selectedPersona);
+        }
       }
-    }
 
-    // Advance to next step
-    const nextIndex = Math.min(stepIndex + 1, TOTAL_STEPS - 1);
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[Onboarding] Next from step', stepIndex, '->', nextIndex);
-    }
+      // Advance to next step
+      const nextIndex = Math.min(stepIndex + 1, TOTAL_STEPS - 1);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[Onboarding] Next from step', stepIndex, '->', nextIndex);
+      }
 
-    setStepIndex(nextIndex);
+      setStepIndex(nextIndex);
+    } catch (error) {
+      console.error('[Onboarding] Error in goNext:', error);
+    }
   }, [stepIndex, selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
 
   const goBack = useCallback(() => {
