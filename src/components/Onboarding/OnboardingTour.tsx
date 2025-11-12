@@ -516,6 +516,8 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!onboardingVisible) return;
 
+    console.log('[Onboarding] Setting up native event listeners...');
+
     // Use setTimeout to ensure DOM is ready
     const timeoutId = setTimeout(() => {
       const nextButton = primaryButtonRef.current || document.querySelector('[data-onboarding-next]') as HTMLButtonElement;
@@ -523,50 +525,92 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       const backButton = document.querySelector('[data-onboarding-back]') as HTMLButtonElement;
       const closeButton = document.querySelector('[data-onboarding-close]') as HTMLButtonElement;
 
+      console.log('[Onboarding] Button elements found:', {
+        next: !!nextButton,
+        skip: !!skipButton,
+        back: !!backButton,
+        close: !!closeButton,
+      });
+
       const handleNextClick = (e: Event) => {
-        console.log('[Onboarding] Native click detected on Next button!', e);
+        console.log('[Onboarding] ✅ Native click detected on Next button!', e);
         e.preventDefault();
         e.stopImmediatePropagation();
-        goNext();
+        try {
+          goNext();
+        } catch (err) {
+          console.error('[Onboarding] Error in goNext from native listener:', err);
+        }
       };
 
       const handleSkipClick = (e: Event) => {
-        console.log('[Onboarding] Native click detected on Skip button!', e);
+        console.log('[Onboarding] ✅ Native click detected on Skip button!', e);
         e.preventDefault();
         e.stopImmediatePropagation();
-        handleSkip();
+        try {
+          handleSkip();
+        } catch (err) {
+          console.error('[Onboarding] Error in handleSkip from native listener:', err);
+        }
       };
 
       const handleBackClick = (e: Event) => {
-        console.log('[Onboarding] Native click detected on Back button!', e);
+        console.log('[Onboarding] ✅ Native click detected on Back button!', e);
         e.preventDefault();
         e.stopImmediatePropagation();
-        goBack();
+        try {
+          goBack();
+        } catch (err) {
+          console.error('[Onboarding] Error in goBack from native listener:', err);
+        }
       };
 
       const handleCloseClick = (e: Event) => {
-        console.log('[Onboarding] Native click detected on Close button!', e);
+        console.log('[Onboarding] ✅ Native click detected on Close button!', e);
         e.preventDefault();
         e.stopImmediatePropagation();
-        finishOnboarding();
-        onClose();
+        try {
+          finishOnboarding();
+          onClose();
+        } catch (err) {
+          console.error('[Onboarding] Error in close from native listener:', err);
+        }
       };
 
       if (nextButton) {
         nextButton.addEventListener('click', handleNextClick, true);
         nextButton.addEventListener('mousedown', handleNextClick, true);
+        nextButton.addEventListener('pointerdown', handleNextClick, true);
+        console.log('[Onboarding] ✅ Native listeners attached to Next button');
+      } else {
+        console.warn('[Onboarding] ⚠️ Next button not found!');
       }
+
       if (skipButton) {
         skipButton.addEventListener('click', handleSkipClick, true);
         skipButton.addEventListener('mousedown', handleSkipClick, true);
+        skipButton.addEventListener('pointerdown', handleSkipClick, true);
+        console.log('[Onboarding] ✅ Native listeners attached to Skip button');
+      } else {
+        console.warn('[Onboarding] ⚠️ Skip button not found!');
       }
+
       if (backButton) {
         backButton.addEventListener('click', handleBackClick, true);
         backButton.addEventListener('mousedown', handleBackClick, true);
+        backButton.addEventListener('pointerdown', handleBackClick, true);
+        console.log('[Onboarding] ✅ Native listeners attached to Back button');
+      } else {
+        console.warn('[Onboarding] ⚠️ Back button not found!');
       }
+
       if (closeButton) {
         closeButton.addEventListener('click', handleCloseClick, true);
         closeButton.addEventListener('mousedown', handleCloseClick, true);
+        closeButton.addEventListener('pointerdown', handleCloseClick, true);
+        console.log('[Onboarding] ✅ Native listeners attached to Close button');
+      } else {
+        console.warn('[Onboarding] ⚠️ Close button not found!');
       }
 
       // Store cleanup function
@@ -574,21 +618,25 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         if (nextButton) {
           nextButton.removeEventListener('click', handleNextClick, true);
           nextButton.removeEventListener('mousedown', handleNextClick, true);
+          nextButton.removeEventListener('pointerdown', handleNextClick, true);
         }
         if (skipButton) {
           skipButton.removeEventListener('click', handleSkipClick, true);
           skipButton.removeEventListener('mousedown', handleSkipClick, true);
+          skipButton.removeEventListener('pointerdown', handleSkipClick, true);
         }
         if (backButton) {
           backButton.removeEventListener('click', handleBackClick, true);
           backButton.removeEventListener('mousedown', handleBackClick, true);
+          backButton.removeEventListener('pointerdown', handleBackClick, true);
         }
         if (closeButton) {
           closeButton.removeEventListener('click', handleCloseClick, true);
           closeButton.removeEventListener('mousedown', handleCloseClick, true);
+          closeButton.removeEventListener('pointerdown', handleCloseClick, true);
         }
       };
-    }, 100);
+    }, 200); // Increased timeout to 200ms
 
     return () => {
       clearTimeout(timeoutId);
@@ -610,6 +658,22 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         transition={{ duration: 0.2 }}
         className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-sm"
         style={{ pointerEvents: 'auto' }}
+        onMouseDown={(e) => {
+          // Prevent backdrop from capturing clicks
+          if (e.target === e.currentTarget) {
+            console.log('[Onboarding] Backdrop clicked - preventing default');
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
+        onClick={(e) => {
+          // Only stop propagation if clicking directly on backdrop (not children)
+          if (e.target === e.currentTarget) {
+            console.log('[Onboarding] Backdrop clicked - stopping propagation');
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}
       >
           {spotlight && (
             <div
