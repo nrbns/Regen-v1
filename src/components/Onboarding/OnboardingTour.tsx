@@ -459,13 +459,29 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
       // Handle persona step validation
       if (currentStep?.type === 'persona') {
+        console.log('[Onboarding] Persona step - selectedPersona:', selectedPersona, 'mode:', mode);
         if (!selectedPersona) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[Onboarding] Cannot advance: no persona selected');
+          console.warn('[Onboarding] Cannot advance: no persona selected');
+          // Try to get selected persona from DOM if state is out of sync
+          const selectedPersonaCard = document.querySelector('[aria-pressed="true"]') as HTMLElement;
+          if (selectedPersonaCard) {
+            const personaId = selectedPersonaCard.getAttribute('data-persona-id') || 
+                            selectedPersonaCard.closest('[data-persona-id]')?.getAttribute('data-persona-id');
+            if (personaId) {
+              console.log('[Onboarding] Found selected persona from DOM:', personaId);
+              handlePersonaSelect(personaId as PersonaOption['id']);
+              // Continue with the selected persona
+            } else {
+              console.warn('[Onboarding] No persona selected, cannot advance');
+              return;
+            }
+          } else {
+            console.warn('[Onboarding] No persona selected, cannot advance');
+            return;
           }
-          return;
         }
         if (mode !== selectedPersona) {
+          console.log('[Onboarding] Setting mode to:', selectedPersona);
           setMode(selectedPersona);
         }
       }
