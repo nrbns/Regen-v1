@@ -167,27 +167,39 @@ const typedApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('ipc', typedApi);
+// Expose IPC bridge
+try {
+  contextBridge.exposeInMainWorld('ipc', typedApi);
+  console.log('[Preload] IPC bridge exposed successfully');
+} catch (error) {
+  console.error('[Preload] Failed to expose IPC bridge:', error);
+}
 
 // Listen for IPC ready signal from main process
 ipcRenderer.on('ipc:ready', () => {
+  console.log('[Preload] IPC ready signal received from main process');
   window.dispatchEvent(new CustomEvent('ipc:ready'));
 });
 
 // Immediately dispatch ready event if IPC is already set up
 // This handles cases where the preload script loads after the ready signal
-if (window.ipc && typeof window.ipc.invoke === 'function') {
-  // Use setTimeout to ensure event listeners are registered
-  setTimeout(() => {
+setTimeout(() => {
+  // Check if IPC was successfully exposed
+  if (window.ipc && typeof window.ipc.invoke === 'function') {
+    console.log('[Preload] IPC bridge is available, dispatching ready event');
     window.dispatchEvent(new CustomEvent('ipc:ready'));
-  }, 0);
-} else {
-  // Also dispatch after a short delay to ensure renderer has registered listeners
-  setTimeout(() => {
-    if (window.ipc && typeof window.ipc.invoke === 'function') {
-      window.dispatchEvent(new CustomEvent('ipc:ready'));
-    }
-  }, 100);
-}
+  } else {
+    console.warn('[Preload] IPC bridge not available on window object');
+    console.warn('[Preload] window.ipc:', window.ipc);
+    console.warn('[Preload] typeof window:', typeof window);
+  }
+}, 0);
+
+// Also dispatch after a short delay to ensure renderer has registered listeners
+setTimeout(() => {
+  if (window.ipc && typeof window.ipc.invoke === 'function') {
+    window.dispatchEvent(new CustomEvent('ipc:ready'));
+  }
+}, 100);
 
 

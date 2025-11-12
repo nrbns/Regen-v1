@@ -317,7 +317,39 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   const isReady = await waitForIPC(8000);
 
   // Check if IPC bridge is actually available
-  if (!isReady || !window.ipc || typeof window.ipc.invoke !== 'function') {
+  // Try to use window.ipc first, but also check if we can access ipcRenderer directly
+  let ipcBridge = window.ipc;
+  
+  // If window.ipc is not available, try to create a bridge from window.api or direct access
+  if (!ipcBridge || typeof ipcBridge.invoke !== 'function') {
+    // Check if we can access Electron APIs directly (shouldn't work with context isolation, but worth trying)
+    if (typeof window !== 'undefined' && (window as any).require) {
+      try {
+        const { ipcRenderer } = (window as any).require('electron');
+        if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
+          // Create a temporary bridge
+          ipcBridge = {
+            invoke: async (ch: string, req: unknown) => {
+              const response = await ipcRenderer.invoke(ch, req);
+              if (response && typeof response === 'object' && 'ok' in response) {
+                if (!response.ok) {
+                  throw new Error(response.error || 'IPC call failed');
+                }
+                return response.data;
+              }
+              return response;
+            },
+            on: () => {},
+            removeListener: () => {},
+          };
+        }
+      } catch (e) {
+        // context isolation prevents direct access, that's expected
+      }
+    }
+  }
+  
+  if (!isReady || !ipcBridge || typeof ipcBridge.invoke !== 'function') {
     // Always try fallback first if available, regardless of Electron detection
     const fallback = getFallback<TResponse>(channel);
     if (fallback !== undefined) {
@@ -330,12 +362,15 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     if (IS_DEV) {
       console.warn(`[IPC] Channel ${channel} unavailable (IPC bridge not ready after 8s, no fallback available)`);
       console.warn(`[IPC] Debug: isElectron=${isElectron}, hasWindowIpc=${hasWindowIpc}, userAgentHasElectron=${userAgentHasElectron}, isReady=${isReady}`);
+      console.warn(`[IPC] window.ipc:`, window.ipc);
+      console.warn(`[IPC] window.api:`, window.api);
+      console.warn(`[IPC] typeof window:`, typeof window);
     }
     throw new Error('IPC unavailable');
   }
 
   try {
-    const response = await window.ipc.invoke(fullChannel, request);
+      const response = await ipcBridge.invoke(fullChannel, request);
 
     if (schema && response !== undefined && response !== null) {
       const parsed = schema.safeParse(response);
