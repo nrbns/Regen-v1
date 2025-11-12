@@ -437,29 +437,35 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
         // Check if we're on the last step (telemetry)
         const isLastStep = current >= TOTAL_STEPS - 1;
-        const nextIndex = isLastStep ? current : Math.min(current + 1, TOTAL_STEPS - 1);
+        const isTelemetryStep = currentStep?.id === 'telemetry';
         
         // If we're finishing (on telemetry step), save opt-in preference and close
-        if (currentStep?.id === 'telemetry' || isLastStep) {
+        if (isTelemetryStep || isLastStep) {
           // Save telemetry opt-in preference asynchronously (don't wait for it)
-          ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
-            console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+          // Use void to explicitly ignore the promise
+          void ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[Onboarding] Failed to save telemetry opt-in', error);
+            }
           });
           
           if (process.env.NODE_ENV === 'development') {
             console.debug('[Onboarding] Finishing tour from step', current);
           }
           
-          // Finish and close - use setTimeout to ensure state updates complete
-          setTimeout(() => {
+          // Finish and close - use requestAnimationFrame to ensure state updates complete
+          requestAnimationFrame(() => {
             finishOnboarding();
             onClose();
-          }, 0);
+          });
           
           // Return current index since we're closing
           return current;
         }
 
+        // Advance to next step
+        const nextIndex = Math.min(current + 1, TOTAL_STEPS - 1);
+        
         if (process.env.NODE_ENV === 'development') {
           console.debug('[Onboarding] Next from step', current, '->', nextIndex);
         }
@@ -470,7 +476,15 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       console.error('[Onboarding] Error in goNext:', error);
       // Still try to advance on error
       setStepIndex((current) => {
-        const nextIndex = current >= TOTAL_STEPS - 1 ? current : current + 1;
+        if (current >= TOTAL_STEPS - 1) {
+          // If on last step, finish and close
+          requestAnimationFrame(() => {
+            finishOnboarding();
+            onClose();
+          });
+          return current;
+        }
+        const nextIndex = current + 1;
         if (process.env.NODE_ENV === 'development') {
           console.debug('[Onboarding] Error recovery: advancing to step', nextIndex);
         }
