@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sparkles, Info, RefreshCcw, ChevronRight } from 'lucide-react';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
@@ -15,6 +15,7 @@ import {
 } from '../../types/research';
 import { ContainerInfo } from '../../lib/ipc-events';
 import { useContainerStore } from '../../state/containerStore';
+import { ResearchGraphView } from '../../components/research/ResearchGraphView';
 
 export default function ResearchPanel() {
   const [query, setQuery] = useState('');
@@ -25,9 +26,12 @@ export default function ResearchPanel() {
   const [includeCounterpoints, setIncludeCounterpoints] = useState(false);
   const [authorityBias, setAuthorityBias] = useState(50); // 0 = recency, 100 = authority
   const [region, setRegion] = useState<RegionOption>('global');
+  const [graphData, setGraphData] = useState<any>(null);
+  const [showGraph, setShowGraph] = useState(true);
   const { activeId } = useTabsStore();
   const useHybridSearch = useSettingsStore((s) => s.searchEngine !== 'mock');
   const { containers, activeContainerId, setContainers } = useContainerStore();
+  const graphSignatureRef = useRef<string>('');
 
   useEffect(() => {
     if (containers.length === 0) {
@@ -43,6 +47,23 @@ export default function ResearchPanel() {
         });
     }
   }, [containers.length, setContainers]);
+
+  const queryKey = useMemo(
+    () => (result?.query ? buildQueryKey(result.query) : null),
+    [result?.query],
+  );
+
+  const refreshGraph = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.graph?.all) return;
+    try {
+      const snapshot = await window.graph.all();
+      if (snapshot && Array.isArray(snapshot.nodes)) {
+        setGraphData(snapshot);
+      }
+    } catch (err) {
+      console.warn('[Research] Failed to load graph snapshot', err);
+    }
+  }, []);
 
   const recencyWeight = useMemo(() => (100 - authorityBias) / 100, [authorityBias]);
   const authorityWeight = useMemo(() => authorityBias / 100, [authorityBias]);
@@ -77,6 +98,119 @@ export default function ResearchPanel() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    void refreshGraph();
+  }, [refreshGraph]);
+
+  useEffect(() => {
+    if (!result || typeof window === 'undefined' || !window.graph?.add) return;
+
+    const signature = JSON.stringify({
+      query: result.query,
+      sources: result.sources.map((source) => source.url || source.title),
+      citations: result.citations?.length ?? 0,
+      evidence: (result.inlineEvidence ?? []).length,
+    });
+
+    if (graphSignatureRef.current === signature) {
+      void refreshGraph();
+      return;
+    }
+
+    graphSignatureRef.current = signature;
+    const currentQueryKey = buildQueryKey(result.query);
+
+    const queryEdges = result.sources.map((source, idx) => ({
+      src: currentQueryKey,
+      dst: buildSourceKey(source, idx),
+      rel: 'supports',
+      weight: Math.round(source.relevanceScore || 40),
+    }));
+
+    window.graph.add(
+      {
+        key: currentQueryKey,
+        type: 'research-query',
+        title: result.query.slice(0, 160),
+        meta: {
+          query: result.query,
+          createdAt: Date.now(),
+        },
+      },
+      queryEdges,
+    );
+
+    result.sources.forEach((source, idx) => {
+      const sourceKey = buildSourceKey(source, idx);
+      const relatedEvidence = (result.inlineEvidence ?? [])
+        .filter((item) => item.sourceIndex === idx)
+        .slice(0, 6);
+
+      const evidenceEdges = relatedEvidence.map((item) => ({
+        src: sourceKey,
+        dst: buildEvidenceKey(sourceKey, item.citationIndex ?? item.from ?? idx),
+        rel: 'evidence',
+        weight: 1,
+      }));
+
+      window.graph.add(
+        {
+          key: sourceKey,
+          type: 'research-source',
+          title: source.title,
+          meta: {
+            url: source.url,
+            domain: source.domain,
+            snippet: source.snippet || source.text?.slice(0, 140),
+            relevance: source.relevanceScore,
+          },
+        },
+        evidenceEdges,
+      );
+
+      relatedEvidence.forEach((item) => {
+        const evidenceKey = buildEvidenceKey(sourceKey, item.citationIndex ?? item.from ?? idx);
+        const citation = result.citations?.find((entry) => entry.index === item.citationIndex);
+        window.graph.add({
+          key: evidenceKey,
+          type: 'research-evidence',
+          title: citation?.quote || item.quote || 'Highlighted evidence',
+          meta: {
+            sourceKey,
+            snippet: citation?.quote || item.quote,
+            fragmentUrl: (item as any)?.quoteUrl || source.url,
+          },
+        });
+      });
+    });
+
+    (result.contradictions ?? []).forEach((contradiction) => {
+      if (!Array.isArray(contradiction.sources) || contradiction.sources.length < 2) return;
+      const [first, ...rest] = contradiction.sources;
+      const baseSource = result.sources[first];
+      if (!baseSource) return;
+      const baseKey = buildSourceKey(baseSource, first);
+      rest.forEach((targetIdx) => {
+        const targetSource = result.sources[targetIdx];
+        if (!targetSource) return;
+        const targetKey = buildSourceKey(targetSource, targetIdx);
+        window.graph.add(
+          { key: baseKey, type: 'research-source' },
+          [
+            {
+              src: baseKey,
+              dst: targetKey,
+              rel: 'contradicts',
+              weight: contradiction.severityScore ?? (contradiction.disagreement === 'major' ? 2 : 1),
+            },
+          ],
+        );
+      });
+    });
+
+    void refreshGraph();
+  }, [result, refreshGraph]);
 
   const handleOpenUrl = async (url: string) => {
     try {
@@ -176,12 +310,22 @@ export default function ResearchPanel() {
             )}
 
             {!loading && result && (
-              <div className="flex-1 overflow-y-auto pr-1">
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4">
                 <ResearchResultView
                   result={result}
                   onOpenSource={handleOpenUrl}
                   activeSourceId={activeSourceId}
                   onActiveSourceChange={setActiveSourceId}
+                />
+                <ResearchGraphSection
+                  showGraph={showGraph}
+                  onToggleGraph={() => setShowGraph((prev) => !prev)}
+                  query={result.query}
+                  queryKey={queryKey}
+                  graphData={graphData}
+                  activeSourceId={activeSourceId}
+                  onSelectSource={setActiveSourceId}
+                  onOpenSource={handleOpenUrl}
                 />
               </div>
             )}
@@ -755,6 +899,73 @@ function SourcesList({
 }
 
 
+function ResearchGraphSection({
+  showGraph,
+  onToggleGraph,
+  query,
+  queryKey,
+  graphData,
+  activeSourceId,
+  onSelectSource,
+  onOpenSource,
+}: {
+  showGraph: boolean;
+  onToggleGraph(): void;
+  query: string;
+  queryKey: string | null;
+  graphData: any;
+  activeSourceId: string | null;
+  onSelectSource(sourceKey: string): void;
+  onOpenSource(url: string): void;
+}) {
+  const hasGraphData =
+    graphData &&
+    Array.isArray(graphData.nodes) &&
+    graphData.nodes.some((node: any) => typeof node?.type === 'string' && node.type.startsWith('research-'));
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 shadow-inner shadow-black/20">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Knowledge graph</h3>
+          <p className="text-xs text-gray-400">
+            Connections for “{query.slice(0, 60)}
+            {query.length > 60 ? '…' : ''}” across sources and evidence.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleGraph}
+          className="rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs text-gray-200 hover:border-blue-400/40 hover:text-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+        >
+          {showGraph ? 'Hide graph' : 'Show graph'}
+        </button>
+      </header>
+      {showGraph ? (
+        <ResearchGraphView
+          query={query}
+          queryKey={queryKey}
+          graphData={graphData}
+          activeSourceId={activeSourceId}
+          onSelectSource={onSelectSource}
+          onOpenSource={onOpenSource}
+        />
+      ) : (
+        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-10 text-center text-xs text-gray-400">
+          Graph hidden. Toggle “Show graph” to explore relationships again.
+        </div>
+      )}
+
+      {!hasGraphData && showGraph && (
+        <div className="mt-3 rounded-lg border border-white/10 bg-blue-500/5 px-3 py-2 text-[11px] text-blue-200">
+          First research run captured. Subsequent questions will layer onto this graph for deeper context.
+        </div>
+      )}
+    </section>
+  );
+}
+
+
 interface VerificationSummaryProps {
   verification: VerificationResult;
 }
@@ -934,5 +1145,27 @@ function generateMockResult(query: string): ResearchResult {
     verification: mockVerification,
     inlineEvidence,
   };
+}
+
+function simpleHash(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash << 5) - hash + input.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function buildQueryKey(query: string) {
+  return `research-query:${simpleHash(query.slice(0, 256))}`;
+}
+
+function buildSourceKey(source: ResearchSource, index: number) {
+  if (source?.url) return source.url;
+  return `research-source:${index}:${simpleHash(source?.title || String(index))}`;
+}
+
+function buildEvidenceKey(sourceKey: string, id: number) {
+  return `${sourceKey}#evidence:${id}`;
 }
 
