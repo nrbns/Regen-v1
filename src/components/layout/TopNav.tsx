@@ -777,14 +777,24 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           data-testid={`nav-menu-${menuId}`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className={`button-surface flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm ${
+          className={`button-surface flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm transition-all ${
             isOpen ? 'button-surface--active text-primary' : 'text-muted'
           }`}
           title={`${label} menu`}
         >
-          <Icon size={16} className="text-muted" />
+          <motion.div
+            animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Icon size={16} className="text-muted" />
+          </motion.div>
           <span className="hidden xl:inline">{label}</span>
-          <ChevronDown size={14} className={`hidden xl:inline transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <motion.div
+            animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown size={14} className="hidden xl:inline" />
+          </motion.div>
         </motion.button>
 
         <AnimatePresence>

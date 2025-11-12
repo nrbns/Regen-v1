@@ -298,7 +298,12 @@ export function BottomStatus() {
         <span className="font-semibold text-gray-100">{label}</span>
         <span className="text-[11px] opacity-75">{value}</span>
         <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-700">
-          <div className={`h-full bg-gradient-to-r ${gradient}`} style={{ width: `${pct}%` }} />
+          <motion.div
+            className={`h-full bg-gradient-to-r ${gradient}`}
+            initial={{ width: 0 }}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
         </div>
         {sparklinePoints && sparklinePoints.length > 4 && (
           <svg viewBox="0 0 40 12" className="ml-2 h-3 w-10 text-blue-400/70">

@@ -281,12 +281,33 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="flex flex-col items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/90 px-6 py-4 text-sm text-slate-200 shadow-lg shadow-black/40"
+              className="flex flex-col items-center gap-4 rounded-2xl border border-slate-700/60 bg-slate-900/90 px-6 py-5 text-sm text-slate-200 shadow-lg shadow-black/40"
             >
-              <Loader2 className="h-5 w-5 animate-spin text-emerald-300" aria-hidden="true" />
-              <div className="text-center">
-                <div className="font-medium">Loading {new URL(targetUrl).hostname}…</div>
-                <div className="mt-1 text-xs text-slate-400">This may take a moment</div>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                <Loader2 className="h-6 w-6 text-emerald-300" aria-hidden="true" />
+              </motion.div>
+              <div className="text-center w-full max-w-xs">
+                <div className="font-medium mb-2">Loading {new URL(targetUrl).hostname}…</div>
+                <div className="mt-1 text-xs text-slate-400 mb-3">This may take a moment</div>
+                <div className="w-full">
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800/60">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-emerald-500"
+                      initial={{ x: '-100%', width: '40%' }}
+                      animate={{
+                        x: ['-100%', '100%'],
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </motion.div>
           </motion.div>
