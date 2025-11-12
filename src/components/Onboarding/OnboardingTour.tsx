@@ -419,6 +419,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
   );
 
   const goNext = useCallback(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Onboarding] goNext called, current stepIndex:', stepIndex);
+    }
+
     // Save telemetry opt-in preference asynchronously before state update
     // This prevents any IPC errors from blocking the state update
     const currentStep = STEPS[stepIndex];
@@ -434,70 +438,55 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       });
     }
 
-    try {
-      setStepIndex((current) => {
-        const step = STEPS[current];
+    // Use functional update to ensure we get the latest state
+    setStepIndex((current) => {
+      const step = STEPS[current];
 
-        if (step?.type === 'persona') {
-          if (!selectedPersona) {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('[Onboarding] Cannot advance: no persona selected');
-            }
-            return current;
-          }
-          if (mode !== selectedPersona) {
-            setMode(selectedPersona);
-          }
-        }
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[Onboarding] setStepIndex called with current:', current, 'step:', step?.id);
+      }
 
-        // Check if we're on the last step (telemetry)
-        const isLastStep = current >= TOTAL_STEPS - 1;
-        const isTelemetry = step?.id === 'telemetry';
-        
-        // If we're finishing (on telemetry step), close the tour
-        if (isTelemetry || isLastStep) {
+      if (step?.type === 'persona') {
+        if (!selectedPersona) {
           if (process.env.NODE_ENV === 'development') {
-            console.debug('[Onboarding] Finishing tour from step', current);
+            console.warn('[Onboarding] Cannot advance: no persona selected');
           }
-          
-          // Finish and close - use requestAnimationFrame to ensure state updates complete
-          requestAnimationFrame(() => {
-            finishOnboarding();
-            onClose();
-          });
-          
-          // Return current index since we're closing
           return current;
         }
+        if (mode !== selectedPersona) {
+          setMode(selectedPersona);
+        }
+      }
 
-        // Advance to next step
-        const nextIndex = Math.min(current + 1, TOTAL_STEPS - 1);
+      // Check if we're on the last step (telemetry)
+      const isLastStep = current >= TOTAL_STEPS - 1;
+      const isTelemetry = step?.id === 'telemetry';
+      
+      // If we're finishing (on telemetry step), close the tour
+      if (isTelemetry || isLastStep) {
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Onboarding] Finishing tour from step', current);
+        }
         
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('[Onboarding] Next from step', current, '->', nextIndex);
-        }
+        // Finish and close - use setTimeout to ensure state updates complete
+        setTimeout(() => {
+          finishOnboarding();
+          onClose();
+        }, 0);
+        
+        // Return current index since we're closing
+        return current;
+      }
 
-        return nextIndex;
-      });
-    } catch (error) {
-      console.error('[Onboarding] Error in goNext:', error);
-      // Still try to advance on error
-      setStepIndex((current) => {
-        if (current >= TOTAL_STEPS - 1) {
-          // If on last step, finish and close
-          requestAnimationFrame(() => {
-            finishOnboarding();
-            onClose();
-          });
-          return current;
-        }
-        const nextIndex = current + 1;
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('[Onboarding] Error recovery: advancing to step', nextIndex);
-        }
-        return nextIndex;
-      });
-    }
+      // Advance to next step
+      const nextIndex = Math.min(current + 1, TOTAL_STEPS - 1);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[Onboarding] Next from step', current, '->', nextIndex);
+      }
+
+      return nextIndex;
+    });
   }, [stepIndex, selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
 
   const goBack = useCallback(() => {
