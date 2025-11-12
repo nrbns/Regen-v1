@@ -419,15 +419,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     [mode, setMode]
   );
 
-  const goNext = useCallback((e?: React.MouseEvent) => {
+  const goNext = useCallback(() => {
     console.log('[Onboarding] goNext called - START, current stepIndex:', stepIndex);
-    console.log('[Onboarding] goNext - event:', e);
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
     try {
-
       // Get current step
       const currentStep = STEPS[stepIndex];
       const isTelemetryStep = currentStep?.id === 'telemetry';
@@ -478,9 +472,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       // Advance to next step
       const nextIndex = Math.min(stepIndex + 1, TOTAL_STEPS - 1);
       
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[Onboarding] Next from step', stepIndex, '->', nextIndex);
-      }
+      console.log('[Onboarding] Next from step', stepIndex, '->', nextIndex);
 
       setStepIndex(nextIndex);
     } catch (error) {
@@ -500,13 +492,8 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     });
   }, []);
 
-  const handleSkip = useCallback((e?: React.MouseEvent) => {
+  const handleSkip = useCallback(() => {
     console.log('[Onboarding] handleSkip called - START');
-    console.log('[Onboarding] handleSkip - event:', e);
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
     try {
       console.log('[Onboarding] Skip pressed at step', stepIndex);
       // Finish onboarding (this updates the store and marks as completed)
@@ -565,10 +552,8 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             type="button"
             className="absolute right-5 top-5 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200 cursor-pointer"
             style={{ pointerEvents: 'auto', position: 'absolute', zIndex: 1003 }}
-            onClick={(e) => {
+            onClick={() => {
               console.log('[Onboarding] X button clicked');
-              e.preventDefault();
-              e.stopPropagation();
               finishOnboarding();
               onClose();
             }}
@@ -692,10 +677,8 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           <div className="mt-6 flex items-center justify-between text-sm" style={{ pointerEvents: 'auto', zIndex: 1002, position: 'relative' }}>
             <button
               type="button"
-              onClick={(e) => {
+              onClick={() => {
                 console.log('[Onboarding] Back button clicked');
-                e.preventDefault();
-                e.stopPropagation();
                 goBack();
               }}
               disabled={!canGoBack}
@@ -707,11 +690,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             <div className="flex items-center gap-2" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1003 }}>
               <button
                 type="button"
-                onClick={(e) => {
+                onClick={() => {
                   console.log('[Onboarding] Skip button clicked');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSkip(e);
+                  handleSkip();
                 }}
                 className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-400 transition hover:border-slate-500/80 hover:text-gray-200 cursor-pointer"
                 style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1003 }}
@@ -721,11 +702,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 ref={primaryButtonRef}
-                onClick={(e) => {
+                onClick={() => {
                   console.log('[Onboarding] Next/Finish button clicked');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  goNext(e);
+                  goNext();
                 }}
                 disabled={isNextDisabled}
                 className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
