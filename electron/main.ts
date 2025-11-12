@@ -75,9 +75,8 @@ const disableHeavyServices =
 const enableResourceMonitor = !disableHeavyServices && process.env.OB_ENABLE_RESOURCE_MONITOR !== '0';
 const enablePrivacySentinel = !disableHeavyServices && process.env.OB_ENABLE_PRIVACY_SENTINEL !== '0';
 const enableVideoCallIpc = !disableHeavyServices && process.env.OB_ENABLE_VIDEO_CALL_IPC !== '0';
-const disablePreload =
-  process.env.OB_DISABLE_PRELOAD === '1' ||
-  (isDev && isWindows && process.env.OB_DISABLE_PRELOAD !== '0');
+// Preload should always be enabled unless explicitly disabled
+const disablePreload = process.env.OB_DISABLE_PRELOAD === '1';
 
 console.log('[Main] disableHeavyServices:', disableHeavyServices, 'env:', process.env.OB_DISABLE_HEAVY_SERVICES);
 
