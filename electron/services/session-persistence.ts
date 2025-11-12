@@ -293,6 +293,15 @@ async function saveSessionState(): Promise<void> {
         return;
       }
       
+      // Force fsync for crash safety (if available)
+      try {
+        const fd = await fs.open(tempFile, 'r+');
+        await fd.sync();
+        await fd.close();
+      } catch {
+        // fsync not critical, continue (some platforms may not support it)
+      }
+      
       // Rename (atomic operation) - directory is guaranteed to exist at this point
       await fs.rename(tempFile, SNAPSHOT_FILE);
       
