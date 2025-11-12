@@ -48,6 +48,8 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'sessions:list': () => [],
   'sessions:getActive': () => null,
   'workspace-v2:list': () => ({ workspaces: [] }),
+  'trust:list': () => [],
+  'trust:getStatus': () => ({ status: 'unknown', totalRecords: 0, lastUpdatedAt: null }),
   'privacy:sentinel:audit': () => ({
     score: 0,
     grade: 'low',
