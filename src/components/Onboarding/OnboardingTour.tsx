@@ -511,6 +511,94 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     }
   }, [finishOnboarding, onClose, stepIndex]);
 
+  // Add native event listeners as fallback to test if clicks are reaching buttons
+  // This runs AFTER all callbacks are defined
+  useEffect(() => {
+    if (!onboardingVisible) return;
+
+    // Use setTimeout to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      const nextButton = primaryButtonRef.current || document.querySelector('[data-onboarding-next]') as HTMLButtonElement;
+      const skipButton = document.querySelector('[data-onboarding-skip]') as HTMLButtonElement;
+      const backButton = document.querySelector('[data-onboarding-back]') as HTMLButtonElement;
+      const closeButton = document.querySelector('[data-onboarding-close]') as HTMLButtonElement;
+
+      const handleNextClick = (e: Event) => {
+        console.log('[Onboarding] Native click detected on Next button!', e);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        goNext();
+      };
+
+      const handleSkipClick = (e: Event) => {
+        console.log('[Onboarding] Native click detected on Skip button!', e);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        handleSkip();
+      };
+
+      const handleBackClick = (e: Event) => {
+        console.log('[Onboarding] Native click detected on Back button!', e);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        goBack();
+      };
+
+      const handleCloseClick = (e: Event) => {
+        console.log('[Onboarding] Native click detected on Close button!', e);
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finishOnboarding();
+        onClose();
+      };
+
+      if (nextButton) {
+        nextButton.addEventListener('click', handleNextClick, true);
+        nextButton.addEventListener('mousedown', handleNextClick, true);
+      }
+      if (skipButton) {
+        skipButton.addEventListener('click', handleSkipClick, true);
+        skipButton.addEventListener('mousedown', handleSkipClick, true);
+      }
+      if (backButton) {
+        backButton.addEventListener('click', handleBackClick, true);
+        backButton.addEventListener('mousedown', handleBackClick, true);
+      }
+      if (closeButton) {
+        closeButton.addEventListener('click', handleCloseClick, true);
+        closeButton.addEventListener('mousedown', handleCloseClick, true);
+      }
+
+      // Store cleanup function
+      (window as any).__onboardingCleanup = () => {
+        if (nextButton) {
+          nextButton.removeEventListener('click', handleNextClick, true);
+          nextButton.removeEventListener('mousedown', handleNextClick, true);
+        }
+        if (skipButton) {
+          skipButton.removeEventListener('click', handleSkipClick, true);
+          skipButton.removeEventListener('mousedown', handleSkipClick, true);
+        }
+        if (backButton) {
+          backButton.removeEventListener('click', handleBackClick, true);
+          backButton.removeEventListener('mousedown', handleBackClick, true);
+        }
+        if (closeButton) {
+          closeButton.removeEventListener('click', handleCloseClick, true);
+          closeButton.removeEventListener('mousedown', handleCloseClick, true);
+        }
+      };
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if ((window as any).__onboardingCleanup) {
+        (window as any).__onboardingCleanup();
+        delete (window as any).__onboardingCleanup;
+      }
+    };
+  }, [onboardingVisible, goNext, handleSkip, goBack, finishOnboarding, onClose]);
+
   return (
     <AnimatePresence mode="wait">
       {onboardingVisible && (
