@@ -523,13 +523,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     }
   }, [finishOnboarding, onClose, stepIndex]);
 
-  if (!onboardingVisible) {
-    return null;
-  }
-
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      {onboardingVisible && (
+        <motion.div
         key="onboarding-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
