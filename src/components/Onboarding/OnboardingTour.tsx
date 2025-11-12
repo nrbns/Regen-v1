@@ -498,12 +498,11 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       console.debug('[Onboarding] Skip pressed at step', stepIndex);
     }
     // Finish onboarding (this updates the store and marks as completed)
+    // This will cause the component to unmount via the visibility check
     finishOnboarding();
     
-    // Close the tour (this triggers the onClose callback)
-    requestAnimationFrame(() => {
-      onClose();
-    });
+    // Call onClose for any cleanup
+    onClose();
   }, [finishOnboarding, onClose, stepIndex]);
 
   // Get visibility state to control AnimatePresence
@@ -548,10 +547,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           <button
             className="absolute right-5 top-5 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200"
             onClick={() => {
+              // Finish onboarding (this updates the store and marks as completed)
+              // This will cause the component to unmount via the visibility check
               finishOnboarding();
-              requestAnimationFrame(() => {
-                onClose();
-              });
+              onClose();
             }}
             aria-label="Close onboarding"
           >

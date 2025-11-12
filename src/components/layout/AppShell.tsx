@@ -834,11 +834,8 @@ export function AppShell() {
             <ErrorBoundary componentName="OnboardingTour">
               <OnboardingTour
                 onClose={() => {
-                  // onClose is called after finishOnboarding() in the component
-                  // This is just a safety net to ensure visibility is updated
-                  if (onboardingVisible) {
-                    finishOnboarding();
-                  }
+                  // Component already calls finishOnboarding() before onClose()
+                  // This callback is just for cleanup if needed
                 }}
               />
             </ErrorBoundary>
