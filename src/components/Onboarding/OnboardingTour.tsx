@@ -480,7 +480,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             return;
           }
         }
-        if (mode !== selectedPersona) {
+        if (selectedPersona && mode !== selectedPersona) {
           console.log('[Onboarding] Setting mode to:', selectedPersona);
           setMode(selectedPersona);
         }
