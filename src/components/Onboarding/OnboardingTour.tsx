@@ -431,16 +431,27 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         }
       }
 
-      const nextIndex = current >= TOTAL_STEPS - 1 ? TOTAL_STEPS - 1 : Math.min(current + 1, TOTAL_STEPS - 1);
+      // Check if we're on the last step (telemetry)
+      const isLastStep = current >= TOTAL_STEPS - 1;
+      const nextIndex = isLastStep ? current : Math.min(current + 1, TOTAL_STEPS - 1);
       
-      // If we're finishing (on telemetry step or moving past it), save opt-in preference
-      if (currentStep?.id === 'telemetry' || (current === TOTAL_STEPS - 1)) {
+      // If we're finishing (on telemetry step), save opt-in preference and close
+      if (currentStep?.id === 'telemetry' || isLastStep) {
         // Save telemetry opt-in preference asynchronously (don't wait for it)
         ipc.telemetry.setOptIn(telemetryOptIn).catch((error) => {
-          console.warn('Failed to save telemetry opt-in', error);
+          console.warn('[Onboarding] Failed to save telemetry opt-in', error);
         });
-        finishOnboarding();
-        onClose();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Onboarding] Finishing tour from step', current);
+        }
+        
+        // Finish and close - use setTimeout to ensure state updates complete
+        setTimeout(() => {
+          finishOnboarding();
+          onClose();
+        }, 0);
+        
         // Return current index since we're closing
         return current;
       }
