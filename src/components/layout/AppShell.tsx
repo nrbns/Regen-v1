@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
+import { VoiceTips } from '../voice/VoiceTips';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -797,6 +798,15 @@ export function AppShell() {
           </ErrorBoundary>
         </Portal>
       </Suspense>
+
+      {/* Regen Whisper - Voice Tips */}
+      {!isFullscreen && (
+        <Suspense fallback={null}>
+          <ErrorBoundary componentName="VoiceTips">
+            <VoiceTips />
+          </ErrorBoundary>
+        </Suspense>
+      )}
 
       {consentVisible && (
         <Suspense fallback={null}>
