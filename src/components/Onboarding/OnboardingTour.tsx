@@ -699,8 +699,13 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       (window as any).__onboardingCleanup = () => {
         if (nextButton) {
           nextButton.removeEventListener('click', handleNextClick, true);
+          nextButton.removeEventListener('click', handleNextClick, false);
           nextButton.removeEventListener('mousedown', handleNextClick, true);
+          nextButton.removeEventListener('mousedown', handleNextClick, false);
           nextButton.removeEventListener('pointerdown', handleNextClick, true);
+          nextButton.removeEventListener('touchstart', handleNextClick, true);
+          (nextButton as any).onclick = null;
+          (nextButton as any).onmousedown = null;
         }
         if (skipButton) {
           skipButton.removeEventListener('click', handleSkipClick, true);
