@@ -261,6 +261,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         <webview
           ref={webviewRef}
           className="h-full w-full"
+          style={{ width: '100%', height: '100%' }}
+          src={targetUrl ?? 'about:blank'}
           allowpopups="true"
           autosize="on"
           disablewebsecurity="false"
@@ -270,6 +272,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         <iframe
           ref={iframeRef}
           className="h-full w-full"
+          style={{ width: '100%', height: '100%' }}
+          src={targetUrl ?? 'about:blank'}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           allow="fullscreen"
           title={tab?.title ?? 'Tab content'}

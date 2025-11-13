@@ -1,12 +1,81 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSettingsStore } from '../state/settingsStore';
 import { normalizeInputToUrlOrSearch, buildSearchUrl } from '../lib/search';
 import { openWithAccount } from './AccountBadge';
 import VoiceButton from './VoiceButton';
+import { requestRedix } from '../services/redixClient';
+import { useDebounce } from '../utils/useDebounce';
 
 export default function OmniSearch() {
   const [q, setQ] = useState('');
+  const [liveResults, setLiveResults] = useState<any[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const engine = useSettingsStore(s => s.searchEngine);
+  const debouncedQuery = useDebounce(q, 350);
+  const controllerRef = useRef<{ id: string; cancel: () => void } | null>(null);
+  const sessionIdRef = useRef<string>(`redix-${crypto.randomUUID()}`);
+
+  useEffect(() => {
+    const query = debouncedQuery.trim();
+    if (!query || query.length < 2) {
+      controllerRef.current?.cancel?.();
+      controllerRef.current = null;
+      setLiveResults([]);
+      setIsStreaming(false);
+      setErrorMsg(null);
+      return;
+    }
+
+    controllerRef.current?.cancel?.();
+    setIsStreaming(true);
+    setErrorMsg(null);
+    setLiveResults([]);
+
+    controllerRef.current = requestRedix(query, {
+      sessionId: sessionIdRef.current,
+      onPartial: (message) => {
+        const items = Array.isArray(message.payload?.items)
+          ? (message.payload.items as any[])
+          : [];
+        if (items.length > 0) {
+          setLiveResults((prev) => {
+            const merged = [...prev];
+            for (const item of items) {
+              if (!merged.find((existing) => existing.title === item.title && existing.url === item.url)) {
+                merged.push(item);
+              }
+            }
+            return merged;
+          });
+        }
+      },
+      onFinal: (message) => {
+        setIsStreaming(false);
+        const items = Array.isArray(message.payload?.items)
+          ? (message.payload.items as any[])
+          : [];
+        if (items.length > 0) {
+          setLiveResults(items);
+        }
+      },
+      onError: (message) => {
+        setIsStreaming(false);
+        setErrorMsg(message.payload?.message ?? 'Redix unavailable');
+      },
+    });
+
+    return () => {
+      controllerRef.current?.cancel?.();
+      controllerRef.current = null;
+    };
+  }, [debouncedQuery]);
+
+  const getAccountId = () => {
+    const select = document.querySelector('select.bg-neutral-800.rounded.px-2.py-1.text-xs') as HTMLSelectElement | null;
+    return select?.value || 'default';
+  };
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = q.trim();
@@ -14,8 +83,7 @@ export default function OmniSearch() {
     
     try {
       // Prefer creating in selected account profile for isolation
-      const select = document.querySelector('select.bg-neutral-800.rounded.px-2.py-1.text-xs') as HTMLSelectElement | null;
-      const accountId = select?.value || 'default';
+      const accountId = getAccountId();
       
       if (engine === 'all') {
         const providers: any[] = ['google','bing','duckduckgo','yahoo'];
@@ -38,7 +106,8 @@ export default function OmniSearch() {
     }
   };
   return (
-    <form onSubmit={onSubmit} className="flex-1 flex items-center" role="search" aria-label="Omnibox search">
+    <div className="w-full">
+      <form onSubmit={onSubmit} className="flex-1 flex items-center" role="search" aria-label="Omnibox search">
       <input
         type="text"
         className="w-full bg-neutral-800 rounded px-3 py-2 text-sm outline-none focus:ring-2 ring-indigo-500"
@@ -54,8 +123,7 @@ export default function OmniSearch() {
               const hasScheme = /^https?:\/\//i.test(host);
               const hasTld = /\.[a-z]{2,}$/i.test(host);
               const url = (hasScheme || hasTld) ? host : `https://${host}.com`;
-              const select = document.querySelector('select.bg-neutral-800.rounded.px-2.py-1.text-xs') as HTMLSelectElement | null;
-              const accountId = select?.value || 'default';
+              const accountId = getAccountId();
               await openWithAccount(url, accountId);
               setQ(''); // Clear input after successful submission
             } catch (error) {
@@ -79,7 +147,53 @@ export default function OmniSearch() {
           }
         }, 100);
       }} small />
-    </form>
+      </form>
+      <div className="mt-2 space-y-2">
+      {isStreaming && (
+        <div className="text-xs text-emerald-300 animate-pulse">
+          Streaming results from Redix…
+        </div>
+      )}
+      {errorMsg && (
+        <div className="text-xs text-red-400">
+          {errorMsg}
+        </div>
+      )}
+      {liveResults.length > 0 && (
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 p-3 text-sm text-neutral-200">
+          <div className="mb-2 text-xs uppercase tracking-wide text-neutral-400">
+            Redix Suggestions
+          </div>
+          <ul className="space-y-2">
+            {liveResults.slice(0, 6).map((item, index) => (
+              <li key={`${item.url ?? item.title}-${index}`} className="break-words">
+                <button
+                  type="button"
+                  className="text-left text-emerald-300 hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  onClick={() => {
+                    if (item.url) {
+                      openWithAccount(item.url, getAccountId()).catch((error) => {
+                        console.error('[OmniSearch] Failed to open suggestion URL:', error);
+                      });
+                    } else if (item.title) {
+                      setQ(item.title);
+                    }
+                  }}
+                >
+                  {item.title}
+                </button>
+                {item.snippet && (
+                  <div className="text-xs text-neutral-400">
+                    {item.snippet}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      </div>
+    </div>
   );
 }
 

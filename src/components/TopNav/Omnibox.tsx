@@ -5,7 +5,7 @@
 
 // @ts-nocheck
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { forwardRef, useState, useEffect, useRef, useCallback, useMemo, useImperativeHandle } from 'react';
 import { Search, Lock, Shield, AlertCircle, Globe, Calculator, Sparkles, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
@@ -17,6 +17,11 @@ import { useContainerStore } from '../../state/containerStore';
 import { isElectronRuntime, isDevEnv } from '../../lib/env';
 
 const IS_DEV = isDevEnv();
+
+export interface OmniboxHandle {
+  focus: (selectAll?: boolean) => void;
+  blur: () => void;
+}
 
 interface Suggestion {
   type: 'history' | 'tab' | 'command' | 'search';
@@ -216,7 +221,7 @@ const buildSuggestionFromAction = (action: SuggestionAction, rawInput: string): 
 const RECENTS_STORAGE_KEY = 'omnibox:recent';
 const MAX_RECENTS = 20;
 
-export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) {
+export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void }>(({ onCommandPalette }, ref) => {
   const { tabs, activeId } = useTabsStore();
   const activeContainerId = useContainerStore((state) => state.activeContainerId);
   const isElectron = isElectronRuntime();
@@ -247,6 +252,7 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
   const inputRef = useRef<HTMLInputElement>(null);
   const [liveResults, setLiveResults] = useState<LiveResult[]>([]);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
+  const [shortcutPulse, setShortcutPulse] = useState(false);
   const liveSessionRef = useRef<{ jobId: string; channel: string } | null>(null);
   const liveUnsubscribeRef = useRef<(() => void) | null>(null);
   const attachIpcListener = useCallback((channel: string, handler: (...args: any[]) => void) => {
@@ -276,6 +282,33 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
       bridge.removeEventListener(channel, handler);
     }
   }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: (selectAll = true) => {
+        const input = inputRef.current;
+        if (!input) return;
+        input.focus();
+        if (selectAll) {
+          input.select();
+        }
+        setFocused(true);
+        setShortcutPulse(true);
+      },
+      blur: () => {
+        inputRef.current?.blur();
+        setFocused(false);
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    if (!shortcutPulse) return;
+    const timer = setTimeout(() => setShortcutPulse(false), 500);
+    return () => clearTimeout(timer);
+  }, [shortcutPulse]);
 
   const activeTab = tabs.find(t => t.id === activeId);
 
@@ -1015,7 +1048,9 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
   return (
     <div className="relative flex-1 max-w-2xl">
       <motion.div
-        className="relative"
+        className={`relative rounded-2xl transition-shadow duration-200 ${
+          shortcutPulse ? 'ring-2 ring-blue-500/40 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''
+        }`}
         animate={{ scale: focused ? 1.02 : 1 }}
         transition={{ duration: 0.2 }}
       >
@@ -1051,12 +1086,14 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
             aria-autocomplete="list"
             aria-expanded={focused && suggestions.length > 0}
             placeholder="Search or enter URL"
+            autoComplete="off"
+            data-omnibox-input
             className={`
-              w-full h-9 px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} pr-10
-              bg-gray-800/60 backdrop-blur-sm border border-gray-700/50 rounded-xl
-              text-sm text-white placeholder-gray-400
-              focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50
-              hover:bg-gray-800/80 transition-all
+              w-full h-10 px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} pr-14
+              bg-white/12 backdrop-blur-md border border-white/12 rounded-2xl
+              text-sm text-white placeholder-white/50
+              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40
+              hover:bg-white/16 transition-all
             `}
           />
 
@@ -1071,8 +1108,11 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
           )}
 
           {/* Search Icon */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
-            <Search size={14} className="text-gray-500" />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40">
+            <span className="hidden sm:inline">
+              {typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC') ? '⌘ K' : 'CTRL K'}
+            </span>
+            <Search size={14} className="text-white/50" />
           </div>
         </div>
       </motion.div>
@@ -1154,4 +1194,6 @@ export function Omnibox({ onCommandPalette }: { onCommandPalette: () => void }) 
       </AnimatePresence>
     </div>
   );
-}
+});
+
+Omnibox.displayName = 'Omnibox';

@@ -80,11 +80,17 @@ export interface NetworkStatus {
     enabled: boolean;
     circuitEstablished: boolean;
     identity: string;
+    progress?: number;
+    bootstrapped?: boolean;
+    error?: string;
+    stub?: boolean;
   };
   vpn?: {
     enabled: boolean;
     connected: boolean;
     provider?: string;
+    server?: string;
+    interface?: string;
   };
   doh?: {
     enabled: boolean;

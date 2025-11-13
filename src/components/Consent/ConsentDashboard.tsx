@@ -6,6 +6,8 @@ import { ipc } from '../../lib/ipc-typed';
 import type { ConsentRecord, ConsentActionType, ConsentRisk } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 import { ConsentVaultPanel } from './ConsentVaultPanel';
+import { CONSENT_ACTION_LABELS, CONSENT_ACTION_OPTIONS, CONSENT_STATUS_OPTIONS } from './consentLabels';
+import { ConsentFlowGraph } from './ConsentFlowGraph';
 
 const statusLabel = (record: ConsentRecord): { label: string; tone: string } => {
   if (record.revokedAt) {
@@ -22,40 +24,6 @@ const riskIcon = (risk: ConsentRisk) => {
   if (risk === 'medium') return <ShieldAlert size={14} className="text-amber-400" />;
   return <ShieldCheck size={14} className="text-emerald-400" />;
 };
-
-const ACTION_LABELS: Record<ConsentActionType, string> = {
-  download: 'Download file',
-  form_submit: 'Submit form',
-  login: 'Login',
-  scrape: 'Scrape content',
-  export_data: 'Export data',
-  access_clipboard: 'Access clipboard',
-  access_camera: 'Access camera',
-  access_microphone: 'Access microphone',
-  access_filesystem: 'Filesystem access',
-  ai_cloud: 'Use cloud AI provider',
-};
-
-const actionOptions: Array<{ value: ConsentActionType | 'all'; label: string }> = [
-  { value: 'all', label: 'All actions' },
-  { value: 'download', label: 'Download file' },
-  { value: 'form_submit', label: 'Submit form' },
-  { value: 'login', label: 'Login' },
-  { value: 'scrape', label: 'Scrape content' },
-  { value: 'export_data', label: 'Export data' },
-  { value: 'access_clipboard', label: 'Clipboard' },
-  { value: 'access_camera', label: 'Camera' },
-  { value: 'access_microphone', label: 'Microphone' },
-  { value: 'access_filesystem', label: 'Filesystem' },
-  { value: 'ai_cloud', label: 'Cloud AI' },
-];
-
-const statusOptions: Array<{ value: 'all' | 'pending' | 'approved' | 'revoked'; label: string }> = [
-  { value: 'all', label: 'All statuses' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'revoked', label: 'Revoked' },
-];
 
 export function ConsentDashboard() {
   const { visible, records, loading, error, filter, close, refresh, setFilter, approve, revoke } = useConsentOverlayStore();
@@ -101,7 +69,7 @@ export function ConsentDashboard() {
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-200">
             {riskIcon(record.action.risk)}
-            <span>{ACTION_LABELS[record.action.type]}</span>
+            <span>{CONSENT_ACTION_LABELS[record.action.type]}</span>
           </div>
           <span className={`rounded-full border px-2 py-0.5 text-[11px] ${status.tone}`}>{status.label}</span>
         </div>
@@ -211,6 +179,7 @@ export function ConsentDashboard() {
         </div>
 
         <div className="flex flex-col gap-4 p-6 overflow-y-auto max-h-[75vh]">
+          <ConsentFlowGraph records={records} onApprove={approve} onRevoke={revoke} loading={loading} />
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),auto]">
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
               <Filter size={14} />
@@ -219,7 +188,7 @@ export function ConsentDashboard() {
                 onChange={(event) => void setFilter({ type: event.target.value as ConsentActionType | 'all' })}
                 className="rounded-lg border border-slate-700/60 bg-slate-900/70 px-2 py-1 text-gray-200"
               >
-                {actionOptions.map((option) => (
+                {CONSENT_ACTION_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -230,7 +199,7 @@ export function ConsentDashboard() {
                 onChange={(event) => void setFilter({ status: event.target.value as 'all' | 'pending' | 'approved' | 'revoked' })}
                 className="rounded-lg border border-slate-700/60 bg-slate-900/70 px-2 py-1 text-gray-200"
               >
-                {statusOptions.map((option) => (
+                {CONSENT_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>

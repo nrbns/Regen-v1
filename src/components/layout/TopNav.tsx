@@ -17,13 +17,11 @@ import {
   Code,
   FileText,
   Network,
-  Layers,
+  Plus,
   Sparkles,
   Highlighter,
   Shield,
   Wifi,
-  Play,
-  History,
   Search,
   Activity,
   Home,
@@ -39,7 +37,7 @@ import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { usePrivacyStore } from '../../state/privacyStore';
 import { ipc } from '../../lib/ipc-typed';
 import { ModeSwitch } from '../TopNav/ModeSwitch';
-import { Omnibox } from '../TopNav/Omnibox';
+import { Omnibox, type OmniboxHandle } from '../TopNav/Omnibox';
 import { ProgressBar } from '../TopNav/ProgressBar';
 import { SessionSwitcher } from '../sessions/SessionSwitcher';
 import { ProfileQuickSwitcher } from '../sessions/ProfileQuickSwitcher';
@@ -47,29 +45,44 @@ import { ContainerSwitcher } from '../sessions/ContainerSwitcher';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { DownloadUpdate } from '../../lib/ipc-events';
 import { ThemeSwitcher } from '../TopNav/ThemeSwitcher';
-import { useAppStore } from '../../state/appStore';
 import { PrivacySentinelBadge } from '../TopNav/PrivacySentinelBadge';
 import { ShieldsButton } from '../TopNav/ShieldsButton';
 import { NetworkButton } from '../TopNav/NetworkButton';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
-type MenuId = 'browse' | 'ai' | 'tools' | 'security';
+type MenuKey = 'file' | 'ai' | 'tools';
+
+const createMenuState = (overrides?: Partial<Record<MenuKey, boolean>>): Record<MenuKey, boolean> => ({
+  file: false,
+  ai: false,
+  tools: false,
+  ...overrides,
+});
 
 type MenuEntry =
   | {
       type: 'item';
       key: string;
-      icon: LucideIcon;
+      icon?: LucideIcon;
       label: string;
       shortcut?: string;
       disabled?: boolean;
       onSelect: () => void | Promise<void>;
     }
   | {
-      type: 'divider';
+      type: 'separator';
       key: string;
     }
   | {
-      type: 'section';
+      type: 'label';
       key: string;
       label: string;
       description?: string;
@@ -84,7 +97,6 @@ interface TopNavProps {
 
 export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onReaderToggle }: TopNavProps) {
   const { activeId } = useTabsStore();
-  const mode = useAppStore((state) => state.mode);
   const navigate = useNavigate();
   const toggleTabGraph = useTabGraphStore((state) => state.toggle);
   const openTabGraph = useTabGraphStore((state) => state.open);
@@ -96,54 +108,33 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
   const stopTor = usePrivacyStore((state) => state.stopTor);
   const newTorIdentity = usePrivacyStore((state) => state.newTorIdentity);
   const checkVpn = usePrivacyStore((state) => state.checkVpn);
+  const omniboxRef = useRef<OmniboxHandle | null>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [downloadCount, setDownloadCount] = useState(0);
   const [agentActive, setAgentActive] = useState(false);
-  const [activeMenu, setActiveMenu] = useState<MenuId | null>(null);
-  const [menuLoading, setMenuLoading] = useState<Record<MenuId, boolean>>({ browse: false, ai: false, tools: false, security: false });
-  const menuTimersRef = useRef<Record<MenuId, ReturnType<typeof setTimeout> | null>>({ browse: null, ai: null, tools: null, security: null });
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement | null>(null);
-
-  const clearMenuTimer = useCallback((menu: MenuId) => {
-    const timer = menuTimersRef.current[menu];
-    if (timer) {
-      clearTimeout(timer);
-      menuTimersRef.current[menu] = null;
-    }
-  }, []);
-
-  const startMenuLoad = useCallback((menu: MenuId) => {
-    clearMenuTimer(menu);
-    setMenuLoading({ browse: false, ai: false, tools: false, security: false });
-    setMenuLoading((prev) => ({ ...prev, [menu]: true }));
-    menuTimersRef.current[menu] = setTimeout(() => {
-      setMenuLoading((prev) => ({ ...prev, [menu]: false }));
-      menuTimersRef.current[menu] = null;
-    }, 220);
-  }, [clearMenuTimer]);
+  const [menuOpen, setMenuOpen] = useState<Record<MenuKey, boolean>>(createMenuState());
+  const [compactMenuOpen, setCompactMenuOpen] = useState(false);
+  const compactMenuRef = useRef<HTMLDivElement | null>(null);
 
   const closeMenus = useCallback(() => {
-    setActiveMenu(null);
-    setMenuLoading({ browse: false, ai: false, tools: false, security: false });
-    (Object.keys(menuTimersRef.current) as MenuId[]).forEach((menu) => clearMenuTimer(menu));
-  }, [clearMenuTimer]);
+    setMenuOpen(createMenuState());
+  }, []);
 
-  const toggleMenu = useCallback(
-    (menu: MenuId) => {
-      setActiveMenu((current) => {
-        if (current === menu) {
-          clearMenuTimer(menu);
-          setMenuLoading({ browse: false, ai: false, tools: false, security: false });
-          return null;
+  const handleMenuOpenChange = useCallback(
+    (menu: MenuKey) => (open: boolean) => {
+      setMenuOpen((prev) => {
+        if (open) {
+          return createMenuState({ [menu]: true });
         }
-        startMenuLoad(menu);
-        return menu;
+        if (!open && prev[menu]) {
+          return { ...prev, [menu]: false };
+        }
+        return prev;
       });
     },
-    [clearMenuTimer, startMenuLoad]
+    [],
   );
   const navigationStateRef = useRef({
     activeId: activeId ?? null,
@@ -174,30 +165,57 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
   }, [toggleTabGraph]);
 
   useEffect(() => {
+    const handleOmniboxShortcut = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+      if (event.shiftKey || event.altKey) {
+        return;
+      }
+      if (event.key.toLowerCase() !== 'k') {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      const isWithinOmnibox = target?.hasAttribute('data-omnibox-input');
+      event.preventDefault();
+      closeMenus();
+      requestAnimationFrame(() => {
+        omniboxRef.current?.focus?.();
+      });
+      if (!isWithinOmnibox) {
+        const activeEl = document.activeElement as HTMLElement | null;
+        activeEl?.blur?.();
+      }
+    };
+    window.addEventListener('keydown', handleOmniboxShortcut, { capture: true });
+    return () => window.removeEventListener('keydown', handleOmniboxShortcut, { capture: true });
+  }, [closeMenus]);
+
+  useEffect(() => {
     return () => {
       if (refreshTimerRef.current) {
         clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;
       }
-      (Object.keys(menuTimersRef.current) as MenuId[]).forEach((menu) => clearMenuTimer(menu));
     };
-  }, [clearMenuTimer]);
+  }, []);
 
   // Handle outside clicks for more menu
   useEffect(() => {
-    if (!moreMenuOpen) return;
+    if (!compactMenuOpen) return;
     const listenerOptions: AddEventListenerOptions = { capture: true };
     const handleOutside = (event: MouseEvent) => {
-      if (!moreMenuRef.current) return;
-      if (moreMenuRef.current.contains(event.target as Node)) return;
-      setMoreMenuOpen(false);
+      if (!compactMenuRef.current) return;
+      if (compactMenuRef.current.contains(event.target as Node)) return;
+      setCompactMenuOpen(false);
     };
     document.addEventListener('mousedown', handleOutside, listenerOptions);
     return () => document.removeEventListener('mousedown', handleOutside, listenerOptions);
-  }, [moreMenuOpen]);
+  }, [compactMenuOpen]);
 
   useEffect(() => {
-    if (!activeMenu) return;
+    const anyMenuOpen = menuOpen.file || menuOpen.ai || menuOpen.tools;
+    if (!anyMenuOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         closeMenus();
@@ -206,7 +224,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
     const options: AddEventListenerOptions = { capture: true };
     window.addEventListener('keydown', handleEscape, options);
     return () => window.removeEventListener('keydown', handleEscape, options);
-  }, [activeMenu, closeMenus]);
+  }, [closeMenus, menuOpen]);
 
   // Listen for download updates
   useIPCEvent<DownloadUpdate>('downloads:started', () => {
@@ -294,6 +312,14 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
     } catch (error) {
       console.error('Failed to refresh:', error);
       setIsLoading(false);
+    }
+  }, []);
+
+  const handleNewTab = useCallback(async () => {
+    try {
+      await ipc.tabs.create('about:blank');
+    } catch (error) {
+      console.error('Failed to open a new tab:', error);
     }
   }, []);
 
@@ -472,527 +498,391 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC');
 
-  const browseMenuEntries = useMemo<MenuEntry[]>(() => {
-    const base: Record<string, MenuEntry & { type: 'item' }> = {
-      'knowledge-graph': {
+  const fileMenuEntries = useMemo<MenuEntry[]>(() => {
+    const downloadsLabel = downloadCount > 0 ? `Downloads (${Math.min(downloadCount, 99)})` : 'Downloads';
+    return [
+      {
+        type: 'label',
+        key: 'file-label',
+        label: 'Workspace & tabs',
+        description: 'Open and manage the current browsing session',
+      },
+      {
         type: 'item',
-        key: 'knowledge-graph',
-        icon: Layers,
-        label: 'Research Graph',
+        key: 'file-home',
+        icon: Home,
+        label: 'Go home',
+        shortcut: isMac ? '⌘ 1' : 'Alt 1',
         onSelect: () => navigate('/'),
       },
-      'history-graph': {
+      {
         type: 'item',
-        key: 'history-graph',
-        icon: History,
-        label: 'History Graph',
-        onSelect: () => navigate('/history'),
+        key: 'file-new-tab',
+        icon: Plus,
+        label: 'New tab',
+        shortcut: isMac ? '⌘ T' : 'Ctrl T',
+        onSelect: handleNewTab,
       },
-      workspaces: {
+      {
         type: 'item',
-        key: 'workspaces',
+        key: 'file-back',
+        icon: ArrowLeft,
+        label: 'Back',
+        shortcut: isMac ? '⌘ ←' : 'Alt ←',
+        disabled: !canGoBack,
+        onSelect: handleBack,
+      },
+      {
+        type: 'item',
+        key: 'file-forward',
+        icon: ArrowRight,
+        label: 'Forward',
+        shortcut: isMac ? '⌘ →' : 'Alt →',
+        disabled: !canGoForward,
+        onSelect: handleForward,
+      },
+      {
+        type: 'item',
+        key: 'file-refresh',
+        icon: RefreshCw,
+        label: isLoading ? 'Refreshing…' : 'Refresh',
+        shortcut: isMac ? '⌘ R' : 'Ctrl R',
+        disabled: !activeId,
+        onSelect: handleRefresh,
+      },
+      { type: 'separator', key: 'file-separator' },
+      {
+        type: 'item',
+        key: 'file-downloads',
+        icon: Download,
+        label: downloadsLabel,
+        onSelect: () => navigate('/downloads'),
+      },
+      {
+        type: 'item',
+        key: 'file-settings',
+        icon: Settings,
+        label: 'Settings',
+        shortcut: isMac ? '⌘ ,' : 'Ctrl ,',
+        onSelect: () => navigate('/settings'),
+      },
+    ];
+  }, [
+    activeId,
+    canGoBack,
+    canGoForward,
+    downloadCount,
+    handleBack,
+    handleForward,
+    handleNewTab,
+    handleRefresh,
+    isLoading,
+    isMac,
+    navigate,
+  ]);
+
+  const aiMenuEntries = useMemo<MenuEntry[]>(() => {
+    return [
+      {
+        type: 'label',
+        key: 'ai-label',
+        label: 'Intelligence',
+        description: 'Ask Redix and automate the tab in real time',
+      },
+      {
+        type: 'item',
+        key: 'ai-ask',
+        icon: Sparkles,
+        label: 'Ask Redix',
+        shortcut: isMac ? '⌘ K' : 'Ctrl K',
+        onSelect: () => onCommandPalette(),
+      },
+      {
+        type: 'item',
+        key: 'ai-console',
+        icon: Bot,
+        label: 'Agent console',
+        shortcut: isMac ? '⌘ ⇧ A' : 'Ctrl ⇧ A',
+        onSelect: () => onAgentToggle(),
+      },
+      { type: 'separator', key: 'ai-separator' },
+      {
+        type: 'item',
+        key: 'ai-clip',
+        icon: Highlighter,
+        label: 'Clip highlight',
+        shortcut: isMac ? '⌘ ⇧ H' : 'Ctrl ⇧ H',
+        onSelect: () => onClipperToggle(),
+      },
+      {
+        type: 'item',
+        key: 'ai-reader',
         icon: FileText,
-        label: 'Workspace Library',
-        onSelect: () => navigate('/workspace'),
+        label: 'Reader mode',
+        shortcut: isMac ? '⌘ ⇧ R' : 'Ctrl ⇧ R',
+        onSelect: () => onReaderToggle(),
       },
-      playbooks: {
+      {
         type: 'item',
-        key: 'playbooks',
-        icon: Workflow,
-        label: 'Auto-Research Playbooks',
-        onSelect: () => navigate('/playbooks'),
+        key: 'ai-watchers',
+        icon: Activity,
+        label: 'Page watchers',
+        onSelect: () => navigate('/watchers'),
       },
-      'automation-runs': {
+      {
         type: 'item',
-        key: 'automation-runs',
-        icon: Play,
-        label: 'Automation Runs',
-        onSelect: () => navigate('/runs'),
-      },
-      consent: {
-        type: 'item',
-        key: 'consent-ledger',
-        icon: Shield,
-        label: 'Consent Ledger',
-        onSelect: () => void openConsentDashboard(),
-      },
-      'tab-graph': {
-        type: 'item',
-        key: 'tab-graph',
-        icon: Layers,
-        label: 'Tab DNA Overlay',
+        key: 'ai-tab-graph',
+        icon: Network,
+        label: 'Tab DNA overlay',
+        shortcut: isMac ? '⌘ ⇧ G' : 'Ctrl ⇧ G',
         onSelect: () => void openTabGraph(),
       },
-    };
+    ];
+  }, [isMac, navigate, onAgentToggle, onClipperToggle, onCommandPalette, onReaderToggle, openTabGraph]);
 
-    const focusMap: Record<string, { label: string; description: string; keys: string[] }> = {
-      Research: {
-        label: 'Research Focus',
-        description: 'Suggested graph + consent tooling',
-        keys: ['knowledge-graph', 'tab-graph', 'consent'],
+  const toolsMenuEntries = useMemo<MenuEntry[]>(() => {
+    return [
+      {
+        type: 'label',
+        key: 'tools-label',
+        label: 'Utilities & privacy',
+        description: 'One-tap tools and live privacy controls',
       },
-      Trade: {
-        label: 'Trade Focus',
-        description: 'Stay ahead of market changes',
-        keys: ['history-graph', 'playbooks', 'automation-runs'],
+      {
+        type: 'item',
+        key: 'tools-find',
+        icon: Search,
+        label: 'Find in page',
+        shortcut: isMac ? '⌘ F' : 'Ctrl F',
+        disabled: !activeId,
+        onSelect: handleFindInPage,
       },
-      Games: {
-        label: 'Gaming Focus',
-        description: 'Keep streams and overlays lean',
-        keys: ['tab-graph', 'history-graph'],
+      {
+        type: 'item',
+        key: 'tools-screenshot',
+        icon: Camera,
+        label: 'Capture screenshot',
+        disabled: !activeId,
+        onSelect: handleScreenshot,
       },
-      Browse: {
-        label: 'Everyday Focus',
-        description: 'Quick jump to your spaces',
-        keys: ['workspaces', 'history-graph', 'knowledge-graph'],
+      {
+        type: 'item',
+        key: 'tools-pip',
+        icon: PictureInPicture,
+        label: 'Picture-in-Picture',
+        disabled: !activeId,
+        onSelect: handlePIP,
       },
-    };
+      {
+        type: 'item',
+        key: 'tools-devtools',
+        icon: Code,
+        label: 'Toggle DevTools',
+        shortcut: isMac ? '⌘ ⇧ I' : 'Ctrl ⇧ I',
+        disabled: !activeId,
+        onSelect: handleToggleDevtools,
+      },
+      { type: 'separator', key: 'tools-separator-utilities' },
+      {
+        type: 'item',
+        key: 'tools-consent',
+        icon: Shield,
+        label: 'Consent ledger',
+        onSelect: () => void openConsentDashboard(),
+      },
+      {
+        type: 'item',
+        key: 'tools-onboarding',
+        icon: Workflow,
+        label: 'Replay onboarding tour',
+        onSelect: () => resetOnboarding(),
+      },
+      {
+        type: 'item',
+        key: 'tools-network-controls',
+        icon: Wifi,
+        label: 'Network controls',
+        onSelect: () => {
+          const target = document.querySelector('[data-network-button]') as HTMLElement | null;
+          target?.click();
+        },
+      },
+      {
+        type: 'item',
+        key: 'tools-shields',
+        icon: Shield,
+        label: 'Privacy shields',
+        onSelect: () => {
+          const target = document.querySelector('[data-shields-button]') as HTMLElement | null;
+          target?.click();
+        },
+      },
+      {
+        type: 'item',
+        key: 'tools-tor',
+        icon: Shield,
+        label: torStatus.running ? 'Disable Tor' : 'Enable Tor',
+        onSelect: () => {
+          if (torStatus.running) {
+            void stopTor();
+          } else {
+            void startTor();
+          }
+        },
+      },
+      {
+        type: 'item',
+        key: 'tools-new-identity',
+        icon: RefreshCw,
+        label: 'Tor: New identity',
+        disabled: !torStatus.running || Boolean(torStatus.stub),
+        onSelect: () => {
+          if (torStatus.running && !torStatus.stub) {
+            void newTorIdentity();
+          }
+        },
+      },
+      {
+        type: 'item',
+        key: 'tools-vpn',
+        icon: Wifi,
+        label: vpnStatus.connected
+          ? `VPN: ${vpnStatus.type ? vpnStatus.type.toUpperCase() : 'Active'}`
+          : 'Check VPN status',
+        onSelect: () => {
+          void checkVpn();
+        },
+      },
+    ];
+  }, [
+    activeId,
+    checkVpn,
+    handleFindInPage,
+    handlePIP,
+    handleScreenshot,
+    handleToggleDevtools,
+    isMac,
+    openConsentDashboard,
+    resetOnboarding,
+    startTor,
+    stopTor,
+    torStatus,
+    vpnStatus,
+    newTorIdentity,
+  ]);
 
-    const persona = focusMap[mode] ?? focusMap.Browse;
-    const used = new Set<string>();
-    const entries: MenuEntry[] = [];
-
-    entries.push({
-      type: 'section',
-      key: 'persona-section',
-      label: persona.label,
-      description: persona.description,
-    });
-
-    persona.keys.forEach((key) => {
-      const entry = base[key];
-      if (entry && !used.has(key)) {
-        entries.push(entry);
-        used.add(key);
-      }
-    });
-
-    entries.push({ type: 'divider', key: 'persona-divider' });
-    entries.push({ type: 'section', key: 'all-tools', label: 'All workspace tools' });
-
-    Object.entries(base).forEach(([key, entry]) => {
-      if (!used.has(key)) {
-        entries.push(entry);
-        used.add(key);
-      }
-    });
-
-    return entries;
-  }, [mode, navigate, openConsentDashboard, openTabGraph]);
-
-  const toolsMenuEntries: MenuEntry[] = [
-    {
-      type: 'item',
-      key: 'find',
-      icon: Search,
-      label: 'Find in Page',
-      shortcut: isMac ? '⌘ F' : 'Ctrl F',
-      disabled: !activeId,
-      onSelect: handleFindInPage,
-    },
-    {
-      type: 'item',
-      key: 'screenshot',
-      icon: Camera,
-      label: 'Capture Screenshot',
-      disabled: !activeId,
-      onSelect: handleScreenshot,
-    },
-    {
-      type: 'item',
-      key: 'pip',
-      icon: PictureInPicture,
-      label: 'Picture-in-Picture',
-      disabled: !activeId,
-      onSelect: handlePIP,
-    },
-    {
-      type: 'item',
-      key: 'devtools',
-      icon: Code,
-      label: 'Toggle DevTools',
-      shortcut: isMac ? '⌘ ⇧ I' : 'Ctrl ⇧ I',
-      disabled: !activeId,
-      onSelect: handleToggleDevtools,
-    },
-    { type: 'divider', key: 'tools-divider' },
-    {
-      type: 'item',
-      key: 'guided-tour',
-      icon: Sparkles,
-      label: 'Run Guided Tour',
-      onSelect: () => {
-        resetOnboarding();
-      },
-    },
-    {
-      type: 'item',
-      key: 'watchers',
-      icon: Activity,
-      label: 'Page Watchers',
-      onSelect: () => {
-        navigate('/watchers');
-      },
-    },
-    {
-      type: 'item',
-      key: 'history',
-      icon: History,
-      label: 'History',
-      onSelect: () => {
-        navigate('/history');
-      },
-    },
-    {
-      type: 'item',
-      key: 'tab-graph',
-      icon: Network,
-      label: 'Tab Graph Overlay',
-      shortcut: isMac ? '⌘⇧G' : 'Ctrl⇧G',
-      onSelect: () => {
-        void openTabGraph();
-      },
-    },
-    {
-      type: 'item',
-      key: 'consent-dashboard',
-      icon: Shield,
-      label: 'Consent Playground',
-      onSelect: () => {
-        void openConsentDashboard();
-      },
-    },
-  ];
-
-  const aiMenuEntries: MenuEntry[] = [
-    {
-      type: 'item',
-      key: 'agent-console',
-      icon: Bot,
-      label: 'Open Agent Console',
-      shortcut: isMac ? '⌘⇧A' : 'Ctrl+Shift+A',
-      onSelect: () => onAgentToggle(),
-    },
-    {
-      type: 'item',
-      key: 'ask-agent',
-      icon: Sparkles,
-      label: 'Ask Agent',
-      shortcut: isMac ? '⌘K' : 'Ctrl+K',
-      onSelect: () => onCommandPalette(),
-    },
-    { type: 'divider', key: 'agent-divider' },
-    {
-      type: 'item',
-      key: 'clip-highlight',
-      icon: Highlighter,
-      label: 'Clip Highlight',
-      shortcut: isMac ? '⌘⇧H' : 'Ctrl+Shift+H',
-      onSelect: () => onClipperToggle(),
-    },
-    {
-      type: 'item',
-      key: 'reader-mode',
-      icon: FileText,
-      label: 'Reader Mode',
-      shortcut: isMac ? '⌘⇧R' : 'Ctrl+Shift+R',
-      onSelect: () => onReaderToggle(),
-    },
-  ];
-
-  const securityMenuEntries: MenuEntry[] = [
-    {
-      type: 'item',
-      key: 'privacy-shields',
-      icon: Shield,
-      label: 'Privacy Shields',
-      onSelect: () => {
-        const target = document.querySelector('[data-shields-button]') as HTMLElement | null;
-        target?.click();
-      },
-    },
-    {
-      type: 'item',
-      key: 'network-controls',
-      icon: Wifi,
-      label: 'Network Controls',
-      onSelect: () => {
-        const target = document.querySelector('[data-network-button]') as HTMLElement | null;
-        target?.click();
-      },
-    },
-    {
-      type: 'item',
-      key: 'tor-toggle',
-      icon: Shield,
-      label: torStatus.running ? 'Disable Tor' : 'Enable Tor',
-      onSelect: () => {
-        if (torStatus.running) {
-          void stopTor();
-        } else {
-          void startTor();
+  const renderDropdownMenuItems = useCallback(
+    (entries: MenuEntry[]) =>
+      entries.map((entry) => {
+        if (entry.type === 'label') {
+          return (
+            <DropdownMenuLabel key={entry.key} className="px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-muted/80">
+              <div className="font-semibold text-muted/90">{entry.label}</div>
+              {entry.description && (
+                <div className="mt-1 text-[11px] normal-case tracking-normal text-muted/70">{entry.description}</div>
+              )}
+            </DropdownMenuLabel>
+          );
         }
-      },
-    },
-    {
-      type: 'item',
-      key: 'tor-new-identity',
-      icon: RefreshCw,
-      label: 'Tor: New Identity',
-      disabled: !torStatus.running || Boolean(torStatus.stub),
-      onSelect: () => {
-        if (torStatus.running && !torStatus.stub) {
-          void newTorIdentity();
+        if (entry.type === 'separator') {
+          return <DropdownMenuSeparator key={entry.key} />;
         }
-      },
-    },
-    {
-      type: 'item',
-      key: 'vpn-status',
-      icon: Wifi,
-      label: vpnStatus.connected
-        ? `VPN: ${vpnStatus.type ? vpnStatus.type.toUpperCase() : 'Active'}`
-        : 'Check VPN Status',
-      onSelect: () => {
-        void checkVpn();
-      },
-    },
-    { type: 'divider', key: 'security-divider' },
-    {
-      type: 'item',
-      key: 'history-graph',
-      icon: History,
-      label: 'History Graph',
-      onSelect: () => navigate('/history'),
-    },
-  ];
-
-  const renderMenuButton = (menuId: MenuId, label: string, Icon: LucideIcon, entries: MenuEntry[]) => {
-    const isOpen = activeMenu === menuId;
-    return (
-      <div key={menuId} className="relative">
-        <motion.button
-          type="button"
-          onClick={() => toggleMenu(menuId)}
-          aria-expanded={isOpen}
-          aria-haspopup="true"
-          data-testid={`nav-menu-${menuId}`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`button-surface flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm transition-all ${
-            isOpen ? 'button-surface--active text-primary' : 'text-muted'
-          }`}
-          title={`${label} menu`}
-        >
-          <motion.div
-            animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
-            transition={{ duration: 0.2 }}
+        return (
+          <DropdownMenuItem
+            key={entry.key}
+            className="menu-item w-full rounded-lg"
+            disabled={entry.disabled}
+            onSelect={() => handleMenuSelect(entry)}
           >
-            <Icon size={16} className="text-muted" />
-          </motion.div>
-          <span className="hidden xl:inline">{label}</span>
-          <motion.div
-            animate={isOpen ? { rotate: 180 } : { rotate: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDown size={14} className="hidden xl:inline" />
-          </motion.div>
-        </motion.button>
+            {entry.icon ? <entry.icon size={16} className="text-muted" /> : null}
+            <span className="flex-1 text-left">{entry.label}</span>
+            {entry.shortcut && <DropdownMenuShortcut>{entry.shortcut}</DropdownMenuShortcut>}
+          </DropdownMenuItem>
+        );
+      }),
+    [handleMenuSelect],
+  );
 
-        <AnimatePresence>
-          {isOpen && (
-            <>
-              <motion.button
-                key={`${menuId}-backdrop`}
-                type="button"
-                aria-label={`Close ${label} menu`}
-                className="fixed inset-0 z-40 bg-transparent pointer-events-auto focus:outline-none"
-                onClick={closeMenus}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              />
-              <motion.div
-                key={`${menuId}-menu`}
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 top-full mt-2 w-60 bg-surface-elevated border border-surface rounded-lg shadow-2xl z-50 py-2"
-              >
-                {menuLoading[menuId] ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-2 px-3 py-2"
-                  >
-                    {Array.from({ length: 4 }).map((_, index) => (
-                      <motion.div
-                        key={`skeleton-${menuId}-${index}`}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05, duration: 0.2 }}
-                        className="h-8 rounded-md bg-slate-800/70"
-                        style={{
-                          background: 'linear-gradient(90deg, rgba(30, 41, 59, 0.7) 25%, rgba(51, 65, 85, 0.7) 50%, rgba(30, 41, 59, 0.7) 75%)',
-                          backgroundSize: '200% 100%',
-                          animation: 'shimmer 1.5s infinite',
-                        }}
-                      />
-                    ))}
-                  </motion.div>
-                ) : (
-                  entries.map((entry) => {
-                    if (entry.type === 'divider') {
-                      return <div key={entry.key} className="h-px my-1 bg-[var(--surface-border)]/60" />;
-                    }
-                    if (entry.type === 'section') {
-                      return (
-                        <div
-                          key={entry.key}
-                          className="px-4 pt-1 pb-2 text-[10px] uppercase tracking-[0.24em] text-muted"
-                        >
-                          <div>{entry.label}</div>
-                          {entry.description && (
-                            <div className="mt-1 text-[10px] normal-case tracking-normal text-muted/80">
-                              {entry.description}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }
-                    return (
-                      <motion.button
-                        key={entry.key}
-                        type="button"
-                        disabled={entry.disabled}
-                        onClick={() => handleMenuSelect(entry)}
-                        className="menu-item w-full"
-                        whileHover={{ x: 2 }}
-                        whileTap={{ scale: 0.98 }}
-                        transition={{ duration: 0.15 }}
-                      >
-                        <entry.icon size={16} className="text-muted" />
-                        <span className="flex-1 text-left">{entry.label}</span>
-                        {entry.shortcut && (
-                          <kbd className="text-xs text-muted border border-surface rounded px-1.5 py-0.5">
-                            {entry.shortcut}
-                          </kbd>
-                        )}
-                      </motion.button>
-                    );
-                  })
-                )}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
+  const renderMenu = useCallback(
+    (menu: MenuKey, label: string, Icon: LucideIcon, entries: MenuEntry[]) => {
+      const isOpen = menuOpen[menu];
+      const iconClass = isOpen ? 'text-primary' : 'text-muted';
+      return (
+        <DropdownMenu key={menu} open={menuOpen[menu]} onOpenChange={handleMenuOpenChange(menu)}>
+          <DropdownMenuTrigger asChild>
+            <motion.button
+              type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.96 }}
+              className={`relative flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                isOpen ? 'bg-white/12 text-primary shadow-[0_10px_30px_rgba(59,130,246,0.28)]' : 'text-muted hover:bg-white/10 hover:text-primary'
+              }`}
+              title={`${label} menu`}
+              data-testid={`nav-menu-${menu}`}
+            >
+              <Icon size={16} className={iconClass} />
+              <span className="hidden xl:inline">{label}</span>
+              <ChevronDown size={14} className="hidden md:inline" />
+            </motion.button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-64">
+            {renderDropdownMenuItems(entries)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+    [handleMenuOpenChange, menuOpen, renderDropdownMenuItems],
+  );
+
+  const handleCompactSelect = useCallback(
+    (entry: Extract<MenuEntry, { type: 'item' }>) => {
+      handleMenuSelect(entry);
+      setCompactMenuOpen(false);
+    },
+    [handleMenuSelect],
+  );
 
   return (
-    <div className="drag border-b border-surface bg-surface-panel shadow-lg text-primary transition-colors">
-      <div className="no-drag flex flex-wrap items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2">
-        {/* Left cluster */}
-        <div className="flex items-center gap-2">
+    <div className="drag border-b border-white/5 bg-surface/95 supports-[backdrop-filter:blur(12px)]:backdrop-blur-xl shadow-[0_12px_40px_rgba(15,23,42,0.45)] text-primary transition-colors">
+      <div className="no-drag flex flex-wrap items-center gap-3 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <ModeSwitch />
           <SessionSwitcher compact />
-          <div className="hidden 2xl:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             <ProfileQuickSwitcher compact />
             <ContainerSwitcher compact />
           </div>
         </div>
 
-        {/* Browser Navigation Controls */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {/* Home Button */}
-          <motion.button
-            onClick={() => navigate('/')}
-            aria-label="Go to home"
-            data-testid="nav-home-button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="no-drag p-2.5 rounded-lg button-surface hover:text-primary"
-            title="Home (Go to home screen)"
-          >
-            <Home size={18} />
-          </motion.button>
-          
-          <motion.button
-            onClick={handleBack}
-            disabled={!canGoBack || !activeId}
-            aria-label="Go back"
-            aria-disabled={!canGoBack || !activeId}
-            data-testid="nav-back-button"
-            whileHover={{ scale: canGoBack && activeId ? 1.05 : 1 }}
-            whileTap={{ scale: canGoBack && activeId ? 0.95 : 1 }}
-            className={`no-drag p-2.5 rounded-lg button-surface ${
-              canGoBack && activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
-            }`}
-            title="Back (Alt+← / ⌘←)"
-          >
-            <ArrowLeft size={18} />
-          </motion.button>
-          <motion.button
-            onClick={handleForward}
-            disabled={!canGoForward || !activeId}
-            aria-label="Go forward"
-            aria-disabled={!canGoForward || !activeId}
-            data-testid="nav-forward-button"
-            whileHover={{ scale: canGoForward && activeId ? 1.05 : 1 }}
-            whileTap={{ scale: canGoForward && activeId ? 0.95 : 1 }}
-            className={`no-drag p-2.5 rounded-lg button-surface ${
-              canGoForward && activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
-            }`}
-            title="Forward (Alt+→ / ⌘→)"
-          >
-            <ArrowRight size={18} />
-          </motion.button>
-          <motion.button
-            onClick={handleRefresh}
-            disabled={!activeId}
-            aria-label="Refresh page"
-            aria-disabled={!activeId}
-            data-testid="nav-refresh-button"
-            whileHover={{ scale: activeId ? 1.05 : 1 }}
-            whileTap={{ scale: activeId ? 0.95 : 1 }}
-            className={`no-drag p-2.5 rounded-lg button-surface ${
-              activeId ? 'hover:text-primary' : 'opacity-40 cursor-not-allowed'
-            }`}
-            title="Refresh (Ctrl+R / ⌘R)"
-          >
-            <motion.div
-              animate={{ rotate: isLoading ? 360 : 0 }}
-              transition={{ duration: 1, repeat: isLoading ? Infinity : 0, ease: "linear" }}
-              className="flex items-center justify-center"
-            >
-              <RefreshCw size={18} />
-            </motion.div>
-          </motion.button>
+        <div className="flex items-center gap-1.5 flex-shrink-0 rounded-full border border-white/5 bg-white/5 px-1.5 py-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+
         </div>
 
-        {/* Center: Omnibox with Progress Bar */}
-        <div className="flex-1 min-w-[220px]" data-onboarding="omnibox">
+        <div className="flex-1 min-w-[220px] basis-full sm:basis-auto" data-onboarding="omnibox">
           <div className="relative">
-            <Omnibox onCommandPalette={onCommandPalette} />
+            <Omnibox ref={omniboxRef} onCommandPalette={onCommandPalette} />
             <ProgressBar />
           </div>
         </div>
 
-        {/* Right: Actions & Badges - Grouped for better hierarchy */}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Primary Actions: Always visible */}
-          <div className="flex items-center gap-1.5 border-r border-surface/40 pr-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end flex-1">
+          <div className="hidden lg:flex items-center gap-1.5">
+            {renderMenu('file', 'File', FileText, fileMenuEntries)}
+            {renderMenu('ai', 'AI', Sparkles, aiMenuEntries)}
+            {renderMenu('tools', 'Tools', Workflow, toolsMenuEntries)}
+          </div>
+
+          <div className="flex items-center gap-1.5 rounded-full border border-white/5 bg-white/5 px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             <motion.button
               onClick={onAgentToggle}
               aria-label={`Agent console${agentActive ? ' (active)' : ''}`}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               data-testid="nav-agent-button"
-              className={`relative p-2 rounded-lg button-surface ${
-                agentActive ? 'button-surface--active shadow-[0_0_18px_rgba(59,130,246,0.35)] text-primary' : 'hover:text-primary'
+              className={`relative p-2 rounded-full transition-colors ${
+                agentActive
+                  ? 'bg-primary/15 text-primary shadow-[0_0_18px_rgba(59,130,246,0.35)]'
+                  : 'text-muted hover:bg-white/10 hover:text-primary'
               }`}
               title="Agent Console (⌘⇧A)"
             >
@@ -1006,124 +896,88 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                 />
               )}
             </motion.button>
-          </div>
-
-          {/* Menu Actions: Grouped menus */}
-          <div className="flex items-center gap-1">
-            {renderMenuButton('ai', 'AI', Sparkles, aiMenuEntries)}
-            {renderMenuButton('browse', 'Browse', Layers, browseMenuEntries)}
-            {renderMenuButton('tools', 'Tools', Workflow, toolsMenuEntries)}
-            {renderMenuButton('security', 'Security', Shield, securityMenuEntries)}
-          </div>
-
-          {/* Security & Privacy: Compact group */}
-          <div className="hidden lg:flex items-center gap-1 border-l border-surface/40 pl-2">
             <PrivacySentinelBadge />
             <div className="hidden xl:flex items-center gap-1">
               <ShieldsButton />
               <NetworkButton />
             </div>
-          </div>
-
-          {/* Utility Actions: Collapsible into "More" on smaller screens */}
-          <div className="hidden md:flex items-center gap-1 border-l border-surface/40 pl-2">
             <ThemeSwitcher />
-            <motion.button
-              onClick={() => navigate('/downloads')}
-              aria-label={`Downloads${downloadCount > 0 ? ` (${downloadCount} active)` : ''}`}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              data-testid="nav-downloads-button"
-              className="relative p-2 rounded-lg button-surface hover:text-primary"
-              title={`Downloads${downloadCount > 0 ? ` (${downloadCount} active)` : ''}`}
-            >
-              <Download size={18} />
-              {downloadCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center font-bold"
-                  aria-label={`${downloadCount} active download${downloadCount > 1 ? 's' : ''}`}
-                >
-                  {downloadCount > 9 ? '9+' : downloadCount}
-                </motion.span>
-              )}
-            </motion.button>
-            <motion.button
-              onClick={() => navigate('/settings')}
-              aria-label="Open settings"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              data-testid="nav-settings-button"
-              className="p-2 rounded-lg button-surface hover:text-primary"
-              title="Settings"
-            >
-              <Settings size={18} />
-            </motion.button>
           </div>
 
-          {/* Mobile/Compact: "More" dropdown for utilities */}
-          <div className="md:hidden relative" ref={moreMenuRef}>
+          <div className="lg:hidden relative" ref={compactMenuRef}>
             <button
               type="button"
-              onClick={() => setMoreMenuOpen((prev) => !prev)}
-              className="p-2 rounded-lg button-surface hover:text-primary"
-              aria-label="More options"
-              aria-expanded={moreMenuOpen}
-              data-testid="nav-more-button"
-              title="More options"
+              onClick={() => setCompactMenuOpen((prev) => !prev)}
+              className="p-2 rounded-full text-muted transition-colors hover:bg-white/10 hover:text-primary"
+              aria-label="Navigation menu"
+              aria-expanded={compactMenuOpen}
+              data-testid="nav-compact-button"
+              title="Navigation menu"
             >
               <MoreHorizontal size={18} />
             </button>
             <AnimatePresence>
-              {moreMenuOpen && (
+              {compactMenuOpen && (
                 <>
                   <motion.button
-                    key="more-backdrop"
+                    key="compact-backdrop"
                     type="button"
-                    aria-label="Close more menu"
+                    aria-label="Close navigation menu"
                     className="fixed inset-0 z-40 bg-transparent pointer-events-auto focus:outline-none"
-                    onClick={() => setMoreMenuOpen(false)}
+                    onClick={() => setCompactMenuOpen(false)}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                   />
                   <motion.div
-                    key="more-menu"
+                    key="compact-menu"
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full mt-2 w-48 bg-surface-elevated border border-surface rounded-lg shadow-2xl z-50 py-2"
+                    transition={{ duration: 0.18 }}
+                    className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-white/5 bg-surface-elevated/95 shadow-[0_24px_60px_rgba(15,23,42,0.45)] backdrop-blur-xl z-50 py-2"
                   >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigate('/downloads');
-                        setMoreMenuOpen(false);
-                      }}
-                      className="menu-item w-full"
-                      data-testid="nav-more-downloads"
-                    >
-                      <Download size={16} />
-                      <span>Downloads{downloadCount > 0 ? ` (${downloadCount})` : ''}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigate('/settings');
-                        setMoreMenuOpen(false);
-                      }}
-                      className="menu-item w-full"
-                      data-testid="nav-more-settings"
-                    >
-                      <Settings size={16} />
-                      <span>Settings</span>
-                    </button>
-                    <div className="h-px my-1 bg-[var(--surface-border)]/60" />
-                    <div className="px-3 py-1">
-                      <ThemeSwitcher />
-                    </div>
+                    {[
+                      { key: 'file', label: 'File', entries: fileMenuEntries },
+                      { key: 'ai', label: 'AI', entries: aiMenuEntries },
+                      { key: 'tools', label: 'Tools', entries: toolsMenuEntries },
+                    ].map((section) => {
+                      const items = section.entries.filter(
+                        (entry): entry is Extract<MenuEntry, { type: 'item' }> => entry.type === 'item',
+                      );
+                      if (items.length === 0) {
+                        return null;
+                      }
+
+                      return (
+                        <div key={section.key} className="px-3 py-2">
+                          <div className="px-1 pb-1 text-[10px] uppercase tracking-[0.18em] text-muted/70">
+                            {section.label}
+                          </div>
+                          <div className="space-y-1">
+                            {items.map((item) => (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => handleCompactSelect(item)}
+                                disabled={item.disabled}
+                                className={`menu-item w-full rounded-xl ${
+                                  item.disabled ? 'opacity-40 cursor-not-allowed' : ''
+                                }`}
+                              >
+                                {item.icon ? <item.icon size={16} className="text-muted" /> : null}
+                                <span className="flex-1 text-left">{item.label}</span>
+                                {item.shortcut && (
+                                  <kbd className="text-xs text-muted border border-surface rounded px-1.5 py-0.5">
+                                    {item.shortcut}
+                                  </kbd>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </motion.div>
                 </>
               )}

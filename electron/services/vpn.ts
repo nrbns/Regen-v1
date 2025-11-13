@@ -3,10 +3,12 @@
  * Detects and monitors OS-level VPN connections (WireGuard, OpenVPN)
  */
 
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { EventEmitter } from 'events';
 import { createLogger } from './utils/logger';
+import * as path from 'path';
+import * as fs from 'fs';
 
 const execAsync = promisify(exec);
 
@@ -18,13 +20,27 @@ export interface VPNStatus {
   server?: string;
 }
 
+export interface VPNProfile {
+  id: string;
+  name: string;
+  type?: 'wireguard' | 'openvpn' | 'ikev2' | 'other';
+  connect: string;
+  disconnect?: string;
+  status?: string;
+  server?: string;
+}
+
 class VPNService extends EventEmitter {
   private status: VPNStatus = { connected: false };
   private checkInterval: NodeJS.Timeout | null = null;
   private logger = createLogger('vpn');
+  private profiles: VPNProfile[] = [];
+  private activeProfile: VPNProfile | null = null;
+  private configPath: string | null = null;
 
   constructor() {
     super();
+    this.loadProfiles();
     this.startMonitoring();
   }
 
@@ -39,10 +55,98 @@ class VPNService extends EventEmitter {
     }, 5000); // Check every 5 seconds
   }
 
+  private loadProfiles(): void {
+    const searchPaths: string[] = [];
+    if (process.env.OB_VPN_CONFIG) {
+      searchPaths.push(process.env.OB_VPN_CONFIG);
+    }
+    if (process.resourcesPath) {
+      searchPaths.push(path.join(process.resourcesPath, 'config', 'vpn-profiles.json'));
+    }
+    searchPaths.push(path.join(process.cwd(), 'config', 'vpn-profiles.json'));
+
+    for (const candidate of searchPaths) {
+      try {
+        if (!fs.existsSync(candidate)) continue;
+        const raw = fs.readFileSync(candidate, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          this.profiles = parsed as VPNProfile[];
+          this.configPath = candidate;
+          this.logger.info('Loaded VPN profiles', { path: candidate, count: this.profiles.length });
+          return;
+        }
+      } catch (error) {
+        this.logger.warn('Failed to load VPN profiles', {
+          path: candidate,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Default stub profile set
+    this.profiles = [
+      {
+        id: 'stub-wg',
+        name: 'WireGuard (stub)',
+        type: 'wireguard',
+        connect: process.platform === 'win32' ? 'powershell "Write-Host \'Connecting WireGuard (stub)\'"' : 'echo "Connecting WireGuard (stub)"',
+        disconnect: process.platform === 'win32' ? 'powershell "Write-Host \'Disconnect WireGuard (stub)\'"' : 'echo "Disconnect WireGuard (stub)"',
+        server: 'stub.local',
+      },
+    ];
+    this.logger.warn('Using stub VPN profiles; provide config at config/vpn-profiles.json');
+  }
+
+  listProfiles(): VPNProfile[] {
+    return this.profiles;
+  }
+
+  async connectProfile(profileId: string): Promise<VPNStatus> {
+    const profile = this.profiles.find((p) => p.id === profileId);
+    if (!profile) {
+      throw new Error(`VPN profile "${profileId}" not found`);
+    }
+
+    this.logger.info('Connecting VPN profile', { id: profile.id, name: profile.name });
+    await this.runShell(profile.connect);
+    this.activeProfile = profile;
+    await this.checkStatus(true);
+    return this.status;
+  }
+
+  async disconnectProfile(): Promise<VPNStatus> {
+    const profile = this.activeProfile;
+    if (profile?.disconnect) {
+      this.logger.info('Disconnecting VPN profile', { id: profile.id, name: profile.name });
+      await this.runShell(profile.disconnect);
+    }
+    this.activeProfile = null;
+    await this.checkStatus(true);
+    return this.status;
+  }
+
+  private runShell(command: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, {
+        shell: true,
+        env: process.env,
+      });
+      child.on('exit', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Command "${command}" exited with code ${code}`));
+        }
+      });
+      child.on('error', (error) => reject(error));
+    });
+  }
+
   /**
    * Check current VPN status
    */
-  async checkStatus(): Promise<VPNStatus> {
+  async checkStatus(force = false): Promise<VPNStatus> {
     const platform = process.platform;
     let newStatus: VPNStatus = { connected: false };
 
@@ -60,7 +164,16 @@ class VPNService extends EventEmitter {
       });
     }
 
-    if (JSON.stringify(newStatus) !== JSON.stringify(this.status)) {
+    if (this.activeProfile && newStatus.connected) {
+      newStatus = {
+        ...newStatus,
+        type: this.activeProfile.type ?? newStatus.type,
+        name: this.activeProfile.name ?? newStatus.name,
+        server: this.activeProfile.server ?? newStatus.server,
+      };
+    }
+
+    if (force || JSON.stringify(newStatus) !== JSON.stringify(this.status)) {
       this.status = newStatus;
       this.emit('status', this.status);
       this.logger.info('VPN status updated', { status: this.status });
@@ -213,6 +326,10 @@ class VPNService extends EventEmitter {
    */
   getStatus(): VPNStatus {
     return { ...this.status };
+  }
+
+  getActiveProfile(): VPNProfile | null {
+    return this.activeProfile;
   }
 
   /**

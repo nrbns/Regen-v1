@@ -1,0 +1,29 @@
+[
+  {
+    "id": "wireguard-home",
+    "name": "WireGuard Home",
+    "type": "wireguard",
+    "connect": "wg-quick up /etc/wireguard/home.conf",
+    "disconnect": "wg-quick down /etc/wireguard/home.conf",
+    "status": "wg show",
+    "server": "home.example.com"
+  },
+  {
+    "id": "openvpn-office",
+    "name": "OpenVPN Office",
+    "type": "openvpn",
+    "connect": "openvpn --config /etc/openvpn/office.ovpn --daemon",
+    "disconnect": "pkill -f \"openvpn --config /etc/openvpn/office.ovpn\"",
+    "status": "pgrep -fl openvpn",
+    "server": "office.example.net"
+  },
+  {
+    "id": "stub-sample",
+    "name": "Sample Stub VPN",
+    "type": "other",
+    "connect": "echo \"Connecting stub VPN\"",
+    "disconnect": "echo \"Disconnecting stub VPN\"",
+    "server": "stub.local"
+  }
+]
+

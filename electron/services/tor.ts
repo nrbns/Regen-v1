@@ -38,6 +38,7 @@ class TorService extends EventEmitter {
   private newnymTimer: NodeJS.Timeout | null = null;
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private logger = createLogger('tor');
+  private dataDirectory: string | null = null;
 
   constructor(config: TorConfig) {
     super();
@@ -52,10 +53,15 @@ class TorService extends EventEmitter {
       throw new Error('Tor is already running');
     }
 
-    const dataDir = path.join(app.getPath('userData'), 'tor');
+    const dataDir = this.config.dataDir
+      ? path.isAbsolute(this.config.dataDir)
+        ? this.config.dataDir
+        : path.join(app.getPath('userData'), this.config.dataDir)
+      : path.join(app.getPath('userData'), 'tor');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
+    this.dataDirectory = dataDir;
 
     // Find Tor executable (bundled or system)
     const torPath = await this.findTorExecutable();
@@ -66,18 +72,16 @@ class TorService extends EventEmitter {
 
     // Generate Tor config
     const torrc = this.generateTorrc(dataDir);
+    const torrcPath = path.join(dataDir, 'torrc');
+    fs.writeFileSync(torrcPath, torrc, 'utf-8');
 
     // Spawn Tor
-    this.process = spawn(torPath, ['-f', '-'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
+    this.process = spawn(torPath, ['-f', torrcPath], {
+      stdio: ['ignore', 'pipe', 'pipe'],
       cwd: dataDir,
     });
 
     this.logger.info('Starting Tor process', { torPath, dataDir, port: this.config.port, controlPort: this.config.controlPort });
-
-    // Write config to stdin
-    this.process.stdin?.write(torrc);
-    this.process.stdin?.end();
 
     // Monitor stdout for bootstrap progress
     this.process.stdout?.on('data', (data: Buffer) => {
@@ -158,7 +162,9 @@ class TorService extends EventEmitter {
       const net = await import('net');
       return new Promise((resolve, reject) => {
         const client = net.createConnection(this.config.controlPort, '127.0.0.1', () => {
-          client.write('AUTHENTICATE\r\n');
+          const cookie = this.readControlCookie();
+          const authLine = cookie ? `AUTHENTICATE ${cookie}\r\n` : 'AUTHENTICATE\r\n';
+          client.write(authLine);
         });
 
         client.on('data', (data) => {
@@ -197,10 +203,15 @@ class TorService extends EventEmitter {
   }
 
   private async findTorExecutable(): Promise<string | null> {
+    const envPath = process.env.OB_TOR_BIN || process.env.TOR_BIN;
+    if (envPath && fs.existsSync(envPath)) {
+      return envPath;
+    }
+
     // Check bundled Tor (if available)
     const bundledPaths = [
-      path.join(process.resourcesPath || '', 'tor', 'tor'),
-      path.join(__dirname, '..', '..', 'tor', 'tor'),
+      path.join(process.resourcesPath || '', 'tor', process.platform === 'win32' ? 'tor.exe' : 'tor'),
+      path.join(__dirname, '..', '..', 'tor', process.platform === 'win32' ? 'tor.exe' : 'tor'),
     ];
 
     for (const torPath of bundledPaths) {
@@ -220,7 +231,9 @@ class TorService extends EventEmitter {
       const commonPaths = [
         '/usr/bin/tor',
         '/usr/local/bin/tor',
+        '/opt/homebrew/bin/tor',
         'C:\\Program Files\\Tor\\tor.exe',
+        path.join(process.env.PROGRAMFILES || '', 'Tor', 'tor.exe'),
         path.join(process.env.LOCALAPPDATA || '', 'Tor Browser', 'Browser', 'TorBrowser', 'Tor', 'tor.exe'),
       ];
       for (const torPath of commonPaths) {
@@ -238,6 +251,7 @@ class TorService extends EventEmitter {
 SOCKSPort ${this.config.port} IsolateDestAddr IsolateDestPort
 ControlPort ${this.config.controlPort}
 CookieAuthentication 1
+ControlPortWriteToFile control-port.txt
 AvoidDiskWrites 0`.trim();
   }
 
@@ -251,7 +265,7 @@ AvoidDiskWrites 0`.trim();
     }
 
     // Check for circuit established
-    if (output.includes('Circuit establish')) {
+    if (output.includes('Bootstrapped 100%') || output.includes('Done')) {
       this.status.bootstrapped = true;
       this.status.circuitEstablished = true;
       this.status.progress = 100;
@@ -313,6 +327,21 @@ AvoidDiskWrites 0`.trim();
         });
       }
     }, intervalMs);
+  }
+
+  private readControlCookie(): string | null {
+    try {
+      if (!this.dataDirectory) return null;
+      const cookiePath = path.join(this.dataDirectory, 'control_auth_cookie');
+      if (!fs.existsSync(cookiePath)) return null;
+      const cookie = fs.readFileSync(cookiePath);
+      return cookie.toString('hex').toUpperCase();
+    } catch (error) {
+      this.logger.warn('Failed to read Tor control cookie', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 }
 

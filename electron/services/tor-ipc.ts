@@ -2,6 +2,7 @@
  * Tor IPC Handlers
  */
 
+import { BrowserWindow } from 'electron';
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
 import { initializeTor, getTorService, type TorStatus } from './tor';
@@ -78,6 +79,21 @@ async function clearTorProxy() {
 }
 
 export function registerTorIpc() {
+  const broadcastStatus = (status: TorStatus & { stub?: boolean }) => {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('net:status', {
+        tor: {
+          enabled: status.running,
+          circuitEstablished: status.circuitEstablished,
+          bootstrapped: status.bootstrapped,
+          progress: status.progress,
+          error: status.error,
+          stub: status.stub,
+        },
+      });
+    });
+  };
+
   // Start Tor
   registerHandler('tor:start', TorStartRequest, async (_event, request) => {
     try {
@@ -85,6 +101,7 @@ export function registerTorIpc() {
         stubStatus.running = true;
         stubStatus.bootstrapped = false;
         stubStatus.progress = 0;
+        broadcastStatus(stubStatus);
         return { success: true, stub: true };
       }
 
@@ -92,11 +109,17 @@ export function registerTorIpc() {
         enabled: true,
         port: request.port || 9050,
         controlPort: request.controlPort || 9051,
-        dataDir: '',
+        dataDir: process.env.OB_TOR_DATA_DIR || 'tor',
         newnymInterval: request.newnymInterval,
+      });
+      torService.on('status', (status) => broadcastStatus({ ...status }));
+      torService.on('ready', () => {
+        const status = torService.getStatus();
+        broadcastStatus({ ...status });
       });
       await torService.start();
       await applyTorProxy(torService.getProxyString());
+      broadcastStatus({ ...torService.getStatus() });
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -104,6 +127,7 @@ export function registerTorIpc() {
       useStub = true;
       stubStatus.running = false;
       stubStatus.error = message;
+      broadcastStatus(stubStatus);
       return { success: true, stub: true, warning: message };
     }
   });
@@ -115,12 +139,14 @@ export function registerTorIpc() {
         stubStatus.running = false;
         stubStatus.bootstrapped = false;
         stubStatus.progress = 0;
+        broadcastStatus(stubStatus);
         return { success: true, stub: true };
       }
 
       const torService = getTorService();
       await torService.stop();
       await clearTorProxy();
+      broadcastStatus({ ...torService.getStatus() });
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -133,16 +159,22 @@ export function registerTorIpc() {
   registerHandler('tor:status', z.object({}), async () => {
     try {
       if (useStub) {
-        return torStatusResponseSchema.parse(stubStatus);
+        const parsed = torStatusResponseSchema.parse(stubStatus);
+        broadcastStatus(parsed);
+        return parsed;
       }
 
       const torService = getTorService();
       const status = torService.getStatus();
-      return torStatusResponseSchema.parse(status);
+      const parsed = torStatusResponseSchema.parse(status);
+      broadcastStatus(parsed);
+      return parsed;
     } catch {
       logger.warn('Tor status fetch failed; returning stub');
       useStub = true;
-      return torStatusResponseSchema.parse(stubStatus);
+      const parsed = torStatusResponseSchema.parse(stubStatus);
+      broadcastStatus(parsed);
+      return parsed;
     }
   });
 
@@ -150,11 +182,13 @@ export function registerTorIpc() {
   registerHandler('tor:newIdentity', z.object({}), async () => {
     try {
       if (useStub) {
+        broadcastStatus(stubStatus);
         return { success: true, stub: true };
       }
 
       const torService = getTorService();
       await torService.newIdentity();
+      broadcastStatus({ ...torService.getStatus() });
       return { success: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -178,5 +212,9 @@ export function registerTorIpc() {
       return { proxy: null, stub: true };
     }
   });
+
+  if (useStub) {
+    broadcastStatus(stubStatus);
+  }
 }
 

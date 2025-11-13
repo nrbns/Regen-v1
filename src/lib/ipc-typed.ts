@@ -73,6 +73,9 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'tor:newIdentity': () => ({ success: false, stub: true }),
   'vpn:status': () => ({ connected: false, stub: true }),
   'vpn:check': () => ({ connected: false, stub: true }),
+  'vpn:listProfiles': () => ([]),
+  'vpn:connect': () => ({ connected: false, stub: true }),
+  'vpn:disconnect': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
   'tabs:predictiveGroups': () => ({ groups: [], prefetch: [], summary: undefined }),
   'tabs:create': () => {
@@ -584,6 +587,93 @@ export const ipc = {
         containerId,
       }),
   },
+  tor: {
+    async status() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('tor:status', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] tor.status falling back to stub', error);
+        }
+        return {
+          running: false,
+          bootstrapped: false,
+          circuitEstablished: false,
+          progress: 0,
+          stub: true,
+          error: 'Tor bridge unavailable',
+        };
+      }
+    },
+    async start() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('tor:start', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] tor.start falling back to stub', error);
+        }
+        return { stub: true, warning: 'Tor bridge unavailable (stub mode)' };
+      }
+    },
+    async stop() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('tor:stop', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] tor.stop failed in stub mode', error);
+        }
+        return { stub: true };
+      }
+    },
+    async newIdentity() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('tor:newIdentity', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] tor.newIdentity failed in stub mode', error);
+        }
+        return { stub: true };
+      }
+    },
+  },
+  vpn: {
+    async status() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('vpn:status', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] vpn.status falling back to stub', error);
+        }
+        return {
+          connected: false,
+          type: 'stub',
+          name: 'Not connected',
+          stub: true,
+        };
+      }
+    },
+    async check() {
+      try {
+        await waitForIPC(3000);
+        return await ipcCall('vpn:check', {});
+      } catch (error) {
+        if (IS_DEV) {
+          console.warn('[IPC] vpn.check falling back to stub', error);
+        }
+        return {
+          connected: false,
+          type: 'stub',
+          name: 'Not connected',
+          stub: true,
+        };
+      }
+    },
+  },
   containers: {
     list: () =>
       ipcCall<unknown, Array<{ id: string; name: string; color: string; icon?: string; description?: string; scope: string; persistent: boolean; system?: boolean }>>('containers:list', {}),
@@ -942,8 +1032,20 @@ export const ipc = {
     getStatus: () => ipcCall<unknown, { adsBlocked: number; trackersBlocked: number; httpsUpgrades: number; cookies3p: 'block' | 'allow'; webrtcBlocked: boolean; fingerprinting: boolean }>('shields:getStatus', {}),
   },
   vpn: {
-    status: () => ipcCall<unknown, { connected: boolean; type?: string; name?: string; stub?: boolean }>('vpn:status', {}),
-    check: () => ipcCall<unknown, { connected: boolean; type?: string; name?: string; stub?: boolean }>('vpn:check', {}),
+    status: () => ipcCall<unknown, { connected: boolean; type?: string; name?: string; interface?: string; server?: string; stub?: boolean }>('vpn:status', {}),
+    check: () => ipcCall<unknown, { connected: boolean; type?: string; name?: string; interface?: string; server?: string; stub?: boolean }>('vpn:check', {}),
+    listProfiles: () =>
+      ipcCall<unknown, Array<{ id: string; name: string; type: string; server?: string }>>('vpn:listProfiles', {}),
+    connect: (id: string) =>
+      ipcCall<{ id: string }, { connected: boolean; type?: string; name?: string; interface?: string; server?: string }>(
+        'vpn:connect',
+        { id },
+      ),
+    disconnect: () =>
+      ipcCall<unknown, { connected: boolean; type?: string; name?: string; interface?: string; server?: string }>(
+        'vpn:disconnect',
+        {},
+      ),
   },
   network: {
     get: () => ipcCall<unknown, { quicEnabled: boolean; ipv6Enabled: boolean; ipv6LeakProtection: boolean }>('network:get', {}),
