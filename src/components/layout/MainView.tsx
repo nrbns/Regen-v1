@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTabsStore } from '../../state/tabsStore';
 import { ipcEvents } from '../../lib/ipc-events';
 import { ipc } from '../../lib/ipc-typed';
@@ -126,7 +127,8 @@ export function MainView() {
     });
 
     // Load initial tab data (wait for IPC to be ready)
-    const loadInitialData = async () => {
+    const loadInitialData = async (retryCount = 0) => {
+      const MAX_RETRIES = 3;
       try {
         // Wait for IPC to be ready before making calls
         if (!window.ipc || typeof window.ipc.invoke !== 'function') {
@@ -144,12 +146,19 @@ export function MainView() {
           setBrowserReady(true);
           setIsLoading(false);
         }
-      } catch {
-        // Silently handle - will retry on next update
-        // On error, if tabs exist in store, mark as ready to avoid stuck loading
-        if (tabs.length > 0 && activeId) {
-          setBrowserReady(true);
-          setIsLoading(false);
+      } catch (error) {
+        // Retry with exponential backoff
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
+          setTimeout(() => {
+            loadInitialData(retryCount + 1);
+          }, delay);
+        } else {
+          // Max retries reached - use store data as fallback
+          if (tabs.length > 0 && activeId) {
+            setBrowserReady(true);
+            setIsLoading(false);
+          }
         }
       }
     };
@@ -251,50 +260,156 @@ export function MainView() {
       )}
       
       {/* Loading indicator overlay - Only show at top, don't block BrowserView */}
-      {isLoading && activeId && (
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gray-200 z-50 pointer-events-none">
-          <div 
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
+      <AnimatePresence>
+        {isLoading && activeId && (
+          <motion.div 
+            className="absolute top-0 left-0 right-0 h-1 z-50 pointer-events-none"
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="h-full bg-slate-800/30">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500"
+                initial={{ width: '0%' }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Fallback content when no active tab - Only show when truly no tabs */}
       {(!activeId || tabs.length === 0) && (
-        <div className="absolute inset-0 h-full w-full flex items-center justify-center bg-white" style={{ zIndex: 2, pointerEvents: 'auto' }}>
-          <div className="text-center">
-            <div className="text-6xl mb-4 animate-pulse">🌐</div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              OmniBrowser
-            </h2>
-            <p className="text-gray-500 text-sm">
-              Enter a URL or search to get started
-            </p>
-          </div>
-        </div>
+        <motion.div 
+          className="absolute inset-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" 
+          style={{ zIndex: 2, pointerEvents: 'auto' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <motion.div 
+            className="text-center max-w-md px-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <motion.div 
+              className="text-6xl mb-6"
+              animate={{ 
+                scale: [1, 1.05, 1],
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              🌐
+            </motion.div>
+            <motion.h2 
+              className="text-2xl font-semibold text-slate-100 mb-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              Welcome to OmniBrowser
+            </motion.h2>
+            <motion.p 
+              className="text-slate-400 text-sm mb-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              Enter a URL, search the web, or ask Redix to get started
+            </motion.p>
+            <motion.div
+              className="flex flex-wrap gap-2 justify-center text-xs text-slate-500"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl+T</kbd> for new tab</span>
+              <span>•</span>
+              <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl+L</kbd> to search</span>
+            </motion.div>
+          </motion.div>
+        </motion.div>
       )}
       
       {/* Loading overlay - Only show briefly on initial load if no tabs exist yet */}
       {/* Once tabs exist, BrowserView should be visible immediately */}
       {tabs.length === 0 && !browserReady && (
-        <div 
-          className="absolute inset-0 h-full w-full flex items-center justify-center bg-white transition-opacity duration-300" 
+        <motion.div 
+          className="absolute inset-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" 
           style={{ 
             zIndex: 2, 
             pointerEvents: 'none',
           }}
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
         >
-          <div className="text-center">
-            <div className="text-6xl mb-4 animate-pulse">🌐</div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
+          <motion.div 
+            className="text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <motion.div 
+              className="text-6xl mb-4"
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              🌐
+            </motion.div>
+            <motion.h2 
+              className="text-xl font-semibold text-slate-100 mb-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
               OmniBrowser
-            </h2>
-            <p className="text-gray-500 text-sm">
+            </motion.h2>
+            <motion.p 
+              className="text-slate-400 text-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
               Initializing...
-            </p>
-          </div>
-        </div>
+            </motion.p>
+            <motion.div
+              className="mt-4 w-48 h-1 bg-slate-700/50 rounded-full overflow-hidden mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <motion.div
+                className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-500"
+                initial={{ x: '-100%', width: '40%' }}
+                animate={{
+                  x: ['-100%', '100%'],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              />
+            </motion.div>
+          </motion.div>
+        </motion.div>
       )}
       
 

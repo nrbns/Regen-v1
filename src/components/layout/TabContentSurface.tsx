@@ -58,10 +58,26 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         clearTimeout(loadingTimeoutRef.current);
       }
       
-      // Set timeout for loading
+      // Set timeout for loading with retry option
       loadingTimeoutRef.current = setTimeout(() => {
         setLoading(false);
         setFailedMessage('This page is taking too long to load. Check your connection or try refreshing.');
+        // Auto-retry once after timeout
+        if (retryCountRef.current < 1 && targetUrl) {
+          retryCountRef.current++;
+          setTimeout(() => {
+            if (webviewRef.current && targetUrl) {
+              const webviewElement = webviewRef.current as Electron.WebviewTag;
+              try {
+                webviewElement.reload();
+                setLoading(true);
+                setFailedMessage(null);
+              } catch (error) {
+                console.warn('[TabContentSurface] Retry failed:', error);
+              }
+            }
+          }, 2000);
+        }
       }, LOADING_TIMEOUT_MS);
     };
 

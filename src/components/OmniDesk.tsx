@@ -625,15 +625,24 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
         setSearchQuery('');
       } catch (error) {
         console.error('[OmniDesk] Search launch error:', error);
-        createFallbackTab({ url: targetUrl, title: `Search: ${query}` });
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        // Try fallback tab creation
+        try {
+          createFallbackTab({ url: targetUrl, title: `Search: ${query}` });
+        } catch (fallbackError) {
+          console.error('[OmniDesk] Fallback tab creation failed:', fallbackError);
+          // Last resort: open in external browser
+          if (typeof window !== 'undefined') {
+            window.open(targetUrl, '_blank', 'noopener,noreferrer');
+          }
+        }
+        
         pushWorkspaceEvent({
           type: 'workspace:launch-error',
           message: 'Encountered an error launching the flow. Using fallback tab.',
-          payload: { error: error instanceof Error ? error.message : String(error) },
+          payload: { error: errorMessage },
         });
-        if (typeof window !== 'undefined') {
-          window.open(targetUrl, '_blank', 'noopener,noreferrer');
-        }
       } finally {
         setSearchLoading(false);
       }
@@ -709,11 +718,11 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             transition={{ duration: 0.4 }}
             className="rounded-3xl border border-slate-800/70 bg-slate-900/70 px-6 py-7 shadow-2xl shadow-black/30"
           >
-            <p className="text-xs uppercase tracking-[0.32em] text-slate-400">Regenerative Command Center</p>
-            <h1 className="mt-3 text-3xl font-semibold text-slate-100 sm:text-4xl">
+            <p className="text-xs uppercase tracking-[0.32em] text-slate-400 font-medium">Regenerative Command Center</p>
+            <h1 className="mt-3 text-3xl font-bold text-slate-50 sm:text-4xl lg:text-5xl leading-tight">
               Guide your next deep work session with OmniBrowser & Redix
             </h1>
-            <p className="mt-3 max-w-2xl text-sm text-slate-400">
+            <p className="mt-3 max-w-2xl text-base text-slate-300 leading-relaxed">
               Spin up an agent, resume an exploration, or launch a new search. Your flow state starts here.
             </p>
 
@@ -744,7 +753,13 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                     style={{ pointerEvents: 'auto', zIndex: 10 }}
                     autoFocus={false}
                     tabIndex={0}
+                    aria-label="Search the open web, knowledge base, or ask Redix"
+                    aria-describedby="search-hint"
+                    role="searchbox"
                   />
+                  <span id="search-hint" className="sr-only">
+                    Press Enter to search or launch flow. Use @live or @ask prefix for AI queries.
+                  </span>
                 </div>
                 <button
                   type="submit"
@@ -756,6 +771,8 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                   disabled={searchLoading || !searchQuery.trim()}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-500/60 bg-blue-500/20 px-5 py-3 text-sm font-semibold text-blue-100 shadow-[0_10px_40px_-20px_rgba(59,130,246,0.8)] transition hover:border-blue-400 hover:bg-blue-500/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-60 disabled:cursor-not-allowed"
                   style={{ pointerEvents: 'auto', zIndex: 10 }}
+                  aria-label={searchLoading ? 'Launching search' : 'Launch search flow'}
+                  aria-busy={searchLoading}
                 >
                   {searchLoading ? (
                     <>
@@ -790,6 +807,8 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                     }}
                     className="rounded-full border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 transition hover:border-blue-500/50 hover:bg-slate-800/80 hover:text-blue-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ pointerEvents: 'auto', zIndex: 10 }}
+                    aria-label={`Suggested search: ${prompt}`}
+                    tabIndex={0}
                   >
                     {prompt}
                   </button>
@@ -829,6 +848,8 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   className={`group flex h-full flex-col justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-6 text-left shadow-[0_12px_40px_-24px_rgba(15,23,42,0.9)] transition hover:border-slate-700/70 hover:bg-slate-900/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${searchLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                   style={{ pointerEvents: 'auto', zIndex: 10 }}
+                  aria-label={action.description ? `${action.label}: ${action.description}` : action.label}
+                  tabIndex={0}
                 >
                   <span
                     className={`inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${action.color} text-white shadow-[0_15px_30px_-20px_currentColor]`}

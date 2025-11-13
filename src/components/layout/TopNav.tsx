@@ -854,7 +854,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         <div className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <ModeSwitch />
           <SessionSwitcher compact />
-          <div className="hidden 2xl:flex items-center gap-2">
+          <div className="hidden 3xl:flex items-center gap-2">
             <ProfileQuickSwitcher compact />
             <ContainerSwitcher compact />
           </div>
@@ -914,7 +914,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
             onClick={() => navigate('/')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="hidden md:flex p-1.5 rounded-full text-primary hover:bg-white/10 transition-colors cursor-pointer"
+            className="hidden lg:flex p-1.5 rounded-full text-primary hover:bg-white/10 transition-colors cursor-pointer"
             title="Go home (Alt+1)"
             aria-label="Go to home"
           >
@@ -930,7 +930,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         </div>
 
           <div className="flex items-center gap-2 flex-wrap justify-end flex-1">
-          <div className="hidden xl:flex items-center gap-1.5">
+          <div className="hidden 2xl:flex items-center gap-1.5">
             {renderMenu('file', 'File', FileText, fileMenuEntries)}
             {renderMenu('ai', 'AI', Sparkles, aiMenuEntries)}
             {renderMenu('tools', 'Tools', Workflow, toolsMenuEntries)}
@@ -960,17 +960,17 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                 />
               )}
             </motion.button>
-            <div className="hidden lg:flex items-center gap-1">
+            <div className="hidden xl:flex items-center gap-1">
               <PrivacySentinelBadge />
             </div>
-            <div className="hidden 2xl:flex items-center gap-1">
+            <div className="hidden 3xl:flex items-center gap-1">
               <ShieldsButton />
               <NetworkButton />
             </div>
             <ThemeSwitcher />
           </div>
 
-          <div className="xl:hidden relative" ref={compactMenuRef}>
+          <div className="2xl:hidden relative" ref={compactMenuRef}>
             <button
               type="button"
               onClick={() => setCompactMenuOpen((prev) => !prev)}

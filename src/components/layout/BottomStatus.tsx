@@ -890,8 +890,8 @@ export function BottomStatus() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2 text-xs text-gray-300" data-onboarding="status-bar">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 text-xs text-gray-300">
+      <div className="flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300" data-onboarding="status-bar">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 text-xs sm:text-sm text-gray-300">
           <PrivacySwitch />
 
           <StatusMeter
