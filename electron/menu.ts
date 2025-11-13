@@ -1,4 +1,4 @@
-import { Menu, shell } from 'electron';
+import { Menu, shell, BrowserWindow } from 'electron';
 
 export function buildAppMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
@@ -6,6 +6,29 @@ export function buildAppMenu() {
       label: 'File',
       submenu: [
         { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Research',
+      submenu: [
+        {
+          label: 'Capture Current Page',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: (_, browserWindow) => {
+            if (browserWindow && browserWindow instanceof BrowserWindow) {
+              browserWindow.webContents.send('research:keyboard-capture');
+            }
+          },
+        },
+        {
+          label: 'Open Research Pane',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: (_, browserWindow) => {
+            if (browserWindow && browserWindow instanceof BrowserWindow) {
+              browserWindow.webContents.send('research:keyboard-open-pane');
+            }
+          },
+        },
       ]
     },
     {

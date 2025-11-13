@@ -1194,12 +1194,100 @@ export const ipc = {
       ipcCall<{ url: string }, { notes: string; highlights: unknown[] }>('research:getNotes', { url }),
     export: (payload: { format: 'markdown' | 'obsidian' | 'notion'; sources: string[]; includeNotes?: boolean }) =>
       ipcCall<typeof payload, any>('research:export', payload),
+    saveSnapshot: (tabId: string) =>
+      ipcCall<{ tabId: string }, { snapshotId: string; url: string }>('research:saveSnapshot', { tabId }),
+    uploadFile: (file: File) => {
+      // Convert File to base64 for IPC
+      return new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64 = reader.result as string;
+          const result = await ipcCall<{ 
+            filename: string; 
+            content: string; 
+            mimeType: string;
+            size: number;
+          }, { fileId: string }>('research:uploadFile', {
+            filename: file.name,
+            content: base64.split(',')[1], // Remove data URL prefix
+            mimeType: file.type,
+            size: file.size,
+          });
+          resolve(result.fileId);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+    listDocuments: () =>
+      ipcCall<unknown, { documents: Array<{ id: string; type: string; title: string; uploadedAt: number; chunkCount: number }> }>('research:listDocuments', {}),
+    getDocumentChunks: (documentId: string) =>
+      ipcCall<{ documentId: string }, { chunks: Array<{ id: string; content: string; metadata: any }> }>('research:getDocumentChunks', { documentId }),
+    capturePage: (tabId?: string) =>
+      ipcCall<{ tabId?: string }, { snapshotId: string; url: string; title: string; dimensions: { width: number; height: number } }>('research:capturePage', tabId ? { tabId } : {}),
+    captureSelection: (text?: string, tabId?: string) =>
+      ipcCall<{ tabId?: string; text?: string }, { clipId: string; url: string; text: string }>('research:captureSelection', { tabId, text }),
   },
   reader: {
     summarize: (payload: { url?: string; title?: string; content: string; html?: string }) =>
       ipcCall<typeof payload, any>('reader:summarize', payload),
     export: (payload: { url?: string; title?: string; html: string }) =>
       ipcCall<typeof payload, { success: boolean; path: string }>('reader:export', payload),
+  },
+  trade: {
+    placeOrder: (order: {
+      symbol: string;
+      side: 'buy' | 'sell';
+      quantity: number;
+      orderType: 'market' | 'limit' | 'stop' | 'stop_limit';
+      limitPrice?: number;
+      stopPrice?: number;
+      timeInForce?: 'day' | 'gtc' | 'ioc' | 'fok';
+      bracket?: { stopLoss: number; takeProfit: number; stopLossType?: 'price' | 'percent' | 'atr'; takeProfitType?: 'price' | 'percent' | 'atr' };
+      trailingStop?: { distance: number; distanceType: 'price' | 'percent' | 'atr'; activationPrice?: number };
+      paper?: boolean;
+      aiSignalId?: string;
+    }) => ipcCall<typeof order, { orderId: string }>('trade:placeOrder', order),
+    cancelOrder: (orderId: string) =>
+      ipcCall<{ orderId: string }, { success: boolean }>('trade:cancelOrder', { orderId }),
+    getOrders: (status?: string) =>
+      ipcCall<{ status?: string }, { orders: Array<{
+        id: string;
+        symbol: string;
+        side: 'buy' | 'sell';
+        quantity: number;
+        filledQuantity: number;
+        orderType: string;
+        status: string;
+        limitPrice?: number;
+        stopPrice?: number;
+        averageFillPrice?: number;
+        createdAt: number;
+        filledAt?: number;
+        paper: boolean;
+      }> }>('trade:getOrders', status ? { status } : {}),
+    getPositions: () =>
+      ipcCall<unknown, { positions: Array<{
+        id: string;
+        symbol: string;
+        quantity: number;
+        averageEntryPrice: number;
+        currentPrice: number;
+        unrealizedPnL: number;
+        realizedPnL: number;
+        entryOrderId: string;
+        paper: boolean;
+      }> }>('trade:getPositions', {}),
+    closePosition: (symbol: string, quantity?: number) =>
+      ipcCall<{ symbol: string; quantity?: number }, { success: boolean; orderId?: string; error?: string }>('trade:closePosition', { symbol, quantity }),
+    getBalance: () =>
+      ipcCall<unknown, { cash: number; buyingPower: number; portfolioValue: number }>('trade:getBalance', {}),
+    connectBroker: (config: { brokerId: string; apiKey: string; apiSecret: string; paper: boolean }) =>
+      ipcCall<typeof config, { success: boolean }>('trade:connectBroker', config),
+    getQuote: (symbol: string) =>
+      ipcCall<{ symbol: string }, { symbol: string; bid: number; ask: number; last: number; volume: number; timestamp: number }>('trade:getQuote', { symbol }),
+    getCandles: (params: { symbol: string; timeframe: string; from: number; to: number }) =>
+      ipcCall<typeof params, { candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }> }>('trade:getCandles', params),
   },
   dns: {
     status: () => ipcCall<unknown, { enabled: boolean; provider: 'cloudflare' | 'quad9' }>('dns:status', {}),

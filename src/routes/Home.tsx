@@ -10,6 +10,7 @@ import GraphMindPanel from '../modes/graphmind';
 import { MainView } from '../components/layout/MainView';
 import { ResearchSplit } from '../components/Panels/ResearchSplit';
 import { OmniDesk } from '../components/OmniDesk';
+import { ResearchPane } from '../components/research/ResearchPane';
 
 export default function Home() {
   const mode = useAppStore(s=>s.mode);
@@ -50,6 +51,9 @@ export default function Home() {
       {mode === 'Images' && <ImagesPanel />}
       {mode === 'Threats' && <ThreatsPanel />}
       {mode === 'GraphMind' && <GraphMindPanel />}
+      
+      {/* Research Pane - Available in all modes */}
+      {!isFullscreen && <ResearchPane />}
     </div>
   );
 }

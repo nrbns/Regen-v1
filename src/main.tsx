@@ -6,6 +6,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './lib/battery';
 import { isDevEnv } from './lib/env';
+import { setupClipperHandlers } from './lib/research/clipper-handler';
 
 // Error boundary with better UX
 class ErrorBoundary extends React.Component<
@@ -277,6 +278,9 @@ try {
   const rootKey = '__OMNIBROWSER_REACT_ROOT__';
   const existingRoot = (window as any)[rootKey];
   const root = existingRoot || ReactDOM.createRoot(rootElement);
+  
+  // Setup research clipper handlers
+  setupClipperHandlers();
 
   if (!existingRoot) {
     (window as any)[rootKey] = root;

@@ -7,6 +7,8 @@ type AppState = {
   toggleGraphDock: () => void;
   ledgerDockOpen: boolean;
   toggleLedgerDock: () => void;
+  researchPaneOpen: boolean;
+  toggleResearchPane: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -23,6 +25,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = !get().ledgerDockOpen;
     set({ ledgerDockOpen: next });
     (window as any).ui?.setRightDock?.(next ? 360 : 0);
+  },
+  researchPaneOpen: false,
+  toggleResearchPane: () => {
+    const next = !get().researchPaneOpen;
+    set({ researchPaneOpen: next });
+    (window as any).ui?.setRightDock?.(next ? 420 : 0);
   }
 }));
 

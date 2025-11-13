@@ -47,11 +47,33 @@ export default tseslint.config(
       'no-constant-condition': 'off',
       'react-hooks/exhaustive-deps': 'off',
       'prefer-const': 'off',
+      'no-self-assign': 'warn',
     },
     settings: {
       react: {
         version: 'detect',
       },
+    },
+  },
+  {
+    // Service worker files
+    files: ['**/*.sw.js', '**/sw.js', '**/service-worker.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
+        Headers: 'readonly',
+        Cache: 'readonly',
+        CacheStorage: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
 );

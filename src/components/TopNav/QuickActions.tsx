@@ -3,11 +3,12 @@
  */
 
 import { useState } from 'react';
-import { Camera, Code, Cast, Languages, FileText, Pin, MoreVertical, Highlighter } from 'lucide-react';
+import { Camera, Code, Cast, Languages, FileText, Pin, MoreVertical, Highlighter, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTabsStore } from '../../state/tabsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { useProfileStore } from '../../state/profileStore';
+import { useAppStore } from '../../state/appStore';
 
 interface QuickActionsProps {
   onReaderToggle?: () => void;
@@ -18,6 +19,8 @@ export function QuickActions({ onReaderToggle, onClipperToggle }: QuickActionsPr
   const { activeId } = useTabsStore();
   const [isPinned, setIsPinned] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const researchPaneOpen = useAppStore((s) => s.researchPaneOpen);
+  const toggleResearchPane = useAppStore((s) => s.toggleResearchPane);
   const policy = useProfileStore((state) => state.policies[state.activeProfileId]);
 
   const canClip = policy ? policy.allowClipping : true;
@@ -68,7 +71,18 @@ export function QuickActions({ onReaderToggle, onClipperToggle }: QuickActionsPr
     // Would call IPC to pin tab
   };
 
+  const handleResearchToggle = () => {
+    toggleResearchPane();
+  };
+
   const actions = [
+    {
+      icon: Sparkles,
+      label: 'Research Mode',
+      onClick: handleResearchToggle,
+      shortcut: 'Ctrl+Shift+R',
+      active: researchPaneOpen,
+    },
     {
       icon: Highlighter,
       label: 'Clip text',
@@ -92,7 +106,7 @@ export function QuickActions({ onReaderToggle, onClipperToggle }: QuickActionsPr
 
   return (
     <div className="flex items-center gap-1">
-      {actions.slice(0, 3).map((action, idx) => {
+      {actions.slice(0, 4).map((action, idx) => {
         const Icon = action.icon;
         return (
           <motion.button
@@ -139,7 +153,7 @@ export function QuickActions({ onReaderToggle, onClipperToggle }: QuickActionsPr
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 min-w-[180px] py-1"
               >
-                {actions.slice(3).map((action, idx) => {
+                {actions.slice(4).map((action, idx) => {
                   const Icon = action.icon;
                   return (
                     <button

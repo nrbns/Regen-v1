@@ -6,6 +6,16 @@ import { z } from 'zod';
 import { stealthFetchPage } from './stealth-fetch';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import {
+  ingestDocument,
+  ingestSnapshot,
+  saveChunks,
+  saveDocumentMetadata,
+  // getDocumentMetadata,
+  getDocumentChunks,
+  listDocuments,
+} from './research/ingestion';
+import { registerClipperIpc } from './research/clipper';
 
 type SearchDoc = { url: string; title: string; snippet: string };
 type Answer = { answer: string; citations: SearchDoc[] };
@@ -497,6 +507,203 @@ export function registerResearchIpc() {
 
     return { success: true, format: 'notion' as const, notionPages };
   });
+
+  // Save tab snapshot
+  registerHandler('research:saveSnapshot', z.object({
+    tabId: z.string(),
+  }), async (event, request) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getAllWindows()[0];
+    if (!win) {
+      throw new Error('No window found');
+    }
+
+    // Find the tab's BrowserView
+    const views = win.getBrowserViews();
+    // For now, we'll use the active view - in a full implementation, we'd track tabId to view mapping
+    const view = views.length > 0 ? views[views.length - 1] : null;
+    
+    if (!view) {
+      throw new Error('No active tab found');
+    }
+
+    try {
+      const webContents = view.webContents;
+      const url = webContents.getURL();
+      const title = webContents.getTitle() || url;
+
+      // Skip special pages
+      if (url.startsWith('about:') || url.startsWith('chrome:') || !url || url === 'about:blank') {
+        throw new Error('Cannot snapshot special pages');
+      }
+
+      // Wait for page to be ready
+      if (webContents.isLoading()) {
+        await new Promise<void>((resolve) => {
+          const onFinish = () => {
+            webContents.off('did-finish-load', onFinish);
+            webContents.off('did-fail-load', onFinish);
+            resolve();
+          };
+          webContents.once('did-finish-load', onFinish);
+          webContents.once('did-fail-load', onFinish);
+          setTimeout(() => onFinish(), 5000);
+        });
+      }
+
+      // Get full page HTML
+      const html = await webContents.executeJavaScript(`
+        (() => {
+          try {
+            const doc = document.cloneNode(true);
+            // Remove scripts but keep structure
+            Array.from(doc.querySelectorAll('script')).forEach(el => el.remove());
+            return doc.documentElement.outerHTML;
+          } catch(e) {
+            return document.documentElement.outerHTML;
+          }
+        })()
+      `, true).catch(() => '');
+
+      if (!html) {
+        throw new Error('Failed to capture page HTML');
+      }
+
+      // Save snapshot to file
+      const snapshotId = `snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const snapshotsDir = path.join(app.getPath('userData'), 'research', 'snapshots');
+      await fs.mkdir(snapshotsDir, { recursive: true });
+      const snapshotPath = path.join(snapshotsDir, `${snapshotId}.html`);
+
+      // Save HTML with metadata
+      const snapshotData = {
+        id: snapshotId,
+        url,
+        title,
+        html,
+        capturedAt: Date.now(),
+        tabId: request.tabId,
+      };
+
+      await fs.writeFile(snapshotPath, JSON.stringify(snapshotData, null, 2), 'utf-8');
+
+      // Process snapshot through ingestion pipeline
+      try {
+        const { metadata, chunks } = await ingestSnapshot(snapshotPath, snapshotId, {
+          url,
+          title,
+          tabId: request.tabId,
+        });
+
+        // Save metadata and chunks
+        await saveDocumentMetadata(metadata);
+        await saveChunks(chunks);
+
+        console.log(`[Research] Ingested snapshot: ${snapshotId} (${chunks.length} chunks)`);
+      } catch (ingestionError) {
+        console.error('[Research] Failed to ingest snapshot:', ingestionError);
+        // Don't fail the snapshot save if ingestion fails
+      }
+
+      return { snapshotId, url };
+    } catch (error) {
+      console.error('Failed to save snapshot:', error);
+      throw error;
+    }
+  });
+
+  // Upload file for research
+  registerHandler('research:uploadFile', z.object({
+    filename: z.string(),
+    content: z.string(), // base64 encoded
+    mimeType: z.string(),
+    size: z.number(),
+  }), async (_event, request) => {
+    try {
+      const fileId = `file-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      const uploadsDir = path.join(app.getPath('userData'), 'research', 'uploads');
+      await fs.mkdir(uploadsDir, { recursive: true });
+
+      // Decode base64 content
+      const buffer = Buffer.from(request.content, 'base64');
+      const filePath = path.join(uploadsDir, `${fileId}-${request.filename}`);
+
+      await fs.writeFile(filePath, buffer);
+
+      // Store metadata
+      const metadataPath = path.join(uploadsDir, `${fileId}.meta.json`);
+      const metadata = {
+        fileId,
+        filename: request.filename,
+        mimeType: request.mimeType,
+        size: request.size,
+        uploadedAt: Date.now(),
+        path: filePath,
+      };
+
+      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
+
+      // Determine file type from extension
+      const ext = path.extname(request.filename).toLowerCase().slice(1);
+      let sourceType: 'pdf' | 'docx' | 'txt' | 'md' | 'html' = 'txt';
+      
+      if (ext === 'pdf') sourceType = 'pdf';
+      else if (ext === 'docx' || ext === 'doc') sourceType = 'docx';
+      else if (ext === 'md' || ext === 'markdown') sourceType = 'md';
+      else if (ext === 'html' || ext === 'htm') sourceType = 'html';
+      else sourceType = 'txt';
+
+      // Process file through ingestion pipeline
+      try {
+        const { metadata: docMetadata, chunks } = await ingestDocument(
+          filePath,
+          fileId,
+          sourceType,
+          { title: request.filename }
+        );
+
+        // Save metadata and chunks
+        await saveDocumentMetadata(docMetadata);
+        await saveChunks(chunks);
+
+        console.log(`[Research] Ingested file: ${fileId} (${chunks.length} chunks)`);
+      } catch (ingestionError) {
+        console.error('[Research] Failed to ingest file:', ingestionError);
+        // Don't fail the upload if ingestion fails
+      }
+
+      return { fileId };
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      throw error;
+    }
+  });
+
+  // List all ingested documents
+  registerHandler('research:listDocuments', z.object({}), async () => {
+    try {
+      const documents = await listDocuments();
+      return { documents };
+    } catch (error) {
+      console.error('Failed to list documents:', error);
+      return { documents: [] };
+    }
+  });
+
+  // Get document chunks for search
+  registerHandler('research:getDocumentChunks', z.object({
+    documentId: z.string(),
+  }), async (_event, request) => {
+    try {
+      const chunks = await getDocumentChunks(request.documentId);
+      return { chunks };
+    } catch (error) {
+      console.error('Failed to get document chunks:', error);
+      return { chunks: [] };
+    }
+  });
+
+  // Register clipper IPC handlers
+  registerClipperIpc();
 
   // registerResearchPipelineIpc(); // Temporarily disabled
 }

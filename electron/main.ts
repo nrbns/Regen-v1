@@ -26,6 +26,7 @@ import { registerDownloadsIpc } from './services/downloads-enhanced';
 import { registerLedgerIpc } from './services/ledger';
 import { registerHistoryIpc } from './services/history';
 import { registerResearchIpc } from './services/research';
+import { registerTradeIpc } from './services/trade';
 import { registerReaderIpc } from './services/reader';
 import { registerStorageIpc } from './services/storage';
 import { registerPluginIpc } from './services/plugins/ipc';
@@ -425,6 +426,8 @@ app.whenReady().then(async () => {
     console.log('[Main] History IPC registered');
     registerResearchIpc();
     console.log('[Main] Research IPC registered');
+    registerTradeIpc();
+    console.log('[Main] Trade IPC registered');
     registerReaderIpc();
     console.log('[Main] Reader IPC registered');
     const { registerResearchEnhancedIpc } = await import('./services/research-enhanced');

@@ -1,0 +1,836 @@
+openapi: 3.0.3
+info:
+  title: OmniBrowser Trade Mode - OMS API
+  description: |
+    Order Management System API that abstracts broker integrations (Alpaca, IBKR, Binance)
+    and provides unified interface for paper trading, live execution, and risk management.
+  version: 1.0.0
+  contact:
+    name: OmniBrowser Trade Mode Team
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+  - url: https://trade.omnibrowser.com/api/v1
+    description: Production
+
+tags:
+  - name: Market Data
+    description: Real-time and historical market data
+  - name: Orders
+    description: Order placement and management
+  - name: Positions
+    description: Position tracking and management
+  - name: Risk
+    description: Risk management and safe-exit controls
+  - name: AI Signals
+    description: AI-generated trading signals and recommendations
+  - name: Paper Trading
+    description: Paper trading sandbox operations
+  - name: Broker Connections
+    description: Broker API connection management
+
+paths:
+  # Market Data
+  /market-data/quote:
+    get:
+      tags: [Market Data]
+      summary: Get real-time quote for symbol
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "AAPL"
+        - name: exchange
+          in: query
+          schema:
+            type: string
+            enum: [NYSE, NASDAQ, BINANCE, IBKR]
+      responses:
+        '200':
+          description: Real-time quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+  
+  /market-data/candles:
+    get:
+      tags: [Market Data]
+      summary: Get historical candles
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: timeframe
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1m, 5m, 15m, 1h, 4h, 1d]
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Historical candles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  candles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Candle'
+  
+  /market-data/subscribe:
+    post:
+      tags: [Market Data]
+      summary: Subscribe to real-time market data stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbols:
+                  type: array
+                  items:
+                    type: string
+                dataTypes:
+                  type: array
+                  items:
+                    type: string
+                    enum: [quote, trade, orderbook]
+      responses:
+        '200':
+          description: WebSocket connection established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wsUrl:
+                    type: string
+                    example: "ws://localhost:3001/ws/market-data"
+
+  # Orders
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Place new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '200':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid order request
+        '403':
+          description: Risk check failed
+  
+    get:
+      tags: [Orders]
+      summary: List orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, filled, cancelled, rejected]
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+  
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order details
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    
+    delete:
+      tags: [Orders]
+      summary: Cancel order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  # Positions
+  /positions:
+    get:
+      tags: [Positions]
+      summary: List open positions
+      responses:
+        '200':
+          description: List of positions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  positions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Position'
+  
+  /positions/{symbol}:
+    get:
+      tags: [Positions]
+      summary: Get position for symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Position details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Position'
+    
+    delete:
+      tags: [Positions]
+      summary: Close position
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: quantity
+          in: query
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Position closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  # Risk Management
+  /risk/dashboard:
+    get:
+      tags: [Risk]
+      summary: Get risk dashboard data
+      responses:
+        '200':
+          description: Risk metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskDashboard'
+  
+  /risk/kill-switch:
+    post:
+      tags: [Risk]
+      summary: Activate global kill switch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [pause-all, close-all, disable-ai]
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Kill switch activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activated:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+  
+  /risk/safe-exit/{positionId}:
+    post:
+      tags: [Risk]
+      summary: Trigger safe exit for position
+      parameters:
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                exitType:
+                  type: string
+                  enum: [market, limit, stop]
+                price:
+                  type: number
+      responses:
+        '200':
+          description: Safe exit executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  # AI Signals
+  /ai/signals:
+    post:
+      tags: [AI Signals]
+      summary: Generate AI trading signal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                timeframe:
+                  type: string
+                indicators:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: AI signal generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISignal'
+  
+  /ai/signals/{signalId}/explain:
+    get:
+      tags: [AI Signals]
+      summary: Get explainability report for signal
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Explainability report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainabilityReport'
+
+  # Paper Trading
+  /paper/balance:
+    get:
+      tags: [Paper Trading]
+      summary: Get paper trading balance
+      responses:
+        '200':
+          description: Paper account balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaperBalance'
+  
+  /paper/switch-to-live:
+    post:
+      tags: [Paper Trading]
+      summary: Switch from paper to live trading (requires confirmation)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmation:
+                  type: string
+                  example: "I UNDERSTAND THE RISKS"
+      responses:
+        '200':
+          description: Switched to live trading
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mode:
+                    type: string
+                    enum: [paper, live]
+                  switchedAt:
+                    type: string
+                    format: date-time
+
+  # Broker Connections
+  /brokers:
+    get:
+      tags: [Broker Connections]
+      summary: List connected brokers
+      responses:
+        '200':
+          description: List of brokers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  brokers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrokerConnection'
+  
+  /brokers/{brokerId}/connect:
+    post:
+      tags: [Broker Connections]
+      summary: Connect to broker
+      parameters:
+        - name: brokerId
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [alpaca, ibkr, binance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                apiKey:
+                  type: string
+                apiSecret:
+                  type: string
+                paper:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Broker connected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrokerConnection'
+
+components:
+  schemas:
+    Quote:
+      type: object
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        bid:
+          type: number
+          example: 149.50
+        ask:
+          type: number
+          example: 149.52
+        last:
+          type: number
+          example: 149.51
+        volume:
+          type: integer
+          example: 1250000
+        timestamp:
+          type: string
+          format: date-time
+    
+    Candle:
+      type: object
+      properties:
+        time:
+          type: integer
+          description: Unix timestamp
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+        volume:
+          type: integer
+    
+    OrderRequest:
+      type: object
+      required: [symbol, side, quantity, orderType]
+      properties:
+        symbol:
+          type: string
+          example: "AAPL"
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: number
+          example: 100
+        orderType:
+          type: string
+          enum: [market, limit, stop, stop_limit]
+        limitPrice:
+          type: number
+          description: Required for limit orders
+        stopPrice:
+          type: number
+          description: Required for stop orders
+        timeInForce:
+          type: string
+          enum: [day, gtc, ioc, fok]
+          default: day
+        bracket:
+          $ref: '#/components/schemas/BracketOrder'
+        trailingStop:
+          $ref: '#/components/schemas/TrailingStop'
+        paper:
+          type: boolean
+          default: true
+        aiSignalId:
+          type: string
+          description: Link to AI signal if generated by AI
+    
+    BracketOrder:
+      type: object
+      properties:
+        stopLoss:
+          type: number
+          description: Stop loss price
+        takeProfit:
+          type: number
+          description: Take profit price
+        stopLossType:
+          type: string
+          enum: [price, percent, atr]
+        takeProfitType:
+          type: string
+          enum: [price, percent, atr]
+    
+    TrailingStop:
+      type: object
+      properties:
+        distance:
+          type: number
+          description: Distance in price or ATR
+        distanceType:
+          type: string
+          enum: [price, percent, atr]
+          default: atr
+        activationPrice:
+          type: number
+          description: Price at which trailing stop activates
+    
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+        quantity:
+          type: number
+        filledQuantity:
+          type: number
+        orderType:
+          type: string
+        status:
+          type: string
+          enum: [pending, partially_filled, filled, cancelled, rejected]
+        limitPrice:
+          type: number
+        stopPrice:
+          type: number
+        averageFillPrice:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        filledAt:
+          type: string
+          format: date-time
+        brokerOrderId:
+          type: string
+        paper:
+          type: boolean
+        aiSignalId:
+          type: string
+        auditLog:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              event:
+                type: string
+              details:
+                type: object
+    
+    Position:
+      type: object
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+        quantity:
+          type: number
+        averageEntryPrice:
+          type: number
+        currentPrice:
+          type: number
+        unrealizedPnL:
+          type: number
+        realizedPnL:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        trailingStop:
+          $ref: '#/components/schemas/TrailingStop'
+        entryOrderId:
+          type: string
+        paper:
+          type: boolean
+    
+    RiskDashboard:
+      type: object
+      properties:
+        totalExposure:
+          type: number
+        dailyPnL:
+          type: number
+        marginUsed:
+          type: number
+        marginAvailable:
+          type: number
+        worstOpenTrade:
+          type: number
+        maxDrawdown:
+          type: number
+        portfolioValue:
+          type: number
+        riskScore:
+          type: number
+          description: 0-100 risk score
+        alerts:
+          type: array
+          items:
+            type: object
+            properties:
+              severity:
+                type: string
+                enum: [info, warning, critical]
+              message:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+    
+    AISignal:
+      type: object
+      properties:
+        id:
+          type: string
+        symbol:
+          type: string
+        action:
+          type: string
+          enum: [buy, sell, hold]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        entryPrice:
+          type: number
+        stopLoss:
+          type: number
+        takeProfit:
+          type: number
+        positionSize:
+          type: number
+        rationale:
+          type: string
+        contributingFactors:
+          type: array
+          items:
+            type: object
+            properties:
+              factor:
+                type: string
+              weight:
+                type: number
+              value:
+                type: number
+        modelVersion:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    
+    ExplainabilityReport:
+      type: object
+      properties:
+        signalId:
+          type: string
+        summary:
+          type: string
+        contributingFactors:
+          type: array
+          items:
+            type: object
+            properties:
+              factor:
+                type: string
+              description:
+                type: string
+              weight:
+                type: number
+              impact:
+                type: string
+                enum: [positive, negative, neutral]
+        alternativeScenarios:
+          type: array
+          items:
+            type: object
+            properties:
+              scenario:
+                type: string
+              probability:
+                type: number
+              outcome:
+                type: string
+        riskAssessment:
+          type: object
+          properties:
+            riskLevel:
+              type: string
+              enum: [low, medium, high]
+            maxLoss:
+              type: number
+            maxGain:
+              type: number
+            winProbability:
+              type: number
+    
+    PaperBalance:
+      type: object
+      properties:
+        cash:
+          type: number
+        buyingPower:
+          type: number
+        portfolioValue:
+          type: number
+        equity:
+          type: number
+        marginUsed:
+          type: number
+    
+    BrokerConnection:
+      type: object
+      properties:
+        id:
+          type: string
+        broker:
+          type: string
+          enum: [alpaca, ibkr, binance]
+        status:
+          type: string
+          enum: [connected, disconnected, error]
+        paper:
+          type: boolean
+        connectedAt:
+          type: string
+          format: date-time
+        lastSyncAt:
+          type: string
+          format: date-time
+        capabilities:
+          type: array
+          items:
+            type: string
+            enum: [equities, crypto, futures, options]
+

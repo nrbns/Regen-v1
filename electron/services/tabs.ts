@@ -13,6 +13,7 @@ import { getShieldsService } from './shields';
 import { getVideoCallOptimizer } from './video-call-optimizer';
 import { getSessionManager } from './sessions';
 import { getContainerManager, ContainerPermission } from './containers';
+import { setupContextMenuForWebContents } from './research/clipper';
 import {
   TabCreateRequest,
   TabCreateResponse,
@@ -59,7 +60,7 @@ const predictiveCache = new Map<
   }
 >();
 
-const findTabByWebContents = (wc: Electron.WebContents): TabRecord | undefined => {
+export const findTabByWebContents = (wc: Electron.WebContents): TabRecord | undefined => {
   for (const tabs of windowIdToTabs.values()) {
     const found = tabs.find(tab => tab.view.webContents === wc);
     if (found) return found;
@@ -473,6 +474,13 @@ export function registerTabIpc(win: BrowserWindow) {
 
     const shouldRecordHistory = mode === 'normal';
 
+    // Setup research context menu for this tab
+    try {
+      setupContextMenuForWebContents(view.webContents, win);
+    } catch (error) {
+      console.warn('[Tabs] Failed to setup research context menu:', error);
+    }
+
     const sendNavigationState = () => {
       try {
         if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
@@ -487,7 +495,7 @@ export function registerTabIpc(win: BrowserWindow) {
               canGoBack: canGoBack ?? false,
               canGoForward: canGoForward ?? false,
             });
-          } catch (err) {
+          } catch {
             // Fallback if both APIs fail
             win.webContents.send('tabs:navigation-state', {
               tabId: id,

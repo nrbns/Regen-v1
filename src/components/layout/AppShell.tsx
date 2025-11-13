@@ -214,7 +214,7 @@ export function AppShell() {
   const [readerActive, setReaderActive] = useState(false);
   const onboardingVisible = useOnboardingStore((state) => state.visible);
   const startOnboarding = useOnboardingStore((state) => state.start);
-  const finishOnboarding = useOnboardingStore((state) => state.finish);
+  const _finishOnboarding = useOnboardingStore((state) => state.finish);
   
   // Debug: log visibility changes
   useEffect(() => {
