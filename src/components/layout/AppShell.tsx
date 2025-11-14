@@ -437,7 +437,7 @@ export function AppShell() {
       if (!onboardingStorage.isCompleted() && !onboardingVisible) {
         startOnboarding();
       }
-    }, 800); // Delay to let UI render first
+    }, 1200); // Delay to let UI render first (increased for slower machines)
     return () => clearTimeout(timer);
   }, [onboardingVisible, startOnboarding]);
 

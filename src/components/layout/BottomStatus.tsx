@@ -388,7 +388,7 @@ export function BottomStatus() {
         metricsSocketRef.current = null;
       };
     }
-  }, [isElectron, apiBaseUrl, pushMetricSample, setEfficiencyEvent, efficiencySnapshot]);
+  }, [isElectron, apiBaseUrl]); // pushMetricSample is stable, removed from deps
 
   // Poll shields stats for privacy scorecard
   useEffect(() => {
