@@ -37,9 +37,11 @@ let heavyTabs: Set<string> = new Set();
  */
 export async function loadPolicy(): Promise<ResourcePolicy> {
   try {
-    const stored = localStorage.getItem('redix:policy');
-    if (stored) {
-      currentPolicy = { ...DEFAULT_POLICY, ...JSON.parse(stored) };
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem('redix:policy');
+      if (stored) {
+        currentPolicy = { ...DEFAULT_POLICY, ...JSON.parse(stored) };
+      }
     }
   } catch (error) {
     console.warn('[Redix] Failed to load policy:', error);
@@ -53,11 +55,13 @@ export async function loadPolicy(): Promise<ResourcePolicy> {
 export function savePolicy(policy: Partial<ResourcePolicy>): void {
   currentPolicy = { ...currentPolicy, ...policy };
   try {
-    localStorage.setItem('redix:policy', JSON.stringify(currentPolicy));
-    dispatch({
-      type: 'redix:policy:update',
-      payload: currentPolicy,
-    });
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('redix:policy', JSON.stringify(currentPolicy));
+      dispatch({
+        type: 'redix:policy:update',
+        payload: currentPolicy,
+      });
+    }
   } catch (error) {
     console.error('[Redix] Failed to save policy:', error);
   }
@@ -88,7 +92,9 @@ export async function suspendTab(tabId: string): Promise<void> {
 
     // Try to hibernate via IPC (if available)
     try {
-      await ipc.tabs.wake({ id: tabId, wake: false });
+      if (typeof ipc !== 'undefined' && ipc?.tabs?.wake) {
+        await ipc.tabs.wake({ id: tabId, wake: false });
+      }
     } catch {
       // IPC might not be available, continue
     }
@@ -114,7 +120,9 @@ export async function thawTab(tabId: string): Promise<void> {
 
     // Try to wake via IPC
     try {
-      await ipc.tabs.wake({ id: tabId, wake: true });
+      if (typeof ipc !== 'undefined' && ipc?.tabs?.wake) {
+        await ipc.tabs.wake({ id: tabId, wake: true });
+      }
     } catch {
       // IPC might not be available, continue
     }
@@ -169,7 +177,16 @@ export async function optimizePerformance(metrics?: {
   // Check if we should suspend background tabs
   if (policy.suspendBackgroundTabs) {
     try {
+      // Check if IPC is available
+      if (typeof ipc === 'undefined' || !ipc?.tabs?.list) {
+        return; // IPC not available, skip optimization
+      }
+      
       const tabs = await ipc.tabs.list();
+      if (!Array.isArray(tabs) || tabs.length === 0) {
+        return; // No tabs to optimize
+      }
+      
       const activeTab = tabs.find((t: any) => t.active);
       const activeId = activeTab?.id;
 

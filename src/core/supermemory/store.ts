@@ -61,6 +61,9 @@ class MemoryStore {
    */
   get<T = any>(key: string): T | null {
     try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return null;
+      }
       const item = localStorage.getItem(STORAGE_PREFIX + key);
       return item ? JSON.parse(item) : null;
     } catch (error) {
@@ -74,6 +77,9 @@ class MemoryStore {
    */
   set(key: string, value: any): void {
     try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+      }
       localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
     } catch (error) {
       console.error('[SuperMemory] Failed to set:', key, error);
@@ -85,6 +91,9 @@ class MemoryStore {
    */
   push(key: string, item: any): void {
     try {
+      if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+      }
       const arr = this.get<any[]>(key) || [];
       arr.unshift(item); // Add to beginning
       
@@ -241,6 +250,9 @@ class MemoryStore {
    * Cleanup old events (localStorage)
    */
   private cleanupOldEventsSync(): void {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
     const events = this.get<MemoryEvent[]>('events') || [];
     
     // Remove events older than 90 days
@@ -269,7 +281,9 @@ class MemoryStore {
       }
     }
     
-    localStorage.removeItem(STORAGE_PREFIX + 'events');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(STORAGE_PREFIX + 'events');
+    }
   }
 
   /**
