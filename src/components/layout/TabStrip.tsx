@@ -10,8 +10,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Eye, Sparkles } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
+import { useContainerStore } from '../../state/containerStore';
 import { ipcEvents } from '../../lib/ipc-events';
 import { TabHoverCard } from '../TopNav/TabHoverCard';
+import { ContainerQuickSelector } from '../containers/ContainerQuickSelector';
 import { TabContextMenu } from './TabContextMenu';
 import { usePeekPreviewStore } from '../../state/peekStore';
 import { Portal } from '../common/Portal';
@@ -60,6 +62,7 @@ const mapTabsForStore = (list: Tab[]) =>
 
 export function TabStrip() {
   const { setAll: setAllTabs, setActive: setActiveTab, activeId } = useTabsStore();
+  const { activeContainerId } = useContainerStore();
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [predictedClusters, setPredictedClusters] = useState<Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>>([]);
   const [prefetchEntries, setPrefetchEntries] = useState<Array<{ tabId: string; url: string; reason: string; confidence?: number }>>([]);
@@ -91,6 +94,8 @@ export function TabStrip() {
   const predictiveRequestRef = useRef<Promise<void> | null>(null);
   const lastPredictionSignatureRef = useRef<string>('');
   const fetchPredictiveSuggestionsRef = useRef<(options?: { force?: boolean }) => Promise<void> | void>();
+  const draggedTabIdRef = useRef<string | null>(null);
+  const dragOverIndexRef = useRef<number | null>(null);
   
   // Keep ref in sync with activeId (doesn't cause re-renders)
   useEffect(() => {
@@ -692,7 +697,10 @@ export function TabStrip() {
         // Don't abort - try to create anyway, might work
       }
       
-      const result = await ipc.tabs.create('about:blank');
+      const result = await ipc.tabs.create({
+        url: 'about:blank',
+        containerId: activeContainerId || undefined,
+      });
       if (result && result.id) {
         // Tab created successfully - IPC event will update the UI
         if (IS_DEV) {
@@ -1036,10 +1044,15 @@ export function TabStrip() {
   // Ensure active tab stays visible (only when activeId changes)
   useEffect(() => {
     if (!activeId || !stripRef.current) return;
-    try {
-      const el = stripRef.current.querySelector(`[data-tab="${CSS.escape(activeId)}"]`);
-      (el as any)?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-    } catch {}
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      try {
+        const el = stripRef.current?.querySelector(`[data-tab="${CSS.escape(activeId)}"]`) as HTMLElement;
+        if (el) {
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        }
+      } catch {}
+    });
   }, [activeId]); // Only depend on activeId, not tabs array
 
   // Keyboard navigation (Left/Right/Home/End)
@@ -1055,11 +1068,15 @@ export function TabStrip() {
     if (!stripRef.current || !activeId) {
       return;
     }
-
-    const target = stripRef.current.querySelector<HTMLDivElement>(
-      `[data-tab="${CSS.escape(activeId)}"]`
-    );
-    target?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      const target = stripRef.current?.querySelector<HTMLElement>(
+        `[data-tab="${CSS.escape(activeId)}"]`
+      );
+      if (target) {
+        target.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+      }
+    });
   }, [activeId, tabs.length]);
 
   useEffect(() => {
@@ -1154,6 +1171,93 @@ export function TabStrip() {
         style={{ pointerEvents: 'auto' }}
         onKeyDown={handleKeyNavigation}
         data-onboarding="tabstrip"
+        onDragOver={(e) => {
+          // Allow drop for tab reordering (not graph drag)
+          if (draggedTabIdRef.current && !e.dataTransfer.types.includes(TAB_GRAPH_DRAG_MIME)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Calculate drop index based on mouse position
+            const rect = stripRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            
+            const mouseX = e.clientX - rect.left;
+            const tabElements = stripRef.current?.querySelectorAll('[data-tab]');
+            if (!tabElements || tabElements.length === 0) return;
+            
+            let dropIndex = tabs.length;
+            for (let i = 0; i < tabElements.length; i++) {
+              const tabEl = tabElements[i] as HTMLElement;
+              const tabRect = tabEl.getBoundingClientRect();
+              const relativeX = tabRect.left - rect.left + tabRect.width / 2;
+              
+              if (mouseX < relativeX) {
+                dropIndex = i;
+                break;
+              }
+            }
+            
+            dragOverIndexRef.current = dropIndex;
+          }
+        }}
+        onDrop={async (e) => {
+          // Handle tab reordering (not graph drag)
+          if (draggedTabIdRef.current && !e.dataTransfer.types.includes(TAB_GRAPH_DRAG_MIME)) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const tabId = draggedTabIdRef.current;
+            const newIndex = dragOverIndexRef.current ?? tabs.length - 1;
+            
+            // Find current index
+            const currentIndex = tabs.findIndex(t => t.id === tabId);
+            if (currentIndex === -1 || currentIndex === newIndex) {
+              draggedTabIdRef.current = null;
+              dragOverIndexRef.current = null;
+              return;
+            }
+            
+            // Optimistically update UI
+            const newTabs = [...tabs];
+            const [movedTab] = newTabs.splice(currentIndex, 1);
+            newTabs.splice(newIndex, 0, movedTab);
+            setTabs(newTabs);
+            tabsRef.current = newTabs;
+            setAllTabs(mapTabsForStore(newTabs));
+            
+            // Call IPC to reorder
+            try {
+              const result = await ipc.tabs.reorder(tabId, newIndex);
+              if (!result.success) {
+                // Revert on failure
+                setTabs(tabs);
+                tabsRef.current = tabs;
+                setAllTabs(mapTabsForStore(tabs));
+                if (IS_DEV) {
+                  console.warn('[TabStrip] Reorder failed:', result.error);
+                }
+              }
+            } catch (error) {
+              // Revert on error
+              setTabs(tabs);
+              tabsRef.current = tabs;
+              setAllTabs(mapTabsForStore(tabs));
+              if (IS_DEV) {
+                console.error('[TabStrip] Reorder error:', error);
+              }
+            }
+            
+            draggedTabIdRef.current = null;
+            dragOverIndexRef.current = null;
+          }
+        }}
+        onDragLeave={(e) => {
+          // Clear drag state when leaving tabstrip
+          if (!stripRef.current?.contains(e.relatedTarget as Node)) {
+            dragOverIndexRef.current = null;
+          }
+        }}
       >
         <PredictivePrefetchHint entry={prefetchEntries[0] ?? null} onOpen={handlePrefetchOpen} />
         <PredictiveClusterChip clusters={predictedClusters} onApply={handleApplyCluster} summary={predictionSummary} />
@@ -1195,12 +1299,25 @@ export function TabStrip() {
                     draggable
                     onDragStart={(event) => {
                       try {
-                        event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
-                        if (tab.title) {
-                          event.dataTransfer?.setData('text/plain', tab.title);
-                        }
-                        if (event.dataTransfer) {
-                          event.dataTransfer.effectAllowed = 'copy';
+                        // Check if this is a graph drag (e.g., Ctrl/Cmd held) or reorder drag
+                        const isGraphDrag = event.ctrlKey || event.metaKey;
+                        
+                        if (isGraphDrag) {
+                          // Graph drag - set graph MIME type
+                          event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
+                          if (tab.title) {
+                            event.dataTransfer?.setData('text/plain', tab.title);
+                          }
+                          if (event.dataTransfer) {
+                            event.dataTransfer.effectAllowed = 'copy';
+                          }
+                        } else {
+                          // Reorder drag - track tab ID and allow move
+                          draggedTabIdRef.current = tab.id;
+                          if (event.dataTransfer) {
+                            event.dataTransfer.effectAllowed = 'move';
+                            // Don't set any data to distinguish from graph drag
+                          }
                         }
                       } catch (error) {
                         if (IS_DEV) {
@@ -1209,12 +1326,18 @@ export function TabStrip() {
                       }
                     }}
                     onDragEnd={() => {
-                      window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
+                      // Only fire graph drag end if it was a graph drag
+                      if (draggedTabIdRef.current === null) {
+                        window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
+                      }
+                      draggedTabIdRef.current = null;
+                      dragOverIndexRef.current = null;
                     }}
                     onClick={(e) => {
                       // Primary click handler - ensure it fires
                       e.preventDefault();
                       e.stopPropagation();
+                      e.stopImmediatePropagation();
                       // Call activateTab immediately
                       activateTab(tab.id);
                     }}
@@ -1257,10 +1380,11 @@ export function TabStrip() {
                         }
                       }
                     }}
-                    onAuxClick={(e: any) => { 
-                      e.preventDefault(); 
-                      e.stopPropagation();
+                    onAuxClick={(e: React.MouseEvent) => { 
                       if (e.button === 1) { // Middle click
+                        e.preventDefault(); 
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
                         closeTab(tab.id); 
                       }
                     }}
@@ -1406,19 +1530,21 @@ export function TabStrip() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        e.stopImmediatePropagation();
                         closeTab(tab.id);
                       }}
                       onAuxClick={(e) => {
                         if (e.button === 1) {
                           e.preventDefault();
                           e.stopPropagation();
+                          e.stopImmediatePropagation();
                           closeTab(tab.id);
                         }
                       }}
                       onMouseDown={(e) => {
-                        // Stop propagation but don't prevent default
-                        // Preventing default can interfere with click events
+                        // Stop propagation to prevent parent tab activation
                         e.stopPropagation();
+                        e.stopImmediatePropagation();
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
@@ -1443,23 +1569,28 @@ export function TabStrip() {
           ) : null}
           </AnimatePresence>
 
-          {/* New Tab Button */}
-          <motion.button
-            onClick={addTab}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                addTab();
-              }
-            }}
-            aria-label="New tab"
-            className="flex-shrink-0 p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            title="New Tab (Ctrl+T / ⌘T)"
-          >
-            <Plus size={18} />
-          </motion.button>
+          {/* Container Selector & New Tab Button */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="hidden lg:block">
+              <ContainerQuickSelector compact showLabel={false} />
+            </div>
+            <motion.button
+              onClick={addTab}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  addTab();
+                }
+              }}
+              aria-label="New tab"
+              className="p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              title="New Tab (Ctrl+T / ⌘T)"
+            >
+              <Plus size={18} />
+            </motion.button>
+          </div>
         </div>
 
         {/* Context Menu */}

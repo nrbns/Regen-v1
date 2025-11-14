@@ -73,6 +73,25 @@ export const TabActivateRequest = z.object({
   id: z.string(),
 });
 
+export const TabReorderRequest = z.object({
+  tabId: z.string(),
+  newIndex: z.number().int().min(0),
+});
+
+export const TabReopenClosedRequest = z.object({
+  index: z.number().int().min(0).optional(), // Optional: reopen specific index (0 = most recent)
+});
+
+export const TabGetContextRequest = z.object({
+  tabId: z.string().optional(), // If not provided, uses active tab
+});
+
+export const RedixAskRequest = z.object({
+  prompt: z.string().min(1),
+  sessionId: z.string().optional(),
+  stream: z.boolean().optional().default(true),
+});
+
 export const TabNavigateRequest = z.object({
   id: z.string().or(z.literal('active')),
   url: z.string().url(),
@@ -376,6 +395,9 @@ export type TabCreateResponse = z.infer<typeof TabCreateResponse>;
 export type TabCreateWithProfileRequest = z.infer<typeof TabCreateWithProfileRequest>;
 export type TabCloseRequest = z.infer<typeof TabCloseRequest>;
 export type TabActivateRequest = z.infer<typeof TabActivateRequest>;
+export type TabReorderRequest = z.infer<typeof TabReorderRequest>;
+export type TabReopenClosedRequest = z.infer<typeof TabReopenClosedRequest>;
+export type RedixAskRequest = z.infer<typeof RedixAskRequest>;
 export type TabNavigateRequest = z.infer<typeof TabNavigateRequest>;
 export type TabListResponse = z.infer<typeof TabListResponse>;
 export type TabInfo = z.infer<typeof TabInfo>;

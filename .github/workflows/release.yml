@@ -180,6 +180,48 @@ jobs:
           echo "Release notes:" 
           cat release-notes.md
       
+      - name: Generate SHA-256 checksums
+        id: checksums
+        run: |
+          echo "# SHA-256 Checksums" > checksums.md
+          echo "" >> checksums.md
+          echo "## Windows" >> checksums.md
+          find artifacts/dist-win -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.msi" \) | while read file; do
+            if [ -f "$file" ]; then
+              sha256=$(sha256sum "$file" | cut -d' ' -f1)
+              filename=$(basename "$file")
+              echo "\`$filename\`: \`$sha256\`" >> checksums.md
+            fi
+          done || echo "No Windows artifacts found" >> checksums.md
+          
+          echo "" >> checksums.md
+          echo "## macOS" >> checksums.md
+          find artifacts/dist-mac -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.pkg" \) | while read file; do
+            if [ -f "$file" ]; then
+              sha256=$(sha256sum "$file" | cut -d' ' -f1)
+              filename=$(basename "$file")
+              echo "\`$filename\`: \`$sha256\`" >> checksums.md
+            fi
+          done || echo "No macOS artifacts found" >> checksums.md
+          
+          echo "" >> checksums.md
+          echo "## Linux" >> checksums.md
+          find artifacts/dist-linux -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" \) | while read file; do
+            if [ -f "$file" ]; then
+              sha256=$(sha256sum "$file" | cut -d' ' -f1)
+              filename=$(basename "$file")
+              echo "\`$filename\`: \`$sha256\`" >> checksums.md
+            fi
+          done || echo "No Linux artifacts found" >> checksums.md
+          
+          cat checksums.md
+      
+      - name: Combine release notes with checksums
+        run: |
+          echo "" >> release-notes.md
+          echo "" >> release-notes.md
+          cat checksums.md >> release-notes.md
+      
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:

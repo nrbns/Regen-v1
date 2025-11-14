@@ -1,5 +1,5 @@
 /**
- * AI & Privacy E2E Tests
+ * E2E Tests: Privacy Toggles & Shields
  * Tests AI agent console, privacy toggles, and proxy functionality
  */
 

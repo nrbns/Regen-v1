@@ -1,0 +1,43 @@
+{
+  "default": {
+    "suspendBackgroundTabs": true,
+    "suspendAfterMinutes": 12,
+    "throttleHeavyTabs": true,
+    "memoryThreshold": 70,
+    "cpuThreshold": 80,
+    "batteryThreshold": 20,
+    "prefetchEnabled": true,
+    "prefetchOnWifiOnly": true
+  },
+  "performance": {
+    "suspendBackgroundTabs": true,
+    "suspendAfterMinutes": 5,
+    "throttleHeavyTabs": true,
+    "memoryThreshold": 60,
+    "cpuThreshold": 70,
+    "batteryThreshold": 30,
+    "prefetchEnabled": false,
+    "prefetchOnWifiOnly": true
+  },
+  "balanced": {
+    "suspendBackgroundTabs": true,
+    "suspendAfterMinutes": 12,
+    "throttleHeavyTabs": true,
+    "memoryThreshold": 70,
+    "cpuThreshold": 80,
+    "batteryThreshold": 20,
+    "prefetchEnabled": true,
+    "prefetchOnWifiOnly": true
+  },
+  "battery": {
+    "suspendBackgroundTabs": true,
+    "suspendAfterMinutes": 8,
+    "throttleHeavyTabs": true,
+    "memoryThreshold": 50,
+    "cpuThreshold": 60,
+    "batteryThreshold": 40,
+    "prefetchEnabled": false,
+    "prefetchOnWifiOnly": true
+  }
+}
+

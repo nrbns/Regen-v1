@@ -1,11 +1,14 @@
 // @ts-nocheck
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, Info, RefreshCcw, ChevronRight } from 'lucide-react';
+import { Sparkles, Info, RefreshCcw, ChevronRight, Search } from 'lucide-react';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
+import { useDebounce } from '../../utils/useDebounce';
+import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
+import { searchLocal } from '../../utils/lunrIndex';
 import {
   ResearchResult,
   ResearchSource,
@@ -16,6 +19,8 @@ import {
 import { ContainerInfo } from '../../lib/ipc-events';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
+import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
+import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 
 export default function ResearchPanel() {
   const [query, setQuery] = useState('');
@@ -28,10 +33,16 @@ export default function ResearchPanel() {
   const [region, setRegion] = useState<RegionOption>('global');
   const [graphData, setGraphData] = useState<any>(null);
   const [showGraph, setShowGraph] = useState(true);
-  const { activeId } = useTabsStore();
+  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Array<{ title: string; subtitle?: string; action?: () => void }>>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [autocompleteLoading, setAutocompleteLoading] = useState(false);
+  const autocompleteRef = useRef<HTMLDivElement>(null);
+  const { activeId, tabs } = useTabsStore();
   const useHybridSearch = useSettingsStore((s) => s.searchEngine !== 'mock');
   const { containers, activeContainerId, setContainers } = useContainerStore();
   const graphSignatureRef = useRef<string>('');
+  const debouncedQuery = useDebounce(query, 300);
 
   useEffect(() => {
     if (containers.length === 0) {
@@ -83,17 +94,120 @@ export default function ResearchPanel() {
         return;
       }
 
-      const response = await ipc.research.queryEnhanced(searchQuery, {
-        maxSources: 12,
-        includeCounterpoints,
-        region: region !== 'global' ? region : undefined,
-        recencyWeight,
-        authorityWeight,
-      });
-      setResult(response);
+      // Try Redix/backend first
+      try {
+        const response = await ipc.research.queryEnhanced(searchQuery, {
+          maxSources: 12,
+          includeCounterpoints,
+          region: region !== 'global' ? region : undefined,
+          recencyWeight,
+          authorityWeight,
+        });
+        setResult(response);
+        return;
+      } catch (redixError) {
+        console.warn('[Research] Redix query failed, falling back to DuckDuckGo:', redixError);
+        
+        // Fallback to DuckDuckGo Instant Answer API
+        const duckResult = await fetchDuckDuckGoInstant(searchQuery);
+        if (duckResult) {
+          const formatted = formatDuckDuckGoResults(duckResult);
+          
+          // Also try local search
+          const localResults = await searchLocal(searchQuery).catch(() => []);
+          
+          // Convert to ResearchResult format
+          const sources: ResearchSource[] = [
+            // DuckDuckGo instant answer
+            ...(duckResult.Heading && duckResult.AbstractText ? [{
+              id: 'duck-instant',
+              title: duckResult.Heading,
+              url: duckResult.AbstractURL || '',
+              domain: duckResult.AbstractURL ? new URL(duckResult.AbstractURL).hostname : 'duckduckgo.com',
+              snippet: duckResult.AbstractText,
+              text: duckResult.AbstractText,
+              type: 'web' as ResearchSourceType,
+              relevanceScore: 100,
+              timestamp: Date.now(),
+            }] : []),
+            // DuckDuckGo web results
+            ...formatted
+              .filter(f => f.type === 'result' && f.url)
+              .map((f, idx) => ({
+                id: `duck-result-${idx}`,
+                title: f.title,
+                url: f.url || '',
+                domain: f.url ? new URL(f.url).hostname : '',
+                snippet: f.snippet,
+                text: f.snippet,
+                type: 'web' as ResearchSourceType,
+                relevanceScore: 85 - idx * 5,
+                timestamp: Date.now(),
+              })),
+            // Local docs results
+            ...localResults.map((lr, idx) => ({
+              id: `local-${lr.id}`,
+              title: lr.title,
+              url: '',
+              domain: 'local',
+              snippet: lr.snippet,
+              text: lr.snippet,
+              type: 'document' as ResearchSourceType,
+              relevanceScore: 90 - idx * 3,
+              timestamp: Date.now(),
+            })),
+          ];
+
+          setResult({
+            query: searchQuery,
+            summary: duckResult.AbstractText || duckResult.Answer || duckResult.Definition || 
+                     `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+            sources: sources.slice(0, 12),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.7,
+              confidence: 'medium',
+              suggestions: ['Results from DuckDuckGo Instant Answer API'],
+            },
+          });
+        } else {
+          // Final fallback: try local search only
+          const localResults = await searchLocal(searchQuery).catch(() => []);
+          if (localResults.length > 0) {
+            setResult({
+              query: searchQuery,
+              summary: `Found ${localResults.length} local result${localResults.length === 1 ? '' : 's'}`,
+              sources: localResults.map((lr, idx) => ({
+                id: `local-${lr.id}`,
+                title: lr.title,
+                url: '',
+                domain: 'local',
+                snippet: lr.snippet,
+                text: lr.snippet,
+                type: 'document' as ResearchSourceType,
+                relevanceScore: 90 - idx * 3,
+                timestamp: Date.now(),
+              })),
+              citations: [],
+              inlineEvidence: [],
+              contradictions: [],
+              verification: {
+                score: 0.6,
+                confidence: 'low',
+                suggestions: ['Results from local index only'],
+              },
+            });
+          } else {
+            throw new Error('No search results available. Please check your connection or try a different query.');
+          }
+        }
+      }
     } catch (err) {
       console.error('Research query failed:', err);
-      setError('Unable to complete the research request. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Unable to complete the research request. Please try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -229,55 +343,220 @@ export default function ResearchPanel() {
     void handleSearch(example);
   };
 
+  // Autocomplete suggestions
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setAutocompleteSuggestions([]);
+      setShowAutocomplete(false);
+      return;
+    }
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    setAutocompleteLoading(true);
+
+    const fetchSuggestions = async () => {
+      const suggestions: Array<{ title: string; subtitle?: string; action?: () => void }> = [];
+
+      // Try Redix streaming for live suggestions (if online)
+      if (!isOffline) {
+        try {
+          let hasResults = false;
+          await ipc.redix.stream(trimmed, {
+            onChunk: (chunk: string) => {
+              // Parse Redix suggestions from streaming response
+              // For now, show a simple suggestion
+              if (!hasResults && chunk.trim()) {
+                hasResults = true;
+                suggestions.push({
+                  title: `Ask Redix: ${trimmed}`,
+                  subtitle: 'Get AI-powered research suggestions',
+                  action: () => {
+                    setQuery(trimmed);
+                    setShowAutocomplete(false);
+                    void handleSearch(trimmed);
+                  },
+                });
+              }
+            },
+            onError: () => {
+              // Fall through to DuckDuckGo fallback
+            },
+          });
+        } catch {
+          // Fall through to DuckDuckGo fallback
+        }
+      }
+
+      // DuckDuckGo instant answer as fallback suggestion
+      if (suggestions.length === 0 && !isOffline) {
+        try {
+          const duckResult = await fetchDuckDuckGoInstant(trimmed);
+          if (duckResult?.Heading) {
+            suggestions.push({
+              title: duckResult.Heading,
+              subtitle: duckResult.AbstractText?.slice(0, 100) || 'Instant answer from DuckDuckGo',
+              action: () => {
+                setQuery(trimmed);
+                setShowAutocomplete(false);
+                void handleSearch(trimmed);
+              },
+            });
+          }
+        } catch {
+          // Silent fail - continue with other suggestions
+        }
+      }
+
+      // Fallback: Recent history
+      try {
+        const history = await ipc.history.search(trimmed);
+        if (Array.isArray(history) && history.length > 0) {
+          history.slice(0, 5).forEach((item: any) => {
+            if (!suggestions.find((s) => s.title === item.title)) {
+              suggestions.push({
+                title: item.title || item.url || 'Untitled',
+                subtitle: item.url,
+                action: () => {
+                  setQuery(item.title || item.url);
+                  setShowAutocomplete(false);
+                  void handleSearch(item.title || item.url);
+                },
+              });
+            }
+          });
+        }
+      } catch {
+        // Silent fail
+      }
+
+      // Tab matches
+      tabs.forEach((tab) => {
+        const title = tab.title || 'Untitled';
+        const tabUrl = tab.url || '';
+        if (
+          (title.toLowerCase().includes(trimmed.toLowerCase()) ||
+            tabUrl.toLowerCase().includes(trimmed.toLowerCase())) &&
+          !suggestions.find((s) => s.title === title)
+        ) {
+          suggestions.push({
+            title,
+            subtitle: tabUrl,
+            action: () => {
+              setQuery(title);
+              setShowAutocomplete(false);
+              void handleSearch(title);
+            },
+          });
+        }
+      });
+
+      setAutocompleteSuggestions(suggestions);
+      setShowAutocomplete(suggestions.length > 0);
+      setAutocompleteLoading(false);
+    };
+
+    void fetchSuggestions();
+  }, [debouncedQuery, tabs]);
+
+  // Close autocomplete when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (autocompleteRef.current && !autocompleteRef.current.contains(event.target as Node)) {
+        setShowAutocomplete(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-[#0f111a] text-gray-100">
-      <header className="border-b border-white/5 bg-black/20 backdrop-blur">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-[#0f111a] text-gray-100 min-h-0">
+      <header className="border-b border-white/5 bg-black/20 backdrop-blur flex-shrink-0">
         <div className="flex items-center justify-between px-6 pt-6 pb-3">
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold text-white">Research Mode</h1>
             <p className="text-sm text-gray-400">
               Aggregate evidence, generate traceable answers, and surface counterpoints without leaving the browser.
             </p>
           </div>
-          <ActiveContainerBadge containers={containers} activeContainerId={activeContainerId} />
+          <div className="flex-shrink-0 ml-4">
+            <ActiveContainerBadge containers={containers} activeContainerId={activeContainerId} />
+          </div>
         </div>
 
-        <div className="px-6 pb-5">
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await handleSearch();
-            }}
-            className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all"
-          >
-            <input
-              className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask a question, compare claims, or request a briefing…"
-              disabled={loading}
-            />
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={loading || !query.trim()}
-                className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {loading ? 'Researching…' : 'Run research'}
-              </button>
-              <VoiceButton
-                onResult={(text) => {
-                  setQuery(text);
-                  setTimeout(() => handleSearch(text), 120);
+        <div className="px-6 pb-5 flex-shrink-0">
+          <div className="relative max-w-4xl" ref={autocompleteRef}>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setShowAutocomplete(false);
+                await handleSearch();
+              }}
+              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all w-full"
+            >
+              <Search size={18} className="text-gray-500 flex-shrink-0" />
+              <input
+                className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setShowAutocomplete(true);
                 }}
-                small
+                onFocus={() => {
+                  if (autocompleteSuggestions.length > 0) {
+                    setShowAutocomplete(true);
+                  }
+                }}
+                placeholder="Ask a question, compare claims, or request a briefing…"
+                disabled={loading}
               />
-            </div>
-          </form>
+              <div className="flex items-center gap-2">
+                {autocompleteLoading && (
+                  <div className="text-xs text-gray-400 animate-pulse">Searching…</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading || !query.trim()}
+                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {loading ? 'Researching…' : 'Run research'}
+                </button>
+                <VoiceButton
+                  onResult={(text) => {
+                    setQuery(text);
+                    setTimeout(() => handleSearch(text), 120);
+                  }}
+                  small
+                />
+              </div>
+            </form>
+            {showAutocomplete && autocompleteSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50 max-h-[400px] min-h-[120px] overflow-y-auto z-[100]">
+                <div className="p-2 space-y-1">
+                  {autocompleteSuggestions.map((suggestion, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        suggestion.action?.();
+                      }}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <div className="text-sm text-white font-medium line-clamp-1">{suggestion.title}</div>
+                      {suggestion.subtitle && (
+                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{suggestion.subtitle}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className="flex h-[calc(100%-152px)] gap-6 overflow-hidden px-6 pb-6">
+      <main className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
         <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
           <div className="flex h-full flex-col space-y-4 p-5">
@@ -311,6 +590,12 @@ export default function ResearchPanel() {
 
             {!loading && result && (
               <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+                <EvidenceOverlay
+                  evidence={result.evidence || []}
+                  sources={result.sources}
+                  activeEvidenceId={activeEvidenceId}
+                  onEvidenceClick={setActiveEvidenceId}
+                />
                 <ResearchResultView
                   result={result}
                   onOpenSource={handleOpenUrl}
@@ -489,8 +774,62 @@ function ResearchResultView({
           inlineEvidence={result.inlineEvidence}
           sources={result.sources}
           activeSourceId={activeSourceId}
-          onActivate={onActiveSourceChange}
+          onActivate={(sourceKey) => {
+            onActiveSourceChange(sourceKey);
+            // Find evidence for this source
+            const sourceIndex = result.sources.findIndex(s => (s.url ?? `source-${result.sources.indexOf(s)}`) === sourceKey);
+            if (sourceIndex !== -1) {
+              const evidence = result.evidence?.find(e => e.sourceIndex === sourceIndex);
+              if (evidence) {
+                setActiveEvidenceId(evidence.id);
+              }
+            }
+          }}
           onOpenSource={onOpenSource}
+          onExport={async (format) => {
+            try {
+              if (format === 'markdown') {
+                let markdown = `# Research: ${result.query}\n\n`;
+                markdown += `## Summary\n\n${result.summary}\n\n`;
+                markdown += `## Citations\n\n`;
+                result.citations.forEach(c => {
+                  const source = result.sources[c.sourceIndex];
+                  markdown += `[${c.index}] **${source?.title || 'Unknown'}**\n`;
+                  markdown += `  - URL: ${source?.url || ''}\n`;
+                  markdown += `  - Domain: ${source?.domain || ''}\n`;
+                  markdown += `  - Confidence: ${(c.confidence * 100).toFixed(0)}%\n`;
+                  if (c.quote) {
+                    markdown += `  - Quote: "${c.quote}"\n`;
+                  }
+                  markdown += `\n`;
+                });
+                markdown += `## Sources\n\n`;
+                result.sources.forEach((s, idx) => {
+                  markdown += `${idx + 1}. **[${s.title}](${s.url})** - ${s.domain}\n`;
+                  if (s.snippet) {
+                    markdown += `   ${s.snippet}\n`;
+                  }
+                  markdown += `\n`;
+                });
+                const blob = new Blob([markdown], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `research-${Date.now()}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+              } else {
+                // PDF export via IPC
+                await ipc.research.export({
+                  format: 'markdown', // PDF would require backend support
+                  sources: result.sources.map(s => s.url),
+                  includeNotes: true,
+                });
+              }
+            } catch (error) {
+              console.error('Export failed:', error);
+            }
+          }}
         />
 
         {result.citations.length > 0 && (

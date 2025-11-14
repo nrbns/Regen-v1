@@ -1125,7 +1125,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl overflow-hidden z-50"
+            className="absolute top-full left-0 right-0 mt-2 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[500px] overflow-y-auto"
           >
             {suggestions.map((suggestion, index) => (
               <motion.button

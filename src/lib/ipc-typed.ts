@@ -586,6 +586,43 @@ export const ipc = {
         id,
         containerId,
       }),
+    reorder: (tabId: string, newIndex: number) =>
+      ipcCall<{ tabId: string; newIndex: number }, { success: boolean; error?: string }>('tabs:reorder', {
+        tabId,
+        newIndex,
+      }),
+    reopenClosed: (index?: number) =>
+      ipcCall<{ index?: number }, { success: boolean; tabId?: string; error?: string }>('tabs:reopenClosed', {
+        index,
+      }),
+    listClosed: () =>
+      ipcCall<
+        unknown,
+        Array<{
+          id: string;
+          url: string;
+          title: string;
+          containerId?: string;
+          containerName?: string;
+          containerColor?: string;
+          mode?: 'normal' | 'ghost' | 'private';
+          closedAt: number;
+        }>
+      >('tabs:listClosed', {}),
+    getContext: (tabId?: string) =>
+      ipcCall<{ tabId?: string }, { success: boolean; context?: { tabId: string; url: string; title: string; pageText: string; domain: string }; error?: string }>(
+        'tabs:getContext', { tabId }
+      ),
+  },
+  workflow: {
+    launch: (query: string) =>
+      ipcCall<{ query: string }, { success: boolean; workflowId?: string; workflowName?: string; results?: any[]; error?: string }>(
+        'workflow:launch', { query }
+      ),
+    list: () =>
+      ipcCall<unknown, { success: boolean; workflows?: Array<{ id: string; name: string; description: string }> }>(
+        'workflow:list', {}
+      ),
   },
   tor: {
     async status() {
@@ -1397,6 +1434,35 @@ export const ipc = {
     sentinel: {
       audit: (tabId?: string | null) =>
         ipcCall<{ tabId?: string | null } | undefined, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
+    },
+  },
+  redix: {
+    ask: (prompt: string, options?: { sessionId?: string; stream?: boolean }) =>
+      ipcCall<
+        { prompt: string; sessionId?: string; stream?: boolean },
+        { success: boolean; response?: string; tokens?: number; cached?: boolean; ready?: boolean; error?: string; streaming?: boolean }
+      >('redix:ask', { prompt, ...options }),
+    status: () =>
+      ipcCall<unknown, { success: boolean; ready: boolean; backend: string; message: string; error?: string }>('redix:status', {}),
+    stream: (
+      prompt: string,
+      options?: { sessionId?: string },
+      onChunk?: (chunk: { type: string; text?: string; tokens?: number; done?: boolean; error?: string }) => void
+    ) => {
+      // For streaming, we'll use events
+      if (onChunk && window.ipc) {
+        const handler = (_event: any, data: { type: string; text?: string; tokens?: number; done?: boolean; error?: string }) => {
+          onChunk(data);
+          if (data.done) {
+            window.ipc?.removeListener?.('redix:chunk', handler);
+          }
+        };
+        window.ipc.on?.('redix:chunk', handler);
+      }
+      return ipcCall<{ prompt: string; sessionId?: string; stream: boolean }, { success: boolean; error?: string }>(
+        'redix:stream',
+        { prompt, stream: true, ...options }
+      );
     },
   },
 };

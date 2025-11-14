@@ -203,6 +203,70 @@ export function ResearchSplit() {
     [highlights],
   );
 
+  const handleLaunchFlow = async () => {
+    if (!activeId) return;
+    
+    setExtracting(true);
+    setReaderContent('');
+    try {
+      // Get tab context
+      const context = await ipc.tabs.getContext(activeId);
+      if (context.success && context.context) {
+        const query = context.context.title || context.context.url || 'Extract and summarize this page';
+        
+        // Launch workflow
+        const result = await ipc.workflow.launch(query);
+        if (result.success) {
+          // Trigger content extraction
+          const extractResult = await ipc.research.extractContent(activeId) as any;
+          if (extractResult?.html) {
+            setReaderContent(extractResult.html);
+          } else if (extractResult?.content) {
+            const formattedContent = extractResult.content
+              .split('\n\n')
+              .filter(p => p.trim().length > 0)
+              .map(p => `<p>${p.trim()}</p>`)
+              .join('');
+            setReaderContent(`<div class="prose prose-invert max-w-none"><h1>${extractResult.title || currentUrl}</h1>${formattedContent}</div>`);
+          }
+        }
+      } else {
+        // Fallback: just extract content
+        const extractResult = await ipc.research.extractContent(activeId) as any;
+        if (extractResult?.html) {
+          setReaderContent(extractResult.html);
+        } else if (extractResult?.content) {
+          const formattedContent = extractResult.content
+            .split('\n\n')
+            .filter(p => p.trim().length > 0)
+            .map(p => `<p>${p.trim()}</p>`)
+            .join('');
+          setReaderContent(`<div class="prose prose-invert max-w-none"><h1>${extractResult.title || currentUrl}</h1>${formattedContent}</div>`);
+        }
+      }
+    } catch (error) {
+      console.error('Launch Flow failed:', error);
+      // Fallback: just extract content
+      try {
+        const extractResult = await ipc.research.extractContent(activeId) as any;
+        if (extractResult?.html) {
+          setReaderContent(extractResult.html);
+        } else if (extractResult?.content) {
+          const formattedContent = extractResult.content
+            .split('\n\n')
+            .filter(p => p.trim().length > 0)
+            .map(p => `<p>${p.trim()}</p>`)
+            .join('');
+          setReaderContent(`<div class="prose prose-invert max-w-none"><h1>${extractResult.title || currentUrl}</h1>${formattedContent}</div>`);
+        }
+      } catch (extractError) {
+        console.error('Content extraction also failed:', extractError);
+      }
+    } finally {
+      setExtracting(false);
+    }
+  };
+
   const handleExport = async (format: 'markdown' | 'obsidian' | 'notion') => {
     if (!currentUrl || currentUrl.startsWith('about:') || currentUrl.startsWith('chrome:')) {
       return;
@@ -298,11 +362,31 @@ export function ResearchSplit() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="text-center text-gray-500 py-12"
+                className="text-center text-gray-500 py-12 px-4"
               >
                 <FileText size={48} className="mx-auto mb-4 opacity-50" />
-                <p>No readable content available</p>
-                <p className="text-xs mt-2">Navigate to a page to extract content</p>
+                <p className="mb-2">No readable content available</p>
+                <p className="text-xs mb-4">Navigate to a page to extract content</p>
+                {activeId && currentUrl && !currentUrl.startsWith('about:') && !currentUrl.startsWith('chrome:') && (
+                  <button
+                    type="button"
+                    onClick={handleLaunchFlow}
+                    disabled={extracting}
+                    className="inline-flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-200 hover:border-blue-400/60 hover:bg-blue-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {extracting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <FileText size={16} />
+                        Launch Flow
+                      </>
+                    )}
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -313,128 +397,30 @@ export function ResearchSplit() {
       <div className="w-80 flex flex-col border-l border-gray-700/30 bg-gray-900/50 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800/50">
           <div className="flex items-center gap-2">
-            <FileText size={16} className="text-green-400" />
+            <PenLine size={16} className="text-purple-400" />
             <span className="text-sm font-medium text-gray-300">Notes</span>
           </div>
-          {currentUrl && (
-            <motion.span
-              className="text-xs text-gray-500 px-2 py-0.5 bg-gray-800/40 rounded"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleExport('markdown')}
+              disabled={!currentUrl || exporting === 'markdown'}
+              className="p-1.5 rounded hover:bg-gray-800/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Export as Markdown"
             >
-              Auto-saving...
-            </motion.span>
-          )}
-        </div>
-
-        {/* Highlights List */}
-        {sortedHighlights.length > 0 && (
-          <div className="border-b border-gray-800/50 p-3 space-y-3 max-h-52 overflow-y-auto">
-            <div className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-2">
-              <PenLine size={12} />
-              Highlights & notes
-            </div>
-            {sortedHighlights.map((highlight) => (
-              <div key={highlight.id} className="bg-gray-800/30 rounded-lg border border-gray-800/60 p-3 space-y-2">
-                <div className="flex items-start gap-2">
-                  <div
-                    className="px-2 py-1 rounded-md text-xs font-medium max-w-xs truncate"
-                    style={{ backgroundColor: `${highlight.color}20`, color: highlight.color }}
-                    title={highlight.text}
-                  >
-                    {highlight.text.slice(0, 120)}
-                    {highlight.text.length > 120 ? '…' : ''}
-                  </div>
-                  <button
-                    onClick={() => setHighlights((prev) => prev.filter((h) => h.id !== highlight.id))}
-                    className="p-1 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-800/50 transition-colors"
-                    aria-label="Remove highlight"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-                <textarea
-                  value={highlight.note ?? ''}
-                  onChange={(e) => handleHighlightNoteChange(highlight.id, e.target.value)}
-                  placeholder="Add a note for this highlight..."
-                  className="w-full text-xs bg-gray-900/40 border border-gray-800/60 rounded-md px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
-                  rows={2}
-                />
-                <div className="text-[10px] text-gray-500">
-                  Saved {new Date(highlight.createdAt).toLocaleString()}
-                </div>
-              </div>
-            ))}
+              <FileDown size={14} className="text-gray-400" />
+            </button>
           </div>
-        )}
-
-        {/* Notes Editor */}
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Take notes, add insights, save findings..."
-          className="flex-1 p-4 bg-transparent text-sm text-gray-300 placeholder-gray-600 resize-none focus:outline-none"
-        />
-
-        {/* Footer Actions */}
-        <div className="border-t border-gray-800/50 p-3 flex items-center gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={async () => {
-              if (currentUrl && !currentUrl.startsWith('about:') && !currentUrl.startsWith('chrome:')) {
-                saveNotes.flush();
-                try {
-                  await ipc.research.saveNotes(currentUrl, notes, highlights);
-                } catch (error) {
-                  console.error('Failed to save notes:', error);
-                }
-              }
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <textarea
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              saveNotes(e.target.value, highlights);
             }}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded text-xs text-blue-400 transition-colors"
-          >
-            <Save size={14} />
-            Save
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={!!exporting}
-            onClick={() => handleExport('markdown')}
-            className={`px-3 py-2 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded text-xs text-green-400 transition-colors flex items-center gap-2 ${
-              exporting ? 'opacity-60 cursor-wait' : ''
-            }`}
-            title="Export to Markdown"
-          >
-            <FileDown size={14} />
-            {exporting === 'markdown' ? 'Exporting…' : 'Export Markdown'}
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={!!exporting}
-            onClick={() => handleExport('obsidian')}
-            className={`px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded text-xs text-purple-300 transition-colors flex items-center gap-2 ${
-              exporting ? 'opacity-60 cursor-wait' : ''
-            }`}
-            title="Export notes and highlights to Obsidian-compatible markdown files"
-          >
-            <Archive size={14} />
-            {exporting === 'obsidian' ? 'Exporting…' : 'Obsidian Export'}
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            disabled={!!exporting}
-            onClick={() => handleExport('notion')}
-            className={`px-3 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 rounded text-xs text-emerald-300 transition-colors flex items-center gap-2 ${
-              exporting ? 'opacity-60 cursor-wait' : ''
-            }`}
-            title="Sync notes and highlights to Notion"
-          >
-            <Send size={14} />
-            {exporting === 'notion' ? 'Exporting…' : 'Sync to Notion'}
-          </motion.button>
+            placeholder="Add your notes here..."
+            className="w-full h-full bg-transparent text-sm text-gray-300 placeholder-gray-500 resize-none border-none outline-none"
+          />
         </div>
       </div>
     </div>

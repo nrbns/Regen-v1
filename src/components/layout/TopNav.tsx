@@ -42,6 +42,7 @@ import { ProgressBar } from '../TopNav/ProgressBar';
 import { SessionSwitcher } from '../sessions/SessionSwitcher';
 import { ProfileQuickSwitcher } from '../sessions/ProfileQuickSwitcher';
 import { ContainerSwitcher } from '../sessions/ContainerSwitcher';
+import { WorkspaceSwitcher } from '../workspace/WorkspaceSwitcher';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { DownloadUpdate } from '../../lib/ipc-events';
 import { ThemeSwitcher } from '../TopNav/ThemeSwitcher';
@@ -58,6 +59,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { createFallbackTab } from '../../lib/tabFallback';
+import { RedixQuickDialog } from '../RedixQuickDialog';
 
 type MenuKey = 'file' | 'ai' | 'tools';
 
@@ -118,6 +120,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
   const [menuOpen, setMenuOpen] = useState<Record<MenuKey, boolean>>(createMenuState());
   const [compactMenuOpen, setCompactMenuOpen] = useState(false);
   const compactMenuRef = useRef<HTMLDivElement | null>(null);
+  const [redixDialogOpen, setRedixDialogOpen] = useState(false);
 
   const closeMenus = useCallback(() => {
     setMenuOpen(createMenuState());
@@ -601,7 +604,10 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         icon: Sparkles,
         label: 'Ask Redix',
         shortcut: isMac ? '⌘ K' : 'Ctrl K',
-        onSelect: () => onCommandPalette(),
+        onSelect: () => {
+          setRedixDialogOpen(true);
+          closeMenus();
+        },
       },
       {
         type: 'item',
@@ -854,6 +860,9 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         <div className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <ModeSwitch />
           <SessionSwitcher compact />
+          <div className="hidden 2xl:block">
+            <WorkspaceSwitcher compact />
+          </div>
           <div className="hidden 3xl:flex items-center gap-2">
             <ProfileQuickSwitcher compact />
             <ContainerSwitcher compact />
@@ -930,13 +939,16 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
         </div>
 
           <div className="flex items-center gap-2 flex-wrap justify-end flex-1">
-          <div className="hidden 2xl:flex items-center gap-1.5">
+          {/* Consolidated menus - show on larger screens */}
+          <div className="hidden xl:flex items-center gap-1.5">
             {renderMenu('file', 'File', FileText, fileMenuEntries)}
             {renderMenu('ai', 'AI', Sparkles, aiMenuEntries)}
             {renderMenu('tools', 'Tools', Workflow, toolsMenuEntries)}
           </div>
 
+          {/* Compact action buttons - grouped by function */}
           <div className="flex items-center gap-1.5 rounded-full border border-white/5 bg-white/5 px-2 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            {/* AI/Agent actions */}
             <motion.button
               onClick={onAgentToggle}
               aria-label={`Agent console${agentActive ? ' (active)' : ''}`}
@@ -960,17 +972,22 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
                 />
               )}
             </motion.button>
-            <div className="hidden xl:flex items-center gap-1">
+            
+            {/* Privacy controls - consolidated */}
+            <div className="hidden lg:flex items-center gap-1">
               <PrivacySentinelBadge />
             </div>
-            <div className="hidden 3xl:flex items-center gap-1">
+            <div className="hidden 2xl:flex items-center gap-1">
               <ShieldsButton />
               <NetworkButton />
             </div>
+            
+            {/* Theme switcher */}
             <ThemeSwitcher />
           </div>
 
-          <div className="2xl:hidden relative" ref={compactMenuRef}>
+          {/* Compact menu for smaller screens - shows all items */}
+          <div className="xl:hidden relative" ref={compactMenuRef}>
             <button
               type="button"
               onClick={() => setCompactMenuOpen((prev) => !prev)}
@@ -1051,6 +1068,10 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           </div>
         </div>
       </div>
+      <RedixQuickDialog
+        open={redixDialogOpen}
+        onClose={() => setRedixDialogOpen(false)}
+      />
     </div>
   );
 }

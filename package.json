@@ -21,6 +21,8 @@
     "audit:lighthouse": "tsx scripts/lighthouse-audit.ts",
     "perf:test": "tsx scripts/perf/perf-audit.ts",
     "postinstall": "node ./scripts/postinstall.ts",
+    "build:lunr": "node scripts/build-lunr.js",
+    "dev:fast": "cross-env JSDOM_NO_CANVAS=1 OB_DISABLE_HEAVY_SERVICES=1 vite --mode development",
     "audit:prod": "npm audit --omit=dev",
     "ci:check": "npm run build:types && npm run lint && npm run audit:prod && npm run perf:test"
   },
@@ -34,7 +36,7 @@
     "dexie": "^4.0.8",
     "fast-xml-parser": "^4.5.0",
     "fastify": "^5.6.2",
-    "fastify-websocket": "^4.2.2",
+    "@fastify/websocket": "^10.0.1",
     "framer-motion": "^11.18.2",
     "html-entities": "^2.5.2",
     "iconv-lite": "^0.6.3",
@@ -43,7 +45,9 @@
     "lightweight-charts": "^5.0.9",
     "lodash-es": "^4.17.21",
     "lucide-react": "^0.453.0",
+    "lunr": "^2.3.9",
     "mammoth": "^1.6.0",
+    "electron-store": "^10.1.0",
     "meilisearch": "^0.40.0",
     "murmurhash3js": "^3.0.1",
     "p-queue": "^8.0.1",
@@ -84,6 +88,7 @@
     "cross-env": "^7.0.3",
     "electron": "^39.1.1",
     "electron-builder": "^24.13.3",
+    "electron-updater": "^6.1.7",
     "esbuild": "^0.25.12",
     "eslint": "^9.11.1",
     "eslint-plugin-react": "^7.37.1",
@@ -109,15 +114,35 @@
       "buildResources": "public",
       "output": "dist-release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "nrbns",
+      "repo": "Omnibrowser"
+    },
     "mac": {
       "category": "public.app-category.productivity",
-      "artifactName": "${productName}-${version}-mac.${ext}"
+      "artifactName": "${productName}-${version}-mac.${ext}",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "artifactName": "${productName}-${version}-win.${ext}"
+      "artifactName": "${productName}-${version}-win.${ext}",
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
+      "certificateFile": "${env.WIN_CERT_FILE}",
+      "certificatePassword": "${env.WIN_CERT_PASSWORD}",
+      "timeStampServer": "http://timestamp.digicert.com"
     },
     "linux": {
       "target": [
@@ -125,6 +150,12 @@
       ],
       "category": "Utility",
       "artifactName": "${productName}-${version}-linux.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

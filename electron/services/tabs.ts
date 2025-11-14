@@ -27,6 +27,8 @@ import {
   TabListResponse,
   TabSetContainerRequest,
   TabWakeRequest,
+  TabReorderRequest,
+  TabReopenClosedRequest,
 } from '../shared/ipc/schema';
 
 type TabMode = 'normal' | 'ghost' | 'private';
@@ -223,6 +225,23 @@ export function getTabs(win: BrowserWindow) {
 
 // Track which windows have had IPC registered to prevent duplicate registration
 const registeredWindows = new WeakSet<BrowserWindow>();
+
+// Closed tab history (per window, max 20 entries)
+interface ClosedTabEntry {
+  id: string;
+  url: string;
+  title: string;
+  containerId?: string;
+  containerName?: string;
+  containerColor?: string;
+  mode?: TabMode;
+  profileId?: string;
+  sessionId?: string;
+  closedAt: number;
+}
+
+const closedTabsHistory = new Map<number, ClosedTabEntry[]>();
+const MAX_CLOSED_TABS = 20;
 
 export function registerTabIpc(win: BrowserWindow) {
   // Prevent duplicate registration
@@ -821,6 +840,44 @@ export function registerTabIpc(win: BrowserWindow) {
       }
     }
 
+    // Store closed tab in history before destroying
+    try {
+      const wc = getLiveWebContents(rec.view);
+      let url = 'about:blank';
+      let title = 'New Tab';
+      if (wc) {
+        url = wc.getURL?.() || url;
+        title = wc.getTitle?.() || title;
+      }
+
+      const closedEntry: ClosedTabEntry = {
+        id: rec.id,
+        url,
+        title,
+        containerId: rec.containerId,
+        containerName: rec.containerName,
+        containerColor: rec.containerColor,
+        mode: rec.mode,
+        profileId: rec.profileId,
+        sessionId: rec.sessionId,
+        closedAt: Date.now(),
+      };
+
+      // Add to closed tabs history
+      if (!closedTabsHistory.has(win.id)) {
+        closedTabsHistory.set(win.id, []);
+      }
+      const history = closedTabsHistory.get(win.id)!;
+      history.unshift(closedEntry); // Add to beginning
+      
+      // Limit history size
+      if (history.length > MAX_CLOSED_TABS) {
+        history.splice(MAX_CLOSED_TABS);
+      }
+    } catch (e) {
+      console.warn('Error storing closed tab history:', e);
+    }
+
     try {
       win.removeBrowserView(rec.view);
       rec.view.webContents.close();
@@ -1345,6 +1402,91 @@ export function registerTabIpc(win: BrowserWindow) {
       return { success: true };
     }
     return { success: false, error: 'Tab not found' };
+  });
+
+  registerHandler('tabs:reorder', TabReorderRequest, async (_event, request) => {
+    const tabs = getTabs(win);
+    const { tabId, newIndex } = request;
+    
+    // Find the tab to move
+    const currentIndex = tabs.findIndex(t => t.id === tabId);
+    if (currentIndex === -1) {
+      return { success: false, error: 'Tab not found' };
+    }
+    
+    // Validate new index
+    if (newIndex < 0 || newIndex >= tabs.length) {
+      return { success: false, error: 'Invalid index' };
+    }
+    
+    // If already at the target index, no-op
+    if (currentIndex === newIndex) {
+      return { success: true };
+    }
+    
+    // Remove tab from current position
+    const [tabToMove] = tabs.splice(currentIndex, 1);
+    
+    // Insert at new position
+    tabs.splice(newIndex, 0, tabToMove);
+    
+    // Update the window's tab array
+    windowIdToTabs.set(win.id, tabs);
+    
+    // Emit updated tab list
+    emit();
+    markSessionDirty();
+    
+    return { success: true };
+  });
+
+  registerHandler('tabs:reopenClosed', TabReopenClosedRequest, async (_event, request) => {
+    const history = closedTabsHistory.get(win.id) || [];
+    if (history.length === 0) {
+      return { success: false, error: 'No closed tabs to reopen' };
+    }
+
+    const index = request.index ?? 0;
+    if (index < 0 || index >= history.length) {
+      return { success: false, error: 'Invalid index' };
+    }
+
+    const closedTab = history[index];
+    
+    // Remove from history (most recent first)
+    history.splice(index, 1);
+
+    // Reopen the tab with its original properties
+    try {
+      const result = await createTabInternal({
+        url: closedTab.url,
+        profileId: closedTab.profileId,
+        containerId: closedTab.containerId,
+        mode: closedTab.mode,
+        sessionId: closedTab.sessionId,
+        activate: true,
+      });
+
+      return { success: true, tabId: result.id };
+    } catch (error) {
+      // Restore to history on failure
+      history.splice(index, 0, closedTab);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  registerHandler('tabs:listClosed', z.object({}), async () => {
+    const history = closedTabsHistory.get(win.id) || [];
+    return history.map(entry => ({
+      id: entry.id,
+      url: entry.url,
+      title: entry.title,
+      containerId: entry.containerId,
+      containerName: entry.containerName,
+      containerColor: entry.containerColor,
+      mode: entry.mode,
+      closedAt: entry.closedAt,
+    }));
   });
 
   // Legacy handlers for backwards compatibility (wrap typed handlers)

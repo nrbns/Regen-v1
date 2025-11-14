@@ -5,6 +5,7 @@ import { openWithAccount } from './AccountBadge';
 import VoiceButton from './VoiceButton';
 import { requestRedix } from '../services/redixClient';
 import { useDebounce } from '../utils/useDebounce';
+import { trackSearch } from '../core/supermemory/tracker';
 
 export default function OmniSearch() {
   const [q, setQ] = useState('');
@@ -80,6 +81,9 @@ export default function OmniSearch() {
     e.preventDefault();
     const query = q.trim();
     if (!query) return;
+    
+    // Track search in SuperMemory
+    trackSearch(query, { mode: engine }).catch(console.error);
     
     try {
       // Prefer creating in selected account profile for isolation
@@ -160,16 +164,16 @@ export default function OmniSearch() {
         </div>
       )}
       {liveResults.length > 0 && (
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 p-3 text-sm text-neutral-200">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 p-3 text-sm text-neutral-200 max-h-[400px] overflow-y-auto">
           <div className="mb-2 text-xs uppercase tracking-wide text-neutral-400">
             Redix Suggestions
           </div>
           <ul className="space-y-2">
-            {liveResults.slice(0, 6).map((item, index) => (
+            {liveResults.slice(0, 8).map((item, index) => (
               <li key={`${item.url ?? item.title}-${index}`} className="break-words">
                 <button
                   type="button"
-                  className="text-left text-emerald-300 hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className="w-full text-left text-emerald-300 hover:text-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 rounded px-2 py-1 -mx-2 -my-1"
                   onClick={() => {
                     if (item.url) {
                       openWithAccount(item.url, getAccountId()).catch((error) => {
@@ -180,13 +184,13 @@ export default function OmniSearch() {
                     }
                   }}
                 >
-                  {item.title}
+                  <div className="font-medium line-clamp-1">{item.title}</div>
+                  {item.snippet && (
+                    <div className="text-xs text-neutral-400 mt-0.5 line-clamp-2">
+                      {item.snippet}
+                    </div>
+                  )}
                 </button>
-                {item.snippet && (
-                  <div className="text-xs text-neutral-400">
-                    {item.snippet}
-                  </div>
-                )}
               </li>
             ))}
           </ul>

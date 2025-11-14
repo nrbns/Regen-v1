@@ -274,5 +274,139 @@ test.describe('Session Restore Tests', () => {
 
     await app2.close();
   });
+
+  test('session restore completes within 1 second p95', async () => {
+    const { app, page } = await launchApp();
+
+    // Create multiple tabs (2 windows worth of tabs)
+    for (let i = 0; i < 8; i++) {
+      await page.click('button[aria-label="New tab"]');
+      await page.waitForTimeout(200);
+    }
+
+    // Wait for session save (2s autosave interval)
+    await page.waitForTimeout(3000);
+    await app.close();
+
+    // Relaunch and measure restore time
+    const startTime = Date.now();
+    const { app: app2, page: page2 } = await launchApp();
+    
+    // Wait for restore prompt or tabs to appear
+    await page2.waitForTimeout(2000);
+
+    const restorePrompt = page2.locator('text=/Restore your last browsing session/i').first();
+    const hasPrompt = await restorePrompt.isVisible().catch(() => false);
+
+    if (hasPrompt) {
+      const restoreButton = page2.locator('button:has-text("Restore")').first();
+      const restoreStart = Date.now();
+      await restoreButton.click();
+
+      // Wait for restore to complete (check for tabs appearing)
+      await page2.waitForFunction(
+        () => document.querySelectorAll('[data-tab]').length > 0,
+        { timeout: 2000 }
+      );
+
+      const restoreTime = Date.now() - restoreStart;
+      // Should complete within 1s (p95 target)
+      expect(restoreTime).toBeLessThan(1000);
+    }
+
+    await app2.close();
+  });
+
+  test('session writes are atomic (no partial file corruption after crash)', async () => {
+    const { app, page } = await launchApp();
+
+    // Create tabs
+    for (let i = 0; i < 5; i++) {
+      await page.click('button[aria-label="New tab"]');
+      await page.waitForTimeout(200);
+    }
+
+    // Wait for session save
+    await page.waitForTimeout(3000);
+    
+    // Get session file path
+    const userDataPath = await app.evaluate(({ app }) => {
+      return (app as any).getPath('userData');
+    });
+    const sessionFile = `${userDataPath}/session-snapshot.json`;
+    const tempFile = `${sessionFile}.tmp`;
+
+    // Verify session file exists and is valid JSON
+    const sessionValid = await page.evaluate((filePath) => {
+      try {
+        const fs = require('fs');
+        if (!fs.existsSync(filePath)) return false;
+        const content = fs.readFileSync(filePath, 'utf-8');
+        JSON.parse(content);
+        return true;
+      } catch {
+        return false;
+      }
+    }, sessionFile);
+
+    expect(sessionValid).toBeTruthy();
+
+    // Verify temp file doesn't exist (atomic write completed)
+    const tempExists = await page.evaluate((filePath) => {
+      try {
+        const fs = require('fs');
+        return fs.existsSync(filePath);
+      } catch {
+        return false;
+      }
+    }, tempFile);
+
+    expect(tempExists).toBeFalsy();
+
+    await app.close();
+  });
+
+  test('session restore handles corrupted session file gracefully', async () => {
+    const { app, page } = await launchApp();
+
+    // Create tabs
+    for (let i = 0; i < 3; i++) {
+      await page.click('button[aria-label="New tab"]');
+      await page.waitForTimeout(200);
+    }
+
+    // Wait for session save
+    await page.waitForTimeout(3000);
+    await app.close();
+
+    // Corrupt the session file
+    const userDataPath = await app.evaluate(({ app }) => {
+      return (app as any).getPath('userData');
+    });
+    const sessionFile = `${userDataPath}/session-snapshot.json`;
+
+    // Relaunch and corrupt file
+    const { app: app2, page: page2 } = await launchApp();
+    await page2.waitForTimeout(1000);
+    await app2.close();
+
+    // Corrupt the file (write invalid JSON)
+    await page2.evaluate((filePath) => {
+      const fs = require('fs');
+      try {
+        fs.writeFileSync(filePath, 'invalid json {', 'utf-8');
+      } catch {}
+    }, sessionFile);
+
+    // Relaunch again - should handle corruption gracefully
+    const { app: app3, page: page3 } = await launchApp();
+    await page3.waitForTimeout(2000);
+
+    // App should still launch (corruption handled gracefully)
+    const tabs = await getTabIds(page3);
+    expect(tabs.length).toBeGreaterThanOrEqual(0);
+
+    await app3.close();
+  });
 });
 

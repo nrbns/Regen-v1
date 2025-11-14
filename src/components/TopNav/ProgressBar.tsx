@@ -10,40 +10,29 @@ export function ProgressBar() {
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Listen for tab loading state
-  useIPCEvent('tabs:loading-start', () => {
-    setIsLoading(true);
-    setProgress(0);
-  }, []);
-
-  useIPCEvent('tabs:loading-progress', (data: { progress: number }) => {
-    setProgress(data.progress || 0);
-  }, []);
-
-  useIPCEvent('tabs:loading-complete', () => {
-    setIsLoading(true);
-    setProgress(100);
-    setTimeout(() => {
-      setIsLoading(false);
-      setProgress(0);
-    }, 300);
-  }, []);
-
-  // Simulate progress when loading
-  useEffect(() => {
-    if (isLoading && progress < 90) {
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(interval);
-            return prev;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 100);
-      return () => clearInterval(interval);
+  // Listen for tab progress events
+  useIPCEvent<{ tabId: string; progress: number }>('tabs:progress', (data) => {
+    if (data.progress !== undefined) {
+      setProgress(data.progress);
+      setIsLoading(data.progress > 0 && data.progress < 100);
     }
-  }, [isLoading, progress]);
+  }, []);
+
+  // Also listen for navigation state changes
+  useIPCEvent<{ tabId: string; isLoading: boolean }>('tabs:navigation-state', (data) => {
+    if (data.isLoading !== undefined) {
+      setIsLoading(data.isLoading);
+      if (!data.isLoading) {
+        // Navigation complete - fade out progress bar
+        setTimeout(() => {
+          setProgress(0);
+          setIsLoading(false);
+        }, 300);
+      } else {
+        setProgress(0); // Reset when starting new load
+      }
+    }
+  }, []);
 
   return (
     <AnimatePresence>

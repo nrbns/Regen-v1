@@ -18,7 +18,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['electron', 'jsdom', 'canvas', 'bufferutil', 'utf-8-validate'],
+              external: ['electron', 'electron-updater', 'jsdom', 'canvas', 'bufferutil', 'utf-8-validate'],
               output: {
                 entryFileNames: 'main.js',
                 format: 'cjs',

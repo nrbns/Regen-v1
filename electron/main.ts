@@ -5,6 +5,7 @@ process.env.JSDOM_NO_CANVAS = '1';
 import 'dotenv/config';
 import 'source-map-support/register.js';
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 
 // Suppress verbose Chromium logs (media stream, DNS, etc.)
 app.commandLine.appendSwitch('log-level', '0'); // 0=INFO (hides VERBOSE)
@@ -73,6 +74,8 @@ import { registerE2EESyncIpc } from './services/sync/e2ee-sync-ipc';
 import { registerStreamingIpc } from './services/agent/streaming-ipc';
 import { registerPrivacySentinelIpc } from './services/security/privacy-sentinel';
 import { registerTrustWeaverIpc } from './services/trust-weaver-ipc';
+import { registerRedixIpc } from './services/redix-ipc';
+import { registerTabContextIpc } from './services/tab-context-ipc';
 
 const isDev = !!process.env.VITE_DEV_SERVER_URL;
 const isWindows = process.platform === 'win32';
@@ -291,6 +294,40 @@ app.whenReady().then(async () => {
   initializeDiagnostics();
   console.log('[Main] Diagnostics initialized');
 
+  // Configure auto-updater (only in production)
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify();
+    
+    // Check for updates every 4 hours
+    setInterval(() => {
+      autoUpdater.checkForUpdatesAndNotify();
+    }, 4 * 60 * 60 * 1000);
+
+    // Handle update events
+    autoUpdater.on('update-available', (info) => {
+      console.log('[AutoUpdater] Update available:', info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update:available', {
+          version: info.version,
+          releaseDate: info.releaseDate,
+        });
+      }
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('[AutoUpdater] Update downloaded:', info.version);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update:downloaded', {
+          version: info.version,
+        });
+      }
+    });
+
+    autoUpdater.on('error', (error) => {
+      console.error('[AutoUpdater] Error:', error);
+    });
+  }
+
   initializeProfiles();
   console.log('[Main] Profiles initialized');
 
@@ -498,6 +535,9 @@ app.whenReady().then(async () => {
       console.log('[Main] Privacy Sentinel disabled (stub handler already registered)');
     }
     registerTrustWeaverIpc();
+    registerRedixIpc();
+    registerTabContextIpc();
+    registerWorkflowIpc();
     // Telemetry IPC already registered early, just log
     console.log('[Main] Telemetry IPC already registered');
     
@@ -589,6 +629,48 @@ app.on('before-quit', async () => {
 
 // Minimal IPC placeholders (expand later)
 ipcMain.handle('app:ping', () => 'pong');
+
+// Auto-update IPC handlers
+if (app.isPackaged) {
+  registerHandler('update:check', z.object({}), async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return { 
+        success: true, 
+        updateInfo: result?.updateInfo || null 
+      };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: (error as Error).message 
+      };
+    }
+  });
+
+  registerHandler('update:install', z.object({}), async () => {
+    try {
+      autoUpdater.quitAndInstall(false, true);
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: (error as Error).message 
+      };
+    }
+  });
+
+  registerHandler('update:restart', z.object({}), async () => {
+    try {
+      autoUpdater.quitAndInstall(true, true);
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: (error as Error).message 
+      };
+    }
+  });
+}
 
 // Agent IPC
 ipcMain.handle('agent:start', async (e, dsl: unknown) => {

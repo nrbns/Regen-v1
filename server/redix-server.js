@@ -1,7 +1,7 @@
 /* eslint-env node */
 
 import Fastify from 'fastify';
-import websocketPlugin from 'fastify-websocket';
+import websocketPlugin from '@fastify/websocket';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
@@ -27,7 +27,6 @@ const redisStore = new Redis(REDIS_URL);
 
 const clients = new Map();
 const metricsClients = new Set();
-let lastMetricsSample = makeMetricsSample();
 const carbonIntensityDefault = Number(nodeProcess?.env.CARBON_INTENSITY_DEFAULT || 120);
 let workerMetrics = {
   cpu: 0,
@@ -36,8 +35,26 @@ let workerMetrics = {
   timestamp: Date.now(),
   source: 'worker',
 };
+// Initialize CPU tracking before first metrics sample
 let prevCpuUsage = nodeProcess?.cpuUsage ? nodeProcess.cpuUsage() : { user: 0, system: 0 };
 let prevCpuTimestamp = Date.now();
+let lastMetricsSample;
+
+const redisClients = [
+  { name: 'pub', client: redisPub },
+  { name: 'sub', client: redisSub },
+  { name: 'store', client: redisStore },
+];
+
+for (const { name, client } of redisClients) {
+  client.on('error', (error) => {
+    const message =
+      error?.code === 'ECONNREFUSED'
+        ? `[redis:${name}] Connection refused (${REDIS_URL}). Ensure Redis is running or set REDIS_URL.`
+        : `[redis:${name}] ${error?.message || 'Redis error'}`;
+    fastify.log.error({ error, redis: name }, message);
+  });
+}
 
 fastify.get('/health', async () => ({
   ok: true,
@@ -411,4 +428,7 @@ function clampPercent(value) {
   }
   return Math.max(0, Math.min(100, Math.round(value)));
 }
+
+// Initialize first metrics sample after helper definitions
+lastMetricsSample = makeMetricsSample();
 

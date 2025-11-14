@@ -64,13 +64,19 @@ export function BottomStatus() {
   const { activeId } = useTabsStore();
   const [prompt, setPrompt] = useState('');
   const [promptLoading, setPromptLoading] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
+  const [promptResponse, setPromptResponse] = useState('');
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const promptSessionRef = useRef<string | null>(null);
   const [extraOpen, setExtraOpen] = useState(false);
   const [trendOpen, setTrendOpen] = useState(false);
   const extraRef = useRef<HTMLDivElement | null>(null);
   const trendRef = useRef<HTMLDivElement | null>(null);
   const [dohStatus, setDohStatus] = useState({ enabled: false, provider: 'cloudflare' });
-  const [cpuUsage, setCpuUsage] = useState(0);
-  const [memoryUsage, setMemoryUsage] = useState(0);
+  const latestSample = useMetricsStore((state) => state.latest);
+  // Use metrics store for real-time CPU/memory updates
+  const cpuUsage = latestSample?.cpu ?? 0;
+  const memoryUsage = latestSample?.memory ?? 0;
   const [modelReady] = useState(true);
   const [privacyMode, setPrivacyMode] = useState<'Normal' | 'Ghost' | 'Tor'>('Normal');
   const [efficiencyAlert, setEfficiencyAlert] = useState<EfficiencyAlert | null>(null);
@@ -93,7 +99,6 @@ export function BottomStatus() {
   const newTorIdentity = usePrivacyStore((state) => state.newTorIdentity);
   const checkVpn = usePrivacyStore((state) => state.checkVpn);
   const pushMetricSample = useMetricsStore((state) => state.pushSample);
-  const latestSample = useMetricsStore((state) => state.latest);
   const metricsHistory = useMetricsStore((state) => state.history);
   const dailyCarbon = useMetricsStore((state) => state.dailyTotalCarbon);
   const highCpuRef = useRef<MetricSample[]>([]);
@@ -129,6 +134,17 @@ export function BottomStatus() {
     blocked: state.blockedSummary.trackers,
     loading: state.loading,
   }));
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const pushPrivacyEvent = useCallback(
     (event: Omit<PrivacyEventEntry, 'id' | 'timestamp'> & { timestamp?: number }) => {
@@ -240,9 +256,7 @@ export function BottomStatus() {
 
   useEffect(() => {
     if (latestSample) {
-      setCpuUsage((prev) => smoothValue(prev, latestSample.cpu));
-      setMemoryUsage((prev) => smoothValue(prev, latestSample.memory));
-
+      // CPU and memory now come directly from latestSample (real-time updates)
       const samples = metricsHistory.slice(-5);
       highCpuRef.current = samples.filter((sample) => sample.cpu >= 85);
       highRamRef.current = samples.filter((sample) => sample.memory >= 85);
@@ -718,26 +732,48 @@ export function BottomStatus() {
     }
   };
 
-  const handlePromptSubmit = async () => {
-    if (!prompt.trim() || !activeId || promptLoading) {
+  const handlePromptSubmit = useCallback(async () => {
+    const text = prompt.trim();
+    if (!text || promptLoading) {
       return;
     }
 
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setPromptError('Offline. Connect to send prompt.');
+      setPromptLoading(false);
+      return;
+    }
+
+    setPromptLoading(true);
+    setPromptResponse('');
+    setPromptError(null);
+
     try {
-      setPromptLoading(true);
-      await ipc.agent.createTask({
-        title: 'User Prompt',
-        role: 'researcher',
-        goal: prompt.trim(),
-        budget: { tokens: 4096, seconds: 120, requests: 20 },
-      });
+      const sessionId = promptSessionRef.current ?? `status-${Date.now()}`;
+      promptSessionRef.current = sessionId;
+
+      await ipc.redix.stream(
+        text,
+        { sessionId },
+        (chunk) => {
+          if (chunk.type === 'token' && chunk.text) {
+            setPromptResponse((prev) => prev + chunk.text);
+          }
+          if (chunk.type === 'error') {
+            setPromptError(chunk.text || 'Redix error');
+            setPromptLoading(false);
+          }
+          if (chunk.done) {
+            setPromptLoading(false);
+          }
+        },
+      );
       setPrompt('');
     } catch (error) {
-      console.error('Failed to create agent task:', error);
-    } finally {
+      setPromptError(error instanceof Error ? error.message : 'Redix prompt failed');
       setPromptLoading(false);
     }
-  };
+  }, [prompt, promptLoading]);
 
   useEffect(() => {
     if (!extraOpen && !trendOpen) return;
@@ -948,6 +984,16 @@ export function BottomStatus() {
             loading={trustBadgeData.loading}
           />
 
+          {isOffline && (
+            <StatusBadge
+              icon={AlertTriangle}
+              label="Offline"
+              description="Local mode"
+              variant="warning"
+              title="Offline mode: remote services paused"
+            />
+          )}
+
           {shieldsStats.trackersBlocked > 0 && (
             <StatusBadge
               icon={Shield}
@@ -990,8 +1036,10 @@ export function BottomStatus() {
                   }
                 }}
                 placeholder="Prompt agent (e.g., 'summarize this page')..."
-                disabled={promptLoading}
-                className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${promptLoading ? 'opacity-70 cursor-wait' : ''}`}
+                disabled={promptLoading || isOffline}
+                className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${
+                  promptLoading || isOffline ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
               />
               {promptLoading ? (
                 <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-blue-300" aria-label="Sending prompt" />
@@ -999,13 +1047,26 @@ export function BottomStatus() {
                 <button
                   type="button"
                   onClick={() => void handlePromptSubmit()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200"
+                  disabled={isOffline}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200 disabled:opacity-50"
                   title="Send prompt"
                 >
                   <Send size={14} />
                 </button>
               )}
             </div>
+
+            {(promptResponse || promptError || promptLoading) && (
+              <div className="hidden sm:block w-full text-xs text-left text-gray-200 bg-gray-900/70 border border-gray-800 rounded-xl p-3">
+                {promptError ? (
+                  <span className="text-red-400">{promptError}</span>
+                ) : (
+                  <span className="whitespace-pre-wrap">
+                    {promptResponse || (promptLoading ? 'Redix is thinking…' : '')}
+                  </span>
+                )}
+              </div>
+            )}
 
             <SymbioticVoiceCompanion />
 
@@ -1034,13 +1095,31 @@ export function BottomStatus() {
                         label="Tor"
                         description={torBadgeDescription}
                         variant={torBadgeVariant}
-                        onClick={!torStatus.loading ? () => {
+                        onClick={!torStatus.loading ? async () => {
                           if (torStatus.running) {
                             addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Stopping Tor…' });
-                            void stopTor();
+                            await stopTor();
+                            // Verify status after stopping
+                            setTimeout(async () => {
+                              await refreshTor();
+                              const status = await ipc.proxy.status();
+                              if (status?.tor?.enabled === false) {
+                                addPrivacyEvent({ kind: 'tor', status: 'success', message: 'Tor stopped. Proxy disabled.' });
+                              }
+                            }, 1000);
                           } else {
                             addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Starting Tor…' });
-                            void startTor();
+                            await startTor();
+                            // Verify status after starting
+                            setTimeout(async () => {
+                              await refreshTor();
+                              const status = await ipc.proxy.status();
+                              if (status?.tor?.enabled && status?.tor?.circuitEstablished) {
+                                addPrivacyEvent({ kind: 'tor', status: 'success', message: `Tor active. Circuit: ${status.tor.circuitId || 'established'}` });
+                              } else if (status?.tor?.enabled) {
+                                addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Tor starting, circuit establishing…' });
+                              }
+                            }, 2000);
                           }
                         } : undefined}
                         loading={torStatus.loading}

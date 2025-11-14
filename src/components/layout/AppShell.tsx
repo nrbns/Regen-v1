@@ -16,6 +16,9 @@ import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
 import { VoiceTips } from '../voice/VoiceTips';
+import { initializeOptimizer } from '../../core/redix/optimizer';
+import { useRedix } from '../../core/redix/useRedix';
+import { trackVisit, trackModeSwitch } from '../../core/supermemory/tracker';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -241,6 +244,8 @@ export function AppShell() {
   }, []);
   const [clipperActive, setClipperActive] = useState(false);
   const [readerActive, setReaderActive] = useState(false);
+  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
+  const [ollamaAvailable, setOllamaAvailable] = useState(false);
   const onboardingVisible = useOnboardingStore((state) => state.visible);
   const startOnboarding = useOnboardingStore((state) => state.start);
   const _finishOnboarding = useOnboardingStore((state) => state.finish);
@@ -252,6 +257,30 @@ export function AppShell() {
     }
   }, [onboardingVisible]);
   const [graphDropHint, setGraphDropHint] = useState(false);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Check Ollama availability when offline
+  useEffect(() => {
+    if (isOffline) {
+      void ipc.ollama.check().then((result) => {
+        setOllamaAvailable(result?.available ?? false);
+      }).catch(() => {
+        setOllamaAvailable(false);
+      });
+    } else {
+      setOllamaAvailable(false);
+    }
+  }, [isOffline]);
   useEffect(() => {
     let dragCounter = 0;
 
@@ -389,6 +418,18 @@ export function AppShell() {
     }
   }, [restoreSummary]);
 
+  // Initialize Redix optimizer
+  useEffect(() => {
+    initializeOptimizer().catch(console.error);
+  }, []);
+
+  // Watch for Redix performance events
+  useRedix((event) => {
+    if (event.type === 'redix:performance:low') {
+      console.log('[Redix] Performance low:', event.payload);
+    }
+  });
+
   // Auto-start onboarding for new users (with a small delay to let UI settle)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -519,7 +560,11 @@ export function AppShell() {
       // ⌘⇧T / Ctrl+Shift+T: Reopen Closed Tab
       if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-        // Would reopen last closed tab - need to implement closed tab history
+        ipc.tabs.reopenClosed(0).catch((err) => {
+          if (isDevEnv()) {
+            console.warn('Failed to reopen closed tab:', err);
+          }
+        });
         return;
       }
 
@@ -675,6 +720,28 @@ export function AppShell() {
               />
             </ErrorBoundary>
           </Suspense>
+        </div>
+      )}
+
+      {isOffline && (
+        <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs sm:text-sm text-amber-100">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={14} className="text-amber-300 flex-shrink-0" />
+            <span>Offline mode: remote AI and sync are paused. Local actions remain available.</span>
+          </div>
+          {ollamaAvailable && (
+            <button
+              type="button"
+              onClick={() => {
+                // Open settings to Ollama section or show local AI dialog
+                const settingsButton = document.querySelector('[data-settings-button]') as HTMLElement;
+                settingsButton?.click();
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-400/60 hover:bg-amber-500/30"
+            >
+              <span>Try Local AI</span>
+            </button>
+          )}
         </div>
       )}
 

@@ -33,29 +33,34 @@ export const onboardingStorage = {
   },
 };
 
-export const useOnboardingStore = create<OnboardingState>((set) => ({
-  visible: false,
-  start: () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[OnboardingStore] start() called');
-    }
-    set({ visible: true });
-  },
-  finish: () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[OnboardingStore] finish() called');
-    }
-    onboardingStorage.setCompleted();
-    set({ visible: false });
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[OnboardingStore] visible set to false');
-    }
-  },
-  reset: () => {
-    onboardingStorage.clear();
-    set({ visible: true });
-  },
-}));
+export const useOnboardingStore = create<OnboardingState>((set) => {
+  // Check if onboarding should be shown on first run
+  const shouldShowOnboarding = typeof window !== 'undefined' && !onboardingStorage.isCompleted();
+  
+  return {
+    visible: shouldShowOnboarding,
+    start: () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[OnboardingStore] start() called');
+      }
+      set({ visible: true });
+    },
+    finish: () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[OnboardingStore] finish() called');
+      }
+      onboardingStorage.setCompleted();
+      set({ visible: false });
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[OnboardingStore] visible set to false');
+      }
+    },
+    reset: () => {
+      onboardingStorage.clear();
+      set({ visible: true });
+    },
+  };
+});
 
 if (typeof window !== 'undefined') {
   (window as typeof window & { __STORE?: Record<string, unknown> }).__STORE = {

@@ -216,26 +216,22 @@ export function MainView() {
 
   return (
     <div ref={containerRef} className="flex-1 relative bg-white overflow-hidden w-full">
-      {/* Browser Webview Container - Full Width */}
-      {/* BrowserView is rendered by Electron main process and positioned by window coordinates */}
-      {/* This container div is just for reference - BrowserView uses window coordinates, not DOM coordinates */}
-      {/* Hide BrowserView container when showing about:blank (OmniDesk will show instead) */}
-      {!isAboutBlank && (
-        <div
-          id="browser-view-container"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }}
-        />
-      )}
+      {/* Browser Webview Container - always present so BrowserView can render immediately */}
+      <div
+        id="browser-view-container"
+        data-active={!isAboutBlank}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
 
       {/* In non-Electron builds (e.g., web preview) render a safe iframe fallback */}
       {!isElectron && canEmbedInIframe && (
@@ -284,25 +280,26 @@ export function MainView() {
       {/* Fallback content when no active tab - Only show when truly no tabs */}
       {(!activeId || tabs.length === 0) && (
         <motion.div 
-          className="absolute inset-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" 
+          className="absolute inset-0 h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" 
           style={{ zIndex: 2, pointerEvents: 'auto' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
         >
           <motion.div 
-            className="text-center max-w-md px-6"
+            className="text-center max-w-2xl px-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
           >
             <motion.div 
-              className="text-6xl mb-6"
+              className="text-7xl mb-8"
               animate={{ 
                 scale: [1, 1.05, 1],
+                rotate: [0, 2, -2, 0],
               }}
               transition={{ 
-                duration: 3,
+                duration: 4,
                 repeat: Infinity,
                 ease: "easeInOut"
               }}
@@ -310,7 +307,7 @@ export function MainView() {
               🌐
             </motion.div>
             <motion.h2 
-              className="text-2xl font-semibold text-slate-100 mb-3"
+              className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -318,22 +315,65 @@ export function MainView() {
               Welcome to OmniBrowser
             </motion.h2>
             <motion.p 
-              className="text-slate-400 text-sm mb-6"
+              className="text-slate-600 dark:text-slate-400 text-base mb-8"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
             >
-              Enter a URL, search the web, or ask Redix to get started
+              Your intelligent browser with AI-powered research, privacy protection, and seamless browsing
             </motion.p>
             <motion.div
-              className="flex flex-wrap gap-2 justify-center text-xs text-slate-500"
+              className="flex flex-wrap gap-3 justify-center mb-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl+T</kbd> for new tab</span>
+              <motion.button
+                onClick={async () => {
+                  try {
+                    await ipc.tabs.create('about:blank');
+                  } catch {
+                    // Fallback handled
+                  }
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-colors"
+              >
+                New Tab
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  const input = document.querySelector('[data-omnibox-input]') as HTMLInputElement;
+                  input?.focus();
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-900 dark:text-slate-100 rounded-lg font-medium shadow-lg transition-colors"
+              >
+                Search or Enter URL
+              </motion.button>
+            </motion.div>
+            <motion.div
+              className="flex flex-wrap gap-3 justify-center text-sm text-slate-500 dark:text-slate-400"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <span className="flex items-center gap-1">
+                <kbd className="px-2 py-1 bg-slate-200 dark:bg-slate-800 rounded text-xs font-mono">Ctrl+T</kbd>
+                <span>New tab</span>
+              </span>
               <span>•</span>
-              <span>Press <kbd className="px-1.5 py-0.5 bg-slate-800 rounded text-slate-300">Ctrl+L</kbd> to search</span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-2 py-1 bg-slate-200 dark:bg-slate-800 rounded text-xs font-mono">Ctrl+L</kbd>
+                <span>Search</span>
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <kbd className="px-2 py-1 bg-slate-200 dark:bg-slate-800 rounded text-xs font-mono">Ctrl+K</kbd>
+                <span>Ask Redix</span>
+              </span>
             </motion.div>
           </motion.div>
         </motion.div>
