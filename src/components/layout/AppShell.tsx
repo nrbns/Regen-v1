@@ -18,7 +18,8 @@ import { TabContentSurface } from './TabContentSurface';
 import { VoiceTips } from '../voice/VoiceTips';
 import { initializeOptimizer } from '../../core/redix/optimizer';
 import { useRedix } from '../../core/redix/useRedix';
-import { trackVisit, trackModeSwitch } from '../../core/supermemory/tracker';
+import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
+import { MemorySidebar } from '../supermemory/MemorySidebar';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -213,6 +214,8 @@ export function AppShell() {
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null);
   const [consentRequest, setConsentRequest] = useState<ConsentRequest | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [memorySidebarOpen, setMemorySidebarOpen] = useState(false);
+  const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
   
   // Initialize fullscreen state on mount - ensure it starts as false
   useEffect(() => {
@@ -575,6 +578,13 @@ export function AppShell() {
         return;
       }
 
+      // ⌘⇧M / Ctrl+Shift+M: Toggle Memory Sidebar
+      if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setMemorySidebarOpen(prev => !prev);
+        return;
+      }
+
       // ⌘⇧H / Ctrl+Shift+H: Highlight clipper
       if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
@@ -623,6 +633,8 @@ export function AppShell() {
           setConsentRequest(null);
         } else if (rightPanelOpen) {
           setRightPanelOpen(false);
+        } else if (memorySidebarOpen) {
+          setMemorySidebarOpen(false);
         }
         return;
       }
@@ -630,7 +642,7 @@ export function AppShell() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [commandPaletteOpen, permissionRequest, consentRequest, rightPanelOpen, clipperActive]);
+  }, [commandPaletteOpen, permissionRequest, consentRequest, rightPanelOpen, clipperActive, memorySidebarOpen]);
 
   const handleCreateHighlight = async (highlight: ResearchHighlight) => {
     if (!activeTab?.url) {
@@ -989,6 +1001,20 @@ export function AppShell() {
           </Portal>
         </Suspense>
       )}
+      {/* Crash Recovery Dialog */}
+      {crashedTab && (
+        <CrashRecoveryDialog
+          tabId={crashedTab.tabId}
+          reason={crashedTab.reason}
+          exitCode={crashedTab.exitCode}
+          onClose={() => setCrashedTab(null)}
+          onReload={handleReload}
+        />
+      )}
+
+      {/* Memory Sidebar */}
+      <MemorySidebar open={memorySidebarOpen} onClose={() => setMemorySidebarOpen(false)} />
+
       {restoreToast && (
         <Portal>
           <div className="fixed bottom-6 right-6 z-50">

@@ -28,6 +28,8 @@ except (ImportError, AttributeError):
     User = MockUser
 
 from apps.api.ollama_client import get_ollama_client
+from apps.api.huggingface_client import get_huggingface_client
+from apps.api.openai_client import get_openai_client
 from apps.api.cache import cache_get, cache_set
 
 logger = logging.getLogger(__name__)
@@ -92,11 +94,17 @@ async def ask_redix(
                 logger.debug(f"Redix check failed: {e}")
                 redix_available = False
             
-            # Fallback to Ollama
+            # Try OpenAI first, then Hugging Face, then Ollama
+            openai = get_openai_client()
+            openai_available = await openai.check_available()
+            
+            hf = get_huggingface_client()
+            hf_available = await hf.check_available()
+            
             ollama = get_ollama_client()
             ollama_available = await ollama.check_available()
             
-            if not ollama_available:
+            if not openai_available and not hf_available and not ollama_available:
                 # Offline mode: return cached or simple response
                 cached = await cache_get(cache_key)
                 if cached:
@@ -108,10 +116,10 @@ async def ask_redix(
                         pass
                 
                 # No cache, no backend: return offline message
-                yield f"data: {json.dumps({'type': 'error', 'text': 'AI services unavailable. Please check your connection or start Ollama.', 'done': True})}\n\n"
+                yield f"data: {json.dumps({'type': 'error', 'text': 'AI services unavailable. Please check your OpenAI, Hugging Face API key, or start Ollama.', 'done': True})}\n\n"
                 return
             
-            # Use Ollama for streaming
+            # Prefer OpenAI, then Hugging Face, then Ollama
             messages = [
                 {
                     "role": "system",
@@ -128,26 +136,49 @@ async def ask_redix(
             
             yield f"data: {json.dumps({'type': 'start', 'message': 'Redix is thinking...'})}\n\n"
             
-            async for chunk in ollama.stream_chat(
-                messages=messages,
-                model="llama3.2",
-                temperature=0.7,
-                max_tokens=2048,
-            ):
-                if chunk.get("error"):
-                    yield f"data: {json.dumps({'type': 'error', 'text': chunk['error'], 'done': True})}\n\n"
-                    break
-                
-                text = chunk.get("text", "")
-                if text:
-                    accumulated_text += text
-                    chunk_tokens = max(1, len(text) // 4)
-                    total_tokens += chunk_tokens
+            if hf_available:
+                # Use Hugging Face for streaming
+                async for chunk in hf.stream_chat(
+                    messages=messages,
+                    model="meta-llama/Meta-Llama-3-8B-Instruct",
+                    temperature=0.7,
+                    max_tokens=2048,
+                ):
+                    if chunk.get("error"):
+                        yield f"data: {json.dumps({'type': 'error', 'text': chunk['error'], 'done': True})}\n\n"
+                        break
                     
-                    yield f"data: {json.dumps({'type': 'token', 'text': text, 'tokens': chunk_tokens})}\n\n"
-                
-                if chunk.get("done"):
-                    break
+                    text = chunk.get("text", "")
+                    if text:
+                        accumulated_text += text
+                        chunk_tokens = max(1, len(text) // 4)
+                        total_tokens += chunk_tokens
+                        yield f"data: {json.dumps({'type': 'token', 'text': text, 'tokens': chunk_tokens})}\n\n"
+                    
+                    if chunk.get("done"):
+                        break
+            else:
+                # Fallback to Ollama
+                async for chunk in ollama.stream_chat(
+                    messages=messages,
+                    model="llama3.2",
+                    temperature=0.7,
+                    max_tokens=2048,
+                ):
+                    if chunk.get("error"):
+                        yield f"data: {json.dumps({'type': 'error', 'text': chunk['error'], 'done': True})}\n\n"
+                        break
+                    
+                    text = chunk.get("text", "")
+                    if text:
+                        accumulated_text += text
+                        chunk_tokens = max(1, len(text) // 4)
+                        total_tokens += chunk_tokens
+                        
+                        yield f"data: {json.dumps({'type': 'token', 'text': text, 'tokens': chunk_tokens})}\n\n"
+                    
+                    if chunk.get("done"):
+                        break
             
             # Cache the response
             if accumulated_text and len(accumulated_text) > 10:
@@ -170,12 +201,17 @@ async def ask_redix(
 @router.get("/status")
 async def redix_status(current_user: User = auth_dep):
     """Check Redix service status"""
+    hf = get_huggingface_client()
+    hf_available = await hf.check_available()
+    
     ollama = get_ollama_client()
     ollama_available = await ollama.check_available()
     
     return {
-        "ready": ollama_available,
-        "backend": "ollama" if ollama_available else "offline",
-        "message": "Redix is ready" if ollama_available else "Redix is offline (Ollama unavailable)",
+        "ready": hf_available or ollama_available,
+        "huggingface": hf_available,
+        "ollama": ollama_available,
+        "backend": "huggingface" if hf_available else ("ollama" if ollama_available else "offline"),
+        "message": "Redix is ready" if (hf_available or ollama_available) else "Redix is offline (AI services unavailable)",
     }
 

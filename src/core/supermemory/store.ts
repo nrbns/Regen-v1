@@ -296,6 +296,7 @@ class MemoryStore {
 
 // Singleton instance
 export const MemoryStore = new MemoryStore();
+export const MemoryStoreInstance = MemoryStore; // Alias for consistency
 
 // Initialize on load
 if (typeof window !== 'undefined') {

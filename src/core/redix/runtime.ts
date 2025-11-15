@@ -58,6 +58,19 @@ class RedixRuntime {
       ts: Date.now(),
     };
 
+    // Add to event log (if available)
+    try {
+      const { dispatchEvent } = require('./event-log');
+      dispatchEvent({
+        type: fullEvent.type,
+        payload: fullEvent.payload,
+        reducer: (event as any).reducer,
+        metadata: { source: fullEvent.source },
+      });
+    } catch {
+      // Event log not available, continue without it
+    }
+
     // Add to history
     this.eventHistory.push(fullEvent);
     if (this.eventHistory.length > this.maxHistorySize) {

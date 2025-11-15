@@ -7,6 +7,8 @@
   "scripts": {
     "test:all": "node scripts/test-all-functionality.js",
     "test:ai-offline": "node scripts/test-ai-offline.js",
+    "test:huggingface": "node scripts/test-huggingface-integration.js",
+    "test:openai": "cd apps/api && python test_openai.py",
     "dev": "cross-env JSDOM_NO_CANVAS=1 concurrently -k -n VITE,ELECTRON -c green,blue \"vite --mode development\" \"node scripts/start-electron-dev.cjs\"",
     "dev:all": "node scripts/start-dev-all.cjs",
     "dev:web": "cross-env JSDOM_NO_CANVAS=1 vite --mode development",

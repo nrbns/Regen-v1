@@ -11,6 +11,7 @@ interface TabSleepState {
   lastActive: number;
   isSleeping: boolean;
   memoryMB?: number;
+  memoryCapMB?: number; // Memory cap for this tab (default: 500MB)
 }
 
 const sleepingTabs = new Map<string, TabSleepState>();
@@ -34,16 +35,55 @@ export function updateSleepTimeout(sleepMins: number): void {
 /**
  * Register a tab for sleep management
  */
-export function registerTab(tabId: string, view: BrowserView): void {
+export function registerTab(tabId: string, view: BrowserView, memoryCapMB?: number): void {
   const state: TabSleepState = {
     tabId,
     view,
     lastActive: Date.now(),
     isSleeping: false,
+    memoryCapMB: memoryCapMB ?? 500, // Default 500MB cap
   };
   
   sleepingTabs.set(tabId, state);
   scheduleSleep(tabId);
+  
+  // Track memory usage periodically
+  const memoryCheckInterval = setInterval(async () => {
+    try {
+      if (view.webContents.isDestroyed()) {
+        clearInterval(memoryCheckInterval);
+        return;
+      }
+      
+      // Get memory usage (if available)
+      if (typeof view.webContents.getProcessMemoryInfo === 'function') {
+        try {
+          const memInfo = await view.webContents.getProcessMemoryInfo();
+          const memoryMB = Math.round((memInfo.private || 0) / 1024);
+          state.memoryMB = memoryMB;
+          
+          // Check if memory cap exceeded
+          if (state.memoryCapMB && memoryMB > state.memoryCapMB) {
+            console.warn(`[TabSleep] Tab ${tabId} exceeded memory cap (${memoryMB}MB > ${state.memoryCapMB}MB)`);
+            // Auto-suspend if memory cap exceeded
+            if (!state.isSleeping) {
+              sleepTab(tabId);
+            }
+          }
+        } catch (error) {
+          // Memory info not available, skip
+        }
+      }
+    } catch (error) {
+      // Tab destroyed or error, clear interval
+      clearInterval(memoryCheckInterval);
+    }
+  }, 30000); // Check every 30 seconds
+  
+  // Clean up interval when tab is unregistered
+  view.webContents.once('destroyed', () => {
+    clearInterval(memoryCheckInterval);
+  });
   
   // Track activity
   view.webContents.on('did-navigate', () => {
@@ -146,6 +186,24 @@ export function unregisterTab(tabId: string): void {
 export function getTabMemory(tabId: string): number | undefined {
   const state = sleepingTabs.get(tabId);
   return state?.memoryMB;
+}
+
+/**
+ * Get memory cap for a tab
+ */
+export function getTabMemoryCap(tabId: string): number | undefined {
+  const state = sleepingTabs.get(tabId);
+  return state?.memoryCapMB;
+}
+
+/**
+ * Set memory cap for a tab
+ */
+export function setTabMemoryCap(tabId: string, capMB: number): void {
+  const state = sleepingTabs.get(tabId);
+  if (state) {
+    state.memoryCapMB = capMB;
+  }
 }
 
 /**

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Design System */
+@import './design-system.css';
+
 :root {
   color-scheme: dark;
   --surface-root: #0f172a;

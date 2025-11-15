@@ -6,7 +6,7 @@ import { addToGraph } from '../services/graph';
 import { pushHistory } from './history';
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
-import { wakeTab, unregisterTab, hibernateTab, isTabSleeping } from './tab-sleep';
+import { wakeTab, unregisterTab, hibernateTab, isTabSleeping, registerTab as registerTabSleep } from './tab-sleep';
 import { unregisterTabMemory } from './memory';
 import { burnTab } from './burn';
 import { getShieldsService } from './shields';
@@ -577,6 +577,33 @@ export function registerTabIpc(win: BrowserWindow) {
       markSessionDirty(); // Mark session as dirty when tab navigates
       sendNavigationState();
       
+      // Add to navigation history
+      try {
+        const title = view.webContents.getTitle() || navUrl;
+        addHistoryEntry(id, navUrl, title);
+      } catch (error) {
+        console.warn('[Tabs] Failed to add history entry:', error);
+      }
+
+      // Cache page for back/forward navigation
+      try {
+        await cachePage(id, view, navUrl, view.webContents.getTitle() || navUrl);
+      } catch (error) {
+        console.warn('[Tabs] Failed to cache page:', error);
+      }
+
+      // Analyze page for prefetching (with delay to not block navigation)
+      setTimeout(async () => {
+        try {
+          const prefetchTargets = await analyzePageForPrefetch(id, view, navUrl);
+          if (prefetchTargets.length > 0) {
+            queuePrefetchTargets(id, prefetchTargets);
+          }
+        } catch (error) {
+          console.warn('[Tabs] Failed to analyze page for prefetch:', error);
+        }
+      }, 2000); // Wait 2s after navigation
+      
       // Update BrowserView visibility based on URL
       const isAboutBlankNav = !navUrl || navUrl === 'about:blank' || navUrl.startsWith('about:');
       const isActive = activeTabIdByWindow.get(win.id) === id;
@@ -644,6 +671,53 @@ export function registerTabIpc(win: BrowserWindow) {
       sendNavigationState();
     });
 
+    // Crash detection and auto-snapshot
+    view.webContents.on('render-process-gone', async (_event, details) => {
+      console.error(`[Tabs] Tab ${id} render process crashed:`, details.reason);
+      
+      // Auto-snapshot on crash
+      try {
+        const { getCrashRecovery } = await import('./performance/crash-recovery');
+        const crashRecovery = getCrashRecovery();
+        const tabs = getTabs(win);
+        const serializedTabs = serializeTabsForWindow(win);
+        
+        await crashRecovery.createSnapshot([{
+          bounds: win.getBounds(),
+          tabs: serializedTabs.map(t => ({
+            id: t.id,
+            url: t.url,
+            title: t.title,
+          })),
+          activeTabId: activeTabIdByWindow.get(win.id) || undefined,
+        }]);
+        
+        // Notify renderer about crash
+        if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+          win.webContents.send('tabs:crash-detected', {
+            tabId: id,
+            reason: details.reason,
+            exitCode: details.exitCode,
+          });
+        }
+      } catch (error) {
+        console.error('[Tabs] Failed to create crash snapshot:', error);
+      }
+    });
+
+    view.webContents.on('unresponsive', () => {
+      console.warn(`[Tabs] Tab ${id} became unresponsive`);
+      if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        win.webContents.send('tabs:unresponsive', { tabId: id });
+      }
+    });
+
+    view.webContents.on('responsive', () => {
+      if (!win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+        win.webContents.send('tabs:responsive', { tabId: id });
+      }
+    });
+
     if (mode === 'ghost') {
       const cleanup = () => {
         try {
@@ -691,6 +765,18 @@ export function registerTabIpc(win: BrowserWindow) {
         optimizer.setupForWebContents(view.webContents, url);
       }
     });
+
+    // Register tab for sleep management with memory tracking
+    registerTabSleep(id, view, 500); // Default 500MB memory cap
+    
+    // Initialize navigation history
+    initTabHistory(id);
+    
+    // Initialize navigation cache
+    initTabCache(id);
+    
+    // Initialize prefetch queue
+    initPrefetchQueue(id);
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[Tabs] Tab created successfully:', id, 'mode:', mode);
@@ -862,6 +948,9 @@ export function registerTabIpc(win: BrowserWindow) {
     try {
       unregisterTab(tabId);
       unregisterTabMemory(tabId);
+      removeTabHistory(tabId);
+      clearTabCache(tabId);
+      clearPrefetchQueue(tabId);
     } catch (e) {
       console.warn('Error unregistering tab:', e);
     }
@@ -1370,7 +1459,34 @@ export function registerTabIpc(win: BrowserWindow) {
     const tabs = getTabs(win);
     const rec = tabs.find(t => t.id === request.id);
     if (rec?.view.webContents.canGoBack()) {
+      // Try to restore from cache before navigating
+      const currentUrl = rec.view.webContents.getURL();
+      const history = await import('./navigation-history');
+      const backEntry = history.goBack(request.id);
+      
+      if (backEntry) {
+        // Check if we have prefetched content
+        const prefetched = getPrefetchedContent(backEntry.url);
+        if (prefetched) {
+          // Use prefetched content for faster load
+          console.log(`[Tabs] Using prefetched content for ${backEntry.url}`);
+        }
+      }
+
       rec.view.webContents.goBack();
+      
+      // Restore cached page state after navigation
+      setTimeout(async () => {
+        try {
+          const newUrl = rec.view.webContents.getURL();
+          if (newUrl && newUrl !== currentUrl) {
+            await restoreCachedPage(request.id, rec.view, newUrl);
+          }
+        } catch (error) {
+          // Silent fail - cache restore is best-effort
+        }
+      }, 500);
+
       emit();
       // Navigation state will be updated via did-navigate event
       return { success: true };
@@ -1382,7 +1498,33 @@ export function registerTabIpc(win: BrowserWindow) {
     const tabs = getTabs(win);
     const rec = tabs.find(t => t.id === request.id);
     if (rec?.view.webContents.canGoForward()) {
+      // Try to restore from cache before navigating
+      const currentUrl = rec.view.webContents.getURL();
+      const history = await import('./navigation-history');
+      const forwardEntry = history.goForward(request.id);
+      
+      if (forwardEntry) {
+        // Check if we have prefetched content
+        const prefetched = getPrefetchedContent(forwardEntry.url);
+        if (prefetched) {
+          console.log(`[Tabs] Using prefetched content for ${forwardEntry.url}`);
+        }
+      }
+
       rec.view.webContents.goForward();
+      
+      // Restore cached page state after navigation
+      setTimeout(async () => {
+        try {
+          const newUrl = rec.view.webContents.getURL();
+          if (newUrl && newUrl !== currentUrl) {
+            await restoreCachedPage(request.id, rec.view, newUrl);
+          }
+        } catch (error) {
+          // Silent fail - cache restore is best-effort
+        }
+      }, 500);
+
       emit();
       // Navigation state will be updated via did-navigate event
       return { success: true };

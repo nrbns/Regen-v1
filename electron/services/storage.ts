@@ -13,6 +13,40 @@ const settings = new Map<string, unknown>();
 const currentSettings = mergeSettings({});
 settings.set('root', currentSettings);
 
+// Settings file path
+const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
+
+// Load settings from disk on startup
+async function loadSettingsFromDisk(): Promise<void> {
+  try {
+    const content = await fs.readFile(SETTINGS_FILE, 'utf-8');
+    const parsed = JSON.parse(content);
+    const validated = SettingsSchema.parse(parsed);
+    settings.set('root', validated);
+  } catch (error) {
+    // File doesn't exist or invalid - use defaults
+    if ((error as any).code !== 'ENOENT') {
+      console.warn('[Storage] Failed to load settings from disk:', error);
+    }
+    // Save defaults to disk
+    await saveSettingsToDisk();
+  }
+}
+
+// Save settings to disk
+async function saveSettingsToDisk(): Promise<void> {
+  try {
+    const current = settings.get('root') || defaultSettings;
+    const validated = SettingsSchema.parse(current);
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(validated, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('[Storage] Failed to save settings to disk:', error);
+  }
+}
+
+// Load settings on module initialization
+loadSettingsFromDisk().catch(console.error);
+
 type Workspace = { id: string; name: string; partition: string; proxyProfileId?: string };
 const workspaces = new Map<string, Workspace>();
 type Account = { id: string; name: string };
@@ -97,6 +131,8 @@ export function registerStorageIpc() {
     }
     target[request.path[request.path.length - 1]] = request.value;
     settings.set('root', SettingsSchema.parse(current));
+    // Persist to disk
+    await saveSettingsToDisk();
     return { success: true };
   });
 
@@ -106,6 +142,10 @@ export function registerStorageIpc() {
 
   registerHandler('storage:setSetting', SetSettingRequest, async (_event, request) => {
     settings.set(request.key, request.value);
+    // If setting root settings, persist to disk
+    if (request.key === 'root') {
+      await saveSettingsToDisk();
+    }
     return { success: true };
   });
 
@@ -137,6 +177,8 @@ export function registerStorageIpc() {
     const content = await fs.readFile(filePaths[0], 'utf-8');
     const parsed = SettingsSchema.parse(JSON.parse(content));
     settings.set('root', parsed);
+    // Persist imported settings to disk
+    await saveSettingsToDisk();
     return { success: true, path: filePaths[0], settings: parsed };
   });
 

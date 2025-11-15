@@ -2,162 +2,131 @@
  * useSuggestions Hook - Get personalized suggestions from SuperMemory
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { MemoryStore, MemoryEvent } from './store';
+import { useState, useEffect } from 'react';
+import { MemoryStore } from './store';
+import { MemoryEvent } from './tracker';
+import { useDebounce } from '../../utils/useDebounce';
+import { searchEmbeddings } from './embedding';
 
-export interface Suggestion {
+interface Suggestion {
   value: string;
-  type: MemoryEvent['type'];
-  score: number;
-  metadata?: MemoryEvent['metadata'];
-  count: number; // How many times this appeared
+  type: string;
+  count: number;
+  lastUsed: number;
+  metadata?: any;
 }
 
-/**
- * Hook to get suggestions based on query
- */
-export function useSuggestions(query: string, options?: {
-  types?: MemoryEvent['type'][];
+interface UseSuggestionsOptions {
+  types?: Array<MemoryEvent['type']>;
   limit?: number;
-  minScore?: number;
-}): Suggestion[] {
-  const [events, setEvents] = useState<MemoryEvent[]>([]);
-  const { types = ['search', 'visit', 'bookmark'], limit = 5, minScore = 0.1 } = options || {};
+  minQueryLength?: number;
+}
+
+export function useSuggestions(query: string, options?: UseSuggestionsOptions): Suggestion[] {
+  const { types = ['search', 'visit'], limit = 5, minQueryLength = 2 } = options || {};
+  const debouncedQuery = useDebounce(query, 200);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadEvents() {
-      const allEvents = await MemoryStore.getEvents({ limit: 1000 });
-      if (!cancelled) {
-        setEvents(allEvents);
-      }
+    if (!debouncedQuery || debouncedQuery.length < minQueryLength) {
+      setSuggestions([]);
+      return;
     }
 
-    loadEvents();
+    let cancelled = false;
+
+    const fetchSuggestions = async () => {
+      // Try semantic search first (if embeddings available)
+      try {
+        const semanticResults = await searchEmbeddings(debouncedQuery, limit);
+        if (semanticResults.length > 0 && semanticResults[0].similarity > 0.3) {
+          // Use semantic results if similarity is good
+          const suggestions = semanticResults.map(result => ({
+            value: result.embedding.text,
+            type: result.embedding.metadata?.eventType || 'search',
+            count: 1,
+            lastUsed: result.embedding.timestamp,
+            metadata: result.embedding.metadata,
+          }));
+          if (!cancelled) setSuggestions(suggestions);
+          return;
+        }
+      } catch (error) {
+        // Fall back to keyword search if semantic search fails
+        console.debug('[SuperMemory] Semantic search failed, using keyword search:', error);
+      }
+
+      // Fallback to keyword-based search
+      const allEvents = await MemoryStoreInstance.getEvents({ limit: 1000 });
+      if (cancelled) return;
+
+      const queryLower = debouncedQuery.toLowerCase();
+
+      const scoredSuggestions = new Map<string, { event: MemoryEvent; count: number; lastUsed: number }>();
+
+      for (const event of allEvents) {
+        if (types.includes(event.type)) {
+          let matchValue = '';
+          if (event.type === 'search' && event.value) {
+            matchValue = event.value;
+          } else if (event.type === 'visit' && event.metadata?.title) {
+            matchValue = event.metadata.title;
+          } else if (event.type === 'visit' && event.value) {
+            matchValue = event.value; // URL
+          }
+
+          if (matchValue && matchValue.toLowerCase().includes(queryLower)) {
+            const key = `${event.type}-${matchValue}`;
+            if (!scoredSuggestions.has(key)) {
+              scoredSuggestions.set(key, { event, count: 0, lastUsed: 0 });
+            }
+            const entry = scoredSuggestions.get(key)!;
+            entry.count++;
+            if (event.ts > entry.lastUsed) {
+              entry.lastUsed = event.ts;
+            }
+          }
+        }
+      }
+
+      const sorted = Array.from(scoredSuggestions.values())
+        .map(entry => ({
+          value: entry.event.value,
+          type: entry.event.type,
+          count: entry.count,
+          lastUsed: entry.lastUsed,
+          metadata: entry.event.metadata,
+        }))
+        .sort((a, b) => {
+          // Prioritize by query match quality (exact match, starts with, includes)
+          const aValueLower = a.value.toLowerCase();
+          const bValueLower = b.value.toLowerCase();
+
+          const aExact = aValueLower === queryLower;
+          const bExact = bValueLower === queryLower;
+          if (aExact !== bExact) return aExact ? -1 : 1;
+
+          const aStartsWith = aValueLower.startsWith(queryLower);
+          const bStartsWith = bValueLower.startsWith(queryLower);
+          if (aStartsWith !== bStartsWith) return aStartsWith ? -1 : 1;
+
+          // Then by recency (more recent first)
+          if (b.lastUsed !== a.lastUsed) return b.lastUsed - a.lastUsed;
+
+          // Then by frequency (more frequent first)
+          return b.count - a.count;
+        })
+        .slice(0, limit);
+
+      if (!cancelled) setSuggestions(sorted);
+    };
+
+    fetchSuggestions();
 
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const suggestions = useMemo(() => {
-    if (!query.trim()) {
-      // Return top suggestions by score when no query
-      const grouped = new Map<string, { event: MemoryEvent; count: number }>();
-      
-      events
-        .filter(e => types.includes(e.type))
-        .forEach(event => {
-          const key = typeof event.value === 'string' ? event.value : JSON.stringify(event.value);
-          const existing = grouped.get(key);
-          if (existing) {
-            existing.count++;
-            existing.event.score = (existing.event.score || 0) + (event.score || 0);
-          } else {
-            grouped.set(key, { event, count: 1 });
-          }
-        });
-
-      return Array.from(grouped.values())
-        .map(({ event, count }) => ({
-          value: typeof event.value === 'string' ? event.value : JSON.stringify(event.value),
-          type: event.type,
-          score: (event.score || 0) / count,
-          metadata: event.metadata,
-          count,
-        }))
-        .filter(s => s.score >= minScore)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-    }
-
-    // Filter by query
-    const queryLower = query.toLowerCase();
-    const grouped = new Map<string, { event: MemoryEvent; count: number }>();
-
-    events
-      .filter(e => {
-        if (!types.includes(e.type)) return false;
-        const valueStr = typeof e.value === 'string' ? e.value : JSON.stringify(e.value);
-        return valueStr.toLowerCase().includes(queryLower);
-      })
-      .forEach(event => {
-        const key = typeof event.value === 'string' ? event.value : JSON.stringify(event.value);
-        const existing = grouped.get(key);
-        if (existing) {
-          existing.count++;
-          existing.event.score = (existing.event.score || 0) + (event.score || 0);
-        } else {
-          grouped.set(key, { event, count: 1 });
-        }
-      });
-
-    return Array.from(grouped.values())
-      .map(({ event, count }) => ({
-        value: typeof event.value === 'string' ? event.value : JSON.stringify(event.value),
-        type: event.type,
-        score: (event.score || 0) / count,
-        metadata: event.metadata,
-        count,
-      }))
-      .filter(s => s.score >= minScore)
-      .sort((a, b) => {
-        // Prioritize exact matches
-        const aExact = a.value.toLowerCase() === queryLower;
-        const bExact = b.value.toLowerCase() === queryLower;
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
-        
-        // Then by score
-        return b.score - a.score;
-      })
-      .slice(0, limit);
-  }, [query, events, types, limit, minScore]);
+  }, [debouncedQuery, types, limit, minQueryLength]);
 
   return suggestions;
 }
-
-/**
- * Hook to get recent items (no query needed)
- */
-export function useRecentItems(options?: {
-  types?: MemoryEvent['type'][];
-  limit?: number;
-}): Suggestion[] {
-  const [events, setEvents] = useState<MemoryEvent[]>([]);
-  const { types = ['visit', 'search', 'bookmark'], limit = 10 } = options || {};
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadEvents() {
-      const recentEvents = await MemoryStore.getEvents({ 
-        limit: limit * 2, // Get more to filter
-      });
-      if (!cancelled) {
-        setEvents(recentEvents);
-      }
-    }
-
-    loadEvents();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [limit]);
-
-  return useMemo(() => {
-    return events
-      .filter(e => types.includes(e.type))
-      .slice(0, limit)
-      .map(event => ({
-        value: typeof event.value === 'string' ? event.value : JSON.stringify(event.value),
-        type: event.type,
-        score: event.score || 0,
-        metadata: event.metadata,
-        count: 1,
-      }));
-  }, [events, types, limit]);
-}
-

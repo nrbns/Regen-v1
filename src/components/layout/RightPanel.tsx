@@ -12,6 +12,7 @@ import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { ExtensionNexusPanel } from '../plugins';
 import { EcoImpactSimulator } from '../eco';
 import { TrustWeaverPanel } from '../trust';
+import { PrivacyDashboard } from '../privacy/PrivacyDashboard';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 import { IdentityVaultPanel } from '../identity';
@@ -48,6 +49,7 @@ const tabs = [
   { id: 'planner', icon: Sparkles, label: 'Planner' },
   { id: 'plan', icon: ListChecks, label: 'Plan' },
   { id: 'actions', icon: Zap, label: 'Actions' },
+  { id: 'privacy', icon: Lock, label: 'Privacy' },
   { id: 'logs', icon: Activity, label: 'Logs' },
   { id: 'memory', icon: FileText, label: 'Memory' },
   { id: 'consent', icon: Shield, label: 'Consent' },
@@ -295,6 +297,8 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                 )}
               </div>
             )}
+
+            {activeTab === 'privacy' && <PrivacyDashboard />}
 
             {activeTab === 'trust' && <TrustWeaverPanel />}
 
