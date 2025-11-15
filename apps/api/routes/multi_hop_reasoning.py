@@ -37,32 +37,51 @@ class SearchStep:
         self.answer: Optional[str] = None
 
 
-async def search_web(query: str) -> List[Dict[str, Any]]:
+async def search_web(query: str, max_results: int = 10) -> List[Dict[str, Any]]:
     """
-    Search the web for a query
-    In production, integrate with DuckDuckGo, Bing, or other search APIs
+    Search the web for a query using enhanced aggregated search engines
     """
     try:
-        # Mock search results for MVP
-        # In production, call actual search APIs
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            # Use DuckDuckGo Instant Answer API
-            url = f"https://api.duckduckgo.com/?q={query}&format=json&no_html=1&skip_disambig=1"
-            async with session.get(url, timeout=5) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    results = []
-                    if data.get('AbstractText'):
-                        results.append({
-                            'title': data.get('Heading', query),
-                            'snippet': data.get('AbstractText', ''),
-                            'url': data.get('AbstractURL', ''),
-                            'source': 'duckduckgo'
-                        })
-                    return results
+        from apps.api.services.search_aggregator import aggregate_search
+        import os
+        
+        # Get Bing API key from environment if available
+        bing_api_key = os.getenv('BING_API_KEY')
+        
+        # Aggregate results from DuckDuckGo and Bing with enhanced ranking
+        results = await aggregate_search(
+            query=query,
+            sources=['duckduckgo', 'bing'],
+            max_results=max_results,
+            bing_api_key=bing_api_key,
+        )
+        
+        # Results are already ranked and deduplicated by aggregate_search
+        return results
     except Exception as e:
         logger.debug(f"Web search failed: {e}")
+        # Fallback to basic DuckDuckGo search
+        try:
+            import aiohttp
+            from urllib.parse import quote_plus
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api.duckduckgo.com/?q={quote_plus(query)}&format=json&no_html=1&skip_disambig=1"
+                async with session.get(url, timeout=5) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        results = []
+                        if data.get('AbstractText'):
+                            results.append({
+                                'title': data.get('Heading', query),
+                                'snippet': data.get('AbstractText', ''),
+                                'url': data.get('AbstractURL', ''),
+                                'source': 'duckduckgo',
+                                'relevance_score': 0.9,
+                                'rank': 1,
+                            })
+                        return results
+        except Exception as e2:
+            logger.debug(f"Fallback search failed: {e2}")
     
     return []
 

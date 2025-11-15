@@ -98,7 +98,7 @@ export function WorkflowBuilder({ workflow, onSave, onRun, onClose }: WorkflowBu
   }, [steps]);
 
   const handleSave = useCallback(() => {
-    const workflow: Workflow = {
+    const newWorkflow: Workflow = {
       id: workflow?.id || `workflow-${Date.now()}`,
       name,
       description,
@@ -106,7 +106,7 @@ export function WorkflowBuilder({ workflow, onSave, onRun, onClose }: WorkflowBu
       createdAt: workflow?.createdAt || Date.now(),
       updatedAt: Date.now(),
     };
-    onSave?.(workflow);
+    onSave?.(newWorkflow);
   }, [name, description, steps, workflow, onSave]);
 
   const handleRun = useCallback(async () => {
@@ -117,7 +117,7 @@ export function WorkflowBuilder({ workflow, onSave, onRun, onClose }: WorkflowBu
 
     setIsRunning(true);
     try {
-      const workflow: Workflow = {
+      const newWorkflow: Workflow = {
         id: workflow?.id || `workflow-${Date.now()}`,
         name,
         description,
@@ -125,7 +125,7 @@ export function WorkflowBuilder({ workflow, onSave, onRun, onClose }: WorkflowBu
         createdAt: workflow?.createdAt || Date.now(),
         updatedAt: Date.now(),
       };
-      await onRun?.(workflow);
+      await onRun?.(newWorkflow);
     } catch (error) {
       console.error('Workflow execution failed:', error);
       alert(`Workflow failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -424,8 +424,9 @@ function StepEditor({ step, onUpdate }: { step: WorkflowStep; onUpdate: (updates
                   value={step.condition?.type || 'equals'}
                   onChange={(e) => onUpdate({ 
                     condition: { 
-                      ...step.condition, 
-                      type: e.target.value as any 
+                      type: (e.target.value as 'equals' | 'contains' | 'exists'),
+                      field: step.condition?.field || '',
+                      value: step.condition?.value || '',
                     } 
                   })}
                   className="w-full px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white focus:outline-none focus:border-blue-500/50"
@@ -442,8 +443,9 @@ function StepEditor({ step, onUpdate }: { step: WorkflowStep; onUpdate: (updates
                   value={step.condition?.field || ''}
                   onChange={(e) => onUpdate({ 
                     condition: { 
-                      ...step.condition, 
-                      field: e.target.value 
+                      type: step.condition?.type || 'equals',
+                      field: e.target.value,
+                      value: step.condition?.value || '',
                     } 
                   })}
                   placeholder="Field to check"
@@ -457,8 +459,9 @@ function StepEditor({ step, onUpdate }: { step: WorkflowStep; onUpdate: (updates
                   value={step.condition?.value || ''}
                   onChange={(e) => onUpdate({ 
                     condition: { 
-                      ...step.condition, 
-                      value: e.target.value 
+                      type: step.condition?.type || 'equals',
+                      field: step.condition?.field || '',
+                      value: e.target.value,
                     } 
                   })}
                   placeholder="Expected value"

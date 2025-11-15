@@ -570,6 +570,14 @@ export function registerTabIpc(win: BrowserWindow) {
       } catch {}
     };
 
+    // Initialize navigation kernel for this tab
+    try {
+      const { initNavigation } = await import('./navigation-kernel');
+      initNavigation(id);
+    } catch (error) {
+      console.warn('[Tabs] Failed to initialize navigation kernel:', error);
+    }
+
     view.webContents.loadURL(targetUrl).catch(() => {});
     view.webContents.on('page-title-updated', () => emit());
     view.webContents.on('did-navigate', async (_e2, navUrl) => {
@@ -577,32 +585,37 @@ export function registerTabIpc(win: BrowserWindow) {
       markSessionDirty(); // Mark session as dirty when tab navigates
       sendNavigationState();
       
-      // Add to navigation history
+      // Use navigation kernel for unified navigation management
       try {
+        const { handleNavigation, preloadNextPages } = await import('./navigation-kernel');
         const title = view.webContents.getTitle() || navUrl;
-        addHistoryEntry(id, navUrl, title);
-      } catch (error) {
-        console.warn('[Tabs] Failed to add history entry:', error);
-      }
-
-      // Cache page for back/forward navigation
-      try {
-        await cachePage(id, view, navUrl, view.webContents.getTitle() || navUrl);
-      } catch (error) {
-        console.warn('[Tabs] Failed to cache page:', error);
-      }
-
-      // Analyze page for prefetching (with delay to not block navigation)
-      setTimeout(async () => {
-        try {
-          const prefetchTargets = await analyzePageForPrefetch(id, view, navUrl);
-          if (prefetchTargets.length > 0) {
-            queuePrefetchTargets(id, prefetchTargets);
+        await handleNavigation(id, view, navUrl, title);
+        
+        // Preload next pages after a delay (don't block navigation)
+        setTimeout(async () => {
+          try {
+            await preloadNextPages(id, view);
+          } catch (error) {
+            console.warn('[Tabs] Failed to preload next pages:', error);
           }
-        } catch (error) {
-          console.warn('[Tabs] Failed to analyze page for prefetch:', error);
+        }, 2000); // Wait 2s after navigation
+      } catch (error) {
+        console.warn('[Tabs] Failed to handle navigation via kernel:', error);
+        // Fallback to direct history/cache
+        try {
+          const title = view.webContents.getTitle() || navUrl;
+          const { addHistoryEntry } = await import('./navigation-history');
+          addHistoryEntry(id, navUrl, title);
+        } catch (err) {
+          console.warn('[Tabs] Failed to add history entry:', err);
         }
-      }, 2000); // Wait 2s after navigation
+        try {
+          const { cachePage } = await import('./navigation-cache');
+          await cachePage(id, view, navUrl, view.webContents.getTitle() || navUrl);
+        } catch (err) {
+          console.warn('[Tabs] Failed to cache page:', err);
+        }
+      }
       
       // Update BrowserView visibility based on URL
       const isAboutBlankNav = !navUrl || navUrl === 'about:blank' || navUrl.startsWith('about:');
@@ -768,6 +781,17 @@ export function registerTabIpc(win: BrowserWindow) {
 
     // Register tab for sleep management with memory tracking
     registerTabSleep(id, view, 500); // Default 500MB memory cap
+    
+    // Initialize enhanced tab engine
+    try {
+      const { initTabEngine } = await import('./tab-engine');
+      initTabEngine(id, view, {
+        memoryCapMB: 500, // Default from settings
+        crashRecovery: true,
+      });
+    } catch (error) {
+      console.warn('[Tabs] Failed to initialize tab engine:', error);
+    }
     
     // Initialize navigation history
     initTabHistory(id);
@@ -948,8 +972,26 @@ export function registerTabIpc(win: BrowserWindow) {
     try {
       unregisterTab(tabId);
       unregisterTabMemory(tabId);
-      removeTabHistory(tabId);
-      clearTabCache(tabId);
+      // Clean up navigation kernel
+      try {
+        const { cleanupNavigation } = await import('./navigation-kernel');
+        cleanupNavigation(tabId);
+      } catch (error) {
+        // Fallback to direct cleanup
+        const { removeTabHistory } = await import('./navigation-history');
+        const { clearTabCache } = await import('./navigation-cache');
+        removeTabHistory(tabId);
+        clearTabCache(tabId);
+      }
+      
+      // Clean up tab engine
+      try {
+        const { cleanupTabEngine } = await import('./tab-engine');
+        cleanupTabEngine(tabId);
+      } catch (error) {
+        console.warn('[Tabs] Failed to cleanup tab engine:', error);
+      }
+      
       clearPrefetchQueue(tabId);
     } catch (e) {
       console.warn('Error unregistering tab:', e);
@@ -1197,6 +1239,68 @@ export function registerTabIpc(win: BrowserWindow) {
     }
   );
 
+  // Tab engine IPC handlers
+  registerHandler('tabs:getMetrics', z.object({ tabId: z.string() }), async (_event, request) => {
+    try {
+      const { getTabMetrics } = await import('./tab-engine');
+      const metrics = getTabMetrics(request.tabId);
+      return metrics || null;
+    } catch (error) {
+      console.warn('[Tabs] Failed to get tab metrics:', error);
+      return null;
+    }
+  });
+
+  registerHandler('tabs:getAllMetrics', z.object({}), async () => {
+    try {
+      const { getAllTabMetrics } = await import('./tab-engine');
+      const metrics = getAllTabMetrics();
+      return Object.fromEntries(metrics);
+    } catch (error) {
+      console.warn('[Tabs] Failed to get all tab metrics:', error);
+      return {};
+    }
+  });
+
+  registerHandler('tabs:suspend', z.object({ tabId: z.string() }), async (_event, request) => {
+    try {
+      const { suspendTab } = await import('./tab-engine');
+      const success = suspendTab(request.tabId);
+      if (success) {
+        emit();
+      }
+      return { success };
+    } catch (error) {
+      console.warn('[Tabs] Failed to suspend tab:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  registerHandler('tabs:revive', z.object({ tabId: z.string() }), async (_event, request) => {
+    try {
+      const { reviveTab } = await import('./tab-engine');
+      const success = reviveTab(request.tabId);
+      if (success) {
+        emit();
+      }
+      return { success };
+    } catch (error) {
+      console.warn('[Tabs] Failed to revive tab:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
+  registerHandler('tabs:setMemoryCap', z.object({ tabId: z.string(), capMB: z.number() }), async (_event, request) => {
+    try {
+      const { setMemoryCap } = await import('./tab-engine');
+      setMemoryCap(request.tabId, request.capMB);
+      return { success: true };
+    } catch (error) {
+      console.warn('[Tabs] Failed to set memory cap:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   registerHandler('tabs:activate', TabActivateRequest, async (_event, request) => {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Main][tabs:activate] request received:', request);
@@ -1236,6 +1340,19 @@ export function registerTabIpc(win: BrowserWindow) {
     // Tab exists and is valid - activate it
     setActiveTab(win, request.id);
     markSessionDirty(); // Mark session as dirty when tab is activated
+    
+    // Update tab engine state
+    try {
+      const { setTabActive } = await import('./tab-engine');
+      // Mark all tabs as inactive first
+      for (const tab of tabs) {
+        setTabActive(tab.id, false);
+      }
+      // Mark requested tab as active
+      setTabActive(request.id, true);
+    } catch (error) {
+      console.warn('[Tabs] Failed to update tab engine state:', error);
+    }
     
     // Wake tab if sleeping
     try {
@@ -1458,37 +1575,26 @@ export function registerTabIpc(win: BrowserWindow) {
   registerHandler('tabs:goBack', TabGoBackRequest, async (_event, request) => {
     const tabs = getTabs(win);
     const rec = tabs.find(t => t.id === request.id);
-    if (rec?.view.webContents.canGoBack()) {
-      // Try to restore from cache before navigating
-      const currentUrl = rec.view.webContents.getURL();
-      const history = await import('./navigation-history');
-      const backEntry = history.goBack(request.id);
-      
-      if (backEntry) {
-        // Check if we have prefetched content
-        const prefetched = getPrefetchedContent(backEntry.url);
-        if (prefetched) {
-          // Use prefetched content for faster load
-          console.log(`[Tabs] Using prefetched content for ${backEntry.url}`);
-        }
+    if (!rec) {
+      return { success: false, error: 'Tab not found' };
+    }
+
+    try {
+      // Use navigation kernel for back navigation
+      const { navigateBack } = await import('./navigation-kernel');
+      const success = await navigateBack(request.id, rec.view);
+      if (success) {
+        emit();
+        return { success: true };
       }
+    } catch (error) {
+      console.warn('[Tabs] Navigation kernel back failed, using fallback:', error);
+    }
 
+    // Fallback to native goBack
+    if (rec.view.webContents.canGoBack()) {
       rec.view.webContents.goBack();
-      
-      // Restore cached page state after navigation
-      setTimeout(async () => {
-        try {
-          const newUrl = rec.view.webContents.getURL();
-          if (newUrl && newUrl !== currentUrl) {
-            await restoreCachedPage(request.id, rec.view, newUrl);
-          }
-        } catch (error) {
-          // Silent fail - cache restore is best-effort
-        }
-      }, 500);
-
       emit();
-      // Navigation state will be updated via did-navigate event
       return { success: true };
     }
     return { success: false };
@@ -1497,36 +1603,26 @@ export function registerTabIpc(win: BrowserWindow) {
   registerHandler('tabs:goForward', TabGoForwardRequest, async (_event, request) => {
     const tabs = getTabs(win);
     const rec = tabs.find(t => t.id === request.id);
-    if (rec?.view.webContents.canGoForward()) {
-      // Try to restore from cache before navigating
-      const currentUrl = rec.view.webContents.getURL();
-      const history = await import('./navigation-history');
-      const forwardEntry = history.goForward(request.id);
-      
-      if (forwardEntry) {
-        // Check if we have prefetched content
-        const prefetched = getPrefetchedContent(forwardEntry.url);
-        if (prefetched) {
-          console.log(`[Tabs] Using prefetched content for ${forwardEntry.url}`);
-        }
+    if (!rec) {
+      return { success: false, error: 'Tab not found' };
+    }
+
+    try {
+      // Use navigation kernel for forward navigation
+      const { navigateForward } = await import('./navigation-kernel');
+      const success = await navigateForward(request.id, rec.view);
+      if (success) {
+        emit();
+        return { success: true };
       }
+    } catch (error) {
+      console.warn('[Tabs] Navigation kernel forward failed, using fallback:', error);
+    }
 
+    // Fallback to native goForward
+    if (rec.view.webContents.canGoForward()) {
       rec.view.webContents.goForward();
-      
-      // Restore cached page state after navigation
-      setTimeout(async () => {
-        try {
-          const newUrl = rec.view.webContents.getURL();
-          if (newUrl && newUrl !== currentUrl) {
-            await restoreCachedPage(request.id, rec.view, newUrl);
-          }
-        } catch (error) {
-          // Silent fail - cache restore is best-effort
-        }
-      }, 500);
-
       emit();
-      // Navigation state will be updated via did-navigate event
       return { success: true };
     }
     return { success: false };

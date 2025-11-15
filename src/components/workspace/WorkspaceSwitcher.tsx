@@ -89,8 +89,9 @@ export function WorkspaceSwitcher({ compact = false }: WorkspaceSwitcherProps) {
         }
         
         // Open workspace tabs in order
-        for (let i = 0; i < workspace.tabs.length; i++) {
-          const tabLayout = workspace.tabs[i];
+        const workspaceTabs = (workspace as any).tabs || [];
+        for (let i = 0; i < workspaceTabs.length; i++) {
+          const tabLayout = workspaceTabs[i];
           await ipc.tabs.create({
             url: tabLayout.url,
             activate: i === 0, // Activate first tab
@@ -162,8 +163,7 @@ export function WorkspaceSwitcher({ compact = false }: WorkspaceSwitcherProps) {
       await ipc.workspaceV2.save({
         ...workspace,
         name: editName.trim(),
-        updatedAt: Date.now(),
-      });
+      } as any);
       await loadWorkspaces();
       setEditingId(null);
       setEditName('');

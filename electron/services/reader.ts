@@ -66,14 +66,14 @@ async function summarizeArticle(
     if (provider === 'openai' && apiKey) {
       const approved = await ensureConsent(win, {
         type: 'ai_cloud',
-        description: `Send article content${url ? ` from ${new URL(url).hostname}` : ''} to OpenAI (${settings.ai.model}) for summarization`,
+        description: `Send article content${url ? ` from ${new URL(url).hostname}` : ''} to OpenAI (${settings.ai.openaiModel}) for summarization`,
         target: url,
-        metadata: { provider: 'openai', model: settings.ai.model },
+        metadata: { provider: 'openai', model: settings.ai.openaiModel },
         risk: 'high',
       });
       if (approved) {
         try {
-          const bullets = await summarizeWithOpenAI(apiKey, settings.ai.model, {
+          const bullets = await summarizeWithOpenAI(apiKey, settings.ai.openaiModel, {
             title,
             text: truncated,
             url,

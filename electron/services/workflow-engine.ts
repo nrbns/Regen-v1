@@ -4,7 +4,8 @@
 
 import { registerHandler } from '../shared/ipc/router';
 import { z } from 'zod';
-import { ipc } from '../main';
+// IPC handlers registered in main.ts
+// import { ipc } from '../main';
 
 export interface WorkflowStep {
   action: 'search' | 'summarize' | 'speak' | 'navigate' | 'extract' | 'ask';

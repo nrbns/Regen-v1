@@ -3,20 +3,10 @@
  * Uses localStorage with IndexedDB fallback for larger data
  */
 
-export interface MemoryEvent {
-  id: string;
-  type: 'search' | 'visit' | 'mode_switch' | 'bookmark' | 'note' | 'prefetch' | 'action';
-  value: any; // e.g. query string or url
-  metadata?: {
-    url?: string;
-    title?: string;
-    mode?: string;
-    tabId?: string;
-    duration?: number;
-  };
-  ts: number;
-  score?: number; // recency/freq score
-}
+import type { MemoryEvent } from './event-types';
+
+// Re-export for convenience
+export type { MemoryEvent } from './event-types';
 
 const STORAGE_PREFIX = 'sm-';
 const MAX_EVENTS = 10000; // Limit total events
@@ -28,6 +18,7 @@ class MemoryStore {
 
   /**
    * Initialize IndexedDB if available
+   * Now uses the enhanced database with migrations
    */
   async init(): Promise<void> {
     if (!('indexedDB' in window)) {
@@ -36,20 +27,13 @@ class MemoryStore {
     }
 
     try {
-      this.db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open('supermemory', 1);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
-          if (!db.objectStoreNames.contains('events')) {
-            const store = db.createObjectStore('events', { keyPath: 'id' });
-            store.createIndex('type', 'type', { unique: false });
-            store.createIndex('ts', 'ts', { unique: false });
-          }
-        };
-      });
+      // Use enhanced database
+      const { superMemoryDB } = await import('./db');
+      await superMemoryDB.init();
       this.useIndexedDB = true;
+      
+      // Get database instance for backward compatibility
+      this.db = (superMemoryDB as any).db;
     } catch (error) {
       console.warn('[SuperMemory] IndexedDB unavailable, using localStorage:', error);
       this.useIndexedDB = false;
@@ -110,6 +94,7 @@ class MemoryStore {
 
   /**
    * Save a memory event
+   * Uses enhanced database with proper write→embed→store pipeline
    */
   async saveEvent(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): Promise<string> {
     const fullEvent: MemoryEvent = {
@@ -119,14 +104,10 @@ class MemoryStore {
       score: this.calculateScore(event),
     };
 
-    if (this.useIndexedDB && this.db) {
+    if (this.useIndexedDB) {
       try {
-        const transaction = this.db.transaction(['events'], 'readwrite');
-        const store = transaction.objectStore('events');
-        await store.add(fullEvent);
-        
-        // Cleanup old events
-        await this.cleanupOldEvents();
+        const { superMemoryDB } = await import('./db');
+        await superMemoryDB.saveEvent(fullEvent);
         return fullEvent.id;
       } catch (error) {
         console.warn('[SuperMemory] IndexedDB save failed, falling back to localStorage:', error);
@@ -147,32 +128,14 @@ class MemoryStore {
     type?: MemoryEvent['type'];
     limit?: number;
     since?: number;
+    until?: number;
+    pinned?: boolean;
+    tags?: string[];
   }): Promise<MemoryEvent[]> {
-    if (this.useIndexedDB && this.db) {
+    if (this.useIndexedDB) {
       try {
-        const transaction = this.db.transaction(['events'], 'readonly');
-        const store = transaction.objectStore('events');
-        const index = store.index('ts');
-        
-        const events: MemoryEvent[] = [];
-        const range = filters?.since ? IDBKeyRange.lowerBound(filters.since) : null;
-        
-        return new Promise((resolve, reject) => {
-          const request = index.openCursor(range, 'prev'); // Most recent first
-          request.onsuccess = (e) => {
-            const cursor = (e.target as IDBRequest).result;
-            if (cursor && events.length < (filters?.limit || 100)) {
-              const event = cursor.value as MemoryEvent;
-              if (!filters?.type || event.type === filters.type) {
-                events.push(event);
-              }
-              cursor.continue();
-            } else {
-              resolve(events);
-            }
-          };
-          request.onerror = () => reject(request.error);
-        });
+        const { superMemoryDB } = await import('./db');
+        return await superMemoryDB.getEvents(filters);
       } catch (error) {
         console.warn('[SuperMemory] IndexedDB read failed, falling back to localStorage:', error);
         this.useIndexedDB = false;
@@ -188,6 +151,9 @@ class MemoryStore {
     }
     if (filters?.since) {
       filtered = filtered.filter(e => e.ts >= filters.since!);
+    }
+    if (filters?.until) {
+      filtered = filtered.filter(e => e.ts <= filters.until!);
     }
 
     return filtered.slice(0, filters?.limit || 100);
@@ -295,11 +261,12 @@ class MemoryStore {
 }
 
 // Singleton instance
-export const MemoryStore = new MemoryStore();
-export const MemoryStoreInstance = MemoryStore; // Alias for consistency
+const memoryStoreInstance = new MemoryStore();
+export const MemoryStoreInstance = memoryStoreInstance; // Export instance
+export { MemoryStore }; // Export class for type usage
 
 // Initialize on load
 if (typeof window !== 'undefined') {
-  MemoryStore.init().catch(console.error);
+  memoryStoreInstance.init().catch(console.error);
 }
 

@@ -108,6 +108,15 @@ export function getCurrentSettings(): Settings {
   return SettingsSchema.parse(root);
 }
 
+/**
+ * Update root settings (internal use)
+ */
+export async function updateRootSettings(newSettings: Settings): Promise<void> {
+  const validated = SettingsSchema.parse(newSettings);
+  settings.set('root', validated);
+  await saveSettingsToDisk();
+}
+
 export function registerStorageIpc() {
   // Typed IPC handlers
   registerHandler('settings:get', z.object({}), async () => {

@@ -4,20 +4,24 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Globe, FileText, Sparkles } from 'lucide-react';
+import { Search, Loader2, Globe, FileText, Sparkles, Brain } from 'lucide-react';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../services/duckDuckGoSearch';
 import { searchLocal } from '../utils/lunrIndex';
 import { ipc } from '../lib/ipc-typed';
 import { trackSearch } from '../core/supermemory/tracker';
 import { useSuggestions } from '../core/supermemory/useSuggestions';
+import { searchVectors } from '../core/supermemory/vectorStore';
+import { sendPrompt } from '../core/llm/adapter';
+import { useTabsStore } from '../state/tabsStore';
 
 type SearchResult = {
   id: string;
   title: string;
   url?: string;
   snippet: string;
-  type: 'duck' | 'local';
+  type: 'duck' | 'local' | 'memory';
   source?: 'instant' | 'result' | 'related';
+  similarity?: number; // For vector search results
 };
 
 export default function SearchBar() {
@@ -25,11 +29,19 @@ export default function SearchBar() {
   const [loading, setLoading] = useState(false);
   const [duckResults, setDuckResults] = useState<SearchResult[]>([]);
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
+  const [memoryResults, setMemoryResults] = useState<SearchResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiResponse, setShowAiResponse] = useState(false);
+  const [askingAboutPage, setAskingAboutPage] = useState(false);
   const aiSessionRef = useRef<string>(`search-${Date.now()}`);
+  
+  // Get active tab for "Ask about this page"
+  const activeTab = useTabsStore((state) => {
+    if (!state.activeId) return null;
+    return state.tabs.find((t) => t.id === state.activeId) || null;
+  });
   
   // SuperMemory suggestions
   const suggestions = useSuggestions(q, { types: ['search', 'visit', 'bookmark'], limit: 5 });
@@ -48,10 +60,11 @@ export default function SearchBar() {
       setError(null);
       
       try {
-        // Fetch both in parallel
-        const [duckData, localData] = await Promise.all([
+        // Fetch all sources in parallel
+        const [duckData, localData, vectorResults] = await Promise.all([
           fetchDuckDuckGoInstant(q).catch(() => null),
           searchLocal(q).catch(() => []),
+          searchVectors(q, { maxVectors: 5, minSimilarity: 0.6 }).catch(() => []),
         ]);
         
         if (cancelled) return;
@@ -79,6 +92,19 @@ export default function SearchBar() {
           type: 'local' as const,
         }));
         setLocalResults(local);
+        
+        // Format memory/vector search results
+        const memory = vectorResults
+          .filter((r) => r.similarity >= 0.6)
+          .map((r, idx) => ({
+            id: `memory-${r.embedding.id || idx}`,
+            title: r.embedding.metadata?.title || r.embedding.text.substring(0, 50) || 'Memory',
+            url: r.embedding.metadata?.url,
+            snippet: r.embedding.text.substring(0, 150),
+            type: 'memory' as const,
+            similarity: r.similarity,
+          }));
+        setMemoryResults(memory);
       } catch (err: any) {
         if (!cancelled) {
           setError(err.message || String(err));
@@ -99,8 +125,16 @@ export default function SearchBar() {
 
   const handleResultClick = async (result: SearchResult) => {
     if (result.url) {
-      // Track visit in SuperMemory
-      trackSearch(result.url, { url: result.url, title: result.title }).catch(console.error);
+      // Track search result click
+      trackSearch(result.url, { 
+        url: result.url, 
+        title: result.title,
+        clickedResult: {
+          url: result.url,
+          title: result.title,
+          position: 0, // Would need to track position from results array
+        },
+      }).catch(console.error);
       
       try {
         await ipc.tabs.create(result.url);
@@ -203,8 +237,37 @@ export default function SearchBar() {
     }
   };
 
-  const allResults = [...duckResults, ...localResults];
+  const allResults = [...memoryResults, ...duckResults, ...localResults];
   const hasResults = allResults.length > 0;
+
+  // Handle "Ask about this page"
+  const handleAskAboutPage = async () => {
+    if (!activeTab?.url || !activeTab.title) {
+      setError('No active page to ask about');
+      return;
+    }
+
+    setAskingAboutPage(true);
+    setShowAiResponse(true);
+    setAiResponse('');
+    setError(null);
+
+    try {
+      // Use LLM adapter to ask about the page
+      const prompt = `Based on the page "${activeTab.title}" (${activeTab.url}), answer the user's question: ${q || 'What is this page about?'}`;
+      
+      const response = await sendPrompt(prompt, {
+        systemPrompt: 'You are a helpful assistant that answers questions about web pages based on their title and URL.',
+        maxTokens: 500,
+      });
+
+      setAiResponse(response.text);
+    } catch (err: any) {
+      setError(err.message || 'Failed to get AI response about page');
+    } finally {
+      setAskingAboutPage(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -221,6 +284,18 @@ export default function SearchBar() {
           />
           {loading && (
             <Loader2 size={16} className="text-gray-400 animate-spin flex-shrink-0" />
+          )}
+          {activeTab?.url && activeTab.url.startsWith('http') && (
+            <button
+              type="button"
+              onClick={handleAskAboutPage}
+              disabled={askingAboutPage}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-200 text-xs font-medium hover:bg-purple-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Ask AI about this page"
+            >
+              <Brain size={14} className={askingAboutPage ? 'animate-pulse' : ''} />
+              <span>Ask about page</span>
+            </button>
           )}
         </div>
 
@@ -257,6 +332,39 @@ export default function SearchBar() {
         {/* Results Dropdown */}
         {hasResults && (
           <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-gray-700/50 bg-gray-900/95 backdrop-blur-xl shadow-2xl max-h-[500px] overflow-y-auto z-50">
+            {memoryResults.length > 0 && (
+              <div className="p-3 border-b border-gray-800/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Brain size={14} className="text-purple-400" />
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Memory Results</h3>
+                </div>
+                <div className="space-y-1">
+                  {memoryResults.map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => handleResultClick(result)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm font-medium text-purple-200 line-clamp-1">{result.title}</div>
+                        {result.similarity !== undefined && (
+                          <span className="text-xs text-purple-400/70 ml-2">
+                            {Math.round(result.similarity * 100)}%
+                          </span>
+                        )}
+                      </div>
+                      {result.snippet && (
+                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.snippet}</div>
+                      )}
+                      {result.url && (
+                        <div className="text-xs text-gray-500 mt-1 truncate">{result.url}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {duckResults.length > 0 && (
               <div className="p-3 border-b border-gray-800/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -324,8 +432,11 @@ export default function SearchBar() {
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={16} className="text-blue-400" />
               <h3 className="text-sm font-semibold text-gray-300">AI Response</h3>
-              {aiLoading && (
+              {(aiLoading || askingAboutPage) && (
                 <Loader2 size={14} className="text-blue-400 animate-spin ml-auto" />
+              )}
+              {askingAboutPage && (
+                <span className="text-xs text-purple-300 ml-2">Analyzing page...</span>
               )}
             </div>
           </div>

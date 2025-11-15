@@ -56,9 +56,9 @@ export function registerTab(tabId: string, view: BrowserView, memoryCapMB?: numb
       }
       
       // Get memory usage (if available)
-      if (typeof view.webContents.getProcessMemoryInfo === 'function') {
+      if (view.webContents && typeof (view.webContents as any).getProcessMemoryInfo === 'function') {
         try {
-          const memInfo = await view.webContents.getProcessMemoryInfo();
+          const memInfo = await (view.webContents as any).getProcessMemoryInfo();
           const memoryMB = Math.round((memInfo.private || 0) / 1024);
           state.memoryMB = memoryMB;
           
@@ -70,11 +70,11 @@ export function registerTab(tabId: string, view: BrowserView, memoryCapMB?: numb
               sleepTab(tabId);
             }
           }
-        } catch (error) {
+        } catch {
           // Memory info not available, skip
         }
       }
-    } catch (error) {
+    } catch {
       // Tab destroyed or error, clear interval
       clearInterval(memoryCheckInterval);
     }

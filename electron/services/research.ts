@@ -368,7 +368,7 @@ export function registerResearchIpc() {
               return document.documentElement.outerHTML;
             }
           })()
-        `, true).catch((err) => {
+        `, true).catch((err: unknown) => {
           console.warn('[Research] Failed to extract HTML:', err);
           return '';
         }),

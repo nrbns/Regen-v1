@@ -58,6 +58,17 @@ class RedixRuntime {
       ts: Date.now(),
     };
 
+    // Initialize persistence on first dispatch
+    try {
+      const { initPersistence } = require('./event-log');
+      if (!(globalThis as any).__redixPersistenceInitialized) {
+        initPersistence().catch(console.warn);
+        (globalThis as any).__redixPersistenceInitialized = true;
+      }
+    } catch {
+      // Event log not available, continue without it
+    }
+
     // Add to event log (if available)
     try {
       const { dispatchEvent } = require('./event-log');
@@ -69,6 +80,17 @@ class RedixRuntime {
       });
     } catch {
       // Event log not available, continue without it
+    }
+
+    // Register default reducers on first dispatch
+    try {
+      const { registerDefaultReducers } = require('./reducers');
+      if (!(globalThis as any).__redixReducersRegistered) {
+        registerDefaultReducers();
+        (globalThis as any).__redixReducersRegistered = true;
+      }
+    } catch {
+      // Reducers not available, continue without them
     }
 
     // Add to history

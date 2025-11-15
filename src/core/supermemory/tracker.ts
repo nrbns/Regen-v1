@@ -4,57 +4,103 @@
  */
 
 import { MemoryStore } from './store';
-import { embedMemoryEvent } from './embedding';
+import { processMemoryEvent } from './pipeline';
+import type { MemoryEvent, SearchEventMetadata, VisitEventMetadata, HighlightEventMetadata, ScreenshotEventMetadata, NoteEventMetadata } from './event-types';
 
-export interface MemoryEvent {
-  id: string;
-  type: 'search' | 'visit' | 'mode_switch' | 'bookmark' | 'note' | 'prefetch' | 'action';
-  value: string; // e.g. query string or url
-  metadata?: { url?: string; title?: string; mode?: string; [key: string]: any };
-  ts: number;
-  score?: number; // recency/freq score
+// Re-export types for convenience
+export type { MemoryEvent, SearchEventMetadata, VisitEventMetadata, HighlightEventMetadata, ScreenshotEventMetadata, NoteEventMetadata } from './event-types';
+
+// Deduplication: track recent events to prevent duplicates
+const recentEvents = new Map<string, number>(); // key -> timestamp
+const DEDUP_WINDOW_MS = 1000; // 1 second window for deduplication
+
+/**
+ * Generate deduplication key for an event
+ */
+function getDedupKey(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): string {
+  return `${event.type}:${JSON.stringify(event.value)}:${JSON.stringify(event.metadata || {})}`;
+}
+
+/**
+ * Check if event is a duplicate (same event within dedup window)
+ */
+function isDuplicate(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): boolean {
+  const key = getDedupKey(event);
+  const lastTime = recentEvents.get(key);
+  const now = Date.now();
+  
+  if (lastTime && (now - lastTime) < DEDUP_WINDOW_MS) {
+    return true; // Duplicate within window
+  }
+  
+  // Update last seen time
+  recentEvents.set(key, now);
+  
+  // Cleanup old entries (older than 5 seconds)
+  for (const [k, t] of recentEvents.entries()) {
+    if (now - t > 5000) {
+      recentEvents.delete(k);
+    }
+  }
+  
+  return false;
 }
 
 /**
  * Track a user event
  */
 export async function trackUserEvent(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): Promise<string> {
-  const newEvent: MemoryEvent = {
-    id: crypto.randomUUID(),
-    ts: Date.now(),
-    score: 0,
-    ...event,
-  };
+  // Check for duplicates
+  if (isDuplicate(event)) {
+    // Return existing event ID (we'd need to look it up, but for now just skip)
+    return '';
+  }
   
-  await MemoryStoreInstance.saveEvent(newEvent);
+  // Use pipeline for complete write→embed→store flow
+  const result = await processMemoryEvent(event);
   
-  // Generate embeddings asynchronously (don't block)
-  embedMemoryEvent(newEvent).catch(error => {
-    console.warn('[SuperMemory] Failed to embed event:', error);
-  });
+  if (!result.success) {
+    console.warn('[SuperMemory] Failed to process event:', result.error);
+    return '';
+  }
   
-  return newEvent.id;
+  return result.eventId;
 }
 
 /**
  * Track a search query
  */
-export async function trackSearch(query: string, metadata?: { url?: string; mode?: string; title?: string }): Promise<string> {
+export async function trackSearch(
+  query: string, 
+  metadata?: Partial<SearchEventMetadata>
+): Promise<string> {
   return trackUserEvent({
     type: 'search',
     value: query,
-    metadata,
+    metadata: {
+      query,
+      ...metadata,
+    } as SearchEventMetadata,
   });
 }
 
 /**
  * Track a page visit
+ * Enhanced with duration and interaction tracking
  */
-export async function trackVisit(url: string, title?: string, metadata?: { tabId?: string; containerId?: string }): Promise<string> {
+export async function trackVisit(
+  url: string, 
+  title?: string, 
+  metadata?: Partial<VisitEventMetadata>
+): Promise<string> {
   return trackUserEvent({
     type: 'visit',
     value: url,
-    metadata: { url, title, ...metadata },
+    metadata: {
+      url,
+      title,
+      ...metadata,
+    } as VisitEventMetadata,
   });
 }
 
@@ -82,12 +128,22 @@ export async function trackBookmark(url: string, metadata?: { title?: string }):
 
 /**
  * Track a note
+ * Enhanced with preview and tags
  */
-export async function trackNote(url: string, metadata?: { title?: string; noteLength?: number }): Promise<string> {
+export async function trackNote(
+  url: string, 
+  metadata?: Partial<NoteEventMetadata>
+): Promise<string> {
+  const noteText = metadata?.notePreview || '';
   return trackUserEvent({
     type: 'note',
     value: url,
-    metadata: { url, ...metadata },
+    metadata: {
+      url,
+      noteLength: noteText.length,
+      notePreview: noteText.substring(0, 200),
+      ...metadata,
+    } as NoteEventMetadata,
   });
 }
 
@@ -110,6 +166,72 @@ export async function trackAction(action: string, metadata?: Record<string, any>
     type: 'action',
     value: action,
     metadata,
+  });
+}
+
+/**
+ * Track a text highlight
+ * Enhanced with position and context tracking
+ */
+export async function trackHighlight(
+  url: string,
+  text: string,
+  metadata?: Partial<HighlightEventMetadata>
+): Promise<string> {
+  return trackUserEvent({
+    type: 'highlight',
+    value: text,
+    metadata: {
+      url,
+      text,
+      ...metadata,
+    } as HighlightEventMetadata,
+  });
+}
+
+/**
+ * Track a screenshot capture
+ * Enhanced with size and format tracking
+ */
+export async function trackScreenshot(
+  url: string,
+  metadata?: Partial<ScreenshotEventMetadata>
+): Promise<string> {
+  return trackUserEvent({
+    type: 'screenshot',
+    value: url,
+    metadata: {
+      url,
+      ...metadata,
+    } as ScreenshotEventMetadata,
+  });
+}
+
+/**
+ * Track a task (todo item)
+ */
+export async function trackTask(
+  task: string,
+  metadata?: { completed?: boolean; priority?: 'low' | 'medium' | 'high'; dueDate?: number; url?: string }
+): Promise<string> {
+  return trackUserEvent({
+    type: 'task',
+    value: task,
+    metadata: { ...metadata },
+  });
+}
+
+/**
+ * Track an agent action
+ */
+export async function trackAgent(
+  action: string,
+  metadata?: { runId?: string; skill?: string; result?: any; error?: string; url?: string }
+): Promise<string> {
+  return trackUserEvent({
+    type: 'agent',
+    value: action,
+    metadata: { ...metadata },
   });
 }
 

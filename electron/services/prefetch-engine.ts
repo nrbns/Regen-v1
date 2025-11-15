@@ -4,8 +4,6 @@
  */
 
 import { BrowserView } from 'electron';
-import { getTabs, findTabById } from './tabs';
-import { BrowserWindow } from 'electron';
 
 export interface PrefetchTarget {
   url: string;
@@ -25,7 +23,7 @@ const prefetchCache = new Map<string, { timestamp: number; data: any }>(); // UR
 
 const DEFAULT_MAX_CONCURRENT = 5; // Increased for better prefetching
 const PREFETCH_CACHE_MAX_AGE = 15 * 60 * 1000; // 15 minutes (increased cache time)
-const PREFETCH_DELAY_MS = 2000; // Wait 2s after page load before prefetching
+const _PREFETCH_DELAY_MS = 2000; // Wait 2s after page load before prefetching (reserved for future use)
 
 /**
  * Initialize prefetch queue for a tab
@@ -127,7 +125,7 @@ export async function analyzePageForPrefetch(tabId: string, view: BrowserView, u
             priority,
           });
         }
-      } catch (error) {
+      } catch {
         // Skip invalid URLs
         continue;
       }
@@ -206,54 +204,55 @@ async function processPrefetchQueue(tabId: string): Promise<void> {
 /**
  * Prefetch a URL with optimized strategy
  */
-async function prefetchUrl(url: string, target: PrefetchTarget): Promise<void> {
+async function prefetchUrl(url: string, _target: PrefetchTarget): Promise<void> {
+  // Check cache first
+  const cached = prefetchCache.get(url);
+  if (cached && Date.now() - cached.timestamp < PREFETCH_CACHE_MAX_AGE) {
+    return; // Already cached and fresh
+  }
+
+  // Use AbortController for timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
   try {
-    // Check cache first
-    const cached = prefetchCache.get(url);
-    if (cached && Date.now() - cached.timestamp < PREFETCH_CACHE_MAX_AGE) {
-      return; // Already cached and fresh
-    }
+    // Prefetch using fetch (lightweight, doesn't execute JS)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'OmniBrowser/1.0',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      cache: 'force-cache',
+      signal: controller.signal,
+    });
 
-    // Use AbortController for timeout
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-    try {
-      // Prefetch using fetch (lightweight, doesn't execute JS)
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'OmniBrowser/1.0',
-          'Accept': 'text/html,application/xhtml+xml',
+    if (response.ok) {
+      const html = await response.text();
+      
+      // Cache the prefetched content
+      prefetchCache.set(url, {
+        timestamp: Date.now(),
+        data: {
+          html,
+          headers: Object.fromEntries(response.headers.entries()),
         },
-        cache: 'force-cache',
-        signal: controller.signal,
       });
 
-      if (response.ok) {
-        const html = await response.text();
-        
-        // Cache the prefetched content
-        prefetchCache.set(url, {
-          timestamp: Date.now(),
-          data: {
-            html,
-            headers: Object.fromEntries(response.headers.entries()),
-          },
-        });
-
-        // Limit cache size (remove oldest entries)
-        if (prefetchCache.size > 50) {
-          const entries = Array.from(prefetchCache.entries());
-          entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-          const toRemove = entries.slice(0, entries.length - 50);
-          toRemove.forEach(([url]) => prefetchCache.delete(url));
-        }
+      // Limit cache size (remove oldest entries)
+      if (prefetchCache.size > 50) {
+        const entries = Array.from(prefetchCache.entries());
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+        const toRemove = entries.slice(0, entries.length - 50);
+        toRemove.forEach(([url]) => prefetchCache.delete(url));
       }
-    } catch (error) {
-      // Silent fail - prefetch is best-effort
-      console.debug(`[PrefetchEngine] Failed to prefetch ${url}:`, error);
     }
+  } catch (error) {
+    // Silent fail - prefetch is best-effort
+    console.debug(`[PrefetchEngine] Failed to prefetch ${url}:`, error);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**

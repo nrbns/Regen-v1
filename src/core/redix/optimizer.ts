@@ -93,7 +93,7 @@ export async function suspendTab(tabId: string): Promise<void> {
     // Try to hibernate via IPC (if available)
     try {
       if (typeof ipc !== 'undefined' && ipc?.tabs?.wake) {
-        await ipc.tabs.wake({ id: tabId, wake: false });
+        await ipc.tabs.wake(tabId);
       }
     } catch {
       // IPC might not be available, continue
@@ -121,7 +121,7 @@ export async function thawTab(tabId: string): Promise<void> {
     // Try to wake via IPC
     try {
       if (typeof ipc !== 'undefined' && ipc?.tabs?.wake) {
-        await ipc.tabs.wake({ id: tabId, wake: true });
+        await ipc.tabs.wake(tabId);
       }
     } catch {
       // IPC might not be available, continue

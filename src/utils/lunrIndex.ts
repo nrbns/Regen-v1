@@ -1,10 +1,11 @@
 // Lightweight local search using Lunr
 // npm i lunr
+// @ts-ignore - lunr types may not be available
 import lunr from 'lunr';
 
 type IndexDoc = { id: string; title: string; body: string };
 
-let idx: lunr.Index | null = null;
+let idx: any = null;
 let docs: Record<string, IndexDoc> = {};
 
 export async function loadIndex() {
@@ -21,7 +22,7 @@ export async function loadIndex() {
     return idx;
   } catch (err) {
     // Fallback: build minimal in-memory index (empty)
-    idx = lunr(function () {
+    idx = lunr(function (this: any) {
       this.ref('id');
       this.field('title', { boost: 10 });
       this.field('body');
@@ -36,7 +37,7 @@ export async function searchLocal(query: string): Promise<Array<{ id: string; ti
   if (!idx) return [];
   
   const hits = idx.search(query);
-  return hits.slice(0, 10).map(h => {
+  return hits.slice(0, 10).map((h: any) => {
     const d = docs[h.ref];
     if (!d) return { id: h.ref, title: 'Unknown', snippet: '' };
     return { 

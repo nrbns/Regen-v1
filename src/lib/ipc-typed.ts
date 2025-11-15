@@ -876,6 +876,20 @@ export const ipc = {
   settings: {
     get: () => ipcCall<unknown, unknown>('settings:get', {}),
     set: (path: string[], value: unknown) => ipcCall('settings:set', { path, value }),
+    reset: () => ipcCall<unknown, { success: boolean; settings?: unknown }>('settings:reset', {}),
+    getCategory: (category: string) => ipcCall<{ category: string }, unknown>('settings:getCategory', { category }),
+    setCategory: (category: string, values: Record<string, unknown>) =>
+      ipcCall<{ category: string; values: Record<string, unknown> }, { success: boolean; settings?: unknown }>(
+        'settings:setCategory',
+        { category, values }
+      ),
+    exportAll: () =>
+      ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>('settings:exportAll', {}),
+    importAll: () =>
+      ipcCall<
+        unknown,
+        { success: boolean; path?: string; settings?: unknown; canceled?: boolean }
+      >('settings:importAll', {}),
     exportFile: () =>
       ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>('settings:exportAll', {}),
     importFile: () =>
@@ -1040,6 +1054,8 @@ export const ipc = {
     pause: (id: string) => ipcCall('downloads:pause', { id }),
     resume: (id: string) => ipcCall('downloads:resume', { id }),
     cancel: (id: string) => ipcCall('downloads:cancel', { id }),
+    retry: (id: string) => ipcCall<{ id: string }, { success: boolean; queued?: boolean }>('downloads:retry', { id }),
+    getQueue: () => ipcCall<unknown, { active: number; queued: number; maxConcurrent: number }>('downloads:getQueue', {}),
   },
   watchers: {
     list: () => ipcCall<unknown, Array<{ id: string; url: string; createdAt: number; intervalMinutes: number; lastCheckedAt?: number; lastHash?: string; lastChangeAt?: number; status: string; error?: string }>>('watchers:list', {}),
@@ -1435,6 +1451,32 @@ export const ipc = {
       audit: (tabId?: string | null) =>
         ipcCall<{ tabId?: string | null } | undefined, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
     },
+    getStats: () => ipcCall<unknown, {
+      trackersBlocked: number;
+      adsBlocked: number;
+      cookiesBlocked: number;
+      scriptsBlocked: number;
+      httpsUpgrades: number;
+      fingerprintingEnabled: boolean;
+      webrtcBlocked: boolean;
+      totalCookies: number;
+      totalOrigins: number;
+      privacyScore: number;
+    }>('privacy:getStats', {}),
+    getTrackers: (limit?: number) => ipcCall<{ limit?: number }, Array<{
+      domain: string;
+      category: string;
+      count: number;
+      blocked: boolean;
+      lastSeen: number;
+    }>>('privacy:getTrackers', { limit: limit || 50 }),
+    exportReport: (format?: 'json' | 'csv') => ipcCall<{ format?: 'json' | 'csv' }, {
+      stats: any;
+      trackers: any[];
+      origins: any[];
+      timestamp: number;
+      exportFormat: 'json' | 'csv';
+    }>('privacy:exportReport', { format: format || 'json' }),
   },
   redix: {
     ask: (prompt: string, options?: { sessionId?: string; stream?: boolean }) =>

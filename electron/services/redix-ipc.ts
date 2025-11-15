@@ -108,7 +108,7 @@ async function streamSSE(
             const data = JSON.parse(line.slice(6));
             onChunk(data);
             if (data.done) return;
-          } catch (e) {
+          } catch {
             // Skip invalid JSON
           }
         }

@@ -58,7 +58,7 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   async refreshTor() {
     set((state) => ({ tor: { ...state.tor, loading: true } }));
     try {
-      const status = await ipc.tor.status();
+      const status = await ipc.tor.status() as any;
       set({
         tor: {
           running: Boolean(status?.running),
@@ -85,7 +85,7 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   async refreshVpn() {
     set((state) => ({ vpn: { ...state.vpn, loading: true } }));
     try {
-      const status = await ipc.vpn.status();
+      const status = await ipc.vpn.status() as any;
       set({
         vpn: {
           connected: Boolean(status?.connected),
@@ -167,7 +167,7 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   async checkVpn() {
     set((state) => ({ vpn: { ...state.vpn, loading: true } }));
     try {
-      const status = await ipc.vpn.check();
+      const status = await ipc.vpn.check() as any;
       set({
         vpn: {
           connected: Boolean(status?.connected),

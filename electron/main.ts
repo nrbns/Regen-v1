@@ -30,6 +30,7 @@ import { registerResearchIpc } from './services/research';
 import { registerTradeIpc } from './services/trade';
 import { registerReaderIpc } from './services/reader';
 import { registerStorageIpc } from './services/storage';
+import { registerSettingsIpc } from './services/settings';
 import { registerPluginIpc } from './services/plugins/ipc';
 import { registerProfileIpc, initializeProfiles, removeWindow as removeProfileWindow, setActiveProfileForWindow } from './services/profiles';
 import { initializeDiagnostics, registerDiagnosticsIpc } from './services/diagnostics';
@@ -38,6 +39,7 @@ import { registerAgentIpc } from './services/agent/ipc';
 import { registerConsentIpc } from './services/consent-ipc';
 import { registerPermissionsIpc } from './services/permissions-ipc';
 import { registerPrivacyIpc } from './services/privacy-ipc';
+import { registerPrivacyStatsIpc } from './services/privacy-stats-ipc';
 import { registerDnsIpc } from './services/dns-ipc';
 import { registerTorIpc } from './services/tor-ipc';
 import { registerVPNIpc } from './services/vpn-ipc';
@@ -450,6 +452,7 @@ app.whenReady().then(async () => {
       console.log('[Main] Performance IPC registered (lightweight)');
     }
     registerStorageIpc();
+    registerSettingsIpc();
     console.log('[Main] Storage IPC registered');
     registerSessionStateIpc();
     console.log('[Main] Session state IPC registered');
@@ -481,6 +484,7 @@ app.whenReady().then(async () => {
     registerConsentIpc();
     registerPermissionsIpc();
     registerPrivacyIpc();
+    registerPrivacyStatsIpc();
     registerDnsIpc();
     registerTorIpc();
     if (!disableHeavyServices) {

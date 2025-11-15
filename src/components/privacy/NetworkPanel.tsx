@@ -37,7 +37,7 @@ export function NetworkPanel() {
 
   const handleTorStart = async () => {
     try {
-      await ipc.tor.start({ port: 9050, controlPort: 9051 });
+      await ipc.tor.start();
       setTimeout(() => {
         ipc.tor.status().then(setTorStatus);
       }, 1000);

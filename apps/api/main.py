@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from apps.api.routes import auth, workspaces, agent, downloads, notes, search, sentinel, redix, multi_hop_reasoning, huggingface, openai
+from apps.api.routes import auth, workspaces, agent, downloads, notes, search, sentinel, redix, multi_hop_reasoning, huggingface, openai, extract, prompt, eco, llm_assistant, ai_search
 from apps.api.database import init_db
 
 # WebSocket connection manager
@@ -80,6 +80,11 @@ app.include_router(redix.router, prefix="/redix", tags=["redix"])
 app.include_router(multi_hop_reasoning.router, prefix="/redix", tags=["redix"])
 app.include_router(huggingface.router, prefix="/huggingface", tags=["huggingface"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
+app.include_router(extract.router, prefix="/extract", tags=["extract"])
+app.include_router(prompt.router, prefix="/prompt", tags=["prompt"])
+app.include_router(eco.router, prefix="/eco", tags=["eco"])
+app.include_router(llm_assistant.router, prefix="/llm", tags=["llm-assistant"])
+app.include_router(ai_search.router, prefix="/search", tags=["ai-search"])
 
 @app.get("/")
 async def root():
@@ -129,32 +134,43 @@ async def metrics_publisher() -> None:
             
             try:
                 if process:
-                    # Real metrics from system
-                    cpu_percent = process.cpu_percent(interval=0.1) or 0.0
-                    memory_info = process.memory_info()
-                    memory_mb = memory_info.rss / (1024 * 1024)  # Convert to MB
-                    
-                    # System-wide CPU (if available)
+                    # System-wide CPU (primary metric)
                     try:
                         system_cpu = psutil.cpu_percent(interval=0.1) or 0.0
                     except Exception:
-                        system_cpu = cpu_percent
+                        system_cpu = process.cpu_percent(interval=0.1) or 0.0
+                    
+                    # System-wide memory (primary metric)
+                    try:
+                        memory_info = psutil.virtual_memory()
+                        memory_percent = memory_info.percent or 0.0
+                        memory_mb = memory_info.used / (1024 * 1024)  # Convert to MB
+                    except Exception:
+                        process_memory = process.memory_info()
+                        memory_mb = process_memory.rss / (1024 * 1024)
+                        # Estimate percent (rough calculation)
+                        try:
+                            total_memory = psutil.virtual_memory().total
+                            memory_percent = (process_memory.rss / total_memory) * 100
+                        except Exception:
+                            memory_percent = 0.0
                     
                     # Carbon intensity (mock for now, can be enhanced with real API)
                     # Default to US average (~400 gCO₂/kWh) with some variation
                     carbon_intensity = round(random.uniform(350, 450), 1)
                 else:
                     # Fallback to mock metrics
-                    cpu_percent = round(random.uniform(7.0, 32.0), 2)
+                    system_cpu = round(random.uniform(10.0, 40.0), 2)
+                    memory_percent = round(random.uniform(20.0, 60.0), 2)
                     memory_mb = round(random.uniform(1.2, 5.5), 2)
-                    system_cpu = cpu_percent
                     carbon_intensity = round(random.uniform(140, 360), 1)
                 
                 payload = {
                     "type": "metrics",
-                    "cpu": round(cpu_percent, 2),
+                    "cpu": round(system_cpu, 2),
                     "system_cpu": round(system_cpu, 2),
-                    "memory": round(memory_mb, 2),
+                    "memory": round(memory_percent, 2),  # Return as percentage
+                    "memory_mb": round(memory_mb, 2),  # Also include MB
                     "carbon_intensity": carbon_intensity,
                     "timestamp": int(loop.time() * 1000),
                 }
@@ -163,9 +179,10 @@ async def metrics_publisher() -> None:
                 # Fallback to mock on any error
                 payload = {
                     "type": "metrics",
-                    "cpu": round(random.uniform(7.0, 32.0), 2),
+                    "cpu": round(random.uniform(10.0, 40.0), 2),
                     "system_cpu": round(random.uniform(10.0, 40.0), 2),
-                    "memory": round(random.uniform(1.2, 5.5), 2),
+                    "memory": round(random.uniform(20.0, 60.0), 2),  # Percentage
+                    "memory_mb": round(random.uniform(1.2, 5.5), 2),  # MB
                     "carbon_intensity": round(random.uniform(140, 360), 1),
                     "timestamp": int(loop.time() * 1000),
                     "error": str(e) if isinstance(e, Exception) else "unknown",

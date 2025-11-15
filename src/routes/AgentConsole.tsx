@@ -6,6 +6,7 @@ import { Bot, Send, StopCircle, Copy, CheckCircle2, Loader2, Sparkles } from 'lu
 import { ipc } from '../lib/ipc-typed';
 import { ipcEvents } from '../lib/ipc-events';
 import { useAgentStreamStore } from '../state/agentStreamStore';
+import { trackAgent } from '../core/supermemory/tracker';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export default function AgentConsole() {
         appendTranscript(t.text);
       }
     };
-    const stepHandler = (s: any) => {
+    const stepHandler = async (s: any) => {
       setLogs((l: any[]) => [...l, s]);
       useAgentStreamStore.getState().appendEvent({
         id: `event_${Date.now()}_${Math.random()}`,
@@ -47,6 +48,18 @@ export default function AgentConsole() {
         content: s.res ? JSON.stringify(s.res) : undefined,
         timestamp: Date.now(),
       });
+      
+      // Track agent step
+      try {
+        await trackAgent('step_complete', {
+          runId: runId || undefined,
+          skill: s.skill,
+          step: s.idx,
+          result: s.res ? JSON.stringify(s.res).substring(0, 200) : undefined, // Truncate for storage
+        });
+      } catch (error) {
+        console.warn('[AgentConsole] Failed to track agent step:', error);
+      }
     };
     
     window.agent.onToken(tokenHandler);
@@ -110,6 +123,16 @@ export default function AgentConsole() {
       setIsStreaming(true);
       setStatus('connecting');
       
+      // Track agent action
+      try {
+        await trackAgent('stream_start', {
+          action: query.trim(),
+          skill: 'stream',
+        });
+      } catch (error) {
+        console.warn('[AgentConsole] Failed to track agent action:', error);
+      }
+      
       const result = await ipc.agent.stream.start(query.trim(), {
         model: 'llama3.2',
         temperature: 0.7,
@@ -125,6 +148,16 @@ export default function AgentConsole() {
       setIsStreaming(false);
       setStatus('error');
       useAgentStreamStore.getState().setError(error instanceof Error ? error.message : String(error));
+      
+      // Track error
+      try {
+        await trackAgent('stream_error', {
+          action: query.trim(),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } catch (err) {
+        // Ignore tracking errors
+      }
     }
   }, [query, isStreaming, reset, setStatus, setRun]);
 
@@ -251,9 +284,26 @@ export default function AgentConsole() {
                 <button
                   className="rounded-lg border border-indigo-500/60 bg-indigo-500/20 px-3 py-1.5 text-xs font-medium text-indigo-100 transition hover:bg-indigo-500/30"
                   onClick={async () => {
-                    const parsed = JSON.parse(dslRef.current);
-                    const res = await window.agent?.start?.(parsed) as any;
-                    if (res?.runId) setRunId(res.runId);
+                    try {
+                      const parsed = JSON.parse(dslRef.current);
+                      const res = await window.agent?.start?.(parsed) as any;
+                      if (res?.runId) {
+                        setRunId(res.runId);
+                        
+                        // Track agent run start
+                        try {
+                          await trackAgent('run_start', {
+                            runId: res.runId,
+                            skill: parsed.goal || 'unknown',
+                            action: JSON.stringify(parsed).substring(0, 200),
+                          });
+                        } catch (error) {
+                          console.warn('[AgentConsole] Failed to track agent run:', error);
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Failed to start agent run:', error);
+                    }
                   }}
                 >
                   Start Run

@@ -1108,7 +1108,7 @@ export function BottomStatus() {
                             // Verify status after stopping
                             setTimeout(async () => {
                               await refreshTor();
-                              const status = await ipc.proxy.status();
+                              const status = await ipc.proxy.status() as any;
                               if (status?.tor?.enabled === false) {
                                 addPrivacyEvent({ kind: 'tor', status: 'success', message: 'Tor stopped. Proxy disabled.' });
                               }
@@ -1119,7 +1119,7 @@ export function BottomStatus() {
                             // Verify status after starting
                             setTimeout(async () => {
                               await refreshTor();
-                              const status = await ipc.proxy.status();
+                              const status = await ipc.proxy.status() as any;
                               if (status?.tor?.enabled && status?.tor?.circuitEstablished) {
                                 addPrivacyEvent({ kind: 'tor', status: 'success', message: `Tor active. Circuit: ${status.tor.circuitId || 'established'}` });
                               } else if (status?.tor?.enabled) {

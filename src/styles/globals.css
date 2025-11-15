@@ -5,6 +5,9 @@
 /* Import Design System */
 @import './design-system.css';
 
+/* Import Design Tokens */
+@import './tokens.css';
+
 :root {
   color-scheme: dark;
   --surface-root: #0f172a;

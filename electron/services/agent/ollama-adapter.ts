@@ -236,7 +236,7 @@ export function getOllamaAdapter(config?: OllamaConfig): OllamaAdapter {
     process.env.OLLAMA_BASE_URL ||
     process.env.OMNIBROWSER_OLLAMA_URL ||
     'http://localhost:11434';
-  const model = config?.model || settings.ai?.model || 'llama3.2';
+  const model = config?.model || settings.ai?.ollamaModel || 'llama3.2';
   const temperature =
     config?.temperature ?? settings.ai?.temperature ?? 0.7;
   const maxTokens =

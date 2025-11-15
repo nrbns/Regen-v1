@@ -6,10 +6,23 @@
 // Navigation skills
 import './navigation';
 
+// Page reading skills
+import './page_reader';
+
+// Interaction skills
+import './click';
+import './form_fill';
+
 // Extraction skills
 import './extract_table';
 import './paginate_and_extract';
 import './shadow_map';
+
+// Screenshot skills
+import './screenshot';
+
+// Memory skills
+import './memory';
 
 // Export skills
 import './export_csv';

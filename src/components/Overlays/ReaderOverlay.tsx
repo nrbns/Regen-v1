@@ -73,7 +73,30 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
       setSummaryMode(null);
       setSummaryError(null);
       try {
-        const result = await ipc.research.extractContent(tabId);
+        // Try extraction with fallback to HTTP API
+        // Use new page extractor if available, fallback to existing extractContent
+        let result;
+        try {
+          // Try new page extractor via Electron context (if available)
+          const { extractContent } = await import('../../lib/extract-content');
+          result = await extractContent(tabId || '');
+        } catch {
+          // Fallback: Try to use page extractor from document
+          if (typeof window !== 'undefined' && window.document) {
+            try {
+              const { extractPageContent, formatForLLM } = await import('../../utils/pageExtractor');
+              const pageMeta = extractPageContent(window.document, activeTab?.url);
+              result = {
+                title: pageMeta.title,
+                content: pageMeta.mainContent,
+                html: `<h1>${pageMeta.title}</h1>\n<p>${pageMeta.mainContent}</p>`,
+              };
+            } catch {
+              // Continue with error handling below
+            }
+          }
+        }
+        
         if (!result || (!result.content && !result.html)) {
           setError('Unable to extract article content for this page.');
           return;
@@ -101,6 +124,34 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
     setSummaryError(null);
     setExportMessage(null);
     try {
+      // Try using LLM adapter first, fallback to IPC
+      try {
+        const { sendPrompt } = await import('../../core/llm/adapter');
+        const prompt = `Summarize the following article in 3-5 bullet points:\n\nTitle: ${article.title}\n\n${article.content}`;
+        const response = await sendPrompt(prompt, {
+          systemPrompt: 'You are a helpful assistant that creates concise summaries of web articles.',
+          maxTokens: 300,
+        });
+        
+        // Parse bullet points from response
+        const bullets = response.text
+          .split(/\n/)
+          .filter(line => line.trim().match(/^[-•*]\s|^\d+\.\s/))
+          .map(line => ({
+            summary: line.replace(/^[-•*]\s|^\d+\.\s/, '').trim(),
+            citation: { text: article.title, url: article.url },
+          }));
+        
+        if (bullets.length > 0) {
+          setSummary(bullets);
+          setSummaryMode('cloud');
+          return;
+        }
+      } catch {
+        // Fallback to IPC
+      }
+      
+      // Fallback to IPC method
       const result = await ipc.reader.summarize({
         url: article.url,
         title: article.title,

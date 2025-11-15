@@ -176,8 +176,22 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
       // Store in cache
       embeddingCache.set(embedding.id, embedding);
       
-      // Store in SuperMemory store (using generic set method)
-      MemoryStoreInstance.set(`embedding:${embedding.id}`, embedding);
+      // Store in IndexedDB (enhanced database)
+      try {
+        const { superMemoryDB } = await import('./db');
+        await superMemoryDB.saveEmbedding({
+          id: embedding.id,
+          eventId: embedding.eventId,
+          vector: embedding.vector,
+          text: embedding.text,
+          metadata: embedding.metadata,
+          timestamp: embedding.timestamp,
+        });
+      } catch (error) {
+        // Fallback to localStorage
+        console.warn('[Embedding] Failed to save to IndexedDB, using localStorage:', error);
+        MemoryStoreInstance.set(`embedding:${embedding.id}`, embedding);
+      }
       
       embeddingIds.push(embedding.id);
     }
@@ -204,19 +218,40 @@ export async function searchEmbeddings(query: string, limit: number = 10): Promi
       allEmbeddings.push(embedding);
     }
     
-    // Load from store (IndexedDB/localStorage)
-    // In production, use a proper vector database for efficient search
-    const storedEvents = await MemoryStoreInstance.getEvents({ limit: 1000 });
-    for (const event of storedEvents) {
-      try {
-        // Try to load embedding for first chunk of this event
-        const embedding = MemoryStoreInstance.get<Embedding>(`embedding:${event.id}-chunk-0`);
-        if (embedding && !embeddingCache.has(embedding.id)) {
+    // Load from IndexedDB (enhanced database)
+    try {
+      const { superMemoryDB } = await import('./db');
+      const dbEmbeddings = await superMemoryDB.getAllEmbeddings(1000);
+      
+      for (const dbEmbedding of dbEmbeddings) {
+        const embedding: Embedding = {
+          id: dbEmbedding.id,
+          eventId: dbEmbedding.eventId,
+          vector: dbEmbedding.vector,
+          text: dbEmbedding.text,
+          metadata: dbEmbedding.metadata,
+          timestamp: dbEmbedding.timestamp,
+        };
+        
+        if (!embeddingCache.has(embedding.id)) {
           embeddingCache.set(embedding.id, embedding);
           allEmbeddings.push(embedding);
         }
-      } catch {
-        // Skip if embedding doesn't exist
+      }
+    } catch (error) {
+      // Fallback to localStorage
+      console.warn('[Embedding] Failed to load from IndexedDB, using localStorage:', error);
+      const storedEvents = await MemoryStoreInstance.getEvents({ limit: 1000 });
+      for (const event of storedEvents) {
+        try {
+          const embedding = MemoryStoreInstance.get<Embedding>(`embedding:${event.id}-chunk-0`);
+          if (embedding && !embeddingCache.has(embedding.id)) {
+            embeddingCache.set(embedding.id, embedding);
+            allEmbeddings.push(embedding);
+          }
+        } catch {
+          // Skip if embedding doesn't exist
+        }
       }
     }
 

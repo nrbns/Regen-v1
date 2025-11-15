@@ -71,6 +71,7 @@ const agentApi = {
   onStep: (cb: (s: any) => void) => ipcRenderer.on('agent:step', (_e, s) => cb(s)),
   runs: () => ipcRenderer.invoke('agent:runs'),
   getRun: (id: string) => ipcRenderer.invoke('agent:run:get', id),
+  executeSkill: (skill: string, args: any) => ipcRenderer.invoke('agent:executeSkill', { skill, args }),
 };
 
 const recorderApi = {

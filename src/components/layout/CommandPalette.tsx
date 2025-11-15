@@ -5,10 +5,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
-import { Search, ArrowRight, Box, Clock, Sparkles } from 'lucide-react';
+import { Search, ArrowRight, Box, Clock, Sparkles, History, TrendingUp } from 'lucide-react';
 import type { CommandDescriptor } from '../../lib/commands/types';
 import { getAllCommands, onCommandsChanged } from '../../lib/commands/registry';
 import { initializeBuiltinCommands, builtinsInitialized } from '../../lib/commands/builtin';
+import { commandHistory } from '../../lib/commands/history';
 import { ipc } from '../../lib/ipc-typed';
 import { useContainerStore } from '../../state/containerStore';
 import { ipcEvents } from '../../lib/ipc-events';
@@ -104,23 +105,57 @@ const buildNavigationTarget = (input: string): { url: string; description: strin
   };
 };
 
+/**
+ * Enhanced fuzzy search algorithm
+ */
 function fuzzyScore(query: string, value?: string): number {
   if (!value) return 0;
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = query.toLowerCase().trim();
   const normalizedValue = value.toLowerCase();
 
+  // Exact match gets highest score
+  if (normalizedValue === normalizedQuery) {
+    return 1000;
+  }
+
+  // Prefix match gets high score
+  if (normalizedValue.startsWith(normalizedQuery)) {
+    return 500;
+  }
+
+  // Word boundary match
+  const words = normalizedValue.split(/\s+/);
+  const queryWords = normalizedQuery.split(/\s+/);
+  let wordBoundaryScore = 0;
+  for (const qWord of queryWords) {
+    for (const word of words) {
+      if (word.startsWith(qWord)) {
+        wordBoundaryScore += 100;
+        break;
+      }
+    }
+  }
+  if (wordBoundaryScore > 0) {
+    return wordBoundaryScore;
+  }
+
+  // Character sequence match
   let score = 0;
   let queryIndex = 0;
   let lastMatchIndex = -1;
+  let consecutiveMatches = 0;
 
   for (let i = 0; i < normalizedValue.length && queryIndex < normalizedQuery.length; i++) {
     if (normalizedValue[i] === normalizedQuery[queryIndex]) {
       score += 5;
       if (lastMatchIndex === i - 1) {
-        score += 3; // consecutive bonus
+        consecutiveMatches++;
+        score += 3 * consecutiveMatches; // Consecutive bonus (increasing)
+      } else {
+        consecutiveMatches = 1;
       }
       if (i === 0) {
-        score += 2; // prefix bonus
+        score += 10; // Prefix bonus
       }
       lastMatchIndex = i;
       queryIndex++;
@@ -128,13 +163,17 @@ function fuzzyScore(query: string, value?: string): number {
   }
 
   if (queryIndex === normalizedQuery.length) {
-    score += 5; // matched all characters
+    score += 10; // Matched all characters
   }
+
+  // Penalty for unmatched characters
+  const unmatchedRatio = (normalizedValue.length - queryIndex) / normalizedValue.length;
+  score = Math.max(0, score - (unmatchedRatio * 5));
 
   return score;
 }
 
-function scorePaletteItem(query: string, item: PaletteItem): number {
+function scorePaletteItem(query: string, item: PaletteItem, usageCount: number = 0): number {
   const fields = [
     item.title,
     item.subtitle,
@@ -149,6 +188,12 @@ function scorePaletteItem(query: string, item: PaletteItem): number {
       best = current;
     }
   }
+  
+  // Boost score based on usage history
+  if (usageCount > 0) {
+    best += Math.min(usageCount * 2, 20); // Max 20 point boost
+  }
+  
   return best;
 }
 
@@ -161,6 +206,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
   const [historySearchResults, setHistorySearchResults] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [openTabs, setOpenTabs] = useState<TabSnapshot[]>([]);
+  const [showRecentCommands, setShowRecentCommands] = useState(false);
   const { containers, activeContainerId, setContainers, setActiveContainer } = useContainerStore((state) => ({
     containers: state.containers,
     activeContainerId: state.activeContainerId,
@@ -168,6 +214,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     setActiveContainer: state.setActiveContainer,
   }));
   const containersRef = useRef<ContainerInfo[]>(containers);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     containersRef.current = containers;
@@ -321,6 +368,12 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     const normalized = trimmed.toLowerCase();
     const historySource = normalized.length >= 2 ? historySearchResults : recentHistory;
 
+    // Get command usage counts for scoring
+    const usageCounts = new Map<string, number>();
+    for (const cmd of commands) {
+      usageCounts.set(cmd.id, commandHistory.getUsageCount(cmd.id));
+    }
+
     const commandItems: PaletteItem[] = commands.map((cmd) => ({
       id: cmd.id,
       title: cmd.title,
@@ -330,7 +383,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       keywords: cmd.keywords,
       shortcut: cmd.shortcut,
       badge: cmd.badge,
-      run: cmd.run,
+      run: async () => {
+        commandHistory.record(cmd.id, trimmed);
+        await cmd.run();
+      },
+      meta: { usageCount: usageCounts.get(cmd.id) || 0 },
     }));
 
     const containerItems: PaletteItem[] = containers.map((container) => ({
@@ -418,7 +475,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     const scored = combined
       .map((item) => ({
         item,
-        score: scorePaletteItem(normalized, item),
+        score: scorePaletteItem(
+          normalized,
+          item,
+          (item.meta?.usageCount as number) || 0
+        ),
       }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => {
@@ -437,23 +498,58 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     return scored;
   }, [query, commands, containers, activeContainerId, openTabs, historySearchResults, recentHistory, setActiveContainer]);
 
-  const filteredCommands = filteredItems;
+  // Recent commands when query is empty
+  const recentCommands = useMemo(() => {
+    if (!showRecentCommands) return [];
+    
+    const recent = commandHistory.getRecent(10);
+    const items: PaletteItem[] = [];
+    for (const entry of recent) {
+      const cmd = commands.find(c => c.id === entry.commandId);
+      if (!cmd) continue;
+      items.push({
+        id: `recent:${entry.commandId}`,
+        title: cmd.title,
+        subtitle: cmd.subtitle || `Used ${new Date(entry.timestamp).toLocaleDateString()}`,
+        category: 'Recent Commands',
+        type: 'command' as const,
+        keywords: cmd.keywords,
+        shortcut: cmd.shortcut,
+        badge: 'Recent',
+        run: async () => {
+          commandHistory.record(cmd.id);
+          await cmd.run();
+        },
+        icon: <History size={14} />,
+      });
+      if (items.length >= 5) break;
+    }
+    return items;
+  }, [showRecentCommands, commands]);
+
+  // Combine recent commands with filtered items
+  const displayItems = useMemo(() => {
+    if (showRecentCommands && recentCommands.length > 0 && query.trim().length === 0) {
+      return [...recentCommands, ...filteredItems.slice(0, 25)];
+    }
+    return filteredItems;
+  }, [showRecentCommands, recentCommands, filteredItems, query]);
 
   const groupedItems = useMemo(() => {
     const sections: Array<{ category: string; items: PaletteItem[]; startIndex: number }> = [];
     let currentCategory = '';
 
-    filteredItems.forEach((item, index) => {
-      if (item.category !== currentCategory) {
+    displayItems.forEach((item, index) => {
+      if (item && item.category !== currentCategory) {
         currentCategory = item.category;
         sections.push({ category: currentCategory, items: [item], startIndex: index });
-      } else {
+      } else if (item) {
         sections[sections.length - 1]?.items.push(item);
       }
     });
 
     return sections;
-  }, [filteredItems]);
+  }, [displayItems]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -461,14 +557,14 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         onClose();
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedIndex(prev => Math.min(prev + 1, Math.max(filteredCommands.length - 1, 0)));
+        setSelectedIndex(prev => Math.min(prev + 1, Math.max(displayItems.length - 1, 0)));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        if (filteredCommands[selectedIndex]) {
-          void filteredCommands[selectedIndex].run();
+        if (displayItems[selectedIndex]) {
+          void displayItems[selectedIndex].run();
           onClose();
         }
       }
@@ -476,13 +572,18 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, filteredCommands, onClose]);
+  }, [selectedIndex, displayItems, onClose]);
 
   useEffect(() => {
-    if (selectedIndex >= filteredItems.length) {
-      setSelectedIndex(filteredItems.length > 0 ? filteredItems.length - 1 : 0);
+    if (selectedIndex >= displayItems.length) {
+      setSelectedIndex(displayItems.length > 0 ? displayItems.length - 1 : 0);
     }
-  }, [filteredItems, selectedIndex]);
+  }, [displayItems, selectedIndex]);
+
+  // Show recent commands when query is empty
+  useEffect(() => {
+    setShowRecentCommands(query.trim().length === 0);
+  }, [query]);
 
   const renderIcon = (item: PaletteItem) => {
     const color = typeof item.meta?.color === 'string' ? (item.meta.color as string) : undefined;
@@ -566,6 +667,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800/50">
           <Search size={20} className="text-gray-400" />
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => {
@@ -583,7 +685,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
         {/* Results */}
         <div className="max-h-96 overflow-y-auto">
-          {filteredItems.length > 0 ? (
+          {displayItems.length > 0 ? (
             <div className="py-2">
               {groupedItems.map((section) => (
                 <div key={`section-${section.category}`}>
@@ -598,8 +700,8 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                       return (
                         <motion.button
                           key={cmd.id}
-                          onClick={() => {
-                            void cmd.run();
+                          onClick={async () => {
+                            await cmd.run();
                             onClose();
                           }}
                           onMouseEnter={() => setSelectedIndex(globalIndex)}
@@ -663,7 +765,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
             <span>↵ Select</span>
             <span>Esc Close</span>
           </div>
-          <span>{filteredItems.length} results</span>
+          <span>{displayItems.length} {displayItems.length === 1 ? 'result' : 'results'}</span>
         </div>
       </motion.div>
     </motion.div>

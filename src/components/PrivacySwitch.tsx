@@ -58,7 +58,7 @@ export function PrivacySwitch() {
         
         // Ensure Tor is running
         try {
-          const torStatus = await ipc.tor.status();
+          const torStatus = await ipc.tor.status() as any;
           if (!torStatus.running || !torStatus.circuitEstablished) {
             await ipc.tor.start();
             // Wait for Tor to bootstrap
@@ -66,7 +66,7 @@ export function PrivacySwitch() {
             const maxAttempts = 30;
             const checkTor = setInterval(async () => {
               attempts++;
-              const status = await ipc.tor.status();
+              const status = await ipc.tor.status() as any;
               if (status.circuitEstablished || attempts >= maxAttempts) {
                 clearInterval(checkTor);
                 if (status.circuitEstablished) {

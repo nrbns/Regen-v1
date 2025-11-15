@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X, PlayCircle } from 'lucide-react';
+import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X, PlayCircle, RotateCw, List } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { DownloadUpdate } from '../lib/ipc-events';
@@ -35,6 +35,7 @@ export default function DownloadsPage() {
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewItem, setPreviewItem] = useState<DownloadItem | null>(null);
+  const [queueStatus, setQueueStatus] = useState<{ active: number; queued: number; maxConcurrent: number } | null>(null);
 
   useEffect(() => {
     const loadDownloads = async () => {
@@ -51,6 +52,20 @@ export default function DownloadsPage() {
     };
 
     loadDownloads();
+
+    // Load queue status
+    const loadQueueStatus = async () => {
+      try {
+        const status = await ipc.downloads.getQueue?.();
+        if (status) {
+          setQueueStatus(status);
+        }
+      } catch (error) {
+        console.error('Failed to load queue status:', error);
+      }
+    };
+    loadQueueStatus();
+    const queueInterval = setInterval(loadQueueStatus, 2000); // Update every 2 seconds
 
     const updateItem = (update: DownloadUpdate) => {
       if (!update?.id) return;
@@ -92,6 +107,7 @@ export default function DownloadsPage() {
     return () => {
       progressUnsub();
       doneUnsub();
+      clearInterval(queueInterval);
     };
   }, []);
 
@@ -230,10 +246,30 @@ export default function DownloadsPage() {
   return (
     <div className="h-full w-full bg-[#1A1D28] text-gray-100 flex flex-col">
       <div className="p-6 border-b border-gray-800/50">
-        <h2 className="text-2xl font-bold">Downloads</h2>
-        <p className="text-sm text-gray-400 mt-1">
-          {items.length} {items.length === 1 ? 'download' : 'downloads'}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Downloads</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              {items.length} {items.length === 1 ? 'download' : 'downloads'}
+            </p>
+          </div>
+          {queueStatus && (
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                <Loader size={14} className="text-blue-400 animate-spin" />
+                <span className="text-blue-300">Active:</span>
+                <span className="text-blue-200 font-semibold">{queueStatus.active}/{queueStatus.maxConcurrent}</span>
+              </div>
+              {queueStatus.queued > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                  <List size={14} className="text-amber-400" />
+                  <span className="text-amber-300">Queued:</span>
+                  <span className="text-amber-200 font-semibold">{queueStatus.queued}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
@@ -304,6 +340,11 @@ export default function DownloadsPage() {
                     <div className="text-xs text-gray-400 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate">{d.url}</span>
+                        {d.totalBytes && d.totalBytes > 1024 * 1024 * 1024 && (
+                          <span className="px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-200 text-[10px] font-semibold">
+                            Large File ({formatBytes(d.totalBytes)})
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-4">
                         <span>{new Date(d.createdAt).toLocaleString()}</span>
@@ -409,9 +450,33 @@ export default function DownloadsPage() {
                         </motion.button>
                       </>
                     )}
+                    {(d.status === 'failed' || d.status === 'cancelled') && (
+                      <motion.button
+                        onClick={async () => {
+                          try {
+                            await ipc.downloads.retry?.(d.id);
+                            setItems(prev => prev.map(item => 
+                              item.id === d.id ? { ...item, status: 'pending' as const } : item
+                            ));
+                            // Reload queue status
+                            const status = await ipc.downloads.getQueue?.();
+                            if (status) setQueueStatus(status);
+                          } catch (error) {
+                            console.error('Failed to retry download:', error);
+                          }
+                        }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-200 font-medium text-xs transition-colors"
+                        title="Retry download"
+                      >
+                        <RotateCw size={16} />
+                        <span>Retry</span>
+                      </motion.button>
+                    )}
                     {(d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled' || d.status === 'blocked') && d.path && (
                       <>
-                        {d.status !== 'blocked' && (
+                        {d.status !== 'blocked' && d.status === 'completed' && (
                           <motion.button
                             onClick={() => handleOpenFile(d.path)}
                             whileHover={{ scale: 1.1 }}

@@ -13,6 +13,7 @@ import { ipc } from '../../lib/ipc-typed';
 import { debounce } from 'lodash-es';
 import { ResearchHighlight } from '../../types/research';
 import { ipcEvents } from '../../lib/ipc-events';
+import { trackHighlight, trackNote } from '../../core/supermemory/tracker';
 
 export function ResearchSplit() {
   const { activeId } = useTabsStore();
@@ -85,8 +86,9 @@ export function ResearchSplit() {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         try {
-          // Call with tabId parameter
-          const result = await ipc.research.extractContent(activeId) as any;
+          // Try extraction with fallback to HTTP API
+          const { extractContent } = await import('../../lib/extract-content');
+          const result = await extractContent(activeId);
           
           if (import.meta.env.DEV) {
             console.log('[ResearchSplit] Extract result:', { 
@@ -156,6 +158,18 @@ export function ResearchSplit() {
       try {
         await ipc.research.saveNotes(url, notesText, highlightsData);
         console.log('Auto-saved notes for', url);
+        
+        // Track note in SuperMemory
+        if (notesText.trim().length > 0) {
+          try {
+            await trackNote(url, {
+              title: notesText.substring(0, 100), // First 100 chars as title
+              noteLength: notesText.length,
+            });
+          } catch (error) {
+            console.warn('[ResearchSplit] Failed to track note:', error);
+          }
+        }
       } catch (error) {
         console.error('Failed to save notes:', error);
       }
@@ -169,18 +183,26 @@ export function ResearchSplit() {
   }, [notes, highlights, currentUrl, saveNotes]);
 
   useEffect(() => {
-    const unsubscribe = ipcEvents.on<{ url: string; highlight: ResearchHighlight }>('research:highlight-added', (payload) => {
+    const unsubscribe = ipcEvents.on<{ url: string; highlight: ResearchHighlight }>('research:highlight-added', async (payload) => {
       if (!payload?.url || payload.url !== currentUrl) return;
-      setHighlights((prev) => [
-        ...prev,
-        {
-          id: payload.highlight.id,
-          text: payload.highlight.text,
-          color: payload.highlight.color || '#facc15',
-          createdAt: payload.highlight.createdAt || Date.now(),
-          note: payload.highlight.note,
-        },
-      ]);
+      const newHighlight = {
+        id: payload.highlight.id,
+        text: payload.highlight.text,
+        color: payload.highlight.color || '#facc15',
+        createdAt: payload.highlight.createdAt || Date.now(),
+        note: payload.highlight.note,
+      };
+      setHighlights((prev) => [...prev, newHighlight]);
+      
+      // Track highlight in SuperMemory
+      try {
+        await trackHighlight(currentUrl, payload.highlight.text, {
+          title: payload.highlight.note,
+          context: payload.highlight.text,
+        });
+      } catch (error) {
+        console.warn('[ResearchSplit] Failed to track highlight:', error);
+      }
     });
     return unsubscribe;
   }, [currentUrl]);

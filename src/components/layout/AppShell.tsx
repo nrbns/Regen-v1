@@ -2,7 +2,7 @@
  * AppShell - Main layout container with all components wired
  */
 
-import React, { useState, useEffect, Suspense, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
 import { AlertTriangle, RotateCcw, Loader2 } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
@@ -18,8 +18,12 @@ import { TabContentSurface } from './TabContentSurface';
 import { VoiceTips } from '../voice/VoiceTips';
 import { initializeOptimizer } from '../../core/redix/optimizer';
 import { useRedix } from '../../core/redix/useRedix';
+import { updatePolicyMetrics, getPolicyRecommendations } from '../../core/redix/policies';
 import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
 import { MemorySidebar } from '../supermemory/MemorySidebar';
+import { trackVisit } from '../../core/supermemory/tracker';
+import { initNightlySummarization } from '../../core/supermemory/summarizer';
+import { RedixDebugPanel } from '../redix/RedixDebugPanel';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -215,6 +219,7 @@ export function AppShell() {
   const [consentRequest, setConsentRequest] = useState<ConsentRequest | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [memorySidebarOpen, setMemorySidebarOpen] = useState(false);
+  const [redixDebugOpen, setRedixDebugOpen] = useState(false);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
   
   // Initialize fullscreen state on mount - ensure it starts as false
@@ -364,6 +369,37 @@ export function AppShell() {
   const tabsState = useTabsStore();
   const activeTab = tabsState.tabs.find(tab => tab.id === tabsState.activeId);
   const [contentSplit, setContentSplit] = useState(0.62);
+  
+  // Track visits when active tab URL changes
+  const lastTrackedUrl = useRef<string>('');
+  useEffect(() => {
+    if (!activeTab?.url || activeTab.url === lastTrackedUrl.current) return;
+    
+    // Skip special pages
+    if (
+      activeTab.url.startsWith('about:') ||
+      activeTab.url.startsWith('chrome:') ||
+      activeTab.url.startsWith('edge:') ||
+      activeTab.url.startsWith('app:') ||
+      activeTab.url.startsWith('ob://')
+    ) {
+      return;
+    }
+    
+      // Track visit
+        lastTrackedUrl.current = activeTab.url;
+        trackVisit(activeTab.url, activeTab.title, {
+          tabId: activeTab.id,
+          containerId: activeTab.containerId,
+        }).catch((error) => {
+          console.warn('[AppShell] Failed to track visit:', error);
+        });
+      }, [activeTab?.url, activeTab?.title, activeTab?.id, activeTab?.containerId]);
+
+      // Initialize nightly summarization
+      useEffect(() => {
+        initNightlySummarization();
+      }, []);
   const [isResizingContent, setIsResizingContent] = useState(false);
   const overlayActive =
     commandPaletteOpen ||
@@ -430,6 +466,21 @@ export function AppShell() {
   useRedix((event) => {
     if (event.type === 'redix:performance:low') {
       console.log('[Redix] Performance low:', event.payload);
+      // Update policy metrics for automatic evaluation
+      const { memory, cpu, battery } = event.payload || {};
+      updatePolicyMetrics({
+        memoryUsage: memory,
+        cpuUsage: cpu,
+        batteryLevel: battery,
+      });
+    }
+    
+    // Handle policy events
+    if (event.type.startsWith('redix:policy:')) {
+      const recommendations = getPolicyRecommendations();
+      if (recommendations.length > 0 && isDevEnv()) {
+        console.log('[Redix] Policy recommendations:', recommendations);
+      }
     }
   });
 
@@ -1014,6 +1065,9 @@ export function AppShell() {
 
       {/* Memory Sidebar */}
       <MemorySidebar open={memorySidebarOpen} onClose={() => setMemorySidebarOpen(false)} />
+      
+      {/* Redix Debug Panel */}
+      <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
 
       {restoreToast && (
         <Portal>

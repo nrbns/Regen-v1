@@ -57,6 +57,7 @@ export function useSuggestions(query: string, options?: UseSuggestionsOptions): 
       }
 
       // Fallback to keyword-based search
+      const { MemoryStoreInstance } = await import('./store');
       const allEvents = await MemoryStoreInstance.getEvents({ limit: 1000 });
       if (cancelled) return;
 

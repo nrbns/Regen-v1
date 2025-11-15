@@ -3,7 +3,7 @@
  * Maintains back/forward history for each tab
  */
 
-import { BrowserView } from 'electron';
+// BrowserView not used in this module
 
 export interface HistoryEntry {
   url: string;

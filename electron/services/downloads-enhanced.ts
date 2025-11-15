@@ -22,7 +22,11 @@ import { computeFileChecksum } from './downloads/checksum';
 const activeDownloads = new Map<string, DownloadItem>();
 const downloadSources = new Map<string, BrowserWindow | null | undefined>();
 const downloadMetrics = new Map<string, { bytes: number; timestamp: number }>();
+const downloadQueue: Array<{ id: string; priority: number; timestamp: number }> = [];
+const downloadRetries = new Map<string, number>();
 let downloadsInitialized = false;
+const MAX_CONCURRENT_DOWNLOADS = 3; // Limit concurrent downloads
+const MAX_RETRIES = 3; // Maximum retry attempts for failed downloads
 
 function getPrivateDownloadDir() {
   return path.join(tmpdir(), 'omnibrowser-private-downloads');
@@ -273,9 +277,111 @@ function registerDownloadSessionListener() {
     });
 
     item.once('done', async () => {
+      const state = item.getState();
+      
+      // Handle interrupted downloads (retry logic)
+      if (state === 'interrupted') {
+        const retryCount = downloadRetries.get(downloadId) || 0;
+        if (retryCount < MAX_RETRIES) {
+          downloadRetries.set(downloadId, retryCount + 1);
+          
+          // Add to queue for retry
+          downloadQueue.push({
+            id: downloadId,
+            priority: 5, // Medium priority for retries
+            timestamp: Date.now(),
+          });
+          
+          // Update record
+          const retryRecord = buildDownloadRecord({
+            ...initialRecord,
+            status: 'downloading',
+          });
+          addDownloadRecord(retryRecord);
+          emitToWindow(sourceWin, 'downloads:progress', {
+            ...retryRecord,
+            retryAttempt: retryCount + 1,
+            maxRetries: MAX_RETRIES,
+          });
+          
+          // Process queue after a short delay
+          setTimeout(() => {
+            processDownloadQueue();
+          }, 2000);
+          
+          return; // Don't mark as done yet
+        }
+      }
+      
+      // Process queue when download completes
+      processDownloadQueue();
+      
       await handleDownloadDone(downloadId, item, initialRecord, sourceWin, settings.downloads.checksum);
+      downloadRetries.delete(downloadId);
+    });
+    
+    // Handle download interruptions
+    item.on('updated', () => {
+      const state = item.getState();
+      if (state === 'interrupted') {
+        // Check if we should retry
+        const retryCount = downloadRetries.get(downloadId) || 0;
+        if (retryCount < MAX_RETRIES) {
+          // Will be handled in 'done' event
+          return;
+        }
+      }
     });
   });
+  
+  // Process queue after adding new download
+  setTimeout(() => {
+    processDownloadQueue();
+  }, 100);
+}
+
+/**
+ * Get current number of active downloads
+ */
+function getActiveDownloadCount(): number {
+  return Array.from(activeDownloads.values()).filter(item => {
+    const state = item.getState();
+    return state === 'progressing' || state === 'interrupted';
+  }).length;
+}
+
+/**
+ * Process download queue
+ */
+function processDownloadQueue() {
+  const activeCount = getActiveDownloadCount();
+  if (activeCount >= MAX_CONCURRENT_DOWNLOADS) {
+    return; // Already at max concurrent downloads
+  }
+
+  // Sort queue by priority (higher first), then by timestamp
+  downloadQueue.sort((a, b) => {
+    if (a.priority !== b.priority) {
+      return b.priority - a.priority; // Higher priority first
+    }
+    return a.timestamp - b.timestamp; // Older first
+  });
+
+  // Start next downloads from queue
+  const toStart = MAX_CONCURRENT_DOWNLOADS - activeCount;
+  for (let i = 0; i < Math.min(toStart, downloadQueue.length); i++) {
+    const queued = downloadQueue.shift();
+    if (queued) {
+      const item = activeDownloads.get(queued.id);
+      if (item && item.getState() === 'interrupted') {
+        try {
+          item.resume();
+        } catch (error) {
+          console.warn(`[Downloads] Failed to resume queued download ${queued.id}:`, error);
+        }
+      }
+    }
+  }
 }
 
 export function registerDownloadsIpc() {
@@ -335,6 +441,29 @@ export function registerDownloadsIpc() {
     }
     try {
       if (item.isPaused()) {
+        // Check if we're at max concurrent downloads
+        const activeCount = getActiveDownloadCount();
+        if (activeCount >= MAX_CONCURRENT_DOWNLOADS) {
+          // Add to queue
+          downloadQueue.push({
+            id: request.id,
+            priority: 10, // High priority for user-initiated resume
+            timestamp: Date.now(),
+          });
+          
+          const record = buildDownloadRecord({
+            id: request.id,
+            url: item.getURL(),
+            filename: item.getFilename(),
+            status: 'pending',
+            path: item.getSavePath(),
+          });
+          addDownloadRecord(record);
+          const source = downloadSources.get(request.id) ?? getMainWindow();
+          emitToWindow(source, 'downloads:progress', record);
+          return { success: true, queued: true };
+        }
+        
         item.resume();
       }
       const record = buildDownloadRecord({
@@ -348,6 +477,7 @@ export function registerDownloadsIpc() {
       const source = downloadSources.get(request.id) ?? getMainWindow();
       emitToWindow(source, 'downloads:progress', record);
       downloadMetrics.set(request.id, { bytes: item.getReceivedBytes(), timestamp: Date.now() });
+      processDownloadQueue(); // Process queue after resume
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -362,6 +492,13 @@ export function registerDownloadsIpc() {
     try {
       item.cancel();
       activeDownloads.delete(request.id);
+      
+      // Remove from queue if present
+      const queueIndex = downloadQueue.findIndex(q => q.id === request.id);
+      if (queueIndex >= 0) {
+        downloadQueue.splice(queueIndex, 1);
+      }
+      
       const record = buildDownloadRecord({
         id: request.id,
         url: item.getURL(),
@@ -373,9 +510,51 @@ export function registerDownloadsIpc() {
       const source = downloadSources.get(request.id) ?? getMainWindow();
       emitToWindow(source, 'downloads:done', record);
       downloadMetrics.delete(request.id);
+      downloadRetries.delete(request.id);
+      downloadSources.delete(request.id);
+      
+      // Process queue after cancellation
+      processDownloadQueue();
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
+  });
+  
+  registerHandler('downloads:retry', z.object({ id: z.string() }), async (_event, request) => {
+    // Retry a failed download
+    const downloads = listDownloads();
+    const download = downloads.find(d => d.id === request.id);
+    if (!download) {
+      return { success: false, error: 'Download not found' };
+    }
+    
+    if (download.status !== 'failed' && download.status !== 'cancelled') {
+      return { success: false, error: 'Download cannot be retried' };
+    }
+    
+    // Reset retry count
+    downloadRetries.delete(request.id);
+    
+    // Add to queue with high priority
+    downloadQueue.push({
+      id: request.id,
+      priority: 10,
+      timestamp: Date.now(),
+    });
+    
+    // Process queue
+    processDownloadQueue();
+    
+    return { success: true, queued: true };
+  });
+  
+  registerHandler('downloads:getQueue', z.object({}), async () => {
+    return {
+      active: getActiveDownloadCount(),
+      queued: downloadQueue.length,
+      maxConcurrent: MAX_CONCURRENT_DOWNLOADS,
+    };
   });
 }

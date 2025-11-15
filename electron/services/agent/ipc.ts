@@ -179,5 +179,37 @@ export function registerAgentIpc(): void {
         throw new Error(`Unknown guardrail type: ${request.type}`);
     }
   });
+
+  // Execute a single skill (agent primitive)
+  registerHandler('agent:executeSkill', z.object({
+    skill: z.string(),
+    args: z.record(z.unknown()),
+  }), async (_event, request) => {
+    // Import skills to ensure they're registered
+    await import('./skills/index');
+    
+    const { registry } = await import('./skills/registry');
+    const skill = registry.get(request.skill);
+    
+    if (!skill) {
+      throw new Error(`Skill "${request.skill}" not found`);
+    }
+
+    // Execute skill with a mock context
+    const ctx = {
+      runId: `primitive_${Date.now()}`,
+      memory: {},
+    };
+
+    try {
+      const result = await skill.exec(ctx, request.args);
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
 }
 

@@ -156,7 +156,7 @@ export function useCrashRecovery() {
       const tab = await ipc.tabs.list();
       const crashedTabData = tab.find((t: any) => t.id === crashedTab.tabId);
       if (crashedTabData) {
-        await ipc.tabs.reload({ id: crashedTab.tabId });
+        await ipc.tabs.reload(crashedTab.tabId);
       } else {
         // Tab was removed, create new one
         await ipc.tabs.create('about:blank');
