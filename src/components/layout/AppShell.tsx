@@ -25,6 +25,8 @@ import { MemorySidebar } from '../supermemory/MemorySidebar';
 import { trackVisit } from '../../core/supermemory/tracker';
 import { initNightlySummarization } from '../../core/supermemory/summarizer';
 import { RedixDebugPanel } from '../redix/RedixDebugPanel';
+import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
+import { useAppStore } from '../../state/appStore';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -495,6 +497,26 @@ export function AppShell() {
     }, 1200); // Delay to let UI render first (increased for slower machines)
     return () => clearTimeout(timer);
   }, [onboardingVisible, startOnboarding]);
+
+  // Privacy auto-toggle: Auto-enable Private/Ghost mode on sensitive sites (Browse mode only)
+  useEffect(() => {
+    if (mode !== 'Browse' || !activeTab?.url) return;
+
+    const checkAndToggle = async () => {
+      try {
+        const result = await autoTogglePrivacy(activeTab.url, 'Normal');
+        if (result) {
+          console.debug(`[AppShell] Auto-enabled ${result} mode for sensitive site:`, activeTab.url);
+        }
+      } catch (error) {
+        console.debug('[AppShell] Privacy auto-toggle failed:', error);
+      }
+    };
+
+    // Debounce to avoid excessive checks
+    const timer = setTimeout(checkAndToggle, 1000);
+    return () => clearTimeout(timer);
+  }, [activeTab?.url, mode]);
 
   useEffect(() => {
     if (restoreDismissed) return;

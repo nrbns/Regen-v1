@@ -116,6 +116,27 @@ export function BottomStatus() {
   const [privacyEvents, setPrivacyEvents] = useState<PrivacyEventEntry[]>([]);
   const [privacyToast, setPrivacyToast] = useState<PrivacyEventEntry | null>(null);
   const [shieldsStats, setShieldsStats] = useState<{ trackersBlocked: number; adsBlocked: number }>({ trackersBlocked: 0, adsBlocked: 0 });
+  
+  // Privacy scorecard: Track blocked trackers and ads
+  useEffect(() => {
+    const updateShieldsStats = async () => {
+      try {
+        const status = await ipc.shields.getStatus();
+        if (status) {
+          setShieldsStats({
+            trackersBlocked: status.trackersBlocked || 0,
+            adsBlocked: status.adsBlocked || 0,
+          });
+        }
+      } catch (error) {
+        console.debug('[BottomStatus] Failed to get shields stats:', error);
+      }
+    };
+    
+    updateShieldsStats();
+    const interval = setInterval(updateShieldsStats, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
   const isElectron = useMemo(() => isElectronRuntime(), []);
   const apiBaseUrl = useMemo(() => {
     return (
@@ -1041,13 +1062,21 @@ export function BottomStatus() {
             />
           )}
 
-          {shieldsStats.trackersBlocked > 0 && (
+          {/* Privacy Scorecard - Always visible when stats available */}
+          {(shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0) && (
             <StatusBadge
               icon={Shield}
-              label="Blocked"
-              description={`${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'}`}
+              label="Privacy"
+              description={
+                shieldsStats.trackersBlocked > 0 && shieldsStats.adsBlocked > 0
+                  ? `${shieldsStats.trackersBlocked} trackers, ${shieldsStats.adsBlocked} ads`
+                  : shieldsStats.trackersBlocked > 0
+                  ? `${shieldsStats.trackersBlocked} trackers`
+                  : `${shieldsStats.adsBlocked} ads`
+              }
               variant="positive"
-              title={`Privacy shields blocked ${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'} and ${shieldsStats.adsBlocked} ad${shieldsStats.adsBlocked === 1 ? '' : 's'}`}
+              onClick={() => void openTrustDashboard()}
+              title={`Privacy shields active: ${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'} and ${shieldsStats.adsBlocked} ad${shieldsStats.adsBlocked === 1 ? '' : 's'} blocked. Click to view details.`}
             />
           )}
 

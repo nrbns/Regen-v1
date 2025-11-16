@@ -94,6 +94,45 @@ export default function ResearchPanel() {
         return;
       }
 
+      // Mode-aware Redix: Auto-graph generation for Research mode
+      const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
+      try {
+        // Call Redix /workflow with research workflow type for auto-graph
+        const workflowResponse = await fetch(`${redixUrl}/workflow`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: searchQuery,
+            workflowType: 'research',
+            tools: ['web_search', 'knowledge_graph'],
+            options: { maxIterations: 3, maxTokens: 1000 },
+          }),
+        });
+
+        if (workflowResponse.ok) {
+          const workflowData = await workflowResponse.json();
+          // Auto-generate graph from workflow results
+          if (workflowData.result && typeof window !== 'undefined' && window.graph) {
+            try {
+              // Add nodes to graph for auto-visualization
+              const concepts = workflowData.result.split(/[.,;]/).slice(0, 5); // Extract key concepts
+              for (const concept of concepts) {
+                const trimmed = concept.trim();
+                if (trimmed.length > 3) {
+                  await window.graph.add({ id: `research-${Date.now()}-${Math.random()}`, label: trimmed, type: 'research-concept' });
+                }
+              }
+              // Refresh graph view
+              await refreshGraph();
+            } catch (graphError) {
+              console.debug('[Research] Auto-graph generation failed:', graphError);
+            }
+          }
+        }
+      } catch (redixError) {
+        console.debug('[Research] Redix auto-graph failed:', redixError);
+      }
+
       // Try Redix/backend first
       try {
         const response = await ipc.research.queryEnhanced(searchQuery, {

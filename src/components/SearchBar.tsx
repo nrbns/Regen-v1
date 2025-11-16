@@ -283,31 +283,65 @@ export default function SearchBar() {
         });
         setAiResponse(searchData.summary.text);
       } else {
-        // Fallback: try Redix /workflow endpoint for agentic AI (preferred)
+        // Fallback: try Redix /ask endpoint with SSE streaming (preferred)
         try {
-          const workflowResponse = await fetch(`${REDIX_CORE_URL}/workflow`, {
+          // Try streaming first for better UX
+          const eventSource = new EventSource(`${REDIX_CORE_URL}/ask?stream=true`, {
+            // Note: EventSource only supports GET, so we'll use fetch with SSE manually
+          });
+          
+          // Use fetch with manual SSE parsing instead
+          const streamResponse = await fetch(`${REDIX_CORE_URL}/ask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               query,
-              context: activeTab ? `${activeTab.title}: ${activeTab.url}` : undefined,
-              workflowType: 'research', // Use research workflow for search queries
-              tools: ['web_search'],
-              options: { maxIterations: 3, maxTokens: 1000, temperature: 0.7 },
+              context: activeTab ? { url: activeTab.url, title: activeTab.title } : undefined,
+              options: { provider: 'auto', maxTokens: 500 },
+              stream: true,
             }),
           });
 
-          if (workflowResponse.ok) {
-            const workflowData = await workflowResponse.json();
-            // Display the fused result from agentic workflow
-            setAiResponse(workflowData.result || 'No response from Redix workflow');
-            console.debug(`[SearchBar] Redix workflow (green score: ${workflowData.greenScore}, steps: ${workflowData.steps?.length || 0}, latency: ${workflowData.latency}ms)`);
+          if (streamResponse.ok && streamResponse.body) {
+            // Parse SSE stream
+            const reader = streamResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let fullResponse = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === 'token' && data.text) {
+                      fullResponse += data.text;
+                      setAiResponse(fullResponse);
+                    } else if (data.type === 'done') {
+                      console.debug(`[SearchBar] Redix stream complete (green score: ${data.greenScore}, latency: ${data.latency}ms)`);
+                      break;
+                    } else if (data.type === 'error') {
+                      throw new Error(data.error || 'Streaming error');
+                    }
+                  } catch (e) {
+                    console.warn('[SearchBar] Failed to parse SSE chunk:', e);
+                  }
+                }
+              }
+            }
           } else {
-            throw new Error(`Redix workflow API error: ${workflowResponse.statusText}`);
+            throw new Error(`Redix streaming failed: ${streamResponse.statusText}`);
           }
-        } catch (workflowError) {
-          console.warn('[SearchBar] Redix /workflow fallback failed:', workflowError);
-          // Fallback to /ask endpoint
+        } catch (streamError) {
+          console.warn('[SearchBar] Redix streaming failed, trying non-streaming:', streamError);
+          // Fallback to non-streaming /ask endpoint
           try {
             const redixResponse = await fetch(`${REDIX_CORE_URL}/ask`, {
               method: 'POST',

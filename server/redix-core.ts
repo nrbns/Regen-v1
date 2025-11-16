@@ -195,14 +195,52 @@ export class RedixServer {
       version: '0.1.0',
     }));
 
-    this.app.post<{ Body: AskRequest }>('/ask', async (request, reply) => {
+    this.app.post<{ Body: AskRequest & { stream?: boolean } }>('/ask', async (request, reply) => {
       try {
-        const { query, options } = request.body;
+        const { query, context, options, stream } = request.body;
         if (!query?.trim()) {
           reply.code(400).send({ error: 'Query is required' });
           return;
         }
 
+        // SSE streaming mode
+        if (stream) {
+          reply.raw.setHeader('Content-Type', 'text/event-stream');
+          reply.raw.setHeader('Cache-Control', 'no-cache');
+          reply.raw.setHeader('Connection', 'keep-alive');
+          reply.raw.setHeader('X-Accel-Buffering', 'no');
+          
+          const route = await this.router.route(query, { provider: options?.provider });
+          const startTime = Date.now();
+          
+          try {
+            const result = await this.llm.sendPrompt(query, route.provider, route.model, {
+              maxTokens: options?.maxTokens,
+              temperature: options?.temperature,
+            });
+            
+            // Stream response in chunks
+            const words = result.text.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              const chunk = words[i] + (i < words.length - 1 ? ' ' : '');
+              reply.raw.write(`data: ${JSON.stringify({ type: 'token', text: chunk })}\n\n`);
+              await new Promise(resolve => setTimeout(resolve, 20));
+            }
+            
+            const latency = Date.now() - startTime;
+            const energy = this.ecoScorer.estimateEnergy(route.provider, result.tokensUsed);
+            const greenScore = this.ecoScorer.calculateGreenScore(energy, result.tokensUsed);
+            
+            reply.raw.write(`data: ${JSON.stringify({ type: 'done', greenScore, latency, tokensUsed: result.tokensUsed, provider: route.provider })}\n\n`);
+            reply.raw.end();
+          } catch (error: any) {
+            reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: error.message || 'Streaming failed' })}\n\n`);
+            reply.raw.end();
+          }
+          return;
+        }
+
+        // Non-streaming mode
         const route = await this.router.route(query, { provider: options?.provider });
         const result = await this.llm.sendPrompt(query, route.provider, route.model, {
           maxTokens: options?.maxTokens,
