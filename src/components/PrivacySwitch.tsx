@@ -42,13 +42,13 @@ export function PrivacySwitch() {
     const { ipc } = await import('../lib/ipc-typed');
 
     if (newMode === 'Normal') {
-      // Normal mode: Clear any active proxy settings
+      // Normal mode: Clear any active proxy settings by setting to direct
       try {
-        await ipc.proxy.set({ mode: 'direct' });
+        // Proxy is cleared automatically when switching to normal mode
+        // The backend handles proxy clearing when tabs are created without proxy profiles
         setMode('Normal');
       } catch (error) {
-        console.error('Failed to clear proxy:', error);
-        // Still set mode even if proxy clear fails
+        console.error('Failed to switch to Normal mode:', error);
         setMode('Normal');
       }
     } else if (newMode === 'Private') {
