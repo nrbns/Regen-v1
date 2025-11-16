@@ -245,8 +245,6 @@ export async function clickElement(
     bubbles: true,
     cancelable: true,
     view: window,
-    offsetX: options.offset?.x || 0,
-    offsetY: options.offset?.y || 0,
   });
 
   element.dispatchEvent(clickEvent);

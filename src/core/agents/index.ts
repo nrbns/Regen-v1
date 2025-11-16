@@ -12,6 +12,8 @@ export type {
   ScrollOptions,
   ElementInfo,
   PageInfo,
+} from './primitives';
+export type {
   AgentAction,
   ActionRisk,
   ExecutionContext,

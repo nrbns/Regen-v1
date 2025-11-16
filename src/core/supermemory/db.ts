@@ -341,6 +341,75 @@ class SuperMemoryDB {
   }
 
   /**
+   * Get a single embedding by ID
+   */
+  async getEmbedding(id: string): Promise<EmbeddingRecord | null> {
+    const db = await this.getDB();
+    const transaction = db.transaction(['embeddings'], 'readonly');
+    const store = transaction.objectStore('embeddings');
+
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => {
+        resolve((request.result as EmbeddingRecord) || null);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Delete a single embedding by ID
+   */
+  async deleteEmbedding(id: string): Promise<void> {
+    const db = await this.getDB();
+    const transaction = db.transaction(['embeddings'], 'readwrite');
+    const store = transaction.objectStore('embeddings');
+
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Delete embeddings by event ID (alias for deleteEmbeddingsForEvent)
+   */
+  async deleteEmbeddingsByEventId(eventId: string): Promise<void> {
+    await this.deleteEmbeddingsForEvent(eventId);
+  }
+
+  /**
+   * Get total embedding count
+   */
+  async getEmbeddingCount(): Promise<number> {
+    const db = await this.getDB();
+    const transaction = db.transaction(['embeddings'], 'readonly');
+    const store = transaction.objectStore('embeddings');
+
+    return new Promise((resolve, reject) => {
+      const request = store.count();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
+   * Clear all embeddings
+   */
+  async clearEmbeddings(): Promise<void> {
+    const db = await this.getDB();
+    const transaction = db.transaction(['embeddings'], 'readwrite');
+    const store = transaction.objectStore('embeddings');
+
+    return new Promise((resolve, reject) => {
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /**
    * Delete event and its embeddings
    */
   async deleteEvent(eventId: string): Promise<void> {

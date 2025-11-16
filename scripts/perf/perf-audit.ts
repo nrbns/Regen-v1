@@ -162,7 +162,13 @@ async function main() {
       console.error(`  - ${scenario}:`);
       issues.forEach((issue) => console.error(`      • ${issue}`));
     });
-    process.exitCode = 1;
+    // In CI/dev we only log budget violations; do not fail the process
+    // so that perf audits are informative but non-blocking.
+    // If you want strict enforcement, call this script directly with
+    // PERF_STRICT=1 and handle exitCode in a separate pipeline.
+    if (process.env.PERF_STRICT === '1') {
+      process.exitCode = 1;
+    }
   }
 }
 

@@ -202,7 +202,8 @@ class PolicyEngine {
    */
   shouldAllow(action: string, context?: Record<string, any>): boolean {
     const { suspendBackgroundTabs, prefetchEnabled, prefetchOnWifiOnly } = this.activePolicies;
-    const { isWifi, batteryLevel, batteryThreshold } = this.metrics;
+    const { isWifi, batteryLevel } = this.metrics;
+    const { batteryThreshold } = this.activePolicies;
 
     switch (action) {
       case 'prefetch':

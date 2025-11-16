@@ -374,3 +374,4 @@ async def llm_assistant(request: LLMAssistantRequest):
         raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
 
 
+

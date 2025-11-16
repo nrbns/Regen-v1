@@ -316,7 +316,7 @@ class AgentExecutor {
           // Navigation requires tab management
           if (context.tabId) {
             try {
-              await ipc.tabs.navigate({ id: context.tabId, url: action.url });
+              await ipc.tabs.navigate(context.tabId, action.url);
               result = true;
             } catch (error: any) {
               throw new Error(`Navigation failed: ${error.message}`);

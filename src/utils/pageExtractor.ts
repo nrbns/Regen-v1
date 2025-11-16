@@ -50,7 +50,7 @@ function extractHeadings(document: Document): Array<{ level: number; text: strin
   const headings: Array<{ level: number; text: string }> = [];
   const headingElements = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
   
-  for (const heading of headingElements) {
+  for (const heading of Array.from(headingElements)) {
     const level = parseInt(heading.tagName.charAt(1));
     const text = extractCleanText(heading);
     if (text) {
@@ -68,7 +68,7 @@ function extractTables(document: Document): Array<{ headers: string[]; rows: str
   const tables: Array<{ headers: string[]; rows: string[][] }> = [];
   const tableElements = document.querySelectorAll('table');
   
-  for (const table of tableElements) {
+  for (const table of Array.from(tableElements)) {
     const headers: string[] = [];
     const rows: string[][] = [];
     
@@ -78,7 +78,7 @@ function extractTables(document: Document): Array<{ headers: string[]; rows: str
       const headerRow = thead.querySelector('tr');
       if (headerRow) {
         const cells = headerRow.querySelectorAll('th, td');
-        for (const cell of cells) {
+        for (const cell of Array.from(cells)) {
           headers.push(extractCleanText(cell));
         }
       }
@@ -87,7 +87,7 @@ function extractTables(document: Document): Array<{ headers: string[]; rows: str
       const firstRow = table.querySelector('tr');
       if (firstRow) {
         const cells = firstRow.querySelectorAll('th, td');
-        for (const cell of cells) {
+        for (const cell of Array.from(cells)) {
           headers.push(extractCleanText(cell));
         }
       }
@@ -97,13 +97,13 @@ function extractTables(document: Document): Array<{ headers: string[]; rows: str
     const tbody = table.querySelector('tbody') || table;
     const dataRows = tbody.querySelectorAll('tr');
     
-    for (const row of dataRows) {
+    for (const row of Array.from(dataRows)) {
       // Skip header row if we already extracted headers
       if (thead && row.parentElement === thead) continue;
       
       const cells = row.querySelectorAll('td');
       if (cells.length > 0) {
-        const rowData = Array.from(cells).map(cell => extractCleanText(cell));
+        const rowData = Array.from(cells).map((cell: Element) => extractCleanText(cell));
         rows.push(rowData);
       }
     }
@@ -123,7 +123,7 @@ function extractLinks(document: Document): Array<{ text: string; url: string }> 
   const links: Array<{ text: string; url: string }> = [];
   const linkElements = document.querySelectorAll('a[href]');
   
-  for (const link of linkElements) {
+  for (const link of Array.from(linkElements)) {
     const href = link.getAttribute('href');
     const text = extractCleanText(link);
     
@@ -148,7 +148,7 @@ function extractImages(document: Document): Array<{ alt?: string; src: string }>
   const images: Array<{ alt?: string; src: string }> = [];
   const imageElements = document.querySelectorAll('img[src]');
   
-  for (const img of imageElements) {
+  for (const img of Array.from(imageElements)) {
     const src = img.getAttribute('src');
     const alt = img.getAttribute('alt') || undefined;
     
@@ -198,7 +198,7 @@ function findMainContent(document: Document): Element | null {
   let largestSize = 0;
   
   const candidates = body.querySelectorAll('div, section');
-  for (const candidate of candidates) {
+  for (const candidate of Array.from(candidates)) {
     // Skip navigation, footer, header
     const role = candidate.getAttribute('role');
     const className = candidate.className.toLowerCase();

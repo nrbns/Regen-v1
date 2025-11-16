@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Globe, FileText, Sparkles, Brain } from 'lucide-react';
+import { Search, Loader2, Globe, FileText, Sparkles, Brain, ExternalLink } from 'lucide-react';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../services/duckDuckGoSearch';
 import { searchLocal } from '../utils/lunrIndex';
 import { ipc } from '../lib/ipc-typed';
@@ -14,14 +14,23 @@ import { searchVectors } from '../core/supermemory/vectorStore';
 import { sendPrompt } from '../core/llm/adapter';
 import { useTabsStore } from '../state/tabsStore';
 
+// Search proxy base URL (defaults to localhost:3001)
+const SEARCH_PROXY_URL = import.meta.env.VITE_SEARCH_PROXY_URL || 'http://localhost:3001';
+
 type SearchResult = {
   id: string;
   title: string;
   url?: string;
   snippet: string;
-  type: 'duck' | 'local' | 'memory';
-  source?: 'instant' | 'result' | 'related';
+  type: 'duck' | 'local' | 'memory' | 'proxy';
+  source?: 'instant' | 'result' | 'related' | 'duckduckgo' | 'bing' | 'brave';
   similarity?: number; // For vector search results
+};
+
+type SearchSummary = {
+  text: string;
+  citations: Array<{ index: number; url: string; title: string }>;
+  latency?: number;
 };
 
 export default function SearchBar() {
@@ -30,11 +39,14 @@ export default function SearchBar() {
   const [duckResults, setDuckResults] = useState<SearchResult[]>([]);
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [memoryResults, setMemoryResults] = useState<SearchResult[]>([]);
+  const [proxyResults, setProxyResults] = useState<SearchResult[]>([]);
+  const [searchSummary, setSearchSummary] = useState<SearchSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiResponse, setShowAiResponse] = useState(false);
   const [askingAboutPage, setAskingAboutPage] = useState(false);
+  const [searchLatency, setSearchLatency] = useState<number | null>(null);
   const aiSessionRef = useRef<string>(`search-${Date.now()}`);
   
   // Get active tab for "Ask about this page"
@@ -50,6 +62,7 @@ export default function SearchBar() {
     if (!q || q.trim().length < 2) {
       setDuckResults([]);
       setLocalResults([]);
+      setProxyResults([]);
       setError(null);
       return;
     }
@@ -58,30 +71,60 @@ export default function SearchBar() {
     async function run() {
       setLoading(true);
       setError(null);
+      const startTime = Date.now();
       
       try {
         // Fetch all sources in parallel
-        const [duckData, localData, vectorResults] = await Promise.all([
+        const [duckData, localData, vectorResults, proxyData] = await Promise.all([
           fetchDuckDuckGoInstant(q).catch(() => null),
           searchLocal(q).catch(() => []),
           searchVectors(q, { maxVectors: 5, minSimilarity: 0.6 }).catch(() => []),
+          // Try to fetch from search-proxy, but fallback to DuckDuckGo if unavailable
+          fetch(`${SEARCH_PROXY_URL}/api/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: q, sources: ['duckduckgo'], limit: 10 }),
+          }).then(res => res.ok ? res.json() : null).catch(() => null),
         ]);
         
         if (cancelled) return;
         
-        // Format DuckDuckGo results
-        if (duckData) {
-          const formatted = formatDuckDuckGoResults(duckData).map((r, idx) => ({
-            id: `duck-${idx}`,
+        const latency = Date.now() - startTime;
+        setSearchLatency(latency);
+        
+        // Track metrics
+        if (latency > 0) {
+          console.debug(`[SearchBar] Search completed in ${latency}ms`);
+        }
+        
+        // Format search-proxy results (preferred if available)
+        if (proxyData && Array.isArray(proxyData.results)) {
+          const formatted = proxyData.results.map((r: any, idx: number) => ({
+            id: `proxy-${idx}`,
             title: r.title,
             url: r.url,
             snippet: r.snippet,
-            type: 'duck' as const,
-            source: r.type,
+            type: 'proxy' as const,
+            source: r.source,
           }));
-          setDuckResults(formatted);
+          setProxyResults(formatted);
+          setDuckResults([]); // Don't show duplicate DuckDuckGo results
         } else {
-          setDuckResults([]);
+          setProxyResults([]);
+          // Format DuckDuckGo results (fallback)
+          if (duckData) {
+            const formatted = formatDuckDuckGoResults(duckData).map((r, idx) => ({
+              id: `duck-${idx}`,
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+              type: 'duck' as const,
+              source: r.type,
+            }));
+            setDuckResults(formatted);
+          } else {
+            setDuckResults([]);
+          }
         }
         
         // Format local results
@@ -183,51 +226,95 @@ export default function SearchBar() {
       }
     }
     
-    // For search queries, get AI response from Redix
+    // For search queries, get search results with LLM summary
     setAiLoading(true);
     setShowAiResponse(true);
     setAiResponse('');
+    setSearchSummary(null);
     setError(null);
     
+    const startTime = Date.now();
+    
     try {
-      const sessionId = aiSessionRef.current;
-      let accumulatedText = '';
+      // Fetch search results with LLM summary from search-proxy
+      const searchResponse = await fetch(`${SEARCH_PROXY_URL}/api/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          query, 
+          sources: ['duckduckgo', 'bing'], 
+          limit: 10,
+          includeSummary: true, // Request LLM summary with citations
+        }),
+      });
+
+      if (!searchResponse.ok) {
+        throw new Error(`Search failed: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
+      const latency = Date.now() - startTime;
+      setSearchLatency(latency);
+
+      // Track metrics
+      console.debug(`[SearchBar] Search with summary completed in ${latency}ms`);
       
-      await ipc.redix.stream(
-        query,
-        { sessionId },
-        (chunk) => {
-          try {
-            if (chunk.type === 'token' && chunk.text) {
-              accumulatedText += chunk.text;
-              setAiResponse(accumulatedText);
-            } else if (chunk.type === 'error') {
-              setError(chunk.text || 'AI error');
-              setAiLoading(false);
-            } else if (chunk.done) {
+      // Update results
+      if (searchData.results && Array.isArray(searchData.results)) {
+        const formatted = searchData.results.map((r: any, idx: number) => ({
+          id: `proxy-${idx}`,
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet,
+          type: 'proxy' as const,
+          source: r.source,
+        }));
+        setProxyResults(formatted);
+      }
+
+      // Display LLM summary with citations
+      if (searchData.summary) {
+        setSearchSummary({
+          text: searchData.summary.text,
+          citations: searchData.summary.citations || [],
+          latency: latency,
+        });
+        setAiResponse(searchData.summary.text);
+      } else {
+        // Fallback: try Redix stream if summary not available
+        const sessionId = aiSessionRef.current;
+        let accumulatedText = '';
+        
+        await ipc.redix.stream(
+          query,
+          { sessionId },
+          (chunk) => {
+            try {
+              if (chunk.type === 'token' && chunk.text) {
+                accumulatedText += chunk.text;
+                setAiResponse(accumulatedText);
+              } else if (chunk.type === 'error') {
+                setError(chunk.text || 'AI error');
+                setAiLoading(false);
+              } else if (chunk.done) {
+                setAiLoading(false);
+              }
+            } catch (error) {
+              console.error('[SearchBar] Error handling Redix chunk:', error);
+              setError('Error processing AI response');
               setAiLoading(false);
             }
-          } catch (error) {
-            console.error('[SearchBar] Error handling Redix chunk:', error);
-            setError('Error processing AI response');
-            setAiLoading(false);
           }
-        }
-      );
-      
-      // Also open search results in a tab
-      try {
-        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        await ipc.tabs.create(searchUrl);
-      } catch (error) {
-        console.error('[SearchBar] Failed to open search URL:', error);
+        );
       }
+      
+      setAiLoading(false);
     } catch (err) {
-      console.error('[SearchBar] Redix stream failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to get AI response');
+      console.error('[SearchBar] Search with summary failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to get search results');
       setAiLoading(false);
       
-      // Fallback: just open search results
+      // Fallback: open search results in a tab
       try {
         const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
         await ipc.tabs.create(searchUrl);
@@ -237,7 +324,7 @@ export default function SearchBar() {
     }
   };
 
-  const allResults = [...memoryResults, ...duckResults, ...localResults];
+  const allResults = [...memoryResults, ...proxyResults, ...duckResults, ...localResults];
   const hasResults = allResults.length > 0;
 
   // Handle "Ask about this page"
@@ -365,6 +452,35 @@ export default function SearchBar() {
                 </div>
               </div>
             )}
+            {proxyResults.length > 0 && (
+              <div className="p-3 border-b border-gray-800/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe size={14} className="text-blue-400" />
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Search Results</h3>
+                </div>
+                <div className="space-y-1">
+                  {proxyResults.map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => handleResultClick(result)}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    >
+                      <div className="text-sm font-medium text-white line-clamp-1">{result.title}</div>
+                      {result.snippet && (
+                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.snippet}</div>
+                      )}
+                      {result.url && (
+                        <div className="text-xs text-gray-500 mt-1 truncate">{result.url}</div>
+                      )}
+                      {result.source && (
+                        <div className="text-xs text-gray-600 mt-1 capitalize">{result.source}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {duckResults.length > 0 && (
               <div className="p-3 border-b border-gray-800/50">
                 <div className="flex items-center gap-2 mb-2">
@@ -431,12 +547,17 @@ export default function SearchBar() {
           <div className="p-4 border-b border-gray-800/50">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={16} className="text-blue-400" />
-              <h3 className="text-sm font-semibold text-gray-300">AI Response</h3>
+              <h3 className="text-sm font-semibold text-gray-300">AI Summary</h3>
               {(aiLoading || askingAboutPage) && (
                 <Loader2 size={14} className="text-blue-400 animate-spin ml-auto" />
               )}
               {askingAboutPage && (
                 <span className="text-xs text-purple-300 ml-2">Analyzing page...</span>
+              )}
+              {searchLatency !== null && !aiLoading && (
+                <span className="text-xs text-gray-400 ml-auto">
+                  {searchLatency}ms
+                </span>
               )}
             </div>
           </div>
@@ -444,12 +565,76 @@ export default function SearchBar() {
             {aiLoading && !aiResponse && (
               <div className="flex items-center gap-2 text-gray-400">
                 <Loader2 size={16} className="animate-spin" />
-                <span className="text-sm">Thinking...</span>
+                <span className="text-sm">Generating summary with citations...</span>
               </div>
             )}
             {aiResponse && (
-              <div className="prose prose-invert prose-sm max-w-none">
-                <p className="text-gray-200 whitespace-pre-wrap leading-relaxed">{aiResponse}</p>
+              <div className="space-y-4">
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                    {searchSummary?.text ? (
+                      // Render text with clickable citations
+                      searchSummary.text.split(/(\[\d+\])/g).map((part, idx) => {
+                        const citationMatch = part.match(/\[(\d+)\]/);
+                        if (citationMatch) {
+                          const citationIndex = parseInt(citationMatch[1], 10);
+                          const citation = searchSummary.citations.find(c => c.index === citationIndex);
+                          if (citation) {
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  if (citation.url) {
+                                    ipc.tabs.create(citation.url).catch(console.error);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium mx-0.5"
+                                title={`${citation.title} - ${citation.url}`}
+                              >
+                                <span>{part}</span>
+                                <ExternalLink size={12} className="inline" />
+                              </button>
+                            );
+                          }
+                        }
+                        return <span key={idx}>{part}</span>;
+                      })
+                    ) : (
+                      aiResponse
+                    )}
+                  </div>
+                </div>
+                {searchSummary && searchSummary.citations.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-800/50">
+                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Citations</h4>
+                    <div className="space-y-2">
+                      {searchSummary.citations.map((citation) => (
+                        <button
+                          key={citation.index}
+                          onClick={() => {
+                            if (citation.url) {
+                              ipc.tabs.create(citation.url).catch(console.error);
+                            }
+                          }}
+                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-blue-400 group-hover:text-blue-300">
+                              [{citation.index}]
+                            </span>
+                            <span className="text-sm text-gray-300 group-hover:text-white flex-1 truncate">
+                              {citation.title}
+                            </span>
+                            <ExternalLink size={14} className="text-gray-500 group-hover:text-blue-400 flex-shrink-0" />
+                          </div>
+                          {citation.url && (
+                            <div className="text-xs text-gray-500 mt-1 truncate ml-5">{citation.url}</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {error && (

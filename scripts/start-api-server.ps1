@@ -14,3 +14,4 @@ if (-not (Test-Path "apps\api\main.py")) {
 python -m uvicorn apps.api.main:app --reload --port 8000
 
 
+
