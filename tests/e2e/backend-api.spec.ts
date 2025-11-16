@@ -31,7 +31,7 @@ test.describe('Backend API Tests', () => {
     // Check if API is already running
     const isRunning = await checkApiHealth();
     if (!isRunning) {
-      test.skip(true, `API server not available at ${API_BASE_URL}. Start with: cd apps/api && uvicorn main:app --reload`);
+      test.skip(`API server not available at ${API_BASE_URL}. Start with: cd apps/api && uvicorn main:app --reload`);
     }
   });
 

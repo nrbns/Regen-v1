@@ -16,6 +16,8 @@ import { useTabsStore } from '../state/tabsStore';
 
 // Search proxy base URL (defaults to localhost:3001)
 const SEARCH_PROXY_URL = import.meta.env.VITE_SEARCH_PROXY_URL || 'http://localhost:3001';
+// Redix core base URL (defaults to localhost:8001)
+const REDIX_CORE_URL = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
 
 type SearchResult = {
   id: string;
@@ -281,31 +283,39 @@ export default function SearchBar() {
         });
         setAiResponse(searchData.summary.text);
       } else {
-        // Fallback: try Redix stream if summary not available
-        const sessionId = aiSessionRef.current;
-        let accumulatedText = '';
-        
-        await ipc.redix.stream(
-          query,
-          { sessionId },
-          (chunk) => {
-            try {
-              if (chunk.type === 'token' && chunk.text) {
-                accumulatedText += chunk.text;
-                setAiResponse(accumulatedText);
-              } else if (chunk.type === 'error') {
-                setError(chunk.text || 'AI error');
-                setAiLoading(false);
-              } else if (chunk.done) {
-                setAiLoading(false);
-              }
-            } catch (error) {
-              console.error('[SearchBar] Error handling Redix chunk:', error);
-              setError('Error processing AI response');
-              setAiLoading(false);
-            }
+        // Fallback: try Redix /ask endpoint if summary not available
+        try {
+          const redixResponse = await fetch(`${REDIX_CORE_URL}/ask`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query,
+              context: activeTab ? { url: activeTab.url, title: activeTab.title } : undefined,
+              options: { provider: 'auto', maxTokens: 500 },
+            }),
+          });
+
+          if (redixResponse.ok) {
+            const redixData = await redixResponse.json();
+            setAiResponse(redixData.text || 'No response from Redix');
+            console.debug(`[SearchBar] Redix response (green score: ${redixData.greenScore}, latency: ${redixData.latency}ms)`);
+          } else {
+            throw new Error(`Redix API error: ${redixResponse.statusText}`);
           }
-        );
+        } catch (redixError) {
+          console.warn('[SearchBar] Redix /ask fallback failed:', redixError);
+          // Final fallback: use LLM adapter directly
+          try {
+            const llmResponse = await sendPrompt(query, {
+              systemPrompt: 'You are a helpful search assistant. Provide a concise answer.',
+              maxTokens: 500,
+            });
+            setAiResponse(llmResponse.text || 'No response');
+          } catch (llmError) {
+            console.error('[SearchBar] LLM adapter fallback failed:', llmError);
+            setError('AI services unavailable. Please check your API keys.');
+          }
+        }
       }
       
       setAiLoading(false);
