@@ -3,8 +3,8 @@
  * This is a minimal, working search that returns results immediately
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Globe, FileText, Sparkles, Brain, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Loader2, Globe, FileText, Sparkles, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../services/duckDuckGoSearch';
 import { searchLocal } from '../utils/lunrIndex';
 import { ipc } from '../lib/ipc-typed';
@@ -28,14 +28,8 @@ type SearchResult = {
   url?: string;
   snippet: string;
   type: 'duck' | 'local' | 'memory' | 'proxy';
-  source?: 'instant' | 'result' | 'related' | 'duckduckgo' | 'bing' | 'brave';
+  source?: 'instant' | 'result' | 'related' | 'duckduckgo' | 'bing' | 'brave' | 'fused';
   similarity?: number; // For vector search results
-};
-
-type SearchSummary = {
-  text: string;
-  citations: Array<{ index: number; url: string; title: string }>;
-  latency?: number;
 };
 
 export default function SearchBar() {
@@ -45,16 +39,13 @@ export default function SearchBar() {
   const [localResults, setLocalResults] = useState<SearchResult[]>([]);
   const [memoryResults, setMemoryResults] = useState<SearchResult[]>([]);
   const [proxyResults, setProxyResults] = useState<SearchResult[]>([]);
-  const [searchSummary, setSearchSummary] = useState<SearchSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiResponse, setShowAiResponse] = useState(false);
   const [askingAboutPage, setAskingAboutPage] = useState(false);
-  const [searchLatency, setSearchLatency] = useState<number | null>(null);
   const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
   const [showSearchResults, setShowSearchResults] = useState(false); // Collapsed by default
-  const aiSessionRef = useRef<string>(`search-${Date.now()}`);
   
   // Get active tab for "Ask about this page"
   const activeTab = useTabsStore((state) => {
@@ -97,7 +88,6 @@ export default function SearchBar() {
         if (cancelled) return;
         
         const latency = Date.now() - startTime;
-        setSearchLatency(latency);
         
         // Track metrics
         if (latency > 0) {
@@ -238,7 +228,6 @@ export default function SearchBar() {
     setShowAiResponse(true);
     setQueryResult(null);
     setAiResponse('');
-    setSearchSummary(null);
     setError(null);
     setShowSearchResults(false); // Hide search results by default
     
@@ -258,7 +247,6 @@ export default function SearchBar() {
       
       setQueryResult(result);
       setAiResponse(result.answer);
-      setSearchLatency(result.latency);
       
       // Update search results from query result sources
       if (result.sources.length > 0) {
@@ -314,11 +302,7 @@ export default function SearchBar() {
         // Fallback: try Redix /ask endpoint with SSE streaming (preferred)
         try {
           // Try streaming first for better UX
-          const eventSource = new EventSource(`${REDIX_CORE_URL}/ask?stream=true`, {
-            // Note: EventSource only supports GET, so we'll use fetch with SSE manually
-          });
-          
-          // Use fetch with manual SSE parsing instead
+          // Use fetch with manual SSE parsing
           const streamResponse = await fetch(`${REDIX_CORE_URL}/ask`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

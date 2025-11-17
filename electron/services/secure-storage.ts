@@ -44,7 +44,7 @@ export function encryptAndStore(key: string, value: unknown): boolean {
     // For now, return success but data is not persisted
     return true;
   } catch (error) {
-    logger.error(`Failed to encrypt data for key ${key}:`, error);
+    logger.error(`Failed to encrypt data for key ${key}:`, { error });
     return false;
   }
 }
@@ -67,7 +67,7 @@ export function decryptAndRetrieve<T>(key: string, encryptedData: string): T | n
     const decrypted = safeStorage.decryptString(buffer);
     return JSON.parse(decrypted) as T;
   } catch (error) {
-    logger.error(`Failed to decrypt data for key ${key}:`, error);
+    logger.error(`Failed to decrypt data for key ${key}:`, { error });
     return null;
   }
 }

@@ -47,6 +47,7 @@ export interface QueryResult {
     fact: string;
     sources: string[];
     confidence: number;
+    conflictingSources?: string[];
   }>;
   ecoScore?: {
     score: number;

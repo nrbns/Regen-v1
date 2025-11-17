@@ -48,10 +48,17 @@ export function PrivacySwitch() {
   const ghostDisabled = policy ? !policy.allowGhostTabs : false;
   const shadowDisabled = policy ? !policy.allowPrivateWindows : false;
 
-  const modes: Array<{ value: PrivacyMode; icon: typeof Lock; label: string; color: string; disabled?: boolean }> = [
+  const modes: Array<{ value: PrivacyMode; icon: typeof Lock; label: string; color: string; disabled?: boolean; badge?: string }> = [
     { value: 'Normal', icon: Lock, label: 'Normal', color: 'text-gray-400' },
     { value: 'Private', icon: Eye, label: 'Private', color: 'text-blue-400', disabled: privateDisabled },
-    { value: 'Ghost', icon: Network, label: 'Ghost', color: 'text-purple-400', disabled: ghostDisabled },
+    {
+      value: 'Ghost',
+      icon: Network,
+      label: 'Ghost',
+      color: 'text-purple-400',
+      disabled: ghostDisabled,
+      badge: torDetected ? 'Tor' : undefined,
+    },
   ];
 
   const handleModeChange = async (newMode: PrivacyMode) => {
@@ -117,10 +124,8 @@ export function PrivacySwitch() {
       // Normal mode: Clear any active proxy settings by setting to direct
       try {
         if (activeId) {
-          // Clear proxy for current tab
-          await ipc.proxy.set({ tabId: activeId, type: null, host: null, port: null });
+          await ipc.proxy.set({ tabId: activeId });
         }
-        // Also clear global proxy
         await ipc.proxy.set({ mode: 'direct' });
         setMode('Normal');
       } catch (error) {

@@ -6,7 +6,7 @@ const CONTROL_CHAR_PATTERN = /[\p{Cc}]/gu;
  * to prevent XSS attacks and injection vulnerabilities.
  */
 
-import DOMPurify from 'dompurify';
+import DOMPurify, { Config } from 'dompurify';
 
 /**
  * Sanitize HTML content to prevent XSS attacks
@@ -17,7 +17,7 @@ export function sanitizeHtml(html: string, options?: {
   allowLinks?: boolean;
   allowTables?: boolean;
 }): string {
-  const config: DOMPurify.Config = {
+  const config: Config = {
     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'code', 'pre', 'blockquote'],
     ALLOWED_ATTR: [],
     KEEP_CONTENT: true,
@@ -45,7 +45,7 @@ export function sanitizeHtml(html: string, options?: {
     config.ALLOWED_TAGS!.push('table', 'thead', 'tbody', 'tr', 'th', 'td');
   }
 
-  return DOMPurify.sanitize(html, config);
+  return DOMPurify.sanitize(html, config) as string;
 }
 
 /**

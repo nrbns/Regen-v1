@@ -5,13 +5,13 @@
  * Complies with GDPR Article 15 (Right of Access).
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Download, FileText, Database, Clock, Bookmark, Settings, Cookie, Shield, Loader2, Check, AlertCircle } from 'lucide-react';
 import { useBookmarksStore } from '../../state/bookmarksStore';
 import { useHistoryStore } from '../../state/historyStore';
 import { useSettingsStore } from '../../state/settingsStore';
-import { getCookiePreferences } from '../onboarding/CookieConsent';
+import { getCookiePreferences } from '../Onboarding/CookieConsent';
 
 export interface ExportData {
   version: string;
@@ -43,7 +43,8 @@ export function GDPRDataExport() {
   
   const bookmarks = useBookmarksStore((state) => state.bookmarks);
   const historyEntries = useHistoryStore((state) => state.entries);
-  const settings = useSettingsStore((state) => state);
+  const searchEngineSetting = useSettingsStore((state) => state.searchEngine);
+  const videoDownloadConsent = useSettingsStore((state) => state.videoDownloadConsent);
 
   const handleExport = async () => {
     setExporting(true);
@@ -57,9 +58,8 @@ export function GDPRDataExport() {
         exportedAt: new Date().toISOString(),
         user: {
           settings: {
-            theme: settings.theme,
-            searchEngine: settings.searchEngine,
-            // Add other settings as needed
+            searchEngine: searchEngineSetting,
+            videoDownloadConsent,
           },
           cookiePreferences: getCookiePreferences(),
         },
@@ -109,7 +109,7 @@ export function GDPRDataExport() {
     try {
       // Try to get consent ledger from IPC if available
       const { ipc } = await import('../../lib/ipc-typed');
-      const ledger = await ipc.consent?.getLedger?.();
+      const ledger = await ipc.consent?.list?.();
       return Array.isArray(ledger) ? ledger : [];
     } catch {
       // Fallback: try localStorage
@@ -127,10 +127,8 @@ export function GDPRDataExport() {
 
   const getPermissions = async (): Promise<any[]> => {
     try {
-      // Try to get permissions from IPC if available
-      const { ipc } = await import('../../lib/ipc-typed');
-      const permissions = await ipc.permissions?.list?.();
-      return Array.isArray(permissions) ? permissions : [];
+      // Permissions API not implemented yet
+      return [];
     } catch {
       return [];
     }

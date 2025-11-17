@@ -5,7 +5,8 @@
  * Helps ensure WCAG 2.1 AA compliance.
  */
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
+import * as ReactDOM from 'react-dom';
 
 let axeInitialized = false;
 
@@ -75,7 +76,7 @@ export async function runAccessibilityAudit(): Promise<{
 export function useAccessibilityAudit(): void {
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      initAxe().catch(console.error);
+      initAxe(React, ReactDOM).catch(console.error);
     }
   }, []);
 }

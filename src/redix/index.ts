@@ -13,7 +13,7 @@
 
 import { getRedixPool } from '../core/redix-pool';
 import { getDeviceDetector, detectDeviceCapabilities } from '../core/device-detector';
-import { getGhostMode, isGhostModeEnabled } from '../core/ghost-mode';
+import { getGhostMode, isGhostModeEnabled, enableGhostMode, disableGhostMode } from '../core/ghost-mode';
 import { detectTorBrowser } from '../core/tor-detector';
 import { RedixContentRenderer } from './renderer';
 import { RedixAI } from './ai';
@@ -142,18 +142,9 @@ let redixBrowserInstance: RedixBrowser | null = null;
  * Initialize Redix Browser
  */
 export function initRedixBrowser(): RedixBrowser {
-  if (redixBrowserInstance) {
-    return redixBrowserInstance;
-  }
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      redixBrowserInstance = new RedixBrowser();
-    });
-  } else {
+  if (!redixBrowserInstance) {
     redixBrowserInstance = new RedixBrowser();
   }
-  
   return redixBrowserInstance;
 }
 

@@ -28,8 +28,8 @@ import { initNightlySummarization } from '../../core/supermemory/summarizer';
 import { RedixDebugPanel } from '../redix/RedixDebugPanel';
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
-import { TermsAcceptance } from '../onboarding/TermsAcceptance';
-import { CookieConsent, useCookieConsent } from '../onboarding/CookieConsent';
+import { TermsAcceptance } from '../Onboarding/TermsAcceptance';
+import { CookieConsent, useCookieConsent } from '../Onboarding/CookieConsent';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -296,6 +296,15 @@ export function AppShell() {
     }
   }, [isOffline]);
 
+  const [restoreSummary, setRestoreSummary] = useState<{ updatedAt: number; windowCount: number; tabCount: number } | null>(null);
+  const [restoreDismissed, setRestoreDismissed] = useState(false);
+  const [restoreStatus, setRestoreStatus] = useState<'idle' | 'restoring'>('idle');
+  const [showTOS, setShowTOS] = useState(false);
+  const [showCookieConsent, setShowCookieConsent] = useState(false);
+  const { hasConsented } = useCookieConsent();
+  const [restoreToast, setRestoreToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
+
+
   // Check TOS acceptance on mount
   useEffect(() => {
     try {
@@ -462,6 +471,7 @@ export function AppShell() {
     setIsResizingContent(true);
   }, [showWebContent]);
 
+
   useEffect(() => {
     if (!isResizingContent) return;
 
@@ -486,13 +496,6 @@ export function AppShell() {
     };
   }, [isResizingContent]);
 
-  const [restoreSummary, setRestoreSummary] = useState<{ updatedAt: number; windowCount: number; tabCount: number } | null>(null);
-  const [restoreDismissed, setRestoreDismissed] = useState(false);
-  const [restoreStatus, setRestoreStatus] = useState<'idle' | 'restoring'>('idle');
-  const [showTOS, setShowTOS] = useState(false);
-  const [showCookieConsent, setShowCookieConsent] = useState(false);
-  const { hasConsented, showConsent } = useCookieConsent();
-  const [restoreToast, setRestoreToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const restoreRelativeTime = useMemo(() => {
     if (!restoreSummary) return null;
     try {

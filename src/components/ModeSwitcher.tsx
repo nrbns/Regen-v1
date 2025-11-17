@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAppStore } from '../state/appStore';
+import { useAppStore, type AppState } from '../state/appStore';
 import { trackModeSwitch } from '../core/supermemory/tracker';
 
 export default function ModeSwitcher() {
@@ -16,7 +16,7 @@ export default function ModeSwitcher() {
   
   const primaryModes: AppState['mode'][] = ['Browse', 'Research', 'Trade'];
   const secondaryModes: AppState['mode'][] = ['Games', 'Docs', 'Images', 'Threats', 'GraphMind'];
-  const [showMore, setShowMore] = useState(false);
+  const [showMore, setShowMore] = React.useState(false);
 
   return (
     <div className="flex items-center gap-1">
@@ -74,6 +74,8 @@ export default function ModeSwitcher() {
 
 // Legacy select for backward compatibility (hidden)
 export function LegacyModeSwitcher() {
+  const mode = useAppStore((state) => state.mode);
+  const setMode = useAppStore((state) => state.setMode);
   return (
     <select
       className="bg-neutral-800 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50"

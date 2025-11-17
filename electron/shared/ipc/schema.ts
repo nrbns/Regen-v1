@@ -205,6 +205,10 @@ export const ProxySetRequest = z.object({
   proxyRules: z.string().optional(), // Legacy format
   mode: z.string().optional(),
 }).refine((data) => {
+  if (data.tabId || data.profileId) {
+    // Allow clearing per-tab or per-profile proxies without additional fields
+    return true;
+  }
   // Either use legacy proxyRules/mode OR use typed fields
   return (data.proxyRules || data.mode) || (data.type && data.host && data.port);
 }, 'Must provide either proxyRules/mode or type/host/port');

@@ -87,10 +87,16 @@ export const useSessionStore = create<SessionStore>()(
         for (const tabData of session.tabs) {
           try {
             // Create tab via IPC
-            const tabId = await ipc.tabs.create(tabData.url);
+            const createdTab = await ipc.tabs.create(tabData.url);
+            const createdTabId =
+              typeof createdTab === 'string'
+                ? createdTab
+                : createdTab && typeof createdTab === 'object' && 'id' in createdTab
+                ? (createdTab as { id: string }).id
+                : undefined;
             // Activate if it was active in session
-            if (tabData.active) {
-              useTabsStore.getState().setActive(tabId);
+            if (tabData.active && createdTabId) {
+              useTabsStore.getState().setActive(createdTabId);
             }
             // Small delay to prevent overwhelming the system
             await new Promise(resolve => setTimeout(resolve, 100));

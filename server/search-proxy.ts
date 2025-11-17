@@ -1,10 +1,11 @@
-const CONTROL_CHAR_PATTERN = /[\p{Cc}]/gu;
 /**
  * Search Proxy - Aggregates DuckDuckGo, Bing, and other search engines
  * Provides CORS-safe proxy and result summarization with LLM summaries
  */
 
 import fastify from 'fastify';
+
+const CONTROL_CHAR_PATTERN = /[\p{Cc}]/gu;
 
 // LLM adapter functions adapted for Node.js server context
 // Note: This is a simplified version that works in Node.js

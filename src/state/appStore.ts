@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-type AppState = {
+export type AppState = {
   mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
   graphDockOpen: boolean;

@@ -232,8 +232,9 @@ export class DeviceDetector {
    */
   private detectTablet(): boolean {
     const ua = navigator.userAgent.toLowerCase();
+    const hasTouch = (navigator.maxTouchPoints ?? 0) > 2;
     return /ipad|android(?!.*mobile)|tablet|playbook|silk/i.test(ua) ||
-           (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+           (hasTouch && /MacIntel/.test(navigator.platform));
   }
 
   /**

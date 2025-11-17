@@ -144,14 +144,17 @@ export function AnswerCard({ result, onViewSource, onViewFullPage, className = '
                 exit={{ opacity: 0, height: 0 }}
                 className="mt-2 space-y-2"
               >
-                {result.contradictions.map((contradiction, idx) => (
-                  <div key={idx} className="text-xs text-yellow-300/80 pl-6">
-                    <div className="font-medium">{contradiction.fact}</div>
-                    <div className="text-yellow-400/60 mt-1">
-                      Conflicting sources: {contradiction.conflictingSources.length}
+                {result.contradictions.map((contradiction, idx) => {
+                  const conflicting = contradiction.conflictingSources ?? contradiction.sources ?? [];
+                  return (
+                    <div key={idx} className="text-xs text-yellow-300/80 pl-6">
+                      <div className="font-medium">{contradiction.fact}</div>
+                      <div className="text-yellow-400/60 mt-1">
+                        Conflicting sources: {conflicting.length}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </motion.div>
             )}
           </AnimatePresence>

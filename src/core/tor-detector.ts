@@ -71,12 +71,14 @@ export class TorDetector {
     // Indicator 5: WebGL fingerprint (Tor Browser modifies WebGL)
     try {
       const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      const gl =
+        (canvas.getContext('webgl') as WebGLRenderingContext | null) ||
+        (canvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
       if (gl) {
-        const debugInfo = (gl as any).getExtension('WEBGL_debug_renderer_info');
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
         if (debugInfo) {
-          const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-          const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+          const vendor = gl.getParameter((debugInfo as any).UNMASKED_VENDOR_WEBGL);
+          const renderer = gl.getParameter((debugInfo as any).UNMASKED_RENDERER_WEBGL);
           // Tor Browser may report generic values
           if (vendor && renderer && (vendor.includes('Mesa') || renderer.includes('Mesa'))) {
             indicators.push('webgl_fingerprint');

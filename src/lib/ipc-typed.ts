@@ -765,8 +765,17 @@ export const ipc = {
       ipcCall<{ containerId: string; permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origin: string }, Array<{ permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origins: string[] }>>('containers:revokeSitePermission', { containerId, permission, origin }),
   },
   proxy: {
-    set: (config: { type: 'socks5' | 'http'; host: string; port: number; username?: string; password?: string; tabId?: string; profileId?: string }) =>
-      ipcCall('proxy:set', config),
+    set: (config: {
+      type?: 'socks5' | 'http';
+      host?: string;
+      port?: number;
+      username?: string;
+      password?: string;
+      tabId?: string;
+      profileId?: string;
+      proxyRules?: string;
+      mode?: string;
+    }) => ipcCall('proxy:set', config),
     status: () => ipcCall<unknown, { healthy: boolean; killSwitchEnabled: boolean }>('proxy:status', {}),
     getForTab: (tabId: string) => ipcCall<unknown, { proxy: { type: string; host: string; port: number } | null }>('proxy:getForTab', { tabId }),
   },
