@@ -29,6 +29,7 @@ import { RedixDebugPanel } from '../redix/RedixDebugPanel';
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
 import { TermsAcceptance } from '../onboarding/TermsAcceptance';
+import { CookieConsent, useCookieConsent } from '../onboarding/CookieConsent';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -304,6 +305,10 @@ export function AppShell() {
         const currentVersion = '2025-12-17'; // Update when TOS changes
         if (data.version === currentVersion && data.accepted) {
           setShowTOS(false);
+          // Only show cookie consent after TOS is accepted
+          if (!hasConsented) {
+            setShowCookieConsent(true);
+          }
           return;
         }
       }
@@ -313,7 +318,18 @@ export function AppShell() {
       // Invalid stored data - show TOS
       setShowTOS(true);
     }
-  }, []);
+  }, [hasConsented]);
+
+  // Show cookie consent after TOS is accepted
+  useEffect(() => {
+    if (!showTOS && !hasConsented) {
+      // Small delay to ensure TOS modal is fully closed
+      const timer = setTimeout(() => {
+        setShowCookieConsent(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [showTOS, hasConsented]);
   useEffect(() => {
     let dragCounter = 0;
 
@@ -474,6 +490,8 @@ export function AppShell() {
   const [restoreDismissed, setRestoreDismissed] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<'idle' | 'restoring'>('idle');
   const [showTOS, setShowTOS] = useState(false);
+  const [showCookieConsent, setShowCookieConsent] = useState(false);
+  const { hasConsented, showConsent } = useCookieConsent();
   const [restoreToast, setRestoreToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const restoreRelativeTime = useMemo(() => {
     if (!restoreSummary) return null;
@@ -1186,6 +1204,19 @@ export function AppShell() {
                 window.close();
               }
             }
+          }}
+        />
+      )}
+
+      {/* Cookie Consent Banner */}
+      {showCookieConsent && !showTOS && (
+        <CookieConsent
+          onAccept={(preferences) => {
+            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(preferences));
+            setShowCookieConsent(false);
+          }}
+          onDecline={() => {
+            setShowCookieConsent(false);
           }}
         />
       )}
