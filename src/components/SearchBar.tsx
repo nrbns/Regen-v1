@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader2, Globe, FileText, Sparkles, Brain, ExternalLink } from 'lucide-react';
+import { Search, Loader2, Globe, FileText, Sparkles, Brain, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../services/duckDuckGoSearch';
 import { searchLocal } from '../utils/lunrIndex';
 import { ipc } from '../lib/ipc-typed';
@@ -14,6 +14,8 @@ import { searchVectors } from '../core/supermemory/vectorStore';
 import { sendPrompt } from '../core/llm/adapter';
 import { useTabsStore } from '../state/tabsStore';
 import { EcoBadge } from './EcoBadge';
+import { getQueryEngine, QueryResult } from '../core/query-engine';
+import { AnswerCard } from './AnswerCard';
 
 // Search proxy base URL (defaults to localhost:3001)
 const SEARCH_PROXY_URL = import.meta.env.VITE_SEARCH_PROXY_URL || 'http://localhost:3001';
@@ -50,6 +52,8 @@ export default function SearchBar() {
   const [showAiResponse, setShowAiResponse] = useState(false);
   const [askingAboutPage, setAskingAboutPage] = useState(false);
   const [searchLatency, setSearchLatency] = useState<number | null>(null);
+  const [queryResult, setQueryResult] = useState<QueryResult | null>(null);
+  const [showSearchResults, setShowSearchResults] = useState(false); // Collapsed by default
   const aiSessionRef = useRef<string>(`search-${Date.now()}`);
   
   // Get active tab for "Ask about this page"
@@ -229,61 +233,84 @@ export default function SearchBar() {
       }
     }
     
-    // For search queries, get search results with LLM summary
+    // PHASE 1: Use QueryEngine for AI-Native answers
     setAiLoading(true);
     setShowAiResponse(true);
+    setQueryResult(null);
     setAiResponse('');
     setSearchSummary(null);
     setError(null);
+    setShowSearchResults(false); // Hide search results by default
     
     const startTime = Date.now();
     
     try {
-      // Fetch search results with LLM summary from search-proxy
-      const searchResponse = await fetch(`${SEARCH_PROXY_URL}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          query, 
-          sources: ['duckduckgo', 'bing'], 
-          limit: 10,
-          includeSummary: true, // Request LLM summary with citations
-        }),
-      });
-
-      if (!searchResponse.ok) {
-        throw new Error(`Search failed: ${searchResponse.statusText}`);
-      }
-
-      const searchData = await searchResponse.json();
-      const latency = Date.now() - startTime;
-      setSearchLatency(latency);
-
-      // Track metrics
-      console.debug(`[SearchBar] Search with summary completed in ${latency}ms`);
+      // Get active tab context
+      const tabContext = activeTab ? {
+        tabUrl: activeTab.url,
+        tabTitle: activeTab.title,
+        mode: 'research', // Could be dynamic based on current mode
+      } : undefined;
       
-      // Update results
-      if (searchData.results && Array.isArray(searchData.results)) {
-        const formatted = searchData.results.map((r: any, idx: number) => ({
-          id: `proxy-${idx}`,
-          title: r.title,
-          url: r.url,
-          snippet: r.snippet,
+      // Use QueryEngine to get structured answer
+      const queryEngine = getQueryEngine();
+      const result = await queryEngine.query(query, tabContext);
+      
+      setQueryResult(result);
+      setAiResponse(result.answer);
+      setSearchLatency(result.latency);
+      
+      // Update search results from query result sources
+      if (result.sources.length > 0) {
+        const formatted = result.sources.map((source, idx) => ({
+          id: `source-${idx}`,
+          title: source.title,
+          url: source.url,
+          snippet: source.snippet,
           type: 'proxy' as const,
-          source: r.source,
+          source: 'fused' as const,
         }));
         setProxyResults(formatted);
-      }
-
-      // Display LLM summary with citations
-      if (searchData.summary) {
-        setSearchSummary({
-          text: searchData.summary.text,
-          citations: searchData.summary.citations || [],
-          latency: latency,
-        });
-        setAiResponse(searchData.summary.text);
       } else {
+        // Fallback: Fetch search results if QueryEngine didn't provide sources
+        try {
+          const searchResponse = await fetch(`${SEARCH_PROXY_URL}/api/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              query, 
+              sources: ['duckduckgo'], 
+              limit: 10,
+            }),
+          });
+
+          if (searchResponse.ok) {
+            const searchData = await searchResponse.json();
+            if (searchData.results && Array.isArray(searchData.results)) {
+              const formatted = searchData.results.map((r: any, idx: number) => ({
+                id: `proxy-${idx}`,
+                title: r.title,
+                url: r.url,
+                snippet: r.snippet,
+                type: 'proxy' as const,
+                source: r.source,
+              }));
+              setProxyResults(formatted);
+            }
+          }
+        } catch (searchError) {
+          console.warn('[SearchBar] Fallback search failed:', searchError);
+        }
+      }
+      
+      setAiLoading(false);
+      return; // Success - exit early
+      
+    } catch (queryError) {
+      console.error('[SearchBar] QueryEngine failed:', queryError);
+      
+      // Fallback to original search flow
+      try {
         // Fallback: try Redix /ask endpoint with SSE streaming (preferred)
         try {
           // Try streaming first for better UX
@@ -635,119 +662,161 @@ export default function SearchBar() {
         )}
       </form>
 
-      {/* AI Response Pane */}
+      {/* PHASE 1: Answer-First UI - Show AnswerCard FIRST */}
       {showAiResponse && (
-        <div className="mt-4 rounded-xl border border-blue-700/50 bg-gray-900/95 backdrop-blur-xl shadow-2xl">
-          <div className="p-4 border-b border-gray-800/50">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles size={16} className="text-blue-400" />
-              <h3 className="text-sm font-semibold text-gray-300">AI Summary</h3>
-              {(aiLoading || askingAboutPage) && (
-                <Loader2 size={14} className="text-blue-400 animate-spin ml-auto" />
-              )}
-              {askingAboutPage && (
-                <span className="text-xs text-purple-300 ml-2">Analyzing page...</span>
-              )}
-              <div className="ml-auto flex items-center gap-2">
-                {searchLatency !== null && !aiLoading && (
-                  <span className="text-xs text-gray-400">
-                    {searchLatency}ms
-                  </span>
-                )}
-                {/* Show eco badge if available from last Redix response */}
-                {(window as any).__lastEcoScore && !aiLoading && (
-                  <EcoBadge
-                    score={(window as any).__lastEcoScore.score}
-                    tier={(window as any).__lastEcoScore.tier}
-                    co2SavedG={(window as any).__lastEcoScore.co2Saved || 0}
-                    className="scale-75 origin-right"
-                  />
-                )}
+        <div className="mt-4 space-y-4">
+          {/* Answer Card (Primary) */}
+          {queryResult ? (
+            <AnswerCard
+              result={queryResult}
+              onViewSource={(url) => {
+                ipc.tabs.create(url).catch(console.error);
+              }}
+              onViewFullPage={(url) => {
+                ipc.tabs.create(url).catch(console.error);
+              }}
+            />
+          ) : (aiLoading || askingAboutPage) ? (
+            <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Loader2 size={16} className="text-blue-400 animate-spin" />
+                <span className="text-sm text-gray-300">
+                  {askingAboutPage ? 'Analyzing page...' : 'Getting AI answer...'}
+                </span>
               </div>
-            </div>
-          </div>
-          <div className="p-4">
-            {/* Skeleton loader while loading */}
-            {(aiLoading || askingAboutPage) && !aiResponse && (
               <div className="space-y-2 animate-pulse">
                 <div className="h-4 bg-gray-700/50 rounded w-3/4"></div>
                 <div className="h-4 bg-gray-700/50 rounded w-full"></div>
                 <div className="h-4 bg-gray-700/50 rounded w-5/6"></div>
               </div>
-            )}
-            {aiResponse && (
-              <div className="space-y-4">
-                <div className="prose prose-invert prose-sm max-w-none">
-                  <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
-                    {searchSummary?.text ? (
-                      // Render text with clickable citations
-                      searchSummary.text.split(/(\[\d+\])/g).map((part, idx) => {
-                        const citationMatch = part.match(/\[(\d+)\]/);
-                        if (citationMatch) {
-                          const citationIndex = parseInt(citationMatch[1], 10);
-                          const citation = searchSummary.citations.find(c => c.index === citationIndex);
-                          if (citation) {
-                            return (
-                              <button
-                                key={idx}
-                                onClick={() => {
-                                  if (citation.url) {
-                                    ipc.tabs.create(citation.url).catch(console.error);
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium mx-0.5"
-                                title={`${citation.title} - ${citation.url}`}
-                              >
-                                <span>{part}</span>
-                                <ExternalLink size={12} className="inline" />
-                              </button>
-                            );
-                          }
-                        }
-                        return <span key={idx}>{part}</span>;
-                      })
-                    ) : (
-                      aiResponse
-                    )}
-                  </div>
-                </div>
-                {searchSummary && searchSummary.citations.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-800/50">
-                    <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Citations</h4>
-                    <div className="space-y-2">
-                      {searchSummary.citations.map((citation) => (
-                        <button
-                          key={citation.index}
-                          onClick={() => {
-                            if (citation.url) {
-                              ipc.tabs.create(citation.url).catch(console.error);
-                            }
-                          }}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50 group"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-blue-400 group-hover:text-blue-300">
-                              [{citation.index}]
-                            </span>
-                            <span className="text-sm text-gray-300 group-hover:text-white flex-1 truncate">
-                              {citation.title}
-                            </span>
-                            <ExternalLink size={14} className="text-gray-500 group-hover:text-blue-400 flex-shrink-0" />
-                          </div>
-                          {citation.url && (
-                            <div className="text-xs text-gray-500 mt-1 truncate ml-5">{citation.url}</div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            </div>
+          ) : aiResponse ? (
+            // Fallback: Show simple answer if QueryEngine not available
+            <div className="bg-gray-900/80 border border-gray-800 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles size={16} className="text-blue-400" />
+                <h3 className="text-sm font-semibold text-gray-300">AI Answer</h3>
               </div>
-            )}
-            {error && (
-              <div className="text-sm text-red-400 mt-2">{error}</div>
-            )}
-          </div>
+              <div className="prose prose-invert prose-sm max-w-none">
+                <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
+                  {aiResponse}
+                </div>
+              </div>
+            </div>
+          ) : null}
+          
+          {/* Search Results (Secondary - Collapsed by default) */}
+          {allResults.length > 0 && (
+            <div className="bg-gray-900/60 border border-gray-800/50 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setShowSearchResults(!showSearchResults)}
+                className="w-full flex items-center justify-between p-4 hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Globe size={16} className="text-gray-400" />
+                  <span className="text-sm font-medium text-gray-300">
+                    {allResults.length} search result{allResults.length > 1 ? 's' : ''} available
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    (Click to {showSearchResults ? 'hide' : 'view'} sources)
+                  </span>
+                </div>
+                {showSearchResults ? (
+                  <ChevronUp size={16} className="text-gray-400" />
+                ) : (
+                  <ChevronDown size={16} className="text-gray-400" />
+                )}
+              </button>
+              
+              {showSearchResults && (
+                <div className="border-t border-gray-800/50 max-h-[400px] overflow-y-auto">
+                  {proxyResults.length > 0 && (
+                    <div className="p-3 border-b border-gray-800/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe size={14} className="text-blue-400" />
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Web Results</h3>
+                      </div>
+                      <div className="space-y-1">
+                        {proxyResults.map((result) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => handleResultClick(result)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          >
+                            <div className="text-sm font-medium text-white line-clamp-1">{result.title}</div>
+                            {result.snippet && (
+                              <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.snippet}</div>
+                            )}
+                            {result.url && (
+                              <div className="text-xs text-gray-500 mt-1 truncate">{result.url}</div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {duckResults.length > 0 && (
+                    <div className="p-3 border-b border-gray-800/50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Globe size={14} className="text-blue-400" />
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Additional Results</h3>
+                      </div>
+                      <div className="space-y-1">
+                        {duckResults.map((result) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => handleResultClick(result)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          >
+                            <div className="text-sm font-medium text-white line-clamp-1">{result.title}</div>
+                            {result.snippet && (
+                              <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.snippet}</div>
+                            )}
+                            {result.url && (
+                              <div className="text-xs text-gray-500 mt-1 truncate">{result.url}</div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {localResults.length > 0 && (
+                    <div className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <FileText size={14} className="text-green-400" />
+                        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Local Docs</h3>
+                      </div>
+                      <div className="space-y-1">
+                        {localResults.map((result) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => handleResultClick(result)}
+                            className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-800/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                          >
+                            <div className="text-sm font-medium text-white line-clamp-1">{result.title}</div>
+                            {result.snippet && (
+                              <div className="text-xs text-gray-400 mt-0.5 line-clamp-2">{result.snippet}</div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {error && (
+            <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/40 text-sm text-red-200">
+              {error}
+            </div>
+          )}
         </div>
       )}
     </div>
