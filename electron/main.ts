@@ -354,6 +354,8 @@ app.whenReady().then(async () => {
     // Register telemetry IPC early (needed for onboarding)
     const { registerTelemetryIpc } = await import('./services/telemetry');
     registerTelemetryIpc();
+    const { registerAnalyticsIpc } = await import('./services/analytics');
+    registerAnalyticsIpc();
     console.log('[Main] Telemetry IPC registered (early)');
     
     // Register shields stub handler if shields service is disabled

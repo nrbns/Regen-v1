@@ -29,7 +29,7 @@ _Last updated: 2025-12-17_
 | P0 | Security | **Phase 1 Complete** - DOMPurify, CSP, rate limiting, URL validation | Dec 17 | ✅ **Complete** |
 | P1 | Compliance | **Phase 2 Complete** - TOS, cookie consent, GDPR export, accessibility audit | Dec 17 | ✅ **Complete** |
 | P2 | Monitoring | Integrate crash reporting (Sentry) | Dec 17 | ✅ **Complete** |
-| P2 | Monitoring | Add privacy-respecting analytics | Dec 30 | 📋 Planned |
+| P2 | Monitoring | Add privacy-respecting analytics | Dec 17 | ✅ **Complete** |
 
 ## Risk & Mitigation
 - **Risk:** Release drift due to scope creep.  
@@ -59,7 +59,7 @@ _Last updated: 2025-12-17_
 
 ### Phase 3: Monitoring & Reliability (Dec 2025) 🔄
 - ✅ **Sentry Crash Reporting** - Opt-in crash capture wired via telemetry preferences (`@sentry/electron` with scrubbing)
-- 🔄 **Privacy-Safe Analytics** - Instrumentation planned (Matomo/Fathom evaluation)
+- ✅ **Privacy-Safe Analytics** - Opt-in anonymous analytics pipeline + renderer helper
 - 📋 **SLO Dashboards** - Capture uptime/perf metrics after analytics work
 
 ### Previous Milestones

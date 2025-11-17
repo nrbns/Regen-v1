@@ -75,6 +75,7 @@ export const SettingsSchema = z.object({
     telemetryOptIn: z.boolean().default(false),
     crashReporting: z.boolean().default(false),
     performanceMonitoring: z.boolean().default(true),
+    analyticsOptIn: z.boolean().default(false),
   }).default({}),
   // Startup settings (kept for backwards compatibility)
   startup: z.object({

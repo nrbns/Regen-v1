@@ -139,6 +139,7 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'performance:battery:update': () => ({ success: true }),
   'session:lastSnapshotSummary': () => null,
   'telemetry:getStatus': () => ({ optIn: false, enabled: false }),
+  'analytics:getStatus': () => ({ optIn: false, enabled: false }),
 };
 
 const reportedMissingChannels = new Set<string>();
@@ -878,6 +879,19 @@ export const ipc = {
       })),
     trackPerf: (metric: string, value: number, unit?: 'ms' | 'MB' | '%') => ipcCall<{ metric: string; value: number; unit?: 'ms' | 'MB' | '%' }, { success: boolean }>('telemetry:trackPerf', { metric, value, unit }),
     trackFeature: (feature: string, action?: string) => ipcCall<{ feature: string; action?: string }, { success: boolean }>('telemetry:trackFeature', { feature, action }),
+  },
+  analytics: {
+    setOptIn: (optIn: boolean) =>
+      ipcCall<{ optIn: boolean }, { success: boolean }>('analytics:setOptIn', { optIn }).catch(() => ({ success: true })),
+    getStatus: () =>
+      ipcCall<{}, { optIn: boolean; enabled: boolean }>('analytics:getStatus', {}).catch(() => ({
+        optIn: false,
+        enabled: false,
+      })),
+    track: (type: string, payload?: Record<string, unknown>) =>
+      ipcCall<{ type: string; payload?: Record<string, unknown> }, { success: boolean }>('analytics:track', { type, payload }).catch(() => ({
+        success: false,
+      })),
   },
   settings: {
     get: () => ipcCall<unknown, unknown>('settings:get', {}),

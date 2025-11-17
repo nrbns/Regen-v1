@@ -20,6 +20,7 @@ import { useOnboardingStore } from '../../state/onboardingStore';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { ipc } from '../../lib/ipc-typed';
 import { applyTelemetryOptIn } from '../../lib/monitoring/sentry-client';
+import { applyAnalyticsOptIn } from '../../lib/monitoring/analytics-client';
 
 type StepTipAction = 'focus-omnibox' | 'open-graph';
 
@@ -434,7 +435,10 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       if (isTelemetryStep) {
         // Save telemetry opt-in preference asynchronously (don't wait for it)
         // Use void to explicitly ignore the promise
-        void applyTelemetryOptIn(telemetryOptIn).catch((error) => {
+        void Promise.allSettled([
+          applyTelemetryOptIn(telemetryOptIn),
+          applyAnalyticsOptIn(telemetryOptIn),
+        ]).catch((error) => {
           if (process.env.NODE_ENV === 'development') {
             console.warn('[Onboarding] Failed to save telemetry opt-in', error);
           }

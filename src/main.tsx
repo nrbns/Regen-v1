@@ -8,6 +8,7 @@ import './lib/battery';
 import { isDevEnv } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
+import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -295,6 +296,16 @@ syncRendererTelemetry().catch((error) => {
     console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
   }
 });
+
+syncAnalyticsOptIn()
+  .then(() => {
+    trackPageView(window.location.pathname);
+  })
+  .catch((error) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Monitoring] Failed to initialize analytics', error);
+    }
+  });
 
   if (!existingRoot) {
     (window as any)[rootKey] = root;

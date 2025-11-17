@@ -6,6 +6,7 @@ import { Search, Settings as SettingsIcon, Monitor, Shield, Download, Globe, Cpu
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { applyTelemetryOptIn } from '../lib/monitoring/sentry-client';
+import { applyAnalyticsOptIn } from '../lib/monitoring/analytics-client';
 import { ShieldsPanel } from '../components/privacy/ShieldsPanel';
 import { NetworkPanel } from '../components/privacy/NetworkPanel';
 import { GDPRDataExport } from '../components/privacy/GDPRDataExport';
@@ -1379,6 +1380,31 @@ export default function Settings() {
                           await applyTelemetryOptIn(e.target.checked);
                         } catch (error) {
                           console.warn('Failed to update telemetry service', error);
+                        }
+                      }}
+                    />
+                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all" />
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-gray-800/50 bg-gray-900/60 p-4">
+                  <div className="max-w-xl">
+                    <h3 className="font-medium text-gray-100">Enable privacy-friendly analytics</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Collect anonymous feature usage (Matomo / Fathom compatible). No URLs, queries, or personal identifiers leave your device.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={settings.diagnostics.analyticsOptIn}
+                      onChange={async (e) => {
+                        updateSetting(['diagnostics', 'analyticsOptIn'], e.target.checked);
+                        try {
+                          await applyAnalyticsOptIn(e.target.checked);
+                        } catch (error) {
+                          console.warn('Failed to update analytics service', error);
                         }
                       }}
                     />
