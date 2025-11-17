@@ -15,8 +15,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
-import { VoiceTips } from '../voice/VoiceTips';
-import VoiceCompanion from '../voice/VoiceCompanion';
+// Voice components disabled by user request
+// import { VoiceTips } from '../voice/VoiceTips';
+// import VoiceCompanion from '../voice/VoiceCompanion';
 import { initializeOptimizer } from '../../core/redix/optimizer';
 import { useRedix } from '../../core/redix/useRedix';
 import { updatePolicyMetrics, getPolicyRecommendations } from '../../core/redix/policies';
@@ -607,8 +608,25 @@ export function AppShell() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
 
-      // ⌘K / Ctrl+K: Command Palette
+      // ⌘K / Ctrl+K: Focus Omnibox (primary action - AI omnibar is the hero)
+      // Note: TopNav also handles this with capture:true, so this is a fallback
       if (modifier && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
+        // Let TopNav handle this to focus omnibox
+        // If omnibox is already focused, then open command palette
+        const target = e.target as HTMLElement | null;
+        const isWithinOmnibox = target?.hasAttribute('data-omnibox-input') || 
+                                 target?.closest('[data-onboarding="omnibox"]');
+        if (isWithinOmnibox) {
+          e.preventDefault();
+          setCommandPaletteOpen(true);
+          return;
+        }
+        // Otherwise, let TopNav handle focusing the omnibox
+        return;
+      }
+
+      // ⌘⇧K / Ctrl+Shift+K: Command Palette (alternative shortcut)
+      if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setCommandPaletteOpen(true);
         return;
@@ -720,6 +738,11 @@ export function AppShell() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [commandPaletteOpen, permissionRequest, consentRequest, rightPanelOpen, clipperActive, memorySidebarOpen]);
+  
+  // Sync memory sidebar state with TopNav
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('memory-sidebar:toggle', { detail: { open: memorySidebarOpen } }));
+  }, [memorySidebarOpen]);
 
   const handleCreateHighlight = async (highlight: ResearchHighlight) => {
     if (!activeTab?.url) {
@@ -796,6 +819,7 @@ export function AppShell() {
               <TopNav
                 onAgentToggle={() => setRightPanelOpen(!rightPanelOpen)}
                 onCommandPalette={() => setCommandPaletteOpen(true)}
+                onMemoryToggle={() => setMemorySidebarOpen(prev => !prev)}
                 onClipperToggle={() => {
                   if (tabsState.activeId) {
                     setClipperActive(true);
@@ -837,7 +861,7 @@ export function AppShell() {
       {/* Main Layout - Full Width (No Sidebar) */}
       <div className="flex flex-1 min-h-0 w-full overflow-hidden">
         {/* Center Content - Full Width */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden sm:overflow-auto">
           {!isFullscreen && restoreSummary && !restoreDismissed && (
             <div className="px-4 pt-3">
               <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -887,24 +911,23 @@ export function AppShell() {
 
           {/* Route/Web Content */}
           {showWebContent ? (
-            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+            <div className="flex flex-col sm:flex-row flex-1 min-h-0 min-w-0 overflow-hidden">
               <div
-                className="min-h-0 min-w-[320px] flex-shrink-0 flex-grow-0"
-                style={{ width: `${Math.round(contentSplit * 100)}%` }}
+                className="min-h-[50vh] sm:min-h-0 sm:min-w-[320px] flex-shrink-0 flex-grow-0 w-full sm:w-auto"
+                style={{ width: '100%' }}
               >
                 <TabContentSurface tab={activeTab} overlayActive={overlayActive} />
               </div>
               <div
                 onMouseDown={handleResizeStart}
-                className="z-20 flex h-full w-[6px] cursor-col-resize items-center justify-center bg-slate-900/50 transition-colors hover:bg-slate-800"
+                className="hidden sm:flex z-20 h-full w-[6px] cursor-col-resize items-center justify-center bg-slate-900/50 transition-colors hover:bg-slate-800"
               >
                 <div className="h-24 w-[2px] rounded-full bg-slate-700/80" />
               </div>
               <div
-                className="relative min-h-0 min-w-[260px] flex-1 overflow-hidden"
-                style={{ width: `${Math.round((1 - contentSplit) * 100)}%` }}
+                className="relative min-h-[50vh] sm:min-h-0 sm:min-w-[260px] flex-1 overflow-hidden w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-slate-800/60"
               >
-                <div className={`h-full min-h-0 overflow-auto border-l border-slate-800/60 bg-slate-950/40`}>
+                <div className="h-full min-h-0 overflow-auto bg-slate-950/40">
                   <Outlet />
                 </div>
               </div>
@@ -1001,9 +1024,10 @@ export function AppShell() {
       {/* Regen Whisper - Voice Tips */}
       {!isFullscreen && (
         <Suspense fallback={null}>
-          <ErrorBoundary componentName="VoiceTips">
+          {/* VoiceTips disabled by user request */}
+          {/* <ErrorBoundary componentName="VoiceTips">
             <VoiceTips />
-          </ErrorBoundary>
+          </ErrorBoundary> */}
         </Suspense>
       )}
 
@@ -1090,15 +1114,22 @@ export function AppShell() {
       )}
 
       {/* Memory Sidebar */}
-      <MemorySidebar open={memorySidebarOpen} onClose={() => setMemorySidebarOpen(false)} />
+      <MemorySidebar 
+        open={memorySidebarOpen} 
+        onClose={() => {
+          setMemorySidebarOpen(false);
+          // Dispatch event for TopNav to sync state
+          window.dispatchEvent(new CustomEvent('memory-sidebar:toggle', { detail: { open: false } }));
+        }} 
+      />
       
       {/* Redix Debug Panel */}
       <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
 
-      {/* Voice Companion - Floating Orb */}
-      <ErrorBoundary componentName="VoiceCompanion">
+      {/* Voice Companion - Disabled by user request */}
+      {/* <ErrorBoundary componentName="VoiceCompanion">
         <VoiceCompanion position="bottom-right" />
-      </ErrorBoundary>
+      </ErrorBoundary> */}
 
       {restoreToast && (
         <Portal>

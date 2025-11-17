@@ -14,9 +14,9 @@ Electron + React + TypeScript + Vite multi-mode desktop browser with:
 [![CI](https://github.com/nrbns/Omnibrowser/workflows/CI/badge.svg)](https://github.com/nrbns/Omnibrowser/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Note**: Currently in Phase 4 (Pre-Launch Hardening) but many systems are still experimental. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed status.
+> **Note**: Currently in Phase 3 (Core Runtime & AI Wiring) - many systems are experimental or in progress. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed status.
 > 
-> **Project Board**: See [GitHub Projects](https://github.com/nrbns/Omnibrowser/projects) for roadmap and issue tracking. Setup guide: [docs/project-board-setup.md](./docs/project-board-setup.md)
+> **Issues & Roadmap**: See [GitHub Issues](https://github.com/nrbns/Omnibrowser/issues) for current work and feature requests.
 
 ## Quick Start
 

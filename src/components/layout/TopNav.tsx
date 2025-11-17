@@ -26,6 +26,7 @@ import {
   Activity,
   Home,
   MoreHorizontal,
+  Brain,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -96,9 +97,10 @@ interface TopNavProps {
   onCommandPalette: () => void;
   onClipperToggle: () => void;
   onReaderToggle: () => void;
+  onMemoryToggle?: () => void;
 }
 
-export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onReaderToggle }: TopNavProps) {
+export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onReaderToggle, onMemoryToggle }: TopNavProps) {
   const { activeId } = useTabsStore();
   const navigate = useNavigate();
   const toggleTabGraph = useTabGraphStore((state) => state.toggle);
@@ -121,6 +123,16 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
   const [compactMenuOpen, setCompactMenuOpen] = useState(false);
   const compactMenuRef = useRef<HTMLDivElement | null>(null);
   const [redixDialogOpen, setRedixDialogOpen] = useState(false);
+  const [memoryActive, setMemoryActive] = useState(false);
+  
+  // Listen for memory sidebar state changes
+  useEffect(() => {
+    const handleMemoryStateChange = (event: CustomEvent<{ open: boolean }>) => {
+      setMemoryActive(event.detail.open);
+    };
+    window.addEventListener('memory-sidebar:toggle', handleMemoryStateChange as EventListener);
+    return () => window.removeEventListener('memory-sidebar:toggle', handleMemoryStateChange as EventListener);
+  }, []);
 
   const closeMenus = useCallback(() => {
     setMenuOpen(createMenuState());
@@ -856,14 +868,14 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
 
   return (
     <div className="drag border-b border-white/5 bg-surface/95 supports-[backdrop-filter:blur(12px)]:backdrop-blur-xl shadow-[0_12px_40px_rgba(15,23,42,0.45)] text-primary transition-colors">
-      <div className="no-drag flex flex-wrap items-center gap-3 px-3 py-2">
-        <div className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+      <div className="no-drag flex flex-wrap items-center gap-2 sm:gap-3 px-2 sm:px-3 py-1.5 sm:py-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/5 bg-white/5 px-2 sm:px-3 py-0.5 sm:py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
           <ModeSwitch />
           <SessionSwitcher compact />
-          <div className="hidden 2xl:block">
+          <div className="hidden lg:block 2xl:block">
             <WorkspaceSwitcher compact />
           </div>
-          <div className="hidden 3xl:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             <ProfileQuickSwitcher compact />
             <ContainerSwitcher compact />
           </div>
@@ -931,7 +943,7 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
           </motion.button>
         </div>
 
-        <div className="flex-1 min-w-[220px] basis-full sm:basis-auto" data-onboarding="omnibox">
+        <div className="flex-1 min-w-[180px] sm:min-w-[220px] basis-full sm:basis-auto order-3 sm:order-none" data-onboarding="omnibox">
           <div className="relative">
             <Omnibox 
               ref={omniboxRef} 
@@ -983,11 +995,38 @@ export function TopNav({ onAgentToggle, onCommandPalette, onClipperToggle, onRea
               )}
             </motion.button>
             
+            {/* Memory Sidebar toggle */}
+            {onMemoryToggle && (
+              <motion.button
+                onClick={onMemoryToggle}
+                aria-label={`Memory sidebar${memoryActive ? ' (open)' : ''}`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                data-testid="nav-memory-button"
+                className={`relative p-2 rounded-full transition-colors ${
+                  memoryActive
+                    ? 'bg-purple-500/15 text-purple-300 shadow-[0_0_18px_rgba(168,85,247,0.35)]'
+                    : 'text-muted hover:bg-white/10 hover:text-purple-300'
+                }`}
+                title="Memory Sidebar (⌘⇧M)"
+              >
+                <Brain size={18} />
+                {memoryActive && (
+                  <motion.span
+                    className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-purple-400 rounded-full border-2 border-gray-900"
+                    animate={{ scale: [1, 1.2, 1], opacity: [1, 0.8, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    aria-label="Memory sidebar is open"
+                  />
+                )}
+              </motion.button>
+            )}
+            
             {/* Privacy controls - consolidated */}
-            <div className="hidden lg:flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-1">
               <PrivacySentinelBadge />
             </div>
-            <div className="hidden 2xl:flex items-center gap-1">
+            <div className="hidden xl:flex items-center gap-1">
               <ShieldsButton />
               <NetworkButton />
             </div>

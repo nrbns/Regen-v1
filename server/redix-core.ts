@@ -305,15 +305,43 @@ export class RedixServer {
     });
 
     // /workflow endpoint - LangChain agentic workflows
-    this.app.post<{ Body: AgenticWorkflowRequest }>('/workflow', async (request, reply) => {
+    this.app.post<{ Body: AgenticWorkflowRequest & { stream?: boolean } }>('/workflow', async (request, reply) => {
       try {
-        const { query, context, workflowType, tools, options } = request.body;
+        const { query, context, workflowType, tools, options, stream } = request.body;
         
         if (!query?.trim()) {
           reply.code(400).send({ error: 'Query is required' });
           return;
         }
 
+        // SSE streaming mode
+        if (stream) {
+          reply.raw.setHeader('Content-Type', 'text/event-stream');
+          reply.raw.setHeader('Cache-Control', 'no-cache');
+          reply.raw.setHeader('Connection', 'keep-alive');
+          reply.raw.setHeader('X-Accel-Buffering', 'no');
+          
+          const workflowEngine = getAgenticWorkflowEngine();
+          const streamCallback = (chunk: any) => {
+            reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          };
+          
+          try {
+            await workflowEngine.runWorkflow({
+              query,
+              context,
+              workflowType,
+              tools,
+              options: { ...options, stream: true },
+            }, streamCallback);
+          } catch (error: any) {
+            reply.raw.write(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`);
+            reply.raw.end();
+          }
+          return;
+        }
+
+        // Non-streaming mode
         const workflowEngine = getAgenticWorkflowEngine();
         const result = await workflowEngine.runWorkflow({
           query,

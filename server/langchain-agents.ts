@@ -19,16 +19,28 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
+// Ollama integration (if available)
+let ChatOllama: any = null;
+try {
+  // Try to import Ollama - may not be installed
+  const ollamaModule = require('@langchain/community/chat_models/ollama');
+  ChatOllama = ollamaModule.ChatOllama;
+} catch {
+  // Ollama not available, will use fallback
+}
+
 // Types
 export interface AgenticWorkflowRequest {
   query: string;
   context?: string;
-  workflowType?: 'research' | 'code' | 'ethics' | 'multi-agent';
+  workflowType?: 'research' | 'code' | 'ethics' | 'multi-agent' | 'rag';
   tools?: string[]; // Tool names to enable
   options?: {
     maxIterations?: number;
     maxTokens?: number;
     temperature?: number;
+    useOllama?: boolean; // Use local Ollama for efficiency
+    stream?: boolean; // Enable streaming
   };
 }
 
@@ -46,6 +58,14 @@ export interface AgenticWorkflowResponse {
   tokensUsed: number;
   agentsUsed: string[];
 }
+
+// Streaming callback type
+export type StreamCallback = (chunk: {
+  type: 'token' | 'step' | 'done' | 'error';
+  content?: string;
+  step?: number;
+  data?: any;
+}) => void;
 
 // Eco Scorer
 class EcoScorer {
@@ -68,7 +88,7 @@ class EcoScorer {
 
 // Tools for agents
 class AgentTools {
-  // Web search tool (mock - would integrate with Tavily/DuckDuckGo)
+  // Web search tool - integrates with DuckDuckGo API
   static createSearchTool() {
     return new DynamicStructuredTool({
       name: 'web_search',
@@ -79,20 +99,46 @@ class AgentTools {
       }),
       func: async ({ query, maxResults = 5 }) => {
         try {
-          // Mock search - in production, integrate with Tavily/DuckDuckGo
+          // Use DuckDuckGo Instant Answer API
           const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-          const response = await fetch(searchUrl).catch(() => null);
+          const response = await fetch(searchUrl, {
+            headers: { 'User-Agent': 'OmniBrowser/1.0' },
+            signal: AbortSignal.timeout(5000),
+          }).catch(() => null);
           
           if (response?.ok) {
             const data = await response.json();
-            const results = data.RelatedTopics?.slice(0, maxResults) || [];
-            return results.map((r: any) => r.Text || r.FirstURL).join('\n');
+            const results: string[] = [];
+            
+            // Add abstract if available
+            if (data.AbstractText) {
+              results.push(`Abstract: ${data.AbstractText}`);
+            }
+            
+            // Add related topics
+            if (data.RelatedTopics) {
+              const topics = data.RelatedTopics.slice(0, maxResults);
+              topics.forEach((r: any) => {
+                if (r.Text) results.push(r.Text);
+                else if (r.FirstURL) results.push(r.FirstURL);
+              });
+            }
+            
+            // Add results
+            if (data.Results) {
+              data.Results.slice(0, maxResults).forEach((r: any) => {
+                if (r.Text) results.push(r.Text);
+              });
+            }
+            
+            return results.length > 0 
+              ? results.join('\n\n')
+              : `No results found for "${query}"`;
           }
           
-          // Fallback mock response
-          return `Search results for "${query}": Found ${maxResults} relevant results. (Mock - integrate with real search API)`;
-        } catch (error) {
-          return `Search failed: ${error}`;
+          return `Search completed for "${query}" but no results returned.`;
+        } catch (error: any) {
+          return `Search failed: ${error.message || 'Network error'}`;
         }
       },
     });
@@ -190,6 +236,32 @@ export class AgenticWorkflowEngine {
       modelName: 'claude-3-5-sonnet-20241022',
       temperature,
       anthropicApiKey: apiKey,
+    });
+  }
+
+  // Get Ollama model (local, efficient)
+  private async getOllamaModel(temperature = 0.7) {
+    if (!ChatOllama) {
+      throw new Error('Ollama not available. Install: npm install @langchain/community');
+    }
+    
+    const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'llama3.2';
+    
+    // Check if Ollama is available
+    try {
+      const check = await fetch(`${baseUrl}/api/tags`, { 
+        signal: AbortSignal.timeout(1000) 
+      });
+      if (!check.ok) throw new Error('Ollama not running');
+    } catch {
+      throw new Error('Ollama not available. Start Ollama: ollama serve');
+    }
+    
+    return new ChatOllama({
+      baseUrl,
+      model,
+      temperature,
     });
   }
 
@@ -294,40 +366,102 @@ export class AgenticWorkflowEngine {
     }
   }
 
-  // ReAct Agent creation (simplified - full agent support requires langchain/agents)
-  private async createReActAgent(llm: any, tools: any[]) {
-    // Simplified agent: Use LLM with tools as a chain
-    // In production, use full AgentExecutor from langchain/agents
+  // ReAct Agent creation with proper ReAct pattern (Reason → Act → Observe)
+  private async createReActAgent(llm: any, tools: any[], maxIterations = 5) {
     return {
-      invoke: async (input: { input: string }) => {
-        // Simple tool selection and execution
-        const query = input.input.toLowerCase();
-        let result = '';
+      invoke: async (input: { input: string }): Promise<{ output: string; steps: any[] }> => {
+        const steps: any[] = [];
+        let currentInput = input.input;
+        let iteration = 0;
         
-        // Check if any tool matches
-        for (const tool of tools) {
-          if (tool.name === 'web_search' && (query.includes('search') || query.includes('find'))) {
-            result = await tool.func({ query: input.input, maxResults: 5 });
-            break;
-          } else if (tool.name === 'calculator' && (query.includes('calculate') || query.includes('math'))) {
-            const match = input.input.match(/(\d+[\+\-\*\/]\d+)/);
-            if (match) {
-              result = await tool.func({ expression: match[1] });
-              break;
+        // ReAct loop: Reason → Act → Observe
+        while (iteration < maxIterations) {
+          iteration++;
+          
+          // Step 1: REASON - LLM decides what to do
+          const reasoningPrompt = ChatPromptTemplate.fromMessages([
+            ['system', `You are a ReAct agent. You have access to these tools: ${tools.map(t => t.name).join(', ')}.
+            
+Think step by step:
+1. What is the current question/task?
+2. What tool should I use? (or "final_answer" if done)
+3. What are the arguments for that tool?
+
+Format your response as:
+Thought: [your reasoning]
+Action: [tool_name or final_answer]
+Action Input: [arguments as JSON or final answer]`],
+            ['human', `Question: ${currentInput}
+
+Previous steps: ${steps.length > 0 ? JSON.stringify(steps.slice(-2), null, 2) : 'None'}
+
+What should I do next?`],
+          ]);
+          
+          const reasoningChain = reasoningPrompt.pipe(llm).pipe(new StringOutputParser());
+          const reasoning = await reasoningChain.invoke({});
+          
+          steps.push({ step: iteration, type: 'reason', content: reasoning });
+          
+          // Parse reasoning to extract action
+          const actionMatch = reasoning.match(/Action:\s*(\w+)/i);
+          const actionInputMatch = reasoning.match(/Action Input:\s*(.+?)(?:\n|$)/is);
+          
+          if (!actionMatch) {
+            // No action found, return final answer
+            const finalAnswer = reasoning.split('Final Answer:')[1] || reasoning;
+            return { output: finalAnswer.trim(), steps };
+          }
+          
+          const action = actionMatch[1].toLowerCase();
+          
+          // Check if we should finish
+          if (action === 'final_answer' || action === 'finish') {
+            const finalAnswer = actionInputMatch?.[1] || reasoning.split('Final Answer:')[1] || reasoning;
+            return { output: finalAnswer.trim(), steps };
+          }
+          
+          // Step 2: ACT - Execute tool
+          const tool = tools.find(t => t.name.toLowerCase() === action);
+          if (!tool) {
+            steps.push({ step: iteration, type: 'error', content: `Tool "${action}" not found` });
+            continue;
+          }
+          
+          let toolInput: any = {};
+          if (actionInputMatch) {
+            try {
+              toolInput = JSON.parse(actionInputMatch[1].trim());
+            } catch {
+              // If not JSON, try to extract query/expression
+              if (tool.name === 'web_search') {
+                toolInput = { query: actionInputMatch[1].trim(), maxResults: 5 };
+              } else if (tool.name === 'calculator') {
+                toolInput = { expression: actionInputMatch[1].trim() };
+              }
             }
+          }
+          
+          steps.push({ step: iteration, type: 'action', tool: tool.name, input: toolInput });
+          
+          // Step 3: OBSERVE - Get tool result
+          try {
+            const observation = await tool.func(toolInput);
+            steps.push({ step: iteration, type: 'observation', content: String(observation).slice(0, 500) });
+            
+            // Update input for next iteration
+            currentInput = `Original question: ${input.input}\n\nTool result: ${observation}\n\nWhat should I do next?`;
+          } catch (error: any) {
+            steps.push({ step: iteration, type: 'error', content: error.message });
+            break;
           }
         }
         
-        // If no tool matched, use LLM directly
-        if (!result) {
-          const prompt = ChatPromptTemplate.fromMessages([
-            ['human', '{input}'],
-          ]);
-          const chain = prompt.pipe(llm).pipe(new StringOutputParser());
-          result = await chain.invoke({ input: input.input });
-        }
-        
-        return { output: result };
+        // Max iterations reached, return what we have
+        return { 
+          output: steps[steps.length - 1]?.content || 'Max iterations reached', 
+          steps 
+        };
       },
     };
   }
@@ -395,8 +529,122 @@ export class AgenticWorkflowEngine {
     }
   }
 
+  // RAG Agent: Retrieval-Augmented Generation workflow
+  async ragWorkflow(
+    query: string,
+    context = '',
+    options: { maxIterations?: number; maxTokens?: number; temperature?: number; useOllama?: boolean } = {},
+    streamCallback?: StreamCallback
+  ): Promise<AgenticWorkflowResponse> {
+    const startTime = Date.now();
+    const steps: AgenticWorkflowResponse['steps'] = [];
+    let totalTokens = 0;
+    const agentsUsed: string[] = [];
+
+    try {
+      // Step 1: Retrieve - Search for relevant information
+      const searchTool = AgentTools.createSearchTool();
+      const searchResult = await searchTool.func({ query, maxResults: 5 });
+      
+      if (streamCallback) {
+        streamCallback({ type: 'step', step: 1, content: 'Searching for relevant information...' });
+      }
+
+      steps.push({
+        step: 1,
+        action: 'retrieve',
+        tool: 'web_search',
+        observation: searchResult.slice(0, 500),
+        reasoning: 'Retrieving relevant information for RAG',
+      });
+
+      // Step 2: Augment - Combine query with retrieved context
+      const augmentedPrompt = `Context from search:\n${searchResult}\n\nUser query: ${query}\n\nContext: ${context || 'No additional context'}\n\nProvide a comprehensive answer based on the retrieved information:`;
+
+      // Use Ollama if requested (more efficient for local processing)
+      let model: any;
+      if (options.useOllama) {
+        try {
+          model = await this.getOllamaModel(options.temperature ?? 0.7);
+          agentsUsed.push('ollama-llama3.2');
+        } catch {
+          // Fallback to GPT if Ollama unavailable
+          model = this.getGPTModel(options.temperature ?? 0.7);
+          agentsUsed.push('gpt-4o-mini');
+        }
+      } else {
+        model = this.getGPTModel(options.temperature ?? 0.7);
+        agentsUsed.push('gpt-4o-mini');
+      }
+
+      if (streamCallback) {
+        streamCallback({ type: 'step', step: 2, content: 'Generating answer with retrieved context...' });
+      }
+
+      // Step 3: Generate - Create answer with citations
+      const generatePrompt = ChatPromptTemplate.fromMessages([
+        ['system', 'You are a RAG (Retrieval-Augmented Generation) assistant. Answer questions using the provided context. Cite sources when possible.'],
+        ['human', '{augmented_prompt}'],
+      ]);
+
+      const generateChain = generatePrompt.pipe(model).pipe(new StringOutputParser());
+      
+      let generatedText = '';
+      if (options.stream && streamCallback) {
+        // Streaming mode
+        const stream = await generateChain.stream({ augmented_prompt: augmentedPrompt });
+        for await (const chunk of stream) {
+          generatedText += chunk;
+          streamCallback({ type: 'token', content: chunk });
+        }
+      } else {
+        // Non-streaming mode
+        generatedText = await generateChain.invoke({ augmented_prompt: augmentedPrompt });
+      }
+
+      steps.push({
+        step: 2,
+        action: 'generate',
+        observation: generatedText.slice(0, 500),
+        reasoning: 'Generated answer using retrieved context',
+      });
+
+      totalTokens = Math.ceil(generatedText.length / 4);
+
+      // Calculate eco score
+      const provider = options.useOllama ? 'ollama' : 'openai';
+      const energy = this.ecoScorer.estimateEnergy(provider, totalTokens);
+      const greenScore = this.ecoScorer.calculateGreenScore(energy, totalTokens);
+      const latency = Date.now() - startTime;
+
+      if (streamCallback) {
+        streamCallback({ 
+          type: 'done', 
+          data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed } 
+        });
+      }
+
+      return {
+        result: generatedText,
+        steps,
+        greenScore,
+        latency,
+        tokensUsed: totalTokens,
+        agentsUsed,
+      };
+    } catch (error: any) {
+      if (streamCallback) {
+        streamCallback({ type: 'error', content: error.message });
+      }
+      throw new Error(`RAG workflow failed: ${error.message}`);
+    }
+  }
+
   // Main workflow dispatcher
-  async runWorkflow(request: AgenticWorkflowRequest): Promise<AgenticWorkflowResponse> {
+  async runWorkflow(
+    request: AgenticWorkflowRequest,
+    streamCallback?: StreamCallback
+  ): Promise<AgenticWorkflowResponse> {
     const { query, context = '', workflowType = 'research', tools = [], options = {} } = request;
 
     switch (workflowType) {
@@ -404,6 +652,8 @@ export class AgenticWorkflowEngine {
         return this.researchWorkflow(query, context, options);
       case 'multi-agent':
         return this.multiAgentWorkflow(query, context, options);
+      case 'rag':
+        return this.ragWorkflow(query, context, options, streamCallback);
       default:
         return this.researchWorkflow(query, context, options);
     }

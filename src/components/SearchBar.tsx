@@ -13,6 +13,7 @@ import { useSuggestions } from '../core/supermemory/useSuggestions';
 import { searchVectors } from '../core/supermemory/vectorStore';
 import { sendPrompt } from '../core/llm/adapter';
 import { useTabsStore } from '../state/tabsStore';
+import { EcoBadge } from './EcoBadge';
 
 // Search proxy base URL (defaults to localhost:3001)
 const SEARCH_PROXY_URL = import.meta.env.VITE_SEARCH_PROXY_URL || 'http://localhost:3001';
@@ -351,12 +352,36 @@ export default function SearchBar() {
                 context: activeTab ? { url: activeTab.url, title: activeTab.title } : undefined,
                 options: { provider: 'auto', maxTokens: 500 },
               }),
+            }).catch(() => {
+              // Network error - show user-friendly message
+              throw new Error('Search service temporarily unavailable. Please try again.');
             });
+            
+            if (!redixResponse.ok) {
+              const errorData = await redixResponse.json().catch(() => ({}));
+              throw new Error(errorData.error || `Search failed: ${redixResponse.statusText}`);
+            }
 
             if (redixResponse.ok) {
-              const redixData = await redixResponse.json();
-              setAiResponse(redixData.text || 'No response from Redix');
-              console.debug(`[SearchBar] Redix /ask response (green score: ${redixData.greenScore}, latency: ${redixData.latency}ms)`);
+            const redixData = await redixResponse.json();
+            setAiResponse(redixData.text || 'No response from Redix');
+            
+            // Log eco metrics if available
+            if (redixData.greenScore !== undefined) {
+              console.debug(`[SearchBar] Redix /ask response (green score: ${redixData.greenScore}%, tier: ${redixData.greenTier}, CO2 saved: ${redixData.co2SavedG}g, latency: ${redixData.latency}ms)`);
+              
+              // Store eco data for UI display
+              if (redixData.greenTier && redixData.tierColor) {
+                // Can be used to show eco badge in search results
+                (window as any).__lastEcoScore = {
+                  score: redixData.greenScore,
+                  tier: redixData.greenTier,
+                  color: redixData.tierColor,
+                  co2Saved: redixData.co2SavedG,
+                  recommendation: redixData.recommendation
+                };
+              }
+            }
             } else {
               throw new Error(`Redix API error: ${redixResponse.statusText}`);
             }
@@ -623,11 +648,22 @@ export default function SearchBar() {
               {askingAboutPage && (
                 <span className="text-xs text-purple-300 ml-2">Analyzing page...</span>
               )}
-              {searchLatency !== null && !aiLoading && (
-                <span className="text-xs text-gray-400 ml-auto">
-                  {searchLatency}ms
-                </span>
-              )}
+              <div className="ml-auto flex items-center gap-2">
+                {searchLatency !== null && !aiLoading && (
+                  <span className="text-xs text-gray-400">
+                    {searchLatency}ms
+                  </span>
+                )}
+                {/* Show eco badge if available from last Redix response */}
+                {(window as any).__lastEcoScore && !aiLoading && (
+                  <EcoBadge
+                    score={(window as any).__lastEcoScore.score}
+                    tier={(window as any).__lastEcoScore.tier}
+                    co2SavedG={(window as any).__lastEcoScore.co2Saved || 0}
+                    className="scale-75 origin-right"
+                  />
+                )}
+              </div>
             </div>
           </div>
           <div className="p-4">

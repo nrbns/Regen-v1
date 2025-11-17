@@ -88,11 +88,27 @@ async function sendPromptServer(
 
 const server = fastify({ logger: true });
 
-// CORS middleware (simplified, no plugin needed)
+// CORS middleware with security headers
 server.addHook('onRequest', async (request, reply) => {
-  reply.header('Access-Control-Allow-Origin', '*');
+  // CORS: Only allow from same origin or configured origins in production
+  const allowedOrigin = process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGIN || 'http://localhost:5173')
+    : '*';
+  
+  reply.header('Access-Control-Allow-Origin', allowedOrigin);
   reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  reply.header('Access-Control-Allow-Headers', 'Content-Type');
+  reply.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Security headers
+  reply.header('X-Content-Type-Options', 'nosniff');
+  reply.header('X-Frame-Options', 'DENY');
+  reply.header('X-XSS-Protection', '1; mode=block');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Rate limiting headers (informational)
+  reply.header('X-RateLimit-Limit', '100');
+  reply.header('X-RateLimit-Window', '60');
   
   if (request.method === 'OPTIONS') {
     reply.code(200).send();
@@ -409,6 +425,81 @@ server.post<{
 });
 
 /**
+ * GET /api/search - DuckDuckGo proxy (backward compatibility)
+ */
+server.get<{
+  Querystring: { q: string };
+}>('/api/search', async (request, reply) => {
+  const { q } = request.query;
+
+  // Validate and sanitize input
+  const sanitizedQuery = sanitizeQuery(q);
+  if (!sanitizedQuery) {
+    return reply.code(400).send({ error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.' });
+  }
+
+  try {
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(sanitizedQuery)}&format=json&no_redirect=1&skip_disambig=1`;
+    
+    // Set timeout for security
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    
+    let r: Response;
+    try {
+      r = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'OmniBrowser/1.0',
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    
+    if (!r.ok) {
+      console.error('[SearchProxy] DuckDuckGo request failed:', r.status);
+      return reply.code(502).send({ error: 'Search service temporarily unavailable' });
+    }
+    
+    const ddg = await r.json().catch(() => null);
+    if (!ddg || typeof ddg !== 'object') {
+      return reply.code(502).send({ error: 'Invalid response from search service' });
+    }
+
+    // Sanitize and validate results
+    const normalized = {
+      heading: (ddg.Heading && typeof ddg.Heading === 'string') ? ddg.Heading.slice(0, 200) : sanitizedQuery,
+      abstract: (ddg.AbstractText && typeof ddg.AbstractText === 'string') ? ddg.AbstractText.slice(0, 1000) : '',
+      results: (Array.isArray(ddg.Results) ? ddg.Results : [])
+        .slice(0, 10)
+        .filter((r: any) => r && typeof r === 'object' && r.FirstURL && r.Text)
+        .map((r: any) => ({
+          url: String(r.FirstURL).slice(0, 2048),
+          text: String(r.Text || '').slice(0, 500),
+        })),
+      related: (Array.isArray(ddg.RelatedTopics) ? ddg.RelatedTopics : [])
+        .filter((x: any) => x && typeof x === 'object' && x.FirstURL)
+        .slice(0, 10)
+        .map((rt: any) => ({
+          url: String(rt.FirstURL).slice(0, 2048),
+          text: String(rt.Text || rt.Name || '').slice(0, 500),
+        })),
+    };
+
+    return reply.send({ query: sanitizedQuery, ddg: normalized });
+  } catch (error: any) {
+    console.error('[SearchProxy] /api/search error:', error);
+    
+    if (error.name === 'AbortError') {
+      return reply.code(504).send({ error: 'Request timeout' });
+    }
+    
+    return reply.code(500).send({ error: 'Internal server error' });
+  }
+});
+
+/**
  * GET /api/duck - DuckDuckGo proxy (backward compatibility)
  */
 server.get<{
@@ -427,6 +518,148 @@ server.get<{
     results,
     total: results.length,
   });
+});
+
+/**
+ * Sanitize and validate search query
+ */
+function sanitizeQuery(q: string): string | null {
+  if (!q || typeof q !== 'string') return null;
+  
+  // Trim and check length
+  const trimmed = q.trim();
+  if (trimmed.length === 0 || trimmed.length > 500) return null;
+  
+  // Remove control characters and normalize whitespace
+  const sanitized = trimmed
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+  
+  if (sanitized.length === 0) return null;
+  
+  return sanitized;
+}
+
+/**
+ * Sanitize text content to prevent prompt injection
+ */
+function sanitizeForPrompt(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  
+  // Remove potential prompt injection patterns
+  return text
+    .replace(/```/g, '') // Remove code blocks
+    .replace(/---/g, '') // Remove markdown separators
+    .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines
+    .slice(0, 10000) // Limit length
+    .trim();
+}
+
+/**
+ * GET /api/search_llm - Search with LLM summary (backward compatibility endpoint)
+ * This endpoint combines search + LLM summary for simpler client integration
+ */
+server.get<{
+  Querystring: { q: string };
+}>('/api/search_llm', async (request, reply) => {
+  const { q } = request.query;
+
+  // Validate and sanitize input
+  const sanitizedQuery = sanitizeQuery(q);
+  if (!sanitizedQuery) {
+    return reply.code(400).send({ error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.' });
+  }
+
+  try {
+    // First, get search results directly from DuckDuckGo
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(sanitizedQuery)}&format=json&no_redirect=1&skip_disambig=1`;
+    
+    // Set timeout and user agent for security
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    
+    let r: Response;
+    try {
+      r = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'OmniBrowser/1.0',
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    
+    if (!r.ok) {
+      // Don't leak internal error details
+      console.error('[SearchProxy] DuckDuckGo request failed:', r.status);
+      return reply.code(502).send({ error: 'Search service temporarily unavailable' });
+    }
+    
+    const ddg = await r.json().catch(() => null);
+    if (!ddg || typeof ddg !== 'object') {
+      return reply.code(502).send({ error: 'Invalid response from search service' });
+    }
+
+    // Sanitize and validate results
+    const normalized = {
+      heading: (ddg.Heading && typeof ddg.Heading === 'string') ? ddg.Heading.slice(0, 200) : sanitizedQuery,
+      abstract: (ddg.AbstractText && typeof ddg.AbstractText === 'string') ? ddg.AbstractText.slice(0, 1000) : '',
+      results: (Array.isArray(ddg.Results) ? ddg.Results : [])
+        .slice(0, 10) // Limit results
+        .filter((r: any) => r && typeof r === 'object' && r.FirstURL && r.Text)
+        .map((r: any) => ({
+          url: String(r.FirstURL).slice(0, 2048), // URL length limit
+          text: String(r.Text || '').slice(0, 500), // Text length limit
+        })),
+      related: (Array.isArray(ddg.RelatedTopics) ? ddg.RelatedTopics : [])
+        .filter((x: any) => x && typeof x === 'object' && x.FirstURL)
+        .slice(0, 10)
+        .map((rt: any) => ({
+          url: String(rt.FirstURL).slice(0, 2048),
+          text: String(rt.Text || rt.Name || '').slice(0, 500),
+        })),
+    };
+    
+    // Combine search results into text for LLM (sanitized)
+    const joined = [
+      sanitizeForPrompt(normalized.abstract),
+      ...normalized.results.map((x: any) => sanitizeForPrompt(x.text)),
+      ...normalized.related.map((x: any) => sanitizeForPrompt(x.text)),
+    ]
+      .filter(Boolean)
+      .slice(0, 8)
+      .join('\n');
+
+    // Generate LLM summary with sanitized prompt
+    const sanitizedQueryForPrompt = sanitizeForPrompt(sanitizedQuery);
+    const prompt = `You are an AI research assistant inside a browser. Summarize the following search context in 4 bullet points, then give 2 recommended follow-up questions.\n\nQuery: ${sanitizedQueryForPrompt}\n\nContext:\n${joined}`;
+    
+    const llmResponse = await sendPromptServer(prompt, {
+      maxTokens: 512,
+      temperature: 0.3,
+      systemPrompt: 'You are a helpful assistant inside an AI browser.',
+    });
+
+    return reply.send({
+      query: sanitizedQuery,
+      search: normalized,
+      summary: llmResponse.text || '',
+    });
+  } catch (error: any) {
+    // Don't leak error details to client
+    console.error('[SearchProxy] /api/search_llm error:', error);
+    
+    // Check for specific error types
+    if (error.name === 'AbortError') {
+      return reply.code(504).send({ error: 'Request timeout' });
+    }
+    
+    return reply.code(500).send({
+      error: 'Internal server error',
+    });
+  }
 });
 
 /**

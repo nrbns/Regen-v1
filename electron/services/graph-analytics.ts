@@ -167,23 +167,61 @@ function buildTabGraph(): TabGraphPayload {
     }
   };
 
+  // Enhanced auto-linking: domain, container, mode, timeline, URL similarity, referrer
   for (let i = 0; i < nodes.length; i += 1) {
     for (let j = i + 1; j < nodes.length; j += 1) {
       const a = nodes[i];
       const b = nodes[j];
+      
+      // Domain-based linking (strongest)
       if (a.domain && a.domain === b.domain) {
         addEdge(a.id, b.id, 'domain', 2);
       }
+      
+      // Container-based linking
       if (a.containerId && a.containerId === b.containerId) {
         addEdge(a.id, b.id, 'container', 1.5);
       }
+      
+      // Mode-based linking
       if (a.mode && a.mode === b.mode) {
         addEdge(a.id, b.id, 'mode', 1);
       }
+      
+      // Timeline proximity (tabs active within 2 minutes)
       if (typeof a.lastActiveAt === 'number' && typeof b.lastActiveAt === 'number') {
         const delta = Math.abs(a.lastActiveAt - b.lastActiveAt);
         if (delta <= 120_000) {
           addEdge(a.id, b.id, 'timeline', 0.5);
+        }
+      }
+      
+      // URL path similarity (same domain + similar path structure)
+      if (a.domain === b.domain && a.url && b.url) {
+        try {
+          const urlA = new URL(a.url);
+          const urlB = new URL(b.url);
+          const pathA = urlA.pathname.split('/').filter(Boolean);
+          const pathB = urlB.pathname.split('/').filter(Boolean);
+          if (pathA.length > 0 && pathB.length > 0) {
+            // Check if paths share common segments
+            const commonSegments = pathA.filter(seg => pathB.includes(seg)).length;
+            const maxPathLength = Math.max(pathA.length, pathB.length);
+            if (maxPathLength > 0 && commonSegments / maxPathLength >= 0.5) {
+              addEdge(a.id, b.id, 'url-similarity', 1.2);
+            }
+          }
+        } catch {
+          // Ignore URL parsing errors
+        }
+      }
+      
+      // Referrer-based linking (if tab B was likely opened from tab A)
+      if (typeof a.lastActiveAt === 'number' && typeof b.lastActiveAt === 'number') {
+        // If tab B was activated shortly after tab A (within 5 seconds), likely a referrer link
+        const timeDelta = b.lastActiveAt - a.lastActiveAt;
+        if (timeDelta > 0 && timeDelta <= 5000 && a.domain !== b.domain) {
+          addEdge(a.id, b.id, 'referrer', 1.8);
         }
       }
     }

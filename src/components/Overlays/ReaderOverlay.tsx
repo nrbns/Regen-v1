@@ -81,7 +81,33 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             try {
               result = await ipc.research.extractContent(tabId);
             } catch (ipcError) {
-              console.warn('[ReaderOverlay] IPC extractContent failed, trying fallback:', ipcError);
+              console.warn('[ReaderOverlay] IPC extractContent failed, trying Redix fallback:', ipcError);
+              
+              // Try Redix /extract endpoint if available
+              const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
+              try {
+                const redixResponse = await fetch(`${redixUrl}/extract`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    url: activeTab?.url || url,
+                    tabId,
+                  }),
+                }).catch(() => null);
+                
+                if (redixResponse?.ok) {
+                  const redixData = await redixResponse.json();
+                  if (redixData.title || redixData.content) {
+                    result = {
+                      title: redixData.title || activeTab?.title,
+                      content: redixData.content || redixData.text,
+                      html: redixData.html || `<h1>${redixData.title}</h1><p>${redixData.content}</p>`,
+                    };
+                  }
+                }
+              } catch (redixError) {
+                console.debug('[ReaderOverlay] Redix extract also failed:', redixError);
+              }
             }
           }
         } catch {

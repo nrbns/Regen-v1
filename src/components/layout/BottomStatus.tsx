@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText, Loader2, MoreHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EcoBadgeCompact } from '../EcoBadge';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { EfficiencyModeEvent, NetworkStatus, EfficiencyAlert, EfficiencyAlertAction, ShadowSessionEndedEvent } from '../../lib/ipc-events';
@@ -14,7 +15,8 @@ import { PrivacySwitch } from '../PrivacySwitch';
 import { useEfficiencyStore } from '../../state/efficiencyStore';
 import { usePrivacyStore } from '../../state/privacyStore';
 import { useShadowStore } from '../../state/shadowStore';
-import { SymbioticVoiceCompanion } from '../voice';
+// Voice components disabled by user request
+// import { SymbioticVoiceCompanion } from '../voice';
 import { useMetricsStore, type MetricSample } from '../../state/metricsStore';
 import { getEnvVar, isElectronRuntime } from '../../lib/env';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
@@ -67,6 +69,7 @@ export function BottomStatus() {
   const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
   const [promptResponse, setPromptResponse] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
+  const [promptEcoScore, setPromptEcoScore] = useState<{score: number; tier: string; co2Saved: number} | null>(null);
   const promptSessionRef = useRef<string | null>(null);
   const [extraOpen, setExtraOpen] = useState(false);
   const [trendOpen, setTrendOpen] = useState(false);
@@ -795,53 +798,108 @@ export function BottomStatus() {
   };
 
   const handlePromptSubmit = useCallback(async () => {
-    const text = prompt.trim();
-    if (!text || promptLoading) {
-      return;
-    }
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setPromptError('Offline. Connect to send prompt.');
-      setPromptLoading(false);
-      return;
-    }
-
+    if (!prompt.trim() || promptLoading) return;
+    
     setPromptLoading(true);
-    setPromptResponse('');
     setPromptError(null);
-
+    setPromptResponse('');
+    
+    // Get active tab context for better AI responses
+    const activeTab = useTabsStore.getState().tabs.find(t => t.id === activeId);
+    const tabContext = activeTab ? {
+      url: activeTab.url,
+      title: activeTab.title,
+      tabId: activeTab.id,
+    } : undefined;
+    
+    const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
+    
     try {
-      const sessionId = promptSessionRef.current ?? `status-${Date.now()}`;
-      promptSessionRef.current = sessionId;
-
-      await ipc.redix.stream(
-        text,
-        { sessionId },
-        (chunk) => {
-          try {
-            if (chunk.type === 'token' && chunk.text) {
-              setPromptResponse((prev) => prev + chunk.text);
-            }
-            if (chunk.type === 'error') {
-              setPromptError(chunk.text || 'Redix error');
-              setPromptLoading(false);
-            }
-            if (chunk.done) {
-              setPromptLoading(false);
-            }
-          } catch (error) {
-            console.error('[BottomStatus] Error handling Redix chunk:', error);
-            setPromptError('Error processing response');
-            setPromptLoading(false);
-          }
-        },
-      );
-      setPrompt('');
-    } catch (error) {
-      setPromptError(error instanceof Error ? error.message : 'Redix prompt failed');
+      // Try Redix /workflow endpoint with RAG workflow for better context-aware responses
+      const workflowResponse = await fetch(`${redixUrl}/workflow`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: prompt,
+          context: tabContext ? `Current page: ${tabContext.title} (${tabContext.url})` : '',
+          workflowType: 'rag',
+          options: {
+            useOllama: true, // Prefer local for efficiency
+            stream: false, // Can enable streaming later
+            temperature: 0.7,
+          },
+        }),
+      }).catch(() => null);
+      
+      if (workflowResponse?.ok) {
+        const workflowData = await workflowResponse.json();
+        setPromptResponse(workflowData.result || 'No response generated.');
+        
+        // Store eco metrics if available
+        if (workflowData.greenScore !== undefined) {
+          setPromptEcoScore({
+            score: workflowData.greenScore,
+            tier: workflowData.greenTier || 'Green',
+            co2Saved: workflowData.co2SavedG || 0
+          });
+        }
+        return;
+      }
+      
+      // Fallback to Redix /ask endpoint
+      const askResponse = await fetch(`${redixUrl}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: prompt,
+          context: tabContext,
+          options: {
+            provider: 'auto',
+            maxTokens: 500,
+          },
+        }),
+      }).catch(() => null);
+      
+      if (askResponse?.ok) {
+        const askData = await askResponse.json();
+        setPromptResponse(askData.text || 'No response generated.');
+        
+        // Store eco metrics if available
+        if (askData.greenScore !== undefined) {
+          setPromptEcoScore({
+            score: askData.greenScore,
+            tier: askData.greenTier || 'Green',
+            co2Saved: askData.co2SavedG || 0
+          });
+        }
+        return;
+      }
+      
+      // Final fallback: Use LLM adapter directly
+      try {
+        const { sendPrompt } = await import('../../core/llm/adapter');
+        const contextPrompt = tabContext 
+          ? `Context: You are viewing "${tabContext.title}" at ${tabContext.url}\n\nUser question: ${prompt}`
+          : prompt;
+        const response = await sendPrompt(contextPrompt, {
+          systemPrompt: 'You are a helpful AI assistant in a browser. Answer concisely.',
+          maxTokens: 500,
+        });
+        setPromptResponse(response.text);
+      } catch (llmError) {
+        throw new Error('AI service unavailable. Please check your API keys or Redix server.');
+      }
+    } catch (error: any) {
+      console.error('[BottomStatus] Prompt failed:', error);
+      setPromptError(error.message || 'Failed to get AI response. Check Redix server or API keys.');
+    } finally {
       setPromptLoading(false);
     }
-  }, [prompt, promptLoading]);
+  }, [prompt, promptLoading, activeId]);
+
+  // Legacy IPC-based prompt handler (kept for backward compatibility)
+  // The new handler above uses Redix /workflow with tab context
+  // This can be removed once IPC redix.stream is fully deprecated
 
   useEffect(() => {
     if (!extraOpen && !trendOpen) return;
@@ -1062,25 +1120,29 @@ export function BottomStatus() {
             />
           )}
 
-          {/* Privacy Scorecard - Always visible when stats available */}
-          {(shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0) && (
-            <StatusBadge
-              icon={Shield}
-              label="Privacy"
-              description={
-                shieldsStats.trackersBlocked > 0 && shieldsStats.adsBlocked > 0
+          {/* Privacy Scorecard - Always visible showing blocked trackers from Redix/Shields */}
+          <StatusBadge
+            icon={Shield}
+            label="Blocked"
+            description={
+              shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
+                ? shieldsStats.trackersBlocked > 0 && shieldsStats.adsBlocked > 0
                   ? `${shieldsStats.trackersBlocked} trackers, ${shieldsStats.adsBlocked} ads`
                   : shieldsStats.trackersBlocked > 0
                   ? `${shieldsStats.trackersBlocked} trackers`
                   : `${shieldsStats.adsBlocked} ads`
-              }
-              variant="positive"
-              onClick={() => void openTrustDashboard()}
-              title={`Privacy shields active: ${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'} and ${shieldsStats.adsBlocked} ad${shieldsStats.adsBlocked === 1 ? '' : 's'} blocked. Click to view details.`}
-            />
-          )}
+                : '0 trackers'
+            }
+            variant={shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0 ? 'positive' : 'default'}
+            onClick={() => void openTrustDashboard()}
+            title={
+              shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
+                ? `Privacy shields active: ${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'} and ${shieldsStats.adsBlocked} ad${shieldsStats.adsBlocked === 1 ? '' : 's'} blocked. Click to view details.`
+                : 'Privacy shields: No trackers or ads blocked yet. Click to view privacy dashboard.'
+            }
+          />
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <StatusBadge
               icon={Brain}
               label="Model"
@@ -1093,15 +1155,15 @@ export function BottomStatus() {
 
             <button
               type="button"
-              className="hidden sm:flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
+              className="hidden md:flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
               onClick={() => setTrendOpen((prev) => !prev)}
               title="View detailed performance trends"
             >
               <Activity size={14} />
-              Trends
+              <span className="hidden lg:inline">Trends</span>
             </button>
 
-            <div className="relative w-48 sm:w-60 hidden sm:block">
+            <div className="relative w-32 sm:w-48 md:w-60 hidden sm:block">
               <input
                 type="text"
                 value={prompt}
@@ -1133,18 +1195,30 @@ export function BottomStatus() {
             </div>
 
             {(promptResponse || promptError || promptLoading) && (
-              <div className="hidden sm:block w-full text-xs text-left text-gray-200 bg-gray-900/70 border border-gray-800 rounded-xl p-3">
-                {promptError ? (
-                  <span className="text-red-400">{promptError}</span>
-                ) : (
-                  <span className="whitespace-pre-wrap">
-                    {promptResponse || (promptLoading ? 'Redix is thinking…' : '')}
-                  </span>
+              <div className="hidden sm:block w-full space-y-2">
+                <div className="text-xs text-left text-gray-200 bg-gray-900/70 border border-gray-800 rounded-xl p-3">
+                  {promptError ? (
+                    <span className="text-red-400">{promptError}</span>
+                  ) : (
+                    <span className="whitespace-pre-wrap">
+                      {promptResponse || (promptLoading ? 'Redix is thinking…' : '')}
+                    </span>
+                  )}
+                </div>
+                {promptEcoScore && !promptLoading && (
+                  <div className="flex items-center justify-end">
+                    <EcoBadgeCompact
+                      score={promptEcoScore.score}
+                      tier={promptEcoScore.tier as 'Ultra Green' | 'Green' | 'Yellow' | 'Red'}
+                      co2SavedG={promptEcoScore.co2Saved}
+                    />
+                  </div>
                 )}
               </div>
             )}
 
-            <SymbioticVoiceCompanion />
+            {/* SymbioticVoiceCompanion - Disabled by user request */}
+            {/* <SymbioticVoiceCompanion /> */}
 
             <div className="relative" ref={extraRef}>
               <button

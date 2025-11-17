@@ -1,7 +1,67 @@
 /**
  * Page Extractor - Extract clean text and metadata from DOM
  * Handles structured content, tables, and removes noise
+ * 
+ * Simple utility function for "Ask about this page" feature
  */
+
+/**
+ * Simple page context extractor for "Ask about this page"
+ * Returns basic title, URL, and text content
+ * 
+ * Security: Sanitizes output to prevent XSS and limits content size
+ */
+export function extractPageContext(): { title: string; url: string; text: string } {
+  // Security: Limit text extraction to prevent memory issues
+  const MAX_TEXT_LENGTH = 50000; // 50KB limit
+  const MAX_TITLE_LENGTH = 200;
+  
+  let text = '';
+  let charCount = 0;
+  
+  try {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: () => {
+          // Stop if we've reached the limit
+          if (charCount >= MAX_TEXT_LENGTH) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        },
+      }
+    );
+    
+    let node: Node | null;
+    while ((node = walker.nextNode()) && charCount < MAX_TEXT_LENGTH) {
+      const t = (node.textContent || '').trim();
+      if (t) {
+        const remaining = MAX_TEXT_LENGTH - charCount;
+        const toAdd = t.slice(0, remaining);
+        text += toAdd + '\n';
+        charCount += toAdd.length + 1; // +1 for newline
+        
+        if (charCount >= MAX_TEXT_LENGTH) break;
+      }
+    }
+  } catch (error) {
+    // Fail gracefully if DOM access fails
+    console.warn('[PageExtractor] Failed to extract page context:', error);
+    text = '';
+  }
+
+  // Sanitize title and URL
+  const title = (document.title || '').slice(0, MAX_TITLE_LENGTH);
+  const url = window.location.href.slice(0, 2048); // URL length limit
+
+  return {
+    title,
+    url,
+    text: text.slice(0, MAX_TEXT_LENGTH), // Final safety check
+  };
+}
 
 export interface PageMetadata {
   title: string;
