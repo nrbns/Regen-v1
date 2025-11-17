@@ -11,6 +11,7 @@ import { ShieldsPanel } from '../components/privacy/ShieldsPanel';
 import { NetworkPanel } from '../components/privacy/NetworkPanel';
 import { GDPRDataExport } from '../components/privacy/GDPRDataExport';
 import { AccessibilityAudit } from '../components/accessibility/AccessibilityAudit';
+import { SloDashboard } from '../components/monitoring/SloDashboard';
 
 type Settings = {
   privacy: {
@@ -1412,6 +1413,10 @@ export default function Settings() {
                   </label>
                 </div>
 
+                <div className="rounded-lg border border-gray-800/60 bg-gray-950/40 p-4">
+                  <SloDashboard />
+                </div>
+
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
                     onClick={() => void handleOpenLogs()}
@@ -1502,6 +1507,8 @@ export default function Settings() {
                     <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
+
+                <SloDashboard />
               </div>
             </motion.div>
           )}

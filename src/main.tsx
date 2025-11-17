@@ -9,6 +9,7 @@ import { isDevEnv } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
 import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
+import { ipc } from './lib/ipc-typed';
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -306,6 +307,11 @@ syncAnalyticsOptIn()
       console.warn('[Monitoring] Failed to initialize analytics', error);
     }
   });
+
+if (typeof performance !== 'undefined' && performance.now) {
+  const bootMs = Math.round(performance.now());
+  void ipc.telemetry.trackPerf('renderer_boot_ms', bootMs);
+}
 
   if (!existingRoot) {
     (window as any)[rootKey] = root;

@@ -139,6 +139,14 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'performance:battery:update': () => ({ success: true }),
   'session:lastSnapshotSummary': () => null,
   'telemetry:getStatus': () => ({ optIn: false, enabled: false }),
+  'telemetry:getSummary': () => ({
+    optIn: false,
+    enabled: false,
+    crashCount: 0,
+    lastCrashAt: null,
+    uptimeSeconds: 0,
+    perfMetrics: [],
+  }),
   'analytics:getStatus': () => ({ optIn: false, enabled: false }),
 };
 
@@ -876,6 +884,25 @@ export const ipc = {
       ipcCall<{}, { optIn: boolean; enabled: boolean }>('telemetry:getStatus', {}).catch(() => ({
         optIn: false,
         enabled: false,
+      })),
+    getSummary: () =>
+      ipcCall<
+        {},
+        {
+          optIn: boolean;
+          enabled: boolean;
+          crashCount: number;
+          lastCrashAt: number | null;
+          uptimeSeconds: number;
+          perfMetrics: Array<{ metric: string; samples: number; avg: number; p95: number; last: number; unit: string }>;
+        }
+      >('telemetry:getSummary', {}).catch(() => ({
+        optIn: false,
+        enabled: false,
+        crashCount: 0,
+        lastCrashAt: null,
+        uptimeSeconds: 0,
+        perfMetrics: [],
       })),
     trackPerf: (metric: string, value: number, unit?: 'ms' | 'MB' | '%') => ipcCall<{ metric: string; value: number; unit?: 'ms' | 'MB' | '%' }, { success: boolean }>('telemetry:trackPerf', { metric, value, unit }),
     trackFeature: (feature: string, action?: string) => ipcCall<{ feature: string; action?: string }, { success: boolean }>('telemetry:trackFeature', { feature, action }),

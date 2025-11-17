@@ -30,6 +30,7 @@ _Last updated: 2025-12-17_
 | P1 | Compliance | **Phase 2 Complete** - TOS, cookie consent, GDPR export, accessibility audit | Dec 17 | ✅ **Complete** |
 | P2 | Monitoring | Integrate crash reporting (Sentry) | Dec 17 | ✅ **Complete** |
 | P2 | Monitoring | Add privacy-respecting analytics | Dec 17 | ✅ **Complete** |
+| P2 | Monitoring | Reliability SLO dashboard | Dec 17 | ✅ **Complete** |
 
 ## Risk & Mitigation
 - **Risk:** Release drift due to scope creep.  
@@ -57,10 +58,10 @@ _Last updated: 2025-12-17_
 - ✅ **GDPR Data Export** - Complete data export functionality (bookmarks, history, settings, preferences) (`src/components/privacy/GDPRDataExport.tsx`)
 - ✅ **Accessibility Audit** - axe-core integration for WCAG 2.1 AA compliance testing (`src/components/accessibility/AccessibilityAudit.tsx`)
 
-### Phase 3: Monitoring & Reliability (Dec 2025) 🔄
+### Phase 3: Monitoring & Reliability (Dec 2025) ✅
 - ✅ **Sentry Crash Reporting** - Opt-in crash capture wired via telemetry preferences (`@sentry/electron` with scrubbing)
 - ✅ **Privacy-Safe Analytics** - Opt-in anonymous analytics pipeline + renderer helper
-- 📋 **SLO Dashboards** - Capture uptime/perf metrics after analytics work
+- ✅ **SLO Dashboards** - Reliability dashboard with live uptime/error budget stats in Settings ▸ Diagnostics
 
 ### Previous Milestones
 - Signed installers automated for Windows/macOS with published hashes.

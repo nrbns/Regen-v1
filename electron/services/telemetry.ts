@@ -34,6 +34,13 @@ interface TelemetryEvent {
   data: Record<string, unknown>;
 }
 
+interface PerfMetricHistory {
+  samples: number;
+  sum: number;
+  values: number[]; // rolling window for percentile calc
+  unit: 'ms' | 'MB' | '%';
+}
+
 class TelemetryService {
   private sessionId: string;
   private enabled: boolean = false;
@@ -41,6 +48,9 @@ class TelemetryService {
   private queue: TelemetryEvent[] = [];
   private flushInterval: NodeJS.Timeout | null = null;
   private installTracked: boolean = false;
+  private crashCount = 0;
+  private lastCrashAt: number | null = null;
+  private perfHistory = new Map<string, PerfMetricHistory>();
 
   constructor() {
     this.sessionId = randomUUID();
@@ -88,31 +98,49 @@ class TelemetryService {
   }
 
   trackCrash(error: Error, context?: Record<string, unknown>) {
-    if (!this.enabled) return;
+    this.crashCount += 1;
+    this.lastCrashAt = Date.now();
 
-    // Anonymize error - remove stack traces, file paths, PII
-    const anonymizedError = {
-      name: error.name,
-      message: error.message.replace(/\/Users\/[^/]+/g, '/Users/***').replace(/C:\\Users\\[^\\]+/g, 'C:\\Users\\***'),
-      // No stack trace in telemetry
-    };
+    // Always capture locally for SLOs; only send remotely when enabled
+    if (this.enabled) {
+      // Anonymize error - remove stack traces, file paths, PII
+      const anonymizedError = {
+        name: error.name,
+        message: error.message.replace(/\/Users\/[^/]+/g, '/Users/***').replace(/C:\\Users\\[^\\]+/g, 'C:\\Users\\***'),
+      };
 
-    this.track('crash', {
-      error: anonymizedError,
-      context: context && typeof context === 'object' ? this.anonymizeContext(context as Record<string, unknown>) : {},
-    });
+      this.track('crash', {
+        error: anonymizedError,
+        context: context && typeof context === 'object' ? this.anonymizeContext(context as Record<string, unknown>) : {},
+      });
 
-    captureException(error, context);
+      captureException(error, context);
+    }
   }
 
   trackPerformance(metric: string, value: number, unit: 'ms' | 'MB' | '%' = 'ms') {
-    if (!this.enabled) return;
-
-    this.track('perf', {
-      metric,
-      value,
+    const history = this.perfHistory.get(metric) || {
+      samples: 0,
+      sum: 0,
+      values: [],
       unit,
-    });
+    };
+    history.samples += 1;
+    history.sum += value;
+    history.values.push(value);
+    if (history.values.length > 100) {
+      history.values.shift();
+    }
+    history.unit = unit;
+    this.perfHistory.set(metric, history);
+
+    if (this.enabled) {
+      this.track('perf', {
+        metric,
+        value,
+        unit,
+      });
+    }
   }
 
   trackFeatureUsage(feature: string, action?: string) {
@@ -249,6 +277,32 @@ class TelemetryService {
       enabled: this.enabled,
     };
   }
+
+  getSummary() {
+    const perfMetrics = Array.from(this.perfHistory.entries()).map(([metric, history]) => {
+      const avg = history.samples > 0 ? history.sum / history.samples : 0;
+      const sorted = [...history.values].sort((a, b) => a - b);
+      const p95Index = Math.max(0, Math.floor(0.95 * (sorted.length - 1)));
+      const p95 = sorted.length ? sorted[p95Index] : 0;
+      return {
+        metric,
+        samples: history.samples,
+        avg,
+        p95,
+        last: history.values[history.values.length - 1] ?? 0,
+        unit: history.unit,
+      };
+    });
+
+    return {
+      optIn: this.optInPreference,
+      enabled: this.enabled,
+      crashCount: this.crashCount,
+      lastCrashAt: this.lastCrashAt,
+      uptimeSeconds: Math.floor(process.uptime()),
+      perfMetrics,
+    };
+  }
 }
 
 let telemetryService: TelemetryService | null = null;
@@ -270,6 +324,10 @@ export function registerTelemetryIpc() {
 
   registerHandler('telemetry:getStatus', z.object({}), async () => {
     return service.getStatus();
+  });
+
+  registerHandler('telemetry:getSummary', z.object({}), async () => {
+    return service.getSummary();
   });
 
   registerHandler('telemetry:trackPerf', z.object({ metric: z.string(), value: z.number(), unit: z.enum(['ms', 'MB', '%']).optional() }), async (_event, request) => {
