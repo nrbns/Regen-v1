@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Search, Settings as SettingsIcon, Monitor, Shield, Download, Globe, Cpu, Bell, Palette, Power, ChevronRight, Lock, Eye, Trash2, Video, Database, Cloud, Sparkles, Loader2, RefreshCcw } from 'lucide-react';
+import { Search, Settings as SettingsIcon, Monitor, Shield, Download, Globe, Cpu, Bell, Palette, Power, ChevronRight, Lock, Eye, Trash2, Video, Database, Cloud, Sparkles, Loader2, RefreshCcw, Accessibility } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { ShieldsPanel } from '../components/privacy/ShieldsPanel';
 import { NetworkPanel } from '../components/privacy/NetworkPanel';
 import { GDPRDataExport } from '../components/privacy/GDPRDataExport';
+import { AccessibilityAudit } from '../components/accessibility/AccessibilityAudit';
 
 type Settings = {
   privacy: {
@@ -1046,6 +1047,15 @@ export default function Settings() {
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  {/* GDPR Data Export */}
+                  <div className="mt-8 p-6 rounded-lg bg-gray-900/60 border border-gray-800/50">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                      <Database size={20} />
+                      <span>Data Export (GDPR)</span>
+                    </h3>
+                    <GDPRDataExport />
                   </div>
                 </div>
               </div>
