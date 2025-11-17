@@ -28,6 +28,7 @@ import { initNightlySummarization } from '../../core/supermemory/summarizer';
 import { RedixDebugPanel } from '../redix/RedixDebugPanel';
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
+import { TermsAcceptance } from '../onboarding/TermsAcceptance';
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -293,6 +294,26 @@ export function AppShell() {
       setOllamaAvailable(false);
     }
   }, [isOffline]);
+
+  // Check TOS acceptance on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('omnibrowser:tos:accepted');
+      if (stored) {
+        const data = JSON.parse(stored);
+        const currentVersion = '2025-12-17'; // Update when TOS changes
+        if (data.version === currentVersion && data.accepted) {
+          setShowTOS(false);
+          return;
+        }
+      }
+      // TOS not accepted or version mismatch - show TOS
+      setShowTOS(true);
+    } catch (e) {
+      // Invalid stored data - show TOS
+      setShowTOS(true);
+    }
+  }, []);
   useEffect(() => {
     let dragCounter = 0;
 
@@ -452,6 +473,7 @@ export function AppShell() {
   const [restoreSummary, setRestoreSummary] = useState<{ updatedAt: number; windowCount: number; tabCount: number } | null>(null);
   const [restoreDismissed, setRestoreDismissed] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<'idle' | 'restoring'>('idle');
+  const [showTOS, setShowTOS] = useState(false);
   const [restoreToast, setRestoreToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const restoreRelativeTime = useMemo(() => {
     if (!restoreSummary) return null;
@@ -1145,6 +1167,27 @@ export function AppShell() {
             </div>
           </div>
         </Portal>
+      )}
+
+      {/* Terms of Service Acceptance */}
+      {showTOS && (
+        <TermsAcceptance
+          onAccept={() => {
+            setShowTOS(false);
+          }}
+          onDecline={() => {
+            // User declined TOS - could show a message or prevent app usage
+            // For now, we'll just close the app or show a message
+            if (window.confirm('You must accept the Terms of Service to use OmniBrowser. Would you like to exit?')) {
+              // In Electron, we could close the window
+              if (typeof window !== 'undefined' && (window as any).api?.app?.quit) {
+                (window as any).api.app.quit();
+              } else {
+                window.close();
+              }
+            }
+          }}
+        />
       )}
     </div>
   );
