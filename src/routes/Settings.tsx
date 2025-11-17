@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { ShieldsPanel } from '../components/privacy/ShieldsPanel';
 import { NetworkPanel } from '../components/privacy/NetworkPanel';
+import { GDPRDataExport } from '../components/privacy/GDPRDataExport';
 
 type Settings = {
   privacy: {
