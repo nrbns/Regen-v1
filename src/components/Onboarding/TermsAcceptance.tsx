@@ -59,6 +59,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
   };
 
   const handleAccept = () => {
+    console.log('[TermsAcceptance] Accept button clicked');
     try {
       const acceptanceData = {
         version: '2025-12-17',
@@ -66,14 +67,25 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
         timestamp: Date.now(),
       };
       localStorage.setItem('omnibrowser:tos:accepted', JSON.stringify(acceptanceData));
+      console.log('[TermsAcceptance] Acceptance saved to localStorage');
+
+      // Call onAccept callback - use setTimeout to ensure state updates are processed
       if (typeof onAccept === 'function') {
-        onAccept();
+        console.log('[TermsAcceptance] Calling onAccept callback');
+        // Use setTimeout to ensure React state updates are processed
+        setTimeout(() => {
+          onAccept();
+        }, 0);
+      } else {
+        console.warn('[TermsAcceptance] onAccept callback is not a function:', typeof onAccept);
       }
     } catch (error) {
       console.error('[TermsAcceptance] Failed to save acceptance:', error);
       // Still call onAccept to allow app to continue
       if (typeof onAccept === 'function') {
-        onAccept();
+        setTimeout(() => {
+          onAccept();
+        }, 0);
       }
     }
   };
@@ -382,22 +394,25 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 <button
                   type="button"
                   onClick={e => {
+                    console.log('[TermsAcceptance] Accept button onClick triggered');
                     e.preventDefault();
-                    (e as any).stopImmediatePropagation();
                     e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
                     handleAccept();
                   }}
                   onMouseDown={e => {
+                    console.log('[TermsAcceptance] Accept button onMouseDown triggered');
                     e.preventDefault();
-                    (e as any).stopImmediatePropagation();
                     e.stopPropagation();
-                    handleAccept();
+                    (e as any).stopImmediatePropagation();
+                    // Don't call handleAccept here - let onClick handle it
                   }}
                   onPointerDown={e => {
+                    console.log('[TermsAcceptance] Accept button onPointerDown triggered');
                     e.preventDefault();
-                    (e as any).stopImmediatePropagation();
                     e.stopPropagation();
-                    handleAccept();
+                    (e as any).stopImmediatePropagation();
+                    // Don't call handleAccept here - let onClick handle it
                   }}
                   className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2 cursor-pointer active:scale-95"
                   style={{

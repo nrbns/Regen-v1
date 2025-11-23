@@ -528,7 +528,9 @@ export function AppShell() {
 
   // Memoize TOS callbacks to prevent hook order issues - must be called unconditionally
   const handleTOSAccept = useCallback(() => {
+    console.log('[AppShell] handleTOSAccept called - closing TOS modal');
     setShowTOS(false);
+    // The onboarding will start automatically via the useEffect that checks showTOS
   }, []);
 
   const handleTOSDecline = useCallback(() => {
