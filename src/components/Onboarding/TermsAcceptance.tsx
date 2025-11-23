@@ -109,12 +109,14 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
 
   // Don't show if already accepted
   if (acceptedVersion) {
+    console.log('[TermsAcceptance] Component hidden - already accepted version:', acceptedVersion);
     return null;
   }
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       <motion.div
+        key="terms-acceptance-modal"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

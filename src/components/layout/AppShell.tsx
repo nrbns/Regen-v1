@@ -1482,8 +1482,21 @@ export function AppShell() {
     setRestoreSummary(null);
   };
 
+  // Ensure we always render something - never return null or empty
+  console.log(
+    '[AppShell] Rendering - showTOS:',
+    showTOS,
+    'showCookieConsent:',
+    showCookieConsent,
+    'onboardingVisible:',
+    onboardingVisible
+  );
+
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+    <div
+      className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
+      data-app-shell="true"
+    >
       {/* Top Chrome Elements - Fixed header, never scrolls */}
       <div ref={topChromeRef} className="flex-none shrink-0 border-b border-slate-800 bg-slate-950">
         {/* Top Navigation - Hidden in fullscreen */}
