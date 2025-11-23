@@ -976,6 +976,8 @@ app.on('before-quit', async () => {
 });
 
 app.on('before-quit', async () => {
+  console.log('[Main] 🛑 Application closing, cleaning up...');
+
   // Cleanup agent sandbox
   try {
     const { agentSandbox } = await import('./services/agent/sandbox-runner');
@@ -987,6 +989,48 @@ app.on('before-quit', async () => {
 
   // Shutdown telemetry gracefully
   await shutdownTelemetry();
+
+  // Kill any child processes (Vite, Redix, Engine, etc.)
+  try {
+    const isWin = process.platform === 'win32';
+    if (isWin) {
+      // On Windows, kill processes by name/port
+      const { execSync } = require('child_process');
+      try {
+        // Kill Vite dev server (port 5173)
+        execSync('netstat -ano | findstr :5173', { stdio: 'ignore' });
+        execSync(
+          'for /f "tokens=5" %a in (\'netstat -ano ^| findstr :5173\') do taskkill /F /PID %a 2>NUL',
+          { stdio: 'ignore' }
+        );
+      } catch {}
+      try {
+        // Kill Redix server (port 4000)
+        execSync(
+          'for /f "tokens=5" %a in (\'netstat -ano ^| findstr :4000\') do taskkill /F /PID %a 2>NUL',
+          { stdio: 'ignore' }
+        );
+      } catch {}
+      try {
+        // Kill Engine server (port 3030)
+        execSync(
+          'for /f "tokens=5" %a in (\'netstat -ano ^| findstr :3030\') do taskkill /F /PID %a 2>NUL',
+          { stdio: 'ignore' }
+        );
+      } catch {}
+    } else {
+      // On Unix, kill by port
+      const { execSync } = require('child_process');
+      try {
+        execSync('lsof -ti:5173 | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+        execSync('lsof -ti:4000 | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+        execSync('lsof -ti:3030 | xargs kill -9 2>/dev/null || true', { stdio: 'ignore' });
+      } catch {}
+    }
+    console.log('[Main] Child processes cleaned up');
+  } catch (error) {
+    console.warn('[Main] Failed to cleanup child processes:', error);
+  }
 });
 
 // Minimal IPC placeholders (expand later)

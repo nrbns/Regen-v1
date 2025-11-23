@@ -21,7 +21,16 @@ function spawnCommand(name, cmd, args, env) {
     options.shell = true;
   }
   
+  // On Unix, create new process group for better cleanup
+  if (!isWin) {
+    options.detached = false;
+  }
+  
   const child = spawn(cmd, args, options);
+  
+  // Store process info for cleanup
+  child.processName = name;
+  child.spawnTime = Date.now();
   child.on('exit', (code) => {
     console.log(`[${name}] exited with code ${code}`);
     // Only shutdown on critical process failures (Vite or Electron)
@@ -50,6 +59,8 @@ function spawnCommand(name, cmd, args, env) {
 }
 
 function shutdown() {
+  console.log('[dev] 🛑 Shutting down all processes...');
+  
   // Clean up lock file
   try {
     if (fs.existsSync(lockFilePath)) {
@@ -57,16 +68,104 @@ function shutdown() {
     }
   } catch {}
   
+  // Kill all tracked processes
   processes.forEach((proc) => {
-    if (!proc.killed) {
-      proc.kill();
+    if (!proc.killed && proc.pid) {
+      try {
+        // On Windows, kill the entire process tree
+        if (isWin) {
+          const { execSync } = require('child_process');
+          try {
+            // Use taskkill to kill process tree
+            execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: 'ignore' });
+          } catch {
+            // Fallback to regular kill
+            proc.kill('SIGTERM');
+            setTimeout(() => {
+              if (!proc.killed) {
+                proc.kill('SIGKILL');
+              }
+            }, 2000);
+          }
+        } else {
+          // Unix: kill process group
+          try {
+            process.kill(-proc.pid, 'SIGTERM');
+            setTimeout(() => {
+              try {
+                process.kill(-proc.pid, 'SIGKILL');
+              } catch {}
+            }, 2000);
+          } catch {
+            proc.kill('SIGTERM');
+            setTimeout(() => {
+              if (!proc.killed) {
+                proc.kill('SIGKILL');
+              }
+            }, 2000);
+          }
+        }
+      } catch (err) {
+        console.warn(`[dev] Failed to kill process ${proc.pid}:`, err);
+      }
     }
   });
-  process.exit(0);
+  
+  // Also kill any remaining node processes related to this project
+  setTimeout(() => {
+    if (isWin) {
+      try {
+        const { execSync } = require('child_process');
+        // Kill vite processes
+        execSync('taskkill /F /IM node.exe /FI "WINDOWTITLE eq *vite*" 2>NUL', { stdio: 'ignore' });
+        // Kill any node processes with our project path
+        const projectPath = process.cwd().replace(/\\/g, '\\\\');
+        execSync(`wmic process where "commandline like '%${projectPath}%' and name='node.exe'" delete 2>NUL`, { stdio: 'ignore' });
+      } catch {}
+    } else {
+      try {
+        // Kill processes by project path
+        const projectPath = process.cwd();
+        require('child_process').execSync(`pkill -f "${projectPath}" || true`, { stdio: 'ignore' });
+      } catch {}
+    }
+  }, 1000);
+  
+  setTimeout(() => {
+    process.exit(0);
+  }, 500);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// Enhanced signal handlers
+process.on('SIGINT', () => {
+  console.log('[dev] Received SIGINT, shutting down...');
+  shutdown();
+});
+
+process.on('SIGTERM', () => {
+  console.log('[dev] Received SIGTERM, shutting down...');
+  shutdown();
+});
+
+// Handle Windows process termination
+if (isWin) {
+  process.on('SIGBREAK', () => {
+    console.log('[dev] Received SIGBREAK, shutting down...');
+    shutdown();
+  });
+}
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('[dev] Uncaught exception:', err);
+  shutdown();
+});
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason) => {
+  console.error('[dev] Unhandled rejection:', reason);
+  // Don't shutdown on unhandled rejection, just log
+});
 
 // Check if another dev process is already running
 const fs = require('node:fs');
