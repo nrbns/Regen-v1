@@ -964,17 +964,7 @@ process.on('unhandledRejection', (reason, promise) => {
   } catch {}
 });
 
-// Cleanup agent sandbox on app quit
-app.on('before-quit', async () => {
-  try {
-    const { agentSandbox } = await import('./services/agent/sandbox-runner');
-    agentSandbox.terminateAll();
-    console.log('[Main] Agent sandbox cleaned up');
-  } catch (error) {
-    console.warn('[Main] Failed to cleanup agent sandbox:', error);
-  }
-});
-
+// Cleanup on app quit
 app.on('before-quit', async () => {
   console.log('[Main] 🛑 Application closing, cleaning up...');
 
@@ -994,11 +984,10 @@ app.on('before-quit', async () => {
   try {
     const isWin = process.platform === 'win32';
     if (isWin) {
-      // On Windows, kill processes by name/port
+      // On Windows, kill processes by port
       const { execSync } = require('child_process');
       try {
         // Kill Vite dev server (port 5173)
-        execSync('netstat -ano | findstr :5173', { stdio: 'ignore' });
         execSync(
           'for /f "tokens=5" %a in (\'netstat -ano ^| findstr :5173\') do taskkill /F /PID %a 2>NUL',
           { stdio: 'ignore' }
