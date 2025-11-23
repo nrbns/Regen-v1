@@ -1,5 +1,24 @@
 /* eslint-env node */
 
+// ============================================================================
+// GLOBAL ERROR GUARDS - MUST BE FIRST
+// ============================================================================
+process.on('uncaughtException', err => {
+  console.error('[FATAL] Uncaught exception in Redix worker:', err);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+  }
+});
+
+process.on('unhandledRejection', (reason, _promise) => {
+  console.error('[FATAL] Unhandled rejection in Redix worker:', reason);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+  }
+});
+
 import Redis from 'ioredis';
 import os from 'os';
 import { runSearch } from './redix-search.js';

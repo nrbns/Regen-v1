@@ -1,5 +1,28 @@
 // @ts-nocheck
 
+// ============================================================================
+// GLOBAL ERROR GUARDS - MUST BE FIRST
+// ============================================================================
+// Prevent unhandled errors from crashing Electron in development
+const isDev = process.env.NODE_ENV !== 'production';
+
+process.on('uncaughtException', err => {
+  console.error('[FATAL] Uncaught exception in Electron main:', err);
+  // In dev, log only - don't exit
+  if (!isDev) {
+    // In production, we might want to exit after logging
+    // But for now, we'll log and continue to prevent cascading failures
+  }
+});
+
+process.on('unhandledRejection', (reason, _promise) => {
+  console.error('[FATAL] Unhandled rejection in Electron main:', reason);
+  // In dev, log only - don't exit
+  if (!isDev) {
+    // In production, we might want to exit after logging
+  }
+});
+
 process.env.JSDOM_NO_CANVAS = '1';
 
 import 'dotenv/config';

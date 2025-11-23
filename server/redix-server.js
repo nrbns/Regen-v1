@@ -1,5 +1,26 @@
 /* eslint-env node */
 
+// ============================================================================
+// GLOBAL ERROR GUARDS - MUST BE FIRST
+// ============================================================================
+// Prevent unhandled errors from crashing the server in development
+process.on('uncaughtException', err => {
+  console.error('[FATAL] Uncaught exception in Redix server:', err);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+    // But for now, we'll log and continue to prevent cascading failures
+  }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL] Unhandled rejection in Redix server:', reason);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+  }
+});
+
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
 import Redis from 'ioredis';
@@ -1022,8 +1043,19 @@ fastify.get('/metrics/prom', async (_request, reply) => {
     initWebSocketServer(httpServer);
     fastify.log.info('WebSocket server initialized');
 
-    await fastify.listen({ port: PORT, host: '0.0.0.0' });
-    fastify.log.info(`Redix server listening on port ${PORT}`);
+    try {
+      await fastify.listen({ port: PORT, host: '0.0.0.0' });
+      fastify.log.info(`Redix server listening on port ${PORT}`);
+    } catch (err) {
+      console.error('[Redix Server] Failed to start:', err);
+      if (process.env.NODE_ENV === 'production') {
+        // In production, exit on startup failure
+        process.exit(1);
+      } else {
+        // In dev, log and continue - don't crash
+        console.warn('[Redix Server] Server failed to start, but continuing in dev mode');
+      }
+    }
   } catch (error) {
     fastify.log.error({ error }, 'failed to start redix server');
     nodeProcess?.exit?.(1);

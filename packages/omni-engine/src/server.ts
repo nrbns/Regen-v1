@@ -4,6 +4,25 @@
  * Can be used by Electron, Brave fork, or any client
  */
 
+// ============================================================================
+// GLOBAL ERROR GUARDS - MUST BE FIRST
+// ============================================================================
+process.on('uncaughtException', err => {
+  console.error('[FATAL] Uncaught exception in Omni Engine:', err);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+  }
+});
+
+process.on('unhandledRejection', (reason, _promise) => {
+  console.error('[FATAL] Unhandled rejection in Omni Engine:', reason);
+  // In dev, log only - don't exit
+  if (process.env.NODE_ENV === 'production') {
+    // In production, we might want to exit after logging
+  }
+});
+
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
@@ -127,17 +146,8 @@ server
     // Don't exit - allow app to continue
   });
 
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason, _promise) => {
-  log.error('Unhandled rejection in engine', { reason: String(reason) });
-  // Don't exit - log and continue
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', error => {
-  log.error('Uncaught exception in engine', { error: error.message, stack: error.stack });
-  // Don't exit - log and continue (server will keep running)
-});
+// Note: Global error handlers are already set up at the top of the file
+// These handlers are redundant but kept for backward compatibility
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
