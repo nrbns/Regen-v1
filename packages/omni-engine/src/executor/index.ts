@@ -77,6 +77,8 @@ export async function executePlan(
  * Execute a single step
  */
 async function executeStep(step: PlanStep, _context: ExecutionContext): Promise<unknown> {
+  // Context reserved for future use
+  void _context;
   switch (step.action) {
     case 'search':
       // Return search results (client will handle display)

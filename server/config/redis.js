@@ -32,7 +32,7 @@ const connectionUrl = new URL(DEFAULT_URL);
 
 // Track connection state to suppress repeated errors
 // Connection state is tracked internally, no need to export
-let isConnected = false;
+let _isConnected = false;
 let lastErrorTime = 0;
 const ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
 

@@ -66,9 +66,10 @@ async function handleMessageSafe(input) {
       });
     } else {
       // Stream in chunks for longer messages
+      let _accumulatedText = '';
       for (let i = 0; i < text.length; i += chunkSize) {
         const chunk = text.slice(i, i + chunkSize);
-        const _accumulatedText = accumulatedText + chunk;
+        _accumulatedText = _accumulatedText + chunk;
         const isLastChunk = i + chunkSize >= text.length;
 
         await sendToClient({

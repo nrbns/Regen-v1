@@ -60,7 +60,7 @@ export function HandsFreeMode({ sessionId, mode, onCommand, onClose }: HandsFree
         if (isListening && !isProcessing) {
           try {
             recognition.start();
-          } catch {
+          } catch (_error) {
             // Already started or other error
           }
         }

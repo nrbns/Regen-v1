@@ -59,12 +59,12 @@ async function checkRedisConnection(): Promise<boolean> {
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
       ]);
       return true;
-    } catch (error: unknown) {
+    } catch (_error: unknown) {
       // Silently ignore all Redis connection errors - Redis is optional
       // Don't log - this is expected when Redis is not available
       return false;
     }
-  } catch (error: unknown) {
+  } catch (_error: unknown) {
     // Silently ignore import errors or any other errors - Redis is optional
     return false;
   }

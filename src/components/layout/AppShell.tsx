@@ -49,7 +49,7 @@ import { MemoryMonitor } from '../redix/MemoryMonitor';
 import { MiniHoverAI } from '../interaction/MiniHoverAI';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
-import { OnboardingFlow, shouldShowOnboarding } from '../Onboarding/OnboardingFlow';
+import { OnboardingFlow } from '../Onboarding/OnboardingFlow';
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
 const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
@@ -950,8 +950,8 @@ export function AppShell() {
         );
       } else {
         setTimeout(() => {
-          initializeOptimizer().catch(err => {
-            if (isDevEnv()) console.warn('[AppShell] Optimizer init failed:', err);
+          initializeOptimizer().catch(_err => {
+            if (isDevEnv()) console.warn('[AppShell] Optimizer init failed');
           });
         }, 500);
       }

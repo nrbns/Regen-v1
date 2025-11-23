@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
-// const redis = require('../../config/redis-client'); // Reserved for future use
+// Redis client reserved for future use
 
 const log = {
   info: (msg, meta) => console.log(`[WebSocketServer] ${msg}`, meta || ''),

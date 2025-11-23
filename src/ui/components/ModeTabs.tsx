@@ -33,7 +33,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
   const tokens = useTokens();
   const { currentMode, isShifting, shiftMode } = useModeShift();
   const [hoveredMode, setHoveredMode] = useState<ModeId | null>(null);
-  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
+  const [_previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
   const [showPreview, setShowPreview] = useState<{ from: ModeId; to: ModeId } | null>(null);
   const buttonRefs = useRef<Record<ModeId, HTMLButtonElement | null>>({
     browse: null,

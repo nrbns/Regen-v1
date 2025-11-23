@@ -128,7 +128,7 @@ server
   });
 
 // Handle unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   log.error('Unhandled rejection in engine', { reason: String(reason) });
   // Don't exit - log and continue
 });

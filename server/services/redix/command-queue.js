@@ -163,7 +163,7 @@ async function resumeQueue(tabId) {
     await client.del(pauseKey);
     log.info('Queue resumed', { tabId });
     return true;
-  } catch {
+  } catch (_error) {
     log.error('Failed to resume queue', { tabId });
     return false;
   }
@@ -182,7 +182,7 @@ async function isQueuePaused(tabId) {
     const pauseKey = `queue:paused:${tabId}`;
     const paused = await client.get(pauseKey);
     return paused === '1';
-  } catch {
+  } catch (_error) {
     return false;
   }
 }

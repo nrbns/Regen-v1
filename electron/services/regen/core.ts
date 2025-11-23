@@ -225,7 +225,7 @@ export async function handleMessage(msg: RegenMessage): Promise<RegenResponse> {
 }
 
 /**
- * Extract URLs from message
+ * Extract URLs from message (reserved for future use)
  */
 function _extractUrls(message: string): string[] {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -240,7 +240,7 @@ function _extractUrls(message: string): string[] {
 }
 
 /**
- * Extract CSS selector from message
+ * Extract CSS selector from message (reserved for future use)
  */
 function _extractSelector(message: string): string {
   // Simple extraction - in production, use LLM to understand intent

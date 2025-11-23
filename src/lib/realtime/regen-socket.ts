@@ -5,7 +5,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { ipc } from '../ipc-typed';
-// EventEmitter not used - using custom event system
 
 export type RegenSocketEvent =
   | RegenMessageEvent
