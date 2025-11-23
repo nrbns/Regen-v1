@@ -61,7 +61,11 @@ import { useSettingsStore } from '../../state/settingsStore';
 import { useTradeStore } from '../../state/tradeStore';
 import { TradeSidebar } from '../trade/TradeSidebar';
 import { TermsAcceptance } from '../Onboarding/TermsAcceptance';
-import { CookieConsent, useCookieConsent } from '../Onboarding/CookieConsent';
+import {
+  CookieConsent,
+  useCookieConsent,
+  type CookiePreferences,
+} from '../Onboarding/CookieConsent';
 import { ToastHost } from '../common/ToastHost';
 import { reopenMostRecentClosedTab } from '../../lib/tabLifecycle';
 import { toast } from '../../utils/toast';
@@ -1957,13 +1961,36 @@ export function AppShell() {
           onAccept={preferences => {
             console.log('[AppShell] Cookie consent accepted:', preferences);
             localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(preferences));
-            setShowCookieConsent(false);
-            console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+            // Force a small delay to ensure localStorage is written and state updates
+            setTimeout(() => {
+              setShowCookieConsent(false);
+              console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+              // Force a re-check of onboarding after cookie consent is closed
+              // The useEffect should trigger automatically, but we'll log to confirm
+              console.log('[AppShell] State after cookie consent:', {
+                showTOS,
+                showCookieConsent: false,
+                hasConsented,
+                onboardingVisible,
+              });
+            }, 100);
           }}
           onDecline={() => {
             console.log('[AppShell] Cookie consent declined');
-            setShowCookieConsent(false);
-            console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+            // Save minimal consent (essential only)
+            const minimal: CookiePreferences = {
+              essential: true,
+              analytics: false,
+              functional: false,
+              advertising: false,
+              timestamp: Date.now(),
+              version: '2025-12-17',
+            };
+            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(minimal));
+            setTimeout(() => {
+              setShowCookieConsent(false);
+              console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+            }, 100);
           }}
         />
       )}
