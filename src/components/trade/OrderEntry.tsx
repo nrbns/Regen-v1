@@ -153,8 +153,17 @@ export default function OrderEntry({
             {aiSuggestion.action.toUpperCase()} {symbol} @ ${aiSuggestion.price.toFixed(2)}
           </div>
           <button
-            onClick={applyAISuggestion}
+            onClick={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+              applyAISuggestion();
+            }}
+            onMouseDown={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+            }}
             className="text-xs bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded transition-colors"
+            style={{ zIndex: 10011, isolation: 'isolate' }}
           >
             Apply Suggestion
           </button>
@@ -164,23 +173,41 @@ export default function OrderEntry({
       {/* Side Selection */}
       <div className="flex gap-2">
         <button
-          onClick={() => setSide('buy')}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            setSide('buy');
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className={`flex-1 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
             side === 'buy'
               ? 'bg-green-600 text-white'
               : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
           }`}
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           <TrendingUp className="w-4 h-4" />
           Buy
         </button>
         <button
-          onClick={() => setSide('sell')}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            setSide('sell');
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className={`flex-1 py-2 rounded font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
             side === 'sell'
               ? 'bg-red-600 text-white'
               : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'
           }`}
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           <TrendingDown className="w-4 h-4" />
           Sell
@@ -312,12 +339,21 @@ export default function OrderEntry({
 
       {/* Submit Button */}
       <button
-        onClick={handleSubmit}
+        onClick={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+          handleSubmit();
+        }}
+        onMouseDown={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+        }}
         className={`w-full py-3 rounded font-semibold text-sm transition-colors ${
           side === 'buy'
             ? 'bg-green-600 hover:bg-green-700 text-white'
             : 'bg-red-600 hover:bg-red-700 text-white'
         }`}
+        style={{ zIndex: 10011, isolation: 'isolate' }}
       >
         {side === 'buy' ? 'Buy' : 'Sell'} {quantity} {symbol}
       </button>

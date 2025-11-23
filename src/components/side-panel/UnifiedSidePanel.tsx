@@ -75,8 +75,17 @@ export function UnifiedSidePanel({
                 <h2 className="text-lg font-semibold text-gray-100">Library</h2>
               </div>
               <button
-                onClick={onClose}
+                onClick={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                  onClose();
+                }}
+                onMouseDown={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                style={{ zIndex: 10011, isolation: 'isolate' }}
                 aria-label="Close panel"
               >
                 <X size={18} />
@@ -90,11 +99,20 @@ export function UnifiedSidePanel({
                 .map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => tab && setActiveTab(tab.id)}
+                    onClick={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      if (tab) setActiveTab(tab.id);
+                    }}
+                    onMouseDown={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
                     className={`
                     relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors
                     ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'}
                   `}
+                    style={{ zIndex: 10011, isolation: 'isolate' }}
                     aria-selected={activeTab === tab.id}
                     role="tab"
                   >

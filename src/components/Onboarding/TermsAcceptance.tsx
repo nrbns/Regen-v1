@@ -103,12 +103,58 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[10002] bg-gray-900/95 backdrop-blur-sm flex items-center justify-center p-4"
         style={{ pointerEvents: 'auto' }}
+        onMouseDown={e => {
+          // Completely ignore button clicks - don't interfere at all
+          const target = e.target as HTMLElement;
+          if (
+            target.closest('button') ||
+            target.closest('[role="button"]') ||
+            target.closest('a')
+          ) {
+            return; // Don't do anything - let button handle it completely
+          }
+        }}
+        onClick={e => {
+          // Completely ignore button clicks - don't interfere at all
+          const target = e.target as HTMLElement;
+          if (
+            target.closest('button') ||
+            target.closest('[role="button"]') ||
+            target.closest('a')
+          ) {
+            return; // Don't do anything - let button handle it completely
+          }
+        }}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col"
+          onMouseDown={e => {
+            // Completely ignore button clicks - don't interfere at all
+            const target = e.target as HTMLElement;
+            if (
+              target.closest('button') ||
+              target.closest('[role="button"]') ||
+              target.closest('a')
+            ) {
+              return; // Don't do anything - let button handle it completely
+            }
+          }}
+          onClick={e => {
+            // Completely ignore button clicks - don't interfere at all
+            const target = e.target as HTMLElement;
+            if (
+              target.closest('button') ||
+              target.closest('[role="button"]') ||
+              target.closest('a')
+            ) {
+              return; // Don't do anything - let button handle it completely
+            }
+            // Only stop propagation for non-button clicks
+            e.stopPropagation();
+          }}
         >
           {/* Header */}
           <div className="flex items-center gap-3 p-6 border-b border-gray-700">
@@ -260,8 +306,34 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </div>
 
                 <button
-                  onClick={() => setShowFullTerms(true)}
-                  className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-200 transition-colors flex items-center justify-center gap-2"
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    setShowFullTerms(true);
+                  }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    setShowFullTerms(true);
+                  }}
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    setShowFullTerms(true);
+                  }}
+                  className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  style={{
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 10010,
+                    position: 'relative',
+                    isolation: 'isolate',
+                    touchAction: 'manipulation',
+                  }}
                 >
                   <FileText size={16} />
                   <span>Read Full Terms of Service</span>
@@ -275,17 +347,67 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
             <div className="flex flex-col gap-3 flex-1">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={handleDecline}
-                  className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors flex items-center gap-2"
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleDecline();
+                  }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleDecline();
+                  }}
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleDecline();
+                  }}
+                  className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors flex items-center gap-2 cursor-pointer active:scale-95"
+                  style={{
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 10010,
+                    position: 'relative',
+                    isolation: 'isolate',
+                    touchAction: 'manipulation',
+                  }}
                 >
                   <X size={16} />
                   <span>Decline</span>
                 </button>
                 <button
-                  onClick={handleAccept}
-                  className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2"
-                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                   type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleAccept();
+                  }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleAccept();
+                  }}
+                  onPointerDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleAccept();
+                  }}
+                  className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2 cursor-pointer active:scale-95"
+                  style={{
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 10010,
+                    position: 'relative',
+                    isolation: 'isolate',
+                    touchAction: 'manipulation',
+                  }}
                 >
                   <Check size={16} />
                   <span>Accept</span>

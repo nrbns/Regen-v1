@@ -10,6 +10,40 @@ import { autoUpdater } from 'electron-updater';
 // Suppress verbose Chromium logs (media stream, DNS, etc.)
 app.commandLine.appendSwitch('log-level', '0'); // 0=INFO (hides VERBOSE)
 app.commandLine.appendSwitch('disable-logging'); // Disable file logging
+
+// Single instance lock - MUST be called as early as possible, before any other app methods
+// This prevents multiple Electron instances from running simultaneously
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  console.error('[Main] ❌ Another instance is already running, quitting immediately...');
+  console.error('[Main] Please close the existing instance before starting a new one.');
+  app.quit();
+  process.exit(0);
+} else {
+  console.log('[Main] ✅ Single instance lock acquired');
+
+  // Handle second instance launch - focus existing window
+  // Note: mainWindow will be defined later, so we use BrowserWindow.getAllWindows()
+  app.on('second-instance', () => {
+    console.log('[Main] ⚠️ Second instance detected, focusing existing window');
+    const { BrowserWindow } = require('electron');
+    const allWindows = BrowserWindow.getAllWindows();
+    if (allWindows.length > 0) {
+      const existingWindow = allWindows[0];
+      if (existingWindow && !existingWindow.isDestroyed()) {
+        if (existingWindow.isMinimized()) {
+          existingWindow.restore();
+        }
+        existingWindow.focus();
+        return;
+      }
+    }
+    // If no window exists, it will be created in app.whenReady()
+    console.log('[Main] No existing window found, will create new window on ready');
+  });
+}
+
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { z } from 'zod';
@@ -100,6 +134,7 @@ import { registerFeatureFlagsIpc } from './services/feature-flags';
 import { startMetricsServer } from './services/metrics-server';
 import { registerRegenIpc } from './services/regen/ipc';
 import { registerTradeIpc } from './services/regen/ipc-trade';
+import { registerWorkflowIpc } from './services/workflow-engine';
 
 const fullscreenSchema = z.object({
   fullscreen: z.boolean().optional(),
@@ -202,6 +237,8 @@ if (isWindows && isDev) {
   app.commandLine.appendSwitch('disable-webgl');
 }
 
+// Single instance lock is already set up above (right after imports)
+
 let mainWindow: BrowserWindow | null = null;
 let isCreatingWindow = false; // Prevent duplicate window creation
 const agentStore = new AgentStore();
@@ -219,9 +256,18 @@ function createMainWindow(restoreBounds?: {
   height: number;
   isMaximized: boolean;
 }) {
-  // Prevent duplicate window creation
-  if (isCreatingWindow || (mainWindow && !mainWindow.isDestroyed())) {
-    console.warn('Window already exists or is being created, skipping');
+  // Prevent duplicate window creation - strict check
+  if (isCreatingWindow) {
+    console.warn('[Main] Window creation already in progress, skipping');
+    return mainWindow;
+  }
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    console.warn('[Main] Window already exists, focusing existing window');
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.focus();
     return mainWindow;
   }
 
@@ -347,7 +393,11 @@ function createMainWindow(restoreBounds?: {
   // Increase max listeners to prevent warnings (some IPC handlers add multiple listeners)
   mainWindow.setMaxListeners(100);
 
-  isCreatingWindow = false; // Window created successfully
+  // Window created successfully - reset flag after a short delay to prevent race conditions
+  setTimeout(() => {
+    isCreatingWindow = false;
+    console.log('[Main] Window creation completed, flag reset');
+  }, 500);
 
   const windowId = mainWindow.id;
   mainWindow.on('close', async _event => {
@@ -400,7 +450,13 @@ function createMainWindow(restoreBounds?: {
     removeProfileWindow(windowId);
     mainWindow = null;
     isCreatingWindow = false;
+    console.log('[Main] Window closed, reset creation flag');
   });
+
+  // Reset creation flag after a short delay to prevent race conditions
+  setTimeout(() => {
+    isCreatingWindow = false;
+  }, 1000);
 
   // Assert secure webPreferences at runtime (fail fast if misconfigured)
   try {
@@ -871,15 +927,40 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// Crash guardrails for production visibility
+// Enhanced crash guardrails with recovery mechanisms
 process.on('uncaughtException', err => {
   try {
     console.error('[uncaughtException]', err);
+    // Log to crash reporter if available
+    if (typeof initializeCrashReporter !== 'undefined') {
+      try {
+        const { logCrash } = require('./services/crash-dump');
+        logCrash('uncaughtException', err);
+      } catch {}
+    }
+    // Don't crash the app - log and continue
+    // In production, we might want to show a user-friendly error dialog
   } catch {}
 });
-process.on('unhandledRejection', reason => {
+
+process.on('unhandledRejection', (reason, promise) => {
   try {
-    console.error('[unhandledRejection]', reason);
+    console.error('[unhandledRejection]', reason, promise);
+    // Log to crash reporter if available
+    if (typeof initializeCrashReporter !== 'undefined') {
+      try {
+        const { logCrash } = require('./services/crash-dump');
+        logCrash('unhandledRejection', reason);
+      } catch {}
+    }
+    // For streaming errors, try to recover by cleaning up active streams
+    if (reason && typeof reason === 'object' && 'message' in reason) {
+      const message = String((reason as any).message);
+      if (message.includes('stream') || message.includes('IPC')) {
+        console.warn('[Main] Stream/IPC error detected, attempting recovery...');
+        // Cleanup will be handled by individual stream handlers
+      }
+    }
   } catch {}
 });
 

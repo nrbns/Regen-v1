@@ -294,30 +294,75 @@ try {
     track('app_open');
   });
 
-  // Tier 3: Initialize services
+  // Tier 3: Initialize services - defer heavy operations to avoid blocking render
+  // Initialize crash reporter immediately (lightweight)
   crashReporter.initialize();
-  authService.initialize().then(() => {
-    if (authService.getState().isAuthenticated) {
-      syncService.startAutoSync();
-    }
-  });
-  pluginRegistry.restorePluginState();
 
-  syncRendererTelemetry().catch(error => {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
+  // Defer heavy service initialization to avoid blocking initial render
+  // Use requestIdleCallback or setTimeout to run after initial paint
+  const deferHeavyInit = () => {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(
+        () => {
+          initializeHeavyServices();
+        },
+        { timeout: 2000 }
+      );
+    } else {
+      setTimeout(initializeHeavyServices, 100);
     }
-  });
+  };
 
-  syncAnalyticsOptIn()
-    .then(() => {
-      trackPageView(window.location.pathname);
-    })
-    .catch(error => {
+  const initializeHeavyServices = async () => {
+    try {
+      // Initialize auth service (can be slow)
+      await authService.initialize();
+      if (authService.getState().isAuthenticated) {
+        // Defer sync service start even further
+        setTimeout(() => {
+          syncService.startAutoSync().catch(err => {
+            if (isDevEnv()) {
+              console.warn('[Main] Sync service failed to start:', err);
+            }
+          });
+        }, 500);
+      }
+    } catch (error) {
+      if (isDevEnv()) {
+        console.warn('[Main] Failed to initialize auth service:', error);
+      }
+    }
+
+    try {
+      // Restore plugin state (can be slow)
+      pluginRegistry.restorePluginState();
+    } catch (error) {
+      if (isDevEnv()) {
+        console.warn('[Main] Failed to restore plugin state:', error);
+      }
+    }
+  };
+
+  deferHeavyInit();
+
+  // Defer telemetry and analytics initialization to avoid blocking render
+  setTimeout(() => {
+    syncRendererTelemetry().catch(error => {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[Monitoring] Failed to initialize analytics', error);
+        console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
       }
     });
+
+    syncAnalyticsOptIn()
+      .then(() => {
+        trackPageView(window.location.pathname);
+      })
+      .catch(error => {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('[Monitoring] Failed to initialize analytics', error);
+        }
+      });
+  }, 500);
 
   if (typeof performance !== 'undefined' && performance.now) {
     const bootMs = Math.round(performance.now());
@@ -337,6 +382,35 @@ try {
     rootElement.style.visibility = 'visible';
     rootElement.style.opacity = '1';
   }
+
+  // Add unhandled rejection handler to prevent crashes
+  window.addEventListener('unhandledrejection', event => {
+    console.error('[Main] Unhandled promise rejection:', event.reason);
+    // Prevent default browser error handling
+    event.preventDefault();
+    // Log but don't crash
+    if (isDevEnv()) {
+      console.error('[Main] Promise rejection details:', {
+        reason: event.reason,
+        promise: event.promise,
+      });
+    }
+  });
+
+  // Add uncaught error handler
+  window.addEventListener('error', event => {
+    console.error('[Main] Uncaught error:', event.error);
+    // Log but don't crash - let error boundary handle it
+    if (isDevEnv()) {
+      console.error('[Main] Error details:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error,
+      });
+    }
+  });
 
   if (isDevEnv()) {
     console.log('[Main] Rendering React app...');

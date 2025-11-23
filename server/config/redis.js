@@ -44,7 +44,7 @@ export const redisClient = new IORedis(DEFAULT_URL, {
     return delay;
   },
   enableOfflineQueue: false, // Don't queue commands when offline
-  lazyConnect: false,
+  lazyConnect: true, // Don't connect immediately - connect on first use
   connectTimeout: 5000,
 });
 
@@ -63,17 +63,20 @@ redisClient.on('error', error => {
   const now = Date.now();
   isConnected = false;
 
-  // Only log errors if enough time has passed since last error
-  if (now - lastErrorTime > ERROR_SUPPRESSION_MS) {
-    if (error?.code === 'ECONNREFUSED') {
-      // Only log connection refused errors once per suppression period
-      console.warn(
-        '[redis] Connection refused. Redis is optional - the app will continue without it.'
-      );
-    } else if (error?.code !== 'MaxRetriesPerRequestError') {
-      // Don't log MaxRetriesPerRequestError - it's expected when Redis is down
-      console.error('[redis] connection error', error?.message || error);
-    }
+  // Suppress all Redis connection errors - they're expected when Redis is unavailable
+  // Only log non-connection errors in development
+  if (
+    error?.code === 'ECONNREFUSED' ||
+    error?.code === 'MaxRetriesPerRequestError' ||
+    error?.code === 'ENOTFOUND'
+  ) {
+    // Silently ignore connection errors - Redis is optional
+    return;
+  }
+
+  // Only log other errors in development mode
+  if (process.env.NODE_ENV === 'development' && now - lastErrorTime > ERROR_SUPPRESSION_MS) {
+    console.warn('[redis] Non-connection error:', error?.message || error);
     lastErrorTime = now;
   }
 });
@@ -127,10 +130,24 @@ if (!existingUncaughtException.some(l => l.toString().includes('ECONNREFUSED')))
         return;
       }
       if ('code' in error) {
-        if (error.code === 'ECONNREFUSED' || error.code === 'MaxRetriesPerRequestError') {
-          // Suppress Redis connection errors
+        // Suppress all Redis connection errors
+        if (
+          error.code === 'ECONNREFUSED' ||
+          error.code === 'MaxRetriesPerRequestError' ||
+          error.code === 'ENOTFOUND' ||
+          error.code === 'ETIMEDOUT'
+        ) {
           return;
         }
+      }
+      // Also check error message
+      if (
+        error.message &&
+        (error.message.includes('ECONNREFUSED') ||
+          error.message.includes('Connection is closed') ||
+          error.message.includes("Stream isn't writeable"))
+      ) {
+        return;
       }
     }
     // Call existing handlers if any
@@ -162,7 +179,7 @@ export function getBullConnection() {
     },
     enableOfflineQueue: false,
     connectTimeout: 5000,
-    lazyConnect: false,
+    lazyConnect: true, // Don't connect immediately - connect on first use
   };
 
   if (connectionUrl.password) {

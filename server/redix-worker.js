@@ -14,8 +14,27 @@ const suppressRedisErrors = () => {
       if (event === 'uncaughtException' || event === 'unhandledRejection') {
         const error = args[0];
         if (error && typeof error === 'object' && 'code' in error) {
-          if (error.code === 'ECONNREFUSED' || error.code === 'MaxRetriesPerRequestError') {
+          // Suppress all Redis connection-related errors
+          if (
+            error.code === 'ECONNREFUSED' ||
+            error.code === 'MaxRetriesPerRequestError' ||
+            error.code === 'ENOTFOUND' ||
+            error.code === 'ETIMEDOUT' ||
+            (error.message &&
+              (error.message.includes('Connection is closed') ||
+                error.message.includes("Stream isn't writeable")))
+          ) {
             // Suppress Redis-related unhandled errors
+            return false;
+          }
+        }
+        // Also check error message for connection-related strings
+        if (error && typeof error === 'object' && error.message) {
+          if (
+            error.message.includes('ECONNREFUSED') ||
+            error.message.includes('Connection is closed') ||
+            error.message.includes("Stream isn't writeable")
+          ) {
             return false;
           }
         }
@@ -48,7 +67,7 @@ const redisConfig = {
   },
   enableOfflineQueue: false,
   connectTimeout: 5000,
-  lazyConnect: false,
+  lazyConnect: true, // Don't connect immediately - connect on first use
 };
 
 const redisSub = new Redis(REDIS_URL, redisConfig);
@@ -73,15 +92,27 @@ redisSub.on('ready', () => {
 
 redisSub.on('error', error => {
   redisConnected = false;
+
+  // Completely suppress all Redis connection errors - Redis is optional
+  if (
+    error?.code === 'ECONNREFUSED' ||
+    error?.code === 'MaxRetriesPerRequestError' ||
+    error?.code === 'ENOTFOUND' ||
+    error?.code === 'ETIMEDOUT' ||
+    error?.message?.includes('Connection is closed') ||
+    error?.message?.includes("Stream isn't writeable")
+  ) {
+    // Silently ignore - Redis is optional
+    return;
+  }
+
+  // Only log non-connection errors in development
   const now = Date.now();
-  if (now - lastErrorTime > ERROR_SUPPRESSION_MS) {
-    if (error?.code === 'ECONNREFUSED') {
-      globalConsole.warn(
-        '[worker] Redis connection refused. Redis is optional - worker will continue without it.'
-      );
-    } else {
-      globalConsole.error('[worker] Redis subscription error', error?.message || error);
-    }
+  if (process.env.NODE_ENV === 'development' && now - lastErrorTime > ERROR_SUPPRESSION_MS) {
+    globalConsole.debug(
+      '[worker] Redis subscription non-connection error:',
+      error?.message || error
+    );
     lastErrorTime = now;
   }
 });
@@ -96,31 +127,81 @@ redisPub.on('ready', () => {
 
 redisPub.on('error', error => {
   redisConnected = false;
+
+  // Completely suppress all Redis connection errors - Redis is optional
+  if (
+    error?.code === 'ECONNREFUSED' ||
+    error?.code === 'MaxRetriesPerRequestError' ||
+    error?.code === 'ENOTFOUND' ||
+    error?.code === 'ETIMEDOUT' ||
+    error?.message?.includes('Connection is closed')
+  ) {
+    // Silently ignore - Redis is optional
+    return;
+  }
+
+  // Only log non-connection errors in development
   const now = Date.now();
-  if (now - lastErrorTime > ERROR_SUPPRESSION_MS) {
-    if (error?.code === 'ECONNREFUSED') {
-      globalConsole.warn(
-        '[worker] Redis connection refused. Redis is optional - worker will continue without it.'
-      );
-    } else {
-      globalConsole.error('[worker] Redis publish error', error?.message || error);
-    }
+  if (process.env.NODE_ENV === 'development' && now - lastErrorTime > ERROR_SUPPRESSION_MS) {
+    globalConsole.debug('[worker] Redis publish non-connection error:', error?.message || error);
     lastErrorTime = now;
   }
 });
 
-redisSub.subscribe('redix_tasks', error => {
-  if (error) {
-    if (error?.code === 'ECONNREFUSED') {
-      globalConsole.warn('[worker] Redis not available - subscription skipped. Redis is optional.');
-    } else {
-      globalConsole.error('[worker] failed to subscribe', error);
+// Subscribe when Redis is ready (or skip if not available)
+const attemptSubscribe = () => {
+  // Only subscribe if Redis is actually ready
+  if (redisSub && redisSub.status === 'ready' && redisConnected) {
+    try {
+      redisSub.subscribe('redix_tasks', error => {
+        if (error) {
+          if (
+            error?.code === 'ECONNREFUSED' ||
+            error?.code === 'MaxRetriesPerRequestError' ||
+            error?.code === 'ENOTFOUND' ||
+            error?.message?.includes("Stream isn't writeable")
+          ) {
+            // Silently ignore - Redis is optional
+            return;
+          }
+          if (process.env.NODE_ENV === 'development') {
+            globalConsole.debug(
+              '[worker] Failed to subscribe (non-critical):',
+              error?.message || error
+            );
+          }
+        } else {
+          redisConnected = true;
+          if (process.env.NODE_ENV === 'development') {
+            globalConsole.log('[worker] listening for tasks');
+          }
+        }
+      });
+    } catch (error) {
+      // Silently ignore subscription errors - Redis is optional
+      if (
+        process.env.NODE_ENV === 'development' &&
+        error?.code !== 'ECONNREFUSED' &&
+        error?.code !== 'MaxRetriesPerRequestError'
+      ) {
+        globalConsole.debug(
+          '[worker] Subscription attempt failed (non-critical):',
+          error?.message || error
+        );
+      }
     }
-  } else {
-    redisConnected = true;
-    globalConsole.log('[worker] listening for tasks');
   }
+  // If Redis not available, silently skip subscription
+};
+
+// Try to subscribe when Redis connects
+redisSub.once('ready', () => {
+  redisConnected = true;
+  attemptSubscribe();
 });
+
+// Also try after a delay (in case already connected or connection happens later)
+setTimeout(attemptSubscribe, 2000);
 
 redisSub.on('message', async (channel, raw) => {
   if (channel !== 'redix_tasks' || !redisConnected) return;

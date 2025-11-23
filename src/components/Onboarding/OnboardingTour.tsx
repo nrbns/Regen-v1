@@ -96,7 +96,8 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Sparkles,
         title: 'Your regenerative co-pilot',
-        description: 'Redix learns your persona, monitors eco impact, and rewires the workspace to stay in flow.',
+        description:
+          'Redix learns your persona, monitors eco impact, and rewires the workspace to stay in flow.',
       },
     ],
   },
@@ -110,14 +111,16 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Keyboard,
         title: 'Shortcut ready',
-        description: 'Press ⌘/Ctrl + L any time to jump into the omnibox without leaving the keyboard.',
+        description:
+          'Press ⌘/Ctrl + L any time to jump into the omnibox without leaving the keyboard.',
         actionId: 'focus-omnibox',
         actionLabel: 'Focus omnibox',
       },
       {
         icon: Sparkles,
         title: 'Use @live for streaming answers',
-        description: 'Start your query with “@live” to pull in real-time sources, graphs, and metrics as you type.',
+        description:
+          'Start your query with “@live” to pull in real-time sources, graphs, and metrics as you type.',
       },
     ],
   },
@@ -131,12 +134,14 @@ const STEPS: OnboardingStep[] = [
       {
         icon: MousePointerClick,
         title: 'Drag into spaces',
-        description: 'Drag a tab to reorder or drop it straight into Workspace or GraphMind for deeper grouping.',
+        description:
+          'Drag a tab to reorder or drop it straight into Workspace or GraphMind for deeper grouping.',
       },
       {
         icon: Brain,
         title: 'Sessions remember everything',
-        description: 'Tab badges show whether a session is ghosted, private, or synced across devices.',
+        description:
+          'Tab badges show whether a session is ghosted, private, or synced across devices.',
       },
     ],
   },
@@ -150,12 +155,14 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Gauge,
         title: 'Live system metrics',
-        description: 'CPU, memory, and carbon intensity stream in real time. Hover to see the sparkline history.',
+        description:
+          'CPU, memory, and carbon intensity stream in real time. Hover to see the sparkline history.',
       },
       {
         icon: Leaf,
         title: 'Eco-aware actions',
-        description: 'Switch to Regen mode when on battery to pause heavy tabs and save up to +1.8 hours.',
+        description:
+          'Switch to Regen mode when on battery to pause heavy tabs and save up to +1.8 hours.',
       },
     ],
   },
@@ -168,7 +175,8 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Brain,
         title: 'Map your research instantly',
-        description: 'GraphMind clusters tabs by topic, mode, and relationship so you can spot gaps fast.',
+        description:
+          'GraphMind clusters tabs by topic, mode, and relationship so you can spot gaps fast.',
         actionId: 'open-graph',
         actionLabel: 'Launch GraphMind',
       },
@@ -183,7 +191,8 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Shield,
         title: 'Live consent timeline',
-        description: 'The ledger records every AI request, so you can revoke memory or flag behaviour instantly.',
+        description:
+          'The ledger records every AI request, so you can revoke memory or flag behaviour instantly.',
       },
     ],
   },
@@ -197,17 +206,20 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Sparkles,
         title: 'Live Redix Pulse',
-        description: 'See agent activity, recent events, and quick actions. Click "Open agent console" to dive deeper.',
+        description:
+          'See agent activity, recent events, and quick actions. Click "Open agent console" to dive deeper.',
       },
       {
         icon: Leaf,
         title: 'Eco Scoreboard',
-        description: 'Monitor battery, carbon intensity, and efficiency. Achievements unlock as you optimize.',
+        description:
+          'Monitor battery, carbon intensity, and efficiency. Achievements unlock as you optimize.',
       },
       {
         icon: FileText,
         title: 'Quick Access Cards',
-        description: 'Ask Agent, Search, Notes, and Playbooks are always one click away from the dashboard.',
+        description:
+          'Ask Agent, Search, Notes, and Playbooks are always one click away from the dashboard.',
       },
     ],
   },
@@ -220,7 +232,8 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Shield,
         title: 'Privacy-first',
-        description: 'All data is anonymized. No PII, no URLs, no browsing history. You can change this anytime in Settings.',
+        description:
+          'All data is anonymized. No PII, no URLs, no browsing history. You can change this anytime in Settings.',
       },
     ],
   },
@@ -235,42 +248,47 @@ interface Spotlight {
 
 export function OnboardingTour({ onClose }: { onClose: () => void }) {
   const { mode, setMode } = useAppStore();
-  const finishOnboarding = useOnboardingStore((state) => state.finish);
-  const onboardingVisible = useOnboardingStore((state) => state.visible);
+  const finishOnboarding = useOnboardingStore(state => state.finish);
+  const onboardingVisible = useOnboardingStore(state => state.visible);
   const [telemetryOptIn, setTelemetryOptIn] = useState(false);
   const [spotlight, setSpotlight] = useState<Spotlight | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const personaFromMode = useMemo<PersonaOption['id']>(() => {
     const fallback: PersonaOption['id'] = 'Browse';
-    return PERSONAS.find((p) => p.id === mode) ? (mode as PersonaOption['id']) : fallback;
+    return PERSONAS.find(p => p.id === mode) ? (mode as PersonaOption['id']) : fallback;
   }, [mode]);
   const initialPersonaRef = useRef<PersonaOption['id']>(personaFromMode);
-  const [selectedPersona, setSelectedPersona] = useState<PersonaOption['id'] | null>(initialPersonaRef.current);
+  const [selectedPersona, setSelectedPersona] = useState<PersonaOption['id'] | null>(
+    initialPersonaRef.current
+  );
   const primaryButtonRef = useRef<HTMLButtonElement | null>(null);
   const personaFirstButtonRef = useRef<HTMLButtonElement | null>(null);
   const focusTimeoutRef = useRef<number | null>(null);
-  const openGraph = useTabGraphStore((state) => state.open);
+  const openGraph = useTabGraphStore(state => state.open);
 
-  const handleTipAction = useCallback((actionId?: StepTipAction) => {
-    if (!actionId) return;
-    switch (actionId) {
-      case 'focus-omnibox': {
-        const target = document.querySelector<HTMLElement>(
-          '[data-onboarding="omnibox"] input, [data-onboarding="omnibox"] textarea, [data-onboarding="omnibox"] [role="combobox"]'
-        );
-        if (target) {
-          target.focus();
-          target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  const handleTipAction = useCallback(
+    (actionId?: StepTipAction) => {
+      if (!actionId) return;
+      switch (actionId) {
+        case 'focus-omnibox': {
+          const target = document.querySelector<HTMLElement>(
+            '[data-onboarding="omnibox"] input, [data-onboarding="omnibox"] textarea, [data-onboarding="omnibox"] [role="combobox"]'
+          );
+          if (target) {
+            target.focus();
+            target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          }
+          break;
         }
-        break;
+        case 'open-graph':
+          void openGraph();
+          break;
+        default:
+          break;
       }
-      case 'open-graph':
-        void openGraph();
-        break;
-      default:
-        break;
-    }
-  }, [openGraph]);
+    },
+    [openGraph]
+  );
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -286,21 +304,36 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as typeof window & { __tourDebug?: { stepIndex: number; persona: PersonaOption['id'] | null } }).__tourDebug =
-        { stepIndex, persona: selectedPersona };
+      (
+        window as typeof window & {
+          __tourDebug?: { stepIndex: number; persona: PersonaOption['id'] | null };
+        }
+      ).__tourDebug = { stepIndex, persona: selectedPersona };
     }
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Onboarding] Render', { stepIndex, selectedPersona });
     }
   }, [stepIndex, selectedPersona]);
 
-
   const step = useMemo(() => STEPS[stepIndex] ?? STEPS[0], [stepIndex]);
   const progressPercent = Math.round(((stepIndex + 1) / TOTAL_STEPS) * 100);
   const isLastStep = stepIndex >= TOTAL_STEPS - 1;
   const isPersonaStep = step.type === 'persona';
   const canGoBack = stepIndex > 0;
+  // Only disable Next button on persona step if no persona is selected
+  // For other steps, always allow Next
   const isNextDisabled = isPersonaStep && !selectedPersona;
+
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Onboarding] Button state:', {
+      stepIndex,
+      isPersonaStep,
+      selectedPersona,
+      isNextDisabled,
+      stepId: step?.id,
+    });
+  }
 
   useEffect(() => {
     if (stepIndex === 0 && !selectedPersona) {
@@ -429,7 +462,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       const currentStep = STEPS[stepIndex];
       const isTelemetryStep = currentStep?.id === 'telemetry';
       const isLastStep = stepIndex >= TOTAL_STEPS - 1;
-      
+
       // Save telemetry opt-in preference asynchronously before state update
       // This prevents any IPC errors from blocking the state update
       if (isTelemetryStep) {
@@ -438,7 +471,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         void Promise.allSettled([
           applyTelemetryOptIn(telemetryOptIn),
           applyAnalyticsOptIn(telemetryOptIn),
-        ]).catch((error) => {
+        ]).catch(error => {
           if (process.env.NODE_ENV === 'development') {
             console.warn('[Onboarding] Failed to save telemetry opt-in', error);
           }
@@ -448,17 +481,17 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       // If we're on the last step (telemetry), finish and close
       if (isTelemetryStep || isLastStep) {
         console.log('[Onboarding] Finishing tour from step', stepIndex);
-        
+
         // Finish onboarding (this updates the store and marks as completed)
         console.log('[Onboarding] Calling finishOnboarding()');
         finishOnboarding();
-        
+
         console.log('[Onboarding] finishOnboarding() called, calling onClose()');
-        
+
         // Call onClose for any cleanup
         onClose();
         console.log('[Onboarding] goNext - onClose() called - END');
-        
+
         return;
       }
 
@@ -468,10 +501,13 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         if (!selectedPersona) {
           console.warn('[Onboarding] Cannot advance: no persona selected');
           // Try to get selected persona from DOM if state is out of sync
-          const selectedPersonaCard = document.querySelector('[aria-pressed="true"]') as HTMLElement;
+          const selectedPersonaCard = document.querySelector(
+            '[aria-pressed="true"]'
+          ) as HTMLElement;
           if (selectedPersonaCard) {
-            const personaId = selectedPersonaCard.getAttribute('data-persona-id') || 
-                            selectedPersonaCard.closest('[data-persona-id]')?.getAttribute('data-persona-id');
+            const personaId =
+              selectedPersonaCard.getAttribute('data-persona-id') ||
+              selectedPersonaCard.closest('[data-persona-id]')?.getAttribute('data-persona-id');
             if (personaId) {
               console.log('[Onboarding] Found selected persona from DOM:', personaId);
               handlePersonaSelect(personaId as PersonaOption['id']);
@@ -493,7 +529,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
       // Advance to next step
       const nextIndex = Math.min(stepIndex + 1, TOTAL_STEPS - 1);
-      
+
       console.log('[Onboarding] Next from step', stepIndex, '->', nextIndex);
 
       setStepIndex(nextIndex);
@@ -503,7 +539,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
   }, [stepIndex, selectedPersona, mode, setMode, finishOnboarding, onClose, telemetryOptIn]);
 
   const goBack = useCallback(() => {
-    setStepIndex((current) => {
+    setStepIndex(current => {
       if (current === 0) {
         return 0;
       }
@@ -521,14 +557,21 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       // Finish onboarding (this updates the store and marks as completed)
       console.log('[Onboarding] Skip - calling finishOnboarding()');
       finishOnboarding();
-      
+
       console.log('[Onboarding] Skip - finishOnboarding() called, calling onClose()');
-      
+
       // Call onClose for any cleanup
       onClose();
       console.log('[Onboarding] Skip - onClose() called - END');
     } catch (error) {
       console.error('[Onboarding] Error in handleSkip:', error);
+      // Fallback: try to close anyway
+      try {
+        finishOnboarding();
+        onClose();
+      } catch (fallbackError) {
+        console.error('[Onboarding] Fallback close also failed:', fallbackError);
+      }
     }
   }, [finishOnboarding, onClose, stepIndex]);
 
@@ -545,7 +588,9 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     let attached = false;
     const attachListeners = () => {
       if (attached) return;
-      const nextButton = primaryButtonRef.current || document.querySelector('[data-onboarding-next]') as HTMLButtonElement;
+      const nextButton =
+        primaryButtonRef.current ||
+        (document.querySelector('[data-onboarding-next]') as HTMLButtonElement);
       const skipButton = document.querySelector('[data-onboarding-skip]') as HTMLButtonElement;
       const backButton = document.querySelector('[data-onboarding-back]') as HTMLButtonElement;
       const closeButton = document.querySelector('[data-onboarding-close]') as HTMLButtonElement;
@@ -629,9 +674,15 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
 
       if (nextButton) {
         // Check if button is disabled
-        const isDisabled = nextButton.hasAttribute('disabled') || (nextButton as HTMLButtonElement).disabled;
-        console.log('[Onboarding] Next button disabled state:', isDisabled, 'isNextDisabled:', isNextDisabled);
-        
+        const isDisabled =
+          nextButton.hasAttribute('disabled') || (nextButton as HTMLButtonElement).disabled;
+        console.log(
+          '[Onboarding] Next button disabled state:',
+          isDisabled,
+          'isNextDisabled:',
+          isNextDisabled
+        );
+
         // Force enable the button for testing (remove disabled attribute)
         if (isDisabled) {
           console.warn('[Onboarding] ⚠️ Next button is disabled! Force enabling for testing...');
@@ -641,7 +692,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           nextButton.style.cursor = 'pointer';
           nextButton.style.opacity = '1';
         }
-        
+
         // Attach listeners with capture phase and also without
         nextButton.addEventListener('click', handleNextClick, true);
         nextButton.addEventListener('click', handleNextClick, false);
@@ -649,16 +700,21 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
         nextButton.addEventListener('mousedown', handleNextClick, false);
         nextButton.addEventListener('pointerdown', handleNextClick, true);
         nextButton.addEventListener('touchstart', handleNextClick, true);
-        
+
         // Also try direct onclick assignment as ultimate fallback
         (nextButton as any).onclick = handleNextClick;
         (nextButton as any).onmousedown = handleNextClick;
-        
-        console.log('[Onboarding] ✅ Native listeners attached to Next button (capture + bubble + direct)');
-        
+
+        console.log(
+          '[Onboarding] ✅ Native listeners attached to Next button (capture + bubble + direct)'
+        );
+
         // Test: Try programmatically clicking to see if button works
-        console.log('[Onboarding] Testing: Button clickable?', nextButton.offsetWidth > 0 && nextButton.offsetHeight > 0);
-        
+        console.log(
+          '[Onboarding] Testing: Button clickable?',
+          nextButton.offsetWidth > 0 && nextButton.offsetHeight > 0
+        );
+
         // Test if button is actually clickable
         const computedStyle = window.getComputedStyle(nextButton);
         console.log('[Onboarding] Next button computed styles:', {
@@ -675,9 +731,18 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       if (skipButton) {
         // Use capture phase to catch events early
         skipButton.addEventListener('click', handleSkipClick, { capture: true, passive: false });
-        skipButton.addEventListener('mousedown', handleSkipClick, { capture: true, passive: false });
-        skipButton.addEventListener('pointerdown', handleSkipClick, { capture: true, passive: false });
-        skipButton.addEventListener('touchstart', handleSkipClick, { capture: true, passive: false });
+        skipButton.addEventListener('mousedown', handleSkipClick, {
+          capture: true,
+          passive: false,
+        });
+        skipButton.addEventListener('pointerdown', handleSkipClick, {
+          capture: true,
+          passive: false,
+        });
+        skipButton.addEventListener('touchstart', handleSkipClick, {
+          capture: true,
+          passive: false,
+        });
         console.log('[Onboarding] ✅ Native listeners attached to Skip button');
       } else {
         console.warn('[Onboarding] ⚠️ Skip button not found!');
@@ -730,7 +795,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
           closeButton.removeEventListener('pointerdown', handleCloseClick, true);
         }
       };
-      
+
       attached = true;
       console.log('[Onboarding] ✅ All listeners attached successfully');
     };
@@ -770,10 +835,14 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       if (!target) return;
 
       // Check if click is on any onboarding button
-      const isNextButton = target.closest('[data-onboarding-next]') || target.hasAttribute('data-onboarding-next');
-      const isSkipButton = target.closest('[data-onboarding-skip]') || target.hasAttribute('data-onboarding-skip');
-      const isBackButton = target.closest('[data-onboarding-back]') || target.hasAttribute('data-onboarding-back');
-      const isCloseButton = target.closest('[data-onboarding-close]') || target.hasAttribute('data-onboarding-close');
+      const isNextButton =
+        target.closest('[data-onboarding-next]') || target.hasAttribute('data-onboarding-next');
+      const isSkipButton =
+        target.closest('[data-onboarding-skip]') || target.hasAttribute('data-onboarding-skip');
+      const isBackButton =
+        target.closest('[data-onboarding-back]') || target.hasAttribute('data-onboarding-back');
+      const isCloseButton =
+        target.closest('[data-onboarding-close]') || target.hasAttribute('data-onboarding-close');
 
       if (isNextButton) {
         console.log('[Onboarding] 🔥🔥🔥 GLOBAL CLICK HANDLER: Next button clicked! 🔥🔥🔥');
@@ -830,7 +899,17 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
       }
       attached = false;
     };
-  }, [onboardingVisible, goNext, handleSkip, goBack, finishOnboarding, onClose, stepIndex, isNextDisabled, canGoBack]);
+  }, [
+    onboardingVisible,
+    goNext,
+    handleSkip,
+    goBack,
+    finishOnboarding,
+    onClose,
+    stepIndex,
+    isNextDisabled,
+    canGoBack,
+  ]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -913,46 +992,48 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
     <AnimatePresence mode="wait">
       {onboardingVisible && (
         <motion.div
-        key="onboarding-overlay"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
-        style={{ pointerEvents: 'auto' }}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-title"
-        onMouseDown={(e) => {
-          // Prevent backdrop from capturing clicks on buttons
-          const target = e.target as HTMLElement;
-          if (target.closest('[data-onboarding-skip]') || target.closest('[data-onboarding-next]') || target.closest('[data-onboarding-back]') || target.closest('[data-onboarding-close]')) {
-            // Let button handle the event
-            return;
-          }
-          // Prevent backdrop from capturing clicks
-          if (e.target === e.currentTarget) {
-            console.log('[Onboarding] Backdrop clicked - preventing default');
+          key="onboarding-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          style={{ pointerEvents: 'auto' }}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="onboarding-title"
+          onMouseDown={e => {
+            // Completely ignore button clicks - don't interfere at all
+            const target = e.target as HTMLElement;
+            if (
+              target.closest('button') ||
+              target.closest('[data-onboarding-skip]') ||
+              target.closest('[data-onboarding-next]') ||
+              target.closest('[data-onboarding-back]') ||
+              target.closest('[data-onboarding-close]') ||
+              target.closest('[role="button"]')
+            ) {
+              return; // Don't do anything - let button handle it completely
+            }
+            // Only prevent default for backdrop clicks (not on buttons)
             e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-        onClick={(e) => {
-          // Prevent backdrop from capturing clicks on buttons
-          const target = e.target as HTMLElement;
-          if (target.closest('[data-onboarding-skip]') || target.closest('[data-onboarding-next]') || target.closest('[data-onboarding-back]') || target.closest('[data-onboarding-close]')) {
-            // Let button handle the event
-            return;
-          }
-          // Only stop propagation if clicking directly on backdrop (not children)
-          if (e.target === e.currentTarget) {
-            console.log('[Onboarding] Backdrop clicked - stopping propagation');
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
-      >
+          }}
+          onClick={e => {
+            // Completely ignore button clicks - don't interfere at all
+            const target = e.target as HTMLElement;
+            if (
+              target.closest('button') ||
+              target.closest('[data-onboarding-skip]') ||
+              target.closest('[data-onboarding-next]') ||
+              target.closest('[data-onboarding-back]') ||
+              target.closest('[data-onboarding-close]') ||
+              target.closest('[role="button"]')
+            ) {
+              return; // Don't do anything - let button handle it completely
+            }
+          }}
+        >
           {spotlight && (
             <div
               className="pointer-events-none absolute rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_20px_rgba(16,185,129,0.35)]"
@@ -974,243 +1055,364 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
             transition={{ duration: 0.2 }}
             className="relative w-[min(520px,90vw)] rounded-3xl border border-slate-700/70 bg-slate-950/95 p-6 text-gray-100 shadow-2xl z-[10000]"
             style={{ pointerEvents: 'auto', position: 'relative' }}
-            onClick={(e) => {
-              // Only stop propagation if clicking directly on modal container (not buttons)
+            onMouseDown={e => {
+              // Completely ignore button clicks - don't interfere at all
               const target = e.target as HTMLElement;
-              if (target === e.currentTarget || target.closest('[data-onboarding-skip]') || target.closest('[data-onboarding-next]') || target.closest('[data-onboarding-back]') || target.closest('[data-onboarding-close]')) {
-                // Don't stop propagation for buttons - let them handle their own events
-                return;
+              if (
+                target.closest('button') ||
+                target.closest('[data-onboarding-skip]') ||
+                target.closest('[data-onboarding-next]') ||
+                target.closest('[data-onboarding-back]') ||
+                target.closest('[data-onboarding-close]') ||
+                target.closest('[role="button"]')
+              ) {
+                return; // Don't do anything - let button handle it completely
               }
-              // Prevent clicks on modal from bubbling to backdrop
+            }}
+            onClick={e => {
+              // Completely ignore button clicks - don't interfere at all
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[data-onboarding-skip]') ||
+                target.closest('[data-onboarding-next]') ||
+                target.closest('[data-onboarding-back]') ||
+                target.closest('[data-onboarding-close]') ||
+                target.closest('[role="button"]')
+              ) {
+                return; // Don't do anything - let button handle it completely
+              }
+              // Only stop propagation for non-button clicks
               e.stopPropagation();
             }}
           >
-          <button
-            type="button"
-            data-onboarding-close
-            className="absolute right-5 top-5 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200 cursor-pointer"
-            style={{ pointerEvents: 'auto', position: 'absolute', zIndex: 1003 }}
-            onClick={(e) => {
-              console.log('[Onboarding] X button clicked via React');
-              e.preventDefault();
-              e.stopPropagation();
-              finishOnboarding();
-              onClose();
-            }}
-            aria-label="Close onboarding"
-          >
-            <X size={16} />
-          </button>
+            <button
+              type="button"
+              data-onboarding-close
+              className="absolute right-5 top-5 rounded-full border border-slate-700/60 bg-slate-900/70 p-1.5 text-gray-400 hover:text-gray-200 cursor-pointer active:scale-95"
+              style={{
+                pointerEvents: 'auto',
+                position: 'absolute',
+                zIndex: 10010,
+                isolation: 'isolate',
+              }}
+              onClick={e => {
+                console.log('[Onboarding] ✅ Close (X) button clicked!');
+                e.preventDefault();
+                e.stopPropagation();
+                (e as any).stopImmediatePropagation();
+                finishOnboarding();
+                onClose();
+              }}
+              onMouseDown={e => {
+                console.log('[Onboarding] ✅ Close (X) button mousedown!');
+                e.preventDefault();
+                e.stopPropagation();
+                finishOnboarding();
+                onClose();
+              }}
+              aria-label="Close onboarding"
+            >
+              <X size={16} />
+            </button>
 
-          <div className="text-xs uppercase tracking-wide text-emerald-300/80" data-tour-step-indicator>
-            Step {stepIndex + 1} of {TOTAL_STEPS}
-          </div>
-          <div className="mt-2" aria-live="polite">
-            <h2 id="onboarding-title" className="text-xl font-semibold text-white">{step.title}</h2>
-            {step.description && (
-              <p className="mt-3 text-sm leading-relaxed text-gray-300">{step.description}</p>
-            )}
-            {step.tips && step.tips.length > 0 && (
-              <div className="mt-4 space-y-3">
-                {step.tips.map((tip) => {
-                  const Icon = tip.icon;
+            <div
+              className="text-xs uppercase tracking-wide text-emerald-300/80"
+              data-tour-step-indicator
+            >
+              Step {stepIndex + 1} of {TOTAL_STEPS}
+            </div>
+            <div className="mt-2" aria-live="polite">
+              <h2 id="onboarding-title" className="text-xl font-semibold text-white">
+                {step.title}
+              </h2>
+              {step.description && (
+                <p className="mt-3 text-sm leading-relaxed text-gray-300">{step.description}</p>
+              )}
+              {step.tips && step.tips.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {step.tips.map(tip => {
+                    const Icon = tip.icon;
+                    return (
+                      <div
+                        key={tip.title}
+                        className="flex items-start gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/70 p-3"
+                      >
+                        <div className="mt-1 text-emerald-300/80">
+                          <Icon size={16} />
+                        </div>
+                        <div className="flex-1 text-sm text-slate-200">
+                          <div className="font-semibold text-slate-100">{tip.title}</div>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                            {tip.description}
+                          </p>
+                          {tip.actionId && tip.actionLabel && (
+                            <button
+                              type="button"
+                              onClick={e => {
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                                handleTipAction(tip.actionId!);
+                              }}
+                              onMouseDown={e => {
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                              }}
+                              className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-100 transition hover:border-emerald-400/60 hover:text-emerald-50"
+                              style={{ zIndex: 10011, isolation: 'isolate' }}
+                            >
+                              {tip.actionLabel}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="mt-4">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+                <motion.div
+                  className="h-full rounded-full bg-emerald-400/80"
+                  initial={false}
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                />
+              </div>
+              <div className="mt-2 text-xs text-slate-500">{progressPercent}% complete</div>
+            </div>
+
+            {step.type === 'persona' ? (
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {PERSONAS.map((persona, index) => {
+                  const Icon = persona.icon;
+                  const isActive = selectedPersona === persona.id;
                   return (
-                    <div
-                      key={tip.title}
-                      className="flex items-start gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/70 p-3"
+                    <motion.button
+                      key={persona.id}
+                      type="button"
+                      data-persona-id={persona.id}
+                      ref={index === 0 ? personaFirstButtonRef : undefined}
+                      onClick={e => {
+                        console.log('[Onboarding] Persona clicked:', persona.id);
+                        e.preventDefault();
+                        (e as any).stopImmediatePropagation();
+                        e.stopPropagation();
+                        handlePersonaSelect(persona.id);
+                      }}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        (e as any).stopImmediatePropagation();
+                        e.stopPropagation();
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      aria-pressed={isActive}
+                      className={`flex h-full flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all ${
+                        isActive
+                          ? 'border-emerald-400/60 bg-emerald-500/10 text-emerald-100 shadow-[0_0_25px_rgba(34,197,94,0.25)]'
+                          : 'border-slate-700/60 bg-slate-900/70 text-gray-200 hover:border-slate-500/80 hover:bg-slate-900/90'
+                      }`}
+                      style={{
+                        pointerEvents: 'auto',
+                        cursor: 'pointer',
+                        zIndex: 10011,
+                        isolation: 'isolate',
+                      }}
                     >
-                      <div className="mt-1 text-emerald-300/80">
-                        <Icon size={16} />
+                      <div className="flex items-center gap-2">
+                        <Icon size={20} />
+                        <div>
+                          <div className="text-sm font-semibold">{persona.title}</div>
+                          <div className="text-xs text-gray-400">{persona.subtitle}</div>
+                        </div>
                       </div>
-                      <div className="flex-1 text-sm text-slate-200">
-                        <div className="font-semibold text-slate-100">{tip.title}</div>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-400">{tip.description}</p>
-                        {tip.actionId && tip.actionLabel && (
-                          <button
-                            type="button"
-                            onClick={() => handleTipAction(tip.actionId)}
-                            className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-100 transition hover:border-emerald-400/60 hover:text-emerald-50"
-                          >
-                            {tip.actionLabel}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      <p className="text-xs text-gray-300 leading-relaxed">{persona.hint}</p>
+                    </motion.button>
                   );
                 })}
               </div>
-            )}
-          </div>
-          <div className="mt-4">
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
-              <motion.div
-                className="h-full rounded-full bg-emerald-400/80"
-                initial={false}
-                animate={{ width: `${progressPercent}%` }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              />
-            </div>
-            <div className="mt-2 text-xs text-slate-500">{progressPercent}% complete</div>
-          </div>
-
-          {step.type === 'persona' ? (
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {PERSONAS.map((persona, index) => {
-                const Icon = persona.icon;
-                const isActive = selectedPersona === persona.id;
-                return (
-                  <motion.button
-                    key={persona.id}
-                    type="button"
-                    data-persona-id={persona.id}
-                    ref={index === 0 ? personaFirstButtonRef : undefined}
-                    onClick={(e) => {
-                      console.log('[Onboarding] Persona clicked:', persona.id);
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePersonaSelect(persona.id);
-                    }}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    aria-pressed={isActive}
-                    className={`flex h-full flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all ${
-                      isActive
-                        ? 'border-emerald-400/60 bg-emerald-500/10 text-emerald-100 shadow-[0_0_25px_rgba(34,197,94,0.25)]'
-                        : 'border-slate-700/60 bg-slate-900/70 text-gray-200 hover:border-slate-500/80 hover:bg-slate-900/90'
-                    }`}
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Icon size={20} />
-                      <div>
-                        <div className="text-sm font-semibold">{persona.title}</div>
-                        <div className="text-xs text-gray-400">{persona.subtitle}</div>
-                      </div>
+            ) : step.id === 'telemetry' ? (
+              <div className="mt-4">
+                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 hover:border-slate-500/80">
+                  <input
+                    type="checkbox"
+                    checked={telemetryOptIn}
+                    onChange={e => setTelemetryOptIn(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                  <div className="flex-1 text-sm">
+                    <div className="font-semibold text-slate-100">
+                      Enable privacy-safe telemetry
                     </div>
-                    <p className="text-xs text-gray-300 leading-relaxed">{persona.hint}</p>
-                  </motion.button>
-                );
-              })}
-            </div>
-          ) : step.id === 'telemetry' ? (
-            <div className="mt-4">
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 hover:border-slate-500/80">
-                <input
-                  type="checkbox"
-                  checked={telemetryOptIn}
-                  onChange={(e) => setTelemetryOptIn(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-emerald-500 focus:ring-2 focus:ring-emerald-500/50"
-                />
-                <div className="flex-1 text-sm">
-                  <div className="font-semibold text-slate-100">Enable privacy-safe telemetry</div>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                    Help us improve OmniBrowser by sharing anonymized performance data and crash reports. No personal information is collected.
-                  </p>
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      // Open privacy policy or settings
-                    }}
-                    className="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300"
-                  >
-                    Learn more about our privacy policy →
-                  </a>
-                </div>
-              </label>
-            </div>
-          ) : null}
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                      Help us improve OmniBrowser by sharing anonymized performance data and crash
+                      reports. No personal information is collected.
+                    </p>
+                    <a
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        // Open privacy policy or settings
+                      }}
+                      className="mt-2 inline-block text-xs text-emerald-400 hover:text-emerald-300"
+                    >
+                      Learn more about our privacy policy →
+                    </a>
+                  </div>
+                </label>
+              </div>
+            ) : null}
 
-          <div className="mt-6 flex items-center justify-between text-sm" style={{ pointerEvents: 'auto', zIndex: 1002, position: 'relative' }}>
-            <button
-              type="button"
-              data-onboarding-back
-              onClick={(e) => {
-                console.log('[Onboarding] Back button clicked via React');
-                e.preventDefault();
-                e.stopPropagation();
-                goBack();
-              }}
-              disabled={!canGoBack}
-              className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-300 transition hover:border-slate-500/80 hover:text-gray-100 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-              style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1003, touchAction: 'manipulation' }}
-            >
-              Back
-            </button>
-            <div 
-              className="flex items-center gap-2" 
-              style={{ pointerEvents: 'auto', position: 'relative', zIndex: 1004 }}
-              onClick={(e) => {
-                // Prevent clicks on container from interfering
-                e.stopPropagation();
-              }}
+            <div
+              className="mt-6 flex items-center justify-between text-sm"
+              style={{ pointerEvents: 'auto', zIndex: 1002, position: 'relative' }}
             >
               <button
                 type="button"
-                data-onboarding-skip
-                onClick={(e) => {
-                  console.log('[Onboarding] Skip button clicked via React');
+                data-onboarding-back
+                onClick={e => {
+                  console.log('[Onboarding] ✅ Back button clicked!', { canGoBack });
                   e.preventDefault();
                   e.stopPropagation();
-                  handleSkip();
-                }}
-                onMouseDown={(e) => {
-                  console.log('[Onboarding] Skip button mousedown via React');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSkip();
-                }}
-                onPointerDown={(e) => {
-                  console.log('[Onboarding] Skip button pointerdown via React');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleSkip();
-                }}
-                className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-400 transition hover:border-slate-500/80 hover:text-gray-200 hover:bg-slate-800/50 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                style={{ 
-                  pointerEvents: 'auto', 
-                  position: 'relative', 
-                  zIndex: 1005, 
-                  touchAction: 'manipulation', 
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  MozUserSelect: 'none',
-                  msUserSelect: 'none',
-                  isolation: 'isolate'
-                }}
-                tabIndex={0}
-                aria-label="Skip onboarding"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                data-onboarding-next
-                ref={primaryButtonRef}
-                onClick={(e) => {
-                  console.log('[Onboarding] Next/Finish button clicked via React', { isNextDisabled, stepIndex });
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!isNextDisabled) {
-                    goNext();
-                  } else {
-                    console.warn('[Onboarding] Next button is disabled!', { isNextDisabled, stepIndex, selectedPersona });
+                  (e as any).stopImmediatePropagation();
+                  if (canGoBack) {
+                    goBack();
                   }
                 }}
-                disabled={isNextDisabled}
-                className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
-                style={{ 
-                  pointerEvents: isNextDisabled ? 'none' : 'auto', 
-                  position: 'relative', 
-                  zIndex: 1003, 
+                onMouseDown={e => {
+                  console.log('[Onboarding] ✅ Back button mousedown!', { canGoBack });
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (canGoBack) {
+                    goBack();
+                  }
+                }}
+                disabled={false} // Never disable - just check canGoBack in handler
+                className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-300 transition hover:border-slate-500/80 hover:text-gray-100 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                style={{
+                  pointerEvents: 'auto',
+                  position: 'relative',
+                  zIndex: 10010,
                   touchAction: 'manipulation',
-                  cursor: isNextDisabled ? 'not-allowed' : 'pointer'
+                  opacity: canGoBack ? 1 : 0.4,
+                  cursor: canGoBack ? 'pointer' : 'not-allowed',
                 }}
               >
-                {isLastStep ? 'Finish' : 'Next'}
+                Back
               </button>
+              <div
+                className="flex items-center gap-2"
+                style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10010 }}
+                onMouseDown={e => {
+                  // Completely ignore button clicks - don't interfere at all
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || target.closest('[role="button"]')) {
+                    return; // Don't do anything - let button handle it completely
+                  }
+                }}
+                onClick={e => {
+                  // Completely ignore button clicks - don't interfere at all
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || target.closest('[role="button"]')) {
+                    return; // Don't do anything - let button handle it completely
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  data-onboarding-skip
+                  onClick={e => {
+                    console.log('[Onboarding] ✅ Skip button clicked!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
+                    handleSkip();
+                  }}
+                  onMouseDown={e => {
+                    console.log('[Onboarding] ✅ Skip button mousedown!');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSkip();
+                  }}
+                  className="rounded-lg border border-slate-700/60 px-3 py-2 text-gray-400 transition hover:border-slate-500/80 hover:text-gray-200 hover:bg-slate-800/50 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    pointerEvents: 'auto',
+                    position: 'relative',
+                    zIndex: 10010,
+                    touchAction: 'manipulation',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    isolation: 'isolate',
+                  }}
+                  tabIndex={0}
+                  aria-label="Skip onboarding"
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  data-onboarding-next
+                  ref={primaryButtonRef}
+                  onClick={e => {
+                    console.log('[Onboarding] ✅ Next/Finish button clicked!', {
+                      isNextDisabled,
+                      stepIndex,
+                    });
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
+
+                    if (!isNextDisabled) {
+                      goNext();
+                    } else {
+                      console.warn('[Onboarding] ⚠️ Button disabled, but trying anyway...', {
+                        isNextDisabled,
+                        stepIndex,
+                        selectedPersona,
+                      });
+                      // Force proceed if disabled (might be state sync issue)
+                      if (stepIndex === 0 && isPersonaStep) {
+                        const defaultPersona = personaFromMode || 'Browse';
+                        console.log('[Onboarding] Auto-selecting default persona:', defaultPersona);
+                        handlePersonaSelect(defaultPersona);
+                        setTimeout(() => goNext(), 50);
+                      } else {
+                        // Try to proceed anyway
+                        goNext();
+                      }
+                    }
+                  }}
+                  onMouseDown={e => {
+                    console.log('[Onboarding] ✅ Next/Finish button mousedown!', {
+                      isNextDisabled,
+                    });
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isNextDisabled) {
+                      goNext();
+                    } else {
+                      // Force proceed on mousedown too
+                      goNext();
+                    }
+                  }}
+                  disabled={false} // Never disable - always allow click
+                  className="rounded-lg border border-emerald-500/60 bg-emerald-500/10 px-4 py-2 font-medium text-emerald-100 transition hover:bg-emerald-500/20 cursor-pointer active:scale-95 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    pointerEvents: 'auto',
+                    position: 'relative',
+                    zIndex: 10010,
+                    touchAction: 'manipulation',
+                    cursor: 'pointer',
+                    isolation: 'isolate',
+                    opacity: isNextDisabled ? 0.6 : 1,
+                  }}
+                >
+                  {isLastStep ? 'Finish' : 'Next'}
+                </button>
+              </div>
             </div>
-          </div>
           </motion.div>
         </motion.div>
       )}

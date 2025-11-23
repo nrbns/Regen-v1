@@ -123,7 +123,12 @@ export default function SessionRestoreModal() {
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={e => {
-            // Close on backdrop click
+            // Don't interfere with button clicks
+            const target = e.target as HTMLElement;
+            if (target.closest('button')) {
+              return; // Let button handle it
+            }
+            // Close on backdrop click only
             if (e.target === e.currentTarget) {
               handleDismiss();
             }
@@ -134,6 +139,15 @@ export default function SessionRestoreModal() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="bg-slate-900 rounded-xl border border-slate-700 shadow-2xl max-w-md w-full mx-4"
+            onClick={e => {
+              // Don't interfere with button clicks
+              const target = e.target as HTMLElement;
+              if (target.closest('button')) {
+                return; // Let button handle it
+              }
+              // Prevent clicks on modal from bubbling to backdrop
+              e.stopPropagation();
+            }}
           >
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
@@ -147,9 +161,18 @@ export default function SessionRestoreModal() {
                   </p>
                 </div>
                 <button
-                  onClick={handleDismiss}
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
+                    setTimeout(() => {
+                      handleDismiss();
+                    }, 0);
+                  }}
                   className="text-gray-400 hover:text-gray-200 transition-colors"
                   aria-label="Dismiss"
+                  style={{ pointerEvents: 'auto', zIndex: 10001 }}
                 >
                   <X size={20} />
                 </button>
@@ -157,9 +180,18 @@ export default function SessionRestoreModal() {
 
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={handleRestore}
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
+                    setTimeout(() => {
+                      handleRestore();
+                    }, 0);
+                  }}
                   disabled={isRestoring}
                   className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
                 >
                   {isRestoring ? (
                     <>
@@ -174,9 +206,18 @@ export default function SessionRestoreModal() {
                   )}
                 </button>
                 <button
-                  onClick={handleDismiss}
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (e as any).stopImmediatePropagation();
+                    setTimeout(() => {
+                      handleDismiss();
+                    }, 0);
+                  }}
                   disabled={isRestoring}
                   className="flex-1 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80 disabled:opacity-50"
+                  style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
                 >
                   Start Fresh
                 </button>

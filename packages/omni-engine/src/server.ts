@@ -100,16 +100,56 @@ wss.on('connection', ws => {
   });
 });
 
+// Error handling
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    log.error(`Port ${PORT} is already in use. Engine will not start, but app will continue.`);
+    // Don't exit - allow app to continue without engine
+    return;
+  }
+  log.error('Server error', { error: error.message, code: error.code });
+  // Don't exit on error - allow graceful degradation
+});
+
 // Start server
-server.listen(PORT, () => {
-  log.info(`Omni Engine server running on port ${PORT}`);
-  log.info(`Health check: http://localhost:${PORT}/health`);
-  log.info(`WebSocket: ws://localhost:${PORT}/ws`);
+server
+  .listen(PORT, () => {
+    log.info(`Omni Engine server running on port ${PORT}`);
+    log.info(`Health check: http://localhost:${PORT}/health`);
+    log.info(`WebSocket: ws://localhost:${PORT}/ws`);
+  })
+  .on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      log.warn(`Port ${PORT} is already in use. Engine will not start, but app will continue.`);
+      return;
+    }
+    log.error('Failed to start server', { error: error.message, code: error.code });
+    // Don't exit - allow app to continue
+  });
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Unhandled rejection in engine', { reason: String(reason) });
+  // Don't exit - log and continue
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', error => {
+  log.error('Uncaught exception in engine', { error: error.message, stack: error.stack });
+  // Don't exit - log and continue (server will keep running)
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   log.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    log.info('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  log.info('SIGINT received, shutting down gracefully');
   server.close(() => {
     log.info('Server closed');
     process.exit(0);

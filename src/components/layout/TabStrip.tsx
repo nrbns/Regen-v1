@@ -241,8 +241,17 @@ export function TabStrip() {
     >
       <button
         type="button"
-        onClick={() => toggleGroupCollapsed(group.id)}
+        onClick={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+          toggleGroupCollapsed(group.id);
+        }}
+        onMouseDown={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+        }}
         className="p-1 rounded hover:bg-gray-800/60 transition-colors text-gray-300 hover:text-gray-100"
+        style={{ zIndex: 10011, isolation: 'isolate' }}
         title={group.collapsed ? 'Expand group' : 'Collapse group'}
       >
         {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
@@ -255,8 +264,17 @@ export function TabStrip() {
         />
         <button
           type="button"
-          onClick={() => handleRenameGroup(group)}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            handleRenameGroup(group);
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="text-[11px] font-semibold text-gray-200 hover:text-white truncate"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
           title="Rename group"
         >
           {group.name}
@@ -265,24 +283,51 @@ export function TabStrip() {
       <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={() => handleCycleGroupColor(group)}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            handleCycleGroupColor(group);
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
           title="Cycle group color"
         >
           <Palette size={14} />
         </button>
         <button
           type="button"
-          onClick={() => handleRenameGroup(group)}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            handleRenameGroup(group);
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
           title="Rename group"
         >
           <Edit3 size={14} />
         </button>
         <button
           type="button"
-          onClick={() => handleDeleteGroup(group)}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            handleDeleteGroup(group);
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="p-1 rounded hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
           title="Remove group"
         >
           <Trash2 size={14} />
@@ -364,7 +409,7 @@ export function TabStrip() {
           onClick={e => {
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation();
+            (e as any).stopImmediatePropagation();
             void activateTab(tab.id);
           }}
           onKeyDown={e => {
@@ -410,7 +455,7 @@ export function TabStrip() {
             if (e.button === 1) {
               e.preventDefault();
               e.stopPropagation();
-              e.stopImmediatePropagation();
+              (e as any).stopImmediatePropagation();
               closeTab(tab.id);
             }
           }}
@@ -588,20 +633,20 @@ export function TabStrip() {
               onClick={e => {
                 e.preventDefault();
                 e.stopPropagation();
-                e.stopImmediatePropagation();
+                (e as any).stopImmediatePropagation();
                 closeTab(tab.id);
               }}
               onAuxClick={e => {
                 if (e.button === 1) {
                   e.preventDefault();
                   e.stopPropagation();
-                  e.stopImmediatePropagation();
+                  (e as any).stopImmediatePropagation();
                   closeTab(tab.id);
                 }
               }}
               onMouseDown={e => {
                 e.stopPropagation();
-                e.stopImmediatePropagation();
+                (e as any).stopImmediatePropagation();
               }}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -1916,7 +1961,9 @@ export function TabStrip() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <motion.button
               type="button"
-              onClick={() => {
+              onClick={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
                 const namePrompt =
                   window.prompt('New group name', `Group ${tabGroups.length + 1}`) ?? undefined;
                 const group = handleCreateGroupShortcut(
@@ -1926,6 +1973,10 @@ export function TabStrip() {
                   assignTabToGroup(draggedTabIdRef.current, group.id);
                   draggedTabIdRef.current = null;
                 }
+              }}
+              onMouseDown={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
               }}
               onDragOver={e => {
                 if (!draggedTabIdRef.current) return;
@@ -2018,15 +2069,26 @@ export function TabStrip() {
               </DropdownMenuContent>
             </DropdownMenu>
             <motion.button
-              onClick={addTab}
+              onClick={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+                addTab();
+              }}
+              onMouseDown={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+              }}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
                   addTab();
                 }
               }}
               aria-label="New tab"
               className="p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              style={{ zIndex: 10011, isolation: 'isolate' }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               title="New Tab (Ctrl+T / ⌘T)"

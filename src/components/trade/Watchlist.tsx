@@ -126,8 +126,17 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
         </div>
         <button
           type="button"
-          onClick={() => setInput(activeSymbol)}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            setInput(activeSymbol);
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="text-xs text-indigo-300 hover:text-white"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           Track {activeSymbol}
         </button>
@@ -146,7 +155,16 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
         <button
           type="submit"
           disabled={isAdding}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
           className="inline-flex items-center gap-1 rounded-xl bg-indigo-500/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           <Plus size={14} />
           Add
@@ -185,10 +203,19 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
                 <button
                   key={entry.symbol}
                   type="button"
-                  onClick={() => onSelectSymbol(entry.symbol)}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    onSelectSymbol(entry.symbol);
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
                     isActive ? 'bg-indigo-500/10 text-white' : 'hover:bg-white/5'
                   }`}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <div>
                     <div className="flex items-center gap-2">
@@ -226,10 +253,16 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
                     <button
                       type="button"
                       onClick={event => {
+                        (event as any).stopImmediatePropagation();
                         event.stopPropagation();
                         removeSymbol(entry.symbol);
                       }}
+                      onMouseDown={e => {
+                        (e as any).stopImmediatePropagation();
+                        e.stopPropagation();
+                      }}
                       className="rounded-full p-1 text-gray-500 hover:text-white"
+                      style={{ zIndex: 10012, isolation: 'isolate' }}
                       title="Remove"
                     >
                       <X size={14} />
@@ -241,9 +274,18 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
           </div>
           <button
             type="button"
-            onClick={() => void refreshQuotes()}
+            onClick={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+              void refreshQuotes();
+            }}
+            onMouseDown={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+            }}
             disabled={isRefreshing}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-gray-300 hover:border-white/40 hover:text-white disabled:opacity-50"
+            style={{ zIndex: 10011, isolation: 'isolate' }}
           >
             <RefreshCcw size={14} className={isRefreshing ? 'animate-spin' : ''} />
             Refresh quotes

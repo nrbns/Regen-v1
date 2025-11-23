@@ -27,7 +27,7 @@ function getClient() {
         return delay;
       },
       enableOfflineQueue: false,
-      lazyConnect: false,
+      lazyConnect: true, // Don't connect immediately - connect on first use
       connectTimeout: 5000,
     });
 

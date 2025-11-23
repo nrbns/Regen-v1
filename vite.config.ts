@@ -55,7 +55,7 @@ export default defineConfig({
     sourcemap: true,
     emptyOutDir: true,
     minify: 'esbuild',
-    chunkSizeWarningLimit: 750,
+    chunkSizeWarningLimit: 1000, // Increased to reduce warnings for large chunks
     rollupOptions: {
       external: [
         '@ghostery/adblocker-electron',
@@ -64,10 +64,15 @@ export default defineConfig({
         'chromium-bidi/lib/cjs/cdp/CdpConnection',
       ],
       output: {
+        // Optimize chunk names for better caching
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        // Optimize chunk splitting for better loading performance
         manualChunks: id => {
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
-            // Large UI libraries
+            // Large UI libraries - split into separate chunks
             if (id.includes('framer-motion')) {
               return 'vendor-framer-motion';
             }
@@ -77,15 +82,23 @@ export default defineConfig({
             if (id.includes('reactflow')) {
               return 'vendor-reactflow';
             }
+            // React and React DOM - core, load first
+            if (id.includes('react-dom')) {
+              return 'vendor-react-dom';
+            }
+            if (id.includes('react') && !id.includes('react-dom')) {
+              return 'vendor-react';
+            }
+            // Router - load early
+            if (id.includes('react-router')) {
+              return 'vendor-router';
+            }
+            // Large libraries - lazy load
             if (id.includes('pdfjs-dist') || id.includes('pdf.worker')) {
               return 'vendor-pdf';
             }
             if (id.includes('mammoth')) {
               return 'vendor-mammoth';
-            }
-            // React and core deps
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react';
             }
             // Langchain and AI deps
             if (id.includes('langchain') || id.includes('@langchain')) {

@@ -86,8 +86,17 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                   </p>
                 </div>
                 <button
-                  onClick={onClose}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className="text-gray-400 hover:text-gray-200 transition-colors"
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close"
                 >
                   <X size={20} />
@@ -103,12 +112,21 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                       <button
                         key={value}
                         type="button"
-                        onClick={() => setRating(value)}
+                        onClick={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                          setRating(value);
+                        }}
+                        onMouseDown={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                        }}
                         className={`p-2 rounded transition-colors ${
                           rating && rating >= value
                             ? 'text-yellow-400'
                             : 'text-gray-500 hover:text-gray-400'
                         }`}
+                        style={{ zIndex: 10011, isolation: 'isolate' }}
                       >
                         <Star
                           size={24}
@@ -137,15 +155,33 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      onClose();
+                    }}
+                    onMouseDown={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
                     className="flex-1 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
+                    style={{ zIndex: 10011, isolation: 'isolate' }}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={!rating || submitting}
+                    onClick={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ zIndex: 10011, isolation: 'isolate' }}
                   >
                     {submitting ? (
                       <>

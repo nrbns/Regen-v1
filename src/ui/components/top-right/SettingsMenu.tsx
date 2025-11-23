@@ -136,7 +136,15 @@ export function SettingsMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
-        onClick={() => setOpen(value => !value)}
+        onClick={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+          setOpen(value => !value);
+        }}
+        onMouseDown={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+        }}
       >
         <Settings2 className="h-5 w-5" aria-hidden />
       </button>
@@ -172,12 +180,21 @@ export function SettingsMenu() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => handleThemeChange(key as ThemePreference)}
+                    onClick={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      handleThemeChange(key as ThemePreference);
+                    }}
+                    onMouseDown={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
                     className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2 text-xs transition ${
                       settings.theme === key
                         ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/10 text-[var(--text-primary)]'
                         : 'border-[var(--surface-border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--surface-border-strong)]'
                     }`}
+                    style={{ zIndex: 10011, isolation: 'isolate' }}
                   >
                     <Icon className="h-4 w-4" />
                     {label}
@@ -194,12 +211,21 @@ export function SettingsMenu() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleToggleChange('privacyMode')}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleToggleChange('privacyMode');
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                     settings.privacyMode
                       ? 'bg-[var(--color-primary-500)]'
                       : 'bg-[var(--surface-border)]'
                   }`}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -218,12 +244,21 @@ export function SettingsMenu() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleToggleChange('performanceMode')}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleToggleChange('performanceMode');
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                     settings.performanceMode
                       ? 'bg-[var(--color-primary-500)]'
                       : 'bg-[var(--surface-border)]'
                   }`}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -245,10 +280,17 @@ export function SettingsMenu() {
               <button
                 type="button"
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
-                onClick={() => {
+                onClick={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
                   closeMenu();
                   window.dispatchEvent(new CustomEvent('app:open-settings'));
                 }}
+                onMouseDown={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                }}
+                style={{ zIndex: 10011, isolation: 'isolate' }}
               >
                 <Settings2 className="h-4 w-4 text-[var(--text-muted)]" />
                 Open full settings

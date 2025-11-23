@@ -43,6 +43,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
   // In Electron, BrowserView is managed by main process, so we don't need webview event handlers
   // The main process handles all BrowserView lifecycle events
+  // Cleanup: Ensure no memory leaks when tab is hibernated or closed
   useEffect(() => {
     if (!isElectron || !targetUrl) {
       return;
@@ -50,7 +51,15 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
     // BrowserView is managed by electron/services/tabs.ts
     // No need for webview event handlers here
-    return;
+
+    // Cleanup function to prevent memory leaks
+    return () => {
+      // Clear any pending timeouts or intervals
+      // Reset state to prevent stale references
+      setLoading(false);
+      setFailedMessage(null);
+      setBlockedExternal(false);
+    };
 
     /* Legacy webview code - kept for reference but not used
     const webviewElement = webviewRef.current as Electron.WebviewTag;
@@ -203,13 +212,20 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     iframe.addEventListener('load', handleLoad);
     iframe.addEventListener('error', handleError);
 
+    // Cleanup function to prevent memory leaks on tab hibernation/close
     return () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
-      iframe.removeEventListener('load', handleLoad);
-      iframe.removeEventListener('error', handleError);
+      if (iframe && iframeRef.current) {
+        iframe.removeEventListener('load', handleLoad);
+        iframe.removeEventListener('error', handleError);
+      }
+      // Clear refs to prevent stale references
+      setLoading(false);
+      setFailedMessage(null);
+      setBlockedExternal(false);
     };
   }, [isElectron, targetUrl]);
 

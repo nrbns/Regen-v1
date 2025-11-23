@@ -171,17 +171,17 @@ export declare const SettingsSchema: z.ZodObject<
         'strip',
         z.ZodTypeAny,
         {
-          fontFamily: string;
-          fontSize: 'small' | 'large' | 'medium';
           theme: 'auto' | 'light' | 'dark';
+          fontFamily: string;
+          fontSize: 'medium' | 'small' | 'large';
           compactMode: boolean;
           showProxyBadge: boolean;
           animations: boolean;
         },
         {
-          fontFamily?: string | undefined;
-          fontSize?: 'small' | 'large' | 'medium' | undefined;
           theme?: 'auto' | 'light' | 'dark' | undefined;
+          fontFamily?: string | undefined;
+          fontSize?: 'medium' | 'small' | 'large' | undefined;
           compactMode?: boolean | undefined;
           showProxyBadge?: boolean | undefined;
           animations?: boolean | undefined;
@@ -264,14 +264,6 @@ export declare const SettingsSchema: z.ZodObject<
   'strip',
   z.ZodTypeAny,
   {
-    appearance: {
-      fontFamily: string;
-      fontSize: 'small' | 'large' | 'medium';
-      theme: 'auto' | 'light' | 'dark';
-      compactMode: boolean;
-      showProxyBadge: boolean;
-      animations: boolean;
-    };
     performance: {
       tabSleepMins: number;
       memoryCapMB: number;
@@ -307,6 +299,14 @@ export declare const SettingsSchema: z.ZodObject<
       blockAds: boolean;
       blockFingerprinting: boolean;
     };
+    appearance: {
+      theme: 'auto' | 'light' | 'dark';
+      fontFamily: string;
+      fontSize: 'medium' | 'small' | 'large';
+      compactMode: boolean;
+      showProxyBadge: boolean;
+      animations: boolean;
+    };
     downloads: {
       requireConsent: boolean;
       defaultPath: string;
@@ -333,16 +333,6 @@ export declare const SettingsSchema: z.ZodObject<
     };
   },
   {
-    appearance?:
-      | {
-          fontFamily?: string | undefined;
-          fontSize?: 'small' | 'large' | 'medium' | undefined;
-          theme?: 'auto' | 'light' | 'dark' | undefined;
-          compactMode?: boolean | undefined;
-          showProxyBadge?: boolean | undefined;
-          animations?: boolean | undefined;
-        }
-      | undefined;
     performance?:
       | {
           tabSleepMins?: number | undefined;
@@ -384,6 +374,16 @@ export declare const SettingsSchema: z.ZodObject<
           blockTrackers?: boolean | undefined;
           blockAds?: boolean | undefined;
           blockFingerprinting?: boolean | undefined;
+        }
+      | undefined;
+    appearance?:
+      | {
+          theme?: 'auto' | 'light' | 'dark' | undefined;
+          fontFamily?: string | undefined;
+          fontSize?: 'medium' | 'small' | 'large' | undefined;
+          compactMode?: boolean | undefined;
+          showProxyBadge?: boolean | undefined;
+          animations?: boolean | undefined;
         }
       | undefined;
     downloads?:

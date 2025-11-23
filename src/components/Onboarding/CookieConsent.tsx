@@ -149,6 +149,30 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
             initial={{ scale: 0.95 }}
             animate={{ scale: 1 }}
             className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+            onClick={e => {
+              // Completely ignore button clicks - don't interfere at all
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[role="button"]') ||
+                target.closest('a')
+              ) {
+                return; // Don't do anything - let button handle it completely
+              }
+              // Only stop propagation for non-button clicks
+              e.stopPropagation();
+            }}
+            onMouseDown={e => {
+              // Completely ignore button clicks - don't interfere at all
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[role="button"]') ||
+                target.closest('a')
+              ) {
+                return; // Don't do anything - let button handle it completely
+              }
+            }}
           >
             {/* Header */}
             <div className="flex items-center gap-3 p-6 border-b border-gray-700">
@@ -163,9 +187,26 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
               </div>
               {showSettings && (
                 <button
-                  onClick={() => setShowDetails(false)}
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    setShowDetails(false);
+                  }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
                   aria-label="Close"
+                  style={{
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 10011,
+                    isolation: 'isolate',
+                  }}
                 >
                   <X size={20} className="text-gray-400" />
                 </button>
@@ -219,12 +260,29 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                             </div>
                           ) : (
                             <button
-                              onClick={() => toggleCategory(category.id)}
+                              type="button"
+                              onClick={e => {
+                                e.preventDefault();
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                                toggleCategory(category.id);
+                              }}
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                              }}
                               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                                 preferences[category.id]
                                   ? 'bg-green-600 hover:bg-green-700 text-white'
                                   : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                               }`}
+                              style={{
+                                pointerEvents: 'auto',
+                                cursor: 'pointer',
+                                zIndex: 10011,
+                                isolation: 'isolate',
+                              }}
                             >
                               {preferences[category.id] ? (
                                 <span className="flex items-center gap-1">
@@ -268,8 +326,25 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
             {/* Footer Actions */}
             <div className="flex items-center justify-between p-6 border-t border-gray-700 gap-4 bg-gray-900/50">
               <button
-                onClick={() => setShowDetails(!showDetails)}
+                type="button"
+                onClick={e => {
+                  e.preventDefault();
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                  setShowDetails(!showDetails);
+                }}
+                onMouseDown={e => {
+                  e.preventDefault();
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                }}
                 className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors flex items-center gap-2"
+                style={{
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                  zIndex: 10011,
+                  isolation: 'isolate',
+                }}
               >
                 <Settings size={16} />
                 <span>{showDetails ? 'Hide Details' : 'Customize'}</span>
@@ -277,27 +352,74 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
 
               <div className="flex items-center gap-3">
                 <button
-                  onClick={handleDecline}
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleDecline();
+                  }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors"
+                  style={{
+                    pointerEvents: 'auto',
+                    cursor: 'pointer',
+                    zIndex: 10011,
+                    isolation: 'isolate',
+                  }}
                 >
                   Accept Essential Only
                 </button>
                 {showDetails ? (
                   <button
-                    onClick={handleAcceptSelected}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      handleAcceptSelected();
+                    }}
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    style={{
+                      pointerEvents: 'auto',
+                      cursor: 'pointer',
+                      zIndex: 10011,
+                      isolation: 'isolate',
+                    }}
                   >
                     <Check size={16} />
                     <span>Save Preferences</span>
                   </button>
                 ) : (
                   <button
-                    onClick={handleAcceptAll}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
-                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      handleAcceptAll();
+                    }}
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    style={{
+                      pointerEvents: 'auto',
+                      cursor: 'pointer',
+                      zIndex: 10011,
+                      isolation: 'isolate',
+                    }}
                   >
                     <Check size={16} />
                     <span>Accept All</span>

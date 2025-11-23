@@ -5,8 +5,9 @@ import { ResearchSplit } from '../components/Panels/ResearchSplit';
 import { OmniDesk } from '../components/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
 import { Loader2 } from 'lucide-react';
+import { ErrorBoundary } from '../core/errors/ErrorBoundary';
 
-// Tier 3: Load all enabled modes
+// Tier 3: Load all enabled modes with error handling
 const ResearchPanel = lazy(() => import('../modes/research'));
 const TradePanel = lazy(() => import('../modes/trade'));
 const DocumentMode = lazy(() =>
@@ -14,12 +15,19 @@ const DocumentMode = lazy(() =>
 );
 const ThreatsPanel = lazy(() => import('../modes/threats'));
 
-// Loading fallback component
+// Enhanced loading fallback with skeleton loader
 const ModeLoadingFallback = () => (
-  <div className="flex items-center justify-center h-full w-full">
-    <div className="flex items-center gap-2 text-gray-400">
-      <Loader2 className="w-5 h-5 animate-spin" />
-      <span className="text-sm">Loading mode...</span>
+  <div className="flex flex-col items-center justify-center h-full w-full p-8">
+    <div className="flex items-center gap-3 mb-4">
+      <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+      <span className="text-sm text-gray-400">Loading mode...</span>
+    </div>
+    {/* Skeleton loader */}
+    <div className="w-full max-w-2xl space-y-4 animate-pulse">
+      <div className="h-4 bg-gray-800 rounded w-3/4"></div>
+      <div className="h-4 bg-gray-800 rounded w-1/2"></div>
+      <div className="h-32 bg-gray-800 rounded"></div>
+      <div className="h-4 bg-gray-800 rounded w-5/6"></div>
     </div>
   </div>
 );
@@ -94,9 +102,11 @@ export default function Home() {
           {/* Top: Research Panel (full width) */}
           {!isFullscreen && (
             <div className="h-96 border-b border-gray-700/30 flex-shrink-0 overflow-hidden">
-              <Suspense fallback={<ModeLoadingFallback />}>
-                <ResearchPanel />
-              </Suspense>
+              <ErrorBoundary componentName="ResearchPanel" retryable={true}>
+                <Suspense fallback={<ModeLoadingFallback />}>
+                  <ResearchPanel />
+                </Suspense>
+              </ErrorBoundary>
             </div>
           )}
           {/* Bottom: Browser view with ResearchSplit overlay */}
@@ -114,21 +124,27 @@ export default function Home() {
         </div>
       ) : mode === 'Trade' ? (
         <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
-          <Suspense fallback={<ModeLoadingFallback />}>
-            <TradePanel />
-          </Suspense>
+          <ErrorBoundary componentName="TradePanel" retryable={true}>
+            <Suspense fallback={<ModeLoadingFallback />}>
+              <TradePanel />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       ) : mode === 'Docs' ? (
         <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
-          <Suspense fallback={<ModeLoadingFallback />}>
-            <DocumentMode />
-          </Suspense>
+          <ErrorBoundary componentName="DocumentMode" retryable={true}>
+            <Suspense fallback={<ModeLoadingFallback />}>
+              <DocumentMode />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       ) : mode === 'Threats' ? (
         <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
-          <Suspense fallback={<ModeLoadingFallback />}>
-            <ThreatsPanel />
-          </Suspense>
+          <ErrorBoundary componentName="ThreatsPanel" retryable={true}>
+            <Suspense fallback={<ModeLoadingFallback />}>
+              <ThreatsPanel />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       ) : (
         // Show "Coming Soon" placeholder for disabled modes

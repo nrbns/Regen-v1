@@ -82,7 +82,7 @@ const redisConfig = {
   },
   enableOfflineQueue: false,
   connectTimeout: 5000,
-  lazyConnect: false,
+  lazyConnect: true, // Don't connect immediately - connect on first use
 };
 
 const redisPub = new Redis(REDIS_URL, redisConfig);
@@ -189,19 +189,25 @@ for (const { name, client } of redisClients) {
   });
 
   client.on('error', error => {
-    const now = Date.now();
     redisConnected = false;
 
-    // Suppress repeated errors - only log once per suppression period
+    // Completely suppress all Redis connection errors - Redis is optional
+    if (
+      error?.code === 'ECONNREFUSED' ||
+      error?.code === 'MaxRetriesPerRequestError' ||
+      error?.code === 'ENOTFOUND' ||
+      error?.code === 'ETIMEDOUT' ||
+      error?.message?.includes('Connection is closed')
+    ) {
+      // Silently ignore - Redis is optional
+      return;
+    }
+
+    // Only log non-connection errors in debug mode
+    const now = Date.now();
     if (now - lastRedisErrorTime > REDIS_ERROR_SUPPRESSION_MS) {
-      if (error?.code === 'ECONNREFUSED') {
-        fastify.log.warn(
-          { redis: name },
-          `[redis:${name}] Connection refused. Redis is optional - the app will continue without it.`
-        );
-      } else if (error?.code !== 'MaxRetriesPerRequestError') {
-        // Don't log MaxRetriesPerRequestError - it's expected when Redis is down
-        fastify.log.error(
+      if (fastify.log.level === 'debug') {
+        fastify.log.debug(
           { error, redis: name },
           `[redis:${name}] ${error?.message || 'Redis error'}`
         );

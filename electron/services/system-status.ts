@@ -39,18 +39,33 @@ let lastStatus: SystemStatus | null = null;
 
 /**
  * Check Redis connection status
+ * Silently returns false if Redis is unavailable (non-fatal)
  */
 async function checkRedisConnection(): Promise<boolean> {
   try {
     // Dynamically import Redis client to avoid type issues
     // @ts-ignore - Redis config is JS file
     const { redisClient } = await import('../../server/config/redis.js');
-    await Promise.race([
-      redisClient.ping(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
-    ]);
-    return true;
-  } catch {
+
+    // Check if client is ready before pinging
+    if (!redisClient || redisClient.status !== 'ready') {
+      return false;
+    }
+
+    // Try to ping with timeout, but suppress all errors
+    try {
+      await Promise.race([
+        redisClient.ping(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000)),
+      ]);
+      return true;
+    } catch (error: unknown) {
+      // Silently ignore all Redis connection errors - Redis is optional
+      // Don't log - this is expected when Redis is not available
+      return false;
+    }
+  } catch (error: unknown) {
+    // Silently ignore import errors or any other errors - Redis is optional
     return false;
   }
 }
@@ -70,8 +85,9 @@ async function getWorkerState(): Promise<'running' | 'stopped' | 'error'> {
     // Try to check if workflow orchestrator has active workers
     // This is a best-effort check - workers may exist but not be registered here
     try {
-      // @ts-ignore - workflow-orchestrator is JS file
+      // @ts-ignore - workflow-orchestrator is JS file without type definitions
       const { hasActiveWorkers } = await import(
+        // @ts-ignore
         '../../server/services/redix/workflow-orchestrator.js'
       );
       const hasWorkers = hasActiveWorkers?.() || false;

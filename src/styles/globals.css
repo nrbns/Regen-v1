@@ -1,3 +1,12 @@
+/* Import Design System - must be before @tailwind */
+@import './design-system.css';
+
+/* Import Design Tokens - must be before @tailwind */
+@import './tokens.css';
+
+/* Theme vars (light/dark) - must be before @tailwind */
+@import './theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,15 +23,6 @@
   white-space: nowrap;
   border-width: 0;
 }
-
-/* Import Design System */
-@import './design-system.css';
-
-/* Import Design Tokens */
-@import './tokens.css';
-
-/* Theme vars (light/dark) */
-@import './theme.css';
 
 body {
   margin: 0;

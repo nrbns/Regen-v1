@@ -14,6 +14,7 @@ import IndicatorsPanel from './components/Indicators';
 import { ipc } from '../../lib/ipc-typed';
 import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
+import { toast } from '../../utils/toast';
 
 const TRADE_PREFS_STORAGE_KEY = 'trade_mode_preferences_v1';
 
@@ -653,13 +654,29 @@ Format the response as structured trading analysis.`;
       await loadBalance();
       await loadPositions();
 
-      // Show success notification
-      alert(
+      // Show success notification with toast
+      toast.success(
         `Order placed: ${order.side.toUpperCase()} ${order.quantity} ${order.symbol}${order.paper ? ' (Paper)' : ''}`
       );
     } catch (error) {
       console.error('Failed to place order:', error);
-      alert(`Failed to place order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to place order: ${errorMessage}`);
+
+      // Retry logic for network errors
+      if (
+        errorMessage.includes('network') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('fetch')
+      ) {
+        const retry = window.confirm('Network error detected. Would you like to retry?');
+        if (retry) {
+          // Retry after a short delay
+          setTimeout(() => {
+            handleOrderSubmit(order);
+          }, 1000);
+        }
+      }
     }
   };
 
@@ -772,10 +789,19 @@ Provide the recommended position size (number of shares) and brief rationale.`;
       }
       await loadPositions();
       await loadBalance();
-      alert('All positions closed');
+      toast.success('All positions closed');
     } catch (error) {
       console.error('Failed to close all positions:', error);
-      alert('Failed to close all positions');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to close all positions: ${errorMessage}`);
+
+      // Retry logic
+      if (errorMessage.includes('network') || errorMessage.includes('timeout')) {
+        const retry = window.confirm('Network error. Retry closing positions?');
+        if (retry) {
+          setTimeout(() => handleCloseAll(), 1000);
+        }
+      }
     }
   };
 
@@ -785,15 +811,39 @@ Provide the recommended position size (number of shares) and brief rationale.`;
       if (result.success) {
         await loadPositions();
         await loadBalance();
-        alert(`Position ${sym} closed`);
+        toast.success(`Position ${sym} closed`);
       } else {
-        alert(`Failed to close position: ${result.error || 'Unknown error'}`);
+        const errorMsg = result?.error || 'Unknown error';
+        toast.error(`Failed to close position: ${errorMsg}`);
+
+        // Retry logic for network errors
+        if (errorMsg.includes('network') || errorMsg.includes('timeout')) {
+          const retry = window.confirm(`Retry closing position ${sym}?`);
+          if (retry) {
+            setTimeout(() => {
+              handleClosePosition(sym).catch(console.error);
+            }, 1000);
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to close position:', error);
-      alert(
-        `Failed to close position: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to close position: ${errorMessage}`);
+
+      // Retry logic for network errors
+      if (
+        errorMessage.includes('network') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('fetch')
+      ) {
+        const retry = window.confirm(`Network error. Retry closing position ${sym}?`);
+        if (retry) {
+          setTimeout(() => {
+            handleClosePosition(sym).catch(console.error);
+          }, 1000);
+        }
+      }
     }
   };
 

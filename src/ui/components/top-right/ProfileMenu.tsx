@@ -116,7 +116,15 @@ export function ProfileMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         className="flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-2 py-1 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--surface-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
-        onClick={() => setOpen(value => !value)}
+        onClick={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+          setOpen(value => !value);
+        }}
+        onMouseDown={e => {
+          (e as any).stopImmediatePropagation();
+          e.stopPropagation();
+        }}
       >
         <div className="relative">
           {profile?.avatarUrl ? (
@@ -194,7 +202,16 @@ export function ProfileMenu() {
                         ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/10 text-[var(--text-primary)]'
                         : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--surface-border-strong)]'
                     }`}
-                    onClick={() => handleOrgSwitch(org.id)}
+                    onClick={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                      handleOrgSwitch(org.id);
+                    }}
+                    onMouseDown={e => {
+                      (e as any).stopImmediatePropagation();
+                      e.stopPropagation();
+                    }}
+                    style={{ zIndex: 10011, isolation: 'isolate' }}
                   >
                     {org.name}
                     {active && <CheckCircle2 className="h-4 w-4 text-[var(--color-primary-400)]" />}
@@ -213,7 +230,16 @@ export function ProfileMenu() {
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
-              onClick={() => window.dispatchEvent(new CustomEvent('app:open-profile'))}
+              onClick={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('app:open-profile'));
+              }}
+              onMouseDown={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+              }}
+              style={{ zIndex: 10011, isolation: 'isolate' }}
             >
               <User className="h-4 w-4 text-[var(--text-muted)]" />
               View profile
@@ -221,7 +247,16 @@ export function ProfileMenu() {
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-rose-400 transition hover:bg-rose-500/10"
-              onClick={() => void handleSignOut()}
+              onClick={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+                void handleSignOut();
+              }}
+              onMouseDown={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+              }}
+              style={{ zIndex: 10011, isolation: 'isolate' }}
             >
               <LogOut className="h-4 w-4" />
               Sign out

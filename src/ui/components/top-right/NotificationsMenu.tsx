@@ -42,13 +42,35 @@ export function NotificationsMenu() {
 
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications?limit=10');
-      if (!res.ok) throw new Error(`Failed to load notifications (${res.status})`);
-      const data = (await res.json()) as NotificationResponse;
-      setItems(data.notifications ?? []);
-      setUnreadCount(data.unreadCount ?? 0);
+      // Check if we're in Electron - notifications API may not be available
+      const isElectron = typeof window !== 'undefined' && (window as any).ipc;
+      if (!isElectron) {
+        // In web mode, try to fetch from API
+        const res = await fetch('/api/notifications?limit=10');
+        if (!res.ok) {
+          // API not available - silently fail
+          setLoading(false);
+          return;
+        }
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          // Server returned HTML instead of JSON (likely 404 page)
+          setLoading(false);
+          return;
+        }
+        const data = (await res.json()) as NotificationResponse;
+        setItems(data.notifications ?? []);
+        setUnreadCount(data.unreadCount ?? 0);
+      } else {
+        // In Electron, notifications API is not implemented yet
+        setItems([]);
+        setUnreadCount(0);
+      }
     } catch (error) {
-      console.error('[NotificationsMenu] Failed to fetch notifications', error);
+      // Silently fail - notifications are optional
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[NotificationsMenu] Notifications API not available:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -59,28 +81,45 @@ export function NotificationsMenu() {
   }, [fetchNotifications]);
 
   useEffect(() => {
-    const source = new EventSource('/ws/notifications');
-    eventSourceRef.current = source;
-    source.addEventListener('notification', event => {
-      try {
-        const payload = JSON.parse((event as MessageEvent).data) as { payload: NotificationItem };
-        if (payload?.payload) {
-          setItems(prev => [payload.payload, ...prev].slice(0, MAX_NOTIFICATIONS));
-          setUnreadCount(count => count + 1);
-        }
-      } catch (error) {
-        console.error('[NotificationsMenu] Failed to parse SSE payload', error);
-      }
-    });
-    source.onerror = () => {
-      source.close();
-      eventSourceRef.current = null;
-    };
+    // Only set up EventSource if not in Electron (where notifications API may not be available)
+    const isElectron = typeof window !== 'undefined' && (window as any).ipc;
+    if (isElectron) {
+      // Notifications SSE not available in Electron yet
+      return;
+    }
 
-    return () => {
-      source.close();
-      eventSourceRef.current = null;
-    };
+    try {
+      const source = new EventSource('/ws/notifications');
+      eventSourceRef.current = source;
+      source.addEventListener('notification', event => {
+        try {
+          const payload = JSON.parse((event as MessageEvent).data) as { payload: NotificationItem };
+          if (payload?.payload) {
+            setItems(prev => [payload.payload, ...prev].slice(0, MAX_NOTIFICATIONS));
+            setUnreadCount(count => count + 1);
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('[NotificationsMenu] Failed to parse SSE payload', error);
+          }
+        }
+      });
+      source.onerror = () => {
+        // Silently close on error - notifications are optional
+        source.close();
+        eventSourceRef.current = null;
+      };
+
+      return () => {
+        source.close();
+        eventSourceRef.current = null;
+      };
+    } catch (error) {
+      // Silently fail - EventSource may not be available
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[NotificationsMenu] EventSource not available:', error);
+      }
+    }
   }, []);
 
   useEffect(() => {

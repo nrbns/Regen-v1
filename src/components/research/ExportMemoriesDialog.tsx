@@ -152,9 +152,18 @@ export function ExportMemoriesDialog({
                   </h2>
                 </div>
                 <button
-                  onClick={handleClose}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close dialog"
                 >
                   <X size={18} />
@@ -174,7 +183,15 @@ export function ExportMemoriesDialog({
                     </label>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setFormat('json')}
+                        onClick={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                          setFormat('json');
+                        }}
+                        onMouseDown={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                        }}
                         className={`
                           flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border transition-all
                           ${
@@ -184,6 +201,7 @@ export function ExportMemoriesDialog({
                           }
                           focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
                         `}
+                        style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={format === 'json'}
                       >
                         <FileJson size={20} />
@@ -193,7 +211,15 @@ export function ExportMemoriesDialog({
                         </div>
                       </button>
                       <button
-                        onClick={() => setFormat('csv')}
+                        onClick={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                          setFormat('csv');
+                        }}
+                        onMouseDown={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                        }}
                         className={`
                           flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border transition-all
                           ${
@@ -203,6 +229,7 @@ export function ExportMemoriesDialog({
                           }
                           focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
                         `}
+                        style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={format === 'csv'}
                       >
                         <FileSpreadsheet size={20} />
@@ -272,7 +299,15 @@ export function ExportMemoriesDialog({
                       {allEventTypes.map(type => (
                         <button
                           key={type}
-                          onClick={() => handleToggleType(type)}
+                          onClick={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                            handleToggleType(type);
+                          }}
+                          onMouseDown={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                          }}
                           className={`
                             px-3 py-1.5 rounded-full text-sm font-medium transition-colors
                             ${
@@ -282,7 +317,11 @@ export function ExportMemoriesDialog({
                             }
                             focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
                           `}
-                          style={{ fontSize: tokens.fontSize.sm }}
+                          style={{
+                            fontSize: tokens.fontSize.sm,
+                            zIndex: 10011,
+                            isolation: 'isolate',
+                          }}
                           aria-pressed={selectedTypes.includes(type)}
                         >
                           {type.replace('_', ' ')}
@@ -290,9 +329,21 @@ export function ExportMemoriesDialog({
                       ))}
                       {selectedTypes.length > 0 && (
                         <button
-                          onClick={() => setSelectedTypes([])}
+                          onClick={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                            setSelectedTypes([]);
+                          }}
+                          onMouseDown={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                          }}
                           className="px-3 py-1.5 rounded-full text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
-                          style={{ fontSize: tokens.fontSize.sm }}
+                          style={{
+                            fontSize: tokens.fontSize.sm,
+                            zIndex: 10011,
+                            isolation: 'isolate',
+                          }}
                         >
                           Clear
                         </button>
@@ -314,7 +365,15 @@ export function ExportMemoriesDialog({
                         {availableTags.slice(0, 10).map(tag => (
                           <button
                             key={tag}
-                            onClick={() => handleToggleTag(tag)}
+                            onClick={e => {
+                              (e as any).stopImmediatePropagation();
+                              e.stopPropagation();
+                              handleToggleTag(tag);
+                            }}
+                            onMouseDown={e => {
+                              (e as any).stopImmediatePropagation();
+                              e.stopPropagation();
+                            }}
                             className={`
                               px-3 py-1.5 rounded-full text-sm font-medium transition-colors
                               ${
@@ -324,7 +383,11 @@ export function ExportMemoriesDialog({
                               }
                               focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
                             `}
-                            style={{ fontSize: tokens.fontSize.sm }}
+                            style={{
+                              fontSize: tokens.fontSize.sm,
+                              zIndex: 10011,
+                              isolation: 'isolate',
+                            }}
                             aria-pressed={selectedTags.includes(tag)}
                           >
                             #{tag}
@@ -332,9 +395,21 @@ export function ExportMemoriesDialog({
                         ))}
                         {selectedTags.length > 0 && (
                           <button
-                            onClick={() => setSelectedTags([])}
+                            onClick={e => {
+                              (e as any).stopImmediatePropagation();
+                              e.stopPropagation();
+                              setSelectedTags([]);
+                            }}
+                            onMouseDown={e => {
+                              (e as any).stopImmediatePropagation();
+                              e.stopPropagation();
+                            }}
                             className="px-3 py-1.5 rounded-full text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
-                            style={{ fontSize: tokens.fontSize.sm }}
+                            style={{
+                              fontSize: tokens.fontSize.sm,
+                              zIndex: 10011,
+                              isolation: 'isolate',
+                            }}
                           >
                             Clear
                           </button>
@@ -374,16 +449,39 @@ export function ExportMemoriesDialog({
                 className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)]"
                 style={{ padding: tokens.spacing(4) }}
               >
-                <Button type="button" tone="secondary" onClick={handleClose} disabled={loading}>
+                <Button
+                  type="button"
+                  tone="secondary"
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
+                  disabled={loading}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="button"
                   tone="primary"
                   icon={<Download size={16} />}
-                  onClick={handleExport}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleExport();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   loading={loading}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   Export {format.toUpperCase()}
                 </Button>

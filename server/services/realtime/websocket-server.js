@@ -114,7 +114,7 @@ async function initRedisSubscriber() {
         return delay;
       },
       connectTimeout: 5000,
-      lazyConnect: false,
+      lazyConnect: true, // Don't connect immediately - connect on first use
     });
 
     // Handle connection events
@@ -123,18 +123,61 @@ async function initRedisSubscriber() {
     });
 
     redisSub.on('error', error => {
-      // Suppress connection errors if Redis is not available
-      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-        log.debug('Redis not available, continuing without Pub/Sub');
-      } else {
-        log.error('Redis subscriber error', { error: error.message });
+      // Completely suppress all Redis connection errors - Redis is optional
+      if (
+        error?.code === 'ECONNREFUSED' ||
+        error?.code === 'MaxRetriesPerRequestError' ||
+        error?.code === 'ENOTFOUND' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.message?.includes('Connection is closed')
+      ) {
+        // Silently ignore - Redis is optional
+        return;
+      }
+      // Only log non-connection errors in debug mode
+      if (log.level === 'debug') {
+        log.debug('Redis subscriber non-connection error', { error: error.message });
       }
     });
 
-    await redisSub.connect();
+    // Try to connect, but don't fail if Redis is unavailable
+    try {
+      await redisSub.connect();
 
-    // Subscribe to all client channels with pattern
-    await redisSub.psubscribe('omnibrowser:out:*');
+      // Subscribe to all client channels with pattern (only if connected)
+      if (redisSub.status === 'ready') {
+        try {
+          await redisSub.psubscribe('omnibrowser:out:*');
+        } catch (error) {
+          if (
+            error?.code === 'ECONNREFUSED' ||
+            error?.code === 'ENOTFOUND' ||
+            error?.code === 'MaxRetriesPerRequestError' ||
+            error?.message?.includes("Stream isn't writeable")
+          ) {
+            // Silently ignore - Redis is optional
+            return;
+          }
+          if (log.level === 'debug') {
+            log.debug('Redis subscription failed (non-critical)', { error: error.message });
+          }
+        }
+      }
+    } catch (error) {
+      if (
+        error?.code === 'ECONNREFUSED' ||
+        error?.code === 'ENOTFOUND' ||
+        error?.code === 'ETIMEDOUT' ||
+        error?.code === 'MaxRetriesPerRequestError'
+      ) {
+        // Silently ignore - Redis is optional
+        return;
+      }
+      // Only log non-connection errors
+      if (log.level === 'debug') {
+        log.debug('Redis connection failed (non-critical)', { error: error.message });
+      }
+    }
 
     redisSub.on('pmessage', (pattern, channel, message) => {
       try {

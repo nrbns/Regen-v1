@@ -18,17 +18,27 @@ import { TabContentSurface } from './TabContentSurface';
 // Voice components disabled by user request
 // import { VoiceTips } from '../voice/VoiceTips';
 // import VoiceCompanion from '../voice/VoiceCompanion';
-import { initializeOptimizer } from '../../core/redix/optimizer';
-import { startTabSuspensionService } from '../../core/redix/tab-suspension';
-import { initBatteryManager } from '../../core/redix/battery-manager';
-import { initMemoryManager } from '../../core/redix/memory-manager';
-import { initPowerModes } from '../../core/redix/power-modes';
+// Lazy load heavy Redix services to avoid blocking initial render
+const initializeOptimizer = () =>
+  import('../../core/redix/optimizer').then(m => m.initializeOptimizer());
+const startTabSuspensionService = () =>
+  import('../../core/redix/tab-suspension').then(m => m.startTabSuspensionService());
+const initBatteryManager = () =>
+  import('../../core/redix/battery-manager').then(m => m.initBatteryManager());
+const initMemoryManager = () =>
+  import('../../core/redix/memory-manager').then(m => m.initMemoryManager());
+const initPowerModes = () => import('../../core/redix/power-modes').then(m => m.initPowerModes());
 import { useRedix } from '../../core/redix/useRedix';
-import { updatePolicyMetrics, getPolicyRecommendations } from '../../core/redix/policies';
+const updatePolicyMetrics = () =>
+  import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
+const getPolicyRecommendations = () =>
+  import('../../core/redix/policies').then(m => m.getPolicyRecommendations);
 import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
 import { ResearchMemoryPanel } from '../research/ResearchMemoryPanel';
 import { trackVisit } from '../../core/supermemory/tracker';
-import { initNightlySummarization } from '../../core/supermemory/summarizer';
+// Lazy load heavy summarization service to avoid blocking initial render
+const initNightlySummarization = () =>
+  import('../../core/supermemory/summarizer').then(m => m.initNightlySummarization());
 // RedixDebugPanel - lazy loaded, dev only
 const RedixDebugPanel = isDevEnv()
   ? React.lazy(() => import('../redix/RedixDebugPanel').then(m => ({ default: m.RedixDebugPanel })))
@@ -800,7 +810,12 @@ export function AppShell() {
 
   // Initialize nightly summarization
   useEffect(() => {
-    initNightlySummarization();
+    // Defer nightly summarization initialization
+    setTimeout(() => {
+      initNightlySummarization().catch(err => {
+        if (isDevEnv()) console.warn('[AppShell] Nightly summarization init failed:', err);
+      });
+    }, 2000);
   }, []);
   const [isResizingContent, setIsResizingContent] = useState(false);
   const overlayActive =
@@ -920,18 +935,56 @@ export function AppShell() {
   ]);
 
   // Initialize Redix optimizer
+  // Defer heavy Redix service initialization to avoid blocking initial render
   useEffect(() => {
-    initializeOptimizer().catch(console.error);
+    // Use requestIdleCallback or setTimeout to defer initialization
+    const deferInit = () => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(
+          () => {
+            initializeOptimizer().catch(err => {
+              if (isDevEnv()) console.warn('[AppShell] Optimizer init failed:', err);
+            });
+          },
+          { timeout: 2000 }
+        );
+      } else {
+        setTimeout(() => {
+          initializeOptimizer().catch(err => {
+            if (isDevEnv()) console.warn('[AppShell] Optimizer init failed:', err);
+          });
+        }, 500);
+      }
+    };
+    deferInit();
   }, []);
 
   useEffect(() => {
-    startTabSuspensionService();
+    // Defer tab suspension service
+    setTimeout(() => {
+      startTabSuspensionService().catch(err => {
+        if (isDevEnv()) console.warn('[AppShell] Tab suspension init failed:', err);
+      });
+    }, 1000);
   }, []);
 
   useEffect(() => {
-    initBatteryManager();
-    initPowerModes();
-    initMemoryManager();
+    // Defer battery, power, and memory managers
+    setTimeout(() => {
+      Promise.all([
+        initBatteryManager().catch(err => {
+          if (isDevEnv()) console.warn('[AppShell] Battery manager init failed:', err);
+        }),
+        initPowerModes().catch(err => {
+          if (isDevEnv()) console.warn('[AppShell] Power modes init failed:', err);
+        }),
+        initMemoryManager().catch(err => {
+          if (isDevEnv()) console.warn('[AppShell] Memory manager init failed:', err);
+        }),
+      ]).catch(() => {
+        // Silently handle errors - these are optional services
+      });
+    }, 1500);
   }, []);
 
   // Watch for Redix performance events
@@ -940,21 +993,34 @@ export function AppShell() {
       if (isDevEnv()) {
         console.log('[Redix] Performance low:', event.payload);
       }
-      // Update policy metrics for automatic evaluation
+      // Update policy metrics for automatic evaluation (lazy loaded)
       const { memory, cpu, battery } = event.payload || {};
-      updatePolicyMetrics({
-        memoryUsage: memory,
-        cpuUsage: cpu,
-        batteryLevel: battery,
-      });
+      updatePolicyMetrics()
+        .then(updateFn => {
+          updateFn({
+            memoryUsage: memory,
+            cpuUsage: cpu,
+            batteryLevel: battery,
+          });
+        })
+        .catch(() => {
+          // Silently handle errors - policy metrics are optional
+        });
     }
 
     // Handle policy events
     if (event.type.startsWith('redix:policy:')) {
-      const recommendations = getPolicyRecommendations();
-      if (recommendations.length > 0 && isDevEnv()) {
-        console.log('[Redix] Policy recommendations:', recommendations);
-      }
+      // Lazy load policy recommendations
+      getPolicyRecommendations()
+        .then(getFn => {
+          const recommendations = getFn();
+          if (recommendations.length > 0 && isDevEnv()) {
+            console.log('[Redix] Policy recommendations:', recommendations);
+          }
+        })
+        .catch(() => {
+          // Silently handle errors
+        });
     }
 
     // Handle mode transition errors

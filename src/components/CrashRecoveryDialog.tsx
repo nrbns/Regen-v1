@@ -95,9 +95,18 @@ export function CrashRecoveryDialog({
 
               <div className="flex flex-col gap-2">
                 <button
-                  onClick={handleReload}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleReload();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   className="flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <RefreshCw size={16} />
                   Reload Tab
@@ -110,9 +119,18 @@ export function CrashRecoveryDialog({
                       {snapshots.slice(0, 3).map(snapshot => (
                         <button
                           key={snapshot.id}
-                          onClick={() => handleRestoreSnapshot(snapshot.id)}
+                          onClick={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                            handleRestoreSnapshot(snapshot.id);
+                          }}
+                          onMouseDown={e => {
+                            (e as any).stopImmediatePropagation();
+                            e.stopPropagation();
+                          }}
                           disabled={loading}
                           className="w-full flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/60 px-3 py-2 text-xs text-gray-300 transition-colors hover:bg-gray-700/60 disabled:opacity-50"
+                          style={{ zIndex: 10011, isolation: 'isolate' }}
                         >
                           <span className="flex items-center gap-2">
                             <RotateCcw size={12} />
@@ -125,16 +143,34 @@ export function CrashRecoveryDialog({
                 )}
 
                 <button
-                  onClick={onClose}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    onClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className="mt-2 rounded-lg border border-gray-700/60 bg-gray-800/60 px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-700/60"
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   Close
                 </button>
               </div>
             </div>
             <button
-              onClick={onClose}
+              onClick={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+                onClose();
+              }}
+              onMouseDown={e => {
+                (e as any).stopImmediatePropagation();
+                e.stopPropagation();
+              }}
               className="rounded-lg p-1 text-gray-400 hover:text-gray-200 transition-colors"
+              style={{ zIndex: 10011, isolation: 'isolate' }}
             >
               <X size={18} />
             </button>

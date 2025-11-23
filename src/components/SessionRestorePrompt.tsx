@@ -36,15 +36,18 @@ export function SessionRestorePrompt() {
     const checkRestore = async () => {
       try {
         const result = await ipc.session.checkRestore();
-        if (result.available && result.snapshot) {
+        if (result?.available && result?.snapshot) {
           // Get full snapshot
           const fullSnapshot = await ipc.session.getSnapshot();
-          if (fullSnapshot) {
+          if (fullSnapshot && fullSnapshot.tabs && Array.isArray(fullSnapshot.tabs)) {
             setSnapshot(fullSnapshot);
           }
         }
       } catch (error) {
-        console.error('[SessionRestorePrompt] Failed to check restore:', error);
+        // Silently fail - session restore is optional
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[SessionRestorePrompt] No restore available:', error);
+        }
       }
     };
 
@@ -122,17 +125,46 @@ export function SessionRestorePrompt() {
   const lastSaved = new Date(snapshot.timestamp);
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700 shadow-xl">
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm"
+      onClick={e => {
+        // Don't interfere with button clicks
+        const target = e.target as HTMLElement;
+        if (target.closest('button')) {
+          return; // Let button handle it
+        }
+      }}
+    >
+      <div
+        className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700 shadow-xl"
+        onClick={e => {
+          // Don't interfere with button clicks
+          const target = e.target as HTMLElement;
+          if (target.closest('button')) {
+            return; // Let button handle it
+          }
+          // Prevent clicks on modal from bubbling to backdrop
+          e.stopPropagation();
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <RotateCcw className="w-5 h-5 text-blue-500" />
             <h2 className="text-xl font-bold text-gray-200">Restore Previous Session?</h2>
           </div>
           <button
-            onClick={handleDismiss}
+            type="button"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation();
+              setTimeout(() => {
+                handleDismiss();
+              }, 0);
+            }}
             className="text-gray-400 hover:text-gray-300 transition-colors"
             aria-label="Close"
+            style={{ pointerEvents: 'auto', zIndex: 10001 }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -161,9 +193,18 @@ export function SessionRestorePrompt() {
 
         <div className="flex gap-3">
           <button
-            onClick={handleRestore}
+            type="button"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation();
+              setTimeout(() => {
+                handleRestore();
+              }, 0);
+            }}
             disabled={isRestoring}
             className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
           >
             {isRestoring ? (
               <>
@@ -178,9 +219,18 @@ export function SessionRestorePrompt() {
             )}
           </button>
           <button
-            onClick={handleDismiss}
+            type="button"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation();
+              setTimeout(() => {
+                handleDismiss();
+              }, 0);
+            }}
             disabled={isRestoring}
             className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+            style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
           >
             Start Fresh
           </button>

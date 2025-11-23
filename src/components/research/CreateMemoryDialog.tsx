@@ -229,9 +229,18 @@ export function CreateMemoryDialog({
                   </h2>
                 </div>
                 <button
-                  onClick={handleClose}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close dialog"
                 >
                   <X size={18} />
@@ -249,7 +258,15 @@ export function CreateMemoryDialog({
                     return (
                       <button
                         key={typeOption.value}
-                        onClick={() => setType(typeOption.value)}
+                        onClick={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                          setType(typeOption.value);
+                        }}
+                        onMouseDown={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                        }}
                         className={`
                           flex-1 flex flex-col items-center gap-2 px-3 py-2.5 rounded-lg border transition-all
                           ${
@@ -259,6 +276,7 @@ export function CreateMemoryDialog({
                           }
                           focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
                         `}
+                        style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={type === typeOption.value}
                       >
                         <Icon size={18} />
@@ -410,8 +428,17 @@ export function CreateMemoryDialog({
                         tone="secondary"
                         size="sm"
                         icon={<Plus size={14} />}
-                        onClick={handleAddTag}
+                        onClick={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                          handleAddTag();
+                        }}
+                        onMouseDown={e => {
+                          (e as any).stopImmediatePropagation();
+                          e.stopPropagation();
+                        }}
                         disabled={loading || !tagInput.trim()}
+                        style={{ zIndex: 10011, isolation: 'isolate' }}
                       >
                         Add
                       </Button>
@@ -427,8 +454,17 @@ export function CreateMemoryDialog({
                             {tag}
                             <button
                               type="button"
-                              onClick={() => handleRemoveTag(tag)}
+                              onClick={e => {
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                                handleRemoveTag(tag);
+                              }}
+                              onMouseDown={e => {
+                                (e as any).stopImmediatePropagation();
+                                e.stopPropagation();
+                              }}
                               className="hover:text-red-400 transition-colors"
+                              style={{ zIndex: 10011, isolation: 'isolate' }}
                               aria-label={`Remove tag ${tag}`}
                             >
                               <X size={12} />
@@ -446,15 +482,38 @@ export function CreateMemoryDialog({
                 className="flex items-center justify-end gap-3 border-t border-[var(--surface-border)]"
                 style={{ padding: tokens.spacing(4) }}
               >
-                <Button type="button" tone="secondary" onClick={handleClose} disabled={loading}>
+                <Button
+                  type="button"
+                  tone="secondary"
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
+                  disabled={loading}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   tone="primary"
-                  onClick={handleSubmit}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    handleSubmit(e as any);
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   disabled={loading}
                   loading={loading}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   Create {selectedTypeInfo?.label}
                 </Button>

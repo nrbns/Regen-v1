@@ -211,24 +211,42 @@ export default function RiskManager({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setSettings(prev => ({ ...prev, direction: 'long' }))}
+            onClick={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+              setSettings(prev => ({ ...prev, direction: 'long' }));
+            }}
+            onMouseDown={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+            }}
             className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
               settings.direction === 'long'
                 ? 'border-emerald-400 bg-emerald-500/10 text-emerald-100'
                 : 'border-white/10 text-gray-300 hover:border-white/30'
             }`}
+            style={{ zIndex: 10011, isolation: 'isolate' }}
           >
             <TrendingUp size={14} className="inline mr-2" />
             Long
           </button>
           <button
             type="button"
-            onClick={() => setSettings(prev => ({ ...prev, direction: 'short' }))}
+            onClick={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+              setSettings(prev => ({ ...prev, direction: 'short' }));
+            }}
+            onMouseDown={e => {
+              (e as any).stopImmediatePropagation();
+              e.stopPropagation();
+            }}
             className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold transition ${
               settings.direction === 'short'
                 ? 'border-red-400 bg-red-500/10 text-red-100'
                 : 'border-white/10 text-gray-300 hover:border-white/30'
             }`}
+            style={{ zIndex: 10011, isolation: 'isolate' }}
           >
             <TrendingDown size={14} className="inline mr-2" />
             Short
@@ -307,7 +325,16 @@ export default function RiskManager({
           type="button"
           className="flex-1 rounded-xl bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50 flex items-center justify-center gap-2"
           disabled={!plan.positionSize}
-          onClick={handleApplyPlan}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            handleApplyPlan();
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           <Target size={16} />
           Apply to order
@@ -315,7 +342,16 @@ export default function RiskManager({
         <button
           type="button"
           className="rounded-xl border border-white/20 px-3 py-2 text-xs text-gray-300 hover:border-white/40 hover:text-white flex items-center gap-2"
-          onClick={resetSettings}
+          onClick={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+            resetSettings();
+          }}
+          onMouseDown={e => {
+            (e as any).stopImmediatePropagation();
+            e.stopPropagation();
+          }}
+          style={{ zIndex: 10011, isolation: 'isolate' }}
         >
           <RefreshCcw size={14} />
           Reset

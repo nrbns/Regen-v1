@@ -25,13 +25,35 @@ export class RedixWS {
 
   constructor(url: string = DEFAULT_WS_URL) {
     this.url = url;
-    this.connect();
+    // Defer connection attempt to avoid blocking initial render
+    // Only connect if Redix is enabled
+    if (import.meta.env.VITE_DISABLE_REDIX !== 'true' && import.meta.env.DISABLE_REDIX !== 'true') {
+      // Use requestIdleCallback or setTimeout to defer connection
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(
+          () => {
+            this.connect();
+          },
+          { timeout: 2000 }
+        );
+      } else {
+        setTimeout(() => {
+          this.connect();
+        }, 1000);
+      }
+    }
   }
 
   connect(): void {
     if (this.isConnecting) return;
+
+    // Check if Redix is disabled via environment variable
+    if (import.meta.env.VITE_DISABLE_REDIX === 'true' || import.meta.env.DISABLE_REDIX === 'true') {
+      return; // Don't attempt connection if Redix is disabled
+    }
+
     this.isConnecting = true;
-    
+
     try {
       this.ws = new WebSocket(this.url);
 
@@ -53,36 +75,50 @@ export class RedixWS {
           }
           window.dispatchEvent(new CustomEvent('redix:message', { detail: message }));
         } catch (error) {
-          console.warn('[RedixWS] failed to parse message', error);
+          // Silently handle parse errors - don't spam console
+          if (import.meta.env.DEV) {
+            console.warn('[RedixWS] failed to parse message', error);
+          }
         }
       };
 
       this.ws.onclose = () => {
         this.isConnecting = false;
-        window.setTimeout(() => this.connect(), this.backoff);
-        this.backoff = Math.min(this.backoff * 1.5, 30_000);
+        // Only retry if not explicitly disabled
+        if (
+          import.meta.env.VITE_DISABLE_REDIX !== 'true' &&
+          import.meta.env.DISABLE_REDIX !== 'true'
+        ) {
+          window.setTimeout(() => this.connect(), this.backoff);
+          this.backoff = Math.min(this.backoff * 1.5, 30_000);
+        }
       };
 
-      this.ws.onerror = () => {
+      this.ws.onerror = event => {
         this.isConnecting = false;
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           this.ws.close();
         }
-        // Only log error once to avoid console spam
-        if (!this.errorLogged) {
+        // Suppress all WebSocket errors - Redix is optional
+        // The browser will still log the error, but we prevent it from being shown
+        event.stopPropagation();
+        // Only log error once to avoid console spam, and only in dev mode
+        if (!this.errorLogged && import.meta.env.DEV) {
           this.errorLogged = true;
-          if (import.meta.env.DEV) {
-            console.warn('[RedixWS] Connection failed to', this.url, '- Redix server may not be running. This is expected if Redix is not configured.');
-          }
+          // Use console.debug instead of console.warn to reduce noise
+          console.debug(
+            '[RedixWS] WebSocket connection unavailable - Redix server may not be running. This is expected if Redix is not configured.'
+          );
         }
       };
     } catch (error) {
       this.isConnecting = false;
-      if (!this.errorLogged) {
+      // Suppress connection errors - Redix is optional
+      if (!this.errorLogged && import.meta.env.DEV) {
         this.errorLogged = true;
-        if (import.meta.env.DEV) {
-          console.warn('[RedixWS] Failed to create WebSocket connection:', error);
-        }
+        console.debug(
+          '[RedixWS] WebSocket connection unavailable - Redix is optional and will gracefully degrade.'
+        );
       }
     }
   }
@@ -101,7 +137,7 @@ export class RedixWS {
           options: (payload as Record<string, unknown>).options,
         }),
       })
-        .then(async (res) => {
+        .then(async res => {
           if (!res.ok) {
             throw new Error(`HTTP ${res.status}`);
           }
@@ -116,7 +152,7 @@ export class RedixWS {
             this.listeners.delete(message.id);
           }
         })
-        .catch((error) => {
+        .catch(error => {
           if (message.id && this.listeners.has(message.id)) {
             const listener = this.listeners.get(message.id);
             listener?.({
@@ -135,7 +171,7 @@ export class RedixWS {
     query: string,
     sessionId: string,
     options: RequestOptions,
-    onMessage: Listener,
+    onMessage: Listener
   ): { id: string; cancel: () => void } {
     const url = new URL(DEFAULT_SSE_URL, window.location.origin);
     url.searchParams.set('q', query);
@@ -210,7 +246,7 @@ export class RedixWS {
     query: string,
     sessionId: string,
     options: RequestOptions = {},
-    onMessage: Listener,
+    onMessage: Listener
   ): { id: string; cancel: () => void } {
     const id = crypto.randomUUID();
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -233,5 +269,26 @@ export class RedixWS {
   }
 }
 
-export const redixWS = new RedixWS();
+// Only create WebSocket connection if Redix is enabled
+// This prevents connection errors when Redix server is not running
+let _redixWSInstance: RedixWS | null = null;
 
+// Lazy initialization - only connect when actually needed
+export const getRedixWS = (): RedixWS => {
+  if (!_redixWSInstance) {
+    // Check if Redix is disabled
+    if (import.meta.env.VITE_DISABLE_REDIX === 'true' || import.meta.env.DISABLE_REDIX === 'true') {
+      // Create a stub that falls back to HTTP
+      _redixWSInstance = new RedixWS();
+      // Don't attempt connection
+      (_redixWSInstance as any).ws = null;
+      (_redixWSInstance as any).connect = () => {}; // No-op
+    } else {
+      _redixWSInstance = new RedixWS();
+    }
+  }
+  return _redixWSInstance;
+};
+
+// Export singleton for backward compatibility
+export const redixWS = getRedixWS();

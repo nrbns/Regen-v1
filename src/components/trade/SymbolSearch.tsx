@@ -94,8 +94,17 @@ export default function SymbolSearch({ activeSymbol, recentSymbols, onSelect }: 
               <button
                 key={symbol}
                 type="button"
-                onClick={() => onSelect(symbol)}
+                onClick={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                  onSelect(symbol);
+                }}
+                onMouseDown={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                }}
                 className="rounded-full border border-white/10 px-3 py-1 text-xs text-gray-200 hover:border-indigo-400/60 hover:text-white"
+                style={{ zIndex: 10011, isolation: 'isolate' }}
               >
                 {symbol}
               </button>
@@ -117,12 +126,21 @@ export default function SymbolSearch({ activeSymbol, recentSymbols, onSelect }: 
                 <button
                   key={result.symbol}
                   type="button"
-                  onClick={() => onSelect(result.symbol)}
+                  onClick={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                    onSelect(result.symbol);
+                  }}
+                  onMouseDown={e => {
+                    (e as any).stopImmediatePropagation();
+                    e.stopPropagation();
+                  }}
                   className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                     isActive
                       ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-100'
                       : 'border-white/10 bg-white/5 hover:border-indigo-400/50'
                   }`}
+                  style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <div className="flex items-center justify-between text-sm font-semibold">
                     <span>{result.symbol}</span>
