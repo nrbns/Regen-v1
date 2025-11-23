@@ -596,11 +596,16 @@ export function TabStrip() {
             onClick={e => {
               e.preventDefault();
               e.stopPropagation();
+              (e as any).stopImmediatePropagation();
               togglePinTab(tab.id);
+            }}
+            onMouseDown={e => {
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation();
             }}
             aria-label={tab.pinned ? `Unpin tab: ${tab.title}` : `Pin tab: ${tab.title}`}
             className={`${tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-blue-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1`}
-            style={{ pointerEvents: 'auto', zIndex: 2 }}
+            style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.96 }}
             title={tab.pinned ? 'Unpin tab' : 'Pin tab'}
@@ -614,11 +619,16 @@ export function TabStrip() {
               onClick={e => {
                 e.preventDefault();
                 e.stopPropagation();
+                (e as any).stopImmediatePropagation();
                 openPeek(tab);
+              }}
+              onMouseDown={e => {
+                e.stopPropagation();
+                (e as any).stopImmediatePropagation();
               }}
               aria-label={`Peek preview: ${tab.title}`}
               className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
-              style={{ pointerEvents: 'auto', zIndex: 2 }}
+              style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.96 }}
               title="Peek preview"

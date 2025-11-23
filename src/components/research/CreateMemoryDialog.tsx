@@ -289,9 +289,37 @@ export function CreateMemoryDialog({
 
               {/* Form */}
               <form
-                onSubmit={handleSubmit}
+                onSubmit={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void handleSubmit(e);
+                }}
                 className="flex-1 overflow-y-auto"
                 style={{ padding: tokens.spacing(4) }}
+                onMouseDown={e => {
+                  // Don't interfere with form submission
+                  const target = e.target as HTMLElement;
+                  if (
+                    target.closest('button[type="submit"]') ||
+                    target.closest('input') ||
+                    target.closest('textarea') ||
+                    target.closest('select')
+                  ) {
+                    return;
+                  }
+                }}
+                onClick={e => {
+                  // Don't interfere with form submission
+                  const target = e.target as HTMLElement;
+                  if (
+                    target.closest('button[type="submit"]') ||
+                    target.closest('input') ||
+                    target.closest('textarea') ||
+                    target.closest('select')
+                  ) {
+                    return;
+                  }
+                }}
               >
                 <div className="space-y-4">
                   {/* Title */}
@@ -503,17 +531,18 @@ export function CreateMemoryDialog({
                   type="submit"
                   tone="primary"
                   onClick={e => {
-                    (e as any).stopImmediatePropagation();
+                    // Prevent double submission - form onSubmit will handle it
+                    e.preventDefault();
                     e.stopPropagation();
-                    handleSubmit(e as any);
+                    (e as any).stopImmediatePropagation();
                   }}
                   onMouseDown={e => {
-                    (e as any).stopImmediatePropagation();
+                    // Allow mousedown to proceed normally for form submission
                     e.stopPropagation();
                   }}
-                  disabled={loading}
+                  disabled={loading || !title.trim()}
                   loading={loading}
-                  style={{ zIndex: 10011, isolation: 'isolate' }}
+                  style={{ zIndex: 10011, isolation: 'isolate', pointerEvents: 'auto' }}
                 >
                   Create {selectedTypeInfo?.label}
                 </Button>

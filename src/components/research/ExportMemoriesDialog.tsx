@@ -116,7 +116,23 @@ export function ExportMemoriesDialog({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={handleClose}
+            onClick={e => {
+              // Only close if clicking directly on backdrop, not on dialog content
+              if (e.target === e.currentTarget) {
+                handleClose();
+              }
+            }}
+            onMouseDown={e => {
+              // Don't interfere with button clicks
+              const target = e.target as HTMLElement;
+              if (
+                target.closest('button') ||
+                target.closest('[role="button"]') ||
+                target.closest('[role="dialog"]')
+              ) {
+                return;
+              }
+            }}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
             aria-hidden="true"
           />

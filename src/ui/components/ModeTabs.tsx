@@ -122,7 +122,15 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
             ref={el => {
               buttonRefs.current[mode.id] = el;
             }}
-            onClick={() => handleModeClick(mode.id)}
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              (e as any).stopImmediatePropagation();
+              handleModeClick(mode.id);
+            }}
+            onMouseDown={e => {
+              e.stopPropagation();
+            }}
             onMouseEnter={e => {
               // Clear any pending close timeout
               const timeoutId = (e.currentTarget as any).__previewTimeout;
