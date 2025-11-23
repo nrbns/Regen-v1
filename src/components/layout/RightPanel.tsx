@@ -3,7 +3,21 @@
  */
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Brain, Zap, FileText, Shield, ListChecks, Activity, Sparkles, Share2, Leaf, ShieldCheck, KeyRound, Lock } from 'lucide-react';
+import {
+  X,
+  Brain,
+  Zap,
+  FileText,
+  Shield,
+  ListChecks,
+  Activity,
+  Sparkles,
+  Share2,
+  Leaf,
+  ShieldCheck,
+  KeyRound,
+  Lock,
+} from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { AgentPlan, AgentStep, ConsentRequest } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
@@ -16,6 +30,8 @@ import { PrivacyDashboard } from '../privacy/PrivacyDashboard';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 import { IdentityVaultPanel } from '../identity';
+import { AIDockPanel } from '../ai/AIDockPanel';
+import { EnhancedAIPanel } from '../ai/EnhancedAIPanel';
 
 const ACTION_LABELS: Record<ConsentActionType, string> = {
   download: 'Download file',
@@ -67,29 +83,48 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
   const [consentRecords, setConsentRecords] = useState<ConsentRecord[]>([]);
   const [dryRun, setDryRun] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const consentRefresh = useConsentOverlayStore((state) => state.refresh);
-  const consentList = useConsentOverlayStore((state) => state.records);
-  const openConsentDashboard = useConsentOverlayStore((state) => state.open);
+  const consentRefresh = useConsentOverlayStore(state => state.refresh);
+  const consentList = useConsentOverlayStore(state => state.records);
+  const openConsentDashboard = useConsentOverlayStore(state => state.open);
 
   // Listen for agent plan
-  useIPCEvent<AgentPlan>('agent:plan', (data) => {
-    setPlan(data);
-  }, []);
+  useIPCEvent<AgentPlan>(
+    'agent:plan',
+    data => {
+      setPlan(data);
+    },
+    []
+  );
 
   // Listen for agent steps
-  useIPCEvent<AgentStep>('agent:step', (data) => {
-    setSteps(prev => [...prev, data]);
-  }, []);
+  useIPCEvent<AgentStep>(
+    'agent:step',
+    data => {
+      setSteps(prev => [...prev, data]);
+    },
+    []
+  );
 
   // Listen for agent logs
-  useIPCEvent<AgentStep>('agent:log', (data) => {
-    setLogs(prev => [...prev, `${new Date(data.timestamp).toLocaleTimeString()}: ${data.content}`]);
-  }, []);
+  useIPCEvent<AgentStep>(
+    'agent:log',
+    data => {
+      setLogs(prev => [
+        ...prev,
+        `${new Date(data.timestamp).toLocaleTimeString()}: ${data.content}`,
+      ]);
+    },
+    []
+  );
 
   // Listen for consent requests
-  useIPCEvent<ConsentRequest>('agent:consent:request', () => {
-    void consentRefresh();
-  }, [consentRefresh]);
+  useIPCEvent<ConsentRequest>(
+    'agent:consent:request',
+    () => {
+      void consentRefresh();
+    },
+    [consentRefresh]
+  );
 
   // Auto-scroll logs
   useEffect(() => {
@@ -132,9 +167,23 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
             </button>
           </div>
 
+          {/* Enhanced AI Panel */}
+          {activeTab === 'planner' && (
+            <div className="border-b border-gray-800/50">
+              <EnhancedAIPanel />
+            </div>
+          )}
+
+          {/* Legacy AI Dock (fallback) */}
+          {activeTab !== 'planner' && (
+            <div className="border-b border-gray-800/50 p-4">
+              <AIDockPanel />
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex border-b border-gray-800/50 overflow-x-auto">
-            {tabs.map((tab) => {
+            {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
@@ -143,10 +192,7 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                   className={`
                     flex-shrink-0 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium
                     transition-colors relative min-w-[80px]
-                    ${activeTab === tab.id
-                      ? 'text-blue-400'
-                      : 'text-gray-500 hover:text-gray-300'
-                    }
+                    ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}
                   `}
                 >
                   <Icon size={16} />
@@ -164,9 +210,7 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
-            {activeTab === 'planner' && (
-              <AgentPlanner />
-            )}
+            {activeTab === 'planner' && <AgentPlanner />}
 
             {activeTab === 'plan' && (
               <div className="space-y-4">
@@ -183,7 +227,9 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                             <div className="flex-1">
                               <div className="text-gray-200">{step.description}</div>
                               {step.tool && (
-                                <div className="text-xs text-gray-500 mt-0.5">Tool: {step.tool}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  Tool: {step.tool}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -193,10 +239,12 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-4">
                         <span className="text-gray-400">
-                          Tokens: <span className="text-gray-200">{plan.remaining.tokens}</span>/{plan.budget.tokens}
+                          Tokens: <span className="text-gray-200">{plan.remaining.tokens}</span>/
+                          {plan.budget.tokens}
                         </span>
                         <span className="text-gray-400">
-                          Time: <span className="text-gray-200">{plan.remaining.seconds}s</span>/{plan.budget.seconds}s
+                          Time: <span className="text-gray-200">{plan.remaining.seconds}s</span>/
+                          {plan.budget.seconds}s
                         </span>
                       </div>
                     </div>
@@ -223,9 +271,13 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-medium text-gray-300">{step.type}</span>
-                          <span className="text-xs text-gray-500">{new Date(step.timestamp).toLocaleTimeString()}</span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(step.timestamp).toLocaleTimeString()}
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1 whitespace-pre-wrap">{step.content}</div>
+                        <div className="text-xs text-gray-400 mt-1 whitespace-pre-wrap">
+                          {step.content}
+                        </div>
                       </motion.div>
                     ))}
                   </div>
@@ -275,17 +327,28 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                 </div>
                 {consentRecords.length > 0 ? (
                   <div className="space-y-2">
-                    {consentRecords.slice(0, 6).map((record) => {
+                    {consentRecords.slice(0, 6).map(record => {
                       const status = statusLabel(record);
                       return (
-                        <div key={record.id} className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-3 space-y-2">
+                        <div
+                          key={record.id}
+                          className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-3 space-y-2"
+                        >
                           <div className="flex items-center justify-between text-xs text-gray-400">
-                            <span className="text-gray-300 font-medium">{ACTION_LABELS[record.action.type]}</span>
-                            <span className={`rounded-full border px-2 py-0.5 ${status.tone}`}>{status.label}</span>
+                            <span className="text-gray-300 font-medium">
+                              {ACTION_LABELS[record.action.type]}
+                            </span>
+                            <span className={`rounded-full border px-2 py-0.5 ${status.tone}`}>
+                              {status.label}
+                            </span>
                           </div>
-                          <div className="text-[11px] text-gray-500">{record.action.description}</div>
+                          <div className="text-[11px] text-gray-500">
+                            {record.action.description}
+                          </div>
                           <div className="flex items-center gap-2 text-[10px] text-gray-600">
-                            <span>{formatDistanceToNow(new Date(record.timestamp), { addSuffix: true })}</span>
+                            <span>
+                              {formatDistanceToNow(new Date(record.timestamp), { addSuffix: true })}
+                            </span>
                             {record.action.target && <span>• {record.action.target}</span>}
                           </div>
                         </div>
@@ -293,7 +356,9 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                     })}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 text-center py-8">No consent records yet</div>
+                  <div className="text-xs text-gray-500 text-center py-8">
+                    No consent records yet
+                  </div>
                 )}
               </div>
             )}
@@ -316,10 +381,12 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                 type="checkbox"
                 id="dry-run"
                 checked={dryRun}
-                onChange={(e) => setDryRun(e.target.checked)}
+                onChange={e => setDryRun(e.target.checked)}
                 className="rounded"
               />
-              <label htmlFor="dry-run" className="cursor-pointer">Dry-Run Mode</label>
+              <label htmlFor="dry-run" className="cursor-pointer">
+                Dry-Run Mode
+              </label>
             </div>
             {plan && (
               <div className="flex items-center gap-2 flex-wrap text-xs">

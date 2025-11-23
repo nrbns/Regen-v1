@@ -10,6 +10,10 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from apps.api import logging_config
+from apps.api.database import init_db
+from apps.api.middleware import RequestIdMiddleware
+from apps.api.openapi import configure_openapi
 from apps.api.routes import (
     auth,
     workspaces,
@@ -30,8 +34,12 @@ from apps.api.routes import (
     search_llm,
     ai_task,
     ai_metrics,
+    scraper,
+    deep_scan,
+    discipline,
+    health as health_routes,
 )
-from apps.api.database import init_db
+from apps.api.telemetry import init_telemetry
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -72,12 +80,15 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError):
             await metrics_task
 
+logging_config.configure_logging()
 app = FastAPI(
     title="OmniBrowser API",
     description="REST + WebSocket API for OmniBrowser",
     version="1.0.0",
     lifespan=lifespan,
 )
+configure_openapi(app)
+init_telemetry(app)
 
 # CORS middleware
 app.add_middleware(
@@ -87,6 +98,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIdMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -108,14 +120,19 @@ app.include_router(ai_search.router, prefix="/search", tags=["ai-search"])
 app.include_router(search_llm.router, prefix="/api", tags=["search-llm"])
 app.include_router(ai_task.router, prefix="/api", tags=["ai-task"])
 app.include_router(ai_metrics.router, prefix="/api", tags=["ai-metrics"])
+app.include_router(scraper.router, prefix="/api", tags=["scraper"])
+app.include_router(deep_scan.router, prefix="/api", tags=["research"])
+app.include_router(discipline.router, prefix="/discipline", tags=["discipline"])
+app.include_router(health_routes.router)
 
 @app.get("/")
 async def root():
     return {"message": "OmniBrowser API v1.0", "status": "ok"}
 
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
+@app.get("/health", include_in_schema=False)
+async def deprecated_health():
+    """Backwards-compatible liveness endpoint."""
+    return await health_routes.liveness()
 
 # WebSocket endpoint for real-time events
 @app.websocket("/ws")

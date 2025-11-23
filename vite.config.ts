@@ -8,9 +8,9 @@ export default defineConfig({
     react({
       babel: {
         parserOpts: {
-          plugins: ['jsx']
-        }
-      }
+          plugins: ['jsx'],
+        },
+      },
     }),
     electron({
       main: {
@@ -18,14 +18,22 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['electron', 'electron-updater', 'jsdom', 'canvas', 'bufferutil', 'utf-8-validate'],
+              external: [
+                'electron',
+                'electron-updater',
+                'jsdom',
+                'canvas',
+                'bufferutil',
+                'utf-8-validate',
+                'better-sqlite3',
+              ],
               output: {
                 entryFileNames: 'main.js',
                 format: 'cjs',
               },
-            }
-          }
-        }
+            },
+          },
+        },
       },
       preload: {
         input: {
@@ -53,10 +61,10 @@ export default defineConfig({
         '@ghostery/adblocker-electron',
         '@cliqz/adblocker-electron',
         'chromium-bidi/lib/cjs/bidiMapper/BidiMapper',
-        'chromium-bidi/lib/cjs/cdp/CdpConnection'
+        'chromium-bidi/lib/cjs/cdp/CdpConnection',
       ],
       output: {
-        manualChunks: (id) => {
+        manualChunks: id => {
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
             // Large UI libraries
@@ -113,13 +121,13 @@ export default defineConfig({
           if (id.includes('/core/supermemory/')) {
             return 'core-memory';
           }
-        }
-      }
-    }
+        },
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['electron'],
-    include: ['lightweight-charts']
+    include: ['lightweight-charts'],
   },
   server: {
     port: 5173,
@@ -127,8 +135,8 @@ export default defineConfig({
     host: true,
     hmr: {
       protocol: 'ws',
-      host: 'localhost'
-    }
+      host: 'localhost',
+    },
   },
   resolve: {
     alias: {
@@ -136,9 +144,7 @@ export default defineConfig({
       canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
       bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
       'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
-      './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js')
-    }
-  }
+      './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js'),
+    },
+  },
 });
-
-

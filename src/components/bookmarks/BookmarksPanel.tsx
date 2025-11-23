@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { Star, Folder, Search, X, ExternalLink, Edit2, Trash2, Plus } from 'lucide-react';
-import { useBookmarksStore } from '../../state/bookmarksStore';
+import { useBookmarksStore, type BookmarkFolder, type Bookmark } from '../../state/bookmarksStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 
@@ -19,40 +19,43 @@ export function BookmarksPanel() {
     addFolder,
     removeFolder,
   } = useBookmarksStore();
-  
+
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState('');
   const [showAddFolder, setShowAddFolder] = useState(false);
-  
+
   const filteredBookmarks = searchQuery
     ? searchBookmarks(searchQuery)
     : selectedFolder
-    ? getBookmarksByFolder(selectedFolder)
-    : bookmarks;
-  
+      ? getBookmarksByFolder(selectedFolder)
+      : bookmarks;
+
   const handleOpenBookmark = (url: string) => {
     ipc.tabs.create(url).catch(console.error);
   };
-  
+
   const handleEdit = (id: string) => {
     setEditingId(id);
   };
-  
-  const handleSaveEdit = (id: string, updates: { title?: string; folder?: string; tags?: string[] }) => {
+
+  const handleSaveEdit = (
+    id: string,
+    updates: { title?: string; folder?: string; tags?: string[] }
+  ) => {
     updateBookmark(id, updates);
     setEditingId(null);
   };
-  
+
   const handleAddFolder = () => {
-    if (newFolderName.trim() && !folders.includes(newFolderName.trim())) {
+    if (newFolderName.trim() && !folders.some(f => f.name === newFolderName.trim())) {
       addFolder(newFolderName.trim());
       setNewFolderName('');
       setShowAddFolder(false);
     }
   };
-  
+
   return (
     <div className="flex flex-col h-full bg-slate-950 text-gray-200">
       {/* Header */}
@@ -61,20 +64,20 @@ export function BookmarksPanel() {
           <Star size={20} className="text-yellow-400" />
           <h2 className="text-lg font-semibold">Bookmarks</h2>
         </div>
-        
+
         {/* Search */}
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search bookmarks..."
             className="w-full pl-9 pr-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
           />
         </div>
       </div>
-      
+
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Folders */}
         <div className="w-48 border-r border-gray-800 p-3 overflow-y-auto">
@@ -88,14 +91,14 @@ export function BookmarksPanel() {
               <Plus size={14} />
             </button>
           </div>
-          
+
           {showAddFolder && (
             <div className="mb-2 flex gap-1">
               <input
                 type="text"
                 value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                onKeyDown={(e) => {
+                onChange={e => setNewFolderName(e.target.value)}
+                onKeyDown={e => {
                   if (e.key === 'Enter') handleAddFolder();
                   if (e.key === 'Escape') {
                     setShowAddFolder(false);
@@ -114,7 +117,7 @@ export function BookmarksPanel() {
               </button>
             </div>
           )}
-          
+
           <button
             onClick={() => setSelectedFolder(null)}
             className={`w-full text-left px-2 py-1.5 rounded text-sm mb-1 ${
@@ -123,37 +126,41 @@ export function BookmarksPanel() {
           >
             All Bookmarks ({bookmarks.length})
           </button>
-          
-          {folders.map((folder) => {
-            const count = getBookmarksByFolder(folder).length;
+
+          {folders.map((folder: BookmarkFolder) => {
+            const count = getBookmarksByFolder(folder.id).length;
             return (
-              <div key={folder} className="flex items-center group">
+              <div key={folder.id} className="flex items-center group">
                 <button
-                  onClick={() => setSelectedFolder(folder)}
+                  onClick={() => setSelectedFolder(folder.id)}
                   className={`flex-1 text-left px-2 py-1.5 rounded text-sm ${
-                    selectedFolder === folder ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-gray-800'
+                    selectedFolder === folder.id
+                      ? 'bg-blue-500/20 text-blue-300'
+                      : 'hover:bg-gray-800'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <Folder size={14} />
-                    <span className="flex-1">{folder}</span>
+                    <span className="flex-1">{folder.name}</span>
                     <span className="text-xs text-gray-500">({count})</span>
                   </div>
                 </button>
-                {folder !== 'Favorites' && folder !== 'Work' && folder !== 'Personal' && (
-                  <button
-                    onClick={() => removeFolder(folder)}
-                    className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded"
-                    title="Delete folder"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
+                {folder.name !== 'Favorites' &&
+                  folder.name !== 'Work' &&
+                  folder.name !== 'Personal' && (
+                    <button
+                      onClick={() => removeFolder(folder.id)}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded"
+                      title="Delete folder"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
               </div>
             );
           })}
         </div>
-        
+
         {/* Main Content - Bookmarks List */}
         <div className="flex-1 overflow-y-auto p-4">
           {filteredBookmarks.length === 0 ? (
@@ -163,7 +170,7 @@ export function BookmarksPanel() {
           ) : (
             <div className="space-y-2">
               <AnimatePresence>
-                {filteredBookmarks.map((bookmark) => (
+                {filteredBookmarks.map((bookmark: Bookmark) => (
                   <motion.div
                     key={bookmark.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -174,18 +181,14 @@ export function BookmarksPanel() {
                     {editingId === bookmark.id ? (
                       <BookmarkEditor
                         bookmark={bookmark}
-                        folders={folders}
-                        onSave={(updates) => handleSaveEdit(bookmark.id, updates)}
+                        folders={folders.map(f => f.name)}
+                        onSave={updates => handleSaveEdit(bookmark.id, updates)}
                         onCancel={() => setEditingId(null)}
                       />
                     ) : (
                       <>
                         <div className="flex-shrink-0">
-                          {bookmark.favicon ? (
-                            <img src={bookmark.favicon} alt="" className="w-5 h-5" />
-                          ) : (
-                            <Star size={20} className="text-yellow-400" />
-                          )}
+                          <Star size={20} className="text-yellow-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm truncate">{bookmark.title}</div>
@@ -246,23 +249,23 @@ function BookmarkEditor({
 }) {
   const [title, setTitle] = useState(bookmark.title);
   const [folder, setFolder] = useState(bookmark.folder || '');
-  
+
   return (
     <div className="flex-1 flex items-center gap-2">
       <input
         type="text"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={e => setTitle(e.target.value)}
         className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none"
         autoFocus
       />
       <select
         value={folder}
-        onChange={(e) => setFolder(e.target.value)}
+        onChange={e => setFolder(e.target.value)}
         className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none"
       >
         <option value="">No folder</option>
-        {folders.map((f) => (
+        {folders.map(f => (
           <option key={f} value={f}>
             {f}
           </option>
@@ -283,4 +286,3 @@ function BookmarkEditor({
     </div>
   );
 }
-

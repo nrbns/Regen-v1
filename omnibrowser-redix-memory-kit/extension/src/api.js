@@ -1,13 +1,13 @@
 /* eslint-env browser */
-/* global chrome, fetch */
+/* global chrome */
 
 const DEFAULT_SETTINGS = {
-  MEMORY_BASE: "http://localhost:8080",
-  JWT: "dev",
+  MEMORY_BASE: 'http://localhost:8080',
+  JWT: 'dev',
   SYNC_ENABLED: false,
-  MODE: "research",
-  TENANT: "dev",
-  USER: "u42"
+  MODE: 'research',
+  TENANT: 'dev',
+  USER: 'u42',
 };
 
 export async function getSettings() {
@@ -21,7 +21,7 @@ export async function updateSettings(nextSettings) {
 
 export class MemoryClient {
   constructor(settings) {
-    this.baseUrl = settings.MEMORY_BASE.replace(/\/$/, "");
+    this.baseUrl = settings.MEMORY_BASE.replace(/\/$/, '');
     this.jwt = settings.JWT;
     this.tenant = settings.TENANT;
     this.user = settings.USER;
@@ -34,7 +34,7 @@ export class MemoryClient {
 
   async writeMemory(payload) {
     const response = await fetch(`${this.baseUrl}/v1/memory.write`, {
-      method: "POST",
+      method: 'POST',
       headers: this.#headers(),
       body: JSON.stringify(payload),
     });
@@ -49,7 +49,7 @@ export class MemoryClient {
 
   async search(query, options = {}) {
     const response = await fetch(`${this.baseUrl}/v1/memory.search`, {
-      method: "POST",
+      method: 'POST',
       headers: this.#headers(),
       body: JSON.stringify({
         query,
@@ -67,9 +67,9 @@ export class MemoryClient {
 
   #headers() {
     const headers = {
-      "Content-Type": "application/json",
-      "x-tenant": this.tenant,
-      "x-user": this.user,
+      'Content-Type': 'application/json',
+      'x-tenant': this.tenant,
+      'x-user': this.user,
     };
     if (this.jwt) {
       headers.Authorization = `Bearer ${this.jwt}`;
@@ -77,4 +77,3 @@ export class MemoryClient {
     return headers;
   }
 }
-

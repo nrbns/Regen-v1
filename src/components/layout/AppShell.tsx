@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
-import { AlertTriangle, RotateCcw, Loader2, PanelsTopLeft, PanelRightOpen } from 'lucide-react';
+import { AlertTriangle, RotateCcw, Loader2, PanelsTopLeft, PanelRightOpen, X } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
@@ -13,19 +13,35 @@ import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
-import { isDevEnv } from '../../lib/env';
+import { isDevEnv, isElectronRuntime } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
 // Voice components disabled by user request
 // import { VoiceTips } from '../voice/VoiceTips';
 // import VoiceCompanion from '../voice/VoiceCompanion';
 import { initializeOptimizer } from '../../core/redix/optimizer';
+import { startTabSuspensionService } from '../../core/redix/tab-suspension';
+import { initBatteryManager } from '../../core/redix/battery-manager';
+import { initMemoryManager } from '../../core/redix/memory-manager';
+import { initPowerModes } from '../../core/redix/power-modes';
 import { useRedix } from '../../core/redix/useRedix';
 import { updatePolicyMetrics, getPolicyRecommendations } from '../../core/redix/policies';
 import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
-import { MemorySidebar } from '../supermemory/MemorySidebar';
+import { ResearchMemoryPanel } from '../research/ResearchMemoryPanel';
 import { trackVisit } from '../../core/supermemory/tracker';
 import { initNightlySummarization } from '../../core/supermemory/summarizer';
-import { RedixDebugPanel } from '../redix/RedixDebugPanel';
+// RedixDebugPanel - lazy loaded, dev only
+const RedixDebugPanel = isDevEnv()
+  ? React.lazy(() => import('../redix/RedixDebugPanel').then(m => ({ default: m.RedixDebugPanel })))
+  : null;
+import { SuspensionIndicator } from '../redix/SuspensionIndicator';
+import { BatteryIndicator } from '../redix/BatteryIndicator';
+import { MemoryMonitor } from '../redix/MemoryMonitor';
+import { MiniHoverAI } from '../interaction/MiniHoverAI';
+import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
+import { CommandBar } from '../command-bar/CommandBar';
+import { OnboardingFlow, shouldShowOnboarding } from '../Onboarding/OnboardingFlow';
+import { SessionRestorePrompt } from '../SessionRestorePrompt';
+const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
 import { useSessionStore } from '../../state/sessionStore';
@@ -38,6 +54,15 @@ import { TermsAcceptance } from '../Onboarding/TermsAcceptance';
 import { CookieConsent, useCookieConsent } from '../Onboarding/CookieConsent';
 import { ToastHost } from '../common/ToastHost';
 import { reopenMostRecentClosedTab } from '../../lib/tabLifecycle';
+import { toast } from '../../utils/toast';
+import { startSnapshotting } from '../../core/recovery';
+
+declare global {
+  interface Window {
+    __OMNIX_TOPBAR_HEIGHT?: number;
+    __omnix_apply_topbar?: () => void;
+  }
+}
 
 type ErrorBoundaryState = {
   hasError: boolean;
@@ -52,7 +77,11 @@ class ErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback?: React.ReactNode; componentName?: string },
   ErrorBoundaryState
 > {
-  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode; componentName?: string }) {
+  constructor(props: {
+    children: React.ReactNode;
+    fallback?: React.ReactNode;
+    componentName?: string;
+  }) {
     super(props);
     this.state = { hasError: false, copyStatus: null, copying: false };
   }
@@ -65,10 +94,10 @@ class ErrorBoundary extends React.Component<
     console.error(
       `ErrorBoundary caught error${this.props.componentName ? ` in ${this.props.componentName}` : ''}:`,
       error,
-      errorInfo,
+      errorInfo
     );
     this.setState({ error, errorInfo: errorInfo.componentStack ?? undefined });
-    
+
     // Optional: Send to error tracking service (e.g., Sentry)
     if (process.env.NODE_ENV === 'production') {
       // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
@@ -142,14 +171,15 @@ class ErrorBoundary extends React.Component<
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-red-200">
-                  Something went wrong{this.props.componentName ? ` inside ${this.props.componentName}` : ''}.
+                  Something went wrong
+                  {this.props.componentName ? ` inside ${this.props.componentName}` : ''}.
                 </h1>
                 {this.state.error?.message && (
                   <p className="mt-2 text-sm text-red-100/80">{this.state.error.message}</p>
                 )}
                 <p className="mt-2 text-sm text-gray-400">
-                  Try reloading the interface. You can also copy diagnostics or inspect the latest logs to share with the
-                  team.
+                  Try reloading the interface. You can also copy diagnostics or inspect the latest
+                  logs to share with the team.
                 </p>
               </div>
             </div>
@@ -207,20 +237,53 @@ class ErrorBoundary extends React.Component<
 }
 
 // Lazy load heavy components
-const TopNav = React.lazy(() => import('./TopNav').then(m => ({ default: m.TopNav })));
+const TopBar = React.lazy(() =>
+  import('../../ui/components/TopBar').then(m => ({ default: m.TopBar }))
+);
 const TabStrip = React.lazy(() => import('./TabStrip').then(m => ({ default: m.TabStrip })));
 const RightPanel = React.lazy(() => import('./RightPanel').then(m => ({ default: m.RightPanel })));
-const BottomStatus = React.lazy(() => import('./BottomStatus').then(m => ({ default: m.BottomStatus })));
-const CommandPalette = React.lazy(() => import('./CommandPalette').then(m => ({ default: m.CommandPalette })));
-const PermissionPrompt = React.lazy(() => import('../Overlays/PermissionPrompt').then(m => ({ default: m.PermissionPrompt })));
-const ConsentPrompt = React.lazy(() => import('../Overlays/ConsentPrompt').then(m => ({ default: m.ConsentPrompt })));
-const AgentOverlay = React.lazy(() => import('../AgentOverlay').then(m => ({ default: m.AgentOverlay })));
-const ClipperOverlay = React.lazy(() => import('../Overlays/ClipperOverlay').then(m => ({ default: m.ClipperOverlay })));
-const ReaderOverlay = React.lazy(() => import('../Overlays/ReaderOverlay').then(m => ({ default: m.ReaderOverlay })));
-const TabGraphOverlay = React.lazy(() => import('./TabGraphOverlay').then(m => ({ default: m.TabGraphOverlay })));
-const ConsentDashboard = React.lazy(() => import('../Consent/ConsentDashboard').then(m => ({ default: m.ConsentDashboard })));
-const TrustEthicsDashboard = React.lazy(() => import('../trust/TrustEthicsDashboard').then(m => ({ default: m.TrustEthicsDashboard })));
-const OnboardingTour = React.lazy(() => import('../Onboarding/OnboardingTour').then(m => ({ default: m.OnboardingTour })));
+const BottomStatus = React.lazy(() =>
+  import('./BottomStatus').then(m => ({ default: m.BottomStatus }))
+);
+const CommandPalette = React.lazy(() =>
+  import('./CommandPalette').then(m => ({ default: m.CommandPalette }))
+);
+const PermissionPrompt = React.lazy(() =>
+  import('../Overlays/PermissionPrompt').then(m => ({ default: m.PermissionPrompt }))
+);
+const ConsentPrompt = React.lazy(() =>
+  import('../Overlays/ConsentPrompt').then(m => ({ default: m.ConsentPrompt }))
+);
+const AgentOverlay = React.lazy(() =>
+  import('../AgentOverlay').then(m => ({ default: m.AgentOverlay }))
+);
+const RegenSidebar = React.lazy(() =>
+  import('../regen/RegenSidebar').then(m => ({ default: m.RegenSidebar }))
+);
+
+const RegenSidebarWrapper = () => (
+  <div className="h-full min-h-0 w-[400px] overflow-hidden border-l border-slate-800/60 fixed right-0 top-0 bottom-0 z-50 bg-gray-900">
+    <RegenSidebar />
+  </div>
+);
+const ClipperOverlay = React.lazy(() =>
+  import('../Overlays/ClipperOverlay').then(m => ({ default: m.ClipperOverlay }))
+);
+const ReaderOverlay = React.lazy(() =>
+  import('../Overlays/ReaderOverlay').then(m => ({ default: m.ReaderOverlay }))
+);
+const TabGraphOverlay = React.lazy(() =>
+  import('./TabGraphOverlay').then(m => ({ default: m.TabGraphOverlay }))
+);
+const ConsentDashboard = React.lazy(() =>
+  import('../Consent/ConsentDashboard').then(m => ({ default: m.ConsentDashboard }))
+);
+const TrustEthicsDashboard = React.lazy(() =>
+  import('../trust/TrustEthicsDashboard').then(m => ({ default: m.TrustEthicsDashboard }))
+);
+const OnboardingTour = React.lazy(() =>
+  import('../Onboarding/OnboardingTour').then(m => ({ default: m.OnboardingTour }))
+);
 
 import { useOnboardingStore, onboardingStorage } from '../../state/onboardingStore';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
@@ -229,38 +292,45 @@ import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 export function AppShell() {
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [unifiedSidePanelOpen, setUnifiedSidePanelOpen] = useState(false);
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null);
   const [consentRequest, setConsentRequest] = useState<ConsentRequest | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const memorySidebarOpen = useAppStore((state) => state.memorySidebarOpen);
-  const setMemorySidebarOpen = useAppStore((state) => state.setMemorySidebarOpen);
+  const memorySidebarOpen = useAppStore(state => state.memorySidebarOpen);
+  const setMemorySidebarOpen = useAppStore(state => state.setMemorySidebarOpen);
+  const setMode = useAppStore(state => state.setMode);
   const [redixDebugOpen, setRedixDebugOpen] = useState(false);
-  const themePreference = useSettingsStore((state) => state.appearance.theme);
-  const compactUI = useSettingsStore((state) => state.appearance.compactUI);
-  const clearOnExit = useSettingsStore((state) => state.privacy.clearOnExit);
+  const isDev = isDevEnv();
+  const themePreference = useSettingsStore(state => state.appearance.theme);
+  const compactUI = useSettingsStore(state => state.appearance.compactUI);
+  const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
-  
+
   // Initialize fullscreen state on mount - ensure it starts as false
   useEffect(() => {
     // Force initial state to false (window should not start in fullscreen)
     setIsFullscreen(false);
-    
+
     // Check initial fullscreen state after a brief delay to ensure window is ready
     const checkFullscreen = () => {
-      const isCurrentlyFullscreen = !!(document.fullscreenElement || (window as any).webkitFullscreenElement || (window as any).mozFullScreenElement);
+      const isCurrentlyFullscreen = !!(
+        document.fullscreenElement ||
+        (window as any).webkitFullscreenElement ||
+        (window as any).mozFullScreenElement
+      );
       if (isCurrentlyFullscreen !== isFullscreen) {
         setIsFullscreen(isCurrentlyFullscreen);
       }
     };
-    
+
     // Check after a brief delay to ensure window is ready
     const timeoutId = setTimeout(checkFullscreen, 100);
-    
+
     // Listen for fullscreen changes
     document.addEventListener('fullscreenchange', checkFullscreen);
     document.addEventListener('webkitfullscreenchange', checkFullscreen);
     document.addEventListener('mozfullscreenchange', checkFullscreen);
-    
+
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('fullscreenchange', checkFullscreen);
@@ -270,19 +340,19 @@ export function AppShell() {
   }, []);
   const [clipperActive, setClipperActive] = useState(false);
   const [readerActive, setReaderActive] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
+  const [isOffline, setIsOffline] = useState(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
   const [ollamaAvailable, setOllamaAvailable] = useState(false);
-  const onboardingVisible = useOnboardingStore((state) => state.visible);
-  const startOnboarding = useOnboardingStore((state) => state.start);
-  const _finishOnboarding = useOnboardingStore((state) => state.finish);
-  
-  // Debug: log visibility changes
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug('[AppShell] onboardingVisible changed:', onboardingVisible);
-    }
-  }, [onboardingVisible]);
+  const onboardingVisible = useOnboardingStore(state => state.visible);
+  const startOnboarding = useOnboardingStore(state => state.start);
+  const _finishOnboarding = useOnboardingStore(state => state.finish);
+
+  // Debug: log visibility changes (removed for production performance)
   const [graphDropHint, setGraphDropHint] = useState(false);
+  const topChromeRef = useRef<HTMLDivElement | null>(null);
+  const bottomChromeRef = useRef<HTMLDivElement | null>(null);
+  const isElectron = useMemo(() => isElectronRuntime(), []);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -295,39 +365,177 @@ export function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isElectron) {
+      return;
+    }
+
+    let lastTop = -1;
+    let lastBottom = -1;
+
+    const updateOffsets = () => {
+      const top = Math.round(topChromeRef.current?.offsetHeight ?? 0);
+      const bottomMeasured = Math.round(bottomChromeRef.current?.offsetHeight ?? 0);
+      const bottom = isFullscreen ? 0 : bottomMeasured;
+
+      // Set CSS variable for header height (useful for Electron main process)
+      if (top !== lastTop) {
+        document.documentElement.style.setProperty('--header-height', `${top}px`);
+      }
+      if (bottom !== lastBottom || bottom !== bottomMeasured) {
+        document.documentElement.style.setProperty('--footer-height', `${bottom}px`);
+      }
+
+      if (top !== lastTop || bottom !== lastBottom) {
+        lastTop = top;
+        lastBottom = bottom;
+        void ipc.ui.setChromeOffsets({ top, bottom });
+      }
+    };
+
+    const observers: ResizeObserver[] = [];
+    const attachObserver = (element: Element | null | undefined) => {
+      if (!element || typeof ResizeObserver === 'undefined') return;
+      const observer = new ResizeObserver(updateOffsets);
+      observer.observe(element);
+      observers.push(observer);
+    };
+
+    attachObserver(topChromeRef.current);
+    attachObserver(bottomChromeRef.current);
+    updateOffsets();
+    window.addEventListener('resize', updateOffsets);
+
+    return () => {
+      window.removeEventListener('resize', updateOffsets);
+      observers.forEach(observer => observer.disconnect());
+    };
+  }, [isElectron, isFullscreen]);
+
+  // Set CSS variable for header height (always, not just Electron)
+  useEffect(() => {
+    if (!topChromeRef.current) return;
+
+    const updateHeaderHeight = () => {
+      const height = topChromeRef.current?.offsetHeight ?? 0;
+      const px = `${height}px`;
+      document.documentElement.style.setProperty('--header-height', px);
+      document.documentElement.style.setProperty('--omnix-topbar-height', px);
+      if (typeof window !== 'undefined') {
+        (window as any).__OMNIX_TOPBAR_HEIGHT = height;
+        if (typeof (window as any).__omnix_apply_topbar === 'function') {
+          try {
+            (window as any).__omnix_apply_topbar();
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[AppShell] Failed to notify injected topbar script', error);
+            }
+          }
+        }
+      }
+    };
+
+    updateHeaderHeight();
+    const observer = new ResizeObserver(updateHeaderHeight);
+    if (topChromeRef.current) {
+      observer.observe(topChromeRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   // Check Ollama availability when offline
   useEffect(() => {
     if (isOffline) {
-      void ipc.ollama.check().then((result) => {
-        setOllamaAvailable(result?.available ?? false);
-      }).catch(() => {
-        setOllamaAvailable(false);
-      });
+      void ipc.ollama
+        .check()
+        .then(result => {
+          setOllamaAvailable(result?.available ?? false);
+        })
+        .catch(() => {
+          setOllamaAvailable(false);
+        });
     } else {
       setOllamaAvailable(false);
     }
   }, [isOffline]);
 
-  const [restoreSummary, setRestoreSummary] = useState<{ updatedAt: number; windowCount: number; tabCount: number } | null>(null);
+  const [restoreSummary, setRestoreSummary] = useState<{
+    updatedAt: number;
+    windowCount: number;
+    tabCount: number;
+  } | null>(null);
   const [restoreDismissed, setRestoreDismissed] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<'idle' | 'restoring'>('idle');
-  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1920));
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1920
+  );
   const isDesktopLayout = viewportWidth >= 1280;
+
+  // Notify main process when right panel opens/closes so BrowserView bounds can be updated
+  useEffect(() => {
+    if (
+      !isElectron ||
+      typeof window === 'undefined' ||
+      !(window as any).ui ||
+      typeof (window as any).ui.setRightDock !== 'function'
+    ) {
+      return;
+    }
+
+    // Right panel uses w-[340px] max-w-[380px], use 360px as average
+    // Only send width if panel is open and not in fullscreen
+    const panelWidth = rightPanelOpen && !isFullscreen && isDesktopLayout ? 360 : 0;
+
+    try {
+      (window as any).ui.setRightDock(panelWidth);
+      if (process.env.NODE_ENV === 'development') {
+        // Debug logging removed for production
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[AppShell] Failed to update right panel width:', error);
+      }
+    }
+  }, [rightPanelOpen, isFullscreen, isDesktopLayout, isElectron]);
+
   const [, setToolsDrawerOpen] = useState(false);
-  const sessionSnapshot = useSessionStore((state) => state.snapshot);
-  const saveSessionSnapshot = useSessionStore((state) => state.saveSnapshot);
-  const restoreSessionSnapshot = useSessionStore((state) => state.restoreFromSnapshot);
-  const clearSessionSnapshot = useSessionStore((state) => state.clearSnapshot);
-  const clearHistoryEntries = useHistoryStore((state) => state.clear);
+  const sessionSnapshot = useSessionStore(state => state.snapshot);
+  const saveSessionSnapshot = useSessionStore(state => state.saveSnapshot);
+  const restoreSessionSnapshot = useSessionStore(state => state.restoreFromSnapshot);
+  const clearSessionSnapshot = useSessionStore(state => state.clearSnapshot);
+  const clearHistoryEntries = useHistoryStore(state => state.clear);
   const tabsState = useTabsStore();
   const [showTOS, setShowTOS] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [restoreToast, setRestoreToast] = useState<{
+    message: string;
+    variant: 'success' | 'error';
+  } | null>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const seen = window.localStorage.getItem('omnibrowser:onboarding-seen');
-    setShowOnboarding(!seen);
+  // All hooks must be called before any conditional logic
+  const { hasConsented } = useCookieConsent();
+
+  // Memoize TOS callbacks to prevent hook order issues - must be called unconditionally
+  const handleTOSAccept = useCallback(() => {
+    setShowTOS(false);
+  }, []);
+
+  const handleTOSDecline = useCallback(() => {
+    // User declined TOS - could show a message or prevent app usage
+    // For now, we'll just close the app or show a message
+    if (
+      window.confirm(
+        'You must accept the Terms of Service to use OmniBrowser. Would you like to exit?'
+      )
+    ) {
+      // In Electron, we could close the window
+      if (typeof window !== 'undefined' && (window as any).api?.app?.quit) {
+        (window as any).api.app.quit();
+      } else {
+        window.close();
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -337,6 +545,14 @@ export function AppShell() {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Tier 2: Initialize snapshotting on mount
+  useEffect(() => {
+    startSnapshotting();
+    return () => {
+      // Cleanup handled by stopSnapshotting if needed
+    };
   }, []);
 
   useEffect(() => {
@@ -363,7 +579,8 @@ export function AppShell() {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
 
     const applyPreferences = () => {
-      const resolvedTheme = themePreference === 'system' ? (media.matches ? 'dark' : 'light') : themePreference;
+      const resolvedTheme =
+        themePreference === 'system' ? (media.matches ? 'dark' : 'light') : themePreference;
       root.dataset.theme = resolvedTheme;
       root.dataset.compact = compactUI ? 'true' : 'false';
     };
@@ -378,16 +595,6 @@ export function AppShell() {
 
     return undefined;
   }, [themePreference, compactUI]);
-
-  const dismissOnboarding = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('omnibrowser:onboarding-seen', '1');
-    }
-    setShowOnboarding(false);
-  };
-
-  const { hasConsented } = useCookieConsent();
-  const [restoreToast, setRestoreToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
 
   // Check TOS acceptance on mount
   useEffect(() => {
@@ -498,17 +705,19 @@ export function AppShell() {
       window.removeEventListener('tabgraph:dragend', handleCustomDragEnd as EventListener);
     };
   }, []);
-  const consentVisible = useConsentOverlayStore((state) => state.visible);
-  const trustDashboardVisible = useTrustDashboardStore((state) => state.visible);
+  const consentVisible = useConsentOverlayStore(state => state.visible);
+  const trustDashboardVisible = useTrustDashboardStore(state => state.visible);
 
   const cycleTab = useCallback((direction: number) => {
     const { tabs, activeId, setActive } = useTabsStore.getState();
     const currentMode = useAppStore.getState().mode;
-    const scopedTabs = tabs.filter((tab) => !currentMode || !tab.appMode || tab.appMode === currentMode);
+    const scopedTabs = tabs.filter(
+      tab => !currentMode || !tab.appMode || tab.appMode === currentMode
+    );
     if (scopedTabs.length === 0) {
       return false;
     }
-    const currentIndex = scopedTabs.findIndex((tab) => tab.id === activeId);
+    const currentIndex = scopedTabs.findIndex(tab => tab.id === activeId);
     const baseIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = (baseIndex + direction + scopedTabs.length) % scopedTabs.length;
     const target = scopedTabs[nextIndex];
@@ -523,12 +732,16 @@ export function AppShell() {
   const jumpToTabIndex = useCallback((position: number, snapToEnd = false) => {
     const { tabs, setActive } = useTabsStore.getState();
     const currentMode = useAppStore.getState().mode;
-    const scopedTabs = tabs.filter((tab) => !currentMode || !tab.appMode || tab.appMode === currentMode);
+    const scopedTabs = tabs.filter(
+      tab => !currentMode || !tab.appMode || tab.appMode === currentMode
+    );
     if (scopedTabs.length === 0) {
       return false;
     }
 
-    const index = snapToEnd ? Math.max(scopedTabs.length - 1, 0) : Math.min(Math.max(position, 0), scopedTabs.length - 1);
+    const index = snapToEnd
+      ? Math.max(scopedTabs.length - 1, 0)
+      : Math.min(Math.max(position, 0), scopedTabs.length - 1);
     const target = scopedTabs[index];
     if (target) {
       setActive(target.id);
@@ -537,19 +750,33 @@ export function AppShell() {
     }
     return false;
   }, []);
-  const activeTab = useMemo(() => tabsState.tabs.find(tab => tab.id === tabsState.activeId), [tabsState.tabs, tabsState.activeId]);
-  const mode = useAppStore((state) => state.mode);
-  const researchPaneOpen = useAppStore((state) => state.researchPaneOpen);
-  const setResearchPaneOpen = useAppStore((state) => state.setResearchPaneOpen);
-  const tradeSidebarOpen = useTradeStore((state) => state.sidebarOpen);
-  const setTradeSidebarOpen = useTradeStore((state) => state.setSidebarOpen);
+  const activeTab = useMemo(
+    () => tabsState.tabs.find(tab => tab.id === tabsState.activeId),
+    [tabsState.tabs, tabsState.activeId]
+  );
+  const mode = useAppStore(state => state.mode);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const nextMode = (mode ?? 'browse').toLowerCase();
+    document.documentElement.dataset.modeTheme = nextMode;
+    return () => {
+      document.documentElement.dataset.modeTheme = nextMode;
+    };
+  }, [mode]);
+  const researchPaneOpen = useAppStore(state => state.researchPaneOpen);
+  const setResearchPaneOpen = useAppStore(state => state.setResearchPaneOpen);
+  const tradeSidebarOpen = useTradeStore(state => state.sidebarOpen);
+  const setTradeSidebarOpen = useTradeStore(state => state.setSidebarOpen);
+  const regenSidebarOpen = useAppStore(state => state.regenSidebarOpen);
+  const setRegenSidebarOpen = useAppStore(state => state.setRegenSidebarOpen);
   const [_contentSplit, setContentSplit] = useState(0.62);
-  
+
   // Track visits when active tab URL changes
   const lastTrackedUrl = useRef<string>('');
   useEffect(() => {
     if (!activeTab?.url || activeTab.url === lastTrackedUrl.current) return;
-    
+
     // Skip special pages
     if (
       activeTab.url.startsWith('about:') ||
@@ -560,21 +787,21 @@ export function AppShell() {
     ) {
       return;
     }
-    
-      // Track visit
-        lastTrackedUrl.current = activeTab.url;
-        trackVisit(activeTab.url, activeTab.title, {
-          tabId: activeTab.id,
-          containerId: activeTab.containerId,
-        }).catch((error) => {
-          console.warn('[AppShell] Failed to track visit:', error);
-        });
-      }, [activeTab?.url, activeTab?.title, activeTab?.id, activeTab?.containerId]);
 
-      // Initialize nightly summarization
-      useEffect(() => {
-        initNightlySummarization();
-      }, []);
+    // Track visit
+    lastTrackedUrl.current = activeTab.url;
+    trackVisit(activeTab.url, activeTab.title, {
+      tabId: activeTab.id,
+      containerId: activeTab.containerId,
+    }).catch(error => {
+      console.warn('[AppShell] Failed to track visit:', error);
+    });
+  }, [activeTab?.url, activeTab?.title, activeTab?.id, activeTab?.containerId]);
+
+  // Initialize nightly summarization
+  useEffect(() => {
+    initNightlySummarization();
+  }, []);
   const [isResizingContent, setIsResizingContent] = useState(false);
   const overlayActive =
     commandPaletteOpen ||
@@ -601,12 +828,11 @@ export function AppShell() {
     setIsResizingContent(true);
   }, [showWebContent]);
 
-
   useEffect(() => {
     if (!isResizingContent) return;
 
     const handlePointerMove = (event: MouseEvent) => {
-      setContentSplit((prev) => {
+      setContentSplit(prev => {
         const ratio = event.clientX / window.innerWidth;
         if (Number.isNaN(ratio)) return prev;
         return Math.min(0.85, Math.max(0.25, ratio));
@@ -698,10 +924,22 @@ export function AppShell() {
     initializeOptimizer().catch(console.error);
   }, []);
 
+  useEffect(() => {
+    startTabSuspensionService();
+  }, []);
+
+  useEffect(() => {
+    initBatteryManager();
+    initPowerModes();
+    initMemoryManager();
+  }, []);
+
   // Watch for Redix performance events
-  useRedix((event) => {
+  useRedix(event => {
     if (event.type === 'redix:performance:low') {
-      console.log('[Redix] Performance low:', event.payload);
+      if (isDevEnv()) {
+        console.log('[Redix] Performance low:', event.payload);
+      }
       // Update policy metrics for automatic evaluation
       const { memory, cpu, battery } = event.payload || {};
       updatePolicyMetrics({
@@ -710,7 +948,7 @@ export function AppShell() {
         batteryLevel: battery,
       });
     }
-    
+
     // Handle policy events
     if (event.type.startsWith('redix:policy:')) {
       const recommendations = getPolicyRecommendations();
@@ -718,7 +956,7 @@ export function AppShell() {
         console.log('[Redix] Policy recommendations:', recommendations);
       }
     }
-    
+
     // Handle mode transition errors
     if (event.type === 'redix:mode:error') {
       const { mode, error } = event.payload || {};
@@ -728,7 +966,7 @@ export function AppShell() {
         variant: 'error',
       });
     }
-    
+
     // Handle successful mode activation
     if (event.type === 'redix:mode:activated') {
       const { mode } = event.payload || {};
@@ -744,7 +982,7 @@ export function AppShell() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (showTOS || showCookieConsent) return; // Don't start onboarding if modals are showing
-    
+
     const timer = setTimeout(() => {
       if (!onboardingStorage.isCompleted() && !onboardingVisible) {
         startOnboarding();
@@ -763,10 +1001,10 @@ export function AppShell() {
         if (!url) return;
         const result = await autoTogglePrivacy(url, 'Normal');
         if (result) {
-          console.debug(`[AppShell] Auto-enabled ${result} mode for sensitive site:`, url);
+          // Debug logging removed for production
         }
-      } catch (error) {
-        console.debug('[AppShell] Privacy auto-toggle failed:', error);
+      } catch {
+        // Error already logged in autoTogglePrivacy
       }
     };
 
@@ -780,6 +1018,12 @@ export function AppShell() {
       setRestoreSummary(null);
       return;
     }
+    // Only show restore banner if there are tabs to restore
+    if (sessionSnapshot.tabCount === 0) {
+      setRestoreSummary(null);
+      setRestoreDismissed(true);
+      return;
+    }
     if (restoreSummary && restoreSummary.updatedAt === sessionSnapshot.updatedAt) {
       return;
     }
@@ -790,6 +1034,15 @@ export function AppShell() {
     });
     setRestoreDismissed(false);
   }, [sessionSnapshot, restoreSummary]);
+
+  // Auto-dismiss restore banner after 30 seconds
+  useEffect(() => {
+    if (!restoreSummary || restoreDismissed) return;
+    const timer = setTimeout(() => {
+      setRestoreDismissed(true);
+    }, 30000); // 30 seconds
+    return () => clearTimeout(timer);
+  }, [restoreSummary, restoreDismissed]);
 
   useEffect(() => {
     if (!restoreToast) return;
@@ -802,14 +1055,18 @@ export function AppShell() {
   }, [restoreToast]);
 
   // Listen for permission requests
-  useIPCEvent<PermissionRequest>('permissions:request', (request) => {
-    setPermissionRequest(request);
-  }, []);
+  useIPCEvent<PermissionRequest>(
+    'permissions:request',
+    request => {
+      setPermissionRequest(request);
+    },
+    []
+  );
 
   // Listen for consent requests
   useIPCEvent<any>(
     'agent:consent:request',
-    (payload) => {
+    payload => {
       if (!payload || !payload.id || !payload.action) return;
       const request: ConsentRequest = {
         id: payload.id,
@@ -834,7 +1091,7 @@ export function AppShell() {
       };
       setConsentRequest(request);
     },
-    [],
+    []
   );
 
   // Listen for fullscreen changes from Electron IPC
@@ -842,10 +1099,13 @@ export function AppShell() {
     const handleFullscreen = (data: { fullscreen: boolean }) => {
       setIsFullscreen(data.fullscreen);
     };
-    
+
     // Use the IPC event bus
-    const unsubscribe = ipcEvents.on<{ fullscreen: boolean }>('app:fullscreen-changed', handleFullscreen);
-    
+    const unsubscribe = ipcEvents.on<{ fullscreen: boolean }>(
+      'app:fullscreen-changed',
+      handleFullscreen
+    );
+
     return unsubscribe;
   }, []);
 
@@ -855,20 +1115,27 @@ export function AppShell() {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
 
+      if (e.key === 'F11') {
+        e.preventDefault();
+        void ipc.windowControl.toggleFullscreen();
+        return;
+      }
+
       // ⌘K / Ctrl+K: Focus Omnibox (primary action - AI omnibar is the hero)
-      // Note: TopNav also handles this with capture:true, so this is a fallback
+      // Note: TopBar also handles this with capture:true, so this is a fallback
       if (modifier && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') {
-        // Let TopNav handle this to focus omnibox
+        // Let TopBar handle this to focus address bar
         // If omnibox is already focused, then open command palette
         const target = e.target as HTMLElement | null;
-        const isWithinOmnibox = target?.hasAttribute('data-omnibox-input') || 
-                                 target?.closest('[data-onboarding="omnibox"]');
+        const isWithinOmnibox =
+          target?.hasAttribute('data-omnibox-input') ||
+          target?.closest('[data-onboarding="omnibox"]');
         if (isWithinOmnibox) {
           e.preventDefault();
           setCommandPaletteOpen(true);
           return;
         }
-        // Otherwise, let TopNav handle focusing the omnibox
+        // Otherwise, let TopBar handle focusing the address bar
         return;
       }
 
@@ -888,7 +1155,11 @@ export function AppShell() {
       // ⌘T / Ctrl+T: New Tab
       if (modifier && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-        ipc.tabs.create('about:blank').catch(console.error);
+        ipc.tabs.create('about:blank').catch(error => {
+          if (isDevEnv()) {
+            console.error('[AppShell] Failed to create tab:', error);
+          }
+        });
         return;
       }
 
@@ -897,11 +1168,15 @@ export function AppShell() {
         e.preventDefault();
         const state = useTabsStore.getState();
         if (state.activeId) {
-          const tab = state.tabs.find((t) => t.id === state.activeId);
+          const tab = state.tabs.find(t => t.id === state.activeId);
           if (tab) {
             state.rememberClosedTab(tab);
           }
-          ipc.tabs.close({ id: state.activeId }).catch(console.error);
+          ipc.tabs.close({ id: state.activeId }).catch(error => {
+            if (isDevEnv()) {
+              console.error('[AppShell] Failed to close tab:', error);
+            }
+          });
         }
         return;
       }
@@ -924,6 +1199,20 @@ export function AppShell() {
       if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         setMemorySidebarOpen(!memorySidebarOpen);
+        return;
+      }
+
+      // ⌘⇧R / Ctrl+Shift+R: Toggle Regen Sidebar
+      if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        setRegenSidebarOpen(!regenSidebarOpen);
+        return;
+      }
+
+      // ⌘⇧L / Ctrl+Shift+L: Toggle Unified Side Panel (History/Bookmarks/Downloads)
+      if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        setUnifiedSidePanelOpen(!unifiedSidePanelOpen);
         return;
       }
 
@@ -982,9 +1271,9 @@ export function AppShell() {
         }
       }
 
-      // Alt+← / ⌘←: Go back (handled by TopNav)
-      // Alt+→ / ⌘→: Go forward (handled by TopNav)
-      // Ctrl+R / ⌘R: Refresh (handled by TopNav)
+      // Alt+← / ⌘←: Go back (handled by TopBar)
+      // Alt+→ / ⌘→: Go forward (handled by TopBar)
+      // Ctrl+R / ⌘R: Refresh (handled by TopBar)
 
       // Esc: Close modals
       if (e.key === 'Escape') {
@@ -1007,22 +1296,36 @@ export function AppShell() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [commandPaletteOpen, permissionRequest, consentRequest, rightPanelOpen, clipperActive, memorySidebarOpen, cycleTab, jumpToTabIndex]);
-  
-  // Sync memory sidebar state with TopNav and listen for external changes
+  }, [
+    commandPaletteOpen,
+    permissionRequest,
+    consentRequest,
+    rightPanelOpen,
+    clipperActive,
+    memorySidebarOpen,
+    cycleTab,
+    jumpToTabIndex,
+  ]);
+
+  // Sync memory sidebar state with TopBar and listen for external changes
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('memory-sidebar:toggle', { detail: { open: memorySidebarOpen } }));
-    
+    window.dispatchEvent(
+      new CustomEvent('memory-sidebar:toggle', { detail: { open: memorySidebarOpen } })
+    );
+
     const handleMemorySidebarToggle = (event: CustomEvent) => {
       const { open } = event.detail;
       if (open !== memorySidebarOpen) {
         setMemorySidebarOpen(open);
       }
     };
-    
+
     window.addEventListener('memory-sidebar:toggle', handleMemorySidebarToggle as EventListener);
     return () => {
-      window.removeEventListener('memory-sidebar:toggle', handleMemorySidebarToggle as EventListener);
+      window.removeEventListener(
+        'memory-sidebar:toggle',
+        handleMemorySidebarToggle as EventListener
+      );
     };
   }, [memorySidebarOpen, setMemorySidebarOpen]);
 
@@ -1079,140 +1382,187 @@ export function AppShell() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#1A1D28] text-gray-100">
-      {showOnboarding && (
-        <FirstRunOverlay onClose={dismissOnboarding} />
-      )}
-      {/* Top Navigation - Hidden in fullscreen */}
-      {!isFullscreen && (
-        <div className="flex-none">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+      {/* Top Chrome Elements - Fixed header, never scrolls */}
+      <div ref={topChromeRef} className="flex-none shrink-0 border-b border-slate-800 bg-slate-950">
+        {/* Top Navigation - Hidden in fullscreen */}
+        {!isFullscreen && (
           <Suspense fallback={<div style={{ height: '40px', backgroundColor: '#0f172a' }} />}>
             <ErrorBoundary
-              componentName="TopNav"
+              componentName="TopBar"
               fallback={
-                <div style={{ height: '40px', backgroundColor: '#0f172a', padding: '8px', color: '#94a3b8' }}>
-                  Navigation Error
+                <div
+                  style={{
+                    height: '40px',
+                    backgroundColor: '#0f172a',
+                    padding: '8px',
+                    color: '#94a3b8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontSize: '12px',
+                  }}
+                >
+                  <span>Loading navigation...</span>
                 </div>
               }
             >
-              <TopNav
-                onAgentToggle={() => setRightPanelOpen(!rightPanelOpen)}
-                onCommandPalette={() => setCommandPaletteOpen(true)}
-                onMemoryToggle={() => setMemorySidebarOpen(!memorySidebarOpen)}
-                onClipperToggle={() => {
-                  if (tabsState.activeId) {
-                    setClipperActive(true);
+              {/* Use new TopBar component with mode switching */}
+              <TopBar
+                showAddressBar={true}
+                showQuickActions={true}
+                currentUrl={tabsState.tabs.find(t => t.id === tabsState.activeId)?.url}
+                onModeChange={async (mode: string) => {
+                  // Map mode string to AppState mode
+                  const modeMap: Record<string, 'Browse' | 'Research' | 'Trade'> = {
+                    browse: 'Browse',
+                    research: 'Research',
+                    trade: 'Trade',
+                    dev: 'Browse', // Dev maps to Browse for now
+                  };
+                  const targetMode = modeMap[mode] || 'Browse';
+                  const currentMode = useAppStore.getState().mode;
+                  if (targetMode !== currentMode) {
+                    await setMode(targetMode);
                   }
                 }}
-                onReaderToggle={() => {
-                  if (tabsState.activeId) {
-                    setReaderActive(true);
+                onAddressBarSubmit={async query => {
+                  // Handle address bar navigation/search
+                  try {
+                    const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
+                    const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url;
+
+                    // Check if it's a URL or search query
+                    const isUrl =
+                      /^https?:\/\//i.test(query) || /^[a-z0-9]+(\.[a-z0-9]+)+/i.test(query);
+                    const targetUrl = isUrl
+                      ? query.startsWith('http')
+                        ? query
+                        : `https://${query}`
+                      : `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+
+                    if (isAboutBlank && activeTab) {
+                      await ipc.tabs.navigate(activeTab.id, targetUrl);
+                    } else {
+                      await ipc.tabs.create(targetUrl);
+                    }
+                  } catch (error) {
+                    console.error('[TopBar] Failed to navigate:', error);
+                    toast.error('Failed to navigate');
                   }
                 }}
               />
             </ErrorBoundary>
           </Suspense>
-        </div>
-      )}
+        )}
 
-      {isOffline && (
-        <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs sm:text-sm text-amber-100">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={14} className="text-amber-300 flex-shrink-0" />
-            <span>Offline mode: remote AI and sync are paused. Local actions remain available.</span>
+        {isOffline && (
+          <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs sm:text-sm text-amber-100">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={14} className="text-amber-300 flex-shrink-0" />
+              <span>
+                Offline mode: remote AI and sync are paused. Local actions remain available.
+              </span>
+            </div>
+            {ollamaAvailable && (
+              <button
+                type="button"
+                onClick={() => {
+                  const settingsButton = document.querySelector(
+                    '[data-settings-button]'
+                  ) as HTMLElement;
+                  settingsButton?.click();
+                }}
+                className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-400/60 hover:bg-amber-500/30"
+              >
+                <span>Try Local AI</span>
+              </button>
+            )}
           </div>
-          {ollamaAvailable && (
-            <button
-              type="button"
-              onClick={() => {
-                const settingsButton = document.querySelector('[data-settings-button]') as HTMLElement;
-                settingsButton?.click();
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-400/60 hover:bg-amber-500/30"
-            >
-              <span>Try Local AI</span>
-            </button>
-          )}
-        </div>
-      )}
+        )}
 
-      {/* Main Layout - Full Width (No Sidebar) */}
-      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-        {/* Center Content - Full Width */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {!isFullscreen && restoreSummary && !restoreDismissed && (
-            <div className="px-4 pt-3">
-              <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-blue-100">Restore your last browsing session?</p>
-                  <p className="text-xs text-blue-200">
-                    Last saved {restoreRelativeTime ?? 'recently'} • {restoreSummary.windowCount} window
-                    {restoreSummary.windowCount === 1 ? '' : 's'}, {restoreSummary.tabCount} tab
-                    {restoreSummary.tabCount === 1 ? '' : 's'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleRestoreSession}
-                    disabled={restoreStatus === 'restoring'}
-                    className="inline-flex items-center rounded-lg border border-blue-500/60 bg-blue-600/20 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {restoreStatus === 'restoring' ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                    )}
-                    Restore
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDismissRestore}
-                    className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
-                  >
-                    Dismiss
-                  </button>
+        {/* Restore Banner and TabStrip */}
+        {!isFullscreen && (
+          <>
+            {restoreSummary && !restoreDismissed && (
+              <div className="px-4 pt-3">
+                <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-blue-100">
+                      Restore your last browsing session?
+                    </p>
+                    <p className="text-xs text-blue-200">
+                      Last saved {restoreRelativeTime ?? 'recently'} • {restoreSummary.windowCount}{' '}
+                      window
+                      {restoreSummary.windowCount === 1 ? '' : 's'}, {restoreSummary.tabCount} tab
+                      {restoreSummary.tabCount === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRestoreSession}
+                      disabled={restoreStatus === 'restoring'}
+                      className="inline-flex items-center rounded-lg border border-blue-500/60 bg-blue-600/20 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {restoreStatus === 'restoring' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                      )}
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDismissRestore}
+                      className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
+                      aria-label="Dismiss restore banner"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-          {/* Tab Strip - Always visible and above overlays */}
-          {!isFullscreen && (
-            <>
-              <Suspense fallback={null}>
-                <ErrorBoundary componentName="TabStrip">
-                  <div className="relative z-50 w-full" style={{ pointerEvents: 'auto' }}>
-                    <TabStrip />
-                  </div>
-                </ErrorBoundary>
-              </Suspense>
-              {showWebContent && !isDesktopLayout && (
-                <div className="flex items-center justify-end gap-2 px-3 py-2 text-xs text-slate-300 sm:px-4">
-                  <button
-                    type="button"
-                    onClick={() => setToolsDrawerOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
-                  >
-                    <PanelsTopLeft size={14} />
-                    <span>Workspace tools</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
-                  >
-                    <PanelRightOpen size={14} />
-                    <span>Agent console</span>
-                  </button>
+            )}
+            <Suspense fallback={null}>
+              <ErrorBoundary componentName="TabStrip">
+                <div className="relative z-50 w-full" style={{ pointerEvents: 'auto' }}>
+                  <TabStrip />
                 </div>
-              )}
-            </>
-          )}
+              </ErrorBoundary>
+            </Suspense>
+            {showWebContent && !isDesktopLayout && (
+              <div className="flex items-center justify-end gap-2 px-3 py-2 text-xs text-slate-300 sm:px-4">
+                <button
+                  type="button"
+                  onClick={() => setToolsDrawerOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
+                >
+                  <PanelsTopLeft size={14} />
+                  <span>Workspace tools</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRightPanelOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
+                >
+                  <PanelRightOpen size={14} />
+                  <span>Agent console</span>
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
+      {/* Main Layout - Content area that fills remaining space */}
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden bg-slate-950">
+        {/* Center Content - Full Width, only this area scrolls */}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Route/Web Content */}
           {showWebContent ? (
-            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden bg-slate-950">
+              {/* Webview container - fills remaining space, only this scrolls */}
+              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
                 <TabContentSurface tab={activeTab} overlayActive={overlayActive} />
               </div>
               {shouldShowInlineToolsPanel && (
@@ -1232,8 +1582,13 @@ export function AppShell() {
               )}
             </div>
           ) : (
-            <div className={`flex-1 min-h-0 min-w-0 overflow-hidden ${isFullscreen ? 'absolute inset-0' : ''}`}>
-              <div className={`h-full w-full overflow-hidden ${overlayActive ? 'webview--masked' : ''}`}>
+            <div
+              className={`flex-1 min-h-0 min-w-0 overflow-hidden bg-slate-950 ${isFullscreen ? 'absolute inset-0' : ''}`}
+            >
+              {/* Route content - fills remaining space, scrollable */}
+              <div
+                className={`h-full w-full overflow-auto bg-slate-950 ${overlayActive ? 'webview--masked' : ''}`}
+              >
                 <Outlet />
               </div>
             </div>
@@ -1245,26 +1600,26 @@ export function AppShell() {
           <Suspense fallback={null}>
             <ErrorBoundary componentName="RightPanel">
               <div className="h-full min-h-0 w-[340px] max-w-[380px] overflow-y-auto border-l border-slate-800/60">
-                <RightPanel 
-                  open={rightPanelOpen}
-                  onClose={() => setRightPanelOpen(false)}
-                />
+                <RightPanel open={rightPanelOpen} onClose={() => setRightPanelOpen(false)} />
               </div>
             </ErrorBoundary>
           </Suspense>
         )}
       </div>
 
-      {/* Bottom Status Bar - Hidden in fullscreen */}
-      {!isFullscreen && (
-        <div className="flex-none">
+      {/* Bottom Chrome - Fixed footer, never scrolls */}
+      <div
+        ref={bottomChromeRef}
+        className="flex-none shrink-0 border-t border-slate-800 bg-slate-950"
+      >
+        {!isFullscreen && (
           <Suspense fallback={null}>
             <ErrorBoundary componentName="BottomStatus">
               <BottomStatus />
             </ErrorBoundary>
           </Suspense>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Agent Overlay */}
       <Suspense fallback={null}>
@@ -1304,9 +1659,15 @@ export function AppShell() {
         <Portal>
           <div className="pointer-events-none fixed inset-0 z-tour flex items-center justify-center">
             <div className="rounded-3xl border border-purple-500/40 bg-purple-900/50 px-8 py-6 text-center shadow-[0_0_60px_rgba(168,85,247,0.35)] backdrop-blur-sm">
-              <div className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">Tab graph</div>
-              <div className="mt-2 text-lg font-semibold text-purple-100">Drop to map this tab&apos;s DNA</div>
-              <div className="mt-1 text-xs text-purple-200/80">Release anywhere to open the graph overlay.</div>
+              <div className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">
+                Tab graph
+              </div>
+              <div className="mt-2 text-lg font-semibold text-purple-100">
+                Drop to map this tab&apos;s DNA
+              </div>
+              <div className="mt-1 text-xs text-purple-200/80">
+                Release anywhere to open the graph overlay.
+              </div>
             </div>
           </div>
         </Portal>
@@ -1381,7 +1742,7 @@ export function AppShell() {
         <Suspense fallback={null}>
           <Portal>
             <ErrorBoundary componentName="PermissionPrompt">
-              <PermissionPrompt 
+              <PermissionPrompt
                 request={permissionRequest}
                 onClose={() => setPermissionRequest(null)}
               />
@@ -1394,10 +1755,7 @@ export function AppShell() {
         <Suspense fallback={null}>
           <Portal>
             <ErrorBoundary componentName="ConsentPrompt">
-              <ConsentPrompt 
-                request={consentRequest}
-                onClose={() => setConsentRequest(null)}
-              />
+              <ConsentPrompt request={consentRequest} onClose={() => setConsentRequest(null)} />
             </ErrorBoundary>
           </Portal>
         </Suspense>
@@ -1413,19 +1771,42 @@ export function AppShell() {
         />
       )}
 
-      {/* Memory Sidebar */}
-      <MemorySidebar 
-        open={memorySidebarOpen} 
+      {/* Memory Sidebar - Using new ResearchMemoryPanel for improved UI/UX */}
+      <ResearchMemoryPanel
+        open={memorySidebarOpen}
         onClose={() => {
           setMemorySidebarOpen(false);
-          // Dispatch event for TopNav to sync state
-          window.dispatchEvent(new CustomEvent('memory-sidebar:toggle', { detail: { open: false } }));
-        }} 
+          // Dispatch event for TopBar to sync state
+          window.dispatchEvent(
+            new CustomEvent('memory-sidebar:toggle', { detail: { open: false } })
+          );
+        }}
+        onCreateMemory={() => {
+          // Handled by ResearchMemoryPanel internally via CreateMemoryDialog
+        }}
       />
       <TradeSidebar open={tradeSidebarOpen} onClose={() => setTradeSidebarOpen(false)} />
-      
-      {/* Redix Debug Panel */}
-      <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
+
+      {/* Regen Sidebar */}
+      {!isFullscreen && isDesktopLayout && regenSidebarOpen && (
+        <Suspense fallback={null}>
+          <ErrorBoundary componentName="RegenSidebar">
+            <RegenSidebarWrapper />
+          </ErrorBoundary>
+        </Suspense>
+      )}
+
+      {/* Redix Debug Panel - Dev Only */}
+      {isDev && RedixDebugPanel && (
+        <Suspense fallback={null}>
+          <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
+        </Suspense>
+      )}
+      <SuspensionIndicator />
+      <BatteryIndicator />
+      <div className="fixed bottom-6 left-1/2 z-[105] w-full max-w-3xl -translate-x-1/2 px-4">
+        <MemoryMonitor />
+      </div>
 
       {/* Voice Companion - Disabled by user request */}
       {/* <ErrorBoundary componentName="VoiceCompanion">
@@ -1449,30 +1830,12 @@ export function AppShell() {
       )}
 
       {/* Terms of Service Acceptance */}
-      {showTOS && (
-        <TermsAcceptance
-          onAccept={() => {
-            setShowTOS(false);
-          }}
-          onDecline={() => {
-            // User declined TOS - could show a message or prevent app usage
-            // For now, we'll just close the app or show a message
-            if (window.confirm('You must accept the Terms of Service to use OmniBrowser. Would you like to exit?')) {
-              // In Electron, we could close the window
-              if (typeof window !== 'undefined' && (window as any).api?.app?.quit) {
-                (window as any).api.app.quit();
-              } else {
-                window.close();
-              }
-            }
-          }}
-        />
-      )}
+      {showTOS && <TermsAcceptance onAccept={handleTOSAccept} onDecline={handleTOSDecline} />}
 
       {/* Cookie Consent Banner - Only show if TOS is not showing and onboarding is not active */}
       {showCookieConsent && !showTOS && !onboardingVisible && (
         <CookieConsent
-          onAccept={(preferences) => {
+          onAccept={preferences => {
             localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(preferences));
             setShowCookieConsent(false);
           }}
@@ -1482,108 +1845,39 @@ export function AppShell() {
         />
       )}
       <ToastHost />
-    </div>
-  );
-}
 
-function FirstRunOverlay({ onClose }: { onClose: () => void }) {
-  const [localOnlyMode, setLocalOnlyMode] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('omnibrowser:local-only') === '1';
-  });
+      {/* Tier 1: Session Restore Modal */}
+      <Suspense fallback={null}>
+        <SessionRestoreModal />
+      </Suspense>
 
-  const toggleLocalOnly = () => {
-    setLocalOnlyMode((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('omnibrowser:local-only', next ? '1' : '0');
-      }
-      return next;
-    });
-  };
+      {/* Mini Hover AI - Text selection assistant */}
+      <MiniHoverAI enabled={!overlayActive && showWebContent} />
 
-  const highlights = [
-    {
-      title: 'Ask & research faster',
-      body: 'AI answers sit above every search result, with citations you can trust.',
-    },
-    {
-      title: 'SuperMemory',
-      body: 'Save any answer or tab and recall it later from the Memory sidebar.',
-    },
-    {
-      title: 'Context-aware modes',
-      body: 'Browse, Research, and Trade each keep their own tab sessions.',
-    },
-  ];
+      {/* Unified Side Panel - History, Bookmarks, Downloads */}
+      {!isFullscreen && isDesktopLayout && (
+        <UnifiedSidePanel
+          open={unifiedSidePanelOpen}
+          onClose={() => setUnifiedSidePanelOpen(false)}
+        />
+      )}
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900/90 p-6 shadow-2xl">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Welcome to</p>
-            <h2 className="text-2xl font-semibold text-white">Regen Browser Alpha</h2>
-            <p className="mt-1 text-sm text-slate-300">
-              You’re running a private build meant for early explorers. Here’s what works today:
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border border-white/20 px-3 py-1.5 text-xs uppercase tracking-wide text-slate-200 hover:bg-white/10"
-          >
-            Skip
-          </button>
-        </div>
+      {/* Tier 3: Global Command Bar */}
+      <CommandBar />
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {highlights.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200"
-            >
-              <p className="text-sm font-semibold text-white">{item.title}</p>
-              <p className="mt-2 text-xs text-slate-300">{item.body}</p>
-            </div>
-          ))}
-        </div>
+      {/* Tier 3: Onboarding Flow */}
+      {onboardingVisible && (
+        <OnboardingFlow
+          onComplete={() => {
+            // Onboarding completed - state managed internally
+            const { finish } = useOnboardingStore.getState();
+            finish();
+          }}
+        />
+      )}
 
-        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-white">Local-first mode</p>
-              <p className="text-xs text-slate-300">
-                Keep AI features offline unless you opt-in. You can change this later in settings.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={toggleLocalOnly}
-              className={`flex h-9 items-center rounded-full px-4 text-xs font-semibold transition ${
-                localOnlyMode
-                  ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'
-                  : 'bg-slate-800 text-slate-300 border border-white/10'
-              }`}
-            >
-              {localOnlyMode ? 'Local only' : 'Enable cloud AI'}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-slate-400">
-            Regen logs zero browsing data in alpha. Features labeled “Coming soon” are disabled while we finish them.
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-white px-5 py-2 text-xs font-semibold uppercase tracking-wide text-slate-900 hover:bg-slate-100"
-          >
-            Start exploring
-          </button>
-        </div>
-      </div>
+      {/* Session Restore Prompt */}
+      <SessionRestorePrompt />
     </div>
   );
 }

@@ -1,0 +1,116 @@
+name: CI - Visual Regression + Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, master]
+
+jobs:
+  storybook-build:
+    runs-on: ubuntu-latest
+    outputs:
+      storybook_url: ${{ steps.serve.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Storybook static
+        run: npx storybook build --output-dir=storybook-static
+
+      - name: Serve Storybook (background)
+        id: serve
+        run: |
+          npx http-server ./storybook-static -p 6006 > /dev/null 2>&1 &
+          echo "url=http://localhost:6006" >> $GITHUB_OUTPUT
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:6006 -t 30000
+
+  visual-tests:
+    runs-on: ubuntu-latest
+    needs: storybook-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Storybook static
+        run: npx storybook build --output-dir=storybook-static
+
+      - name: Serve Storybook (background)
+        run: |
+          npx http-server ./storybook-static -p 6006 > /dev/null 2>&1 &
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:6006 -t 30000
+
+      - name: Run Playwright visual tests
+        env:
+          STORYBOOK_URL: http://localhost:6006
+        run: |
+          npx playwright test tests/visual --project=chromium --update-snapshots=false
+
+      - name: Upload visual test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-visual-diffs
+          path: |
+            tests/visual/**/__snapshots__/
+            playwright-report/
+
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript check
+        run: npm run build:types
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test -- src/ui/__tests__

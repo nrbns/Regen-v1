@@ -4,7 +4,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Ghost, Flame, Clock, Copy, Boxes, Eye, Sun, MoonStar } from 'lucide-react';
+import {
+  Ghost,
+  Flame,
+  Clock,
+  Copy,
+  Boxes,
+  Eye,
+  Sun,
+  MoonStar,
+  Layers,
+  FolderPlus,
+  Check,
+} from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import { useProfileStore } from '../../state/profileStore';
 import { useContainerStore } from '../../state/containerStore';
@@ -35,16 +47,19 @@ export function TabContextMenu({
 }: TabContextMenuProps) {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
-  const policy = useProfileStore((state) => state.policies[state.activeProfileId]);
+  const policy = useProfileStore(state => state.policies[state.activeProfileId]);
   const ghostDisabled = policy ? !policy.allowGhostTabs : false;
   const privateDisabled = policy ? !policy.allowPrivateWindows : false;
-  const { containers, setContainers } = useContainerStore((state) => ({
+  const { containers, setContainers } = useContainerStore(state => ({
     containers: state.containers,
     setContainers: state.setContainers,
   }));
-  const tab = useTabsStore((state) => state.tabs.find((t) => t.id === tabId));
-  const openPeek = usePeekPreviewStore((state) => state.open);
-  const isSleeping = (sleeping ?? tab?.sleeping) ?? false;
+  const tab = useTabsStore(state => state.tabs.find(t => t.id === tabId));
+  const tabGroups = useTabsStore(state => state.tabGroups);
+  const assignTabToGroup = useTabsStore(state => state.assignTabToGroup);
+  const createGroup = useTabsStore(state => state.createGroup);
+  const openPeek = usePeekPreviewStore(state => state.open);
+  const isSleeping = sleeping ?? tab?.sleeping ?? false;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -65,12 +80,12 @@ export function TabContextMenu({
     if (containers.length === 0) {
       ipc.containers
         .list()
-        .then((list) => {
+        .then(list => {
           if (Array.isArray(list)) {
             setContainers(list as ContainerInfo[]);
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('Failed to load containers for context menu:', error);
         });
     }
@@ -90,6 +105,18 @@ export function TabContextMenu({
     profileId: tab?.profileId,
     sleeping: tab?.sleeping ?? sleeping ?? false,
   });
+
+  const handleAssignGroup = (groupId: string | null) => {
+    assignTabToGroup(tabId, groupId);
+    onClose();
+  };
+
+  const handleCreateGroup = () => {
+    const name = window.prompt('New group name', `Group ${tabGroups.length + 1}`)?.trim();
+    const group = createGroup({ name: name || undefined });
+    assignTabToGroup(tabId, group.id);
+    onClose();
+  };
 
   const handleOpenAsGhost = async () => {
     if (ghostDisabled) return;
@@ -175,7 +202,12 @@ export function TabContextMenu({
 
   const menuItems = [
     { icon: Eye, label: 'Peek preview', action: handlePeek },
-    { icon: Copy, label: 'Duplicate Tab', action: () => handleDuplicate(containerId, true), disabled: isGhost || isPrivate },
+    {
+      icon: Copy,
+      label: 'Duplicate Tab',
+      action: () => handleDuplicate(containerId, true),
+      disabled: isGhost || isPrivate,
+    },
     {
       icon: Ghost,
       label: 'Open as Ghost',
@@ -200,9 +232,8 @@ export function TabContextMenu({
     },
   ].filter(item => !item.hide);
 
-  const moveTargets = !isGhost && !isPrivate
-    ? containers.filter((c: ContainerInfo) => c.id !== containerId)
-    : [];
+  const moveTargets =
+    !isGhost && !isPrivate ? containers.filter((c: ContainerInfo) => c.id !== containerId) : [];
 
   const openTargets = containers.filter((c: ContainerInfo) => c.id !== containerId);
 
@@ -233,7 +264,9 @@ export function TabContextMenu({
               className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
               style={{ backgroundColor: containerColor || '#6366f1' }}
             />
-            <span>{containerName || (containerId === 'default' ? 'Default container' : containerId)}</span>
+            <span>
+              {containerName || (containerId === 'default' ? 'Default container' : containerId)}
+            </span>
           </div>
         )}
 
@@ -248,14 +281,12 @@ export function TabContextMenu({
                 item.danger
                   ? 'text-red-500 hover:bg-red-500/10'
                   : item.disabled
-                  ? 'text-muted cursor-not-allowed'
-                  : 'text-foreground hover:bg-[color:var(--surface-muted)]/45'
+                    ? 'text-muted cursor-not-allowed'
+                    : 'text-foreground hover:bg-[color:var(--surface-muted)]/45'
               }`}
               disabled={item.disabled}
               title={
-                item.disabled
-                  ? item.disabledReason || 'Disabled by profile policy'
-                  : undefined
+                item.disabled ? item.disabledReason || 'Disabled by profile policy' : undefined
               }
             >
               <Icon size={16} />
@@ -271,7 +302,7 @@ export function TabContextMenu({
               Open copy in container
             </div>
             <div className="flex flex-col">
-              {openTargets.map((container) => (
+              {openTargets.map(container => (
                 <motion.button
                   key={`open-${container.id}`}
                   whileHover={{ scale: 1.01 }}
@@ -296,7 +327,7 @@ export function TabContextMenu({
               Move to container
             </div>
             <div className="flex flex-col">
-              {moveTargets.map((container) => (
+              {moveTargets.map(container => (
                 <motion.button
                   key={container.id}
                   whileHover={{ scale: 1.01 }}
@@ -313,8 +344,49 @@ export function TabContextMenu({
             </div>
           </div>
         )}
+        {tabGroups.length > 0 && (
+          <div className="mt-1 border-t border-subtle pt-1.5">
+            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-muted flex items-center gap-2">
+              <Layers size={12} />
+              Tab group
+            </div>
+            <div className="flex flex-col">
+              {tabGroups.map(group => (
+                <motion.button
+                  key={group.id}
+                  whileHover={{ scale: 1.01 }}
+                  onClick={() => handleAssignGroup(group.id)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                >
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
+                    style={{ backgroundColor: group.color }}
+                  />
+                  <span className="truncate flex-1">{group.name}</span>
+                  {tab?.groupId === group.id && <Check size={12} className="text-emerald-400" />}
+                </motion.button>
+              ))}
+              {tab?.groupId && (
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  onClick={() => handleAssignGroup(null)}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                >
+                  Remove from group
+                </motion.button>
+              )}
+            </div>
+          </div>
+        )}
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          onClick={handleCreateGroup}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors border-t border-subtle mt-1"
+        >
+          <FolderPlus size={14} />
+          New group
+        </motion.button>
       </motion.div>
     </AnimatePresence>
   );
 }
-

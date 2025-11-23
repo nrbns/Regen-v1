@@ -1,11 +1,11 @@
 /* eslint-env browser */
-/* global chrome, console */
+/* global chrome */
 
-import { MemoryClient, getSettings, updateSettings } from "./api.js";
-import { appendToQueue, clearQueue, getQueue } from "./idb.js";
-import { cycleMode, getCurrentMode } from "./modes.js";
+import { MemoryClient, getSettings, updateSettings } from './api.js';
+import { appendToQueue, clearQueue, getQueue } from './idb.js';
+import { cycleMode, getCurrentMode } from './modes.js';
 
-const FLUSH_ALARM = "memory-flush";
+const FLUSH_ALARM = 'memory-flush';
 const FLUSH_INTERVAL_MINUTES = 0.5; // 30 seconds
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -18,67 +18,67 @@ chrome.runtime.onStartup.addListener(() => {
   scheduleFlush();
 });
 
-chrome.commands.onCommand.addListener(async (command) => {
-  if (command === "cycle-mode") {
+chrome.commands.onCommand.addListener(async command => {
+  if (command === 'cycle-mode') {
     const nextMode = await cycleMode();
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
-      chrome.tabs.sendMessage(tab.id, { type: "mode-changed", mode: nextMode }).catch(() => {
+      chrome.tabs.sendMessage(tab.id, { type: 'mode-changed', mode: nextMode }).catch(() => {
         /* ignore */
       });
       await snapshotTab(tab.id, nextMode);
     }
   }
-  if (command === "open-omnibar") {
+  if (command === 'open-omnibar') {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (activeTab?.id) {
-      chrome.tabs.sendMessage(activeTab.id, { type: "toggle-omnibar" }).catch(() => {
+      chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-omnibar' }).catch(() => {
         /* ignore */
       });
     }
   }
 });
 
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+chrome.tabs.onActivated.addListener(async activeInfo => {
   const mode = await getCurrentMode();
   await snapshotTab(activeInfo.tabId, mode);
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
-  if (changeInfo.status === "complete") {
+  if (changeInfo.status === 'complete') {
     const mode = await getCurrentMode();
     await snapshotTab(tabId, mode);
   }
 });
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === FLUSH_ALARM) {
     await flushQueue();
   }
 });
 
-chrome.idle.onStateChanged.addListener(async (state) => {
-  if (state === "idle" || state === "locked") {
+chrome.idle.onStateChanged.addListener(async state => {
+  if (state === 'idle' || state === 'locked') {
     await flushQueue();
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "memory:enqueue") {
+  if (message?.type === 'memory:enqueue') {
     (async () => {
       await appendToQueue(message.payload);
       sendResponse({ ok: true });
     })();
     return true;
   }
-  if (message?.type == "memory:get-mode") {
+  if (message?.type == 'memory:get-mode') {
     (async () => {
       const mode = await getCurrentMode();
       sendResponse({ ok: true, mode });
     })();
     return true;
   }
-  if (message?.type === "memory:flush-now") {
+  if (message?.type === 'memory:flush-now') {
     (async () => {
       try {
         await flushQueue();
@@ -89,14 +89,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })();
     return true;
   }
-  if (message?.type === "memory:search") {
+  if (message?.type === 'memory:search') {
     (async () => {
       try {
         const client = await MemoryClient.create();
-        const response = await client.search(message.payload.query, message.payload.options).catch((err) => {
-          console.warn("Search failed", err);
-          return null;
-        });
+        const response = await client
+          .search(message.payload.query, message.payload.options)
+          .catch(err => {
+            console.warn('Search failed', err);
+            return null;
+          });
         sendResponse({ ok: true, data: response });
       } catch (error) {
         sendResponse({ ok: false, error: error.message });
@@ -119,25 +121,25 @@ async function snapshotTab(tabId, mode) {
     return;
   }
   try {
-    const response = await chrome.tabs.sendMessage(tabId, { type: "collect-snapshot" });
+    const response = await chrome.tabs.sendMessage(tabId, { type: 'collect-snapshot' });
     if (!response) return;
     const payload = createTabPayload(response, mode);
     await appendToQueue(payload);
   } catch (err) {
-    console.warn("Failed to snapshot tab", err);
+    console.warn('Failed to snapshot tab', err);
   }
 }
 
 function createTabPayload(snapshot, mode) {
   return {
-    project: "omnibrowser",
-    type: "tab",
+    project: 'omnibrowser',
+    type: 'tab',
     title: snapshot.title,
     text: snapshot.text.slice(0, 1000),
     mode,
     tags: [`mode:${mode}`, `url:${snapshot.url}`],
     origin: {
-      app: "omnibrowser",
+      app: 'omnibrowser',
       mode,
       url: snapshot.url,
     },
@@ -176,4 +178,3 @@ async function flushQueue() {
     await clearQueue();
   }
 }
-

@@ -53,6 +53,13 @@ DEFAULT_LIMITS: Dict[str, RateLimitConfig] = {
         cost_per_hour_usd=4.0,
         cost_per_day_usd=40.0,
     ),
+    "discipline_log": RateLimitConfig(
+        requests_per_minute=10,
+        requests_per_hour=60,
+        requests_per_day=200,
+        cost_per_hour_usd=0.0,
+        cost_per_day_usd=0.0,
+    ),
 }
 
 
@@ -203,6 +210,16 @@ _rate_limiter = RateLimiter()
 def get_rate_limiter() -> RateLimiter:
     """Get the global rate limiter instance"""
     return _rate_limiter
+
+
+def enforce_rate_limit(identifier: str, kind: str, estimated_cost: Optional[float] = None):
+    limiter = get_rate_limiter()
+    return limiter.check_rate_limit(identifier, kind, estimated_cost=estimated_cost)
+
+
+def mark_request(identifier: str, kind: str, cost: Optional[float] = None):
+    limiter = get_rate_limiter()
+    limiter.record_request(identifier, kind, cost=cost)
 
 
 def get_client_identifier(request: Any, metadata: Optional[Dict[str, Any]] = None) -> str:

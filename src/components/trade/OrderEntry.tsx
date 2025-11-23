@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Shield, Target } from 'lucide-react';
 
@@ -40,9 +40,23 @@ interface OrderEntryProps {
     stopLoss?: number;
     takeProfit?: number;
   };
+  preset?: {
+    side: 'buy' | 'sell';
+    price: number;
+    stopLoss: number;
+    takeProfit: number;
+    quantity: number;
+  };
 }
 
-export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, aiSuggestion }: OrderEntryProps) {
+export default function OrderEntry({
+  symbol,
+  currentPrice,
+  atr = 1.2,
+  onSubmit,
+  aiSuggestion,
+  preset,
+}: OrderEntryProps) {
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [quantity, setQuantity] = useState(1);
   const [orderType, setOrderType] = useState<'market' | 'limit'>('limit');
@@ -53,6 +67,15 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
   const [useTrailingStop, setUseTrailingStop] = useState(false);
   const [trailingDistance, setTrailingDistance] = useState(atr);
   const [paper, setPaper] = useState(true);
+
+  useEffect(() => {
+    if (!preset) return;
+    setSide(preset.side);
+    setLimitPrice(preset.price);
+    setQuantity(Math.max(1, Math.round(preset.quantity)));
+    setStopLoss(preset.stopLoss);
+    setTakeProfit(preset.takeProfit);
+  }, [preset]);
 
   const handleSubmit = () => {
     const order: OrderRequest = {
@@ -104,7 +127,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
             <input
               type="checkbox"
               checked={paper}
-              onChange={(e) => setPaper(e.target.checked)}
+              onChange={e => setPaper(e.target.checked)}
               className="w-3 h-3"
             />
             Paper
@@ -170,7 +193,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
         <input
           type="number"
           value={quantity}
-          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+          onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
           className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
           min="1"
         />
@@ -181,7 +204,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
         <label className="text-xs text-neutral-400 mb-1 block">Order Type</label>
         <select
           value={orderType}
-          onChange={(e) => setOrderType(e.target.value as 'market' | 'limit')}
+          onChange={e => setOrderType(e.target.value as 'market' | 'limit')}
           className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
         >
           <option value="market">Market</option>
@@ -196,7 +219,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
           <input
             type="number"
             value={limitPrice.toFixed(2)}
-            onChange={(e) => setLimitPrice(parseFloat(e.target.value) || currentPrice)}
+            onChange={e => setLimitPrice(parseFloat(e.target.value) || currentPrice)}
             step="0.01"
             className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
           />
@@ -209,7 +232,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
           <input
             type="checkbox"
             checked={useBracket}
-            onChange={(e) => setUseBracket(e.target.checked)}
+            onChange={e => setUseBracket(e.target.checked)}
             className="w-3 h-3"
           />
           <Shield className="w-3 h-3" />
@@ -223,7 +246,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
               <input
                 type="number"
                 value={stopLoss.toFixed(2)}
-                onChange={(e) => setStopLoss(parseFloat(e.target.value) || currentPrice)}
+                onChange={e => setStopLoss(parseFloat(e.target.value) || currentPrice)}
                 step="0.01"
                 className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
               />
@@ -233,7 +256,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
               <input
                 type="number"
                 value={takeProfit.toFixed(2)}
-                onChange={(e) => setTakeProfit(parseFloat(e.target.value) || currentPrice)}
+                onChange={e => setTakeProfit(parseFloat(e.target.value) || currentPrice)}
                 step="0.01"
                 className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
               />
@@ -248,7 +271,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
           <input
             type="checkbox"
             checked={useTrailingStop}
-            onChange={(e) => setUseTrailingStop(e.target.checked)}
+            onChange={e => setUseTrailingStop(e.target.checked)}
             className="w-3 h-3"
           />
           Trailing Stop (ATR-based)
@@ -259,7 +282,7 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
             <input
               type="number"
               value={trailingDistance.toFixed(2)}
-              onChange={(e) => setTrailingDistance(parseFloat(e.target.value) || atr)}
+              onChange={e => setTrailingDistance(parseFloat(e.target.value) || atr)}
               step="0.1"
               className="w-full bg-neutral-900 border border-neutral-700 rounded px-3 py-2 text-sm"
             />
@@ -301,4 +324,3 @@ export default function OrderEntry({ symbol, currentPrice, atr = 1.2, onSubmit, 
     </div>
   );
 }
-

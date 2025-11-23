@@ -270,12 +270,7 @@ async function runAllTests() {
 }
 
 // Run tests
-runAllTests().catch((error) => {
+runAllTests().catch(error => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-
-
-
-
-

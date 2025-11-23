@@ -1,0 +1,66 @@
+.mode-theme {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+}
+
+.mode-theme::before {
+  content: '';
+  position: absolute;
+  inset: -60px;
+  z-index: 0;
+  opacity: 0.5;
+  pointer-events: none;
+  filter: blur(60px);
+  transition: opacity 0.3s ease;
+}
+
+.mode-theme > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mode-theme--trade {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.15), transparent 55%),
+    radial-gradient(circle at 90% 10%, rgba(244, 114, 182, 0.12), transparent 45%), #050915;
+  color: #e2e8f0;
+}
+
+.mode-theme--trade::before {
+  background: radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.2), transparent 55%);
+}
+
+.mode-theme--games {
+  background:
+    radial-gradient(circle at 20% 30%, rgba(192, 132, 252, 0.18), transparent 55%),
+    radial-gradient(circle at 80% 60%, rgba(74, 222, 128, 0.08), transparent 45%), #05030d;
+  color: #f8fafc;
+}
+
+.mode-theme--games::before {
+  background: radial-gradient(circle at 70% 80%, rgba(34, 197, 94, 0.25), transparent 50%);
+}
+
+.mode-theme--research {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(59, 130, 246, 0.08), transparent 55%),
+    radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.1), transparent 45%), #0c111e;
+  color: #f1f5f9;
+}
+
+.mode-theme--research::before {
+  background: radial-gradient(circle at 30% 60%, rgba(14, 165, 233, 0.22), transparent 60%);
+}
+
+:root[data-mode-theme='research'] body {
+  background-color: #020617;
+}
+
+:root[data-mode-theme='trade'] body {
+  background-color: #01030a;
+}
+
+:root[data-mode-theme='games'] body {
+  background-color: #03000a;
+}

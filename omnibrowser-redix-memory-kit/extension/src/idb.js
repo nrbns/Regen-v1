@@ -1,13 +1,13 @@
 /* eslint-env browser */
-/* global TextEncoder, TextDecoder, btoa, atob, console, chrome, crypto */
+/* global TextEncoder, TextDecoder, btoa, atob, chrome, crypto */
 
-const QUEUE_KEY = "memoryQueue";
-const KEY_STORAGE_KEY = "memoryQueueKey";
+const QUEUE_KEY = 'memoryQueue';
+const KEY_STORAGE_KEY = 'memoryQueueKey';
 const STORAGE_VERSION = 1;
 
 function bufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
-  let binary = "";
+  let binary = '';
   for (let i = 0; i < bytes.length; i += 1) {
     binary += String.fromCharCode(bytes[i]);
   }
@@ -25,12 +25,11 @@ function base64ToBuffer(base64) {
 }
 
 async function generateKey() {
-  const key = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"]
-  );
-  const jwk = await crypto.subtle.exportKey("jwk", key);
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt',
+  ]);
+  const jwk = await crypto.subtle.exportKey('jwk', key);
   await chrome.storage.local.set({ [KEY_STORAGE_KEY]: jwk });
   return key;
 }
@@ -42,15 +41,12 @@ async function getCryptoKey() {
     return generateKey();
   }
   try {
-    return await crypto.subtle.importKey(
-      "jwk",
-      jwk,
-      { name: "AES-GCM" },
-      false,
-      ["encrypt", "decrypt"]
-    );
+    return await crypto.subtle.importKey('jwk', jwk, { name: 'AES-GCM' }, false, [
+      'encrypt',
+      'decrypt',
+    ]);
   } catch (error) {
-    console.warn("[Redix] Failed to import queue key, regenerating", error);
+    console.warn('[Redix] Failed to import queue key, regenerating', error);
     return generateKey();
   }
 }
@@ -61,11 +57,7 @@ async function saveEncryptedQueue(items) {
   const payload = encoder.encode(JSON.stringify(items));
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    payload
-  );
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, payload);
 
   const record = {
     version: STORAGE_VERSION,
@@ -82,7 +74,7 @@ async function decryptQueueRecord(record) {
   const dataBuffer = base64ToBuffer(record.data);
 
   const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: new Uint8Array(ivBuffer) },
+    { name: 'AES-GCM', iv: new Uint8Array(ivBuffer) },
     key,
     dataBuffer
   );
@@ -106,7 +98,7 @@ export async function getQueue() {
   }
 
   if (!record || !record.data || !record.iv) {
-    console.warn("[Redix] Invalid queue record, resetting");
+    console.warn('[Redix] Invalid queue record, resetting');
     await saveEncryptedQueue([]);
     return [];
   }
@@ -114,7 +106,7 @@ export async function getQueue() {
   try {
     return await decryptQueueRecord(record);
   } catch (error) {
-    console.error("[Redix] Failed to decrypt queue, clearing", error);
+    console.error('[Redix] Failed to decrypt queue, clearing', error);
     await chrome.storage.local.remove([QUEUE_KEY, KEY_STORAGE_KEY]);
     return [];
   }
@@ -129,4 +121,3 @@ export async function appendToQueue(item) {
 export async function clearQueue() {
   await saveEncryptedQueue([]);
 }
-

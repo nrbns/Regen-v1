@@ -9,6 +9,7 @@ dist-electron/
 dist-web/
 build/
 out/
+redix-core/runtime/pkg/
 *.tsbuildinfo
 
 # Environment variables

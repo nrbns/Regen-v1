@@ -38,6 +38,8 @@ import { useEfficiencyStore } from '../state/efficiencyStore';
 import { useWorkspaceEventsStore } from '../state/workspaceEventsStore';
 import { useAgentStreamStore, type StreamStatus } from '../state/agentStreamStore';
 import { createFallbackTab } from '../lib/tabFallback';
+import { ChromeNewTabPage } from './ChromeNewTabPage';
+import { useSettingsStore } from '../state/settingsStore';
 // import { CardSkeleton, ListSkeleton } from './common/Skeleton'; // Reserved for future use
 
 type OmniDeskVariant = 'overlay' | 'split';
@@ -45,6 +47,7 @@ type OmniDeskVariant = 'overlay' | 'split';
 interface OmniDeskProps {
   variant?: OmniDeskVariant;
   forceShow?: boolean;
+  useChromeStyle?: boolean;
 }
 
 type ContinueSession = {
@@ -80,7 +83,7 @@ function useDashboardData() {
   const [continueSessions, setContinueSessions] = useState<ContinueSession[]>([]);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const pushWorkspaceEvent = useWorkspaceEventsStore((state) => state.pushEvent);
+  const pushWorkspaceEvent = useWorkspaceEventsStore(state => state.pushEvent);
 
   const loadData = useCallback(async () => {
     if (!window.ipc || typeof window.ipc.invoke !== 'function') {
@@ -108,8 +111,8 @@ function useDashboardData() {
         type: session.name?.includes('Research')
           ? 'Research'
           : session.name?.includes('Trade')
-          ? 'Trade'
-          : 'Browse',
+            ? 'Trade'
+            : 'Browse',
         title: session.name || 'Untitled Session',
         url: session.lastUrl || 'about:blank',
         timestamp: session.updatedAt || session.createdAt || Date.now() - 3600000,
@@ -161,7 +164,7 @@ function useDashboardData() {
 
     const kickOff = () => {
       if (cancelled) return;
-      loadData().then((ready) => {
+      loadData().then(ready => {
         if (!ready && !cancelled) {
           setTimeout(kickOff, 500);
         }
@@ -186,47 +189,67 @@ function useDashboardData() {
     };
   }, [loadData]);
 
-  return { recentWorkspaces, continueSessions, reload: loadData, loadingWorkspaces, loadingSessions };
+  return {
+    recentWorkspaces,
+    continueSessions,
+    reload: loadData,
+    loadingWorkspaces,
+    loadingSessions,
+  };
 }
 
-export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskProps) {
+export function OmniDesk({
+  variant = 'overlay',
+  forceShow = false,
+  useChromeStyle: _useChromeStyle = false,
+}: OmniDeskProps) {
   const { tabs, activeId } = useTabsStore();
   const { setMode } = useAppStore();
   const navigate = useNavigate();
-  const { recentWorkspaces, continueSessions, reload, loadingWorkspaces, loadingSessions } = useDashboardData();
+  const { recentWorkspaces, continueSessions, reload, loadingWorkspaces, loadingSessions } =
+    useDashboardData();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [aiResponseOpen, setAiResponseOpen] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
-  const efficiencyLabel = useEfficiencyStore((state) => state.label);
-  const efficiencyBadge = useEfficiencyStore((state) => state.badge);
-  const efficiencySnapshot = useEfficiencyStore((state) => state.snapshot);
-  const efficiencyUpdated = useEfficiencyStore((state) => state.lastUpdated);
-  const efficiencyHistory = useEfficiencyStore((state) => state.history);
-  const pushWorkspaceEvent = useWorkspaceEventsStore((state) => state.pushEvent);
-  const agentStatus = useAgentStreamStore((state) => state.status);
-  const agentLastGoal = useAgentStreamStore((state) => state.lastGoal);
-  const agentEvents = useAgentStreamStore((state) => state.events);
-  const agentTranscript = useAgentStreamStore((state) => state.transcript);
+  const efficiencyLabel = useEfficiencyStore(state => state.label);
+  const efficiencyBadge = useEfficiencyStore(state => state.badge);
+  const efficiencySnapshot = useEfficiencyStore(state => state.snapshot);
+  const efficiencyUpdated = useEfficiencyStore(state => state.lastUpdated);
+  const efficiencyHistory = useEfficiencyStore(state => state.history);
+  const pushWorkspaceEvent = useWorkspaceEventsStore(state => state.pushEvent);
+  const agentStatus = useAgentStreamStore(state => state.status);
+  const agentLastGoal = useAgentStreamStore(state => state.lastGoal);
+  const agentEvents = useAgentStreamStore(state => state.events);
+  const agentTranscript = useAgentStreamStore(state => state.transcript);
+
+  // Check if Chrome-style new tab page is enabled (default to true)
+  const chromeStyleEnabled = useSettingsStore(state => state.appearance.chromeNewTabPage ?? true);
 
   const agentPreview = useMemo(() => {
     const latestEvents = agentEvents.slice(-3).reverse();
     const lastUpdated = latestEvents.length > 0 ? latestEvents[0].timestamp : null;
     const transcriptLines = agentTranscript
       .split('\n')
-      .map((line) => line.trim())
+      .map(line => line.trim())
       .filter(Boolean);
     const statusPalette: Record<string, { label: string; tone: string }> = {
       idle: { label: 'Idle', tone: 'border-slate-700/60 bg-slate-800/60 text-slate-300' },
       connecting: { label: 'Connecting', tone: 'border-blue-500/40 bg-blue-500/15 text-blue-100' },
-      live: { label: 'Streaming', tone: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100' },
-      complete: { label: 'Complete', tone: 'border-purple-500/40 bg-purple-500/15 text-purple-100' },
+      live: {
+        label: 'Streaming',
+        tone: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100',
+      },
+      complete: {
+        label: 'Complete',
+        tone: 'border-purple-500/40 bg-purple-500/15 text-purple-100',
+      },
       error: { label: 'Error', tone: 'border-rose-500/40 bg-rose-500/15 text-rose-100' },
     };
     const statusTone = statusPalette[agentStatus] ?? statusPalette.idle;
 
-    const timeline = latestEvents.map((event) => {
+    const timeline = latestEvents.map(event => {
       switch (event.type) {
         case 'start':
           return {
@@ -253,7 +276,9 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
           return {
             ...event,
             label: event.approved ? 'Consent granted' : 'Consent requested',
-            detail: event.content ?? `Risk ${event.risk ?? 'medium'} · ${event.approved ? 'approved' : 'pending'}`,
+            detail:
+              event.content ??
+              `Risk ${event.risk ?? 'medium'} · ${event.approved ? 'approved' : 'pending'}`,
             variant: event.approved
               ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
               : 'border-amber-400/40 bg-amber-500/10 text-amber-100',
@@ -283,7 +308,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
     });
 
     const snippetSource = timeline
-      .map((entry) => entry.detail)
+      .map(entry => entry.detail)
       .filter(Boolean)
       .slice(0, 2);
     const snippet = snippetSource.length > 0 ? snippetSource : transcriptLines.slice(-2);
@@ -322,31 +347,52 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
   }, [copyStatus]);
 
   const ecoMetrics = useMemo(() => {
-    const batteryPctValue = typeof efficiencySnapshot.batteryPct === 'number' ? Math.max(0, Math.min(100, Math.round(efficiencySnapshot.batteryPct))) : null;
+    const batteryPctValue =
+      typeof efficiencySnapshot.batteryPct === 'number'
+        ? Math.max(0, Math.min(100, Math.round(efficiencySnapshot.batteryPct)))
+        : null;
     const carbonIntensityValue =
-      typeof efficiencySnapshot.carbonIntensity === 'number' ? Math.max(0, Math.round(efficiencySnapshot.carbonIntensity)) : null;
-    const cpuLoad = Number.isFinite(efficiencySnapshot.cpuLoad1) ? Math.max(0, Math.min(100, Math.round(efficiencySnapshot.cpuLoad1))) : 0;
+      typeof efficiencySnapshot.carbonIntensity === 'number'
+        ? Math.max(0, Math.round(efficiencySnapshot.carbonIntensity))
+        : null;
+    const cpuLoad = Number.isFinite(efficiencySnapshot.cpuLoad1)
+      ? Math.max(0, Math.min(100, Math.round(efficiencySnapshot.cpuLoad1)))
+      : 0;
     const activeTabs = efficiencySnapshot.activeTabs ?? 0;
     const ecoScore = (() => {
       const batteryComponent = batteryPctValue !== null ? batteryPctValue * 0.4 : 35;
       const cpuComponent = 100 - cpuLoad;
-      const carbonComponent = carbonIntensityValue !== null ? Math.max(0, 220 - carbonIntensityValue) / 220 * 100 : 50;
-      const tabComponent = Math.max(0, 12 - activeTabs) / 12 * 100;
-      const raw = 0.35 * batteryComponent + 0.25 * cpuComponent + 0.25 * carbonComponent + 0.15 * tabComponent;
+      const carbonComponent =
+        carbonIntensityValue !== null ? (Math.max(0, 220 - carbonIntensityValue) / 220) * 100 : 50;
+      const tabComponent = (Math.max(0, 12 - activeTabs) / 12) * 100;
+      const raw =
+        0.35 * batteryComponent +
+        0.25 * cpuComponent +
+        0.25 * carbonComponent +
+        0.15 * tabComponent;
       return Math.round(Math.max(5, Math.min(98, raw)));
     })();
 
     const achievements = [
       {
         id: 'battery',
-        label: batteryPctValue !== null ? `${batteryPctValue}% battery reserve` : 'Gathering battery telemetry',
-        description: batteryPctValue !== null && batteryPctValue >= 60 ? 'Great reserve for deep work.' : 'Stay plugged in to build reserve.',
+        label:
+          batteryPctValue !== null
+            ? `${batteryPctValue}% battery reserve`
+            : 'Gathering battery telemetry',
+        description:
+          batteryPctValue !== null && batteryPctValue >= 60
+            ? 'Great reserve for deep work.'
+            : 'Stay plugged in to build reserve.',
         achieved: batteryPctValue !== null && batteryPctValue >= 60,
         icon: BatteryCharging,
       },
       {
         id: 'carbon',
-        label: carbonIntensityValue !== null ? `${carbonIntensityValue} gCO₂/kWh grid intensity` : 'Estimating regional carbon mix',
+        label:
+          carbonIntensityValue !== null
+            ? `${carbonIntensityValue} gCO₂/kWh grid intensity`
+            : 'Estimating regional carbon mix',
         description:
           carbonIntensityValue !== null && carbonIntensityValue <= 180
             ? 'Low-carbon window — ideal for heavy tasks.'
@@ -357,7 +403,10 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
       {
         id: 'tabs',
         label: `${activeTabs} active tabs`,
-        description: activeTabs <= 6 ? 'Lean session profile — memory savings unlocked.' : 'Consider Hibernate to free resources.',
+        description:
+          activeTabs <= 6
+            ? 'Lean session profile — memory savings unlocked.'
+            : 'Consider Hibernate to free resources.',
         achieved: activeTabs <= 6,
         icon: Sparkles,
       },
@@ -376,10 +425,10 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
   const ecoHistoryInsights = useMemo(() => {
     const recent = efficiencyHistory.slice(-24);
     const batterySeries = recent
-      .map((sample) => (typeof sample.batteryPct === 'number' ? sample.batteryPct : null))
+      .map(sample => (typeof sample.batteryPct === 'number' ? sample.batteryPct : null))
       .filter((value): value is number => value !== null);
     const carbonSeries = recent
-      .map((sample) => (typeof sample.carbonIntensity === 'number' ? sample.carbonIntensity : null))
+      .map(sample => (typeof sample.carbonIntensity === 'number' ? sample.carbonIntensity : null))
       .filter((value): value is number => value !== null);
 
     const computeTrend = (series: number[]) => {
@@ -439,52 +488,53 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
   }, [ecoMetrics.ecoScore]);
 
   const quickActions = [
-    { 
-      icon: Sparkles, 
-      label: 'Ask Agent', 
+    {
+      icon: Sparkles,
+      label: 'Ask Agent',
       action: async () => {
         navigate('/agent');
-      }, 
-    color: 'from-blue-500 to-cyan-500',
-    description: 'Open the agent console to start a guided workflow.'
+      },
+      color: 'from-blue-500 to-cyan-500',
+      description: 'Open the agent console to start a guided workflow.',
     },
-    { 
-      icon: Search, 
-      label: 'Search Topic', 
+    {
+      icon: Search,
+      label: 'Search Topic',
       action: async () => {
         // Switch to research mode and open search
         setMode('Research');
         await ipc.tabs.create('about:blank');
-      }, 
-    color: 'from-purple-500 to-pink-500',
-    description: 'Launch AI-powered research with citations-first results.'
+      },
+      color: 'from-purple-500 to-pink-500',
+      description: 'Launch AI-powered research with citations-first results.',
     },
-    { 
-      icon: FileText, 
-      label: 'Research Notes', 
+    {
+      icon: FileText,
+      label: 'Research Notes',
       action: async () => {
         setMode('Research');
         await ipc.tabs.create('about:blank');
-      }, 
-    color: 'from-green-500 to-emerald-500',
-    description: 'Capture structured notes that sync with your highlights.'
+      },
+      color: 'from-green-500 to-emerald-500',
+      description: 'Capture structured notes that sync with your highlights.',
     },
-    { 
-      icon: Workflow, 
-      label: 'Run Playbook', 
+    {
+      icon: Workflow,
+      label: 'Run Playbook',
       action: () => {
         navigate('/playbooks');
-      }, 
-    color: 'from-orange-500 to-red-500',
-    description: 'Automate multi-step workflows with reusable recipes.'
+      },
+      color: 'from-orange-500 to-red-500',
+      description: 'Automate multi-step workflows with reusable recipes.',
     },
   ];
 
   const ecoStats = useMemo(() => {
-    const batteryPct =
-      ecoMetrics.batteryPctValue !== null ? `${ecoMetrics.batteryPctValue}%` : '—';
+    const batteryPct = ecoMetrics.batteryPctValue !== null ? `${ecoMetrics.batteryPctValue}%` : '—';
     const carbonIntensity =
-      ecoMetrics.carbonIntensityValue !== null ? `${ecoMetrics.carbonIntensityValue} gCO₂/kWh` : 'Syncing…';
+      ecoMetrics.carbonIntensityValue !== null
+        ? `${ecoMetrics.carbonIntensityValue} gCO₂/kWh`
+        : 'Syncing…';
     const activeTabs = `${ecoMetrics.activeTabs}`;
     return { batteryPct, carbonIntensity, activeTabs };
   }, [ecoMetrics]);
@@ -492,15 +542,15 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
   const handleContinueSession = async (session: any) => {
     try {
       let urlToLoad = session.url || 'about:blank';
-      
+
       // Switch to the session first if it has a sessionId
       if (session.sessionId) {
         try {
           await ipc.sessions.setActive({ sessionId: session.sessionId });
-          
+
           // Wait a bit for session to switch
           await new Promise(resolve => setTimeout(resolve, 200));
-          
+
           // Check if session has tabs already
           const tabs = await ipc.tabs.list();
           if (tabs.length > 0) {
@@ -512,7 +562,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             }
             return; // Tabs exist, don't create new one
           }
-          
+
           // No tabs in session, create one with the session URL or default
           if (!urlToLoad || urlToLoad === 'about:blank') {
             // Try to get last visited URL from session or use default
@@ -523,23 +573,22 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
           // Continue with creating a tab
         }
       }
-      
+
       // Set mode if specified
       if (session.type === 'Research') {
         setMode('Research');
       } else if (session.type === 'Trade') {
         setMode('Trade');
       }
-      
+
       // Create tab with the URL
       const result = await ipc.tabs.create(urlToLoad);
       if (!result) {
         throw new Error('Failed to create tab');
       }
-      
+
       // Wait a bit for tab to be created and activated
       await new Promise(resolve => setTimeout(resolve, 100));
-      
     } catch (error) {
       console.error('Failed to continue session:', error);
       // Last resort: create a blank tab
@@ -573,8 +622,11 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
       console.log('[OmniDesk] Launching search:', query);
 
       // Check if query starts with @live, @ask, or @redix for AI streaming
-      const isAIQuery = query.trim().startsWith('@live') || query.trim().startsWith('@ask') || query.trim().startsWith('@redix');
-      
+      const isAIQuery =
+        query.trim().startsWith('@live') ||
+        query.trim().startsWith('@ask') ||
+        query.trim().startsWith('@redix');
+
       if (isAIQuery) {
         // Show AI response pane for streaming queries
         // Remove the @ prefix for the actual query
@@ -584,9 +636,11 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
         setSearchLoading(false);
         return;
       }
-      
+
       // Also check if query is a general question (starts with question words)
-      const isQuestion = /^(what|why|how|when|where|who|explain|summarize|compare|find)/i.test(query.trim());
+      const isQuestion = /^(what|why|how|when|where|who|explain|summarize|compare|find)/i.test(
+        query.trim()
+      );
       if (isQuestion && query.trim().length > 10) {
         // Show AI response pane for question-like queries
         setAiQuery(query);
@@ -595,9 +649,10 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
       }
 
       // Use the active tab if it's about:blank, otherwise create a new tab
-      const activeTab = tabs.find((tab) => tab.id === activeId);
-      const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url || activeTab?.url?.startsWith('about:');
-      
+      const activeTab = tabs.find(tab => tab.id === activeId);
+      const isAboutBlank =
+        activeTab?.url === 'about:blank' || !activeTab?.url || activeTab?.url?.startsWith('about:');
+
       const targetUrl = buildSearchUrl(query);
       setMode('Research');
 
@@ -615,11 +670,14 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             console.warn('[OmniDesk] Failed to navigate existing tab, creating new one:', navError);
           }
         }
-        
+
         // Create a new tab with the search URL
         console.log('[OmniDesk] Creating new tab with URL:', targetUrl);
         const result = await ipc.tabs.create(targetUrl);
-        const success = result && typeof result === 'object' && 'success' in result ? result.success !== false : Boolean(result);
+        const success =
+          result && typeof result === 'object' && 'success' in result
+            ? result.success !== false
+            : Boolean(result);
         if (!success) {
           console.warn('[OmniDesk] Tab creation failed, using fallback');
           createFallbackTab({ url: targetUrl, title: `Search: ${query}` });
@@ -637,7 +695,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
       } catch (error) {
         console.error('[OmniDesk] Search launch error:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        
+
         // Try fallback tab creation
         try {
           createFallbackTab({ url: targetUrl, title: `Search: ${query}` });
@@ -648,7 +706,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             window.open(targetUrl, '_blank', 'noopener,noreferrer');
           }
         }
-        
+
         pushWorkspaceEvent({
           type: 'workspace:launch-error',
           message: 'Encountered an error launching the flow. Using fallback tab.',
@@ -662,23 +720,31 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
   );
 
   // Show dashboard if forced, no tabs, or active tab is about:blank (search page)
-  const activeTabForDisplay = tabs.find((tab) => tab.id === activeId);
-  const isAboutBlankDisplay = activeTabForDisplay?.url === 'about:blank' || 
-                       !activeTabForDisplay?.url || 
-                       activeTabForDisplay?.url?.startsWith('about:') ||
-                       activeTabForDisplay?.url?.startsWith('ob://newtab') ||
-                       activeTabForDisplay?.url?.startsWith('ob://home');
-  const shouldShowDashboard = forceShow || tabs.length === 0 || !activeTabForDisplay || isAboutBlankDisplay;
+  const activeTabForDisplay = tabs.find(tab => tab.id === activeId);
+  const isAboutBlankDisplay =
+    activeTabForDisplay?.url === 'about:blank' ||
+    !activeTabForDisplay?.url ||
+    activeTabForDisplay?.url?.startsWith('about:') ||
+    activeTabForDisplay?.url?.startsWith('ob://newtab') ||
+    activeTabForDisplay?.url?.startsWith('ob://home');
+  const shouldShowDashboard =
+    forceShow || tabs.length === 0 || !activeTabForDisplay || isAboutBlankDisplay;
 
   if (!shouldShowDashboard) return null;
+
+  // Show Chrome-style new tab page by default (replacing OmniDesk)
+  // Only show OmniDesk if explicitly disabled
+  if (chromeStyleEnabled !== false) {
+    return <ChromeNewTabPage />;
+  }
 
   const containerClass =
     variant === 'overlay'
       ? 'absolute inset-0 z-20 flex h-full w-full overflow-auto bg-gradient-to-br from-[#131722] via-[#171B2A] to-[#10131C] px-6 py-8'
       : variant === 'split'
-      ? 'flex h-full w-full overflow-auto bg-gradient-to-br from-[#131722] via-[#171B2A] to-[#10131C] px-6 py-8'
-      : 'flex h-full w-full overflow-auto bg-gradient-to-br from-[#0F121C] via-[#131827] to-[#0F121C] px-6 py-8';
-  
+        ? 'flex h-full w-full overflow-auto bg-gradient-to-br from-[#131722] via-[#171B2A] to-[#10131C] px-6 py-8'
+        : 'flex h-full w-full overflow-auto bg-gradient-to-br from-[#0F121C] via-[#131827] to-[#0F121C] px-6 py-8';
+
   // Ensure container is properly sized and visible
   // Note: z-index 20 is below TabStrip (z-50) to ensure tabs are always clickable
   const containerStyle = {
@@ -686,7 +752,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
     width: '100%',
     position: variant === 'overlay' ? ('absolute' as const) : ('relative' as const),
     zIndex: variant === 'overlay' ? 20 : 1,
-    pointerEvents: shouldShowDashboard ? 'auto' as const : 'none' as const, // Only allow pointer events when visible
+    pointerEvents: shouldShowDashboard ? ('auto' as const) : ('none' as const), // Only allow pointer events when visible
   };
 
   const handleManualRefresh = async () => {
@@ -714,15 +780,21 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
         variant,
       });
     }
-  }, [shouldShowDashboard, forceShow, tabs.length, activeTabForDisplay, isAboutBlankDisplay, variant]);
+  }, [
+    shouldShowDashboard,
+    forceShow,
+    tabs.length,
+    activeTabForDisplay,
+    isAboutBlankDisplay,
+    variant,
+  ]);
 
   return (
-    <div 
-      className={containerClass} 
-      data-onboarding="dashboard"
-      style={containerStyle}
-    >
-      <div className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 xl:flex-row" style={{ minHeight: '100%' }}>
+    <div className={containerClass} data-onboarding="dashboard" style={containerStyle}>
+      <div
+        className="mx-auto flex h-full w-full max-w-6xl flex-col gap-6 xl:flex-row"
+        style={{ minHeight: '100%' }}
+      >
         <div className="flex-1 space-y-6">
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -730,17 +802,20 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             transition={{ duration: 0.4 }}
             className="rounded-3xl border border-slate-800/70 bg-slate-900/70 px-6 py-7 shadow-2xl shadow-black/30"
           >
-            <p className="text-xs uppercase tracking-[0.32em] text-slate-400 font-medium">Regenerative Command Center</p>
+            <p className="text-xs uppercase tracking-[0.32em] text-slate-400 font-medium">
+              Regenerative Command Center
+            </p>
             <h1 className="mt-3 text-3xl font-bold text-slate-50 sm:text-4xl lg:text-5xl leading-tight">
               Guide your next deep work session with OmniBrowser & Redix
             </h1>
             <p className="mt-3 max-w-2xl text-base text-slate-300 leading-relaxed">
-              Spin up an agent, resume an exploration, or launch a new search. Your flow state starts here.
+              Spin up an agent, resume an exploration, or launch a new search. Your flow state
+              starts here.
             </p>
 
             <form
               className="mt-6 space-y-3"
-              onSubmit={(event) => {
+              onSubmit={event => {
                 event.preventDefault();
                 void handleSearchLaunch(searchQuery);
               }}
@@ -750,14 +825,14 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                   <Search size={18} className="text-blue-400" />
                   <input
                     value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    onKeyDown={(e) => {
+                    onChange={event => setSearchQuery(event.target.value)}
+                    onKeyDown={e => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         void handleSearchLaunch(searchQuery);
                       }
                     }}
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                     }}
                     placeholder="Search the open web, knowledge base, or ask Redix…"
@@ -775,7 +850,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                 </div>
                 <button
                   type="submit"
-                  onClick={(e) => {
+                  onClick={e => {
                     e.preventDefault();
                     e.stopPropagation();
                     void handleSearchLaunch(searchQuery);
@@ -797,11 +872,11 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                 </button>
               </div>
               <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-                {suggestedPrompts.map((prompt) => (
+                {suggestedPrompts.map(prompt => (
                   <button
                     key={prompt}
                     type="button"
-                    onClick={(e) => {
+                    onClick={e => {
                       e.preventDefault();
                       e.stopPropagation();
                       if (searchLoading) return;
@@ -809,7 +884,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                       void handleSearchLaunch(prompt);
                     }}
                     disabled={searchLoading}
-                    onKeyDown={(e) => {
+                    onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
@@ -835,18 +910,18 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             transition={{ delay: 0.1, duration: 0.4 }}
             className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
           >
-            {quickActions.map((action) => {
+            {quickActions.map(action => {
               const Icon = action.icon;
               return (
                 <motion.button
                   key={action.label}
-                  onClick={(e) => {
+                  onClick={e => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (searchLoading) return;
                     void action.action();
                   }}
-                  onKeyDown={(e) => {
+                  onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
                       e.stopPropagation();
@@ -860,7 +935,9 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   className={`group flex h-full flex-col justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-6 text-left shadow-[0_12px_40px_-24px_rgba(15,23,42,0.9)] transition hover:border-slate-700/70 hover:bg-slate-900/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${searchLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
                   style={{ pointerEvents: 'auto', zIndex: 10 }}
-                  aria-label={action.description ? `${action.label}: ${action.description}` : action.label}
+                  aria-label={
+                    action.description ? `${action.label}: ${action.description}` : action.label
+                  }
                   tabIndex={0}
                 >
                   <span
@@ -896,7 +973,9 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                 </span>
                 Live Redix Pulse
               </div>
-              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] ${agentPreview.statusTone.tone}`}>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] ${agentPreview.statusTone.tone}`}
+              >
                 <span className="h-2 w-2 rounded-full bg-current" />
                 {agentStatusLabels[agentStatus]}
               </span>
@@ -905,13 +984,17 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
             <div className="mt-4 space-y-3 text-sm text-purple-100/90">
               {agentLastGoal ? (
                 <div className="rounded-2xl border border-violet-400/30 bg-violet-500/10 px-4 py-3 text-xs text-purple-100/80">
-                  <span className="text-[11px] uppercase tracking-[0.28em] text-purple-200/70">Last goal</span>
+                  <span className="text-[11px] uppercase tracking-[0.28em] text-purple-200/70">
+                    Last goal
+                  </span>
                   <p className="mt-2 text-sm text-purple-100">{agentLastGoal}</p>
                 </div>
               ) : null}
 
               <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 px-4 py-4">
-                <span className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">Preview</span>
+                <span className="text-[11px] uppercase tracking-[0.3em] text-purple-200/70">
+                  Preview
+                </span>
                 <div className="mt-2 text-xs text-purple-100/80">
                   <AnimatePresence mode="popLayout">
                     {agentPreview.snippet.length > 0 ? (
@@ -928,7 +1011,11 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                         </motion.p>
                       ))
                     ) : (
-                      <motion.p initial={{ opacity: 0.6 }} animate={{ opacity: 1 }} className="text-purple-200/70">
+                      <motion.p
+                        initial={{ opacity: 0.6 }}
+                        animate={{ opacity: 1 }}
+                        className="text-purple-200/70"
+                      >
                         No live transcript yet. Kick off a prompt to watch the agent stream.
                       </motion.p>
                     )}
@@ -969,11 +1056,13 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
               </div>
 
               <div>
-                <span className="text-[11px] uppercase tracking-[0.28em] text-purple-200/70">Timeline</span>
+                <span className="text-[11px] uppercase tracking-[0.28em] text-purple-200/70">
+                  Timeline
+                </span>
                 <div className="mt-2 space-y-2">
                   <AnimatePresence initial={false}>
                     {agentPreview.timeline.length > 0 ? (
-                      agentPreview.timeline.map((event) => (
+                      agentPreview.timeline.map(event => (
                         <motion.div
                           key={event.id}
                           initial={{ opacity: 0, x: 8 }}
@@ -1056,67 +1145,65 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
               </button>
             </div>
             <div className="space-y-3">
-              {loadingSessions
-                ? sessionSkeletons.map((_, idx) => (
-                    <motion.div
-                      key={`session-skeleton-${idx}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.1, duration: 0.3 }}
-                      className="h-[86px] w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-4"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="h-5 w-16 rounded-full bg-slate-800/60 animate-pulse" />
-                        <div className="h-4 w-20 rounded-full bg-slate-800/60 animate-pulse" />
-                      </div>
-                      <div className="h-5 w-3/4 rounded bg-slate-800/60 animate-pulse" />
-                    </motion.div>
-                  ))
-                : continueSessions.length > 0
-                ? continueSessions.map((session, idx) => (
-                    <button
-                      key={idx}
-                      onClick={(e) => {
+              {loadingSessions ? (
+                sessionSkeletons.map((_, idx) => (
+                  <motion.div
+                    key={`session-skeleton-${idx}`}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1, duration: 0.3 }}
+                    className="h-[86px] w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-4"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-5 w-16 rounded-full bg-slate-800/60 animate-pulse" />
+                      <div className="h-4 w-20 rounded-full bg-slate-800/60 animate-pulse" />
+                    </div>
+                    <div className="h-5 w-3/4 rounded bg-slate-800/60 animate-pulse" />
+                  </motion.div>
+                ))
+              ) : continueSessions.length > 0 ? (
+                continueSessions.map((session, idx) => (
+                  <button
+                    key={idx}
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void handleContinueSession(session);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
                         void handleContinueSession(session);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void handleContinueSession(session);
-                        }
-                      }}
-                      className="group w-full rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left transition hover:border-slate-600/60 hover:bg-slate-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ pointerEvents: 'auto', zIndex: 10 }}
-                    >
-                      <div className="flex items-center gap-2 text-xs text-slate-400">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] ${
-                            session.type === 'Research'
-                              ? 'bg-purple-500/20 text-purple-300'
-                              : session.type === 'Trade'
+                      }
+                    }}
+                    className="group w-full rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left transition hover:border-slate-600/60 hover:bg-slate-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    style={{ pointerEvents: 'auto', zIndex: 10 }}
+                  >
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] ${
+                          session.type === 'Research'
+                            ? 'bg-purple-500/20 text-purple-300'
+                            : session.type === 'Trade'
                               ? 'bg-emerald-500/20 text-emerald-300'
                               : 'bg-blue-500/20 text-blue-200'
-                          }`}
-                        >
-                          {session.type}
-                        </span>
-                        <span>
-                          {formatDistanceToNow(session.timestamp, { addSuffix: true })}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm font-medium text-slate-100 group-hover:text-white">
-                        {session.title}
-                      </div>
-                    </button>
-                  ))
-                : (
-                    <div className="rounded-xl border border-dashed border-slate-700/60 px-4 py-6 text-center text-xs text-slate-500">
-                      We’ll keep your auto-snapshots here for quick handoffs.
+                        }`}
+                      >
+                        {session.type}
+                      </span>
+                      <span>{formatDistanceToNow(session.timestamp, { addSuffix: true })}</span>
                     </div>
-                  )}
+                    <div className="mt-2 text-sm font-medium text-slate-100 group-hover:text-white">
+                      {session.title}
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-700/60 px-4 py-6 text-center text-xs text-slate-500">
+                  We’ll keep your auto-snapshots here for quick handoffs.
+                </div>
+              )}
             </div>
           </motion.div>
 
@@ -1131,46 +1218,46 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
               Recent Workspaces
             </div>
             <div className="space-y-2">
-              {loadingWorkspaces
-                ? workspaceSkeletons.map((_, idx) => (
-                    <motion.div
-                      key={`workspace-skeleton-${idx}`}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.08, duration: 0.3 }}
-                      className="h-14 w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 flex items-center"
-                    >
-                      <div className="h-4 w-2/3 rounded bg-slate-800/60 animate-pulse" />
-                    </motion.div>
-                  ))
-                : recentWorkspaces.length > 0
-                ? recentWorkspaces.map((workspace) => (
-                    <button
-                      key={workspace.id}
-                      onClick={(e) => {
+              {loadingWorkspaces ? (
+                workspaceSkeletons.map((_, idx) => (
+                  <motion.div
+                    key={`workspace-skeleton-${idx}`}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.08, duration: 0.3 }}
+                    className="h-14 w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 flex items-center"
+                  >
+                    <div className="h-4 w-2/3 rounded bg-slate-800/60 animate-pulse" />
+                  </motion.div>
+                ))
+              ) : recentWorkspaces.length > 0 ? (
+                recentWorkspaces.map(workspace => (
+                  <button
+                    key={workspace.id}
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate(`/w/${workspace.id}`);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         e.stopPropagation();
                         navigate(`/w/${workspace.id}`);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate(`/w/${workspace.id}`);
-                        }
-                      }}
-                      className="flex w-full items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-slate-600/70 hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                      style={{ pointerEvents: 'auto', zIndex: 10 }}
-                    >
-                      <span className="truncate">{workspace.name}</span>
-                      <span className="text-xs text-slate-500">Open</span>
-                    </button>
-                  ))
-                : (
-                    <div className="rounded-xl border border-dashed border-slate-700/60 px-4 py-6 text-center text-xs text-slate-500">
-                      Create a workspace to keep your Redix graph evolving.
-                    </div>
-                  )}
+                      }
+                    }}
+                    className="flex w-full items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-slate-600/70 hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    style={{ pointerEvents: 'auto', zIndex: 10 }}
+                  >
+                    <span className="truncate">{workspace.name}</span>
+                    <span className="text-xs text-slate-500">Open</span>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-700/60 px-4 py-6 text-center text-xs text-slate-500">
+                  Create a workspace to keep your Redix graph evolving.
+                </div>
+              )}
             </div>
           </motion.div>
 
@@ -1197,7 +1284,12 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
 
             <div className="mt-5 grid gap-5 md:grid-cols-[150px,1fr]">
               <div className="relative mx-auto flex h-36 w-36 items-center justify-center">
-                <svg width="150" height="150" viewBox="0 0 150 150" className="absolute inset-0 text-emerald-500/40">
+                <svg
+                  width="150"
+                  height="150"
+                  viewBox="0 0 150 150"
+                  className="absolute inset-0 text-emerald-500/40"
+                >
                   <circle
                     cx="75"
                     cy="75"
@@ -1243,23 +1335,33 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
               <div className="space-y-5">
                 <div className="grid grid-cols-3 gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/5 p-4 text-xs text-emerald-100/80">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">Battery</p>
-                    <p className="mt-2 text-lg font-semibold text-emerald-50">{ecoStats.batteryPct}</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
+                      Battery
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-emerald-50">
+                      {ecoStats.batteryPct}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">Carbon</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
+                      Carbon
+                    </p>
                     <p className="mt-2 text-sm font-semibold text-emerald-50 leading-tight">
                       {ecoStats.carbonIntensity}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">Active Tabs</p>
-                    <p className="mt-2 text-lg font-semibold text-emerald-50">{ecoStats.activeTabs}</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
+                      Active Tabs
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-emerald-50">
+                      {ecoStats.activeTabs}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  {ecoMetrics.achievements.map((achievement) => {
+                  {ecoMetrics.achievements.map(achievement => {
                     const Icon = achievement.icon;
                     return (
                       <div
@@ -1277,7 +1379,9 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                         </span>
                         <div>
                           <div className="font-semibold text-emerald-100">{achievement.label}</div>
-                          <div className="mt-1 text-[11px] text-emerald-200/70">{achievement.description}</div>
+                          <div className="mt-1 text-[11px] text-emerald-200/70">
+                            {achievement.description}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1309,7 +1413,10 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                       </div>
                       <div className="relative h-16 overflow-hidden rounded-xl border border-emerald-400/20 bg-emerald-500/10">
                         {ecoHistoryInsights.battery.path ? (
-                          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full text-emerald-300">
+                          <svg
+                            viewBox="0 0 100 100"
+                            className="absolute inset-0 h-full w-full text-emerald-300"
+                          >
                             <polyline
                               fill="none"
                               stroke="currentColor"
@@ -1341,7 +1448,10 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
                       </div>
                       <div className="relative h-16 overflow-hidden rounded-xl border border-emerald-400/20 bg-emerald-500/10">
                         {ecoHistoryInsights.carbon.path ? (
-                          <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full text-emerald-200">
+                          <svg
+                            viewBox="0 0 100 100"
+                            className="absolute inset-0 h-full w-full text-emerald-200"
+                          >
                             <polyline
                               fill="none"
                               stroke="currentColor"
@@ -1386,4 +1496,3 @@ export function OmniDesk({ variant = 'overlay', forceShow = false }: OmniDeskPro
     </div>
   );
 }
-

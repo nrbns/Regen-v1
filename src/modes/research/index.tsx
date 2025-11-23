@@ -1,13 +1,24 @@
 // @ts-nocheck
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, Info, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
+import {
+  Sparkles,
+  Info,
+  RefreshCcw,
+  ChevronRight,
+  Search,
+  Upload,
+  FileText,
+  X,
+} from 'lucide-react';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
+import { multiSourceSearch, type MultiSourceSearchResult } from '../../services/multiSourceSearch';
+import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
 import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
@@ -23,8 +34,16 @@ import {
 import { ContainerInfo } from '../../lib/ipc-events';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
+import { SourceCard } from '../../components/research/SourceCard';
 import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
+import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
+import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
+import { useResearchCompareStore } from '../../state/researchCompareStore';
+import { showToast } from '../../state/toastStore';
+import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
+import { CursorChat } from '../../components/cursor/CursorChat';
+import { OmniAgentInput } from '../../components/OmniAgentInput';
 
 type UploadedDocument = {
   id: string;
@@ -33,6 +52,14 @@ type UploadedDocument = {
   text: string;
   type: string;
   size: number;
+};
+
+type _ResearchPipelineArgs = {
+  searchQuery: string;
+  context: Record<string, unknown>;
+  aggregatedSources: ResearchSource[];
+  aggregatedProviderNames: string[];
+  scrapedSnapshots?: ScrapedSourceResult[];
 };
 
 export default function ResearchPanel() {
@@ -47,7 +74,9 @@ export default function ResearchPanel() {
   const [graphData, setGraphData] = useState<any>(null);
   const [showGraph, setShowGraph] = useState(true);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
-  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<Array<{ title: string; subtitle?: string; action?: () => void }>>([]);
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<
+    Array<{ title: string; subtitle?: string; action?: () => void }>
+  >([]);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
@@ -55,31 +84,55 @@ export default function ResearchPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
   const { activeId, tabs } = useTabsStore();
-  const useHybridSearch = useSettingsStore((s) => s.searchEngine !== 'mock');
+  const useHybridSearch = useSettingsStore(s => s.searchEngine !== 'mock');
   const { containers, activeContainerId, setContainers } = useContainerStore();
   const graphSignatureRef = useRef<string>('');
   const debouncedQuery = useDebounce(query, 300);
+  const {
+    entries: compareEntries,
+    addEntry: addCompareEntry,
+    removeEntry: removeCompareEntry,
+  } = useResearchCompareStore();
+  const [comparePanelOpen, setComparePanelOpen] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<string[]>([]);
+  const [cursorPanelOpen, setCursorPanelOpen] = useState(false);
+  const aiMetaRef = useRef<{ provider?: string; model?: string }>({});
+  const [deepScanEnabled, setDeepScanEnabled] = useState(false);
+  const [deepScanLoading, setDeepScanLoading] = useState(false);
+  const [deepScanSteps, setDeepScanSteps] = useState<DeepScanStep[]>([]);
+  const [deepScanError, setDeepScanError] = useState<string | null>(null);
 
   useEffect(() => {
     if (containers.length === 0) {
       ipc.containers
         .list()
-        .then((list) => {
+        .then(list => {
           if (Array.isArray(list)) {
             setContainers(list as ContainerInfo[]);
           }
         })
-        .catch((err) => {
+        .catch(err => {
           console.warn('[Research] Failed to load containers for badge', err);
         });
     }
   }, [containers.length, setContainers]);
 
-  const queryKey = useMemo(
-    () => (result?.query ? buildQueryKey(result.query) : null),
-    [result?.query],
-  );
+  useEffect(() => {
+    setCompareSelection(prev => prev.filter(id => compareEntries.some(entry => entry.id === id)));
+  }, [compareEntries]);
 
+  useEffect(() => {
+    if (!deepScanEnabled) {
+      setDeepScanSteps([]);
+      setDeepScanError(null);
+    }
+  }, [deepScanEnabled]);
+
+  // Calculate weights from authorityBias - must be defined before callbacks that use them
+  const recencyWeight = useMemo(() => (100 - authorityBias) / 100, [authorityBias]);
+  const authorityWeight = useMemo(() => authorityBias / 100, [authorityBias]);
+
+  // refreshGraph must be defined before _runResearchAnswer which uses it
   const refreshGraph = useCallback(async () => {
     if (typeof window === 'undefined' || !window.graph?.all) return;
     try {
@@ -92,8 +145,476 @@ export default function ResearchPanel() {
     }
   }, []);
 
-  const recencyWeight = useMemo(() => (100 - authorityBias) / 100, [authorityBias]);
-  const authorityWeight = useMemo(() => authorityBias / 100, [authorityBias]);
+  const _runResearchAnswer = useCallback(
+    async ({
+      searchQuery,
+      context,
+      aggregatedSources,
+      aggregatedProviderNames,
+      scrapedSnapshots = [],
+    }: ResearchPipelineArgs) => {
+      try {
+        let streamedText = '';
+        let streamedResult: AITaskResult | null = null;
+
+        const aiResult = await aiEngine.runTask(
+          {
+            kind: 'search',
+            prompt: searchQuery,
+            context,
+            mode: 'research',
+            metadata: {
+              includeCounterpoints,
+              region: region !== 'global' ? region : undefined,
+              recencyWeight,
+              authorityWeight,
+            },
+            llm: {
+              temperature: 0.2,
+              maxTokens: 1000,
+            },
+          },
+          event => {
+            if (event.type === 'token' && typeof event.data === 'string') {
+              streamedText += event.data;
+            } else if (event.type === 'done' && typeof event.data !== 'string') {
+              streamedResult = event.data as AITaskResult;
+            }
+          }
+        );
+
+        const finalResult = streamedResult ?? aiResult;
+        aiMetaRef.current = {
+          provider: finalResult?.provider || 'ai',
+          model: finalResult?.model,
+        };
+        const finalAnswer = streamedText || finalResult?.text || '';
+
+        if (finalAnswer && typeof window !== 'undefined' && window.graph) {
+          try {
+            const concepts = finalAnswer.split(/[.,;]/).slice(0, 5);
+            for (const concept of concepts) {
+              const trimmed = concept.trim();
+              if (trimmed.length > 3 && trimmed.length < 50) {
+                await window.graph.add({
+                  id: `research-${Date.now()}-${Math.random()}`,
+                  label: trimmed,
+                  type: 'research-concept',
+                });
+              }
+            }
+            await refreshGraph();
+          } catch (graphError) {
+            console.debug('[Research] Auto-graph generation failed:', graphError);
+          }
+        }
+
+        const sources: ResearchSource[] = [...aggregatedSources];
+
+        if (finalResult?.citations && finalResult.citations.length > 0) {
+          sources.push(
+            ...finalResult.citations.map((cite, idx) => {
+              let domain = cite.source || '';
+              try {
+                if (cite.url) {
+                  domain = new URL(cite.url).hostname;
+                }
+              } catch {
+                domain = cite.source || '';
+              }
+              const citationType: ResearchSourceType = inferSourceType(domain);
+              return {
+                id: `ai-citation-${idx}`,
+                title: cite.title || cite.url || `Source ${idx + 1}`,
+                url: cite.url || '',
+                domain,
+                snippet: cite.snippet || '',
+                text: cite.snippet || '',
+                type: citationType,
+                sourceType: citationType,
+                relevanceScore: 95 - idx * 3,
+                timestamp: Date.now(),
+                metadata: {
+                  provider: 'ai-citation',
+                },
+              };
+            })
+          );
+        }
+
+        if (uploadedDocuments.length > 0) {
+          sources.push(
+            ...uploadedDocuments.map((doc, idx) => ({
+              id: doc.id,
+              title: doc.name,
+              url: '',
+              domain: 'uploaded',
+              snippet: doc.text.slice(0, 200) + (doc.text.length > 200 ? '...' : ''),
+              text: doc.text,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 98 - idx,
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'uploaded-doc',
+              },
+            }))
+          );
+        }
+
+        try {
+          const localResults = await searchLocal(searchQuery);
+          sources.push(
+            ...localResults.map((lr, idx) => ({
+              id: `local-${lr.id}`,
+              title: lr.title,
+              url: '',
+              domain: 'local',
+              snippet: lr.snippet,
+              text: lr.snippet,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 85 - idx * 3,
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'local-index',
+              },
+            }))
+          );
+        } catch (localError) {
+          console.debug('[Research] Local search failed:', localError);
+        }
+
+        const inlineCitations =
+          finalResult?.citations?.map((cite, idx) => ({
+            id: `citation-${idx}`,
+            text: cite.title || cite.url || `Source ${idx + 1}`,
+            url: cite.url || '',
+            position:
+              finalAnswer.indexOf(cite.title || '') >= 0
+                ? finalAnswer.indexOf(cite.title || '')
+                : idx * 50,
+          })) || [];
+
+        const dedupedSources = dedupeResearchSources(sources);
+
+        setResult({
+          query: searchQuery,
+          summary: finalAnswer || 'No answer generated',
+          sources: dedupedSources.slice(0, 16),
+          citations: inlineCitations,
+          inlineEvidence: [],
+          contradictions: [],
+          verification: {
+            score: 0.8,
+            confidence: 'high',
+            suggestions: [
+              `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
+              ...(finalResult?.citations?.length
+                ? [`${finalResult.citations.length} citation(s) included`]
+                : []),
+            ],
+          },
+          confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
+        });
+        return;
+      } catch (aiError) {
+        console.warn('[Research] AI engine failed, falling back to legacy search:', aiError);
+
+        if (aggregatedSources.length > 0) {
+          const providerLabel =
+            aggregatedProviderNames.length > 0
+              ? aggregatedProviderNames.map(provider => formatProviderName(provider)).join(', ')
+              : 'multi-source web';
+          aiMetaRef.current = {
+            provider: providerLabel,
+            model: 'aggregate',
+          };
+          const dedupedAggregated = dedupeResearchSources(aggregatedSources);
+          const topTitles = dedupedAggregated
+            .slice(0, 3)
+            .map(source => source.title)
+            .join('; ');
+          const scrapedSummary = scrapedSnapshots.find(snapshot => snapshot.excerpt)?.excerpt;
+          setResult({
+            query: searchQuery,
+            summary: scrapedSummary?.length
+              ? scrapedSummary
+              : topTitles.length > 0
+                ? `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results. Top hits: ${topTitles}.`
+                : `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results.`,
+            sources: dedupedAggregated.slice(0, 16),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.65,
+              confidence: 'medium',
+              suggestions: [`Review ${providerLabel} sources manually.`],
+            },
+            confidence: 0.62,
+          });
+          return;
+        }
+
+        const duckResult = await fetchDuckDuckGoInstant(searchQuery);
+        if (duckResult) {
+          aiMetaRef.current = {
+            provider: 'duckduckgo',
+            model: 'instant-answer',
+          };
+          const formatted = formatDuckDuckGoResults(duckResult);
+          const localResults = await searchLocal(searchQuery).catch(() => []);
+          const sources: ResearchSource[] = [
+            ...(duckResult.Heading && duckResult.AbstractText
+              ? [
+                  {
+                    id: 'duck-instant',
+                    title: duckResult.Heading,
+                    url: duckResult.AbstractURL || '',
+                    domain: duckResult.AbstractURL
+                      ? extractDomain(duckResult.AbstractURL)
+                      : 'duckduckgo.com',
+                    snippet: duckResult.AbstractText,
+                    text: duckResult.AbstractText,
+                    type: 'news' as ResearchSourceType,
+                    sourceType: 'news' as ResearchSourceType,
+                    relevanceScore: 100,
+                    timestamp: Date.now(),
+                    metadata: {
+                      provider: 'duckduckgo',
+                    },
+                  },
+                ]
+              : []),
+            ...formatted
+              .filter(f => f.type === 'result' && f.url)
+              .map((f, idx) => {
+                const domain = f.url ? extractDomain(f.url) : '';
+                const sourceType = inferSourceType(domain);
+                return {
+                  id: `duck-result-${idx}`,
+                  title: f.title,
+                  url: f.url || '',
+                  domain,
+                  snippet: f.snippet,
+                  text: f.snippet,
+                  type: sourceType,
+                  sourceType,
+                  relevanceScore: 85 - idx * 5,
+                  timestamp: Date.now(),
+                  metadata: {
+                    provider: 'duckduckgo',
+                  },
+                };
+              }),
+            ...localResults.map((lr, idx) => ({
+              id: `local-${lr.id}`,
+              title: lr.title,
+              url: '',
+              domain: 'local',
+              snippet: lr.snippet,
+              text: lr.snippet,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 90 - idx * 3,
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'local-index',
+              },
+            })),
+          ];
+
+          setResult({
+            query: searchQuery,
+            summary:
+              duckResult.AbstractText ||
+              duckResult.Answer ||
+              duckResult.Definition ||
+              `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+            sources: dedupeResearchSources(sources).slice(0, 16),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.7,
+              confidence: 'medium',
+              suggestions: ['Results from DuckDuckGo Instant Answer API'],
+            },
+            confidence: 0.58,
+          });
+          return;
+        }
+
+        const localResults = await searchLocal(searchQuery).catch(() => []);
+        if (localResults.length > 0) {
+          aiMetaRef.current = {
+            provider: 'local-index',
+            model: 'documents',
+          };
+          setResult({
+            query: searchQuery,
+            summary: `Found ${localResults.length} local result${localResults.length === 1 ? '' : 's'}`,
+            sources: localResults.map((lr, idx) => ({
+              id: `local-${lr.id}`,
+              title: lr.title,
+              url: '',
+              domain: 'local',
+              snippet: lr.snippet,
+              text: lr.snippet,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 90 - idx * 3,
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'local-index',
+              },
+            })),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.6,
+              confidence: 'low',
+              suggestions: ['Results from local index only'],
+            },
+            confidence: 0.52,
+          });
+          return;
+        }
+
+        throw aiError;
+      }
+    },
+    [authorityWeight, includeCounterpoints, region, recencyWeight, refreshGraph, uploadedDocuments]
+  );
+
+  const handleToggleCompareSelection = useCallback((id: string) => {
+    setCompareSelection(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(entryId => entryId !== id);
+      }
+      if (prev.length >= 2) {
+        return [...prev.slice(1), id];
+      }
+      return [...prev, id];
+    });
+  }, []);
+
+  const handleRemoveCompare = useCallback(
+    (id: string) => {
+      removeCompareEntry(id);
+      setCompareSelection(prev => prev.filter(entryId => entryId !== id));
+      showToast('info', 'Removed saved answer.');
+    },
+    [removeCompareEntry]
+  );
+
+  const handleSaveForCompare = useCallback(() => {
+    if (!result) {
+      showToast('info', 'Run a research query before saving.');
+      return;
+    }
+    const saved = addCompareEntry({
+      query: result.query,
+      summary: result.summary,
+      provider: aiMetaRef.current.provider,
+      model: aiMetaRef.current.model,
+      confidence: result.confidence,
+      sources: result.sources,
+      citations: result.citations,
+      settings: {
+        includeCounterpoints,
+        authorityBias,
+        region,
+      },
+    });
+    setCompareSelection([saved.id]);
+    setComparePanelOpen(true);
+    showToast('success', 'Answer saved to compare drawer.');
+  }, [result, addCompareEntry, includeCounterpoints, authorityBias, region]);
+
+  const runDeepScanFlow = useCallback(async (searchQuery: string) => {
+    setDeepScanLoading(true);
+    setDeepScanError(null);
+    setDeepScanSteps([]);
+    try {
+      const response = await runDeepScan(searchQuery, { maxPages: 5 });
+      setDeepScanSteps(response.steps);
+      return response;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Deep scan failed.';
+      setDeepScanError(message);
+      showToast('error', message);
+      throw error;
+    } finally {
+      setDeepScanLoading(false);
+    }
+  }, []);
+
+  const buildSearchContext = useCallback(
+    async (searchQuery: string) => {
+      const context: Record<string, unknown> = {
+        mode: 'research',
+        includeCounterpoints,
+        region: region !== 'global' ? region : undefined,
+        recencyWeight,
+        authorityWeight,
+      };
+
+      const activeTab = tabs.find(tab => tab.id === activeId);
+      if (activeTab) {
+        context.active_tab = {
+          url: activeTab.url,
+          title: activeTab.title,
+        };
+      }
+
+      if (uploadedDocuments.length > 0) {
+        context.documents = uploadedDocuments.map(doc => ({
+          name: doc.name,
+          text: doc.text.slice(0, 5000),
+          type: doc.type,
+          size: doc.size,
+        }));
+      }
+
+      try {
+        const memoryMatches = await semanticSearchMemories(searchQuery, {
+          limit: 5,
+          minSimilarity: 0.6,
+        });
+        const relevantMemories = memoryMatches.map(m => ({
+          value: m.event.value,
+          metadata: m.event.metadata,
+          id: m.event.id,
+          type: m.event.type,
+          similarity: m.similarity,
+        }));
+        if (relevantMemories.length > 0) {
+          context.memories = relevantMemories;
+        }
+      } catch (error) {
+        console.warn('[Research] Failed to fetch memory context:', error);
+      }
+
+      return context;
+    },
+    [
+      activeId,
+      tabs,
+      includeCounterpoints,
+      region,
+      recencyWeight,
+      authorityWeight,
+      uploadedDocuments,
+    ]
+  );
+
+  const queryKey = useMemo(
+    () => (result?.query ? buildQueryKey(result.query) : null),
+    [result?.query]
+  );
 
   // File upload handlers
   const handleFileUpload = async (files: FileList | null) => {
@@ -106,9 +627,9 @@ export default function ResearchPanel() {
       try {
         const fileType = file.type.toLowerCase();
         const fileName = file.name.toLowerCase();
-        
+
         let extractedText = '';
-        
+
         // Extract text based on file type
         if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
           extractedText = await parsePdfFile(file);
@@ -145,12 +666,12 @@ export default function ResearchPanel() {
       }
     }
 
-    setUploadedDocuments((prev) => [...prev, ...newDocuments]);
+    setUploadedDocuments(prev => [...prev, ...newDocuments]);
     setUploading(false);
   };
 
   const handleRemoveDocument = (id: string) => {
-    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
+    setUploadedDocuments(prev => prev.filter(doc => doc.id !== id));
   };
 
   const handleSearch = async (input?: string) => {
@@ -162,64 +683,85 @@ export default function ResearchPanel() {
     setResult(null);
     setActiveSourceId(null);
 
+    let aggregatedSources: ResearchSource[] = [];
+    let aggregatedProviderNames: string[] = [];
+    let scrapedSnapshots: ScrapedSourceResult[] = [];
+
     try {
       if (!useHybridSearch) {
+        aiMetaRef.current = {
+          provider: 'mock',
+          model: 'offline',
+        };
         setResult(generateMockResult(searchQuery));
         return;
       }
 
-      // Build enhanced context with memories and tab info
-      const activeTab = tabs.find(t => t.id === activeId);
-      const context: any = {
-        mode: 'research',
-        includeCounterpoints,
-        region: region !== 'global' ? region : undefined,
-        recencyWeight,
-        authorityWeight,
-      };
+      const context: any = await buildSearchContext(searchQuery);
 
-      // Add active tab context
-      if (activeTab) {
-        context.active_tab = {
-          url: activeTab.url,
-          title: activeTab.title,
+      if (deepScanEnabled) {
+        const deepScanResult = await runDeepScanFlow(searchQuery);
+        aggregatedSources = deepScanResult.sources.map((source, idx) =>
+          mapDeepScanSourceToResearchSource(source, idx)
+        );
+        aggregatedProviderNames = ['deep-scan'];
+        context.deep_scan = {
+          created_at: deepScanResult.created_at,
+          steps: deepScanResult.steps,
         };
-      }
+      } else {
+        try {
+          const multiSourceResults = await multiSourceSearch(searchQuery, { limit: 20 });
+          if (multiSourceResults.length > 0) {
+            aggregatedSources = multiSourceResults.map((hit, idx) =>
+              mapMultiSourceResultToSource(hit, idx)
+            );
+            aggregatedProviderNames = Array.from(
+              new Set(
+                multiSourceResults.map(hit =>
+                  typeof hit.source === 'string' ? hit.source.toLowerCase() : 'web'
+                )
+              )
+            );
+            context.multi_source_results = multiSourceResults.slice(0, 8).map(hit => ({
+              title: hit.title,
+              url: hit.url,
+              snippet: hit.snippet.slice(0, 300),
+              provider: hit.source,
+              score: hit.score,
+            }));
 
-      // Add uploaded documents to context
-      if (uploadedDocuments.length > 0) {
-        context.documents = uploadedDocuments.map((doc) => ({
-          name: doc.name,
-          text: doc.text.slice(0, 5000), // Limit text length for context (first 5000 chars)
-          type: doc.type,
-          size: doc.size,
-        }));
-      }
-
-      // Fetch relevant memories for context
-      let relevantMemories: any[] = [];
-      try {
-        const memoryMatches = await semanticSearchMemories(searchQuery, { limit: 5, minSimilarity: 0.6 });
-        relevantMemories = memoryMatches.map((m) => ({
-          value: m.event.value,
-          metadata: m.event.metadata,
-          id: m.event.id,
-          type: m.event.type,
-          similarity: m.similarity,
-        }));
-      } catch (error) {
-        console.warn('[Research] Failed to fetch memory context:', error);
-      }
-
-      if (relevantMemories.length > 0) {
-        context.memories = relevantMemories;
+            const urlsToScrape = aggregatedSources
+              .filter(source => Boolean(source.url))
+              .slice(0, 4)
+              .map(source => source.url as string);
+            if (urlsToScrape.length > 0) {
+              scrapedSnapshots = await scrapeResearchSources(urlsToScrape, {
+                max_chars: 12000,
+                allow_render: true,
+              });
+              if (scrapedSnapshots.length > 0) {
+                aggregatedSources = mergeScrapedSnapshots(aggregatedSources, scrapedSnapshots);
+                context.scraped_sources = scrapedSnapshots.slice(0, 3).map(snapshot => ({
+                  url: snapshot.finalUrl ?? snapshot.url,
+                  title: snapshot.title,
+                  excerpt: snapshot.excerpt?.slice(0, 400),
+                  word_count: snapshot.wordCount,
+                  rendered: snapshot.rendered,
+                }));
+              }
+            }
+          }
+        } catch (multiSourceError) {
+          console.warn('[Research] Multi-source search failed:', multiSourceError);
+        }
       }
 
       // Use unified AI engine for research queries
       try {
         let streamedText = '';
         let streamedResult: AITaskResult | null = null;
-        
+
         const aiResult = await aiEngine.runTask(
           {
             kind: 'search',
@@ -237,19 +779,23 @@ export default function ResearchPanel() {
               maxTokens: 1000,
             },
           },
-          (event) => {
+          event => {
             if (event.type === 'token' && typeof event.data === 'string') {
               streamedText += event.data;
               // Update result with streaming text if needed
             } else if (event.type === 'done' && typeof event.data !== 'string') {
               streamedResult = event.data as AITaskResult;
             }
-          },
+          }
         );
 
         const finalResult = streamedResult ?? aiResult;
+        aiMetaRef.current = {
+          provider: finalResult?.provider || 'ai',
+          model: finalResult?.model,
+        };
         const finalAnswer = streamedText || finalResult?.text || '';
-        
+
         // Auto-generate graph from AI response if available
         if (finalAnswer && typeof window !== 'undefined' && window.graph) {
           try {
@@ -272,81 +818,104 @@ export default function ResearchPanel() {
         }
 
         // Convert AI result to ResearchResult format
-        const sources: ResearchSource[] = [];
-        
+        const sources: ResearchSource[] = [...aggregatedSources];
+
         // Add citations from AI response as sources
         if (finalResult?.citations && finalResult.citations.length > 0) {
-          sources.push(...finalResult.citations.map((cite, idx) => {
-            let domain = cite.source || '';
-            try {
-              if (cite.url) {
-                domain = new URL(cite.url).hostname;
+          sources.push(
+            ...finalResult.citations.map((cite, idx) => {
+              let domain = cite.source || '';
+              try {
+                if (cite.url) {
+                  domain = new URL(cite.url).hostname;
+                }
+              } catch {
+                // Invalid URL, use source or empty
+                domain = cite.source || '';
               }
-            } catch {
-              // Invalid URL, use source or empty
-              domain = cite.source || '';
-            }
-            return {
-              id: `ai-citation-${idx}`,
-              title: cite.title || cite.url || `Source ${idx + 1}`,
-              url: cite.url || '',
-              domain,
-              snippet: cite.snippet || '',
-              text: cite.snippet || '',
-              type: 'web' as ResearchSourceType,
-              relevanceScore: 95 - idx * 3,
-              timestamp: Date.now(),
-            };
-          }));
+              const citationType: ResearchSourceType = inferSourceType(domain);
+              return {
+                id: `ai-citation-${idx}`,
+                title: cite.title || cite.url || `Source ${idx + 1}`,
+                url: cite.url || '',
+                domain,
+                snippet: cite.snippet || '',
+                text: cite.snippet || '',
+                type: citationType,
+                sourceType: citationType,
+                relevanceScore: 95 - idx * 3,
+                timestamp: Date.now(),
+                metadata: {
+                  provider: 'ai-citation',
+                },
+              };
+            })
+          );
         }
 
         // Add uploaded documents as sources
         if (uploadedDocuments.length > 0) {
-          sources.push(...uploadedDocuments.map((doc, idx) => ({
-            id: doc.id,
-            title: doc.name,
-            url: '',
-            domain: 'uploaded',
-            snippet: doc.text.slice(0, 200) + (doc.text.length > 200 ? '...' : ''),
-            text: doc.text,
-            type: 'document' as ResearchSourceType,
-            relevanceScore: 98 - idx, // High relevance for uploaded documents
-            timestamp: Date.now(),
-          })));
+          sources.push(
+            ...uploadedDocuments.map((doc, idx) => ({
+              id: doc.id,
+              title: doc.name,
+              url: '',
+              domain: 'uploaded',
+              snippet: doc.text.slice(0, 200) + (doc.text.length > 200 ? '...' : ''),
+              text: doc.text,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 98 - idx, // High relevance for uploaded documents
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'uploaded-doc',
+              },
+            }))
+          );
         }
 
         // Add local search results
         try {
           const localResults = await searchLocal(searchQuery);
-          sources.push(...localResults.map((lr, idx) => ({
-            id: `local-${lr.id}`,
-            title: lr.title,
-            url: '',
-            domain: 'local',
-            snippet: lr.snippet,
-            text: lr.snippet,
-            type: 'document' as ResearchSourceType,
-            relevanceScore: 85 - idx * 3,
-            timestamp: Date.now(),
-          })));
+          sources.push(
+            ...localResults.map((lr, idx) => ({
+              id: `local-${lr.id}`,
+              title: lr.title,
+              url: '',
+              domain: 'local',
+              snippet: lr.snippet,
+              text: lr.snippet,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
+              relevanceScore: 85 - idx * 3,
+              timestamp: Date.now(),
+              metadata: {
+                provider: 'local-index',
+              },
+            }))
+          );
         } catch (localError) {
           console.debug('[Research] Local search failed:', localError);
         }
 
         // Build inline citations from AI response
-        const inlineCitations = finalResult?.citations?.map((cite, idx) => ({
-          id: `citation-${idx}`,
-          text: cite.title || cite.url || `Source ${idx + 1}`,
-          url: cite.url || '',
-          position: finalAnswer.indexOf(cite.title || '') >= 0 
-            ? finalAnswer.indexOf(cite.title || '') 
-            : idx * 50, // Approximate position
-        })) || [];
+        const inlineCitations =
+          finalResult?.citations?.map((cite, idx) => ({
+            id: `citation-${idx}`,
+            text: cite.title || cite.url || `Source ${idx + 1}`,
+            url: cite.url || '',
+            position:
+              finalAnswer.indexOf(cite.title || '') >= 0
+                ? finalAnswer.indexOf(cite.title || '')
+                : idx * 50, // Approximate position
+          })) || [];
+
+        const dedupedSources = dedupeResearchSources(sources);
 
         setResult({
           query: searchQuery,
           summary: finalAnswer || 'No answer generated',
-          sources: sources.slice(0, 12),
+          sources: dedupedSources.slice(0, 16),
           citations: inlineCitations,
           inlineEvidence: [],
           contradictions: [],
@@ -355,50 +924,106 @@ export default function ResearchPanel() {
             confidence: 'high',
             suggestions: [
               `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
-              ...(finalResult?.citations?.length ? [`${finalResult.citations.length} citation(s) included`] : []),
+              ...(finalResult?.citations?.length
+                ? [`${finalResult.citations.length} citation(s) included`]
+                : []),
             ],
           },
+          confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
         });
         return;
       } catch (aiError) {
         console.warn('[Research] AI engine failed, falling back to legacy search:', aiError);
-        
+
+        if (aggregatedSources.length > 0) {
+          const providerLabel =
+            aggregatedProviderNames.length > 0
+              ? aggregatedProviderNames.map(provider => formatProviderName(provider)).join(', ')
+              : 'multi-source web';
+          const dedupedAggregated = dedupeResearchSources(aggregatedSources);
+          const topTitles = dedupedAggregated
+            .slice(0, 3)
+            .map(source => source.title)
+            .join('; ');
+          const scrapedSummary = scrapedSnapshots.find(snapshot => snapshot.excerpt)?.excerpt;
+          aiMetaRef.current = {
+            provider: 'multi-source',
+            model: 'aggregate',
+          };
+
+          setResult({
+            query: searchQuery,
+            summary: scrapedSummary?.length
+              ? scrapedSummary
+              : topTitles.length > 0
+                ? `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results. Top hits: ${topTitles}.`
+                : `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results.`,
+            sources: dedupedAggregated.slice(0, 16),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.65,
+              confidence: 'medium',
+              suggestions: [`Review ${providerLabel} sources manually.`],
+            },
+            confidence: 0.62,
+          });
+          return;
+        }
+
         // Fallback to DuckDuckGo Instant Answer API
         const duckResult = await fetchDuckDuckGoInstant(searchQuery);
         if (duckResult) {
+          aiMetaRef.current = {
+            provider: 'duckduckgo',
+            model: 'instant-answer',
+          };
           const formatted = formatDuckDuckGoResults(duckResult);
-          
+
           // Also try local search
           const localResults = await searchLocal(searchQuery).catch(() => []);
-          
+
           // Convert to ResearchResult format
           const sources: ResearchSource[] = [
             // DuckDuckGo instant answer
-            ...(duckResult.Heading && duckResult.AbstractText ? [{
-              id: 'duck-instant',
-              title: duckResult.Heading,
-              url: duckResult.AbstractURL || '',
-              domain: duckResult.AbstractURL ? new URL(duckResult.AbstractURL).hostname : 'duckduckgo.com',
-              snippet: duckResult.AbstractText,
-              text: duckResult.AbstractText,
-              type: 'web' as ResearchSourceType,
-              relevanceScore: 100,
-              timestamp: Date.now(),
-            }] : []),
+            ...(duckResult.Heading && duckResult.AbstractText
+              ? [
+                  {
+                    id: 'duck-instant',
+                    title: duckResult.Heading,
+                    url: duckResult.AbstractURL || '',
+                    domain: duckResult.AbstractURL
+                      ? extractDomain(duckResult.AbstractURL)
+                      : 'duckduckgo.com',
+                    snippet: duckResult.AbstractText,
+                    text: duckResult.AbstractText,
+                    type: 'news' as ResearchSourceType,
+                    sourceType: 'news' as ResearchSourceType,
+                    relevanceScore: 100,
+                    timestamp: Date.now(),
+                  },
+                ]
+              : []),
             // DuckDuckGo web results
             ...formatted
               .filter(f => f.type === 'result' && f.url)
-              .map((f, idx) => ({
-                id: `duck-result-${idx}`,
-                title: f.title,
-                url: f.url || '',
-                domain: f.url ? new URL(f.url).hostname : '',
-                snippet: f.snippet,
-                text: f.snippet,
-                type: 'web' as ResearchSourceType,
-                relevanceScore: 85 - idx * 5,
-                timestamp: Date.now(),
-              })),
+              .map((f, idx) => {
+                const domain = f.url ? extractDomain(f.url) : '';
+                const sourceType = inferSourceType(domain);
+                return {
+                  id: `duck-result-${idx}`,
+                  title: f.title,
+                  url: f.url || '',
+                  domain,
+                  snippet: f.snippet,
+                  text: f.snippet,
+                  type: sourceType,
+                  sourceType,
+                  relevanceScore: 85 - idx * 5,
+                  timestamp: Date.now(),
+                };
+              }),
             // Local docs results
             ...localResults.map((lr, idx) => ({
               id: `local-${lr.id}`,
@@ -407,17 +1032,24 @@ export default function ResearchPanel() {
               domain: 'local',
               snippet: lr.snippet,
               text: lr.snippet,
-              type: 'document' as ResearchSourceType,
+              type: 'documentation' as ResearchSourceType,
+              sourceType: 'documentation' as ResearchSourceType,
               relevanceScore: 90 - idx * 3,
               timestamp: Date.now(),
+              metadata: {
+                provider: 'local-index',
+              },
             })),
           ];
 
           setResult({
             query: searchQuery,
-            summary: duckResult.AbstractText || duckResult.Answer || duckResult.Definition || 
-                     `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
-            sources: sources.slice(0, 12),
+            summary:
+              duckResult.AbstractText ||
+              duckResult.Answer ||
+              duckResult.Definition ||
+              `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+            sources: dedupeResearchSources(sources).slice(0, 16),
             citations: [],
             inlineEvidence: [],
             contradictions: [],
@@ -426,11 +1058,16 @@ export default function ResearchPanel() {
               confidence: 'medium',
               suggestions: ['Results from DuckDuckGo Instant Answer API'],
             },
+            confidence: 0.58,
           });
         } else {
           // Final fallback: try local search only
           const localResults = await searchLocal(searchQuery).catch(() => []);
           if (localResults.length > 0) {
+            aiMetaRef.current = {
+              provider: 'local-index',
+              model: 'documents',
+            };
             setResult({
               query: searchQuery,
               summary: `Found ${localResults.length} local result${localResults.length === 1 ? '' : 's'}`,
@@ -441,9 +1078,13 @@ export default function ResearchPanel() {
                 domain: 'local',
                 snippet: lr.snippet,
                 text: lr.snippet,
-                type: 'document' as ResearchSourceType,
+                type: 'documentation' as ResearchSourceType,
+                sourceType: 'documentation' as ResearchSourceType,
                 relevanceScore: 90 - idx * 3,
                 timestamp: Date.now(),
+                metadata: {
+                  provider: 'local-index',
+                },
               })),
               citations: [],
               inlineEvidence: [],
@@ -453,15 +1094,21 @@ export default function ResearchPanel() {
                 confidence: 'low',
                 suggestions: ['Results from local index only'],
               },
+              confidence: 0.52,
             });
           } else {
-            throw new Error('No search results available. Please check your connection or try a different query.');
+            throw new Error(
+              'No search results available. Please check your connection or try a different query.'
+            );
           }
         }
       }
     } catch (err) {
       console.error('Research query failed:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unable to complete the research request. Please try again.';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Unable to complete the research request. Please try again.';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -477,7 +1124,7 @@ export default function ResearchPanel() {
 
     const signature = JSON.stringify({
       query: result.query,
-      sources: result.sources.map((source) => source.url || source.title),
+      sources: result.sources.map(source => source.url || source.title),
       citations: result.citations?.length ?? 0,
       evidence: (result.inlineEvidence ?? []).length,
     });
@@ -507,16 +1154,16 @@ export default function ResearchPanel() {
           createdAt: Date.now(),
         },
       },
-      queryEdges,
+      queryEdges
     );
 
     result.sources.forEach((source, idx) => {
       const sourceKey = buildSourceKey(source, idx);
       const relatedEvidence = (result.inlineEvidence ?? [])
-        .filter((item) => item.sourceIndex === idx)
+        .filter(item => item.sourceIndex === idx)
         .slice(0, 6);
 
-      const evidenceEdges = relatedEvidence.map((item) => ({
+      const evidenceEdges = relatedEvidence.map(item => ({
         src: sourceKey,
         dst: buildEvidenceKey(sourceKey, item.citationIndex ?? item.from ?? idx),
         rel: 'evidence',
@@ -535,12 +1182,12 @@ export default function ResearchPanel() {
             relevance: source.relevanceScore,
           },
         },
-        evidenceEdges,
+        evidenceEdges
       );
 
-      relatedEvidence.forEach((item) => {
+      relatedEvidence.forEach(item => {
         const evidenceKey = buildEvidenceKey(sourceKey, item.citationIndex ?? item.from ?? idx);
-        const citation = result.citations?.find((entry) => entry.index === item.citationIndex);
+        const citation = result.citations?.find(entry => entry.index === item.citationIndex);
         window.graph.add({
           key: evidenceKey,
           type: 'research-evidence',
@@ -554,27 +1201,24 @@ export default function ResearchPanel() {
       });
     });
 
-    (result.contradictions ?? []).forEach((contradiction) => {
+    (result.contradictions ?? []).forEach(contradiction => {
       if (!Array.isArray(contradiction.sources) || contradiction.sources.length < 2) return;
       const [first, ...rest] = contradiction.sources;
       const baseSource = result.sources[first];
       if (!baseSource) return;
       const baseKey = buildSourceKey(baseSource, first);
-      rest.forEach((targetIdx) => {
+      rest.forEach(targetIdx => {
         const targetSource = result.sources[targetIdx];
         if (!targetSource) return;
         const targetKey = buildSourceKey(targetSource, targetIdx);
-        window.graph.add(
-          { key: baseKey, type: 'research-source' },
-          [
-            {
-              src: baseKey,
-              dst: targetKey,
-              rel: 'contradicts',
-              weight: contradiction.severityScore ?? (contradiction.disagreement === 'major' ? 2 : 1),
-            },
-          ],
-        );
+        window.graph.add({ key: baseKey, type: 'research-source' }, [
+          {
+            src: baseKey,
+            dst: targetKey,
+            rel: 'contradicts',
+            weight: contradiction.severityScore ?? (contradiction.disagreement === 'major' ? 2 : 1),
+          },
+        ]);
       });
     });
 
@@ -668,7 +1312,7 @@ export default function ResearchPanel() {
         const history = await ipc.history.search(trimmed);
         if (Array.isArray(history) && history.length > 0) {
           history.slice(0, 5).forEach((item: any) => {
-            if (!suggestions.find((s) => s.title === item.title)) {
+            if (!suggestions.find(s => s.title === item.title)) {
               suggestions.push({
                 title: item.title || item.url || 'Untitled',
                 subtitle: item.url,
@@ -686,13 +1330,13 @@ export default function ResearchPanel() {
       }
 
       // Tab matches
-      tabs.forEach((tab) => {
+      tabs.forEach(tab => {
         const title = tab.title || 'Untitled';
         const tabUrl = tab.url || '';
         if (
           (title.toLowerCase().includes(trimmed.toLowerCase()) ||
             tabUrl.toLowerCase().includes(trimmed.toLowerCase())) &&
-          !suggestions.find((s) => s.title === title)
+          !suggestions.find(s => s.title === title)
         ) {
           suggestions.push({
             title,
@@ -726,16 +1370,36 @@ export default function ResearchPanel() {
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-[#0f111a] text-gray-100 min-h-0">
-      <header className="border-b border-white/5 bg-black/20 backdrop-blur flex-shrink-0">
+    <LayoutEngine
+      sidebarWidth={0}
+      navHeight={0}
+      className="mode-theme mode-theme--research bg-[#0f111a] text-gray-100"
+    >
+      <LayoutHeader sticky={false} className="border-b border-white/5 bg-black/20 backdrop-blur">
         <div className="flex items-center justify-between px-6 pt-6 pb-3">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-semibold text-white">Research Mode</h1>
             <p className="text-sm text-gray-400">
-              Aggregate evidence, generate traceable answers, and surface counterpoints without leaving the browser.
+              Aggregate evidence, generate traceable answers, and surface counterpoints without
+              leaving the browser.
             </p>
           </div>
-          <div className="flex-shrink-0 ml-4">
+          <div className="flex-shrink-0 ml-4 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCursorPanelOpen(prev => !prev)}
+              className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+                cursorPanelOpen
+                  ? 'border-blue-500/60 bg-blue-500/10 text-blue-200'
+                  : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
+              }`}
+              title="Toggle Cursor AI Assistant"
+            >
+              <span className="flex items-center gap-1.5">
+                <Sparkles size={14} />
+                Cursor AI
+              </span>
+            </button>
             <ActiveContainerBadge containers={containers} activeContainerId={activeContainerId} />
           </div>
         </div>
@@ -743,7 +1407,7 @@ export default function ResearchPanel() {
         <div className="px-6 pb-5 flex-shrink-0">
           <div className="relative max-w-4xl" ref={autocompleteRef}>
             <form
-              onSubmit={async (e) => {
+              onSubmit={async e => {
                 e.preventDefault();
                 setShowAutocomplete(false);
                 await handleSearch();
@@ -754,7 +1418,7 @@ export default function ResearchPanel() {
               <input
                 className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
                 value={query}
-                onChange={(e) => {
+                onChange={e => {
                   setQuery(e.target.value);
                   setShowAutocomplete(true);
                 }}
@@ -768,14 +1432,14 @@ export default function ResearchPanel() {
               />
               <div className="flex items-center gap-2">
                 {autocompleteLoading && (
-                  <div className="text-xs text-gray-400 animate-pulse">Searching…</div>
+                  <Skeleton variant="text" width={80} height={16} className="text-xs" />
                 )}
                 <input
                   ref={fileInputRef}
                   type="file"
                   multiple
                   accept=".pdf,.docx,.txt,.md"
-                  onChange={(e) => handleFileUpload(e.target.files)}
+                  onChange={e => handleFileUpload(e.target.files)}
                   className="hidden"
                 />
                 <button
@@ -796,7 +1460,7 @@ export default function ResearchPanel() {
                   {loading ? 'Researching…' : 'Run research'}
                 </button>
                 <VoiceButton
-                  onResult={(text) => {
+                  onResult={text => {
                     setQuery(text);
                     setTimeout(() => handleSearch(text), 120);
                   }}
@@ -816,9 +1480,13 @@ export default function ResearchPanel() {
                       }}
                       className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
-                      <div className="text-sm text-white font-medium line-clamp-1">{suggestion.title}</div>
+                      <div className="text-sm text-white font-medium line-clamp-1">
+                        {suggestion.title}
+                      </div>
                       {suggestion.subtitle && (
-                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{suggestion.subtitle}</div>
+                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                          {suggestion.subtitle}
+                        </div>
                       )}
                     </button>
                   ))}
@@ -833,16 +1501,14 @@ export default function ResearchPanel() {
           <div className="px-6 pb-3 flex-shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400 font-medium">Uploaded documents:</span>
-              {uploadedDocuments.map((doc) => (
+              {uploadedDocuments.map(doc => (
                 <div
                   key={doc.id}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-300 group"
                 >
                   <FileText size={12} className="text-gray-400" />
                   <span className="max-w-[200px] truncate">{doc.name}</span>
-                  <span className="text-gray-500">
-                    ({(doc.size / 1024).toFixed(1)} KB)
-                  </span>
+                  <span className="text-gray-500">({(doc.size / 1024).toFixed(1)} KB)</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveDocument(doc.id)}
@@ -856,9 +1522,9 @@ export default function ResearchPanel() {
             </div>
           </div>
         )}
-      </header>
+      </LayoutHeader>
 
-      <main className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
+      <LayoutBody className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
         <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
           <div className="flex h-full flex-col space-y-4 p-5">
@@ -869,8 +1535,18 @@ export default function ResearchPanel() {
               loading={loading}
               onAuthorityBiasChange={setAuthorityBias}
               onIncludeCounterpointsChange={setIncludeCounterpoints}
-              onRegionChange={(value) => setRegion(value)}
+              onRegionChange={value => setRegion(value)}
+              deepScanEnabled={deepScanEnabled}
+              onDeepScanToggle={value => setDeepScanEnabled(value)}
             />
+
+            {deepScanEnabled && (
+              <DeepScanStatus
+                loading={deepScanLoading}
+                steps={deepScanSteps}
+                error={deepScanError}
+              />
+            )}
 
             {error && (
               <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur">
@@ -879,10 +1555,15 @@ export default function ResearchPanel() {
             )}
 
             {loading && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm text-gray-400">
+              <div className="flex flex-1 flex-col items-center justify-center gap-4">
                 <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200">
                   <Sparkles size={14} className="animate-pulse" />
                   Gathering sources and evaluating evidence…
+                </div>
+                <div className="w-full max-w-2xl space-y-4">
+                  <SkeletonCard />
+                  <SkeletonList items={3} />
+                  <SkeletonText lines={4} />
                 </div>
                 <p className="text-xs text-gray-500">
                   Cross-checking accuracy, bias, and contradictions before presenting the answer.
@@ -903,10 +1584,13 @@ export default function ResearchPanel() {
                   onOpenSource={handleOpenUrl}
                   activeSourceId={activeSourceId}
                   onActiveSourceChange={setActiveSourceId}
+                  onSaveForCompare={handleSaveForCompare}
+                  onShowCompare={() => setComparePanelOpen(true)}
+                  compareCount={compareEntries.length}
                 />
                 <ResearchGraphSection
                   showGraph={showGraph}
-                  onToggleGraph={() => setShowGraph((prev) => !prev)}
+                  onToggleGraph={() => setShowGraph(prev => !prev)}
                   query={result.query}
                   queryKey={queryKey}
                   graphData={graphData}
@@ -917,9 +1601,7 @@ export default function ResearchPanel() {
               </div>
             )}
 
-            {!loading && !result && !error && (
-              <EmptyState onRunExample={handleRunExample} />
-            )}
+            {!loading && !result && !error && <EmptyState onRunExample={handleRunExample} />}
           </div>
         </section>
 
@@ -930,8 +1612,32 @@ export default function ResearchPanel() {
           activeSourceId={activeSourceId}
           onSelectSource={setActiveSourceId}
         />
-      </main>
-    </div>
+      </LayoutBody>
+      <CompareAnswersPanel
+        open={comparePanelOpen}
+        answers={compareEntries}
+        selectedIds={compareSelection}
+        onToggleSelect={handleToggleCompareSelection}
+        onClose={() => setComparePanelOpen(false)}
+        onRemove={handleRemoveCompare}
+      />
+      {cursorPanelOpen && (
+        <div className="fixed inset-y-0 right-0 w-96 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/70 shadow-2xl z-50 flex flex-col">
+          <CursorChat
+            pageSnapshot={
+              activeId && tabs.find(t => t.id === activeId)
+                ? {
+                    url: tabs.find(t => t.id === activeId)?.url || '',
+                    title: tabs.find(t => t.id === activeId)?.title || '',
+                    html: undefined, // Could be enhanced to capture page HTML
+                  }
+                : undefined
+            }
+            onClose={() => setCursorPanelOpen(false)}
+          />
+        </div>
+      )}
+    </LayoutEngine>
   );
 }
 
@@ -945,14 +1651,6 @@ const REGION_OPTIONS: Array<{ value: RegionOption; label: string }> = [
   { value: 'asia', label: 'Asia Pacific' },
 ];
 
-const SOURCE_BADGE_STYLES: Record<ResearchSourceType, string> = {
-  news: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
-  academic: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
-  documentation: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-  forum: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
-  other: 'bg-slate-500/10 text-slate-300 border-slate-500/30',
-};
-
 interface ResearchControlsProps {
   authorityBias: number;
   includeCounterpoints: boolean;
@@ -961,6 +1659,8 @@ interface ResearchControlsProps {
   onAuthorityBiasChange(value: number): void;
   onIncludeCounterpointsChange(value: boolean): void;
   onRegionChange(value: RegionOption): void;
+  deepScanEnabled: boolean;
+  onDeepScanToggle(value: boolean): void;
 }
 
 function ResearchControls({
@@ -971,6 +1671,8 @@ function ResearchControls({
   onAuthorityBiasChange,
   onIncludeCounterpointsChange,
   onRegionChange,
+  deepScanEnabled,
+  onDeepScanToggle,
 }: ResearchControlsProps) {
   return (
     <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-xs text-gray-200 shadow-inner shadow-black/30 sm:grid-cols-[minmax(0,_1fr)_auto_auto]">
@@ -987,7 +1689,7 @@ function ResearchControls({
               max={100}
               value={authorityBias}
               disabled={loading}
-              onChange={(e) => onAuthorityBiasChange(Number(e.target.value))}
+              onChange={e => onAuthorityBiasChange(Number(e.target.value))}
               className="h-1 w-full cursor-pointer accent-blue-500 disabled:opacity-40"
             />
           </div>
@@ -1004,7 +1706,7 @@ function ResearchControls({
           className="h-3.5 w-3.5 rounded border-white/20 bg-transparent text-blue-500 focus:ring-blue-500 disabled:opacity-40"
           checked={includeCounterpoints}
           disabled={loading}
-          onChange={(e) => onIncludeCounterpointsChange(e.target.checked)}
+          onChange={e => onIncludeCounterpointsChange(e.target.checked)}
         />
         Include counterpoints
       </label>
@@ -1014,16 +1716,87 @@ function ResearchControls({
         <select
           value={region}
           disabled={loading}
-          onChange={(e) => onRegionChange(e.target.value as RegionOption)}
+          onChange={e => onRegionChange(e.target.value as RegionOption)}
           className="rounded border border-white/10 bg-[#0c0e18] px-2 py-1 text-[11px] text-gray-200 focus:border-blue-500 focus:outline-none focus:ring-0 disabled:opacity-40"
         >
-          {REGION_OPTIONS.map((option) => (
+          {REGION_OPTIONS.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </select>
       </label>
+
+      <label className="flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-2 text-[11px] text-indigo-100 sm:col-span-3">
+        <input
+          type="checkbox"
+          className="h-3.5 w-3.5 rounded border-indigo-400/60 bg-transparent text-indigo-300 focus:ring-indigo-400 disabled:opacity-40"
+          checked={deepScanEnabled}
+          disabled={loading}
+          onChange={e => onDeepScanToggle(e.target.checked)}
+        />
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide">Deep scan</span>
+          <span className="text-[11px] text-indigo-200/80">
+            Analyze multiple pages with scraper context ({deepScanEnabled ? 'on' : 'off'})
+          </span>
+        </div>
+      </label>
+    </div>
+  );
+}
+
+function DeepScanStatus({
+  loading,
+  steps,
+  error,
+}: {
+  loading: boolean;
+  steps: DeepScanStep[];
+  error: string | null;
+}) {
+  return (
+    <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 px-4 py-3 text-xs text-indigo-100">
+      <div className="mb-2 flex items-center justify-between">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-indigo-200">Deep scan progress</p>
+          <p className="text-[11px] text-indigo-200/70">
+            {steps.length > 0
+              ? `${steps.length} checkpoints recorded`
+              : 'Preparing sources via scraper'}
+          </p>
+        </div>
+        {loading && (
+          <Skeleton variant="circular" width={16} height={16} className="animate-pulse" />
+        )}
+      </div>
+      {error && (
+        <p className="mb-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1 text-red-200">
+          {error}
+        </p>
+      )}
+      <ol className="space-y-1 text-[11px] text-indigo-100/90">
+        {(steps.length > 0
+          ? steps
+          : [
+              {
+                label: 'Gathering sources…',
+                status: loading ? 'running' : 'complete',
+                started_at: '',
+                completed_at: '',
+              },
+            ]
+        ).map((step, idx) => (
+          <li
+            key={`${step.label}-${idx}`}
+            className="rounded border border-indigo-500/20 px-3 py-1"
+          >
+            <span className="font-semibold">{step.label}</span>
+            <span className="ml-2 text-indigo-200/70">{step.status}</span>
+            {step.detail && <span className="ml-2 text-indigo-200/70">{step.detail}</span>}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -1033,6 +1806,9 @@ interface ResearchResultViewProps {
   activeSourceId: string | null;
   onActiveSourceChange(sourceKey: string): void;
   onOpenSource(url: string): void;
+  onSaveForCompare(): void;
+  onShowCompare(): void;
+  compareCount: number;
 }
 
 function ResearchResultView({
@@ -1040,6 +1816,9 @@ function ResearchResultView({
   activeSourceId,
   onActiveSourceChange,
   onOpenSource,
+  onSaveForCompare,
+  onShowCompare,
+  compareCount,
 }: ResearchResultViewProps) {
   const confidencePercent = Math.round(result.confidence * 100);
   const verification = result.verification;
@@ -1058,17 +1837,33 @@ function ResearchResultView({
               {result.sources.length} sources considered • Confidence {confidencePercent}%
             </p>
           </div>
-          {verification && (
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium ${
-                verification.verified
-                  ? 'border border-emerald-500/50 bg-emerald-500/10 text-emerald-200'
-                  : 'border border-amber-500/50 bg-amber-500/10 text-amber-200'
-              }`}
+          <div className="flex flex-wrap items-center gap-2">
+            {verification && (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  verification.verified
+                    ? 'border border-emerald-500/50 bg-emerald-500/10 text-emerald-200'
+                    : 'border border-amber-500/50 bg-amber-500/10 text-amber-200'
+                }`}
+              >
+                {verification.verified ? 'Verified' : 'Needs review'}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onSaveForCompare}
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-xs text-gray-200 hover:border-white/40"
             >
-              {verification.verified ? 'Verified' : 'Needs review'}
-            </span>
-          )}
+              Save for compare
+            </button>
+            <button
+              type="button"
+              onClick={onShowCompare}
+              className="inline-flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-xs text-sky-100 hover:border-sky-400/70"
+            >
+              Open compare ({compareCount})
+            </button>
+          </div>
         </header>
         <AnswerWithCitations
           summary={result.summary}
@@ -1076,10 +1871,12 @@ function ResearchResultView({
           inlineEvidence={result.inlineEvidence}
           sources={result.sources}
           activeSourceId={activeSourceId}
-          onActivate={(sourceKey) => {
+          onActivate={sourceKey => {
             onActiveSourceChange(sourceKey);
             // Find evidence for this source
-            const sourceIndex = result.sources.findIndex(s => (s.url ?? `source-${result.sources.indexOf(s)}`) === sourceKey);
+            const sourceIndex = result.sources.findIndex(
+              s => (s.url ?? `source-${result.sources.indexOf(s)}`) === sourceKey
+            );
             if (sourceIndex !== -1) {
               const evidence = result.evidence?.find(e => e.sourceIndex === sourceIndex);
               if (evidence) {
@@ -1088,7 +1885,7 @@ function ResearchResultView({
             }
           }}
           onOpenSource={onOpenSource}
-          onExport={async (format) => {
+          onExport={async format => {
             try {
               if (format === 'markdown') {
                 let markdown = `# Research: ${result.query}\n\n`;
@@ -1140,7 +1937,7 @@ function ResearchResultView({
               Citations
             </h3>
             <ul className="space-y-2">
-              {result.citations.map((citation) => {
+              {result.citations.map(citation => {
                 const source = result.sources[citation.sourceIndex];
                 const sourceKey = getSourceKey(citation.sourceIndex);
                 const isActive = activeSourceId === sourceKey;
@@ -1174,9 +1971,7 @@ function ResearchResultView({
         )}
       </section>
 
-      {verification && (
-        <VerificationSummary verification={verification} />
-      )}
+      {verification && <VerificationSummary verification={verification} />}
 
       <SourcesList
         sources={result.sources}
@@ -1227,7 +2022,10 @@ function InsightsSidebar({
               Try questions that need multiple independent sources.
             </p>
           </div>
-          <EmptyState onRunExample={onSelectSource as unknown as (example: string) => void} minimal />
+          <EmptyState
+            onRunExample={onSelectSource as unknown as (example: string) => void}
+            minimal
+          />
         </div>
       </aside>
     );
@@ -1268,10 +2066,12 @@ function InsightsSidebar({
         <div className="space-y-3 rounded-xl border border-blue-500/20 bg-blue-500/[0.07] px-4 py-3">
           <div className="flex items-center justify-between gap-2 text-xs text-blue-100">
             <span className="font-semibold uppercase tracking-wide">Key evidence</span>
-            <span>{topEvidence.length} of {(result.evidence ?? []).length}</span>
+            <span>
+              {topEvidence.length} of {(result.evidence ?? []).length}
+            </span>
           </div>
           <div className="space-y-2 text-xs text-blue-100/90">
-            {topEvidence.map((item) => {
+            {topEvidence.map(item => {
               const source = result.sources[item.sourceIndex];
               if (!source) return null;
               const sourceKey = source.url ?? `source-${item.sourceIndex}`;
@@ -1284,7 +2084,9 @@ function InsightsSidebar({
                     onOpenSource(item.fragmentUrl || source.url);
                   }}
                   className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                    isActive ? 'border-blue-300 bg-blue-400/20' : 'border-blue-400/30 hover:bg-blue-400/15'
+                    isActive
+                      ? 'border-blue-300 bg-blue-400/20'
+                      : 'border-blue-400/30 hover:bg-blue-400/15'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-blue-200/80">
@@ -1309,12 +2111,17 @@ function InsightsSidebar({
             {contradictions.map((item, index) => {
               const severity = item.disagreement === 'major' ? 'Major' : 'Minor';
               return (
-                <li key={`${item.claim}-${index}`} className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3">
+                <li
+                  key={`${item.claim}-${index}`}
+                  className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-amber-100">{item.claim}</span>
                     <span className="text-amber-200">{severity}</span>
                   </div>
-                  <p className="mt-1 text-amber-100/70">{item.summary || 'Investigate differing positions.'}</p>
+                  <p className="mt-1 text-amber-100/70">
+                    {item.summary || 'Investigate differing positions.'}
+                  </p>
                   <button
                     onClick={() => {
                       const firstSource = item.sources[0];
@@ -1351,7 +2158,7 @@ function InsightsSidebar({
             />
           </div>
           <div className="space-y-1 pt-2">
-            {result.biasProfile.domainMix.slice(0, 3).map((entry) => (
+            {result.biasProfile.domainMix.slice(0, 3).map(entry => (
               <div key={entry.type} className="flex items-center justify-between text-[11px]">
                 <span>{capitalize(entry.type)}</span>
                 <span>{entry.percentage}%</span>
@@ -1368,11 +2175,15 @@ function InsightsSidebar({
             <span>{result.taskChains.length}</span>
           </div>
           <ol className="space-y-2 text-[11px] text-purple-50/80">
-            {result.taskChains.flatMap((chain) => chain.steps)
-              .filter((step) => step.status !== 'done')
+            {result.taskChains
+              .flatMap(chain => chain.steps)
+              .filter(step => step.status !== 'done')
               .slice(0, 3)
-              .map((step) => (
-                <li key={step.id} className="rounded-lg border border-purple-400/30 bg-purple-400/10 px-3 py-2">
+              .map(step => (
+                <li
+                  key={step.id}
+                  className="rounded-lg border border-purple-400/30 bg-purple-400/10 px-3 py-2"
+                >
                   <span className="font-semibold text-purple-100">{step.title}</span>
                   <p className="text-purple-100/70">{step.description}</p>
                 </li>
@@ -1380,6 +2191,19 @@ function InsightsSidebar({
           </ol>
         </div>
       )}
+
+      {/* Tier 2: OmniAgent Input */}
+      <OmniAgentInput
+        currentUrl={
+          activeId && tabs.find(t => t.id === activeId)
+            ? tabs.find(t => t.id === activeId)?.url
+            : undefined
+        }
+        onResult={result => {
+          // Display result in a toast or add to research results
+          console.log('OmniAgent result:', result);
+        }}
+      />
     </aside>
   );
 }
@@ -1392,8 +2216,8 @@ function ActiveContainerBadge({
   activeContainerId: string;
 }) {
   const activeContainer =
-    containers.find((container) => container.id === activeContainerId) ??
-    containers.find((container) => container.id === 'default');
+    containers.find(container => container.id === activeContainerId) ??
+    containers.find(container => container.id === 'default');
 
   if (!activeContainer) {
     return null;
@@ -1429,7 +2253,7 @@ function EmptyState({
   if (minimal) {
     return (
       <ul className="space-y-2 text-xs text-gray-400">
-        {examples.slice(0, 2).map((example) => (
+        {examples.slice(0, 2).map(example => (
           <li key={example}>
             <button
               className="text-left text-gray-300 hover:text-blue-200"
@@ -1455,7 +2279,7 @@ function EmptyState({
         </p>
       </div>
       <div className="space-y-2 text-sm">
-        {examples.map((example) => (
+        {examples.map(example => (
           <button
             key={example}
             onClick={() => onRunExample(example)}
@@ -1481,64 +2305,257 @@ function SourcesList({
   onOpenSource(url: string): void;
 }) {
   if (!sources || sources.length === 0) return null;
+
+  const providerCounts = sources.reduce<Record<string, number>>((acc, source) => {
+    const provider =
+      typeof source.metadata?.provider === 'string' ? source.metadata.provider.toLowerCase() : '';
+    if (!provider) return acc;
+    acc[provider] = (acc[provider] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const providerSummary =
+    Object.entries(providerCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([provider, count]) => `${formatProviderName(provider)} (${count})`)
+      .join(' • ') || 'Ranked by relevance & consensus';
+
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03]">
-      <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h3 className="text-sm font-semibold text-white">
-          Sources ({sources.length})
-        </h3>
-        <span className="text-xs text-gray-500">
-          Ranked by relevance & consensus
-        </span>
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Sources ({sources.length})</h3>
+          <p className="text-xs text-gray-500">{providerSummary}</p>
+        </div>
       </header>
-      <ul className="divide-y divide-white/5">
+      <div className="flex flex-col gap-3">
         {sources.map((source, idx) => {
           const sourceKey = source.url ?? `source-${idx}`;
-          const isActive = activeSourceId === sourceKey;
           return (
-            <li
+            <SourceCard
               key={source.url || idx}
-              className={`p-4 space-y-2 transition-colors ${
-                isActive ? 'bg-blue-500/10' : 'hover:bg-white/5'
-              }`}
-            >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-col">
-                <span className="font-medium text-gray-200">{source.title}</span>
-                <span className="text-xs text-gray-500">{source.domain}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <span
-                  className={`px-2 py-0.5 rounded-full border ${SOURCE_BADGE_STYLES[source.sourceType]}`}
-                >
-                  {source.sourceType}
-                </span>
-                <span className="text-gray-400">
-                  Relevance {source.relevanceScore.toFixed(0)}
-                </span>
-              </div>
-            </div>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              {source.snippet || source.text.slice(0, 200)}
-              {source.text.length > 200 ? '…' : ''}
-            </p>
-            <button
-              className="text-xs font-medium text-indigo-300 hover:text-indigo-200"
-              onClick={() => {
-                onActivate(sourceKey);
-                onOpenSource(source.url);
-              }}
-            >
-              Open source ↗
-            </button>
-            </li>
+              source={source}
+              index={idx}
+              isActive={activeSourceId === sourceKey}
+              onActivate={onActivate}
+              onOpen={onOpenSource}
+            />
           );
         })}
-      </ul>
+      </div>
     </section>
   );
 }
 
+const NEWS_DOMAIN_HINTS = [
+  'nytimes',
+  'cnn',
+  'bbc',
+  'guardian',
+  'reuters',
+  'bloomberg',
+  'apnews',
+  'wsj',
+  'cnbc',
+  'financialtimes',
+  'washingtonpost',
+];
+
+const FORUM_DOMAIN_HINTS = [
+  'reddit',
+  'stack',
+  'stackoverflow',
+  'stackexchange',
+  'discord',
+  'forum',
+  'forums',
+  'quora',
+  'medium',
+];
+
+const DOCUMENTATION_DOMAIN_HINTS = [
+  'docs',
+  'developer',
+  'dev.',
+  'api.',
+  'learn.',
+  'support.',
+  'help.',
+  'manual',
+  'reference',
+  'wikipedia',
+  'wiki',
+  'kubernetes',
+  'cloud.google',
+  'learn.microsoft',
+];
+
+function mapMultiSourceResultToSource(hit: MultiSourceSearchResult, idx: number): ResearchSource {
+  const domain = hit.domain || extractDomain(hit.url);
+  const provider = typeof hit.source === 'string' ? hit.source : 'web';
+  const sourceType = inferSourceType(domain, provider);
+  const baseScore = Number.isFinite(hit.score) ? hit.score : 0.62;
+  const extendedMeta = (hit.metadata || {}) as { timestamp?: number; dateLastCrawled?: string };
+  const parsedTimestamp =
+    typeof extendedMeta.timestamp === 'number'
+      ? extendedMeta.timestamp
+      : typeof extendedMeta.dateLastCrawled === 'string'
+        ? Date.parse(extendedMeta.dateLastCrawled)
+        : undefined;
+
+  return {
+    id: `multi-${idx}-${provider}`,
+    title: hit.title,
+    url: hit.url,
+    domain,
+    snippet: hit.snippet || '',
+    text: hit.snippet || hit.title,
+    type: sourceType,
+    sourceType,
+    relevanceScore: Math.round(Math.max(0.45, baseScore) * 100),
+    timestamp: Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now(),
+    metadata: {
+      provider,
+      rawScore: hit.score,
+      ...hit.metadata,
+    },
+  };
+}
+
+function mapDeepScanSourceToResearchSource(source: DeepScanSource, idx: number): ResearchSource {
+  const domain = source.domain || extractDomain(source.url);
+  const sourceType = inferSourceType(domain);
+  return {
+    id: source.id || `deep-${idx}`,
+    title: source.title || source.url || `Deep scan source ${idx + 1}`,
+    url: source.url || '',
+    domain: domain || 'deep-scan',
+    snippet: source.snippet || '',
+    text: source.text || source.snippet || '',
+    type: sourceType,
+    sourceType,
+    relevanceScore: source.relevanceScore ?? 80 - idx * 2,
+    metadata: {
+      ...(source.metadata || {}),
+      provider: 'deep-scan',
+    },
+    image: source.image,
+    wordCount: source.wordCount,
+    lang: source.lang,
+    contentHash: source.contentHash,
+    fromCache: source.fromCache,
+    rendered: source.rendered,
+    fetchedAt: source.fetchedAt,
+  };
+}
+
+function inferSourceType(domain: string, provider?: string): ResearchSourceType {
+  const value = (domain || '').toLowerCase();
+  if (
+    value.endsWith('.edu') ||
+    value.includes('.ac.') ||
+    value.includes('arxiv') ||
+    value.includes('researchgate')
+  ) {
+    return 'academic';
+  }
+  if (value.endsWith('.gov') || value.includes('.gov.')) {
+    return 'documentation';
+  }
+  if (value && NEWS_DOMAIN_HINTS.some(hint => value.includes(hint))) {
+    return 'news';
+  }
+  if (value && FORUM_DOMAIN_HINTS.some(hint => value.includes(hint))) {
+    return 'forum';
+  }
+  if (value && DOCUMENTATION_DOMAIN_HINTS.some(hint => value.includes(hint))) {
+    return 'documentation';
+  }
+  if (!value && provider && provider.toLowerCase().includes('bing')) {
+    return 'news';
+  }
+  return 'other';
+}
+
+function dedupeResearchSources(sources: ResearchSource[]): ResearchSource[] {
+  const seen = new Set<string>();
+  return sources.filter(source => {
+    const key = source.url || `${source.domain}|${source.title}`;
+    if (!key) {
+      return true;
+    }
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeSourceUrl(url?: string | null): string {
+  if (!url) return '';
+  return url.replace(/\/+$/, '').toLowerCase();
+}
+
+function mergeScrapedSnapshots(
+  sources: ResearchSource[],
+  snapshots: ScrapedSourceResult[]
+): ResearchSource[] {
+  if (!snapshots || snapshots.length === 0) {
+    return sources;
+  }
+
+  const snapshotMap = new Map<string, ScrapedSourceResult>();
+  snapshots.forEach(snapshot => {
+    const candidates = [snapshot.finalUrl, snapshot.url].filter(Boolean) as string[];
+    candidates.forEach(candidate => {
+      snapshotMap.set(normalizeSourceUrl(candidate), snapshot);
+    });
+  });
+
+  return sources.map(source => {
+    const match =
+      snapshotMap.get(normalizeSourceUrl(source.url)) ||
+      snapshotMap.get(normalizeSourceUrl(source.metadata?.canonicalUrl as string));
+    if (!match) {
+      return source;
+    }
+    return {
+      ...source,
+      snippet: match.excerpt || source.snippet,
+      text: match.content || source.text || match.excerpt || source.snippet,
+      excerpt: match.excerpt || source.excerpt,
+      image: match.image || source.image,
+      contentHash: match.contentHash || source.contentHash,
+      wordCount: match.wordCount ?? source.wordCount,
+      lang: match.lang || source.lang,
+      fromCache: match.fromCache ?? source.fromCache,
+      rendered: match.rendered ?? source.rendered,
+      fetchedAt: match.fetchedAt || source.fetchedAt,
+      metadata: {
+        ...(source.metadata || {}),
+        ...(match.metadata || {}),
+      },
+    };
+  });
+}
+
+function extractDomain(url?: string): string {
+  if (!url) return '';
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function formatProviderName(provider: string): string {
+  if (!provider) return 'web';
+  const normalized = provider.replace(/[-_]/g, ' ').trim();
+  if (!normalized) return 'web';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
 
 function ResearchGraphSection({
   showGraph,
@@ -1562,7 +2579,9 @@ function ResearchGraphSection({
   const hasGraphData =
     graphData &&
     Array.isArray(graphData.nodes) &&
-    graphData.nodes.some((node: any) => typeof node?.type === 'string' && node.type.startsWith('research-'));
+    graphData.nodes.some(
+      (node: any) => typeof node?.type === 'string' && node.type.startsWith('research-')
+    );
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 shadow-inner shadow-black/20">
@@ -1599,13 +2618,13 @@ function ResearchGraphSection({
 
       {!hasGraphData && showGraph && (
         <div className="mt-3 rounded-lg border border-white/10 bg-blue-500/5 px-3 py-2 text-[11px] text-blue-200">
-          First research run captured. Subsequent questions will layer onto this graph for deeper context.
+          First research run captured. Subsequent questions will layer onto this graph for deeper
+          context.
         </div>
       )}
     </section>
   );
 }
-
 
 interface VerificationSummaryProps {
   verification: VerificationResult;
@@ -1616,9 +2635,7 @@ function VerificationSummary({ verification }: VerificationSummaryProps) {
   return (
     <section className="rounded border border-neutral-800 bg-neutral-900/40 p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-gray-200">
-          Verification summary
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-200">Verification summary</h3>
         <span
           className={`text-xs font-medium px-2 py-1 rounded border ${
             verification.verified
@@ -1631,9 +2648,15 @@ function VerificationSummary({ verification }: VerificationSummaryProps) {
       </div>
 
       <div className="grid gap-3 text-xs text-gray-300 sm:grid-cols-4">
-        <Metric label="Claim density" value={`${verification.claimDensity.toFixed(1)} / 100 words`} />
+        <Metric
+          label="Claim density"
+          value={`${verification.claimDensity.toFixed(1)} / 100 words`}
+        />
         <Metric label="Citation coverage" value={`${verification.citationCoverage.toFixed(0)}%`} />
-        <Metric label="Hallucination risk" value={`${(verification.hallucinationRisk * 100).toFixed(0)}%`} />
+        <Metric
+          label="Hallucination risk"
+          value={`${(verification.hallucinationRisk * 100).toFixed(0)}%`}
+        />
         <Metric label="Ungrounded claims" value={`${verification.ungroundedClaims.length}`} />
       </div>
 
@@ -1685,7 +2708,7 @@ function normaliseMockSnippet(snippet: string): string {
 
 function composeMockSummary(
   segments: Array<{ text: string; sourceIndex: number; quote: string }>,
-  sources: ResearchSource[],
+  sources: ResearchSource[]
 ) {
   let summaryBuilder = '';
   const inlineEvidence: ResearchInlineEvidence[] = [];
@@ -1714,7 +2737,9 @@ function composeMockSummary(
     });
 
     const source = sources[segment.sourceIndex];
-    const confidence = source ? Math.min(1, Math.max(0.2, (source.relevanceScore || 40) / 80)) : 0.5;
+    const confidence = source
+      ? Math.min(1, Math.max(0.2, (source.relevanceScore || 40) / 80))
+      : 0.5;
     citations.push({
       index: citationIndex,
       sourceIndex: segment.sourceIndex,
@@ -1726,12 +2751,14 @@ function composeMockSummary(
   });
 
   const summary = summaryBuilder.trim();
-  const uniqueSources = Array.from(new Set(segments.map((segment) => segment.sourceIndex)));
-  const avgRelevance = uniqueSources.reduce(
-    (acc, idx) => acc + (sources[idx]?.relevanceScore ?? 50),
-    0,
-  ) / Math.max(1, uniqueSources.length);
-  const confidence = Math.max(0.35, Math.min(1, (avgRelevance / 60) * Math.min(1, uniqueSources.length / 3)));
+  const uniqueSources = Array.from(new Set(segments.map(segment => segment.sourceIndex)));
+  const avgRelevance =
+    uniqueSources.reduce((acc, idx) => acc + (sources[idx]?.relevanceScore ?? 50), 0) /
+    Math.max(1, uniqueSources.length);
+  const confidence = Math.max(
+    0.35,
+    Math.min(1, (avgRelevance / 60) * Math.min(1, uniqueSources.length / 3))
+  );
 
   return { summary, inlineEvidence, citations, confidence };
 }
@@ -1746,6 +2773,7 @@ function generateMockResult(query: string): ResearchResult {
       domain: 'example.com',
       relevanceScore: 68,
       sourceType: 'documentation',
+      type: 'documentation',
       timestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
     },
     {
@@ -1756,6 +2784,7 @@ function generateMockResult(query: string): ResearchResult {
       domain: 'knowledge.example.org',
       relevanceScore: 72,
       sourceType: 'academic',
+      type: 'academic',
       timestamp: Date.now() - 5 * 24 * 60 * 60 * 1000,
     },
   ];
@@ -1766,7 +2795,10 @@ function generateMockResult(query: string): ResearchResult {
     quote: source.snippet || source.text.slice(0, 140),
   }));
 
-  const { summary, inlineEvidence, citations, confidence } = composeMockSummary(segments, mockSources);
+  const { summary, inlineEvidence, citations, confidence } = composeMockSummary(
+    segments,
+    mockSources
+  );
 
   const mockVerification: VerificationResult = {
     verified: true,
@@ -1814,4 +2846,3 @@ function capitalize(str: string): string {
   if (!str || str.length === 0) return str;
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
-

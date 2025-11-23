@@ -1,6 +1,6 @@
 /**
  * TermsAcceptance - First-run TOS acceptance component
- * 
+ *
  * Displays Terms of Service and requires user acceptance before proceeding.
  */
 
@@ -17,27 +17,41 @@ interface TermsAcceptanceProps {
 export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
   const [showFullTerms, setShowFullTerms] = useState(false);
   const [acceptedVersion, setAcceptedVersion] = useState<string | null>(null);
-  
+  const hasCheckedRef = React.useRef(false);
+
   // const settings = useSettingsStore(); // Unused for now
 
   // Check if user has already accepted current version
   useEffect(() => {
-    const stored = localStorage.getItem('omnibrowser:tos:accepted');
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        const currentVersion = '2025-12-17'; // Update when TOS changes
-        if (data.version === currentVersion && data.accepted) {
-          setAcceptedVersion(data.version);
-          // Auto-accept if already accepted
-          onAccept();
-          return;
+    // Only check once
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
+
+    try {
+      const stored = localStorage.getItem('omnibrowser:tos:accepted');
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          const currentVersion = '2025-12-17'; // Update when TOS changes
+          if (data.version === currentVersion && data.accepted) {
+            setAcceptedVersion(data.version);
+            // Auto-accept if already accepted - use setTimeout to avoid calling during render
+            if (typeof onAccept === 'function') {
+              setTimeout(() => {
+                onAccept();
+              }, 0);
+            }
+            return;
+          }
+        } catch {
+          // Invalid stored data, show acceptance screen
         }
-      } catch {
-        // Invalid stored data, show acceptance screen
       }
+    } catch (error) {
+      console.error('[TermsAcceptance] Error checking acceptance status:', error);
+      // Show acceptance screen on error
     }
-  }, [onAccept]);
+  }, []); // Only run once on mount
 
   // Track scrolling to enable accept button
   const handleScroll = (_e: React.UIEvent<HTMLDivElement>) => {
@@ -45,19 +59,35 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
   };
 
   const handleAccept = () => {
-    const acceptanceData = {
-      version: '2025-12-17',
-      accepted: true,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem('omnibrowser:tos:accepted', JSON.stringify(acceptanceData));
-    onAccept();
+    try {
+      const acceptanceData = {
+        version: '2025-12-17',
+        accepted: true,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('omnibrowser:tos:accepted', JSON.stringify(acceptanceData));
+      if (typeof onAccept === 'function') {
+        onAccept();
+      }
+    } catch (error) {
+      console.error('[TermsAcceptance] Failed to save acceptance:', error);
+      // Still call onAccept to allow app to continue
+      if (typeof onAccept === 'function') {
+        onAccept();
+      }
+    }
   };
 
   const handleDecline = () => {
-    // Clear any previous acceptance
-    localStorage.removeItem('omnibrowser:tos:accepted');
-    onDecline();
+    try {
+      // Clear any previous acceptance
+      localStorage.removeItem('omnibrowser:tos:accepted');
+    } catch (error) {
+      console.error('[TermsAcceptance] Failed to clear acceptance:', error);
+    }
+    if (typeof onDecline === 'function') {
+      onDecline();
+    }
   };
 
   // Don't show if already accepted
@@ -72,6 +102,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[10002] bg-gray-900/95 backdrop-blur-sm flex items-center justify-center p-4"
+        style={{ pointerEvents: 'auto' }}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
@@ -102,31 +133,39 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 <p className="text-gray-400 mb-4">
                   <strong>Last Updated: December 17, 2025</strong>
                 </p>
-                
+
                 <section className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-100 mb-3">1. Acceptance of Terms</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                    1. Acceptance of Terms
+                  </h3>
                   <p>
-                    By downloading, installing, accessing, or using OmniBrowser, you agree to be bound by these Terms of Service. 
-                    If you do not agree to these Terms, do not use the Software.
+                    By downloading, installing, accessing, or using OmniBrowser, you agree to be
+                    bound by these Terms of Service. If you do not agree to these Terms, do not use
+                    the Software.
                   </p>
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-100 mb-3">2. Description of Service</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">
+                    2. Description of Service
+                  </h3>
                   <p>
-                    OmniBrowser is a privacy-first, agentic research browser that provides multi-mode browsing, 
-                    privacy features (Tor, VPN, Shields, Ghost Mode), AI-powered content processing, and knowledge graph tracking.
+                    OmniBrowser is a privacy-first, agentic research browser that provides
+                    multi-mode browsing, privacy features (Tor, VPN, Shields, Ghost Mode),
+                    AI-powered content processing, and knowledge graph tracking.
                   </p>
                 </section>
 
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">3. Privacy and Data</h3>
                   <p className="mb-2">
-                    OmniBrowser stores data locally on your device by default. When using Ghost Mode (Tor Browser integration), 
-                    all data is stored in ephemeral sessions with no persistence.
+                    OmniBrowser stores data locally on your device by default. When using Ghost Mode
+                    (Tor Browser integration), all data is stored in ephemeral sessions with no
+                    persistence.
                   </p>
                   <p>
-                    You may export your data at any time using the GDPR data export feature in Settings.
+                    You may export your data at any time using the GDPR data export feature in
+                    Settings.
                   </p>
                 </section>
 
@@ -145,18 +184,21 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">5. Disclaimers</h3>
                   <p className="mb-2">
-                    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. We do not guarantee that the Software 
-                    will be available at all times, free from errors, or secure from all threats.
+                    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. We do not
+                    guarantee that the Software will be available at all times, free from errors, or
+                    secure from all threats.
                   </p>
                   <p>
-                    AI-generated content is provided "as-is" and may contain errors. Always verify important information from primary sources.
+                    AI-generated content is provided "as-is" and may contain errors. Always verify
+                    important information from primary sources.
                   </p>
                 </section>
 
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">6. Open Source</h3>
                   <p>
-                    OmniBrowser is open-source software licensed under the MIT License. The source code is available at{' '}
+                    OmniBrowser is open-source software licensed under the MIT License. The source
+                    code is available at{' '}
                     <a
                       href="https://github.com/nrbns/Omnibrowser"
                       target="_blank"
@@ -171,8 +213,12 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
 
                 <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <p className="text-sm text-blue-200">
-                    <strong>Note:</strong> This is a summary. The full Terms of Service are available in{' '}
-                    <code className="bg-gray-900/50 px-2 py-1 rounded text-xs">TERMS_OF_SERVICE.md</code> or{' '}
+                    <strong>Note:</strong> This is a summary. The full Terms of Service are
+                    available in{' '}
+                    <code className="bg-gray-900/50 px-2 py-1 rounded text-xs">
+                      TERMS_OF_SERVICE.md
+                    </code>{' '}
+                    or{' '}
                     <a
                       href="https://github.com/nrbns/Omnibrowser/blob/main/TERMS_OF_SERVICE.md"
                       target="_blank"
@@ -222,7 +268,6 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </button>
               </div>
             )}
-
           </div>
 
           {/* Footer Actions */}
@@ -239,6 +284,8 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 <button
                   onClick={handleAccept}
                   className="px-6 py-2.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center gap-2"
+                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                  type="button"
                 >
                   <Check size={16} />
                   <span>Accept</span>
@@ -254,4 +301,3 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
     </AnimatePresence>
   );
 }
-

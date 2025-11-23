@@ -7,8 +7,10 @@ export const DSL = z.object({
   goal: z.string(),
   sources: z.array(z.union([z.string().url(), z.object({ query: z.string() })])).default([]),
   steps: z.array(z.object({ skill: z.string(), args: z.record(z.any()) })).default([]),
-  output: z.object({ type: z.enum(['json','csv','sqlite']), schema: z.any() }),
-  policy: z.object({ maxSteps: z.number().default(40), maxMinutes: z.number().default(5) }).default({}),
+  output: z.object({ type: z.enum(['json', 'csv', 'sqlite']), schema: z.any() }),
+  policy: z
+    .object({ maxSteps: z.number().default(40), maxMinutes: z.number().default(5) })
+    .default({}),
 });
 
 export type Dsl = z.infer<typeof DSL>;
@@ -38,7 +40,14 @@ export async function runAgent(store: AgentStore, ctx: AgentContext, dsl: Dsl) {
 
     ctx.emitStep({ type: 'step', idx: step, skill: next.skill, args: next.args });
     try {
-      const res = await tool.exec({ runId: ctx.runId, memory }, next.args);
+      // Execute tool with timeout protection (8 seconds)
+      const res = (await Promise.race([
+        tool.exec({ runId: ctx.runId, memory }, next.args),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Tool execution timeout after 8s')), 8000)
+        ),
+      ])) as unknown;
+
       store.append(ctx.runId, { step, skill: next.skill, res });
       ctx.emitToken({ type: 'result', step, res });
       memory = { ...memory, [`step_${step}`]: res, last: res };
@@ -53,5 +62,3 @@ export async function runAgent(store: AgentStore, ctx: AgentContext, dsl: Dsl) {
   store.finish(ctx.runId);
   return { runId: ctx.runId };
 }
-
-

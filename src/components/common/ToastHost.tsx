@@ -7,6 +7,7 @@ const toastIcon = {
   info: Info,
   success: CheckCircle2,
   error: AlertTriangle,
+  warning: AlertTriangle,
 } as const;
 
 export function ToastHost() {
@@ -15,9 +16,7 @@ export function ToastHost() {
   useEffect(() => {
     if (toasts.length === 0) return;
 
-    const timers = toasts.map((toast) =>
-      setTimeout(() => dismiss(toast.id), 4000)
-    );
+    const timers = toasts.map(toast => setTimeout(() => dismiss(toast.id), 4000));
 
     return () => {
       timers.forEach(clearTimeout);
@@ -27,7 +26,7 @@ export function ToastHost() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[2000] flex flex-col items-center gap-2 px-4">
       <AnimatePresence initial={false}>
-        {toasts.map((toast) => {
+        {toasts.map(toast => {
           const Icon = toastIcon[toast.type];
           const palette =
             toast.type === 'success'
@@ -54,4 +53,3 @@ export function ToastHost() {
     </div>
   );
 }
-

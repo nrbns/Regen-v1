@@ -5,11 +5,30 @@
 
 // @ts-nocheck
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Eye, Sparkles, RotateCcw } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Eye,
+  Sparkles,
+  RotateCcw,
+  Pin,
+  PinOff,
+  ChevronDown,
+  ChevronRight,
+  Palette,
+  Trash2,
+  Edit3,
+  FolderPlus,
+} from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
-import { useTabsStore, type ClosedTab } from '../../state/tabsStore';
+import {
+  useTabsStore,
+  type ClosedTab,
+  type TabGroup,
+  TAB_GROUP_COLORS,
+} from '../../state/tabsStore';
 import { useContainerStore } from '../../state/containerStore';
 import { useAppStore } from '../../state/appStore';
 import { ipcEvents } from '../../lib/ipc-events';
@@ -22,12 +41,20 @@ import { useTabGraphStore } from '../../state/tabGraphStore';
 import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
 import { HolographicPreviewOverlay } from '../hologram';
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '../ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+} from '../ui/dropdown-menu';
 import { reopenClosedTab } from '../../lib/tabLifecycle';
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
 const IS_DEV = isDevEnv();
 const IS_ELECTRON = isElectronRuntime();
+const NEW_GROUP_DROP_ID = '__new-tab-group__';
 
 interface Tab {
   id: string;
@@ -44,10 +71,12 @@ interface Tab {
   sessionId?: string;
   profileId?: string;
   sleeping?: boolean;
+  pinned?: boolean;
+  groupId?: string;
 }
 
 const mapTabsForStore = (list: Tab[]) =>
-  list.map((t) => ({
+  list.map(t => ({
     id: t.id,
     title: t.title,
     active: t.active,
@@ -61,26 +90,45 @@ const mapTabsForStore = (list: Tab[]) =>
     sessionId: t.sessionId,
     profileId: t.profileId,
     sleeping: t.sleeping,
+    pinned: t.pinned,
+    groupId: t.groupId,
   }));
 
 export function TabStrip() {
-  const setAllTabs = useTabsStore((state) => state.setAll);
-  const setActiveTab = useTabsStore((state) => state.setActive);
-  const activeId = useTabsStore((state) => state.activeId);
-  const storeTabs = useTabsStore((state) => state.tabs);
-  const updateTab = useTabsStore((state) => state.updateTab);
-  const rememberClosedTab = useTabsStore((state) => state.rememberClosedTab);
-  const recentlyClosed = useTabsStore((state) => state.recentlyClosed);
+  const setAllTabs = useTabsStore(state => state.setAll);
+  const setActiveTab = useTabsStore(state => state.setActive);
+  const activeId = useTabsStore(state => state.activeId);
+  const storeTabs = useTabsStore(state => state.tabs);
+  const updateTab = useTabsStore(state => state.updateTab);
+  const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
+  const recentlyClosed = useTabsStore(state => state.recentlyClosed);
+  const togglePinTab = useTabsStore(state => state.togglePinTab);
+  const tabGroups = useTabsStore(state => state.tabGroups);
+  const createGroup = useTabsStore(state => state.createGroup);
+  const deleteGroup = useTabsStore(state => state.deleteGroup);
+  const toggleGroupCollapsed = useTabsStore(state => state.toggleGroupCollapsed);
+  const setGroupColor = useTabsStore(state => state.setGroupColor);
+  const assignTabToGroup = useTabsStore(state => state.assignTabToGroup);
+  const updateGroup = useTabsStore(state => state.updateGroup);
   const { activeContainerId } = useContainerStore();
   const { mode: currentMode } = useAppStore();
   const [tabs, setTabs] = useState<Tab[]>([]);
-  const [predictedClusters, setPredictedClusters] = useState<Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>>([]);
-  const [prefetchEntries, setPrefetchEntries] = useState<Array<{ tabId: string; url: string; reason: string; confidence?: number }>>([]);
+  const [predictedClusters, setPredictedClusters] = useState<
+    Array<{ id: string; label: string; tabIds: string[]; confidence?: number }>
+  >([]);
+  const [prefetchEntries, setPrefetchEntries] = useState<
+    Array<{ tabId: string; url: string; reason: string; confidence?: number }>
+  >([]);
   const [predictionSummary, setPredictionSummary] = useState<string | null>(null);
   const [holographicPreviewTabId, setHolographicPreviewTabId] = useState<string | null>(null);
-  const [previewMetadata, setPreviewMetadata] = useState<{ url?: string; title?: string } | null>(null);
+  const [previewMetadata, setPreviewMetadata] = useState<{ url?: string; title?: string } | null>(
+    null
+  );
   const [hologramSupported, setHologramSupported] = useState<boolean | null>(null);
-  const [handoffStatus, setHandoffStatus] = useState<{ platform: string; lastSentAt: number | null }>({ platform: 'desktop', lastSentAt: null });
+  const [handoffStatus, setHandoffStatus] = useState<{
+    platform: string;
+    lastSentAt: number | null;
+  }>({ platform: 'desktop', lastSentAt: null });
   const [contextMenu, setContextMenu] = useState<{
     tabId: string;
     url: string;
@@ -98,15 +146,518 @@ export function TabStrip() {
   const previousTabIdsRef = useRef<string>(''); // Track tab IDs to prevent unnecessary updates
   const currentActiveIdRef = useRef<string | null>(null); // Track active ID without causing re-renders
   const activationInFlightRef = useRef<string | null>(null); // Track activations to avoid duplicate work
+  const [groupDragTarget, setGroupDragTarget] = useState<string | null>(null);
+  const groupMap = useMemo(() => {
+    const map = new Map<string, TabGroup>();
+    tabGroups.forEach(group => {
+      map.set(group.id, group);
+    });
+    return map;
+  }, [tabGroups]);
+
+  const handleRenameGroup = useCallback(
+    (group: TabGroup) => {
+      const nextName = window.prompt('Rename group', group.name);
+      if (!nextName) return;
+      const trimmed = nextName.trim();
+      if (!trimmed || trimmed === group.name) return;
+      updateGroup(group.id, { name: trimmed });
+    },
+    [updateGroup]
+  );
+
+  const handleCycleGroupColor = useCallback(
+    (group: TabGroup) => {
+      const currentIndex = TAB_GROUP_COLORS.findIndex(color => color === group.color);
+      const nextColor = TAB_GROUP_COLORS[(currentIndex + 1) % TAB_GROUP_COLORS.length];
+      setGroupColor(group.id, nextColor);
+    },
+    [setGroupColor]
+  );
+
+  const handleDeleteGroup = useCallback(
+    (group: TabGroup) => {
+      if (window.confirm(`Remove group "${group.name}"? Tabs will remain open.`)) {
+        deleteGroup(group.id);
+      }
+    },
+    [deleteGroup]
+  );
+
+  const handleGroupDrop = useCallback(
+    (groupId: string) => {
+      if (!draggedTabIdRef.current) return;
+      assignTabToGroup(draggedTabIdRef.current, groupId);
+      draggedTabIdRef.current = null;
+      dragOverIndexRef.current = null;
+      setGroupDragTarget(null);
+    },
+    [assignTabToGroup]
+  );
+
+  const handleGroupDragOver = useCallback((e: React.DragEvent, groupId: string) => {
+    if (!draggedTabIdRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setGroupDragTarget(groupId);
+  }, []);
+
+  const handleGroupDragLeave = useCallback((groupId: string) => {
+    setGroupDragTarget(current => (current === groupId ? null : current));
+  }, []);
+
+  const handleCreateGroupShortcut = useCallback(
+    (name?: string) => {
+      const group = createGroup({ name });
+      return group;
+    },
+    [createGroup]
+  );
+
+  const handleDropToNewGroup = useCallback(() => {
+    if (!draggedTabIdRef.current) return;
+    const group = createGroup({});
+    assignTabToGroup(draggedTabIdRef.current, group.id);
+    draggedTabIdRef.current = null;
+    dragOverIndexRef.current = null;
+    setGroupDragTarget(null);
+  }, [assignTabToGroup, createGroup]);
+
+  const renderGroupHeader = (group: TabGroup) => (
+    <div
+      key={`group-${group.id}`}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs text-gray-300 uppercase tracking-wide ${
+        groupDragTarget === group.id
+          ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
+          : 'border-gray-800/60 bg-gray-900/40'
+      }`}
+      onDragOver={e => handleGroupDragOver(e, group.id)}
+      onDragLeave={() => handleGroupDragLeave(group.id)}
+      onDrop={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleGroupDrop(group.id);
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => toggleGroupCollapsed(group.id)}
+        className="p-1 rounded hover:bg-gray-800/60 transition-colors text-gray-300 hover:text-gray-100"
+        title={group.collapsed ? 'Expand group' : 'Collapse group'}
+      >
+        {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+      </button>
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <span
+          className="w-2.5 h-2.5 rounded-full border border-white/20"
+          style={{ backgroundColor: group.color }}
+          title={`Group color: ${group.color}`}
+        />
+        <button
+          type="button"
+          onClick={() => handleRenameGroup(group)}
+          className="text-[11px] font-semibold text-gray-200 hover:text-white truncate"
+          title="Rename group"
+        >
+          {group.name}
+        </button>
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => handleCycleGroupColor(group)}
+          className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
+          title="Cycle group color"
+        >
+          <Palette size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleRenameGroup(group)}
+          className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
+          title="Rename group"
+        >
+          <Edit3 size={14} />
+        </button>
+        <button
+          type="button"
+          onClick={() => handleDeleteGroup(group)}
+          className="p-1 rounded hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"
+          title="Remove group"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderTabNode = (tab: Tab) => {
+    const group = tab.groupId ? groupMap.get(tab.groupId) : null;
+    const groupRingStyle = group
+      ? {
+          boxShadow: `inset 0 0 0 1px ${group.color}40`,
+        }
+      : undefined;
+    const prefetchForTab = prefetchEntries.find(entry => entry.tabId === tab.id);
+    return (
+      <TabHoverCard key={tab.id} tabId={tab.id}>
+        <motion.div
+          id={`tab-${tab.id}`}
+          data-tab={tab.id}
+          role="tab"
+          aria-selected={tab.active}
+          aria-controls={`tabpanel-${tab.id}`}
+          aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
+          tabIndex={tab.active ? 0 : -1}
+          layout
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          className={`
+            relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg
+            ${tab.pinned ? 'min-w-[40px] max-w-[40px]' : 'min-w-[100px] max-w-[220px]'} cursor-pointer group
+            transition-all duration-200
+            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+            ${
+              tab.active
+                ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
+                : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
+            }
+            ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
+            ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
+            ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
+            ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''}
+          `}
+          style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none', ...groupRingStyle }}
+          draggable
+          onDragStart={event => {
+            try {
+              const isGraphDrag = event.ctrlKey || event.metaKey;
+              if (isGraphDrag) {
+                event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
+                if (tab.title) {
+                  event.dataTransfer?.setData('text/plain', tab.title);
+                }
+                if (event.dataTransfer) {
+                  event.dataTransfer.effectAllowed = 'copy';
+                }
+              } else {
+                draggedTabIdRef.current = tab.id;
+                if (event.dataTransfer) {
+                  event.dataTransfer.effectAllowed = 'move';
+                }
+              }
+            } catch (error) {
+              if (IS_DEV) {
+                console.warn('[TabStrip] Drag start failed', error);
+              }
+            }
+          }}
+          onDragEnd={() => {
+            if (draggedTabIdRef.current === null) {
+              window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
+            }
+            draggedTabIdRef.current = null;
+            dragOverIndexRef.current = null;
+            setGroupDragTarget(null);
+          }}
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            void activateTab(tab.id);
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              activateTab(tab.id);
+              return;
+            }
+
+            if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+              e.preventDefault();
+              e.stopPropagation();
+
+              const currentIndex = tabs.findIndex(t => t.id === tab.id);
+              if (currentIndex === -1) {
+                return;
+              }
+
+              let nextIndex = currentIndex;
+              switch (e.key) {
+                case 'Home':
+                  nextIndex = 0;
+                  break;
+                case 'End':
+                  nextIndex = tabs.length - 1;
+                  break;
+                case 'ArrowLeft':
+                  nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+                  break;
+                case 'ArrowRight':
+                  nextIndex = (currentIndex + 1) % tabs.length;
+                  break;
+              }
+
+              const nextTab = tabs[nextIndex];
+              if (nextTab) {
+                void activateTab(nextTab.id);
+              }
+            }
+          }}
+          onAuxClick={(e: React.MouseEvent) => {
+            if (e.button === 1) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              closeTab(tab.id);
+            }
+          }}
+          onContextMenu={e => {
+            e.preventDefault();
+            (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
+            setContextMenu({
+              tabId: tab.id,
+              url: tab.url,
+              containerId: tab.containerId,
+              containerName: tab.containerName,
+              containerColor: tab.containerColor,
+              mode: tab.mode,
+              sleeping: tab.sleeping,
+              x: e.clientX,
+              y: e.clientY,
+            });
+          }}
+          onMouseEnter={() => {
+            if (tab === tabs[tabs.length - 1]) {
+              setHolographicPreviewTabId(tab.id);
+              setPreviewMetadata({ url: tab.url, title: tab.title });
+            }
+          }}
+          onMouseLeave={() => {
+            if (holographicPreviewTabId === tab.id) {
+              setHolographicPreviewTabId(null);
+              setPreviewMetadata(null);
+            }
+          }}
+        >
+          {prefetchForTab && (
+            <span
+              className="absolute top-1 right-2 text-emerald-300 text-[11px] font-semibold"
+              title={`Suggested follow-up: ${prefetchForTab.reason}`}
+            >
+              ⚡
+            </span>
+          )}
+          {hologramSupported !== false && holographicPreviewTabId === tab.id && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              className="absolute -bottom-9 left-1/2 flex -translate-x-1/2 items-center gap-2"
+            >
+              <motion.button
+                type="button"
+                className="flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] text-cyan-100 shadow-lg backdrop-blur transition-colors hover:bg-cyan-500/25"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setHandoffStatus({ platform: 'xr', lastSentAt: Date.now() });
+                  window.dispatchEvent(
+                    new CustomEvent('tab:holographic-preview', {
+                      detail: { tabId: tab.id },
+                    })
+                  );
+                  void ipc.crossReality.handoff(tab.id, 'xr');
+                }}
+              >
+                <Sparkles size={12} /> XR Hologram
+              </motion.button>
+              <motion.button
+                type="button"
+                className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-[10px] text-amber-100 shadow-lg backdrop-blur transition-colors hover:bg-amber-500/25"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setHandoffStatus({ platform: 'mobile', lastSentAt: Date.now() });
+                  void ipc.crossReality.handoff(tab.id, 'mobile');
+                }}
+              >
+                <span role="img" aria-label="mobile">
+                  📱
+                </span>{' '}
+                Send
+              </motion.button>
+            </motion.div>
+          )}
+          {/* Favicon */}
+          <div className="flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
+            {tab.favicon ? (
+              <img src={tab.favicon} alt="" className="w-full h-full rounded-full" />
+            ) : (
+              <div className="w-2 h-2 bg-gray-400 rounded-full" />
+            )}
+          </div>
+
+          {tab.mode && tab.mode !== 'normal' && (
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                tab.mode === 'ghost'
+                  ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                  : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+              }`}
+            >
+              {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
+            </span>
+          )}
+
+          {tab.containerId && tab.containerId !== 'default' && (
+            <div
+              className="w-2.5 h-2.5 rounded-full border border-gray-700/60"
+              style={{ backgroundColor: tab.containerColor || '#6366f1' }}
+              title={`${tab.containerName || 'Custom'} container`}
+            />
+          )}
+
+          {group && (
+            <span
+              className="w-2 h-2 rounded-full border border-white/20"
+              style={{ backgroundColor: group.color }}
+              title={`Group: ${group.name}`}
+            />
+          )}
+
+          {tab.sleeping && (
+            <span className="flex items-center" title="Tab is hibernating">
+              <motion.span
+                className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
+                animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+                transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+              />
+            </span>
+          )}
+
+          {!tab.pinned && (
+            <span
+              className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}
+            >
+              {tab.title}
+            </span>
+          )}
+
+          <motion.button
+            type="button"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              togglePinTab(tab.id);
+            }}
+            aria-label={tab.pinned ? `Unpin tab: ${tab.title}` : `Pin tab: ${tab.title}`}
+            className={`${tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-blue-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1`}
+            style={{ pointerEvents: 'auto', zIndex: 2 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.96 }}
+            title={tab.pinned ? 'Unpin tab' : 'Pin tab'}
+          >
+            {tab.pinned ? <Pin size={14} className="text-blue-400" /> : <PinOff size={14} />}
+          </motion.button>
+
+          {!tab.pinned && (
+            <motion.button
+              type="button"
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                openPeek(tab);
+              }}
+              aria-label={`Peek preview: ${tab.title}`}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
+              style={{ pointerEvents: 'auto', zIndex: 2 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
+              title="Peek preview"
+            >
+              <Eye size={14} />
+            </motion.button>
+          )}
+
+          {!tab.pinned && (
+            <motion.button
+              type="button"
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeTab(tab.id);
+              }}
+              onAuxClick={e => {
+                if (e.button === 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  closeTab(tab.id);
+                }
+              }}
+              onMouseDown={e => {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  closeTab(tab.id);
+                }
+              }}
+              aria-label={`Close tab: ${tab.title}`}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity ml-1 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag"
+              style={{ pointerEvents: 'auto', zIndex: 2 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              title="Close tab (Middle click)"
+            >
+              <X size={14} className="text-gray-400" />
+            </motion.button>
+          )}
+        </motion.div>
+      </TabHoverCard>
+    );
+  };
+
+  const filteredTabs = useMemo(() => {
+    if (!tabs || tabs.length === 0) {
+      return [];
+    }
+    return tabs.filter(tab => !tab.appMode || tab.appMode === currentMode);
+  }, [tabs, currentMode]);
+
+  const tabElements = useMemo(() => {
+    const elements: React.ReactNode[] = [];
+    const renderedGroupIds = new Set<string>();
+    filteredTabs.forEach(tab => {
+      const group = tab.groupId ? groupMap.get(tab.groupId) : null;
+      if (group && !renderedGroupIds.has(group.id)) {
+        renderedGroupIds.add(group.id);
+        elements.push(renderGroupHeader(group));
+      }
+      if (group?.collapsed) {
+        return;
+      }
+      elements.push(renderTabNode(tab));
+    });
+    return elements;
+  }, [filteredTabs, groupMap, renderGroupHeader, renderTabNode]);
   const stripRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<Tab[]>(tabs);
-  const openPeek = usePeekPreviewStore((state) => state.open);
+  const openPeek = usePeekPreviewStore(state => state.open);
   const predictiveRequestRef = useRef<Promise<void> | null>(null);
   const lastPredictionSignatureRef = useRef<string>('');
-  const fetchPredictiveSuggestionsRef = useRef<(options?: { force?: boolean }) => Promise<void> | void>();
+  const fetchPredictiveSuggestionsRef =
+    useRef<(options?: { force?: boolean }) => Promise<void> | void>();
   const draggedTabIdRef = useRef<string | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
-  
+
   // Keep ref in sync with activeId (doesn't cause re-renders)
   useEffect(() => {
     currentActiveIdRef.current = activeId;
@@ -128,11 +679,16 @@ export function TabStrip() {
       }
 
       const signature = tabsRef.current
-        .map((tab) => `${tab.id}:${tab.lastActiveAt ?? 0}`)
+        .map(tab => `${tab.id}:${tab.lastActiveAt ?? 0}`)
         .sort()
         .join('|');
 
-      if (!options?.force && signature && signature === lastPredictionSignatureRef.current && predictedClusters.length > 0) {
+      if (
+        !options?.force &&
+        signature &&
+        signature === lastPredictionSignatureRef.current &&
+        predictedClusters.length > 0
+      ) {
         return;
       }
 
@@ -199,10 +755,12 @@ export function TabStrip() {
       }
 
       const mappedTabs = tabList.map((t: any) => {
-        // Get appMode from store if available, otherwise use current mode
+        // Get store metadata if available
         const storeTab = storeTabs.find(st => st.id === t.id);
         const appMode = storeTab?.appMode || currentMode;
-        
+        const pinned = storeTab?.pinned ?? Boolean(t.pinned);
+        const groupId = storeTab?.groupId ?? t.groupId;
+
         return {
           id: t.id,
           title: t.title || 'New Tab',
@@ -218,10 +776,15 @@ export function TabStrip() {
           sessionId: t.sessionId,
           profileId: t.profileId,
           sleeping: Boolean(t.sleeping),
+          pinned: pinned,
+          groupId,
         };
       });
 
-      const ids = mappedTabs.map(t => t.id).sort().join(',');
+      const ids = mappedTabs
+        .map(t => t.id)
+        .sort()
+        .join(',');
       previousTabIdsRef.current = ids;
 
       // Force update - always set state even if IDs are the same
@@ -264,7 +827,7 @@ export function TabStrip() {
       const supported = typeof navigator !== 'undefined' && 'xr' in navigator;
       setHologramSupported(supported);
       if (supported) {
-        setHandoffStatus((prev) => ({ ...prev, platform: 'xr-ready' }));
+        setHandoffStatus(prev => ({ ...prev, platform: 'xr-ready' }));
       }
     };
     checkHologramSupport();
@@ -295,9 +858,12 @@ export function TabStrip() {
             ];
         setTabs(mapped);
         tabsRef.current = mapped;
-        previousTabIdsRef.current = mapped.map((t) => t.id).sort().join(',');
+        previousTabIdsRef.current = mapped
+          .map(t => t.id)
+          .sort()
+          .join(',');
         setAllTabs(mapTabsForStore(mapped));
-        const activeTab = mapped.find((t) => t.active) ?? mapped[0];
+        const activeTab = mapped.find(t => t.active) ?? mapped[0];
         setActiveTab(activeTab ? activeTab.id : null);
         currentActiveIdRef.current = activeTab ? activeTab.id : null;
         setHasInitialized(true);
@@ -311,11 +877,13 @@ export function TabStrip() {
           applyTabs([]);
           return;
         }
-        const mappedTabs: Tab[] = tabList.map((t) => {
-          // Get appMode from store if available, otherwise use current mode
+        const mappedTabs: Tab[] = tabList.map(t => {
+          // Get store metadata if available
           const storeTab = storeTabs.find(st => st.id === t.id);
           const appMode = storeTab?.appMode || currentMode;
-          
+          const pinned = storeTab?.pinned ?? Boolean((t as any).pinned);
+          const groupId = storeTab?.groupId ?? (t as any).groupId;
+
           return {
             id: t.id,
             title: t.title || 'New Tab',
@@ -331,6 +899,8 @@ export function TabStrip() {
             sessionId: t.sessionId,
             profileId: t.profileId,
             sleeping: (t as any).sleeping,
+            pinned,
+            groupId,
           };
         });
         applyTabs(mappedTabs);
@@ -344,25 +914,25 @@ export function TabStrip() {
 
     let isMounted = true;
     let ipcReady = false;
-    
+
     const waitForIPC = () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         if (window.ipc && typeof (window.ipc as any).invoke === 'function') {
           ipcReady = true;
           resolve();
           return;
         }
-        
+
         const checkIPC = () => {
           if (window.ipc && typeof (window.ipc as any).invoke === 'function') {
             ipcReady = true;
             resolve();
           }
         };
-        
+
         // Listen for IPC ready signal
         window.addEventListener('ipc:ready', checkIPC, { once: true });
-        
+
         // Also check periodically (fallback)
         const interval = setInterval(() => {
           if (window.ipc && typeof (window.ipc as any).invoke === 'function') {
@@ -371,7 +941,7 @@ export function TabStrip() {
             resolve();
           }
         }, 100);
-        
+
         // Timeout after 5 seconds
         setTimeout(() => {
           clearInterval(interval);
@@ -382,32 +952,32 @@ export function TabStrip() {
         }, 5000);
       });
     };
-    
+
     const loadTabs = async (isInitialLoad = false) => {
       if (!isMounted) return;
-      
+
       // CRITICAL: Don't load tabs if we're creating one (prevents loops)
       if (isCreatingTabRef.current && !isInitialLoad) {
         return;
       }
-      
+
       // Wait for IPC to be ready
       if (!ipcReady) {
         await waitForIPC();
       }
-      
+
       if (!isMounted) return;
-      
+
       try {
         const tabList = await ipc.tabs.list();
         if (!isMounted) return;
-        
+
         if (Array.isArray(tabList) && tabList.length > 0) {
           const mappedTabs = tabList.map((t: any) => {
             // Get appMode from store if available, otherwise use current mode
             const storeTab = storeTabs.find(st => st.id === t.id);
             const appMode = storeTab?.appMode || currentMode;
-            
+
             return {
               id: t.id,
               title: t.title || 'New Tab',
@@ -424,26 +994,34 @@ export function TabStrip() {
               profileId: t.profileId,
             };
           });
-          
+
           // Update ref to track tab IDs and only update state if changed
-          const tabIds = mappedTabs.map(t => t.id).sort().join(',');
+          const tabIds = mappedTabs
+            .map(t => t.id)
+            .sort()
+            .join(',');
           if (previousTabIdsRef.current !== tabIds) {
             previousTabIdsRef.current = tabIds;
             setTabs(mappedTabs);
             setAllTabs(mapTabsForStore(mappedTabs));
           }
-          
+
           // Set active tab in store (only if changed - use ref to avoid dependency)
           const activeTab = mappedTabs.find(t => t.active);
           const currentActive = currentActiveIdRef.current;
           if (activeTab && activeTab.id !== currentActive) {
             setActiveTab(activeTab.id);
-          } else if (mappedTabs.length > 0 && !activeTab && mappedTabs[0] && mappedTabs[0].id !== currentActive) {
+          } else if (
+            mappedTabs.length > 0 &&
+            !activeTab &&
+            mappedTabs[0] &&
+            mappedTabs[0].id !== currentActive
+          ) {
             // No active tab, activate first one
             await ipc.tabs.activate({ id: mappedTabs[0].id });
             setActiveTab(mappedTabs[0].id);
           }
-          
+
           if (isInitialLoad) {
             setHasInitialized(true);
           }
@@ -452,15 +1030,25 @@ export function TabStrip() {
           // AND only if we're not restoring from session
           // AND only if we're not already creating a tab
           // AND only if we haven't already initialized (prevent HMR duplicates)
-          if (isInitialLoad && !hasInitialized && !isRestoringRef.current && !isCreatingTabRef.current) {
+          if (
+            isInitialLoad &&
+            !hasInitialized &&
+            !isRestoringRef.current &&
+            !isCreatingTabRef.current
+          ) {
             // Always wait a bit to allow session restoration to complete
             // This prevents creating duplicate tabs during HMR or session restore
             setTimeout(async () => {
               // Double-check conditions after delay
-              if (!isMounted || hasInitialized || isRestoringRef.current || isCreatingTabRef.current) {
+              if (
+                !isMounted ||
+                hasInitialized ||
+                isRestoringRef.current ||
+                isCreatingTabRef.current
+              ) {
                 return;
               }
-              
+
               // Check again if tabs exist after waiting (they might have been restored)
               try {
                 const recheckTabs = await ipc.tabs.list();
@@ -472,17 +1060,17 @@ export function TabStrip() {
               } catch {
                 // Ignore errors, proceed to create tab
               }
-              
+
               // Still no tabs after waiting, create one
               isCreatingTabRef.current = true;
               setHasInitialized(true);
-              
+
               try {
                 // Ensure IPC is ready
                 if (!window.ipc || typeof (window.ipc as any).invoke !== 'function') {
                   await new Promise(resolve => setTimeout(resolve, 200));
                 }
-                
+
                 const result = await ipc.tabs.create('about:blank');
                 if (result && result.id) {
                   if (IS_DEV) {
@@ -525,13 +1113,13 @@ export function TabStrip() {
         isRestoringRef.current = restoring;
       }
     };
-    
+
     const unsubscribeRestoring = ipcEvents.on<boolean>('session:restoring', handleRestoring);
-    
+
     // Listen for restore tab messages (only once)
     const handleRestoreTab = async (tabState: any) => {
       if (!isMounted || isCreatingTabRef.current) return;
-      
+
       isCreatingTabRef.current = true;
       try {
         await ipc.tabs.create({
@@ -557,7 +1145,7 @@ export function TabStrip() {
         }, 500);
       }
     };
-    
+
     const unsubscribeRestoreTab = ipcEvents.on<any>('session:restore-tab', handleRestoreTab);
 
     // Initial load only - don't auto-create tabs on subsequent updates
@@ -574,19 +1162,19 @@ export function TabStrip() {
       if (!isMounted) {
         return;
       }
-      
+
       if (!Array.isArray(tabList)) {
         if (IS_DEV) {
           console.warn('[TabStrip] handleTabUpdate: Invalid data', { tabList });
         }
         return;
       }
-      
+
       const mappedTabs = tabList.map((t: any) => {
         // Get appMode from store if available, otherwise use current mode
         const storeTab = storeTabs.find(st => st.id === t.id);
         const appMode = storeTab?.appMode || currentMode;
-        
+
         return {
           id: t.id,
           title: t.title || 'New Tab',
@@ -606,11 +1194,14 @@ export function TabStrip() {
       });
 
       // OPTIMIZED: Check if tabs actually changed before updating
-      const newTabIds = mappedTabs.map(t => t.id).sort().join(',');
+      const newTabIds = mappedTabs
+        .map(t => t.id)
+        .sort()
+        .join(',');
       const currentTabIds = previousTabIdsRef.current;
       const activeTabFromIPC = mappedTabs.find(t => t.active);
       const activeTabIdFromIPC = activeTabFromIPC?.id || null;
-      
+
       // Skip update if nothing changed (prevents unnecessary re-renders)
       if (newTabIds === currentTabIds && activeTabIdFromIPC === currentActiveIdRef.current) {
         // Still update refs in case of subtle changes
@@ -621,18 +1212,18 @@ export function TabStrip() {
       // Update peek preview if visible
       const peekState = usePeekPreviewStore.getState();
       if (peekState.visible && peekState.tab) {
-        const updatedPeek = mappedTabs.find((t) => t.id === peekState.tab?.id);
+        const updatedPeek = mappedTabs.find(t => t.id === peekState.tab?.id);
         if (updatedPeek) {
           usePeekPreviewStore.getState().sync(updatedPeek);
         }
       }
-      
+
       // Update tabs array (only if changed)
       setTabs(mappedTabs);
       tabsRef.current = mappedTabs;
       setAllTabs(mapTabsForStore(mappedTabs));
       previousTabIdsRef.current = newTabIds;
-      
+
       // Update active tab only if changed
       if (activeTabIdFromIPC && activeTabIdFromIPC !== currentActiveIdRef.current) {
         setActiveTab(activeTabIdFromIPC);
@@ -657,7 +1248,7 @@ export function TabStrip() {
 
     // Subscribe to IPC events via the event bus (only once)
     const unsubscribe = ipcEvents.on('tabs:updated', handleTabUpdate);
-      
+
     // Fallback polling if events don't work - reduced frequency to improve performance
     // Only poll to sync state, don't auto-create tabs
     // Note: We can poll even when creating tabs - loadTabs won't create duplicate tabs
@@ -669,7 +1260,7 @@ export function TabStrip() {
         }
       }
     }, 5000); // Poll every 5 seconds (reduced from 2s to improve performance)
-      
+
     return () => {
       isMounted = false;
       unsubscribe();
@@ -682,7 +1273,7 @@ export function TabStrip() {
 
   const addTab = async () => {
     if (!IS_ELECTRON) {
-      const baseTabs = (tabsRef.current.length > 0 ? tabsRef.current : tabs).map((t) => ({
+      const baseTabs = (tabsRef.current.length > 0 ? tabsRef.current : tabs).map(t => ({
         ...t,
         active: false,
       }));
@@ -696,7 +1287,10 @@ export function TabStrip() {
       const updated = [...baseTabs, newTab];
       setTabs(updated);
       tabsRef.current = updated;
-      previousTabIdsRef.current = updated.map((t) => t.id).sort().join(',');
+      previousTabIdsRef.current = updated
+        .map(t => t.id)
+        .sort()
+        .join(',');
       setAllTabs(mapTabsForStore(updated));
       setActiveTab(newTab.id);
       currentActiveIdRef.current = newTab.id;
@@ -711,7 +1305,7 @@ export function TabStrip() {
       }
       return;
     }
-    
+
     isCreatingTabRef.current = true;
     try {
       // Ensure IPC is ready - retry a few times
@@ -723,14 +1317,16 @@ export function TabStrip() {
         }
         await new Promise(resolve => setTimeout(resolve, 200));
       }
-      
+
       if (!ipcReady) {
         if (IS_DEV) {
-          console.warn('[TabStrip] IPC not ready after retries, but attempting tab creation anyway');
+          console.warn(
+            '[TabStrip] IPC not ready after retries, but attempting tab creation anyway'
+          );
         }
         // Don't abort - try to create anyway, might work
       }
-      
+
       const result = await ipc.tabs.create({
         url: 'about:blank',
         containerId: activeContainerId || undefined,
@@ -739,7 +1335,7 @@ export function TabStrip() {
         // Tag the new tab with current app mode
         const tabId = typeof result === 'object' && 'id' in result ? result.id : result;
         updateTab(tabId, { appMode: currentMode });
-        
+
         // Tab created successfully - IPC event will update the UI
         if (IS_DEV) {
           console.log('[TabStrip] Tab created via addTab:', tabId);
@@ -770,17 +1366,14 @@ export function TabStrip() {
     }
   };
 
-  const handleReopenClosedTab = useCallback(
-    async (entry?: ClosedTab) => {
-      await reopenClosedTab(entry);
-    },
-    [],
-  );
+  const handleReopenClosedTab = useCallback(async (entry?: ClosedTab) => {
+    await reopenClosedTab(entry);
+  }, []);
 
   const closeTab = async (tabId: string) => {
     if (!IS_ELECTRON) {
       const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-      const idx = currentTabs.findIndex((t) => t.id === tabId);
+      const idx = currentTabs.findIndex(t => t.id === tabId);
       if (idx === -1) {
         return;
       }
@@ -789,7 +1382,7 @@ export function TabStrip() {
         rememberClosedTab(tabBeingClosed);
       }
       const wasActive = currentTabs[idx]?.active;
-      const remaining = currentTabs.filter((t) => t.id !== tabId);
+      const remaining = currentTabs.filter(t => t.id !== tabId);
       let updated = remaining;
 
       if (remaining.length === 0) {
@@ -814,11 +1407,14 @@ export function TabStrip() {
         }));
       }
 
-      const activeTab = updated.find((t) => t.active) ?? updated[0];
+      const activeTab = updated.find(t => t.active) ?? updated[0];
 
       setTabs(updated);
       tabsRef.current = updated;
-      previousTabIdsRef.current = updated.map((t) => t.id).sort().join(',');
+      previousTabIdsRef.current = updated
+        .map(t => t.id)
+        .sort()
+        .join(',');
       setAllTabs(mapTabsForStore(updated));
       setActiveTab(activeTab ? activeTab.id : null);
       currentActiveIdRef.current = activeTab ? activeTab.id : null;
@@ -833,23 +1429,26 @@ export function TabStrip() {
 
     // Get current tabs
     const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-    const tabToClose = currentTabs.find((t) => t.id === tabId);
+    const tabToClose = currentTabs.find(t => t.id === tabId);
     if (!tabToClose) {
       return;
     }
     rememberClosedTab(tabToClose);
 
     const wasActive = tabToClose.active;
-    const tabIndex = currentTabs.findIndex((t) => t.id === tabId);
-    const remainingTabs = currentTabs.filter((t) => t.id !== tabId);
+    const tabIndex = currentTabs.findIndex(t => t.id === tabId);
+    const remainingTabs = currentTabs.filter(t => t.id !== tabId);
     const closingLastTab = remainingTabs.length === 0;
     const snapshotTabs = currentTabs.map(t => ({ ...t }));
     const previousActiveId = currentActiveIdRef.current;
-    
+
     // Update UI immediately (optimistic update)
     setTabs(remainingTabs);
     tabsRef.current = remainingTabs;
-    previousTabIdsRef.current = remainingTabs.map(t => t.id).sort().join(',');
+    previousTabIdsRef.current = remainingTabs
+      .map(t => t.id)
+      .sort()
+      .join(',');
     setAllTabs(mapTabsForStore(remainingTabs));
 
     // If closing active tab, activate the next one
@@ -871,13 +1470,18 @@ export function TabStrip() {
     }
 
     if (IS_DEV) {
-      console.log('[TabStrip] Closing tab (optimistic):', tabId, 'previous active:', previousActiveId);
+      console.log(
+        '[TabStrip] Closing tab (optimistic):',
+        tabId,
+        'previous active:',
+        previousActiveId
+      );
     }
 
     try {
       const result = await Promise.race([
         ipc.tabs.close({ id: tabId }),
-        new Promise<{ success: boolean; error?: string }>((resolve) =>
+        new Promise<{ success: boolean; error?: string }>(resolve =>
           setTimeout(() => resolve({ success: false, error: 'Timeout' }), 2000)
         ),
       ]);
@@ -888,12 +1492,19 @@ export function TabStrip() {
 
       if (!result || !result.success) {
         if (IS_DEV) {
-          console.warn('[TabStrip] Tab close failed or timed out, reverting:', tabId, result?.error);
+          console.warn(
+            '[TabStrip] Tab close failed or timed out, reverting:',
+            tabId,
+            result?.error
+          );
         }
 
         setTabs(snapshotTabs);
         tabsRef.current = snapshotTabs;
-        previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
+        previousTabIdsRef.current = snapshotTabs
+          .map(t => t.id)
+          .sort()
+          .join(',');
         setAllTabs(mapTabsForStore(snapshotTabs));
 
         if (previousActiveId) {
@@ -915,7 +1526,10 @@ export function TabStrip() {
 
       setTabs(snapshotTabs);
       tabsRef.current = snapshotTabs;
-      previousTabIdsRef.current = snapshotTabs.map(t => t.id).sort().join(',');
+      previousTabIdsRef.current = snapshotTabs
+        .map(t => t.id)
+        .sort()
+        .join(',');
       setAllTabs(mapTabsForStore(snapshotTabs));
 
       if (previousActiveId) {
@@ -927,116 +1541,130 @@ export function TabStrip() {
     }
   };
 
-  const activateTab = useCallback(async (tabId: string) => {
-    if (!IS_ELECTRON) {
-      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-      const tabToActivate = currentTabs.find((t) => t.id === tabId);
-      if (!tabToActivate) {
+  const activateTab = useCallback(
+    async (tabId: string) => {
+      if (!IS_ELECTRON) {
+        const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+        const tabToActivate = currentTabs.find(t => t.id === tabId);
+        if (!tabToActivate) {
+          return;
+        }
+        const updated = currentTabs.map(t => ({
+          ...t,
+          active: t.id === tabId,
+        }));
+        setTabs(updated);
+        tabsRef.current = updated;
+        previousTabIdsRef.current = updated
+          .map(t => t.id)
+          .sort()
+          .join(',');
+        setAllTabs(mapTabsForStore(updated));
+        setActiveTab(tabId);
+        currentActiveIdRef.current = tabId;
+        ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
         return;
       }
-      const updated = currentTabs.map((t) => ({
-        ...t,
-        active: t.id === tabId,
-      }));
-      setTabs(updated);
-      tabsRef.current = updated;
-      previousTabIdsRef.current = updated.map((t) => t.id).sort().join(',');
-      setAllTabs(mapTabsForStore(updated));
+
+      // Fast path: Skip if already active (check both ref and store for accuracy)
+      if (activationInFlightRef.current === tabId) {
+        return;
+      }
+      if (currentActiveIdRef.current === tabId && activeId === tabId) {
+        return;
+      }
+
+      // Get current tabs from ref (most up-to-date, avoids re-render)
+      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+      const tabToActivate = currentTabs.find(t => t.id === tabId);
+      if (!tabToActivate) {
+        if (IS_DEV) {
+          console.warn('[TabStrip] Tab not found for activation:', tabId);
+        }
+        return;
+      }
+
+      // Set flag immediately to prevent duplicate activations
+      activationInFlightRef.current = tabId;
+
+      // OPTIMIZED: Only update active state, not entire tabs array
+      // IPC event will update tabs array, so we just need to update activeId
       setActiveTab(tabId);
       currentActiveIdRef.current = tabId;
-      ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
-      return;
-    }
 
-    // Fast path: Skip if already active (check both ref and store for accuracy)
-    if (activationInFlightRef.current === tabId) {
-      return;
-    }
-    if (currentActiveIdRef.current === tabId && activeId === tabId) {
-      return;
-    }
-
-    // Get current tabs from ref (most up-to-date, avoids re-render)
-    const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-    const tabToActivate = currentTabs.find(t => t.id === tabId);
-    if (!tabToActivate) {
-      if (IS_DEV) {
-        console.warn('[TabStrip] Tab not found for activation:', tabId);
-      }
-      return;
-    }
-
-    // Set flag immediately to prevent duplicate activations
-    activationInFlightRef.current = tabId;
-
-    // OPTIMIZED: Only update active state, not entire tabs array
-    // IPC event will update tabs array, so we just need to update activeId
-    setActiveTab(tabId);
-    currentActiveIdRef.current = tabId;
-
-    // Fire IPC call without waiting (non-blocking for better UX)
-    // IPC event handler will update tabs array when it receives confirmation
-    ipc.tabs.activate({ id: tabId }).then((result) => {
-      if (!result || !result.success) {
-        // Only revert if activation failed
-        if (IS_DEV) {
-          console.warn('[TabStrip] Tab activation failed:', tabId, result?.error);
-        }
-        // Refresh from main process to get correct state
-        refreshTabsFromMain().catch(() => {});
-      }
-      activationInFlightRef.current = null;
-    }).catch((error) => {
-      if (IS_DEV) {
-        console.error('[TabStrip] Tab activation error:', error);
-      }
-      // Refresh from main process to get correct state
-      refreshTabsFromMain().catch(() => {});
-      activationInFlightRef.current = null;
-    });
-  }, [activeId, setActiveTab, setAllTabs, refreshTabsFromMain]);
-
-  const handleApplyCluster = useCallback((clusterId: string) => {
-    const cluster = predictedClusters.find((c) => c.id === clusterId);
-    if (!cluster) return;
-    if (!cluster.tabIds.length) return;
-
-    const currentTabs = tabsRef.current;
-    const matching = currentTabs.filter((tab) => cluster.tabIds.includes(tab.id));
-    if (matching.length <= 1) return;
-
-    let etld = 'workspace';
-    try {
-      if (matching[0]?.url) {
-        etld = new URL(matching[0].url).hostname.replace(/^www\./, '') || 'workspace';
-      }
-    } catch {
-      etld = 'workspace';
-    }
-
-    const label = matching.length >= 3 ? `${etld} cluster` : cluster.label;
-
-    void ipc.tabs.create({
-      url: 'about:blank',
-      containerId: etld,
-      activate: true,
-    }).then(async (result: any) => {
-      if (!result?.id) return;
-      for (const tab of matching) {
-        try {
-          await ipc.tabs.moveToWorkspace({ tabId: tab.id, workspaceId: result.id, label });
-        } catch (error) {
-          if (IS_DEV) {
-            console.warn('[TabStrip] Failed to regroup tab', error);
+      // Fire IPC call without waiting (non-blocking for better UX)
+      // IPC event handler will update tabs array when it receives confirmation
+      ipc.tabs
+        .activate({ id: tabId })
+        .then(result => {
+          if (!result || !result.success) {
+            // Only revert if activation failed
+            if (IS_DEV) {
+              console.warn('[TabStrip] Tab activation failed:', tabId, result?.error);
+            }
+            // Refresh from main process to get correct state
+            refreshTabsFromMain().catch(() => {});
           }
+          activationInFlightRef.current = null;
+        })
+        .catch(error => {
+          if (IS_DEV) {
+            console.error('[TabStrip] Tab activation error:', error);
+          }
+          // Refresh from main process to get correct state
+          refreshTabsFromMain().catch(() => {});
+          activationInFlightRef.current = null;
+        });
+    },
+    [activeId, setActiveTab, setAllTabs, refreshTabsFromMain]
+  );
+
+  const handleApplyCluster = useCallback(
+    (clusterId: string) => {
+      const cluster = predictedClusters.find(c => c.id === clusterId);
+      if (!cluster) return;
+      if (!cluster.tabIds.length) return;
+
+      const currentTabs = tabsRef.current;
+      const matching = currentTabs.filter(tab => cluster.tabIds.includes(tab.id));
+      if (matching.length <= 1) return;
+
+      let etld = 'workspace';
+      try {
+        if (matching[0]?.url) {
+          etld = new URL(matching[0].url).hostname.replace(/^www\./, '') || 'workspace';
         }
+      } catch {
+        etld = 'workspace';
       }
-      setTimeout(() => {
-        void useTabGraphStore.getState().refresh();
-      }, 300);
-      fetchPredictiveSuggestionsRef.current?.({ force: true });
-    });
-  }, [predictedClusters]);
+
+      const label = matching.length >= 3 ? `${etld} cluster` : cluster.label;
+
+      void ipc.tabs
+        .create({
+          url: 'about:blank',
+          containerId: etld,
+          activate: true,
+        })
+        .then(async (result: any) => {
+          if (!result?.id) return;
+          for (const tab of matching) {
+            try {
+              await ipc.tabs.moveToWorkspace({ tabId: tab.id, workspaceId: result.id, label });
+            } catch (error) {
+              if (IS_DEV) {
+                console.warn('[TabStrip] Failed to regroup tab', error);
+              }
+            }
+          }
+          setTimeout(() => {
+            void useTabGraphStore.getState().refresh();
+          }, 300);
+          fetchPredictiveSuggestionsRef.current?.({ force: true });
+        });
+    },
+    [predictedClusters]
+  );
 
   const handlePrefetchOpen = useCallback(
     (entry: { tabId: string; url: string; reason: string; confidence?: number }) => {
@@ -1054,7 +1682,9 @@ export function TabStrip() {
     // Use requestAnimationFrame to ensure DOM is updated
     requestAnimationFrame(() => {
       try {
-        const el = stripRef.current?.querySelector(`[data-tab="${CSS.escape(activeId)}"]`) as HTMLElement;
+        const el = stripRef.current?.querySelector(
+          `[data-tab="${CSS.escape(activeId)}"]`
+        ) as HTMLElement;
         if (el) {
           el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
         }
@@ -1065,12 +1695,12 @@ export function TabStrip() {
   // Keyboard navigation (Left/Right/Home/End)
   // Use refs to access current tabs/activeId without causing re-renders
   const activeIdRef = useRef(activeId);
-  
+
   useEffect(() => {
     tabsRef.current = tabs;
     activeIdRef.current = activeId;
   }, [tabs, activeId]);
-  
+
   useEffect(() => {
     if (!stripRef.current || !activeId) {
       return;
@@ -1105,8 +1735,8 @@ export function TabStrip() {
       // Use refs to get current state without causing re-renders
       const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
       const currentActive = activeIdRef.current || activeId;
-      const currentIndex = currentTabs.findIndex((t) => t.id === currentActive);
-      
+      const currentIndex = currentTabs.findIndex(t => t.id === currentActive);
+
       if (currentIndex === -1 || currentTabs.length === 0) {
         return;
       }
@@ -1154,7 +1784,7 @@ export function TabStrip() {
       }
 
       event.preventDefault();
-      const currentIndex = currentTabs.findIndex((tab) => tab.id === currentActiveId);
+      const currentIndex = currentTabs.findIndex(tab => tab.id === currentActiveId);
       if (currentIndex === -1) {
         return;
       }
@@ -1175,53 +1805,53 @@ export function TabStrip() {
 
   return (
     <>
-      <div 
-        ref={stripRef} 
+      <div
+        ref={stripRef}
         role="tablist"
         aria-label="Browser tabs"
         className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide relative"
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 9999 }}
         onKeyDown={handleKeyNavigation}
         data-onboarding="tabstrip"
-        onDragOver={(e) => {
+        onDragOver={e => {
           // Allow drop for tab reordering (not graph drag)
           if (draggedTabIdRef.current && !e.dataTransfer.types.includes(TAB_GRAPH_DRAG_MIME)) {
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
-            
+
             // Calculate drop index based on mouse position
             const rect = stripRef.current?.getBoundingClientRect();
             if (!rect) return;
-            
+
             const mouseX = e.clientX - rect.left;
             const tabElements = stripRef.current?.querySelectorAll('[data-tab]');
             if (!tabElements || tabElements.length === 0) return;
-            
+
             let dropIndex = tabs.length;
             for (let i = 0; i < tabElements.length; i++) {
               const tabEl = tabElements[i] as HTMLElement;
               const tabRect = tabEl.getBoundingClientRect();
               const relativeX = tabRect.left - rect.left + tabRect.width / 2;
-              
+
               if (mouseX < relativeX) {
                 dropIndex = i;
                 break;
               }
             }
-            
+
             dragOverIndexRef.current = dropIndex;
           }
         }}
-        onDrop={async (e) => {
+        onDrop={async e => {
           // Handle tab reordering (not graph drag)
           if (draggedTabIdRef.current && !e.dataTransfer.types.includes(TAB_GRAPH_DRAG_MIME)) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             const tabId = draggedTabIdRef.current;
             const newIndex = dragOverIndexRef.current ?? tabs.length - 1;
-            
+
             // Find current index
             const currentIndex = tabs.findIndex(t => t.id === tabId);
             if (currentIndex === -1 || currentIndex === newIndex) {
@@ -1229,7 +1859,7 @@ export function TabStrip() {
               dragOverIndexRef.current = null;
               return;
             }
-            
+
             // Optimistically update UI
             const newTabs = [...tabs];
             const [movedTab] = newTabs.splice(currentIndex, 1);
@@ -1237,7 +1867,7 @@ export function TabStrip() {
             setTabs(newTabs);
             tabsRef.current = newTabs;
             setAllTabs(mapTabsForStore(newTabs));
-            
+
             // Call IPC to reorder
             try {
               const result = await ipc.tabs.reorder(tabId, newIndex);
@@ -1259,12 +1889,12 @@ export function TabStrip() {
                 console.error('[TabStrip] Reorder error:', error);
               }
             }
-            
+
             draggedTabIdRef.current = null;
             dragOverIndexRef.current = null;
           }
         }}
-        onDragLeave={(e) => {
+        onDragLeave={e => {
           // Clear drag state when leaving tabstrip
           if (!stripRef.current?.contains(e.relatedTarget as Node)) {
             dragOverIndexRef.current = null;
@@ -1272,318 +1902,56 @@ export function TabStrip() {
         }}
       >
         <PredictivePrefetchHint entry={prefetchEntries[0] ?? null} onOpen={handlePrefetchOpen} />
-        <PredictiveClusterChip clusters={predictedClusters} onApply={handleApplyCluster} summary={predictionSummary} />
+        <PredictiveClusterChip
+          clusters={predictedClusters}
+          onApply={handleApplyCluster}
+          summary={predictionSummary}
+        />
         <div className="flex items-center gap-2 min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
           <AnimatePresence mode="popLayout">
-            {tabs && Array.isArray(tabs) && tabs.length > 0 ? (
-              // Filter tabs by current mode - only show tabs that match the current app mode
-              tabs.filter(tab => !tab.appMode || tab.appMode === currentMode).map((tab) => {
-                const tabDomId = `tab-${tab.id}`;
-                const panelDomId = `tabpanel-${tab.id}`;
-                const prefetchForTab = prefetchEntries.find((entry) => entry.tabId === tab.id);
-                return (
-                <TabHoverCard key={tab.id} tabId={tab.id}>
-                  <motion.div
-                    id={tabDomId}
-                    data-tab={tab.id}
-                    role="tab"
-                    aria-selected={tab.active}
-                    aria-controls={panelDomId}
-                    aria-label={`Tab: ${tab.title}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}`}
-                    tabIndex={tab.active ? 0 : -1}
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className={`
-                      relative flex items-center gap-2 px-4 py-2 rounded-lg
-                      min-w-[100px] max-w-[220px] cursor-pointer group
-                      transition-all duration-200
-                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                      ${tab.active
-                        ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
-                        : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
-                      }
-                      ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
-                      ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
-                      ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
-                    `}
-                    style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none' }}
-                    draggable
-                    onDragStart={(event) => {
-                      try {
-                        // Check if this is a graph drag (e.g., Ctrl/Cmd held) or reorder drag
-                        const isGraphDrag = event.ctrlKey || event.metaKey;
-                        
-                        if (isGraphDrag) {
-                          // Graph drag - set graph MIME type
-                          event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
-                          if (tab.title) {
-                            event.dataTransfer?.setData('text/plain', tab.title);
-                          }
-                          if (event.dataTransfer) {
-                            event.dataTransfer.effectAllowed = 'copy';
-                          }
-                        } else {
-                          // Reorder drag - track tab ID and allow move
-                          draggedTabIdRef.current = tab.id;
-                          if (event.dataTransfer) {
-                            event.dataTransfer.effectAllowed = 'move';
-                            // Don't set any data to distinguish from graph drag
-                          }
-                        }
-                      } catch (error) {
-                        if (IS_DEV) {
-                          console.warn('[TabStrip] Drag start failed', error);
-                        }
-                      }
-                    }}
-                    onDragEnd={() => {
-                      // Only fire graph drag end if it was a graph drag
-                      if (draggedTabIdRef.current === null) {
-                        window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
-                      }
-                      draggedTabIdRef.current = null;
-                      dragOverIndexRef.current = null;
-                    }}
-                    onClick={(e) => {
-                      // Primary click handler - ensure it fires
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.stopImmediatePropagation();
-                      // Call activateTab immediately (optimized, non-blocking)
-                      void activateTab(tab.id);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        activateTab(tab.id);
-                        return;
-                      }
-
-                      if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        const currentIndex = tabs.findIndex((t) => t.id === tab.id);
-                        if (currentIndex === -1) {
-                          return;
-                        }
-
-                        let nextIndex = currentIndex;
-                        switch (e.key) {
-                          case 'Home':
-                            nextIndex = 0;
-                            break;
-                          case 'End':
-                            nextIndex = tabs.length - 1;
-                            break;
-                          case 'ArrowLeft':
-                            nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-                            break;
-                          case 'ArrowRight':
-                            nextIndex = (currentIndex + 1) % tabs.length;
-                            break;
-                        }
-
-                        const nextTab = tabs[nextIndex];
-                        if (nextTab) {
-                          void activateTab(nextTab.id);
-                        }
-                      }
-                    }}
-                    onAuxClick={(e: React.MouseEvent) => { 
-                      if (e.button === 1) { // Middle click
-                        e.preventDefault(); 
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        closeTab(tab.id); 
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
-                      setContextMenu({
-                        tabId: tab.id,
-                        url: tab.url,
-                        containerId: tab.containerId,
-                      containerName: tab.containerName,
-                      containerColor: tab.containerColor,
-                        mode: tab.mode,
-                        sleeping: tab.sleeping,
-                        x: e.clientX,
-                        y: e.clientY,
-                      });
-                    }}
-                    onMouseEnter={() => {
-                      if (tab === tabs[tabs.length - 1]) {
-                        setHolographicPreviewTabId(tab.id);
-                        setPreviewMetadata({ url: tab.url, title: tab.title });
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (holographicPreviewTabId === tab.id) {
-                        setHolographicPreviewTabId(null);
-                        setPreviewMetadata(null);
-                      }
-                    }}
-                  >
-                    {prefetchForTab && (
-                      <span
-                        className="absolute top-1 right-2 text-emerald-300 text-[11px] font-semibold"
-                        title={`Suggested follow-up: ${prefetchForTab.reason}`}
-                      >
-                        ⚡
-                      </span>
-                    )}
-                  {hologramSupported !== false && holographicPreviewTabId === tab.id && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 6 }}
-                      className="absolute -bottom-9 left-1/2 flex -translate-x-1/2 items-center gap-2"
-                    >
-                      <motion.button
-                        type="button"
-                        className="flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] text-cyan-100 shadow-lg backdrop-blur transition-colors hover:bg-cyan-500/25"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setHandoffStatus({ platform: 'xr', lastSentAt: Date.now() });
-                          window.dispatchEvent(
-                            new CustomEvent('tab:holographic-preview', {
-                              detail: { tabId: tab.id },
-                            }),
-                          );
-                          void ipc.crossReality.handoff(tab.id, 'xr');
-                        }}
-                      >
-                        <Sparkles size={12} /> XR Hologram
-                      </motion.button>
-                      <motion.button
-                        type="button"
-                        className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-[10px] text-amber-100 shadow-lg backdrop-blur transition-colors hover:bg-amber-500/25"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setHandoffStatus({ platform: 'mobile', lastSentAt: Date.now() });
-                          void ipc.crossReality.handoff(tab.id, 'mobile');
-                        }}
-                      >
-                        <span role="img" aria-label="mobile">📱</span> Send
-                      </motion.button>
-                    </motion.div>
-                  )}
-                    {/* Favicon */}
-                    <div className="flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
-                      {tab.favicon ? (
-                        <img src={tab.favicon} alt="" className="w-full h-full rounded-full" />
-                      ) : (
-                        <div className="w-2 h-2 bg-gray-400 rounded-full" />
-                      )}
-                    </div>
-
-                    {tab.mode && tab.mode !== 'normal' && (
-                      <span
-                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                          tab.mode === 'ghost'
-                            ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
-                            : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
-                        }`}
-                      >
-                        {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
-                      </span>
-                    )}
-
-                    {tab.containerId && tab.containerId !== 'default' && (
-                      <div
-                        className="w-2.5 h-2.5 rounded-full border border-gray-700/60"
-                        style={{ backgroundColor: tab.containerColor || '#6366f1' }}
-                        title={`${tab.containerName || 'Custom'} container`}
-                      />
-                    )}
-
-                    {tab.sleeping && (
-                      <span className="flex items-center" title="Tab is hibernating">
-                        <motion.span
-                          className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
-                          animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
-                          transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                        />
-                      </span>
-                    )}
-
-                    {/* Title */}
-                    <span className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}>
-                      {tab.title}
-                    </span>
-
-                    {/* Peek Button */}
-                    <motion.button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openPeek(tab);
-                      }}
-                      aria-label={`Peek preview: ${tab.title}`}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
-                      style={{ pointerEvents: 'auto', zIndex: 2 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.96 }}
-                      title="Peek preview"
-                    >
-                      <Eye size={14} />
-                    </motion.button>
-
-                    {/* Close Button */}
-                    <motion.button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        closeTab(tab.id);
-                      }}
-                      onAuxClick={(e) => {
-                        if (e.button === 1) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          e.stopImmediatePropagation();
-                          closeTab(tab.id);
-                        }
-                      }}
-                      onMouseDown={(e) => {
-                        // Stop propagation to prevent parent tab activation
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          closeTab(tab.id);
-                        }
-                      }}
-                      aria-label={`Close tab: ${tab.title}`}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity ml-1 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag"
-                      style={{ pointerEvents: 'auto', zIndex: 2 }}
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      title="Close tab (Middle click)"
-                    >
-                      <X size={14} className="text-gray-400" />
-                    </motion.button>
-                  </motion.div>
-                </TabHoverCard>
-              );
-            })
-          ) : null}
+            {tabElements.length > 0 ? tabElements : null}
           </AnimatePresence>
 
           {/* Container Selector & New Tab Button */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            <motion.button
+              type="button"
+              onClick={() => {
+                const namePrompt =
+                  window.prompt('New group name', `Group ${tabGroups.length + 1}`) ?? undefined;
+                const group = handleCreateGroupShortcut(
+                  namePrompt?.trim() ? namePrompt : undefined
+                );
+                if (draggedTabIdRef.current && group) {
+                  assignTabToGroup(draggedTabIdRef.current, group.id);
+                  draggedTabIdRef.current = null;
+                }
+              }}
+              onDragOver={e => {
+                if (!draggedTabIdRef.current) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setGroupDragTarget(NEW_GROUP_DROP_ID);
+              }}
+              onDragLeave={() => {
+                if (groupDragTarget === NEW_GROUP_DROP_ID) {
+                  setGroupDragTarget(null);
+                }
+              }}
+              onDrop={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDropToNewGroup();
+              }}
+              className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                groupDragTarget === NEW_GROUP_DROP_ID
+                  ? 'border-blue-500/70 text-blue-200 bg-blue-500/10'
+                  : 'border-gray-700/40 text-gray-300 hover:bg-gray-800/50'
+              }`}
+            >
+              <FolderPlus size={14} />
+              Group
+            </motion.button>
             <div className="hidden lg:block">
               <ContainerQuickSelector compact showLabel={false} />
             </div>
@@ -1598,7 +1966,11 @@ export function TabStrip() {
                     p-2 rounded-lg border transition
                     ${recentlyClosed.length === 0 ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-gray-700/40 hover:bg-gray-800/50 text-gray-300 hover:text-gray-100'}
                   `}
-                  title={recentlyClosed.length === 0 ? 'No recently closed tabs' : 'Reopen closed tab (Ctrl+Shift+T / ⌘⇧T)'}
+                  title={
+                    recentlyClosed.length === 0
+                      ? 'No recently closed tabs'
+                      : 'Reopen closed tab (Ctrl+Shift+T / ⌘⇧T)'
+                  }
                 >
                   <RotateCcw size={16} />
                 </motion.button>
@@ -1609,7 +1981,7 @@ export function TabStrip() {
                 {recentlyClosed.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-500">No tabs to reopen</div>
                 ) : (
-                  recentlyClosed.map((entry) => {
+                  recentlyClosed.map(entry => {
                     let hostname = 'about:blank';
                     if (entry.url) {
                       try {
@@ -1624,7 +1996,9 @@ export function TabStrip() {
                         className="flex flex-col items-start gap-1 py-2"
                         onClick={() => handleReopenClosedTab(entry)}
                       >
-                        <span className="text-sm text-slate-100">{entry.title || entry.url || 'Untitled tab'}</span>
+                        <span className="text-sm text-slate-100">
+                          {entry.title || entry.url || 'Untitled tab'}
+                        </span>
                         <span className="text-[11px] text-slate-500">
                           {hostname} • {new Date(entry.closedAt).toLocaleTimeString()}
                         </span>
@@ -1645,7 +2019,7 @@ export function TabStrip() {
             </DropdownMenu>
             <motion.button
               onClick={addTab}
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
                   addTab();
@@ -1668,11 +2042,21 @@ export function TabStrip() {
             <TabContextMenu
               tabId={contextMenu.tabId}
               url={contextMenu.url}
-              containerId={contextMenu.containerId ?? tabs.find(t => t.id === contextMenu.tabId)?.containerId}
-              containerName={contextMenu.containerName ?? tabs.find(t => t.id === contextMenu.tabId)?.containerName}
-              containerColor={contextMenu.containerColor ?? tabs.find(t => t.id === contextMenu.tabId)?.containerColor}
+              containerId={
+                contextMenu.containerId ?? tabs.find(t => t.id === contextMenu.tabId)?.containerId
+              }
+              containerName={
+                contextMenu.containerName ??
+                tabs.find(t => t.id === contextMenu.tabId)?.containerName
+              }
+              containerColor={
+                contextMenu.containerColor ??
+                tabs.find(t => t.id === contextMenu.tabId)?.containerColor
+              }
               mode={contextMenu.mode ?? tabs.find(t => t.id === contextMenu.tabId)?.mode}
-              sleeping={contextMenu.sleeping ?? tabs.find(t => t.id === contextMenu.tabId)?.sleeping}
+              sleeping={
+                contextMenu.sleeping ?? tabs.find(t => t.id === contextMenu.tabId)?.sleeping
+              }
               onClose={() => setContextMenu(null)}
             />
           </Portal>

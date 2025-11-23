@@ -21,52 +21,22 @@
 /* Import Design Tokens */
 @import './tokens.css';
 
-:root {
-  color-scheme: dark;
-  --surface-root: #0f172a;
-  --surface-panel: rgba(15, 23, 42, 0.88);
-  --surface-elevated: rgba(30, 41, 59, 0.85);
-  --surface-hover: rgba(148, 163, 184, 0.14);
-  --surface-border: rgba(148, 163, 184, 0.35);
-  --surface-border-strong: rgba(148, 163, 184, 0.55);
-  --text-primary: #e2e8f0;
-  --text-muted: #94a3b8;
-  --accent: #60a5fa;
-  --regen-panel-gap: 1.25rem;
-  --regen-surface-padding: 1.25rem;
-}
-
-:root[data-compact='true'] {
-  --regen-panel-gap: 0.75rem;
-  --regen-surface-padding: 0.7rem;
-}
-
-:root[data-theme='light'] {
-  color-scheme: light;
-  --surface-root: #f8fafc;
-  --surface-panel: rgba(255, 255, 255, 0.92);
-  --surface-elevated: rgba(248, 250, 252, 0.92);
-  --surface-hover: rgba(15, 23, 42, 0.08);
-  --surface-border: rgba(79, 89, 107, 0.18);
-  --surface-border-strong: rgba(79, 89, 107, 0.32);
-  --text-primary: #0f172a;
-  --text-muted: #475569;
-  --accent: #2563eb;
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-}
+/* Theme vars (light/dark) */
+@import './theme.css';
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   background-color: var(--surface-root);
   color: var(--text-primary);
-  transition: background-color 200ms ease, color 200ms ease;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
 }
 
 @keyframes shimmer {
@@ -103,7 +73,11 @@ body {
   border: 1px solid var(--surface-border);
   color: var(--text-muted);
   backdrop-filter: blur(12px);
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
 }
 
 .button-surface:hover,
@@ -129,8 +103,10 @@ body {
   border: 1px solid var(--surface-border-strong);
 }
 
-html, body, #root { 
-  height: 100%; 
+html,
+body,
+#root {
+  height: 100%;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -159,25 +135,54 @@ body {
 }
 
 /* Drag regions for custom titlebar */
-.drag { -webkit-app-region: drag; }
-.no-drag { -webkit-app-region: no-drag; }
+.drag {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
 
 /* Webview sizing */
-webview, .webview { display: block; width: 100%; height: 100%; }
+webview,
+.webview {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure webview iframes don't overflow */
+iframe.webview-iframe,
+iframe[src^='http'],
+iframe[src^='https'],
+iframe[role='tabpanel'] {
+  width: 100% !important;
+  height: 100% !important;
+  border: none !important;
+  display: block !important;
+  overflow: hidden !important;
+}
 
 /* When overlays/modals are open, mask webview to avoid focus/hover steal */
-.webview--masked { pointer-events: none; }
+.webview--masked {
+  pointer-events: none;
+}
 
 /* Show focus only for keyboard/navigation users */
-:where(button, [role="button"], a, input, textarea, select) { outline: none; }
-:where(button, [role="button"], a, input, textarea, select):focus-visible {
+:where(button, [role='button'], a, input, textarea, select) {
+  outline: none;
+}
+:where(button, [role='button'], a, input, textarea, select):focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Safe-area padding for system UI (notches/taskbars) */
@@ -226,7 +231,10 @@ webview, .webview { display: block; width: 100%; height: 100%; }
   background: transparent;
   border: none;
   text-align: left;
-  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
   cursor: pointer;
 }
 
@@ -249,5 +257,3 @@ webview, .webview { display: block; width: 100%; height: 100%; }
 .menu-item:focus-visible svg {
   color: var(--text-primary);
 }
-
-

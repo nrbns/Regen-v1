@@ -2,7 +2,7 @@
 Database Models - SQLAlchemy
 """
 
-from sqlalchemy import Column, String, Integer, Float, Boolean, JSON, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, Integer, Float, Boolean, JSON, DateTime, Date, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -19,8 +19,10 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     plan = Column(String, default="free")
     created_at = Column(DateTime, default=datetime.utcnow)
-    
     workspaces = relationship("Workspace", back_populates="user")
+    owned_disciplines = relationship("Discipline", back_populates="owner")
+    disciplines = relationship("UserDiscipline", back_populates="user")
+    xp_events = relationship("XPEvent", back_populates="user")
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -134,4 +136,80 @@ class AITaskMetric(Base):
     client_id = Column(String, nullable=True, index=True)  # user_id or IP
     error = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=True)
+
+
+class Discipline(Base):
+    __tablename__ = "disciplines"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    cadence = Column(String, default="daily")  # daily, weekly
+    difficulty = Column(Integer, default=1)  # 1-5 scale
+    goal_units = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    archived_at = Column(DateTime, nullable=True)
+
+    owner = relationship("User", back_populates="owned_disciplines")
+    user_disciplines = relationship("UserDiscipline", back_populates="discipline", cascade="all, delete-orphan")
+
+
+class UserDiscipline(Base):
+    __tablename__ = "user_disciplines"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    discipline_id = Column(String, ForeignKey("disciplines.id"), nullable=False, index=True)
+    status = Column(String, default="active")  # active, paused, archived
+    created_at = Column(DateTime, default=datetime.utcnow)
+    archived_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="disciplines")
+    discipline = relationship("Discipline", back_populates="user_disciplines")
+    logs = relationship("DisciplineLog", back_populates="user_discipline", cascade="all, delete-orphan")
+    streak = relationship("DisciplineStreak", back_populates="user_discipline", uselist=False, cascade="all, delete-orphan")
+
+
+class DisciplineLog(Base):
+    __tablename__ = "discipline_logs"
+    __table_args__ = (
+        UniqueConstraint("user_discipline_id", "log_date", name="uq_discipline_log_per_day"),
+    )
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_discipline_id = Column(String, ForeignKey("user_disciplines.id"), nullable=False, index=True)
+    log_date = Column(Date, nullable=False, index=True)
+    value = Column(Float, nullable=True)
+    notes = Column(Text, nullable=True)
+    metadata_json = Column(JSON, default={})
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_discipline = relationship("UserDiscipline", back_populates="logs")
+
+
+class DisciplineStreak(Base):
+    __tablename__ = "discipline_streaks"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_discipline_id = Column(String, ForeignKey("user_disciplines.id"), unique=True, nullable=False)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_logged_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user_discipline = relationship("UserDiscipline", back_populates="streak")
+
+
+class XPEvent(Base):
+    __tablename__ = "xp_events"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    source = Column(String, nullable=False)  # discipline_log, streak_bonus, etc.
+    amount = Column(Integer, nullable=False)
+    metadata_json = Column(JSON, default={})
+    awarded_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="xp_events")
 

@@ -1,24 +1,59 @@
-# OmniBrowser
+# OmniBrowser - The Internet Operating System
 
-**A privacy-first, agentic research browser with Arc-level UX**
+> **India's first execution browser: search, automate, trade, all in one.**
+
+OmniBrowser combines **5 pillars** that no browser has together:
+
+- 🚀 **Chrome-level browsing** - Fast, stable, familiar
+- 🤖 **Atlas/Comet automation** - Built-in, not a plugin
+- 🔍 **Perplexity research** - Inside the browser, not external
+- 🛡️ **Brave privacy** - India-first, no US tracking
+- 🇮🇳 **Made in India** - 12 languages, voice trading, government automation
+
+**This is not a browser. This is the Internet Operating System.**
+
+---
+
+# OmniBrowser / Regen
+
+**OmniBrowser/Regen** is a next-generation, ultra-light browser that combines:
+
+- a **full AI agent layer**,
+- **automation workflows**,
+- a built-in **Redix execution environment**,
+- and seamless **multi-browser capabilities**—
+
+  into one unified, **high-performance system**.
+
+It runs with **extremely low storage**, **minimal CPU usage**, and delivers **faster performance than traditional browsers**, while giving users a **powerful, automation-driven browsing experience** that no other browser offers.
+
+It's not just a browser—
+
+it's a **world-class AI automation platform** designed for productivity, research, trading, security, and real-time intelligence.
+
+---
+
+## Technical Stack
 
 Electron + React + TypeScript + Vite multi-mode desktop browser with:
-- 🛡️ **Brave + Tor + VPN** unified privacy stack 🧪 *Experimental / in progress*
-- 🤖 **Unified AI Engine** ✅ *Complete* - Multi-provider (OpenAI, Anthropic, Ollama), streaming, caching, telemetry
-- 📚 **Knowledge graph** foundation 🧪 *Experimental / in progress*
-- 🧩 **Plugin runtime** ready 🧪 *Experimental / in progress*
-- ⚡ **Performance-first** with tab hibernation 🧪 *Experimental / in progress*
-- 🔬 **Research Mode** ✅ *Complete* - File upload, AI analysis, citations
-- 💹 **Trade Mode** ✅ *Complete* - AI signals, position sizing, risk management
-- 🎮 **Game Mode** ✅ *Complete* - AI recommendations, save states, enhanced search
 
-**Status**: 🟢 **Beta Ready (v0.1.0-alpha)** - Core features complete, ready for testing
+- 🛡️ **Brave + Tor + VPN** unified privacy stack 🧪 _Experimental / in progress_
+- 🤖 **Unified AI Engine** ✅ _Complete_ - Multi-provider (OpenAI, Anthropic, Ollama), streaming, caching, telemetry
+- 📚 **Knowledge graph** foundation 🧪 _Experimental / in progress_
+- 🧩 **Plugin runtime** ready 🧪 _Experimental / in progress_
+- ⚡ **Performance-first** with tab hibernation 🧪 _Experimental / in progress_
+- 🔬 **Research Mode** ✅ _Complete_ - File upload, AI analysis, citations
+- 💹 **Trade Mode** ✅ _Complete_ - AI signals, position sizing, risk management
+- 🎮 **Game Mode** ✅ _Complete_ - AI recommendations, save states, enhanced search
+
+**Status**: 🟢 **Beta Ready (v0.1.0-alpha)** - Core features complete, ready for testing  
+**Production Readiness**: 92/100 → Target: 100/100 (Sprint 4 planned)
 
 [![CI](https://github.com/nrbns/Omnibrowser/workflows/CI/badge.svg)](https://github.com/nrbns/Omnibrowser/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Note**: Core browser foundation, unified AI engine, and mode enhancements (Research, Trade, Game) are complete. Production readiness: 90/100. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed status and [CHANGELOG.md](./CHANGELOG.md) for recent updates.
-> 
+> **Note**: Core browser foundation, unified AI engine, and mode enhancements (Research, Trade, Game) are complete. See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for detailed status, [docs/PRODUCTION_READINESS_PLAN.md](./docs/PRODUCTION_READINESS_PLAN.md) for the roadmap to 100%, and [CHANGELOG.md](./CHANGELOG.md) for recent updates.
+>
 > **Issues & Roadmap**: See [GitHub Issues](https://github.com/nrbns/Omnibrowser/issues) for current work and feature requests.
 
 ## Quick Start
@@ -31,24 +66,28 @@ npm run dev
 ## Key Features
 
 ### 🔬 Research Mode
+
 - Upload documents (PDF, DOCX, TXT, MD) for AI analysis
 - Real-time streaming AI responses with citations
 - Knowledge graph visualization
 - Multi-source aggregation
 
 ### 💹 Trade Mode
+
 - AI-powered trading signals (auto-generates every 30s)
 - Position sizing helper with risk management
 - Real-time market data and charts
 - Portfolio risk metrics
 
 ### 🎮 Game Mode
+
 - AI-powered game recommendations
 - Enhanced semantic search
 - Save/load game states
 - Offline-capable games
 
 ### 🤖 Unified AI Engine
+
 - Multi-provider support (OpenAI, Anthropic, Ollama)
 - Real-time streaming responses
 - Cost-aware model selection
@@ -57,32 +96,51 @@ npm run dev
 
 ## Documentation
 
+### Getting Started
+
 - [docs/QUICKSTART.md](./docs/QUICKSTART.md) - **Quick Start Guide** (start here!)
+
+### Project Status & Planning
+
 - [PROJECT_STATUS.md](./PROJECT_STATUS.md) - Current features and status
-- [docs/BETA_RELEASE_CHECKLIST.md](./docs/BETA_RELEASE_CHECKLIST.md) - Beta release readiness checklist
+- [docs/PRODUCTION_READINESS_PLAN.md](./docs/PRODUCTION_READINESS_PLAN.md) - **Production readiness roadmap (92/100 → 100/100)**
+- [docs/SPRINT_4_PLAN.md](./docs/SPRINT_4_PLAN.md) - **6-week sprint plan to close the gap**
 - [docs/SPRINT_SUMMARY.md](./docs/SPRINT_SUMMARY.md) - Sprint 1-3 completion summary
-- [docs/TESTING_CHECKLIST.md](./docs/TESTING_CHECKLIST.md) - Comprehensive testing guide
 - [CHANGELOG.md](./CHANGELOG.md) - Release notes and changelog
 - [PROJECT_CHECKLIST.md](./PROJECT_CHECKLIST.md) - 90-day build plan checklist
 - [ISSUES.md](./ISSUES.md) - Issue tracking and roadmap
+
+### Architecture & Technical
+
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Architecture documentation
+- [docs/REDIX_ARCHITECTURE.md](./docs/REDIX_ARCHITECTURE.md) - **Redix green-tech engine (RAM/battery/CO₂ optimization)**
 - [SECURITY.md](./SECURITY.md) - Security documentation
 
+### Testing & Release
+
+- [docs/BETA_RELEASE_CHECKLIST.md](./docs/BETA_RELEASE_CHECKLIST.md) - Beta release readiness checklist
+- [docs/TESTING_CHECKLIST.md](./docs/TESTING_CHECKLIST.md) - Comprehensive testing guide
+
 ## Prerequisites
+
 - Node 20+
 - npm/pnpm/yarn
 
 ## Development
+
 ```bash
 npm install
 npm run dev
 ```
+
 Vite runs on 5173; Electron loads the renderer.
 
 ## Build
+
 ```bash
 npm run build
 ```
+
 Outputs platform installers via electron-builder.
 
 ## Testing
@@ -96,5 +154,6 @@ npm run test:e2e
 The first run may prompt Playwright to download browser dependencies. In CI the suite runs headlessly and fails the pipeline if any smoke assertion regresses.
 
 ## Safety
+
 - Video download requires explicit consent in Settings.
 - Threat Analysis is informational only.

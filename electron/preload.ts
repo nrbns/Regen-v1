@@ -9,18 +9,25 @@ const api = {
     navigate: (id: string, url: string) => ipcRenderer.invoke('tabs:navigate', { id, url }),
     goBack: (id: string) => ipcRenderer.invoke('tabs:goBack', { id }),
     goForward: (id: string) => ipcRenderer.invoke('tabs:goForward', { id }),
-    reload: (id: string) => ipcRenderer.invoke('tabs:reload', { id }),
+    reload: (id: string, options?: { hard?: boolean }) =>
+      ipcRenderer.invoke('tabs:reload', { id, ...(options ?? {}) }),
+    stop: (id: string) => ipcRenderer.invoke('tabs:stop', { id }),
     devtools: (id: string) => ipcRenderer.invoke('tabs:devtools', id),
     list: () => ipcRenderer.invoke('tabs:list'),
     onUpdated: (cb: (tabs: any[]) => void) => ipcRenderer.on('tabs:updated', (_e, t) => cb(t)),
-    onNavigationState: (cb: (state: any) => void) => ipcRenderer.on('tabs:navigation-state', (_e, state) => cb(state)),
+    onNavigationState: (cb: (state: any) => void) =>
+      ipcRenderer.on('tabs:navigation-state', (_e, state) => cb(state)),
     overlayStart: () => ipcRenderer.invoke('tabs:overlay:start'),
     overlayGetPick: () => ipcRenderer.invoke('tabs:overlay:getPick'),
     overlayClear: () => ipcRenderer.invoke('tabs:overlay:clear'),
-    createWithProfile: (accountId: string, url: string) => ipcRenderer.invoke('tabs:createWithProfile', { accountId, url }),
+    createWithProfile: (accountId: string, url: string) =>
+      ipcRenderer.invoke('tabs:createWithProfile', { accountId, url }),
   },
   ui: {
     setRightDock: (px: number) => ipcRenderer.invoke('ui:setRightDock', px),
+    setChromeOffsets: (
+      offsets: Partial<{ top: number; bottom: number; left: number; right: number }>
+    ) => ipcRenderer.invoke('ui:setChromeOffsets', offsets),
   },
   proxy: {
     set: (rules: unknown) => ipcRenderer.invoke('proxy:set', rules),
@@ -33,7 +40,8 @@ const api = {
   },
   actions: {
     navigate: (url: string) => ipcRenderer.invoke('actions:navigate', url),
-    findAndClick: (url: string, args: any) => ipcRenderer.invoke('actions:findAndClick', { url, args }),
+    findAndClick: (url: string, args: any) =>
+      ipcRenderer.invoke('actions:findAndClick', { url, args }),
     typeInto: (url: string, args: any) => ipcRenderer.invoke('actions:typeInto', { url, args }),
     waitFor: (url: string, args: any) => ipcRenderer.invoke('actions:waitFor', { url, args }),
     scroll: (url: string, args: any) => ipcRenderer.invoke('actions:scroll', { url, args }),
@@ -71,7 +79,8 @@ const agentApi = {
   onStep: (cb: (s: any) => void) => ipcRenderer.on('agent:step', (_e, s) => cb(s)),
   runs: () => ipcRenderer.invoke('agent:runs'),
   getRun: (id: string) => ipcRenderer.invoke('agent:run:get', id),
-  executeSkill: (skill: string, args: any) => ipcRenderer.invoke('agent:executeSkill', { skill, args }),
+  executeSkill: (skill: string, args: any) =>
+    ipcRenderer.invoke('agent:executeSkill', { skill, args }),
 };
 
 const recorderApi = {
@@ -84,7 +93,8 @@ const graphApi = {
   add: (n: any, edges: any) => ipcRenderer.invoke('graph:add', n, edges),
   get: (key: string) => ipcRenderer.invoke('graph:get', key),
   all: () => ipcRenderer.invoke('graph:all'),
-  onAuto: (cb: (payload: any) => void) => ipcRenderer.on('graph:auto', (_e, payload) => cb(payload)),
+  onAuto: (cb: (payload: any) => void) =>
+    ipcRenderer.on('graph:auto', (_e, payload) => cb(payload)),
 };
 
 const ledgerApi = {
@@ -95,16 +105,19 @@ const ledgerApi = {
 
 const uiApi = {
   setRightDock: (px: number) => ipcRenderer.invoke('ui:setRightDock', px),
+  setChromeOffsets: (
+    offsets: Partial<{ top: number; bottom: number; left: number; right: number }>
+  ) => ipcRenderer.invoke('ui:setChromeOffsets', offsets),
 };
 
 const historyApi = {
   list: () => ipcRenderer.invoke('history:list'),
   clear: () => ipcRenderer.invoke('history:clear'),
-  onUpdated: (cb: () => void) => ipcRenderer.on('history:updated', (_e) => cb()),
+  onUpdated: (cb: () => void) => ipcRenderer.on('history:updated', _e => cb()),
 };
 
 const downloadsApi = {
-  onUpdated: (cb: () => void) => ipcRenderer.on('downloads:updated', (_e) => cb()),
+  onUpdated: (cb: () => void) => ipcRenderer.on('downloads:updated', _e => cb()),
 };
 
 const researchApi = {
@@ -212,5 +225,3 @@ if (window.ipc && typeof window.ipc.invoke === 'function') {
     window.dispatchEvent(new CustomEvent('ipc:ready'));
   }, 0);
 }
-
-

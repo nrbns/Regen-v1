@@ -1,0 +1,12 @@
+node_modules
+dist-web
+dist-electron
+dist-release
+storybook-static
+coverage
+*.log
+.DS_Store
+*.snap
+playwright-report
+test-results
+

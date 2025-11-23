@@ -31,7 +31,7 @@ async function checkApiHealth() {
 
 async function testEndpoints() {
   console.log('\n📋 Testing Endpoint Availability...\n');
-  
+
   const endpoints = [
     { path: '/', method: 'GET', name: 'Root' },
     { path: '/extract/extract', method: 'POST', name: 'Extract' },
@@ -49,7 +49,7 @@ async function testEndpoints() {
         headers: { 'Content-Type': 'application/json' },
         body: endpoint.method === 'POST' ? JSON.stringify({}) : undefined,
       });
-      
+
       // 404/405 is expected for some endpoints without proper params
       // 422 means endpoint exists but validation failed (expected)
       if (response.status === 404 || response.status === 405) {
@@ -70,9 +70,9 @@ async function testEndpoints() {
 async function main() {
   console.log('🧪 API Health Check\n');
   console.log(`API URL: ${API_URL}\n`);
-  
+
   const isHealthy = await checkApiHealth();
-  
+
   if (isHealthy) {
     await testEndpoints();
     console.log('\n✅ API server is ready for testing');
@@ -87,8 +87,3 @@ async function main() {
 }
 
 main().catch(console.error);
-
-
-
-
-

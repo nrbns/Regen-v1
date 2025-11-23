@@ -5,7 +5,6 @@
 
 // @ts-nocheck
 
-
 export interface TabUpdate {
   id: string;
   title: string;
@@ -55,7 +54,12 @@ export interface ProfileInfo {
   description?: string;
 }
 
-export type ProfilePolicyAction = 'downloads' | 'private-window' | 'ghost-tab' | 'screenshot' | 'clip';
+export type ProfilePolicyAction =
+  | 'downloads'
+  | 'private-window'
+  | 'ghost-tab'
+  | 'screenshot'
+  | 'clip';
 
 export interface ProfilePolicyBlockedEvent {
   profileId: string;
@@ -114,7 +118,15 @@ export interface DownloadUpdate {
   id: string;
   url: string;
   filename: string;
-  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'paused' | 'blocked' | 'verifying';
+  status:
+    | 'pending'
+    | 'downloading'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'paused'
+    | 'blocked'
+    | 'verifying';
   progress?: number;
   receivedBytes?: number;
   totalBytes?: number;
@@ -203,6 +215,18 @@ export interface EfficiencyAlert {
   actions: EfficiencyAlertAction[];
 }
 
+export interface GameSandboxWarning {
+  sandboxId: string;
+  gameId: string;
+  warnings: Array<{ severity: 'warning' | 'critical'; message: string }>;
+  metrics?: {
+    fps?: number;
+    droppedFrames?: number;
+    memoryMb?: number;
+    cpuPercent?: number;
+  };
+}
+
 export interface ShadowVisitedEntry {
   url: string;
   title: string;
@@ -264,7 +288,7 @@ class IPCEventBus {
         this.ipcListeners.set(event, new WeakSet());
       }
       const ipcCallbacks = this.ipcListeners.get(event)!;
-      
+
       // Only register the channel once globally, not per callback
       if (!this.registeredChannels.has(event)) {
         this.registeredChannels.add(event);
@@ -286,7 +310,7 @@ class IPCEventBus {
         // Store the handler in our Map instead of on window.ipc
         this.ipcHandlers.set(event, globalHandler);
       }
-      
+
       // Track this callback (using WeakSet, so it's automatically cleaned up)
       ipcCallbacks.add(callback);
     }
@@ -311,7 +335,7 @@ class IPCEventBus {
     // Return unsubscribe function
     return () => {
       this.listeners.get(event)?.delete(callback);
-      
+
       // Remove custom event listener
       const customHandlers = this.customEventHandlers.get(event);
       if (customHandlers?.has(callback)) {
@@ -332,14 +356,14 @@ class IPCEventBus {
     // Note: IPC listeners are managed globally, not per-callback
     // They will be cleaned up when the channel is no longer needed
   }
-  
+
   // Cleanup all listeners for an event (call when component unmounts or event is no longer needed)
   removeAllListeners(event: string) {
     this.listeners.delete(event);
     this.ipcListeners.delete(event);
     this.customEventHandlers.delete(event);
     this.registeredChannels.delete(event);
-    
+
     // Remove global IPC handler if it exists
     if (window.ipc && (window.ipc as any).removeListener) {
       const handler = this.ipcHandlers.get(event);
@@ -359,7 +383,7 @@ if (typeof window !== 'undefined') {
   if (window.ipc && (window.ipc as any).on) {
     const tabUpdateHandler = (_event: any, tabs: any) => {
       // Handle both direct data and event+data formats
-      const tabList = Array.isArray(tabs) ? tabs : (Array.isArray(_event) ? _event : []);
+      const tabList = Array.isArray(tabs) ? tabs : Array.isArray(_event) ? _event : [];
       ipcEvents.emit('tabs:updated', tabList);
     };
     const tabProgressHandler = (_event: any, data: any) => {
@@ -387,7 +411,10 @@ if (typeof window !== 'undefined') {
         (window.ipc as any).removeListener('tabs:progress', tabProgressHandler);
         (window.ipc as any).removeListener('ob://ipc/v1/tabs:progress', tabProgressHandler);
         (window.ipc as any).removeListener('tabs:navigation-state', navigationStateHandler);
-        (window.ipc as any).removeListener('ob://ipc/v1/tabs:navigation-state', navigationStateHandler);
+        (window.ipc as any).removeListener(
+          'ob://ipc/v1/tabs:navigation-state',
+          navigationStateHandler
+        );
       }
     };
 
@@ -464,20 +491,30 @@ if (typeof window !== 'undefined') {
     ipcEvents.emit('app:fullscreen-changed', e.detail);
   }) as EventListener);
 
+  window.addEventListener('games:sandbox:warning', ((e: CustomEvent<GameSandboxWarning>) => {
+    ipcEvents.emit('games:sandbox:warning', e.detail);
+  }) as EventListener);
+
   // Also listen via IPC if available
   if (window.ipc && (window.ipc as any).on) {
     const fullscreenHandler = (data: { fullscreen: boolean }) => {
       ipcEvents.emit('app:fullscreen-changed', data);
     };
     (window.ipc as any).on('app:fullscreen-changed', fullscreenHandler);
-    
+
+    const sandboxWarningHandler = (_event: any, data: GameSandboxWarning) => {
+      ipcEvents.emit('games:sandbox:warning', data);
+    };
+    (window.ipc as any).on('games:sandbox:warning', sandboxWarningHandler);
+
     // Cleanup handler for fullscreen events
     const cleanupFullscreen = () => {
       if (window.ipc && (window.ipc as any).removeListener) {
         (window.ipc as any).removeListener('app:fullscreen-changed', fullscreenHandler);
+        (window.ipc as any).removeListener('games:sandbox:warning', sandboxWarningHandler);
       }
     };
-    
+
     // Use pagehide for cleanup (modern alternative to unload)
     if ('onpagehide' in window) {
       window.addEventListener('pagehide', cleanupFullscreen, { once: true });
@@ -488,4 +525,3 @@ if (typeof window !== 'undefined') {
 // React hooks for easy component integration
 // Note: This hook must be imported and used in React components
 // The actual hook implementation is in a separate file to avoid require() in browser
-

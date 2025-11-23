@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Tab } from '../../state/tabsStore';
 import { isElectronRuntime } from '../../lib/env';
 import { OmniDesk } from '../OmniDesk';
+import { ipc } from '../../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
@@ -16,19 +18,19 @@ const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://',
 
 function isInternalUrl(url?: string | null): boolean {
   if (!url) return true;
-  return INTERNAL_PROTOCOLS.some((prefix) => url.startsWith(prefix));
+  return INTERNAL_PROTOCOLS.some(prefix => url.startsWith(prefix));
 }
 
 export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const webviewRef = useRef<any>(null);
+  // const webviewRef = useRef<any>(null); // Not used - BrowserView managed by main process
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isElectron = isElectronRuntime();
   const [loading, setLoading] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
-  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const retryCountRef = useRef(0);
+  // const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Not used - BrowserView managed by main process
+  // const retryCountRef = useRef(0); // Not used - BrowserView managed by main process
 
   const targetUrl = useMemo(() => {
     const url = tab?.url;
@@ -39,11 +41,18 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return url;
   }, [tab?.url]);
 
+  // In Electron, BrowserView is managed by main process, so we don't need webview event handlers
+  // The main process handles all BrowserView lifecycle events
   useEffect(() => {
-    if (!isElectron || !webviewRef.current || !targetUrl) {
+    if (!isElectron || !targetUrl) {
       return;
     }
 
+    // BrowserView is managed by electron/services/tabs.ts
+    // No need for webview event handlers here
+    return;
+
+    /* Legacy webview code - kept for reference but not used
     const webviewElement = webviewRef.current as Electron.WebviewTag;
     const LOADING_TIMEOUT_MS = 30000; // 30 seconds
     // const MAX_RETRIES = 2; // Reserved for future use
@@ -140,6 +149,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       webviewElement.removeEventListener('dom-ready', handleDomReady);
       webviewElement.removeEventListener('did-fail-load', handleFailLoad);
     };
+    */
   }, [isElectron, targetUrl]);
 
   useEffect(() => {
@@ -184,7 +194,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // Set loading timeout
     timeoutId = setTimeout(() => {
       setLoading(false);
-      setFailedMessage('This page is taking too long to load. Check your connection or try refreshing.');
+      setFailedMessage(
+        'This page is taking too long to load. Check your connection or try refreshing.'
+      );
       timeoutId = null;
     }, LOADING_TIMEOUT_MS);
 
@@ -218,18 +230,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       return;
     }
 
+    // In Electron, BrowserView navigation is handled by electron/services/tabs.ts
+    // We don't need to update webview src here
     if (isElectron) {
-      const webviewElement = webviewRef.current as Electron.WebviewTag | null;
-      if (!webviewElement) return;
-      try {
-        const currentUrl = webviewElement.getURL?.();
-        if (currentUrl !== targetUrl) {
-          setLoading(true);
-          webviewElement.setAttribute('src', targetUrl);
-        }
-      } catch (error) {
-        console.warn('[TabContentSurface] Failed to update webview src', error);
-      }
+      // BrowserView is managed by main process
+      return;
     } else {
       const iframe = iframeRef.current;
       if (!iframe) return;
@@ -257,7 +262,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        style={{ 
+        style={{
           position: 'absolute',
           inset: 0,
           zIndex: isInactive ? 0 : 1,
@@ -292,29 +297,13 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         zIndex: isInactive ? 0 : 1,
       }}
     >
-      {isElectron ? (
-        <webview
-          ref={webviewRef}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100%',
-            height: '100%',
-            display: isInactive ? 'none' : 'block',
-            border: 'none',
-          }}
-          src={targetUrl}
-          allowpopups="true"
-          autosize="on"
-          disablewebsecurity="false"
-          aria-label={tab?.title ? `Content for ${tab.title}` : 'Tab content'}
-        />
-      ) : (
+      {/* In Electron, BrowserView is managed by main process, so we don't render webview tag here */}
+      {/* The BrowserView is positioned by electron/services/tabs.ts */}
+      {/* For non-Electron builds, use iframe fallback */}
+      {!isElectron && (
         <iframe
           ref={iframeRef}
+          className="w-full h-full border-0"
           style={{
             position: 'absolute',
             top: 0,
@@ -404,11 +393,14 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 <button
                   type="button"
                   onClick={() => {
-                    if (targetUrl && isElectron && webviewRef.current) {
-                      const webviewElement = webviewRef.current as Electron.WebviewTag;
+                    if (targetUrl && isElectron) {
+                      // In Electron, reload is handled by main process via IPC
+                      const activeTab = useTabsStore.getState().activeId;
+                      if (activeTab) {
+                        ipc.tabs.reload({ id: activeTab }).catch(console.error);
+                      }
                       setFailedMessage(null);
                       setLoading(true);
-                      webviewElement.reload();
                     } else if (targetUrl && !isElectron && iframeRef.current) {
                       setFailedMessage(null);
                       setLoading(true);
@@ -462,4 +454,3 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     </motion.div>
   );
 }
-

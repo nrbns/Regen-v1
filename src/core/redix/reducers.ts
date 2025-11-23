@@ -3,14 +3,14 @@
  * Deterministic state reducers for common Redix operations
  */
 
-import { RedixState, RedixEvent, Reducer } from './event-log';
+import { RedixState, RedixEvent, Reducer, registerReducer } from './event-log';
 
 /**
  * Tab state reducer
  */
 export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): RedixState => {
   const tabs = state.tabs || {};
-  
+
   switch (event.type) {
     case 'redix:tab:suspend':
       return {
@@ -24,7 +24,7 @@ export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): Redix
           },
         },
       };
-    
+
     case 'redix:tab:resume':
       return {
         ...state,
@@ -37,7 +37,7 @@ export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): Redix
           },
         },
       };
-    
+
     case 'redix:tab:activate':
       return {
         ...state,
@@ -51,7 +51,7 @@ export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): Redix
         },
         activeTabId: event.payload.tabId,
       };
-    
+
     case 'redix:tab:memory':
       return {
         ...state,
@@ -64,7 +64,7 @@ export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): Redix
           },
         },
       };
-    
+
     default:
       return state;
   }
@@ -75,7 +75,7 @@ export const tabReducer: Reducer = (state: RedixState, event: RedixEvent): Redix
  */
 export const performanceReducer: Reducer = (state: RedixState, event: RedixEvent): RedixState => {
   const metrics = state.metrics || {};
-  
+
   switch (event.type) {
     case 'redix:metrics:update':
       return {
@@ -88,7 +88,7 @@ export const performanceReducer: Reducer = (state: RedixState, event: RedixEvent
           updatedAt: event.timestamp,
         },
       };
-    
+
     case 'redix:metrics:threshold':
       return {
         ...state,
@@ -101,7 +101,7 @@ export const performanceReducer: Reducer = (state: RedixState, event: RedixEvent
           },
         },
       };
-    
+
     default:
       return state;
   }
@@ -118,7 +118,7 @@ export const policyReducer: Reducer = (state: RedixState, event: RedixEvent): Re
         policy: event.payload,
         policyUpdatedAt: event.timestamp,
       };
-    
+
     case 'redix:policy:mode':
       return {
         ...state,
@@ -126,7 +126,7 @@ export const policyReducer: Reducer = (state: RedixState, event: RedixEvent): Re
         policy: event.payload.policy,
         policyUpdatedAt: event.timestamp,
       };
-    
+
     default:
       return state;
   }
@@ -135,7 +135,10 @@ export const policyReducer: Reducer = (state: RedixState, event: RedixEvent): Re
 /**
  * AI-triggered optimization reducer
  */
-export const aiOptimizationReducer: Reducer = (state: RedixState, event: RedixEvent): RedixState => {
+export const aiOptimizationReducer: Reducer = (
+  state: RedixState,
+  event: RedixEvent
+): RedixState => {
   switch (event.type) {
     case 'redix:ai:optimize':
       return {
@@ -151,7 +154,7 @@ export const aiOptimizationReducer: Reducer = (state: RedixState, event: RedixEv
         },
         lastAIOptimization: event.timestamp,
       };
-    
+
     default:
       return state;
   }
@@ -162,7 +165,7 @@ export const aiOptimizationReducer: Reducer = (state: RedixState, event: RedixEv
  */
 export const resourceReducer: Reducer = (state: RedixState, event: RedixEvent): RedixState => {
   const resources = state.resources || {};
-  
+
   switch (event.type) {
     case 'redix:resource:allocate':
       return {
@@ -177,7 +180,7 @@ export const resourceReducer: Reducer = (state: RedixState, event: RedixEvent): 
           },
         },
       };
-    
+
     case 'redix:resource:release':
       return {
         ...state,
@@ -190,7 +193,7 @@ export const resourceReducer: Reducer = (state: RedixState, event: RedixEvent): 
           },
         },
       };
-    
+
     default:
       return state;
   }
@@ -200,12 +203,9 @@ export const resourceReducer: Reducer = (state: RedixState, event: RedixEvent): 
  * Register all default reducers
  */
 export function registerDefaultReducers(): void {
-  const { registerReducer } = require('./event-log');
-  
   registerReducer('tab', tabReducer);
   registerReducer('performance', performanceReducer);
   registerReducer('policy', policyReducer);
   registerReducer('ai', aiOptimizationReducer);
   registerReducer('resource', resourceReducer);
 }
-

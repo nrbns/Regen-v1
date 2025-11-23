@@ -1,6 +1,6 @@
 /**
  * CookieConsent - GDPR-Compliant Cookie Consent Banner
- * 
+ *
  * Displays cookie consent options and stores user preferences.
  * Complies with GDPR requirements for cookie consent.
  */
@@ -93,7 +93,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
 
   const toggleCategory = (category: CookieCategory) => {
     if (category === 'essential') return; // Can't disable essential
-    setPreferences((prev) => ({
+    setPreferences(prev => ({
       ...prev,
       [category]: !prev[category],
     }));
@@ -141,9 +141,10 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
         initial={{ opacity: 0, y: 100 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 100 }}
-        className="fixed bottom-0 left-0 right-0 z-[10001] p-4 pointer-events-none"
+        className="fixed bottom-0 left-0 right-0 z-[10001] p-4"
+        style={{ pointerEvents: 'auto' }}
       >
-        <div className="max-w-4xl mx-auto pointer-events-auto">
+        <div className="max-w-4xl mx-auto">
           <motion.div
             initial={{ scale: 0.95 }}
             animate={{ scale: 1 }}
@@ -179,14 +180,15 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     <div className="flex items-start gap-2">
                       <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-blue-200">
-                        <strong>Your Privacy Matters:</strong> OmniBrowser stores data locally on your device by default. 
-                        Cookies and similar technologies are used only for essential functionality and optional analytics. 
-                        You can change these preferences at any time in Settings.
+                        <strong>Your Privacy Matters:</strong> OmniBrowser stores data locally on
+                        your device by default. Cookies and similar technologies are used only for
+                        essential functionality and optional analytics. You can change these
+                        preferences at any time in Settings.
                       </p>
                     </div>
                   </div>
 
-                  {cookieCategories.map((category) => (
+                  {cookieCategories.map(category => (
                     <div
                       key={category.id}
                       className={`p-4 rounded-lg border ${
@@ -243,8 +245,8 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     <div className="flex items-start gap-2">
                       <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
                       <div className="text-sm text-yellow-200">
-                        <strong>Note:</strong> Disabling non-essential cookies may limit some features. 
-                        Essential cookies are required for the app to function properly.
+                        <strong>Note:</strong> Disabling non-essential cookies may limit some
+                        features. Essential cookies are required for the app to function properly.
                       </div>
                     </div>
                   </div>
@@ -252,8 +254,8 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
               ) : (
                 <div className="space-y-4">
                   <p className="text-gray-300">
-                    We use cookies to provide essential functionality and optional analytics. 
-                    Your data is stored locally on your device by default.
+                    We use cookies to provide essential functionality and optional analytics. Your
+                    data is stored locally on your device by default.
                   </p>
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <Info size={14} />
@@ -284,6 +286,8 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                   <button
                     onClick={handleAcceptSelected}
                     className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                    type="button"
                   >
                     <Check size={16} />
                     <span>Save Preferences</span>
@@ -292,6 +296,8 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                   <button
                     onClick={handleAcceptAll}
                     className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                    type="button"
                   >
                     <Check size={16} />
                     <span>Accept All</span>
@@ -376,4 +382,3 @@ export function isCookieCategoryEnabled(category: CookieCategory): boolean {
   if (!prefs) return category === 'essential'; // Default to essential only
   return prefs[category] ?? false;
 }
-

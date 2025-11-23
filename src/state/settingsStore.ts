@@ -17,6 +17,11 @@ type PrivacySettings = {
   doNotTrack: boolean;
   clearOnExit: boolean;
   blockThirdPartyCookies: boolean;
+  safeBrowsing: boolean;
+  trackerProtection: boolean;
+  adBlockEnabled: boolean;
+  malwareProtection: boolean;
+  autoUpdateFilters: boolean;
 };
 
 type AppearanceSettings = {
@@ -24,6 +29,7 @@ type AppearanceSettings = {
   compactUI: boolean;
   showTabNumbers: boolean;
   accent: 'blue' | 'purple' | 'emerald';
+  chromeNewTabPage?: boolean; // Enable Chrome-style new tab page
 };
 
 type AccountSettings = {
@@ -31,6 +37,7 @@ type AccountSettings = {
   email: string;
   workspace: string;
   avatarUrl?: string;
+  avatarColor?: string; // Tier 2: Avatar color for profile
   lastSyncedAt?: number;
 };
 
@@ -66,18 +73,25 @@ const createDefaults = (): SettingsData => ({
     doNotTrack: true,
     clearOnExit: false,
     blockThirdPartyCookies: true,
+    safeBrowsing: true,
+    trackerProtection: true,
+    adBlockEnabled: true,
+    malwareProtection: true,
+    autoUpdateFilters: true,
   },
   appearance: {
     theme: 'dark',
     compactUI: false,
     showTabNumbers: true,
     accent: 'purple',
+    chromeNewTabPage: true, // Chrome-style new tab page is now the default UI
   },
   account: {
     displayName: 'Explorer',
     email: 'you@regen.app',
     workspace: 'Personal',
     avatarUrl: undefined,
+    avatarColor: '#8b5cf6', // Default purple
     lastSyncedAt: Date.now(),
   },
   videoDownloadConsent: false,
@@ -97,16 +111,13 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, _get) => ({
       ...createDefaults(),
-      setConsent: (value) => set({ videoDownloadConsent: value }),
-      setSearchEngine: (searchEngine) => set({ searchEngine }),
-      updateGeneral: (partial) =>
-        set((state) => ({ general: { ...state.general, ...partial } })),
-      updatePrivacy: (partial) =>
-        set((state) => ({ privacy: { ...state.privacy, ...partial } })),
-      updateAppearance: (partial) =>
-        set((state) => ({ appearance: { ...state.appearance, ...partial } })),
-      updateAccount: (partial) =>
-        set((state) => ({ account: { ...state.account, ...partial } })),
+      setConsent: value => set({ videoDownloadConsent: value }),
+      setSearchEngine: searchEngine => set({ searchEngine }),
+      updateGeneral: partial => set(state => ({ general: { ...state.general, ...partial } })),
+      updatePrivacy: partial => set(state => ({ privacy: { ...state.privacy, ...partial } })),
+      updateAppearance: partial =>
+        set(state => ({ appearance: { ...state.appearance, ...partial } })),
+      updateAccount: partial => set(state => ({ account: { ...state.account, ...partial } })),
       resetSettings: () => {
         const defaults = createDefaults();
         set(() => defaults);
@@ -115,7 +126,7 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'regen:settings-v1',
       version: 1,
-      partialize: (state) => {
+      partialize: state => {
         const persisted: Partial<SettingsData> = {};
         for (const key of dataKeys) {
           // @ts-ignore - dynamic assignment
@@ -127,6 +138,6 @@ export const useSettingsStore = create<SettingsState>()(
         ...currentState,
         ...(persistedState as Partial<SettingsData>),
       }),
-    },
-  ),
+    }
+  )
 );

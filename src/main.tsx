@@ -4,12 +4,14 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
+import './styles/mode-themes.css';
 import './lib/battery';
 import { isDevEnv } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
 import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
 import { ipc } from './lib/ipc-typed';
+import { ThemeProvider } from './ui/theme';
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -18,133 +20,108 @@ if (isDevEnv()) {
   });
 }
 
-// Error boundary with better UX
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; error?: Error; errorInfo?: string }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
+// Tier 2: Enhanced Error Boundary
+import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
+import { startSnapshotting } from './core/recovery';
 
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
+// Tier 3: Initialize services
+import { crashReporter } from './core/crash-reporting';
+import { authService } from './services/auth';
+import { syncService } from './services/sync';
+import { pluginRegistry } from './core/plugins/registry';
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('React Error:', error, errorInfo);
-    this.setState({ errorInfo: errorInfo.componentStack });
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ 
-          padding: '40px', 
-          color: 'white', 
-          backgroundColor: '#1A1D28', 
-          minHeight: '100vh',
-          fontFamily: 'system-ui, -apple-system, sans-serif'
-        }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <h1 style={{ color: '#ef4444', fontSize: '32px', marginBottom: '16px' }}>
-              ⚠️ Application Error
-            </h1>
-            <p style={{ color: '#94a3b8', marginBottom: '24px', fontSize: '16px' }}>
-              Something went wrong while loading the application. The error details are below.
-            </p>
-            <div style={{
-              backgroundColor: '#0f172a',
-              borderRadius: '8px',
-              padding: '20px',
-              marginBottom: '24px',
-              border: '1px solid #1e293b'
-            }}>
-              <pre style={{ 
-                color: '#f1f5f9', 
-                whiteSpace: 'pre-wrap', 
-                fontSize: '14px',
-                overflow: 'auto',
-                maxHeight: '400px'
-              }}>
-                {this.state.error?.toString()}
-                {'\n\n'}
-                {this.state.error?.stack}
-                {this.state.errorInfo && `\n\nComponent Stack:\n${this.state.errorInfo}`}
-              </pre>
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button 
+// Lazy load components to avoid loading everything at once
+// Add error handling to prevent blank pages on import failures
+const lazyWithErrorHandling = (importFn: () => Promise<any>, componentName: string) => {
+  return React.lazy(() =>
+    importFn().catch(error => {
+      console.error(`Failed to load ${componentName}:`, error);
+      // Return a fallback component that shows an error
+      return {
+        default: () => (
+          <div className="flex items-center justify-center h-full w-full p-4">
+            <div className="text-center">
+              <div className="text-red-400 text-lg font-semibold mb-2">
+                Failed to load {componentName}
+              </div>
+              <div className="text-gray-400 text-sm">{String(error)}</div>
+              <button
                 onClick={() => window.location.reload()}
-                style={{ 
-                  padding: '12px 24px', 
-                  backgroundColor: '#3b82f6', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '500'
-                }}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
-                🔄 Reload Application
-              </button>
-              <button 
-                onClick={() => this.setState({ hasError: false, error: undefined })}
-                style={{ 
-                  padding: '12px 24px', 
-                  backgroundColor: '#475569', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '16px'
-                }}
-              >
-                Try Again
+                Reload Page
               </button>
             </div>
           </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+        ),
+      };
+    })
+  );
+};
 
-// Lazy load components to avoid loading everything at once
-const AppShell = React.lazy(() => import('./components/layout/AppShell').then(m => ({ default: m.AppShell })));
-const Home = React.lazy(() => import('./routes/Home'));
-const Settings = React.lazy(() => import('./routes/Settings'));
-const Workspace = React.lazy(() => import('./routes/Workspace'));
-const AgentConsole = React.lazy(() => import('./routes/AgentConsole'));
-const Runs = React.lazy(() => import('./routes/Runs'));
-const Replay = React.lazy(() => import('./routes/Replay'));
-const PlaybookForge = React.lazy(() => import('./routes/PlaybookForge'));
-const HistoryPage = React.lazy(() => import('./routes/History'));
-const DownloadsPage = React.lazy(() => import('./routes/Downloads'));
-const WatchersPage = React.lazy(() => import('./routes/Watchers'));
-const VideoPage = React.lazy(() => import('./routes/Video'));
-const ConsentTimelinePage = React.lazy(() => import('./routes/ConsentTimeline'));
+const AppShell = lazyWithErrorHandling(
+  () => import('./components/layout/AppShell').then(m => ({ default: m.AppShell })),
+  'AppShell'
+);
+const Home = lazyWithErrorHandling(() => import('./routes/Home'), 'Home');
+const Settings = lazyWithErrorHandling(() => import('./routes/Settings'), 'Settings');
+const Workspace = lazyWithErrorHandling(() => import('./routes/Workspace'), 'Workspace');
+const AgentConsole = lazyWithErrorHandling(() => import('./routes/AgentConsole'), 'AgentConsole');
+const Runs = lazyWithErrorHandling(() => import('./routes/Runs'), 'Runs');
+const Replay = lazyWithErrorHandling(() => import('./routes/Replay'), 'Replay');
+const PlaybookForge = lazyWithErrorHandling(
+  () => import('./routes/PlaybookForge'),
+  'PlaybookForge'
+);
+const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
+const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
+const WatchersPage = lazyWithErrorHandling(() => import('./routes/Watchers'), 'WatchersPage');
+const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPage');
+const ConsentTimelinePage = lazyWithErrorHandling(
+  () => import('./routes/ConsentTimeline'),
+  'ConsentTimelinePage'
+);
 
-// Loading component
+// Loading component - ensure it's always visible but doesn't block modals
 function LoadingFallback() {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-      width: '100vw',
-      backgroundColor: '#1A1D28',
-      color: '#94a3b8',
-      fontFamily: 'system-ui, sans-serif'
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: '#1A1D28',
+        color: '#94a3b8',
+        fontFamily: 'system-ui, sans-serif',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        zIndex: 1000, // Lower than modals (10001-10002) so it doesn't block them
+        pointerEvents: 'auto', // Allow clicks to pass through to modals if they're above
+      }}
+    >
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌐</div>
         <div style={{ fontSize: '16px' }}>Initializing...</div>
+        <div
+          style={{
+            marginTop: '16px',
+            fontSize: '12px',
+            color: '#64748b',
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }}
+        >
+          Loading application...
+        </div>
       </div>
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -160,104 +137,104 @@ const router = createBrowserRouter(
         </Suspense>
       ),
       children: [
-        { 
-          index: true, 
+        {
+          index: true,
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Home />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'settings', 
+        {
+          path: 'settings',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Settings />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'w/:id', 
+        {
+          path: 'w/:id',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Workspace />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'agent', 
+        {
+          path: 'agent',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <AgentConsole />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'runs', 
+        {
+          path: 'runs',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Runs />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'replay/:id', 
+        {
+          path: 'replay/:id',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <Replay />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'playbooks', 
+        {
+          path: 'playbooks',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <PlaybookForge />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'history', 
+        {
+          path: 'history',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <HistoryPage />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'downloads', 
+        {
+          path: 'downloads',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <DownloadsPage />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'watchers', 
+        {
+          path: 'watchers',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <WatchersPage />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'video', 
+        {
+          path: 'video',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <VideoPage />
             </Suspense>
-          ) 
+          ),
         },
-        { 
-          path: 'consent-timeline', 
+        {
+          path: 'consent-timeline',
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <ConsentTimelinePage />
             </Suspense>
-          ) 
+          ),
         },
-      ]
-    }
+      ],
+    },
   ],
   {
     future: {
@@ -280,64 +257,114 @@ if (!rootElement) {
   throw new Error('Root element not found');
 }
 
+// Ensure root element is visible and properly initialized
+rootElement.style.display = 'block';
+rootElement.style.visibility = 'visible';
+rootElement.style.opacity = '1';
+if (!rootElement.hasAttribute('data-initialized')) {
+  rootElement.setAttribute('data-initialized', 'true');
+  if (isDevEnv()) {
+    console.log('[Main] Root element initialized:', rootElement);
+  }
+}
+
 try {
   if (isDevEnv()) {
     console.log('%c🚀 Mounting OmniBrowser...', 'color:#34d399;font-weight:bold;');
+    console.log('[Main] Root element:', rootElement);
+    console.log('[Main] Document ready state:', document.readyState);
   }
 
   const rootKey = '__OMNIBROWSER_REACT_ROOT__';
   const existingRoot = (window as any)[rootKey];
+
+  if (existingRoot) {
+    if (isDevEnv()) {
+      console.log('[Main] Reusing existing React root');
+    }
+  }
+
   const root = existingRoot || ReactDOM.createRoot(rootElement);
-  
+
   // Setup research clipper handlers
   setupClipperHandlers();
 
-syncRendererTelemetry().catch((error) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
-  }
-});
+  // Tier 2: Track app open
+  import('./services/analytics').then(({ track }) => {
+    track('app_open');
+  });
 
-syncAnalyticsOptIn()
-  .then(() => {
-    trackPageView(window.location.pathname);
-  })
-  .catch((error) => {
+  // Tier 3: Initialize services
+  crashReporter.initialize();
+  authService.initialize().then(() => {
+    if (authService.getState().isAuthenticated) {
+      syncService.startAutoSync();
+    }
+  });
+  pluginRegistry.restorePluginState();
+
+  syncRendererTelemetry().catch(error => {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('[Monitoring] Failed to initialize analytics', error);
+      console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
     }
   });
 
-if (typeof performance !== 'undefined' && performance.now) {
-  const bootMs = Math.round(performance.now());
-  void ipc.telemetry.trackPerf('renderer_boot_ms', bootMs);
-}
+  syncAnalyticsOptIn()
+    .then(() => {
+      trackPageView(window.location.pathname);
+    })
+    .catch(error => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Monitoring] Failed to initialize analytics', error);
+      }
+    });
+
+  if (typeof performance !== 'undefined' && performance.now) {
+    const bootMs = Math.round(performance.now());
+    void ipc.telemetry.trackPerf('renderer_boot_ms', bootMs);
+  }
 
   if (!existingRoot) {
     (window as any)[rootKey] = root;
   }
 
+  // Tier 2: Start session snapshotting
+  startSnapshotting();
+
+  // Ensure root element is visible before rendering (redundant but safe)
+  if (rootElement) {
+    rootElement.style.display = 'block';
+    rootElement.style.visibility = 'visible';
+    rootElement.style.opacity = '1';
+  }
+
+  if (isDevEnv()) {
+    console.log('[Main] Rendering React app...');
+  }
+
   root.render(
     <React.StrictMode>
-      <ErrorBoundary>
-        <Suspense fallback={<LoadingFallback />}>
-          <RouterProvider
-            router={router}
-            future={{
-              v7_startTransition: true,
-            }}
-          />
-        </Suspense>
-      </ErrorBoundary>
+      <ThemeProvider>
+        <GlobalErrorBoundary>
+          <Suspense fallback={<LoadingFallback />}>
+            <RouterProvider
+              router={router}
+              future={{
+                v7_startTransition: true,
+              }}
+            />
+          </Suspense>
+        </GlobalErrorBoundary>
+      </ThemeProvider>
     </React.StrictMode>
   );
-  
+
   if (isDevEnv()) {
     console.log('%c✅ OmniBrowser mounted successfully', 'color:#60a5fa;font-weight:bold;');
   }
 } catch (error) {
   console.error('❌ Failed to mount application:', error);
-  
+
   // Fallback UI if React fails to mount
   if (rootElement) {
     rootElement.innerHTML = `

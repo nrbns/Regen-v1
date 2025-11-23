@@ -45,7 +45,7 @@ class SuperMemoryDB {
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
         const oldVersion = event.oldVersion || 0;
 
@@ -70,12 +70,18 @@ class SuperMemoryDB {
             // Note: Vector similarity search would require a vector index (not natively supported in IndexedDB)
             // For now, we'll do in-memory similarity search after loading vectors
           }
-          
-          // Add pinned index to events store
-          const eventsStore = db.transaction(['events'], 'readwrite').objectStore('events');
-          if (!eventsStore.indexNames.contains('pinned')) {
-            // Note: IndexedDB doesn't support nested index creation in upgrade
-            // We'll filter pinned items in application code
+
+          // Add pinned index to events store using the existing upgrade transaction
+          if (db.objectStoreNames.contains('events')) {
+            const upgradeTx = (event.target as IDBOpenDBRequest).transaction;
+            if (upgradeTx) {
+              const eventsStore = upgradeTx.objectStore('events');
+              if (!eventsStore.indexNames.contains('pinned')) {
+                // IndexedDB requires indexes to be created during the upgrade transaction.
+                // We intentionally skip creating a new index to avoid schema churn;
+                // pinned filtering is handled in application code.
+              }
+            }
           }
         }
       };
@@ -104,7 +110,7 @@ class SuperMemoryDB {
     const db = await this.getDB();
     const transaction = db.transaction(['events'], 'readwrite');
     const store = transaction.objectStore('events');
-    
+
     return new Promise((resolve, reject) => {
       const request = store.put(event);
       request.onsuccess = () => resolve();
@@ -115,11 +121,14 @@ class SuperMemoryDB {
   /**
    * Update event metadata (pin, tags, etc.)
    */
-  async updateEventMetadata(eventId: string, updates: Partial<MemoryEvent['metadata']>): Promise<void> {
+  async updateEventMetadata(
+    eventId: string,
+    updates: Partial<MemoryEvent['metadata']>
+  ): Promise<void> {
     const db = await this.getDB();
     const transaction = db.transaction(['events'], 'readwrite');
     const store = transaction.objectStore('events');
-    
+
     return new Promise((resolve, reject) => {
       const getRequest = store.get(eventId);
       getRequest.onsuccess = () => {
@@ -128,13 +137,13 @@ class SuperMemoryDB {
           reject(new Error('Event not found'));
           return;
         }
-        
+
         // Merge metadata updates
         event.metadata = {
           ...event.metadata,
           ...updates,
         };
-        
+
         const putRequest = store.put(event);
         putRequest.onsuccess = () => resolve();
         putRequest.onerror = () => reject(putRequest.error);
@@ -150,12 +159,12 @@ class SuperMemoryDB {
     const db = await this.getDB();
     const transaction = db.transaction(['events'], 'readonly');
     const store = transaction.objectStore('events');
-    
+
     const tags = new Set<string>();
-    
+
     return new Promise((resolve, reject) => {
       const request = store.openCursor();
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor) {
           const event = cursor.value as MemoryEvent;
@@ -205,22 +214,25 @@ class SuperMemoryDB {
       const request = index.openCursor(range, 'prev'); // Most recent first
       const limit = filters?.limit || 100;
 
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor && events.length < limit) {
           const event = cursor.value as MemoryEvent;
-          
+
           // Apply filters
           if (filters?.type && event.type !== filters.type) {
             cursor.continue();
             return;
           }
-          
-          if (filters?.pinned !== undefined && (event.metadata?.pinned || false) !== filters.pinned) {
+
+          if (
+            filters?.pinned !== undefined &&
+            (event.metadata?.pinned || false) !== filters.pinned
+          ) {
             cursor.continue();
             return;
           }
-          
+
           if (filters?.tags && filters.tags.length > 0) {
             const eventTags = event.metadata?.tags || [];
             const hasAllTags = filters.tags.every(tag => eventTags.includes(tag));
@@ -229,7 +241,7 @@ class SuperMemoryDB {
               return;
             }
           }
-          
+
           events.push(event);
           cursor.continue();
         } else {
@@ -248,7 +260,7 @@ class SuperMemoryDB {
     const db = await this.getDB();
     const transaction = db.transaction(['embeddings'], 'readwrite');
     const store = transaction.objectStore('embeddings');
-    
+
     return new Promise((resolve, reject) => {
       const request = store.put(embedding);
       request.onsuccess = () => resolve();
@@ -270,7 +282,7 @@ class SuperMemoryDB {
     return new Promise((resolve, reject) => {
       const request = index.openCursor(IDBKeyRange.only(eventId));
 
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor) {
           embeddings.push(cursor.value as EmbeddingRecord);
@@ -300,7 +312,7 @@ class SuperMemoryDB {
     return new Promise((resolve, reject) => {
       const request = index.openCursor(null, 'prev'); // Most recent first
 
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor && embeddings.length < maxLimit) {
           embeddings.push(cursor.value as EmbeddingRecord);
@@ -326,7 +338,7 @@ class SuperMemoryDB {
     return new Promise((resolve, reject) => {
       const request = index.openCursor(IDBKeyRange.only(eventId));
 
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -414,14 +426,14 @@ class SuperMemoryDB {
    */
   async deleteEvent(eventId: string): Promise<void> {
     const db = await this.getDB();
-    
+
     // Delete embeddings first
     await this.deleteEmbeddingsForEvent(eventId);
-    
+
     // Delete event
     const transaction = db.transaction(['events'], 'readwrite');
     const store = transaction.objectStore('events');
-    
+
     return new Promise((resolve, reject) => {
       const request = store.delete(eventId);
       request.onsuccess = () => resolve();
@@ -434,7 +446,7 @@ class SuperMemoryDB {
    */
   async cleanupOldData(daysToKeep: number = 90): Promise<void> {
     const db = await this.getDB();
-    const cutoff = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - daysToKeep * 24 * 60 * 60 * 1000;
 
     // Cleanup old events
     const eventsTransaction = db.transaction(['events'], 'readwrite');
@@ -444,7 +456,7 @@ class SuperMemoryDB {
 
     await new Promise<void>((resolve, reject) => {
       const request = eventsIndex.openCursor(eventsRange);
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor) {
           const event = cursor.value as MemoryEvent;
@@ -467,7 +479,7 @@ class SuperMemoryDB {
 
     await new Promise<void>((resolve, reject) => {
       const request = embeddingsIndex.openCursor(embeddingsRange);
-      request.onsuccess = (e) => {
+      request.onsuccess = e => {
         const cursor = (e.target as IDBRequest).result;
         if (cursor) {
           cursor.delete();
@@ -489,7 +501,7 @@ class SuperMemoryDB {
     totalSize: number; // Approximate size in bytes
   }> {
     const db = await this.getDB();
-    
+
     // Count events
     const eventsTransaction = db.transaction(['events'], 'readonly');
     const eventsStore = eventsTransaction.objectStore('events');
@@ -511,14 +523,11 @@ class SuperMemoryDB {
     // Estimate size (rough calculation)
     const sampleEvents = await this.getEvents({ limit: 10 });
     const sampleEmbeddings = await this.getAllEmbeddings(10);
-    const avgEventSize = sampleEvents.length > 0
-      ? JSON.stringify(sampleEvents[0]).length
-      : 500;
-    const avgEmbeddingSize = sampleEmbeddings.length > 0
-      ? JSON.stringify(sampleEmbeddings[0]).length
-      : 2000;
-    
-    const totalSize = (eventCount * avgEventSize) + (embeddingCount * avgEmbeddingSize);
+    const avgEventSize = sampleEvents.length > 0 ? JSON.stringify(sampleEvents[0]).length : 500;
+    const avgEmbeddingSize =
+      sampleEmbeddings.length > 0 ? JSON.stringify(sampleEmbeddings[0]).length : 2000;
+
+    const totalSize = eventCount * avgEventSize + embeddingCount * avgEmbeddingSize;
 
     return { eventCount, embeddingCount, totalSize };
   }
@@ -528,7 +537,7 @@ class SuperMemoryDB {
    */
   async clearAll(): Promise<void> {
     const db = await this.getDB();
-    
+
     const transaction = db.transaction(['events', 'embeddings'], 'readwrite');
     await Promise.all([
       new Promise<void>((resolve, reject) => {
@@ -571,7 +580,7 @@ class SuperMemoryDB {
 
     await Promise.all(
       ids.map(
-        (id) =>
+        id =>
           new Promise<void>((resolve, reject) => {
             const request = store.get(id);
             request.onsuccess = () => {
@@ -585,9 +594,7 @@ class SuperMemoryDB {
       )
     );
 
-    return ids
-      .map((id) => results.get(id))
-      .filter((event): event is MemoryEvent => Boolean(event));
+    return ids.map(id => results.get(id)).filter((event): event is MemoryEvent => Boolean(event));
   }
 }
 
@@ -596,8 +603,7 @@ export const superMemoryDB = new SuperMemoryDB();
 
 // Initialize on load
 if (typeof window !== 'undefined') {
-  superMemoryDB.init().catch((error) => {
+  superMemoryDB.init().catch(error => {
     console.warn('[SuperMemoryDB] Failed to initialize:', error);
   });
 }
-

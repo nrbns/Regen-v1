@@ -1,6 +1,7 @@
 export type ResearchSourceType = 'news' | 'academic' | 'documentation' | 'forum' | 'other';
 
 export interface ResearchSource {
+  id?: string;
   url: string;
   title: string;
   text: string;
@@ -9,6 +10,18 @@ export interface ResearchSource {
   domain: string;
   relevanceScore: number;
   sourceType: ResearchSourceType;
+  /**
+   * Legacy alias used across the app. Kept for backward compatibility.
+   */
+  type?: ResearchSourceType;
+  excerpt?: string;
+  image?: string;
+  contentHash?: string;
+  fetchedAt?: string;
+  wordCount?: number;
+  lang?: string;
+  fromCache?: boolean;
+  rendered?: boolean;
   metadata?: Record<string, unknown>;
 }
 
@@ -106,4 +119,3 @@ export interface ResearchResult {
   taskChains?: ResearchTaskChain[];
   inlineEvidence?: ResearchInlineEvidence[];
 }
-

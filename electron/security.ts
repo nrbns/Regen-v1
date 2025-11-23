@@ -15,9 +15,9 @@ const DEFAULT_IFRAME_ALLOWLIST = [
 function parseAllowlist(): string[] {
   const fromEnv = (process.env.IFRAME_ALLOWLIST ?? '')
     .split(',')
-    .map((entry) => entry.trim().toLowerCase())
+    .map(entry => entry.trim().toLowerCase())
     .filter(Boolean);
-  const merged = new Set([...DEFAULT_IFRAME_ALLOWLIST.map((d) => d.toLowerCase()), ...fromEnv]);
+  const merged = new Set([...DEFAULT_IFRAME_ALLOWLIST.map(d => d.toLowerCase()), ...fromEnv]);
   return Array.from(merged);
 }
 
@@ -26,7 +26,7 @@ const iframeHostAllowlist = parseAllowlist();
 function isAllowlistedFrame(url: string): boolean {
   try {
     const { hostname } = new URL(url);
-    return iframeHostAllowlist.some((domain) => {
+    return iframeHostAllowlist.some(domain => {
       if (hostname === domain) return true;
       return hostname.endsWith(`.${domain}`);
     });
@@ -65,6 +65,7 @@ function buildContentSecurityPolicy(isDev: boolean): string {
   }
 
   // Production: Stricter CSP without unsafe-eval
+  // Enhanced per blueprint: connect-src includes API endpoints
   return [
     "default-src 'self'",
     "script-src 'self'", // Removed 'unsafe-inline' for production
@@ -73,14 +74,14 @@ function buildContentSecurityPolicy(isDev: boolean): string {
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "frame-src 'self' https:",
-    "connect-src 'self' https: http: ws: wss:",
+    "connect-src 'self' https://api.* https://*.ollama.ai https: http: ws: wss:", // API endpoints per blueprint
     "worker-src 'self' blob:",
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
-    "block-all-mixed-content",
+    'upgrade-insecure-requests',
+    'block-all-mixed-content',
   ].join('; ');
 }
 
@@ -117,8 +118,34 @@ function configureSessionSecurity(ses: Session) {
 }
 
 export function applySecurityPolicies() {
+  // Set Content Security Policy for all sessions
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // unsafe-eval needed for Vite in dev
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: http:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: http: ws: wss:",
+    "frame-src 'self' https:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    'upgrade-insecure-requests',
+  ].join('; ');
+
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [csp],
+      },
+    });
+  });
+
+  logger.info('Content Security Policy applied');
   app.on('web-contents-created', (_event, contents) => {
-    contents.on('will-attach-webview', (e) => {
+    contents.on('will-attach-webview', e => {
       e.preventDefault();
     });
 
@@ -127,27 +154,97 @@ export function applySecurityPolicies() {
       // e.g., 'https://meet.example.com'
     ]);
 
-    contents.session.setPermissionRequestHandler((wc, permission, cb) => {
+    // Enhanced permission prompts per blueprint
+    contents.session.setPermissionRequestHandler((wc, permission, callback) => {
       try {
         const url = wc?.getURL?.() || '';
-        if (permission === 'media') {
-          const allowed = Array.from(ALLOW_MEDIA_ON).some((origin) => url.startsWith(origin));
-          cb(allowed);
-          return;
+        const origin = url ? new URL(url).origin : '';
+
+        // Enhanced permission handling per blueprint
+        switch (permission) {
+          case 'media': {
+            // Mic and camera
+            const allowed = Array.from(ALLOW_MEDIA_ON).some(allowedOrigin =>
+              url.startsWith(allowedOrigin)
+            );
+            if (allowed) {
+              logger.info('Media permission granted', { url, origin });
+              callback(true);
+            } else {
+              logger.warn('Media permission denied', { url, origin });
+              callback(false);
+            }
+            return;
+          }
+          case 'notifications': {
+            // Notifications - deny by default
+            logger.info('Notification permission denied', { url, origin });
+            callback(false);
+            return;
+          }
+          case 'geolocation': {
+            // Geolocation - deny by default
+            logger.info('Geolocation permission denied', { url, origin });
+            callback(false);
+            return;
+          }
+          case 'midi': {
+            // MIDI - deny by default
+            logger.info('MIDI permission denied', { url, origin });
+            callback(false);
+            return;
+          }
+          case 'pointerLock': {
+            // Pointer lock - allow for games
+            logger.info('Pointer lock permission', { url, origin });
+            callback(true);
+            return;
+          }
+          case 'fullscreen': {
+            // Fullscreen - allow
+            logger.info('Fullscreen permission granted', { url, origin });
+            callback(true);
+            return;
+          }
+          case 'openExternal': {
+            // External links - handled separately
+            logger.info('External link permission', { url, origin });
+            callback(false);
+            return;
+          }
+          default: {
+            logger.info('Unknown permission denied', { permission, url, origin });
+            callback(false);
+            return;
+          }
         }
-        cb(false);
-      } catch {
-        cb(false);
+      } catch (error) {
+        logger.error('Permission request handler error', { error, permission });
+        callback(false);
       }
     });
 
     contents.session.setPermissionCheckHandler((wc, permission) => {
       try {
         const url = wc?.getURL?.() || '';
-        if (permission === 'media') {
-          return Array.from(ALLOW_MEDIA_ON).some((origin) => url.startsWith(origin));
+
+        switch (permission) {
+          case 'media': {
+            return Array.from(ALLOW_MEDIA_ON).some(allowedOrigin => url.startsWith(allowedOrigin));
+          }
+          case 'notifications':
+          case 'geolocation':
+          case 'midi': {
+            return false; // Deny by default
+          }
+          case 'pointerLock':
+          case 'fullscreen': {
+            return true; // Allow
+          }
+          default: {
+            return false; // Deny unknown permissions
+          }
         }
-        return false;
       } catch {
         return false;
       }
@@ -155,7 +252,7 @@ export function applySecurityPolicies() {
   });
 
   // Deny-by-default permissions for all new sessions
-  app.on('session-created', (ses) => {
+  app.on('session-created', ses => {
     try {
       ses.setPermissionCheckHandler((_wc, _permission) => {
         return false; // Explicit allow-list elsewhere if needed
@@ -169,5 +266,3 @@ export function applySecurityPolicies() {
 
   configureSessionSecurity(session.defaultSession);
 }
-
-

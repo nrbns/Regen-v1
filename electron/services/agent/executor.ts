@@ -25,7 +25,11 @@ export class PlanExecutor {
   /**
    * Execute a plan
    */
-  async execute(plan: Plan, runId: string, onStepComplete?: (stepId: string, result: unknown) => void): Promise<ExecutionResult> {
+  async execute(
+    plan: Plan,
+    runId: string,
+    onStepComplete?: (stepId: string, result: unknown) => void
+  ): Promise<ExecutionResult> {
     const context: ExecutionContext = {
       runId,
       plan,
@@ -54,16 +58,19 @@ export class PlanExecutor {
             }
           }
 
-          // Execute step
+          // Execute step with timeout protection
           const skill = registry.get(step.action);
           if (!skill) {
             throw new Error(`Unknown action: ${step.action}`);
           }
 
-          const result = await skill.exec(
-            { runId: context.runId, memory: context.memory },
-            step.args
-          );
+          // Wrap execution with timeout
+          const result = (await Promise.race([
+            skill.exec({ runId: context.runId, memory: context.memory }, step.args),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Step execution timeout')), 8000)
+            ),
+          ])) as unknown;
 
           // Store result
           context.stepResults.set(step.id, result);
@@ -182,4 +189,3 @@ export function getPlanExecutor(): PlanExecutor {
   }
   return executorInstance;
 }
-

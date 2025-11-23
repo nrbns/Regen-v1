@@ -6,31 +6,7 @@ import { useContainerStore } from '../../state/containerStore';
 import { ContainerInfo } from '../../lib/ipc-events';
 import { ipcEvents } from '../../lib/ipc-events';
 import { useTabsStore } from '../../state/tabsStore';
-
-type PermissionKey = 'media' | 'display-capture' | 'notifications' | 'fullscreen';
-
-const PERMISSION_OPTIONS: Array<{ key: PermissionKey; label: string; description: string }> = [
-  {
-    key: 'media',
-    label: 'Camera & microphone',
-    description: 'Allow access to audio / video input devices.',
-  },
-  {
-    key: 'display-capture',
-    label: 'Screen capture',
-    description: 'Enable screen or window sharing requests.',
-  },
-  {
-    key: 'notifications',
-    label: 'Desktop notifications',
-    description: 'Permit this container to show system notifications.',
-  },
-  {
-    key: 'fullscreen',
-    label: 'Fullscreen & PIP',
-    description: 'Allow fullscreen transitions and picture-in-picture.',
-  },
-];
+import { PERMISSION_OPTIONS, type PermissionKey } from '../permissions/constants';
 
 interface ContainerSwitcherProps {
   compact?: boolean;
@@ -38,7 +14,7 @@ interface ContainerSwitcherProps {
 
 export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
   const { containers, activeContainerId, setContainers, setActiveContainer } = useContainerStore();
-  const { activeId, tabs } = useTabsStore((state) => ({
+  const { activeId, tabs } = useTabsStore(state => ({
     activeId: state.activeId,
     tabs: state.tabs,
   }));
@@ -61,19 +37,22 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
     }
   }, []);
 
-  const refreshPermissionState = useCallback(async (containerId: string) => {
-    const permissions = await fetchPermissions(containerId);
-    setPermissionState((prev) => ({
-      ...prev,
-      [containerId]: permissions,
-    }));
-  }, [fetchPermissions]);
+  const refreshPermissionState = useCallback(
+    async (containerId: string) => {
+      const permissions = await fetchPermissions(containerId);
+      setPermissionState(prev => ({
+        ...prev,
+        [containerId]: permissions,
+      }));
+    },
+    [fetchPermissions]
+  );
 
   const refreshSitePermissions = useCallback(async (containerId: string) => {
     try {
       const entries = await ipc.containers.getSitePermissions(containerId);
       if (Array.isArray(entries)) {
-        setSitePermissionState((prev) => ({
+        setSitePermissionState(prev => ({
           ...prev,
           [containerId]: entries as Array<{ permission: PermissionKey; origins: string[] }>,
         }));
@@ -85,16 +64,13 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
 
   const loadContainers = useCallback(async () => {
     try {
-      const [list, active] = await Promise.all([
-        ipc.containers.list(),
-        ipc.containers.getActive(),
-      ]);
+      const [list, active] = await Promise.all([ipc.containers.list(), ipc.containers.getActive()]);
 
       if (Array.isArray(list)) {
         const typedList = list as ContainerInfo[];
         setContainers(typedList);
         const permissionEntries = await Promise.all(
-          typedList.map((container) => fetchPermissions(container.id))
+          typedList.map(container => fetchPermissions(container.id))
         );
         const map: Record<string, string[]> = {};
         typedList.forEach((container, index) => {
@@ -111,26 +87,34 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
     } catch (error) {
       console.error('Failed to load containers:', error);
     }
-  }, [fetchPermissions, refreshPermissionState, refreshSitePermissions, setActiveContainer, setContainers]);
+  }, [
+    fetchPermissions,
+    refreshPermissionState,
+    refreshSitePermissions,
+    setActiveContainer,
+    setContainers,
+  ]);
 
   useEffect(() => {
     void loadContainers();
   }, [loadContainers]);
 
   useEffect(() => {
-    const unsubscribeSite = ipcEvents.on<{ containerId: string; permission: PermissionKey; origins: string[] }>(
-      'containers:sitePermissions',
-      (payload) => {
-        if (!payload?.containerId) return;
-        setSitePermissionState((prev) => ({
-          ...prev,
-          [payload.containerId]: [
-            ...(prev[payload.containerId]?.filter((entry) => entry.permission !== payload.permission) ?? []),
-            { permission: payload.permission, origins: payload.origins },
-          ],
-        }));
-      },
-    );
+    const unsubscribeSite = ipcEvents.on<{
+      containerId: string;
+      permission: PermissionKey;
+      origins: string[];
+    }>('containers:sitePermissions', payload => {
+      if (!payload?.containerId) return;
+      setSitePermissionState(prev => ({
+        ...prev,
+        [payload.containerId]: [
+          ...(prev[payload.containerId]?.filter(entry => entry.permission !== payload.permission) ??
+            []),
+          { permission: payload.permission, origins: payload.origins },
+        ],
+      }));
+    });
     return () => {
       unsubscribeSite();
     };
@@ -169,8 +153,8 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
     }
   };
 
-  const activeContainer = containers.find((c) => c.id === activeContainerId);
-  const activeTab = useMemo(() => tabs.find((tab) => tab.id === activeId), [tabs, activeId]);
+  const activeContainer = containers.find(c => c.id === activeContainerId);
+  const activeTab = useMemo(() => tabs.find(tab => tab.id === activeId), [tabs, activeId]);
   const activeOrigin = useMemo(() => {
     if (!activeTab?.url) return null;
     try {
@@ -181,18 +165,27 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
       return null;
     }
   }, [activeTab?.url]);
-  const activeOriginLabel = useMemo(() => (activeOrigin ? activeOrigin.replace(/^https?:\/\//, '') : null), [activeOrigin]);
-  const activePermissions = activeContainer ? permissionState[activeContainer.id] ?? [] : [];
-  const sitePermissionEntries = activeContainer ? sitePermissionState[activeContainer.id] ?? [] : [];
+  const activeOriginLabel = useMemo(
+    () => (activeOrigin ? activeOrigin.replace(/^https?:\/\//, '') : null),
+    [activeOrigin]
+  );
+  const activePermissions = activeContainer ? (permissionState[activeContainer.id] ?? []) : [];
+  const sitePermissionEntries = activeContainer
+    ? (sitePermissionState[activeContainer.id] ?? [])
+    : [];
   const originsForPermission = (permission: PermissionKey) =>
-    sitePermissionEntries.find((entry) => entry.permission === permission)?.origins ?? [];
+    sitePermissionEntries.find(entry => entry.permission === permission)?.origins ?? [];
 
   const handleTogglePermission = async (permissionKey: PermissionKey) => {
     if (!activeContainer) return;
     const enabled = activePermissions.includes(permissionKey);
     try {
-      const response = await ipc.containers.setPermission(activeContainer.id, permissionKey, !enabled);
-      setPermissionState((prev) => ({
+      const response = await ipc.containers.setPermission(
+        activeContainer.id,
+        permissionKey,
+        !enabled
+      );
+      setPermissionState(prev => ({
         ...prev,
         [activeContainer.id]: Array.isArray(response?.permissions) ? response.permissions : [],
       }));
@@ -205,9 +198,13 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
   const handleRemoveOrigin = async (permissionKey: PermissionKey, origin: string) => {
     if (!activeContainer) return;
     try {
-      const entries = await ipc.containers.revokeSitePermission(activeContainer.id, permissionKey, origin);
+      const entries = await ipc.containers.revokeSitePermission(
+        activeContainer.id,
+        permissionKey,
+        origin
+      );
       if (Array.isArray(entries)) {
-        setSitePermissionState((prev) => ({
+        setSitePermissionState(prev => ({
           ...prev,
           [activeContainer.id]: entries as Array<{ permission: PermissionKey; origins: string[] }>,
         }));
@@ -220,9 +217,13 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
   const handleAllowOrigin = async (permissionKey: PermissionKey) => {
     if (!activeContainer || !activeOrigin) return;
     try {
-      const entries = await ipc.containers.allowSitePermission(activeContainer.id, permissionKey, activeOrigin);
+      const entries = await ipc.containers.allowSitePermission(
+        activeContainer.id,
+        permissionKey,
+        activeOrigin
+      );
       if (Array.isArray(entries)) {
-        setSitePermissionState((prev) => ({
+        setSitePermissionState(prev => ({
           ...prev,
           [activeContainer.id]: entries as Array<{ permission: PermissionKey; origins: string[] }>,
         }));
@@ -290,7 +291,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                   <input
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={e => setName(e.target.value)}
                     placeholder="Container name"
                     autoFocus
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -300,7 +301,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                     <input
                       type="color"
                       value={color}
-                      onChange={(e) => setColor(e.target.value)}
+                      onChange={e => setColor(e.target.value)}
                       className="h-7 w-16 bg-transparent border border-gray-700 rounded"
                     />
                   </div>
@@ -324,7 +325,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                 </div>
               )}
 
-              {containers.map((container) => {
+              {containers.map(container => {
                 const isActive = container.id === activeContainerId;
                 return (
                   <button
@@ -339,9 +340,13 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                       style={{ backgroundColor: container.color }}
                     />
                     <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-200 truncate">{container.name}</div>
+                      <div className="text-sm font-medium text-gray-200 truncate">
+                        {container.name}
+                      </div>
                       <div className="text-xs text-gray-500 truncate">
-                        {container.scope ? `${container.scope.charAt(0).toUpperCase()}${container.scope.slice(1)} scope` : 'Session scope'}
+                        {container.scope
+                          ? `${container.scope.charAt(0).toUpperCase()}${container.scope.slice(1)} scope`
+                          : 'Session scope'}
                       </div>
                     </div>
                     {isActive && <span className="text-xs text-blue-400">Active</span>}
@@ -360,10 +365,12 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                   Permissions for {activeContainer.name}
                 </span>
                 <div className="mt-3 space-y-3">
-                  {PERMISSION_OPTIONS.map((option) => {
+                  {PERMISSION_OPTIONS.map(option => {
                     const enabled = activePermissions.includes(option.key);
                     const allowedOrigins = originsForPermission(option.key);
-                    const hasActiveOrigin = activeOrigin ? allowedOrigins.includes(activeOrigin) : false;
+                    const hasActiveOrigin = activeOrigin
+                      ? allowedOrigins.includes(activeOrigin)
+                      : false;
                     const actionDisabled = !activeOrigin || (!hasActiveOrigin && !enabled);
                     const displayOrigin = activeOriginLabel || activeOrigin || 'this site';
                     return (
@@ -387,7 +394,9 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                                 {option.description}
                               </p>
                               {activeOrigin && (
-                                <p className={`text-[11px] ${hasActiveOrigin ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                <p
+                                  className={`text-[11px] ${hasActiveOrigin ? 'text-emerald-400' : 'text-gray-500'}`}
+                                >
                                   {hasActiveOrigin
                                     ? `Allowed for ${displayOrigin}`
                                     : `Not allowed for ${displayOrigin}`}
@@ -401,7 +410,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                             </div>
                             <button
                               type="button"
-                              onClick={(event) => {
+                              onClick={event => {
                                 event.preventDefault();
                                 event.stopPropagation();
                                 if (!activeOrigin) return;
@@ -416,15 +425,15 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                                 actionDisabled
                                   ? 'cursor-not-allowed border-gray-800 bg-gray-900/60 text-gray-500'
                                   : hasActiveOrigin
-                                  ? 'border-amber-400/60 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
-                                  : 'border-blue-400/60 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20'
+                                    ? 'border-amber-400/60 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20'
+                                    : 'border-blue-400/60 bg-blue-500/10 text-blue-100 hover:bg-blue-500/20'
                               }`}
                             >
                               {!activeOrigin
                                 ? 'Open a site'
                                 : hasActiveOrigin
-                                ? 'Revoke site'
-                                : 'Allow site'}
+                                  ? 'Revoke site'
+                                  : 'Allow site'}
                             </button>
                           </div>
                           {allowedOrigins.length > 0 && (
@@ -433,7 +442,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                                 Allowed sites
                               </span>
                               <div className="flex flex-wrap gap-2">
-                                {allowedOrigins.map((origin) => {
+                                {allowedOrigins.map(origin => {
                                   const highlight = activeOrigin && origin === activeOrigin;
                                   return (
                                     <span
@@ -450,7 +459,7 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
                                       </span>
                                       <button
                                         type="button"
-                                        onClick={(e) => {
+                                        onClick={e => {
                                           e.preventDefault();
                                           e.stopPropagation();
                                           void handleRemoveOrigin(option.key, origin);
@@ -489,5 +498,3 @@ export function ContainerSwitcher({ compact = false }: ContainerSwitcherProps) {
     </div>
   );
 }
-
-

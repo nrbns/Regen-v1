@@ -17,7 +17,13 @@ interface CrashRecoveryDialogProps {
   onReload: () => void;
 }
 
-export function CrashRecoveryDialog({ tabId: _tabId, reason, exitCode, onClose, onReload }: CrashRecoveryDialogProps) {
+export function CrashRecoveryDialog({
+  tabId: _tabId,
+  reason,
+  exitCode,
+  onClose,
+  onReload,
+}: CrashRecoveryDialogProps) {
   const [snapshots] = useState<Array<{ id: string; timestamp: number }>>([]);
   const [loading, setLoading] = useState(false);
 
@@ -56,7 +62,15 @@ export function CrashRecoveryDialog({ tabId: _tabId, reason, exitCode, onClose, 
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div
+        className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        onClick={e => {
+          // Close on backdrop click
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -93,7 +107,7 @@ export function CrashRecoveryDialog({ tabId: _tabId, reason, exitCode, onClose, 
                   <div className="mt-2">
                     <p className="text-xs text-gray-500 mb-2">Or restore from snapshot:</p>
                     <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {snapshots.slice(0, 3).map((snapshot) => (
+                      {snapshots.slice(0, 3).map(snapshot => (
                         <button
                           key={snapshot.id}
                           onClick={() => handleRestoreSnapshot(snapshot.id)}
@@ -172,4 +186,3 @@ export function useCrashRecovery() {
     handleReload,
   };
 }
-

@@ -5,6 +5,10 @@
 
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
+import { checkRateLimit } from '../../services/ipc-rate-limit';
+import { createLogger } from '../../services/utils/logger';
+
+const log = createLogger('ipc-router');
 
 export type IPCChannel = string;
 export type IPCRequest = unknown;
@@ -29,60 +33,107 @@ export function registerHandler<TRequest, TResponse>(
   handler: (event: IpcMainInvokeEvent, request: TRequest) => Promise<TResponse>
 ): void {
   const fullChannel = `ob://ipc/v1/${channel}`;
-  
+
   // Validate schema
   if (!schema || typeof schema.safeParse !== 'function') {
-    console.error(`[IPC Router] Invalid schema for ${fullChannel}: schema.safeParse is not a function`);
+    console.error(
+      `[IPC Router] Invalid schema for ${fullChannel}: schema.safeParse is not a function`
+    );
     throw new Error(`Invalid schema for ${fullChannel}: schema.safeParse is not a function`);
   }
-  
+
   // Remove existing handler if any
   if (handlers.has(fullChannel)) {
     ipcMain.removeHandler(fullChannel);
   }
-  
+
   handlers.set(fullChannel, { schema, handler: handler as IPCHandler['handler'] });
-  
+
   // Register with Electron IPC - use a wrapper to ensure handler exists
   const handlerWrapper = async (event: IpcMainInvokeEvent, rawRequest: unknown) => {
+    const startTime = performance.now();
     try {
       // Get handler from map (might have been removed)
       const handlerEntry = handlers.get(fullChannel);
       if (!handlerEntry) {
         const message = `No handler registered for '${fullChannel}'`;
-        console.error(`[IPC Router] ${message}`);
+        log.error(message, { channel: fullChannel });
         return {
           ok: false,
           error: message,
         } as IPCResponse;
       }
-      
+
+      // Check rate limit
+      const rateLimitCheck = checkRateLimit(event, channel);
+      if (!rateLimitCheck.allowed) {
+        log.warn('Rate limit exceeded', {
+          channel: fullChannel,
+          retryAfter: rateLimitCheck.retryAfter,
+        });
+        return {
+          ok: false,
+          error: `Rate limit exceeded. Retry after ${rateLimitCheck.retryAfter}s`,
+        } as IPCResponse;
+      }
+
       // Validate request
       const parsed = handlerEntry.schema.safeParse(rawRequest);
       if (!parsed.success) {
+        // Enhanced logging per blueprint
+        log.error('Schema validation failed', {
+          channel: fullChannel,
+          errors: parsed.error.errors,
+          issues: parsed.error.issues.map(issue => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+            code: issue.code,
+          })),
+        });
         return {
           ok: false,
           error: `Invalid request: ${parsed.error.message}`,
         } as IPCResponse;
       }
-      
+
       // Call handler
       const response = await handlerEntry.handler(event, parsed.data);
-      
+
+      // Record IPC latency
+      const duration = performance.now() - startTime;
+      try {
+        const { recordMetric } = await import('../../../server/metrics.js');
+        recordMetric('ipcLatency', duration);
+      } catch {
+        // Metrics module not available, continue
+      }
+
       return {
         ok: true,
         data: response,
       } as IPCResponse;
     } catch (error) {
+      const duration = performance.now() - startTime;
+      // Record failed IPC latency
+      try {
+        const { recordMetric } = await import('../../../server/metrics.js');
+        recordMetric('ipcLatency', duration);
+      } catch {
+        // Metrics module not available, continue
+      }
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[IPC] Error in ${fullChannel}:`, message);
+      log.error('Handler error', {
+        channel: fullChannel,
+        error: message,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return {
         ok: false,
         error: message,
       } as IPCResponse;
     }
   };
-  
+
   // Register the handler with Electron
   try {
     ipcMain.handle(fullChannel, handlerWrapper);
@@ -106,7 +157,7 @@ export function registerLegacyHandler(
   handler: IPCHandler['handler']
 ): void {
   registerHandler(newChannel, schema, handler);
-  
+
   // Also register under old name for backwards compatibility
   ipcMain.handle(oldChannel, async (event, rawRequest: unknown) => {
     try {
@@ -137,4 +188,3 @@ export function isHandlerRegistered(channel: IPCChannel): boolean {
   const fullChannel = `ob://ipc/v1/${channel}`;
   return handlers.has(fullChannel);
 }
-

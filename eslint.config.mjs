@@ -76,5 +76,50 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
+  {
+    // Node.js files (CommonJS and ESM)
+    files: ['**/*.js', '**/*.mjs', 'server/**/*', 'scripts/**/*', '.eslintrc*.js', 'lint-staged.config.js'],
+    languageOptions: {
+      globals: {
+        module: 'readonly',
+        exports: 'readonly',
+        require: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        global: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
+    },
+  },
+  {
+    // Storybook files
+    files: ['.storybook/**/*.ts', '.storybook/**/*.tsx'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        ecmaVersion: 2022,
+        sourceType: 'module',
+        ecmaFeatures: {
+          jsx: true,
+        },
+        projectService: false,
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+    },
+  },
 );
 

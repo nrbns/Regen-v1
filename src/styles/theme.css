@@ -1,0 +1,69 @@
+/**
+ * Theme surface + layout variables
+ * Keeps light/dark color palettes and spacing tokens in one place.
+ */
+
+:root {
+  color-scheme: dark;
+  --surface-root: #0f172a;
+  --surface-panel: rgba(15, 23, 42, 0.88);
+  --surface-elevated: rgba(30, 41, 59, 0.85);
+  --surface-hover: rgba(148, 163, 184, 0.14);
+  --surface-active: rgba(148, 163, 184, 0.2);
+  --surface-border: rgba(148, 163, 184, 0.35);
+  --surface-border-strong: rgba(148, 163, 184, 0.55);
+  --text-primary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-secondary: #cbd5e1;
+  --accent: #60a5fa;
+  --regen-panel-gap: 1.25rem;
+  --regen-surface-padding: 1.25rem;
+  --layout-page-width: 1440px;
+  --layout-page-padding: 1rem;
+  --layout-section-gap: var(--space-6);
+  --layout-radius: var(--radius-2xl, 1rem);
+  --header-height: 58px;
+}
+
+:root[data-compact='true'] {
+  --regen-panel-gap: 0.75rem;
+  --regen-surface-padding: 0.7rem;
+  --layout-page-padding: 0.75rem;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --surface-root: #f7faff;
+  --surface-panel: rgba(255, 255, 255, 0.94);
+  --surface-elevated: rgba(248, 250, 252, 0.92);
+  --surface-hover: rgba(15, 23, 42, 0.08);
+  --surface-active: rgba(37, 99, 235, 0.12);
+  --surface-border: rgba(79, 89, 107, 0.18);
+  --surface-border-strong: rgba(79, 89, 107, 0.32);
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+  --text-secondary: #1e293b;
+  --accent: #2563eb;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --layout-page-padding: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --layout-page-padding: 1.75rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --layout-page-padding: 2.25rem;
+  }
+}

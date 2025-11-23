@@ -187,19 +187,20 @@ export interface MemoryEvent {
   id: string;
   type: MemoryEventType;
   value: string | any; // Primary value (query, URL, text, etc.)
-  metadata?: BaseEventMetadata | 
-            SearchEventMetadata | 
-            VisitEventMetadata | 
-            HighlightEventMetadata |
-            ScreenshotEventMetadata |
-            NoteEventMetadata |
-            BookmarkEventMetadata |
-            TaskEventMetadata |
-            AgentEventMetadata |
-            ModeSwitchEventMetadata |
-            PrefetchEventMetadata |
-            ActionEventMetadata |
-            SummaryEventMetadata;
+  metadata?:
+    | BaseEventMetadata
+    | SearchEventMetadata
+    | VisitEventMetadata
+    | HighlightEventMetadata
+    | ScreenshotEventMetadata
+    | NoteEventMetadata
+    | BookmarkEventMetadata
+    | TaskEventMetadata
+    | AgentEventMetadata
+    | ModeSwitchEventMetadata
+    | PrefetchEventMetadata
+    | ActionEventMetadata
+    | SummaryEventMetadata;
   ts: number; // Timestamp
   score?: number; // Recency/frequency score for suggestions
 }
@@ -207,35 +208,51 @@ export interface MemoryEvent {
 /**
  * Event type guards for type-safe metadata access
  */
-export function isSearchEvent(event: MemoryEvent): event is MemoryEvent & { type: 'search'; metadata?: SearchEventMetadata } {
+export function isSearchEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'search'; metadata?: SearchEventMetadata } {
   return event.type === 'search';
 }
 
-export function isVisitEvent(event: MemoryEvent): event is MemoryEvent & { type: 'visit'; metadata?: VisitEventMetadata } {
+export function isVisitEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'visit'; metadata?: VisitEventMetadata } {
   return event.type === 'visit';
 }
 
-export function isHighlightEvent(event: MemoryEvent): event is MemoryEvent & { type: 'highlight'; metadata?: HighlightEventMetadata } {
+export function isHighlightEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'highlight'; metadata?: HighlightEventMetadata } {
   return event.type === 'highlight';
 }
 
-export function isScreenshotEvent(event: MemoryEvent): event is MemoryEvent & { type: 'screenshot'; metadata?: ScreenshotEventMetadata } {
+export function isScreenshotEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'screenshot'; metadata?: ScreenshotEventMetadata } {
   return event.type === 'screenshot';
 }
 
-export function isNoteEvent(event: MemoryEvent): event is MemoryEvent & { type: 'note'; metadata?: NoteEventMetadata } {
+export function isNoteEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'note'; metadata?: NoteEventMetadata } {
   return event.type === 'note';
 }
 
-export function isBookmarkEvent(event: MemoryEvent): event is MemoryEvent & { type: 'bookmark'; metadata?: BookmarkEventMetadata } {
+export function isBookmarkEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'bookmark'; metadata?: BookmarkEventMetadata } {
   return event.type === 'bookmark';
 }
 
-export function isTaskEvent(event: MemoryEvent): event is MemoryEvent & { type: 'task'; metadata?: TaskEventMetadata } {
+export function isTaskEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'task'; metadata?: TaskEventMetadata } {
   return event.type === 'task';
 }
 
-export function isAgentEvent(event: MemoryEvent): event is MemoryEvent & { type: 'agent'; metadata?: AgentEventMetadata } {
+export function isAgentEvent(
+  event: MemoryEvent
+): event is MemoryEvent & { type: 'agent'; metadata?: AgentEventMetadata } {
   return event.type === 'agent';
 }
 
@@ -292,8 +309,3 @@ export const EVENT_TYPE_COLORS: Record<MemoryEventType, string> = {
   agent: 'violet',
   summary: 'slate',
 };
-
-
-
-
-

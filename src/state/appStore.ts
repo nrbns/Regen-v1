@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { ModeManager } from '../core/modes/manager';
+import { MODES, isModeEnabled, type ModeId } from '../config/modes';
+import { toast } from '../utils/toast';
 
 export type AppState = {
   mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
@@ -13,21 +15,36 @@ export type AppState = {
   setResearchPaneOpen: (open: boolean) => void;
   memorySidebarOpen: boolean;
   setMemorySidebarOpen: (open: boolean) => void;
+  regenSidebarOpen: boolean;
+  setRegenSidebarOpen: (open: boolean) => void;
+  toggleRegenSidebar: () => void;
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
   mode: 'Browse',
-  setMode: async (mode) => {
+  setMode: async mode => {
     const currentMode = get().mode;
     if (mode === currentMode) return;
-    
+
+    // Tier 1: Check if mode is enabled
+    if (!isModeEnabled(mode as ModeId)) {
+      const modeConfig = MODES[mode as ModeId];
+      toast.info(modeConfig?.description || `${mode} mode is coming soon!`);
+      return;
+    }
+
     set({ mode });
-    
+
+    // Tier 2: Track mode switch
+    import('../services/analytics').then(({ track }) => {
+      track('mode_switched', { mode });
+    });
+
     // Get tabs for the new mode
     const { useTabsStore } = await import('./tabsStore');
     const tabsStore = useTabsStore.getState();
     const modeTabs = tabsStore.getTabsForMode(mode);
-    
+
     // If no tabs exist for this mode, create one with a default URL
     if (modeTabs.length === 0) {
       const defaultUrls: Record<AppState['mode'], string> = {
@@ -40,10 +57,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         Threats: 'about:blank',
         GraphMind: 'about:blank',
       };
-      
+
       const defaultUrl = defaultUrls[mode] || 'about:blank';
       const newTab = await (await import('../lib/ipc-typed')).ipc.tabs.create(defaultUrl);
-      
+
       // Update the tab with the appMode
       if (newTab && typeof newTab === 'object' && 'id' in newTab) {
         tabsStore.updateTab((newTab as { id: string }).id, { appMode: mode });
@@ -58,7 +75,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         await (await import('../lib/ipc-typed')).ipc.tabs.activate({ id: modeTabs[0].id });
       }
     }
-    
+
     // Activate the mode manager
     ModeManager.activate(mode).catch(console.error);
   },
@@ -92,6 +109,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       window.dispatchEvent(new CustomEvent('memory-sidebar:toggle', { detail: { open } }));
     }
   },
+  regenSidebarOpen: false,
+  setRegenSidebarOpen: (open: boolean) => {
+    set({ regenSidebarOpen: open });
+    // Dispatch event for AppShell to sync state
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('regen-sidebar:toggle', { detail: { open } }));
+    }
+  },
+  toggleRegenSidebar: () => {
+    const next = !get().regenSidebarOpen;
+    get().setRegenSidebarOpen(next);
+  },
 }));
-
-

@@ -5,6 +5,7 @@
 
 import { Redix, dispatch } from './runtime';
 import { ipc } from '../../lib/ipc-typed';
+import { initializeMemoryPool } from './memory-pool';
 
 export interface ResourcePolicy {
   suspendBackgroundTabs: boolean;
@@ -83,7 +84,7 @@ export async function suspendTab(tabId: string): Promise<void> {
   try {
     // Mark as suspended
     suspendedTabs.add(tabId);
-    
+
     // Notify Redix
     dispatch({
       type: 'redix:tab:suspend',
@@ -112,7 +113,7 @@ export async function thawTab(tabId: string): Promise<void> {
 
   try {
     suspendedTabs.delete(tabId);
-    
+
     dispatch({
       type: 'redix:tab:thaw',
       payload: { tabId },
@@ -173,7 +174,7 @@ export async function optimizePerformance(metrics?: {
   batteryLevel?: number;
 }): Promise<void> {
   const policy = getPolicy();
-  
+
   // Check if we should suspend background tabs
   if (policy.suspendBackgroundTabs) {
     try {
@@ -181,12 +182,12 @@ export async function optimizePerformance(metrics?: {
       if (typeof ipc === 'undefined' || !ipc?.tabs?.list) {
         return; // IPC not available, skip optimization
       }
-      
+
       const tabs = await ipc.tabs.list();
       if (!Array.isArray(tabs) || tabs.length === 0) {
         return; // No tabs to optimize
       }
-      
+
       const activeTab = tabs.find((t: any) => t.active);
       const activeId = activeTab?.id;
 
@@ -197,7 +198,7 @@ export async function optimizePerformance(metrics?: {
         // Check if tab should be suspended
         const lastActive = tab.lastActiveAt || tab.createdAt || 0;
         const minutesSinceActive = (Date.now() - lastActive) / (1000 * 60);
-        
+
         if (minutesSinceActive > policy.suspendAfterMinutes) {
           await suspendTab(tab.id);
         }
@@ -229,7 +230,7 @@ export async function optimizePerformance(metrics?: {
       type: 'redix:performance:low',
       payload: { reason: 'battery', level: metrics.batteryLevel },
     });
-    
+
     // Disable prefetch on low battery
     if (policy.prefetchEnabled) {
       savePolicy({ prefetchEnabled: false });
@@ -242,9 +243,10 @@ export async function optimizePerformance(metrics?: {
  */
 export async function initializeOptimizer(): Promise<void> {
   await loadPolicy();
+  initializeMemoryPool();
 
   // Watch for performance events
-  Redix.watch((event) => {
+  Redix.watch(event => {
     if (event.type === 'redix:performance:low') {
       optimizePerformance();
     }
@@ -255,4 +257,3 @@ export async function initializeOptimizer(): Promise<void> {
     optimizePerformance();
   }, 30000); // Every 30 seconds
 }
-

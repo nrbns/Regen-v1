@@ -11,7 +11,11 @@ import { isDevEnv, isElectronRuntime } from './env';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
-import type { IdentityCredential, IdentityRevealPayload, IdentityVaultSummary } from '../types/identity';
+import type {
+  IdentityCredential,
+  IdentityRevealPayload,
+  IdentityVaultSummary,
+} from '../types/identity';
 import type { ConsentAction, ConsentRecord } from '../types/consent';
 import { useTabsStore } from '../state/tabsStore';
 import { useContainerStore } from '../state/containerStore';
@@ -68,12 +72,16 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     stub: true,
     error: 'Tor runtime not available in this environment.',
   }),
-  'tor:start': () => ({ success: false, stub: true, warning: 'Tor runtime not available in this environment.' }),
+  'tor:start': () => ({
+    success: false,
+    stub: true,
+    warning: 'Tor runtime not available in this environment.',
+  }),
   'tor:stop': () => ({ success: true, stub: true }),
   'tor:newIdentity': () => ({ success: false, stub: true }),
   'vpn:status': () => ({ connected: false, stub: true }),
   'vpn:check': () => ({ connected: false, stub: true }),
-  'vpn:listProfiles': () => ([]),
+  'vpn:listProfiles': () => [],
   'vpn:connect': () => ({ connected: false, stub: true }),
   'vpn:disconnect': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
@@ -97,7 +105,7 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     try {
       const state = useTabsStore.getState?.();
       if (state) {
-        return state.tabs.find((tab) => tab.id === state.activeId) ?? null;
+        return state.tabs.find(tab => tab.id === state.activeId) ?? null;
       }
     } catch {
       // ignore
@@ -119,22 +127,39 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     try {
       const state = useContainerStore.getState?.();
       if (state) {
-        return state.containers.find((c) => c.id === state.activeContainerId) ?? null;
+        return state.containers.find(c => c.id === state.activeContainerId) ?? null;
       }
     } catch {
       // ignore
     }
     return null;
   },
-  'identity:status': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
-  'identity:unlock': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
-  'identity:lock': () => ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null } satisfies IdentityVaultSummary),
+  'identity:status': () =>
+    ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null }) satisfies IdentityVaultSummary,
+  'identity:unlock': () =>
+    ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null }) satisfies IdentityVaultSummary,
+  'identity:lock': () =>
+    ({ status: 'locked', totalCredentials: 0, lastUpdatedAt: null }) satisfies IdentityVaultSummary,
   'identity:list': () => [] as IdentityCredential[],
-  'identity:add': () => ({ id: 'demo', domain: 'example.com', username: 'demo', createdAt: Date.now(), updatedAt: Date.now() } satisfies IdentityCredential),
+  'identity:add': () =>
+    ({
+      id: 'demo',
+      domain: 'example.com',
+      username: 'demo',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }) satisfies IdentityCredential,
   'identity:remove': () => ({ success: false }),
-  'identity:reveal': () => ({ id: 'demo', secret: 'demo' } satisfies IdentityRevealPayload),
+  'identity:reveal': () => ({ id: 'demo', secret: 'demo' }) satisfies IdentityRevealPayload,
   'consent:list': () => [],
-  'shields:getStatus': () => ({ adsBlocked: 0, trackersBlocked: 0, httpsUpgrades: 0, cookies3p: 'allow', webrtcBlocked: false, fingerprinting: false }),
+  'shields:getStatus': () => ({
+    adsBlocked: 0,
+    trackersBlocked: 0,
+    httpsUpgrades: 0,
+    cookies3p: 'allow',
+    webrtcBlocked: false,
+    fingerprinting: false,
+  }),
   'history:search': () => [],
   'performance:battery:update': () => ({ success: true }),
   'session:lastSnapshotSummary': () => null,
@@ -207,13 +232,16 @@ if (typeof window !== 'undefined') {
       if (IS_DEV) {
         console.warn('[IPC] Ready event received but window.ipc is not available');
         console.warn('[IPC] window.ipc:', window.ipc);
-        console.warn('[IPC] window keys:', Object.keys(window).filter(k => k.includes('ipc') || k.includes('api')));
+        console.warn(
+          '[IPC] window keys:',
+          Object.keys(window).filter(k => k.includes('ipc') || k.includes('api'))
+        );
       }
     }
   };
-  
+
   window.addEventListener('ipc:ready', handleIpcReady);
-  
+
   // Also check if IPC is already available (in case event fired before listener was added)
   // Poll for window.ipc to appear (preload script might load after this code)
   let pollCount = 0;
@@ -229,13 +257,16 @@ if (typeof window !== 'undefined') {
       clearInterval(pollInterval);
       if (IS_DEV) {
         console.warn('[IPC] window.ipc never appeared after polling');
-        console.warn('[IPC] Available window properties:', Object.keys(window).filter(k => 
-          k.includes('ipc') || k.includes('api') || k.includes('electron')
-        ));
+        console.warn(
+          '[IPC] Available window properties:',
+          Object.keys(window).filter(
+            k => k.includes('ipc') || k.includes('api') || k.includes('electron')
+          )
+        );
       }
     }
   }, 100);
-  
+
   // Also check immediately
   if (window.ipc && typeof window.ipc.invoke === 'function') {
     setTimeout(() => {
@@ -249,10 +280,15 @@ if (typeof window !== 'undefined') {
 // Wait for IPC to be ready (with timeout)
 async function waitForIPC(timeout = 10000): Promise<boolean> {
   // If already ready, return immediately
-  if (ipcReady && typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function') {
+  if (
+    ipcReady &&
+    typeof window !== 'undefined' &&
+    window.ipc &&
+    typeof window.ipc.invoke === 'function'
+  ) {
     return true;
   }
-  
+
   // Check if window.ipc exists (even if not marked as ready)
   if (typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function') {
     // Mark as ready if IPC bridge exists
@@ -267,34 +303,35 @@ async function waitForIPC(timeout = 10000): Promise<boolean> {
     }
     return true;
   }
-  
+
   // Wait for ready signal
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const startTime = Date.now();
-    
+
     // If already ready, resolve immediately
     if (ipcReady && window.ipc && typeof window.ipc.invoke === 'function') {
       resolve(true);
       return;
     }
-    
+
     // Add resolver to list
     const timeoutId = setTimeout(() => {
       // Remove from list if timeout
       ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
       resolve(false);
     }, timeout);
-    
+
     const resolver = () => {
       clearTimeout(timeoutId);
       resolve(true);
     };
-    
+
     ipcReadyResolvers.push(resolver);
-    
+
     // Also poll as fallback - check both ipcReady flag AND window.ipc existence
     const checkInterval = setInterval(() => {
-      const hasIpc = typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function';
+      const hasIpc =
+        typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function';
       if (ipcReady && hasIpc) {
         clearInterval(checkInterval);
         clearTimeout(timeoutId);
@@ -331,28 +368,30 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   schema?: z.ZodSchema<TResponse>
 ): Promise<TResponse> {
   const fullChannel = `ob://ipc/v1/${channel}`;
- 
+
   // Check if we're in Electron - be lenient, check multiple indicators
   const hasUserAgent = typeof navigator !== 'undefined' && navigator.userAgent;
   const userAgent = hasUserAgent ? navigator.userAgent : '';
   const userAgentHasElectron = userAgent.includes('Electron');
   const hasElectronRuntime = isElectronRuntime();
   // Check for window.ipc OR window.api (legacy API) - both indicate Electron
-  const hasWindowIpc = typeof window !== 'undefined' && (
-    (window.ipc && typeof window.ipc.invoke === 'function') ||
-    (window.api && typeof window.api.ping === 'function')
-  );
-  
+  const hasWindowIpc =
+    typeof window !== 'undefined' &&
+    ((window.ipc && typeof window.ipc.invoke === 'function') ||
+      (window.api && typeof window.api.ping === 'function'));
+
   // Check if we're in a regular web browser (Chrome, Firefox, Safari, Edge)
   // But exclude Electron's Chrome user agent
-  const isRegularBrowser = userAgent.includes('Chrome') && !userAgent.includes('Electron') ||
-                          userAgent.includes('Firefox') ||
-                          (userAgent.includes('Safari') && !userAgent.includes('Chrome')) ||
-                          userAgent.includes('Edg');
-  
+  const isRegularBrowser =
+    (userAgent.includes('Chrome') && !userAgent.includes('Electron')) ||
+    userAgent.includes('Firefox') ||
+    (userAgent.includes('Safari') && !userAgent.includes('Chrome')) ||
+    userAgent.includes('Edg');
+
   // If we have window.ipc or window.api, we're definitely in Electron (even if other checks fail)
   // Also, if we're NOT in a regular browser, assume Electron (more aggressive detection)
-  const isElectron = hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser;
+  const isElectron =
+    hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser;
 
   // Wait for IPC to be ready (with longer timeout for first call)
   const isReady = await waitForIPC(8000);
@@ -360,7 +399,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   // Check if IPC bridge is actually available
   // Try to use window.ipc first, but also check if we can access ipcRenderer directly
   let ipcBridge = window.ipc;
-  
+
   // If window.ipc is not available, try to create a bridge from window.api or direct access
   if (!ipcBridge || typeof ipcBridge.invoke !== 'function') {
     // Check if we can access Electron APIs directly (shouldn't work with context isolation, but worth trying)
@@ -389,7 +428,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
       }
     }
   }
-  
+
   if (!isReady || !ipcBridge || typeof ipcBridge.invoke !== 'function') {
     // Always try fallback first if available, regardless of Electron detection
     const fallback = getFallback<TResponse>(channel);
@@ -398,11 +437,15 @@ export async function ipcCall<TRequest, TResponse = unknown>(
       noteFallback(channel, reason);
       return fallback;
     }
-    
+
     // If no fallback and we're in Electron, this is an error
     if (IS_DEV) {
-      console.warn(`[IPC] Channel ${channel} unavailable (IPC bridge not ready after 8s, no fallback available)`);
-      console.warn(`[IPC] Debug: isElectron=${isElectron}, hasWindowIpc=${hasWindowIpc}, userAgentHasElectron=${userAgentHasElectron}, isReady=${isReady}`);
+      console.warn(
+        `[IPC] Channel ${channel} unavailable (IPC bridge not ready after 8s, no fallback available)`
+      );
+      console.warn(
+        `[IPC] Debug: isElectron=${isElectron}, hasWindowIpc=${hasWindowIpc}, userAgentHasElectron=${userAgentHasElectron}, isReady=${isReady}`
+      );
       console.warn(`[IPC] window.ipc:`, window.ipc);
       console.warn(`[IPC] window.api:`, window.api);
       console.warn(`[IPC] typeof window:`, typeof window);
@@ -411,7 +454,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   }
 
   try {
-      const response = await ipcBridge.invoke(fullChannel, request);
+    const response = await ipcBridge.invoke(fullChannel, request);
 
     if (schema && response !== undefined && response !== null) {
       const parsed = schema.safeParse(response);
@@ -448,6 +491,34 @@ export async function ipcCall<TRequest, TResponse = unknown>(
  * Typed IPC client with pre-configured channels
  */
 export const ipc = {
+  windowControl: {
+    toggleFullscreen: (force?: boolean) =>
+      ipcCall<{ fullscreen?: boolean }, { success: boolean; fullscreen: boolean }>(
+        'app:toggleFullscreen',
+        {
+          fullscreen: force,
+        }
+      ).catch(error => {
+        if (IS_DEV) {
+          console.warn('[IPC] Failed to toggle fullscreen:', error);
+        }
+        return { success: false, fullscreen: false };
+      }),
+    setFullscreen: (fullscreen: boolean) =>
+      ipcCall<{ fullscreen: boolean }, { success: boolean; fullscreen: boolean }>(
+        'app:setFullscreen',
+        { fullscreen }
+      ).catch(error => {
+        if (IS_DEV) {
+          console.warn('[IPC] Failed to set fullscreen:', error);
+        }
+        return { success: false, fullscreen };
+      }),
+    getState: () =>
+      ipcCall<unknown, { fullscreen: boolean }>('app:getWindowState', {}).catch(() => ({
+        fullscreen: !!document.fullscreenElement,
+      })),
+  },
   tabs: {
     create: async (
       input?:
@@ -463,12 +534,12 @@ export const ipc = {
             lastActiveAt?: number;
             sessionId?: string;
             fromSessionRestore?: boolean;
-          },
+          }
     ) => {
       try {
         // Wait for IPC to be ready
         await waitForIPC(5000);
-        const payload = typeof input === 'string' ? { url: input } : (input || {});
+        const payload = typeof input === 'string' ? { url: input } : input || {};
         const result = await ipcCall('tabs:create', {
           url: payload.url || 'about:blank',
           profileId: payload.profileId,
@@ -521,17 +592,52 @@ export const ipc = {
         throw err;
       }
     },
-    navigate: (id: string, url: string) => ipcCall('tabs:navigate', { id, url }).catch(err => console.warn('Failed to navigate:', err)),
-    goBack: (id: string) => ipcCall('tabs:goBack', { id }).catch(err => console.warn('Failed to go back:', err)),
-    goForward: (id: string) => ipcCall('tabs:goForward', { id }).catch(err => console.warn('Failed to go forward:', err)),
+    navigate: (id: string, url: string) =>
+      ipcCall('tabs:navigate', { id, url }).catch(err => console.warn('Failed to navigate:', err)),
+    goBack: (id: string) =>
+      ipcCall('tabs:goBack', { id }).catch(err => console.warn('Failed to go back:', err)),
+    goForward: (id: string) =>
+      ipcCall('tabs:goForward', { id }).catch(err => console.warn('Failed to go forward:', err)),
+    setMemoryCap: async (tabId: string, capMB: number) => {
+      try {
+        return await ipcCall('tabs:setMemoryCap', { tabId, capMB });
+      } catch (err) {
+        if (IS_DEV) {
+          console.warn('Failed to set memory cap:', err);
+        }
+        throw err;
+      }
+    },
     devtools: (id: string) => ipcCall('tabs:devtools', { id }),
-    zoomIn: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomIn', { id }),
-    zoomOut: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomOut', { id }),
-    zoomReset: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomReset', { id }),
-    screenshot: (id?: string) => ipcCall<{ id?: string }, { success: boolean; path?: string; error?: string }>('tabs:screenshot', { id }),
-    pip: (id?: string, enabled?: boolean) => ipcCall<{ id?: string; enabled?: boolean }, { success: boolean; error?: string }>('tabs:pip', { id, enabled }),
-    find: (id?: string) => ipcCall<{ id?: string }, { success: boolean; error?: string }>('tabs:find', { id }),
-    reload: (id: string) => ipcCall('tabs:reload', { id }).catch(err => console.warn('Failed to reload:', err)),
+    zoomIn: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomIn', { id }),
+    zoomOut: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomOut', { id }),
+    zoomReset: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:zoomReset', { id }),
+    screenshot: (id?: string) =>
+      ipcCall<{ id?: string }, { success: boolean; path?: string; error?: string }>(
+        'tabs:screenshot',
+        { id }
+      ),
+    capturePreview: (request: { id: string; maxWidth?: number; quality?: number }) =>
+      ipcCall<
+        { id: string; maxWidth?: number; quality?: number },
+        { success: boolean; dataUrl?: string; width?: number; height?: number; error?: string }
+      >('tabs:capturePreview', request),
+    pip: (id?: string, enabled?: boolean) =>
+      ipcCall<{ id?: string; enabled?: boolean }, { success: boolean; error?: string }>(
+        'tabs:pip',
+        { id, enabled }
+      ),
+    find: (id?: string) =>
+      ipcCall<{ id?: string }, { success: boolean; error?: string }>('tabs:find', { id }),
+    reload: (id: string, options?: { hard?: boolean }) =>
+      ipcCall('tabs:reload', { id, ...(options ?? {}) }).catch(err =>
+        console.warn('Failed to reload:', err)
+      ),
+    stop: (id: string) =>
+      ipcCall('tabs:stop', { id }).catch(err => console.warn('Failed to stop loading:', err)),
     list: async () => {
       try {
         const result = await ipcCall<
@@ -584,27 +690,60 @@ export const ipc = {
     moveToWorkspace: (request: { tabId: string; workspaceId: string; label?: string }) =>
       ipcCall('tabs:moveToWorkspace', request),
     hibernate: (id: string) => ipcCall('tabs:hibernate', { id }),
-    wake: (id: string) => ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:wake', { id }),
+    wake: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean; error?: string }>('tabs:wake', { id }),
     burn: (id: string) => ipcCall('tabs:burn', { id }),
-    onUpdated: (callback: (tabs: Array<{ id: string; title: string; active: boolean; url?: string; mode?: 'normal' | 'ghost' | 'private'; containerId?: string; containerName?: string; containerColor?: string; createdAt?: number; lastActiveAt?: number; sessionId?: string; profileId?: string; sleeping?: boolean }>) => void) => {
+    onUpdated: (
+      callback: (
+        tabs: Array<{
+          id: string;
+          title: string;
+          active: boolean;
+          url?: string;
+          mode?: 'normal' | 'ghost' | 'private';
+          containerId?: string;
+          containerName?: string;
+          containerColor?: string;
+          createdAt?: number;
+          lastActiveAt?: number;
+          sessionId?: string;
+          profileId?: string;
+          sleeping?: boolean;
+        }>
+      ) => void
+    ) => {
       if ((window.ipc as any)?.on) {
         (window.ipc as any).on('tabs:updated', (_event: any, tabs: any[]) => callback(tabs));
       }
     },
     setContainer: (id: string, containerId: string) =>
-      ipcCall<{ id: string; containerId: string }, { success: boolean; error?: string }>('tabs:setContainer', {
-        id,
-        containerId,
-      }),
+      ipcCall<{ id: string; containerId: string }, { success: boolean; error?: string }>(
+        'tabs:setContainer',
+        {
+          id,
+          containerId,
+        }
+      ),
     reorder: (tabId: string, newIndex: number) =>
-      ipcCall<{ tabId: string; newIndex: number }, { success: boolean; error?: string }>('tabs:reorder', {
-        tabId,
-        newIndex,
-      }),
+      ipcCall<{ tabId: string; newIndex: number }, { success: boolean; error?: string }>(
+        'tabs:reorder',
+        {
+          tabId,
+          newIndex,
+        }
+      ),
     reopenClosed: (index?: number) =>
-      ipcCall<{ index?: number }, { success: boolean; tabId?: string; error?: string }>('tabs:reopenClosed', {
-        index,
-      }),
+      ipcCall<{ index?: number }, { success: boolean; tabId?: string; error?: string }>(
+        'tabs:reopenClosed',
+        {
+          index,
+        }
+      ),
+    setPinned: (request: { id: string; pinned: boolean }) =>
+      ipcCall<
+        { id: string; pinned: boolean },
+        { success: boolean; error?: string; unchanged?: boolean }
+      >('tabs:setPinned', request),
     listClosed: () =>
       ipcCall<
         unknown,
@@ -620,19 +759,32 @@ export const ipc = {
         }>
       >('tabs:listClosed', {}),
     getContext: (tabId?: string) =>
-      ipcCall<{ tabId?: string }, { success: boolean; context?: { tabId: string; url: string; title: string; pageText: string; domain: string }; error?: string }>(
-        'tabs:getContext', { tabId }
-      ),
+      ipcCall<
+        { tabId?: string },
+        {
+          success: boolean;
+          context?: { tabId: string; url: string; title: string; pageText: string; domain: string };
+          error?: string;
+        }
+      >('tabs:getContext', { tabId }),
   },
   workflow: {
     launch: (query: string) =>
-      ipcCall<{ query: string }, { success: boolean; workflowId?: string; workflowName?: string; results?: any[]; error?: string }>(
-        'workflow:launch', { query }
-      ),
+      ipcCall<
+        { query: string },
+        {
+          success: boolean;
+          workflowId?: string;
+          workflowName?: string;
+          results?: any[];
+          error?: string;
+        }
+      >('workflow:launch', { query }),
     list: () =>
-      ipcCall<unknown, { success: boolean; workflows?: Array<{ id: string; name: string; description: string }> }>(
-        'workflow:list', {}
-      ),
+      ipcCall<
+        unknown,
+        { success: boolean; workflows?: Array<{ id: string; name: string; description: string }> }
+      >('workflow:list', {}),
   },
   tor: {
     async status() {
@@ -732,37 +884,150 @@ export const ipc = {
       }
     },
     listProfiles: () =>
-      ipcCall<unknown, Array<{ id: string; name: string; type: string; server?: string }>>('vpn:listProfiles', {}),
+      ipcCall<unknown, Array<{ id: string; name: string; type: string; server?: string }>>(
+        'vpn:listProfiles',
+        {}
+      ),
     connect: (id: string) =>
-      ipcCall<{ id: string }, { connected: boolean; type?: string; name?: string; interface?: string; server?: string }>(
-        'vpn:connect',
-        { id },
-      ),
+      ipcCall<
+        { id: string },
+        { connected: boolean; type?: string; name?: string; interface?: string; server?: string }
+      >('vpn:connect', { id }),
     disconnect: () =>
-      ipcCall<unknown, { connected: boolean; type?: string; name?: string; interface?: string; server?: string }>(
-        'vpn:disconnect',
-        {},
-      ),
+      ipcCall<
+        unknown,
+        { connected: boolean; type?: string; name?: string; interface?: string; server?: string }
+      >('vpn:disconnect', {}),
   },
   containers: {
     list: () =>
-      ipcCall<unknown, Array<{ id: string; name: string; color: string; icon?: string; description?: string; scope: string; persistent: boolean; system?: boolean }>>('containers:list', {}),
+      ipcCall<
+        unknown,
+        Array<{
+          id: string;
+          name: string;
+          color: string;
+          icon?: string;
+          description?: string;
+          scope: string;
+          persistent: boolean;
+          system?: boolean;
+        }>
+      >('containers:list', {}),
     getActive: () =>
-      ipcCall<unknown, { id: string; name: string; color: string; icon?: string; description?: string; scope?: string; persistent?: boolean; system?: boolean }>('containers:getActive', {}),
+      ipcCall<
+        unknown,
+        {
+          id: string;
+          name: string;
+          color: string;
+          icon?: string;
+          description?: string;
+          scope?: string;
+          persistent?: boolean;
+          system?: boolean;
+        }
+      >('containers:getActive', {}),
     setActive: (containerId: string) =>
-      ipcCall<{ containerId: string }, { id: string; name: string; color: string; icon?: string; description?: string; scope?: string; persistent?: boolean; system?: boolean }>('containers:setActive', { containerId }),
+      ipcCall<
+        { containerId: string },
+        {
+          id: string;
+          name: string;
+          color: string;
+          icon?: string;
+          description?: string;
+          scope?: string;
+          persistent?: boolean;
+          system?: boolean;
+        }
+      >('containers:setActive', { containerId }),
     create: (payload: { name: string; color?: string; icon?: string }) =>
-      ipcCall<{ name: string; color?: string; icon?: string }, { id: string; name: string; color: string; icon?: string; description?: string; scope?: string; persistent?: boolean; system?: boolean }>('containers:create', payload),
+      ipcCall<
+        { name: string; color?: string; icon?: string },
+        {
+          id: string;
+          name: string;
+          color: string;
+          icon?: string;
+          description?: string;
+          scope?: string;
+          persistent?: boolean;
+          system?: boolean;
+        }
+      >('containers:create', payload),
     getPermissions: (containerId: string) =>
-      ipcCall<{ containerId: string }, { containerId: string; permissions: string[] }>('containers:getPermissions', { containerId }),
-    setPermission: (containerId: string, permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen', enabled: boolean) =>
-      ipcCall<{ containerId: string; permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; enabled: boolean }, { containerId: string; permissions: string[] }>('containers:setPermission', { containerId, permission, enabled }),
+      ipcCall<{ containerId: string }, { containerId: string; permissions: string[] }>(
+        'containers:getPermissions',
+        { containerId }
+      ),
+    setPermission: (
+      containerId: string,
+      permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen',
+      enabled: boolean
+    ) =>
+      ipcCall<
+        {
+          containerId: string;
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          enabled: boolean;
+        },
+        { containerId: string; permissions: string[] }
+      >('containers:setPermission', { containerId, permission, enabled }),
     getSitePermissions: (containerId: string) =>
-      ipcCall<{ containerId: string }, Array<{ permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origins: string[] }>>('containers:getSitePermissions', { containerId }),
-    allowSitePermission: (containerId: string, permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen', origin: string) =>
-      ipcCall<{ containerId: string; permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origin: string }, Array<{ permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origins: string[] }>>('containers:allowSitePermission', { containerId, permission, origin }),
-    revokeSitePermission: (containerId: string, permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen', origin: string) =>
-      ipcCall<{ containerId: string; permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origin: string }, Array<{ permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen'; origins: string[] }>>('containers:revokeSitePermission', { containerId, permission, origin }),
+      ipcCall<
+        { containerId: string },
+        Array<{
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          origins: string[];
+        }>
+      >('containers:getSitePermissions', { containerId }),
+    allowSitePermission: (
+      containerId: string,
+      permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen',
+      origin: string
+    ) =>
+      ipcCall<
+        {
+          containerId: string;
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          origin: string;
+        },
+        Array<{
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          origins: string[];
+        }>
+      >('containers:allowSitePermission', { containerId, permission, origin }),
+    revokeSitePermission: (
+      containerId: string,
+      permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen',
+      origin: string
+    ) =>
+      ipcCall<
+        {
+          containerId: string;
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          origin: string;
+        },
+        Array<{
+          permission: 'media' | 'display-capture' | 'notifications' | 'fullscreen';
+          origins: string[];
+        }>
+      >('containers:revokeSitePermission', { containerId, permission, origin }),
+  },
+  ui: {
+    setChromeOffsets: async (
+      offsets: Partial<{ top: number; bottom: number; left: number; right: number }>
+    ) => {
+      try {
+        return await ipcCall('ui:setChromeOffsets', offsets);
+      } catch (err) {
+        if (IS_DEV) {
+          console.warn('[IPC] Failed to set chrome offsets:', err);
+        }
+        return { success: false };
+      }
+    },
   },
   proxy: {
     set: (config: {
@@ -776,13 +1041,18 @@ export const ipc = {
       proxyRules?: string;
       mode?: string;
     }) => ipcCall('proxy:set', config),
-    status: () => ipcCall<unknown, { healthy: boolean; killSwitchEnabled: boolean }>('proxy:status', {}),
-    getForTab: (tabId: string) => ipcCall<unknown, { proxy: { type: string; host: string; port: number } | null }>('proxy:getForTab', { tabId }),
+    status: () =>
+      ipcCall<unknown, { healthy: boolean; killSwitchEnabled: boolean }>('proxy:status', {}),
+    getForTab: (tabId: string) =>
+      ipcCall<unknown, { proxy: { type: string; host: string; port: number } | null }>(
+        'proxy:getForTab',
+        { tabId }
+      ),
   },
   profiles: {
     create: (
       input: string | { name: string; proxy?: unknown; color?: string },
-      proxy?: unknown,
+      proxy?: unknown
     ) => {
       if (typeof input === 'string') {
         return ipcCall('profiles:create', { name: input, proxy });
@@ -832,7 +1102,8 @@ export const ipc = {
         }
       >('profiles:get', { id }),
     delete: (id: string) => ipcCall('profiles:delete', { id }),
-    updateProxy: (profileId: string, proxy?: unknown) => ipcCall('profiles:updateProxy', { profileId, proxy }),
+    updateProxy: (profileId: string, proxy?: unknown) =>
+      ipcCall('profiles:updateProxy', { profileId, proxy }),
     setActive: (profileId: string) =>
       ipcCall<
         { profileId: string },
@@ -883,14 +1154,47 @@ export const ipc = {
         }
       >('profiles:getPolicy', profileId ? { profileId } : ({} as Record<string, never>)),
   },
+  games: {
+    createSandbox: (payload: { gameId: string; url: string; title?: string }) =>
+      ipcCall<
+        { gameId: string; url: string; title?: string },
+        {
+          sandboxId: string;
+          partition?: string;
+          url: string;
+          hardened?: boolean;
+          createdAt: number;
+        }
+      >('games:sandbox:create', payload),
+    destroySandbox: (payload: { sandboxId: string }) =>
+      ipcCall<{ sandboxId: string }, { success: boolean; error?: string }>(
+        'games:sandbox:destroy',
+        payload
+      ),
+    reportMetrics: (payload: {
+      sandboxId: string;
+      metrics: { fps?: number; droppedFrames?: number; memoryMb?: number; cpuPercent?: number };
+    }) =>
+      ipcCall<
+        {
+          sandboxId: string;
+          metrics: { fps?: number; droppedFrames?: number; memoryMb?: number; cpuPercent?: number };
+        },
+        { success: boolean; error?: string }
+      >('games:sandbox:metrics', payload),
+  },
   telemetry: {
     setOptIn: (optIn: boolean) => {
       // Always return success, even if IPC fails (non-blocking for onboarding)
-      return ipcCall<{ optIn: boolean }, { success: boolean }>('telemetry:setOptIn', { optIn })
-        .catch(() => ({ success: true })); // Fallback to success if IPC fails
+      return ipcCall<{ optIn: boolean }, { success: boolean }>('telemetry:setOptIn', {
+        optIn,
+      }).catch(() => ({ success: true })); // Fallback to success if IPC fails
     },
     getStatus: () =>
-      ipcCall<Record<string, never>, { optIn: boolean; enabled: boolean }>('telemetry:getStatus', {} as Record<string, never>).catch(() => ({
+      ipcCall<Record<string, never>, { optIn: boolean; enabled: boolean }>(
+        'telemetry:getStatus',
+        {} as Record<string, never>
+      ).catch(() => ({
         optIn: false,
         enabled: false,
       })),
@@ -903,7 +1207,14 @@ export const ipc = {
           crashCount: number;
           lastCrashAt: number | null;
           uptimeSeconds: number;
-          perfMetrics: Array<{ metric: string; samples: number; avg: number; p95: number; last: number; unit: string }>;
+          perfMetrics: Array<{
+            metric: string;
+            samples: number;
+            avg: number;
+            p95: number;
+            last: number;
+            unit: string;
+          }>;
         }
       >('telemetry:getSummary', {} as Record<string, never>).catch(() => ({
         optIn: false,
@@ -913,19 +1224,35 @@ export const ipc = {
         uptimeSeconds: 0,
         perfMetrics: [],
       })),
-    trackPerf: (metric: string, value: number, unit?: 'ms' | 'MB' | '%') => ipcCall<{ metric: string; value: number; unit?: 'ms' | 'MB' | '%' }, { success: boolean }>('telemetry:trackPerf', { metric, value, unit }),
-    trackFeature: (feature: string, action?: string) => ipcCall<{ feature: string; action?: string }, { success: boolean }>('telemetry:trackFeature', { feature, action }),
+    trackPerf: (metric: string, value: number, unit?: 'ms' | 'MB' | '%') =>
+      ipcCall<{ metric: string; value: number; unit?: 'ms' | 'MB' | '%' }, { success: boolean }>(
+        'telemetry:trackPerf',
+        { metric, value, unit }
+      ),
+    trackFeature: (feature: string, action?: string) =>
+      ipcCall<{ feature: string; action?: string }, { success: boolean }>(
+        'telemetry:trackFeature',
+        { feature, action }
+      ),
   },
   analytics: {
     setOptIn: (optIn: boolean) =>
-      ipcCall<{ optIn: boolean }, { success: boolean }>('analytics:setOptIn', { optIn }).catch(() => ({ success: true })),
+      ipcCall<{ optIn: boolean }, { success: boolean }>('analytics:setOptIn', { optIn }).catch(
+        () => ({ success: true })
+      ),
     getStatus: () =>
-      ipcCall<Record<string, never>, { optIn: boolean; enabled: boolean }>('analytics:getStatus', {}).catch(() => ({
+      ipcCall<Record<string, never>, { optIn: boolean; enabled: boolean }>(
+        'analytics:getStatus',
+        {}
+      ).catch(() => ({
         optIn: false,
         enabled: false,
       })),
     track: (type: string, payload?: Record<string, unknown>) =>
-      ipcCall<{ type: string; payload?: Record<string, unknown> }, { success: boolean }>('analytics:track', { type, payload }).catch(() => ({
+      ipcCall<{ type: string; payload?: Record<string, unknown> }, { success: boolean }>(
+        'analytics:track',
+        { type, payload }
+      ).catch(() => ({
         success: false,
       })),
   },
@@ -933,138 +1260,343 @@ export const ipc = {
     get: () => ipcCall<unknown, unknown>('settings:get', {}),
     set: (path: string[], value: unknown) => ipcCall('settings:set', { path, value }),
     reset: () => ipcCall<unknown, { success: boolean; settings?: unknown }>('settings:reset', {}),
-    getCategory: (category: string) => ipcCall<{ category: string }, unknown>('settings:getCategory', { category }),
+    getCategory: (category: string) =>
+      ipcCall<{ category: string }, unknown>('settings:getCategory', { category }),
     setCategory: (category: string, values: Record<string, unknown>) =>
-      ipcCall<{ category: string; values: Record<string, unknown> }, { success: boolean; settings?: unknown }>(
-        'settings:setCategory',
-        { category, values }
-      ),
+      ipcCall<
+        { category: string; values: Record<string, unknown> },
+        { success: boolean; settings?: unknown }
+      >('settings:setCategory', { category, values }),
     exportAll: () =>
-      ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>('settings:exportAll', {}),
+      ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>(
+        'settings:exportAll',
+        {}
+      ),
     importAll: () =>
-      ipcCall<
-        unknown,
-        { success: boolean; path?: string; settings?: unknown; canceled?: boolean }
-      >('settings:importAll', {}),
+      ipcCall<unknown, { success: boolean; path?: string; settings?: unknown; canceled?: boolean }>(
+        'settings:importAll',
+        {}
+      ),
     exportFile: () =>
-      ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>('settings:exportAll', {}),
+      ipcCall<unknown, { success: boolean; path?: string; canceled?: boolean }>(
+        'settings:exportAll',
+        {}
+      ),
     importFile: () =>
-      ipcCall<
-        unknown,
-        { success: boolean; path?: string; settings?: unknown; canceled?: boolean }
-      >('settings:importAll', {}),
+      ipcCall<unknown, { success: boolean; path?: string; settings?: unknown; canceled?: boolean }>(
+        'settings:importAll',
+        {}
+      ),
   },
   diagnostics: {
-    openLogs: () =>
-      ipcCall<unknown, { success: boolean }>('diagnostics:openLogs', {}),
-    copyDiagnostics: () =>
-      ipcCall<unknown, { diagnostics: string }>('diagnostics:copy', {}),
+    openLogs: () => ipcCall<unknown, { success: boolean }>('diagnostics:openLogs', {}),
+    copyDiagnostics: () => ipcCall<unknown, { diagnostics: string }>('diagnostics:copy', {}),
   },
   agent: {
     createTask: (task: unknown) => ipcCall('agent:createTask', task),
-    generatePlan: (taskId: string, observations?: unknown[]) => ipcCall('agent:generatePlan', { taskId, observations }),
-    executeTask: (taskId: string, confirmSteps?: string[]) => ipcCall('agent:executeTask', { taskId, confirmSteps }),
+    generatePlan: (taskId: string, observations?: unknown[]) =>
+      ipcCall('agent:generatePlan', { taskId, observations }),
+    executeTask: (taskId: string, confirmSteps?: string[]) =>
+      ipcCall('agent:executeTask', { taskId, confirmSteps }),
     cancelTask: (taskId: string) => ipcCall('agent:cancelTask', { taskId }),
     getStatus: (taskId: string) => ipcCall('agent:getStatus', { taskId }),
-    ask: (query: string, context?: { url?: string; text?: string }) => 
-      ipcCall<{ query: string; context?: { url?: string; text?: string } }, { answer: string; sources?: string[] }>('agent:ask', { query, context }),
-    deepResearch: (request: { query: string; maxSources?: number; outputFormat?: 'json' | 'csv' | 'markdown'; includeCitations?: boolean }) =>
-      ipcCall('agent:deepResearch', request),
+    ask: (query: string, context?: { url?: string; text?: string }) =>
+      ipcCall<
+        { query: string; context?: { url?: string; text?: string } },
+        { answer: string; sources?: string[] }
+      >('agent:ask', { query, context }),
+    askWithScrape: (payload: {
+      url: string;
+      question: string;
+      task?: 'summarize' | 'qa' | 'threat';
+      waitFor?: number;
+    }) =>
+      ipcCall<
+        { url: string; question: string; task?: 'summarize' | 'qa' | 'threat'; waitFor?: number },
+        {
+          jobId: string;
+          task?: string;
+          status?: 'complete' | 'enqueued';
+          answer?: string;
+          summary?: string;
+          highlights?: string[];
+          model?: string | { name?: string };
+          sources?: string[];
+          scrape: { status: number; cached: boolean; fetchedAt?: string };
+        }
+      >('agent:askWithScrape', payload),
+    deepResearch: (request: {
+      query: string;
+      maxSources?: number;
+      outputFormat?: 'json' | 'csv' | 'markdown';
+      includeCitations?: boolean;
+    }) => ipcCall('agent:deepResearch', request),
     stream: {
-      start: (query: string, options?: { model?: string; temperature?: number; maxTokens?: number }) =>
-        ipcCall('agent:stream:start', { query, ...options }),
+      start: (
+        query: string,
+        options?: { model?: string; temperature?: number; maxTokens?: number }
+      ) => ipcCall('agent:stream:start', { query, ...options }),
       stop: (streamId: string) => ipcCall('agent:stream:stop', { streamId }),
     },
     generatePlanFromGoal: (request: { goal: string; mode?: string; constraints?: string[] }) =>
-      ipcCall<{ goal: string; mode?: string; constraints?: string[] }, Plan>('agent:generatePlanFromGoal', request),
-    executePlan: (request: { planId: string; plan: Plan }) =>
-      ipcCall('agent:executePlan', request),
+      ipcCall<{ goal: string; mode?: string; constraints?: string[] }, Plan>(
+        'agent:generatePlanFromGoal',
+        request
+      ),
+    executePlan: (request: { planId: string; plan: Plan }) => ipcCall('agent:executePlan', request),
     guardrails: {
       config: (config: any) => ipcCall('agent:guardrails:config', config),
       check: (type: 'prompt' | 'domain' | 'ratelimit' | 'step', data: any) =>
         ipcCall('agent:guardrails:check', { type, data }),
     },
   },
+  cursor: {
+    setApiKey: (payload: { apiKey: string }) =>
+      ipcCall<{ apiKey: string }, { success: boolean }>('cursor:setApiKey', payload),
+    checkApiKey: () =>
+      ipcCall<unknown, { hasKey: boolean; isAvailable: boolean }>('cursor:checkApiKey', {}),
+    query: (payload: {
+      question: string;
+      pageSnapshot?: { url: string; title: string; html?: string; text?: string };
+      editorState?: {
+        filePath: string;
+        content: string;
+        language?: string;
+        cursorLine?: number;
+        cursorCol?: number;
+      };
+      useWebSocket?: boolean;
+      systemInstructions?: string;
+    }) =>
+      ipcCall<
+        typeof payload,
+        {
+          jobId: string;
+          answer?: string;
+          status: 'streaming' | 'complete' | 'error';
+          error?: string;
+        }
+      >('cursor:query', payload),
+    clearHistory: () => ipcCall<unknown, { success: boolean }>('cursor:clearHistory', {}),
+  },
+  omnix: {
+    browser: {
+      getPage: () =>
+        ipcCall<unknown, { url: string; title: string; html?: string; text?: string } | null>(
+          'omnix:browser:getPage',
+          {}
+        ),
+      getActiveTab: () =>
+        ipcCall<unknown, { id: string; url: string; title: string } | null>(
+          'omnix:browser:getActiveTab',
+          {}
+        ),
+      captureSnapshot: (payload: { url?: string }) =>
+        ipcCall<{ url?: string }, { url: string; title: string; html: string; text: string }>(
+          'omnix:browser:captureSnapshot',
+          payload
+        ),
+    },
+    scrape: {
+      fetch: (payload: { url: string; options?: { timeout?: number; cache?: boolean } }) =>
+        ipcCall<typeof payload, { body: string; status: number; headers: Record<string, string> }>(
+          'omnix:scrape:fetch',
+          payload
+        ),
+      enqueue: (payload: { url: string }) =>
+        ipcCall<{ url: string }, { jobId: string }>('omnix:scrape:enqueue', payload),
+    },
+    ai: {
+      ask: (payload: { question: string; context?: { url?: string; text?: string } }) =>
+        ipcCall<typeof payload, { answer: string; sources?: string[] }>('omnix:ai:ask', payload),
+      summarize: (payload: { url: string }) =>
+        ipcCall<{ url: string }, { summary: string; highlights: string[] }>(
+          'omnix:ai:summarize',
+          payload
+        ),
+    },
+    trade: {
+      getChart: (payload: { symbol: string }) =>
+        ipcCall<{ symbol: string }, { data: unknown }>('omnix:trade:getChart', payload),
+    },
+    file: {
+      save: (payload: { path: string; content: string }) =>
+        ipcCall<{ path: string; content: string }, { success: boolean }>(
+          'omnix:file:save',
+          payload
+        ),
+      read: (payload: { path: string }) =>
+        ipcCall<{ path: string }, { content: string }>('omnix:file:read', payload),
+    },
+    security: {
+      scanPage: (payload: { url: string }) =>
+        ipcCall<{ url: string }, { threats: string[]; score: number }>(
+          'omnix:security:scanPage',
+          payload
+        ),
+    },
+  },
+  session: {
+    saveTabs: () => ipcCall<unknown, { success: boolean; count: number }>('session:saveTabs', {}),
+    loadTabs: () =>
+      ipcCall<
+        unknown,
+        {
+          tabs: Array<{
+            id: string;
+            url: string;
+            title: string;
+            active: boolean;
+            position: number;
+          }>;
+        }
+      >('session:loadTabs', {}),
+    addHistory: (payload: { url: string; title: string; typed?: boolean }) =>
+      ipcCall<typeof payload, { success: boolean }>('session:addHistory', payload),
+    getHistory: (payload: { limit?: number }) =>
+      ipcCall<
+        typeof payload,
+        {
+          history: Array<{
+            id: string;
+            url: string;
+            title: string;
+            visitCount: number;
+            lastVisitAt: number;
+          }>;
+        }
+      >('session:getHistory', payload),
+    searchHistory: (payload: { query: string; limit?: number }) =>
+      ipcCall<typeof payload, { results: Array<{ id: string; url: string; title: string }> }>(
+        'session:searchHistory',
+        payload
+      ),
+    saveSetting: (payload: { key: string; value: unknown }) =>
+      ipcCall<typeof payload, { success: boolean }>('session:saveSetting', payload),
+    getSetting: (payload: { key: string }) =>
+      ipcCall<{ key: string }, { value: unknown }>('session:getSetting', payload),
+  },
   researchStream: {
     start: async (question: string, mode?: 'default' | 'threat' | 'trade') => {
       const payload = { question, ...(mode ? { mode } : {}) };
-      const response = await ipcCall<{ question: string; mode?: string }, { jobId: string; channel: string }>(
-        'research:start',
-        payload,
-      );
+      const response = await ipcCall<
+        { question: string; mode?: string },
+        { jobId: string; channel: string }
+      >('research:start', payload);
       return response;
     },
   },
   cloudVector: {
-    config: (config: { provider: 'qdrant' | 'pinecone' | 'none'; endpoint?: string; apiKey?: string; collection?: string; enabled: boolean }) =>
-      ipcCall('cloud-vector:config', config),
+    config: (config: {
+      provider: 'qdrant' | 'pinecone' | 'none';
+      endpoint?: string;
+      apiKey?: string;
+      collection?: string;
+      enabled: boolean;
+    }) => ipcCall('cloud-vector:config', config),
     sync: (documentIds?: string[]) => ipcCall('cloud-vector:sync', { documentIds }),
     search: (query: string, topK?: number) => ipcCall('cloud-vector:search', { query, topK }),
     available: () => ipcCall<unknown, { available: boolean }>('cloud-vector:available', {}),
   },
   hybridSearch: {
     search: (query: string, maxResults?: number) => ipcCall('search:hybrid', { query, maxResults }),
-    config: (config: { sources?: { brave?: { enabled: boolean; apiKey?: string }; bing?: { enabled: boolean; apiKey?: string; endpoint?: string }; custom?: { enabled: boolean } }; maxResults?: number; rerank?: boolean }) =>
-      ipcCall('search:config', config),
+    config: (config: {
+      sources?: {
+        brave?: { enabled: boolean; apiKey?: string };
+        bing?: { enabled: boolean; apiKey?: string; endpoint?: string };
+        custom?: { enabled: boolean };
+      };
+      maxResults?: number;
+      rerank?: boolean;
+    }) => ipcCall('search:config', config),
   },
   liveSearch: {
-    start: (query: string, options?: { mode?: 'default' | 'threat' | 'trade'; region?: string; maxResults?: number }) =>
+    start: (
+      query: string,
+      options?: { mode?: 'default' | 'threat' | 'trade'; region?: string; maxResults?: number }
+    ) =>
       ipcCall<
-        { query: string; mode?: 'default' | 'threat' | 'trade'; region?: string; maxResults?: number },
+        {
+          query: string;
+          mode?: 'default' | 'threat' | 'trade';
+          region?: string;
+          maxResults?: number;
+        },
         { jobId: string; channel: string }
       >('search:live:start', { query, ...options }),
   },
   graph: {
     tabs: () =>
-      ipcCall<unknown, {
-        nodes: Array<{
-          id: string;
-          title: string;
-          url: string;
-          domain: string;
-          containerId?: string;
-          containerName?: string;
-          containerColor?: string;
-          mode?: 'normal' | 'ghost' | 'private';
-          active: boolean;
-          createdAt?: number;
-          lastActiveAt?: number;
-        }>;
-        edges: Array<{ id: string; source: string; target: string; weight: number; reasons: string[] }>;
-        summary: { totalTabs: number; activeTabs: number; domains: number; containers: number };
-        updatedAt: number;
-      }>('graph:tabs', {}),
+      ipcCall<
+        unknown,
+        {
+          nodes: Array<{
+            id: string;
+            title: string;
+            url: string;
+            domain: string;
+            containerId?: string;
+            containerName?: string;
+            containerColor?: string;
+            mode?: 'normal' | 'ghost' | 'private';
+            active: boolean;
+            createdAt?: number;
+            lastActiveAt?: number;
+          }>;
+          edges: Array<{
+            id: string;
+            source: string;
+            target: string;
+            weight: number;
+            reasons: string[];
+          }>;
+          summary: { totalTabs: number; activeTabs: number; domains: number; containers: number };
+          updatedAt: number;
+        }
+      >('graph:tabs', {}),
     workflow: (options?: { maxSteps?: number }) =>
-      ipcCall<{ maxSteps?: number }, {
-        planId: string;
-        goal: string;
-        summary: string;
-        generatedAt: number;
-        confidence: number;
-        steps: Array<{
-          id: string;
-          title: string;
-          description: string;
-          tabIds: string[];
-          recommendedActions: string[];
-          primaryDomain?: string;
-          confidence?: number;
-        }>;
-        sources: Array<{ domain: string; tabIds: string[] }>;
-      }>('graph:workflowWeaver', options ?? {}),
+      ipcCall<
+        { maxSteps?: number },
+        {
+          planId: string;
+          goal: string;
+          summary: string;
+          generatedAt: number;
+          confidence: number;
+          steps: Array<{
+            id: string;
+            title: string;
+            description: string;
+            tabIds: string[];
+            recommendedActions: string[];
+            primaryDomain?: string;
+            confidence?: number;
+          }>;
+          sources: Array<{ domain: string; tabIds: string[] }>;
+        }
+      >('graph:workflowWeaver', options ?? {}),
   },
   efficiency: {
     applyMode: (mode: 'normal' | 'battery-saver' | 'extreme') =>
-      ipcCall<{ mode: 'normal' | 'battery-saver' | 'extreme' }, { success: boolean }>('efficiency:applyMode', { mode }),
+      ipcCall<{ mode: 'normal' | 'battery-saver' | 'extreme' }, { success: boolean }>(
+        'efficiency:applyMode',
+        { mode }
+      ),
     clearOverride: () => ipcCall<unknown, { success: boolean }>('efficiency:clearOverride', {}),
-    hibernateInactiveTabs: () => ipcCall<unknown, { success: boolean; count: number }>('efficiency:hibernate', {}),
+    hibernateInactiveTabs: () =>
+      ipcCall<unknown, { success: boolean; count: number }>('efficiency:hibernate', {}),
     ecoImpact: (options?: { horizonMinutes?: number }) =>
-      ipcCall<{ horizonMinutes?: number }, EcoImpactForecast>('efficiency:ecoImpact', options ?? {}),
+      ipcCall<{ horizonMinutes?: number }, EcoImpactForecast>(
+        'efficiency:ecoImpact',
+        options ?? {}
+      ),
   },
   trust: {
     list: () => ipcCall<unknown, { records: TrustSummary[] }>('trust:list', {}),
     get: (domain: string) =>
-      ipcCall<{ domain: string }, { found: boolean; summary?: TrustSummary }>('trust:get', { domain }),
+      ipcCall<{ domain: string }, { found: boolean; summary?: TrustSummary }>('trust:get', {
+        domain,
+      }),
     submit: (signal: {
       domain: string;
       url?: string;
@@ -1110,19 +1642,44 @@ export const ipc = {
     pause: (id: string) => ipcCall('downloads:pause', { id }),
     resume: (id: string) => ipcCall('downloads:resume', { id }),
     cancel: (id: string) => ipcCall('downloads:cancel', { id }),
-    retry: (id: string) => ipcCall<{ id: string }, { success: boolean; queued?: boolean }>('downloads:retry', { id }),
-    getQueue: () => ipcCall<unknown, { active: number; queued: number; maxConcurrent: number }>('downloads:getQueue', {}),
+    retry: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean; queued?: boolean }>('downloads:retry', { id }),
+    getQueue: () =>
+      ipcCall<unknown, { active: number; queued: number; maxConcurrent: number }>(
+        'downloads:getQueue',
+        {}
+      ),
   },
   watchers: {
-    list: () => ipcCall<unknown, Array<{ id: string; url: string; createdAt: number; intervalMinutes: number; lastCheckedAt?: number; lastHash?: string; lastChangeAt?: number; status: string; error?: string }>>('watchers:list', {}),
+    list: () =>
+      ipcCall<
+        unknown,
+        Array<{
+          id: string;
+          url: string;
+          createdAt: number;
+          intervalMinutes: number;
+          lastCheckedAt?: number;
+          lastHash?: string;
+          lastChangeAt?: number;
+          status: string;
+          error?: string;
+        }>
+      >('watchers:list', {}),
     add: (request: { url: string; intervalMinutes?: number }) =>
-      ipcCall<{ url: string; intervalMinutes?: number }, { id: string; url: string; createdAt: number; intervalMinutes: number; status: string }>('watchers:add', request),
+      ipcCall<
+        { url: string; intervalMinutes?: number },
+        { id: string; url: string; createdAt: number; intervalMinutes: number; status: string }
+      >('watchers:add', request),
     remove: (id: string) =>
       ipcCall<{ id: string }, { success: boolean }>('watchers:remove', { id }),
     trigger: (id: string) =>
       ipcCall<{ id: string }, { success: boolean; error?: string }>('watchers:trigger', { id }),
     updateInterval: (id: string, intervalMinutes: number) =>
-      ipcCall<{ id: string; intervalMinutes: number }, { success: boolean; error?: string }>('watchers:updateInterval', { id, intervalMinutes }),
+      ipcCall<{ id: string; intervalMinutes: number }, { success: boolean; error?: string }>(
+        'watchers:updateInterval',
+        { id, intervalMinutes }
+      ),
   },
   history: {
     list: () => ipcCall<unknown, any[]>('history:list', {}),
@@ -1138,7 +1695,8 @@ export const ipc = {
         return [];
       }
     },
-    deleteUrl: (url: string) => ipcCall<{ url: string }, { success: boolean }>('history:deleteUrl', { url }),
+    deleteUrl: (url: string) =>
+      ipcCall<{ url: string }, { success: boolean }>('history:deleteUrl', { url }),
   },
   storage: {
     saveWorkspace: (workspace: unknown) => ipcCall('storage:saveWorkspace', workspace),
@@ -1149,10 +1707,25 @@ export const ipc = {
     set: (hostname: string, config: unknown) => ipcCall('shields:set', { hostname, config }),
     updateDefault: (config: unknown) => ipcCall('shields:updateDefault', config),
     list: () => ipcCall<unknown, unknown[]>('shields:list', {}),
-    getStatus: () => ipcCall<unknown, { adsBlocked: number; trackersBlocked: number; httpsUpgrades: number; cookies3p: 'block' | 'allow'; webrtcBlocked: boolean; fingerprinting: boolean }>('shields:getStatus', {}),
+    getStatus: () =>
+      ipcCall<
+        unknown,
+        {
+          adsBlocked: number;
+          trackersBlocked: number;
+          httpsUpgrades: number;
+          cookies3p: 'block' | 'allow';
+          webrtcBlocked: boolean;
+          fingerprinting: boolean;
+        }
+      >('shields:getStatus', {}),
   },
   network: {
-    get: () => ipcCall<unknown, { quicEnabled: boolean; ipv6Enabled: boolean; ipv6LeakProtection: boolean }>('network:get', {}),
+    get: () =>
+      ipcCall<unknown, { quicEnabled: boolean; ipv6Enabled: boolean; ipv6LeakProtection: boolean }>(
+        'network:get',
+        {}
+      ),
     disableQUIC: () => ipcCall('network:disableQUIC', {}),
     enableQUIC: () => ipcCall('network:enableQUIC', {}),
     disableIPv6: () => ipcCall('network:disableIPv6', {}),
@@ -1177,23 +1750,40 @@ export const ipc = {
     clustersList: () => ipcCall<unknown, { clusters: any[] }>('knowledge:clustersList', {}),
   },
   cognitive: {
-    recordPattern: (pattern: { url: string; domain: string; timeSpent: number; actions: string[]; topics?: string[] }) =>
-      ipcCall('cognitive:recordPattern', pattern),
+    recordPattern: (pattern: {
+      url: string;
+      domain: string;
+      timeSpent: number;
+      actions: string[];
+      topics?: string[];
+    }) => ipcCall('cognitive:recordPattern', pattern),
     getSuggestions: (request?: { currentUrl?: string; recentActions?: string[] }) =>
       ipcCall('cognitive:getSuggestions', request || {}),
-    getPersona: () => ipcCall<unknown, { interests: string[]; habits: string[]; patterns: string }>('cognitive:getPersona', {}),
+    getPersona: () =>
+      ipcCall<unknown, { interests: string[]; habits: string[]; patterns: string }>(
+        'cognitive:getPersona',
+        {}
+      ),
     getGraph: () => ipcCall<unknown, { graph: any }>('cognitive:getGraph', {}),
     clear: () => ipcCall('cognitive:clear', {}),
   },
   workspaceV2: {
-    save: (workspace: { id: string; name: string; tabs: any[]; notes?: Record<string, string>; proxyProfileId?: string; mode?: string; layout?: any }) =>
-      ipcCall('workspace-v2:save', workspace),
+    save: (workspace: {
+      id: string;
+      name: string;
+      tabs: any[];
+      notes?: Record<string, string>;
+      proxyProfileId?: string;
+      mode?: string;
+      layout?: any;
+    }) => ipcCall('workspace-v2:save', workspace),
     load: (workspaceId: string) => ipcCall('workspace-v2:load', { workspaceId }),
     list: () => ipcCall<unknown, { workspaces: any[] }>('workspace-v2:list', {}),
     delete: (workspaceId: string) => ipcCall('workspace-v2:delete', { workspaceId }),
     updateNotes: (workspaceId: string, tabId: string, note: string) =>
       ipcCall('workspace-v2:updateNotes', { workspaceId, tabId, note }),
-    getNotes: (workspaceId: string) => ipcCall<unknown, { notes: Record<string, string> }>('workspace-v2:getNotes', { workspaceId }),
+    getNotes: (workspaceId: string) =>
+      ipcCall<unknown, { notes: Record<string, string> }>('workspace-v2:getNotes', { workspaceId }),
   },
   sessionBundle: {
     export: (runId: string, options?: { name?: string; description?: string }) =>
@@ -1205,11 +1795,15 @@ export const ipc = {
   },
   sessionState: {
     summary: () =>
-      ipcCall<unknown, { summary: { updatedAt: number; windowCount: number; tabCount: number } | null }>(
-        'session:lastSnapshotSummary',
-        {},
+      ipcCall<
+        unknown,
+        { summary: { updatedAt: number; windowCount: number; tabCount: number } | null }
+      >('session:lastSnapshotSummary', {}),
+    restore: () =>
+      ipcCall<unknown, { restored: boolean; tabCount?: number; error?: string }>(
+        'session:restoreLast',
+        {}
       ),
-    restore: () => ipcCall<unknown, { restored: boolean; tabCount?: number; error?: string }>('session:restoreLast', {}),
   },
   historyGraph: {
     recordNavigation: (fromUrl: string | null, toUrl: string, title?: string) =>
@@ -1227,33 +1821,51 @@ export const ipc = {
   },
   omniscript: {
     parse: (command: string) => ipcCall<unknown, { parsed: any }>('omniscript:parse', { command }),
-    execute: (commands: string[]) => ipcCall<unknown, { actions: any[] }>('omniscript:execute', { commands }),
+    execute: (commands: string[]) =>
+      ipcCall<unknown, { actions: any[] }>('omniscript:execute', { commands }),
   },
   omniBrain: {
     addDocument: (document: { text: string; url?: string; metadata?: Record<string, unknown> }) =>
       ipcCall<unknown, { id: string }>('omni-brain:addDocument', document),
     search: (query: string, limit?: number) =>
-      ipcCall<unknown, Array<{ document: any; similarity: number }>>('omni-brain:search', { query, limit: limit || 10 }),
-    getDocument: (id: string) => ipcCall<unknown, { document: any }>('omni-brain:getDocument', { id }),
+      ipcCall<unknown, Array<{ document: any; similarity: number }>>('omni-brain:search', {
+        query,
+        limit: limit || 10,
+      }),
+    getDocument: (id: string) =>
+      ipcCall<unknown, { document: any }>('omni-brain:getDocument', { id }),
     listDocuments: () => ipcCall<unknown, { documents: any[] }>('omni-brain:listDocuments', {}),
     deleteDocument: (id: string) => ipcCall('omni-brain:deleteDocument', { id }),
     clear: () => ipcCall('omni-brain:clear', {}),
   },
   spiritual: {
     focusMode: {
-      enable: (config?: { ambientSound?: 'none' | 'nature' | 'rain' | 'ocean' | 'meditation'; breathingOverlay?: boolean; timer?: number; notifications?: boolean }) =>
-        ipcCall('spiritual:focusMode:enable', config || {}),
+      enable: (config?: {
+        ambientSound?: 'none' | 'nature' | 'rain' | 'ocean' | 'meditation';
+        breathingOverlay?: boolean;
+        timer?: number;
+        notifications?: boolean;
+      }) => ipcCall('spiritual:focusMode:enable', config || {}),
       disable: () => ipcCall('spiritual:focusMode:disable', {}),
-      status: () => ipcCall<unknown, { active: boolean; config: any }>('spiritual:focusMode:status', {}),
+      status: () =>
+        ipcCall<unknown, { active: boolean; config: any }>('spiritual:focusMode:status', {}),
     },
     mood: {
       recordTyping: () => ipcCall('spiritual:mood:recordTyping', {}),
-      get: () => ipcCall<unknown, { mood: string; confidence: number; detectedAt: number; colors: any }>('spiritual:mood:get', {}),
+      get: () =>
+        ipcCall<unknown, { mood: string; confidence: number; detectedAt: number; colors: any }>(
+          'spiritual:mood:get',
+          {}
+        ),
       reset: () => ipcCall('spiritual:mood:reset', {}),
     },
     balance: {
-      start: (intervals?: { rest?: number; stretch?: number; hydrate?: number; eyeBreak?: number }) =>
-        ipcCall('spiritual:balance:start', intervals || {}),
+      start: (intervals?: {
+        rest?: number;
+        stretch?: number;
+        hydrate?: number;
+        eyeBreak?: number;
+      }) => ipcCall('spiritual:balance:start', intervals || {}),
       stop: () => ipcCall('spiritual:balance:stop', {}),
     },
   },
@@ -1263,7 +1875,8 @@ export const ipc = {
       ipcCall('plugin-marketplace:install', { pluginId, verifySignature: verifySignature ?? true }),
     uninstall: (pluginId: string) => ipcCall('plugin-marketplace:uninstall', { pluginId }),
     installed: () => ipcCall<unknown, { plugins: string[] }>('plugin-marketplace:installed', {}),
-    isInstalled: (pluginId: string) => ipcCall<unknown, { installed: boolean }>('plugin-marketplace:isInstalled', { pluginId }),
+    isInstalled: (pluginId: string) =>
+      ipcCall<unknown, { installed: boolean }>('plugin-marketplace:isInstalled', { pluginId }),
   },
   extensionNexus: {
     list: () => ipcCall<unknown, NexusListResponse>('plugins:nexus:list', {}),
@@ -1278,10 +1891,13 @@ export const ipc = {
       tags?: string[];
     }) => ipcCall<typeof metadata, NexusPluginEntry>('plugins:nexus:publish', metadata),
     trust: (pluginId: string, trusted: boolean) =>
-      ipcCall<{ pluginId: string; trusted: boolean }, { plugin: NexusPluginEntry | null }>('plugins:nexus:trust', {
-        pluginId,
-        trusted,
-      }),
+      ipcCall<{ pluginId: string; trusted: boolean }, { plugin: NexusPluginEntry | null }>(
+        'plugins:nexus:trust',
+        {
+          pluginId,
+          trusted,
+        }
+      ),
   },
   performance: {
     battery: {
@@ -1294,18 +1910,40 @@ export const ipc = {
         regionCode?: string | null;
       }) => ipcCall('performance:battery:update', payload),
     },
-    getMetrics: () => ipcCall<unknown, { cpu: number; memory: number; cpuLoad1: number; ramMb: number; activeTabs: number; timestamp: number }>('performance:getMetrics', {}),
+    getMetrics: () =>
+      ipcCall<
+        unknown,
+        {
+          cpu: number;
+          memory: number;
+          cpuLoad1: number;
+          ramMb: number;
+          activeTabs: number;
+          timestamp: number;
+        }
+      >('performance:getMetrics', {}),
     gpu: {
-      enableRaster: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:enableRaster', {}),
-      disableRaster: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:disableRaster', {}),
-      enableHardwareDecode: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:enableHardwareDecode', {}),
-      disableHardwareDecode: () => ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:disableHardwareDecode', {}),
+      enableRaster: () =>
+        ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:enableRaster', {}),
+      disableRaster: () =>
+        ipcCall<unknown, { success: boolean; config: any }>('performance:gpu:disableRaster', {}),
+      enableHardwareDecode: () =>
+        ipcCall<unknown, { success: boolean; config: any }>(
+          'performance:gpu:enableHardwareDecode',
+          {}
+        ),
+      disableHardwareDecode: () =>
+        ipcCall<unknown, { success: boolean; config: any }>(
+          'performance:gpu:disableHardwareDecode',
+          {}
+        ),
       getConfig: () => ipcCall<unknown, { config: any }>('performance:gpu:getConfig', {}),
     },
     snapshot: {
       create: (snapshot: { windows: any[]; workspace?: string }) =>
         ipcCall<unknown, { snapshotId: string }>('performance:snapshot:create', snapshot),
-      restore: (snapshotId: string) => ipcCall<unknown, { snapshot: any }>('performance:snapshot:restore', { snapshotId }),
+      restore: (snapshotId: string) =>
+        ipcCall<unknown, { snapshot: any }>('performance:snapshot:restore', { snapshotId }),
       latest: () => ipcCall<unknown, { snapshot: any }>('performance:snapshot:latest', {}),
       list: () => ipcCall<unknown, { snapshots: any[] }>('performance:snapshot:list', {}),
     },
@@ -1313,48 +1951,133 @@ export const ipc = {
   workers: {
     scraping: {
       run: (task: { id: string; urls: string[]; selectors?: string[]; pagination?: any }) =>
-        ipcCall<unknown, { taskId: string; results: any[]; completed: number; total: number }>('workers:scraping:run', task),
+        ipcCall<unknown, { taskId: string; results: any[]; completed: number; total: number }>(
+          'workers:scraping:run',
+          task
+        ),
     },
   },
   videoCall: {
-    getConfig: () => ipcCall<unknown, { enabled: boolean; adaptiveQuality: boolean; maxResolution: string; maxFrameRate: number; bandwidthEstimate: number; priorityMode: string }>('videoCall:getConfig', {}),
-    updateConfig: (config: { enabled?: boolean; adaptiveQuality?: boolean; maxResolution?: '720p' | '480p' | '360p' | '240p'; maxFrameRate?: number; bandwidthEstimate?: number; priorityMode?: 'performance' | 'balanced' | 'quality' }) =>
-      ipcCall('videoCall:updateConfig', config),
-    getNetworkQuality: () => ipcCall<unknown, { bandwidth: number; latency: number; packetLoss: number; quality: string }>('videoCall:getNetworkQuality', {}),
+    getConfig: () =>
+      ipcCall<
+        unknown,
+        {
+          enabled: boolean;
+          adaptiveQuality: boolean;
+          maxResolution: string;
+          maxFrameRate: number;
+          bandwidthEstimate: number;
+          priorityMode: string;
+        }
+      >('videoCall:getConfig', {}),
+    updateConfig: (config: {
+      enabled?: boolean;
+      adaptiveQuality?: boolean;
+      maxResolution?: '720p' | '480p' | '360p' | '240p';
+      maxFrameRate?: number;
+      bandwidthEstimate?: number;
+      priorityMode?: 'performance' | 'balanced' | 'quality';
+    }) => ipcCall('videoCall:updateConfig', config),
+    getNetworkQuality: () =>
+      ipcCall<unknown, { bandwidth: number; latency: number; packetLoss: number; quality: string }>(
+        'videoCall:getNetworkQuality',
+        {}
+      ),
     updateNetworkQuality: (quality: { bandwidth: number; latency?: number; packetLoss?: number }) =>
       ipcCall('videoCall:updateNetworkQuality', quality),
   },
   sessions: {
     create: (request: { name: string; profileId?: string; color?: string }) =>
-      ipcCall<{ name: string; profileId?: string; color?: string }, { id: string; name: string; profileId: string; createdAt: number; tabCount: number; color?: string }>('sessions:create', request),
-    list: () => ipcCall<unknown, Array<{ id: string; name: string; profileId: string; createdAt: number; tabCount: number; color?: string }>>('sessions:list', {}),
-    getActive: () => ipcCall<unknown, { id: string; name: string; profileId: string; createdAt: number; tabCount: number; color?: string } | null>('sessions:getActive', {}),
+      ipcCall<
+        { name: string; profileId?: string; color?: string },
+        {
+          id: string;
+          name: string;
+          profileId: string;
+          createdAt: number;
+          tabCount: number;
+          color?: string;
+        }
+      >('sessions:create', request),
+    list: () =>
+      ipcCall<
+        unknown,
+        Array<{
+          id: string;
+          name: string;
+          profileId: string;
+          createdAt: number;
+          tabCount: number;
+          color?: string;
+        }>
+      >('sessions:list', {}),
+    getActive: () =>
+      ipcCall<
+        unknown,
+        {
+          id: string;
+          name: string;
+          profileId: string;
+          createdAt: number;
+          tabCount: number;
+          color?: string;
+        } | null
+      >('sessions:getActive', {}),
     setActive: (request: { sessionId: string }) => ipcCall('sessions:setActive', request),
-    get: (request: { sessionId: string }) => ipcCall<{ sessionId: string }, { id: string; name: string; profileId: string; createdAt: number; tabCount: number; color?: string }>('sessions:get', request),
+    get: (request: { sessionId: string }) =>
+      ipcCall<
+        { sessionId: string },
+        {
+          id: string;
+          name: string;
+          profileId: string;
+          createdAt: number;
+          tabCount: number;
+          color?: string;
+        }
+      >('sessions:get', request),
     delete: (request: { sessionId: string }) => ipcCall('sessions:delete', request),
-    update: (request: { sessionId: string; name?: string; color?: string }) => ipcCall('sessions:update', request),
-    getPartition: (request: { sessionId: string }) => ipcCall<{ sessionId: string }, { partition: string }>('sessions:getPartition', request),
+    update: (request: { sessionId: string; name?: string; color?: string }) =>
+      ipcCall('sessions:update', request),
+    getPartition: (request: { sessionId: string }) =>
+      ipcCall<{ sessionId: string }, { partition: string }>('sessions:getPartition', request),
   },
   private: {
-    createWindow: (options?: { url?: string; autoCloseAfter?: number; contentProtection?: boolean; ghostMode?: boolean }) =>
-      ipcCall<{ url?: string; autoCloseAfter?: number; contentProtection?: boolean; ghostMode?: boolean }, { windowId: number }>('private:createWindow', options || {}),
+    createWindow: (options?: {
+      url?: string;
+      autoCloseAfter?: number;
+      contentProtection?: boolean;
+      ghostMode?: boolean;
+    }) =>
+      ipcCall<
+        { url?: string; autoCloseAfter?: number; contentProtection?: boolean; ghostMode?: boolean },
+        { windowId: number }
+      >('private:createWindow', options || {}),
     createGhostTab: (options?: { url?: string }) =>
       ipcCall<{ url?: string }, { tabId: string }>('private:createGhostTab', options || {}),
     createShadowSession: (options?: { url?: string; persona?: string; summary?: boolean }) =>
-      ipcCall<{ url?: string; persona?: string; summary?: boolean }, { sessionId: string }>('private:shadow:start', options || {}),
+      ipcCall<{ url?: string; persona?: string; summary?: boolean }, { sessionId: string }>(
+        'private:shadow:start',
+        options || {}
+      ),
     endShadowSession: (sessionId: string, options?: { forensic?: boolean }) =>
-      ipcCall<{ sessionId: string; forensic?: boolean }, { success: boolean }>('private:shadow:end', { sessionId, forensic: options?.forensic ?? false }),
-    closeAll: () =>
-      ipcCall<unknown, { count: number }>('private:closeAll', {}),
+      ipcCall<{ sessionId: string; forensic?: boolean }, { success: boolean }>(
+        'private:shadow:end',
+        { sessionId, forensic: options?.forensic ?? false }
+      ),
+    closeAll: () => ipcCall<unknown, { count: number }>('private:closeAll', {}),
     panicWipe: (options?: { forensic?: boolean }) =>
       ipcCall<{ forensic?: boolean }, { success: boolean }>('private:panicWipe', options || {}),
   },
   crossReality: {
     handoff: (tabId: string, target: 'mobile' | 'xr') =>
-      ipcCall<{ tabId: string; target: 'mobile' | 'xr' }, { success: boolean; handoff: any }>('cross-reality:handoff', {
-        tabId,
-        target,
-      }),
+      ipcCall<{ tabId: string; target: 'mobile' | 'xr' }, { success: boolean; handoff: any }>(
+        'cross-reality:handoff',
+        {
+          tabId,
+          target,
+        }
+      ),
     queue: () => ipcCall<unknown, { handoffs: any[] }>('cross-reality:queue', {}),
   },
   identity: {
@@ -1363,58 +2086,86 @@ export const ipc = {
       ipcCall<{ passphrase: string }, IdentityVaultSummary>('identity:unlock', { passphrase }),
     lock: () => ipcCall<unknown, IdentityVaultSummary>('identity:lock', {}),
     list: () => ipcCall<unknown, IdentityCredential[]>('identity:list', {}),
-    add: (payload: { domain: string; username: string; secret: string; secretHint?: string | null; tags?: string[] }) =>
-      ipcCall<typeof payload, IdentityCredential>('identity:add', payload),
-    remove: (id: string) => ipcCall<{ id: string }, { success: boolean }>('identity:remove', { id }),
-    reveal: (id: string) => ipcCall<{ id: string }, IdentityRevealPayload>('identity:reveal', { id }),
+    add: (payload: {
+      domain: string;
+      username: string;
+      secret: string;
+      secretHint?: string | null;
+      tags?: string[];
+    }) => ipcCall<typeof payload, IdentityCredential>('identity:add', payload),
+    remove: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean }>('identity:remove', { id }),
+    reveal: (id: string) =>
+      ipcCall<{ id: string }, IdentityRevealPayload>('identity:reveal', { id }),
   },
   consent: {
     createRequest: (action: ConsentAction) =>
       ipcCall<ConsentAction, { consentId: string }>('consent:createRequest', action),
     approve: (consentId: string) =>
-      ipcCall<{ consentId: string }, { success: boolean; consent?: ConsentRecord | null; receipt?: { receiptId: string; proof: string } }>(
-        'consent:approve',
-        { consentId },
-      ),
-    revoke: (consentId: string) => ipcCall<{ consentId: string }, { success: boolean }>('consent:revoke', { consentId }),
+      ipcCall<
+        { consentId: string },
+        {
+          success: boolean;
+          consent?: ConsentRecord | null;
+          receipt?: { receiptId: string; proof: string };
+        }
+      >('consent:approve', { consentId }),
+    revoke: (consentId: string) =>
+      ipcCall<{ consentId: string }, { success: boolean }>('consent:revoke', { consentId }),
     check: (action: ConsentAction) =>
       ipcCall<ConsentAction, { hasConsent: boolean }>('consent:check', action),
-    get: (consentId: string) => ipcCall<{ consentId: string }, ConsentRecord | undefined>('consent:get', { consentId }),
+    get: (consentId: string) =>
+      ipcCall<{ consentId: string }, ConsentRecord | undefined>('consent:get', { consentId }),
     list: (filter?: { type?: ConsentAction['type']; approved?: boolean }) =>
       ipcCall<typeof filter, ConsentRecord[]>('consent:list', filter ?? {}),
     export: () => ipcCall<unknown, string>('consent:export', {}),
     vault: {
-      export: () =>
-        ipcCall<unknown, ConsentVaultSnapshot>('consent:vault:export', {}),
+      export: () => ipcCall<unknown, ConsentVaultSnapshot>('consent:vault:export', {}),
     },
   },
   research: {
     extractContent: (tabId?: string) =>
-      ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>('research:extractContent', tabId ? { tabId } : {}),
+      ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>(
+        'research:extractContent',
+        tabId ? { tabId } : {}
+      ),
     saveNotes: (url: string, notes: string, highlights?: unknown[]) =>
-      ipcCall<{ url: string; notes: string; highlights?: unknown[] }, { success: boolean }>('research:saveNotes', {
-        url,
-        notes,
-        highlights,
-      }),
+      ipcCall<{ url: string; notes: string; highlights?: unknown[] }, { success: boolean }>(
+        'research:saveNotes',
+        {
+          url,
+          notes,
+          highlights,
+        }
+      ),
     getNotes: (url: string) =>
-      ipcCall<{ url: string }, { notes: string; highlights: unknown[] }>('research:getNotes', { url }),
-    export: (payload: { format: 'markdown' | 'obsidian' | 'notion'; sources: string[]; includeNotes?: boolean }) =>
-      ipcCall<typeof payload, any>('research:export', payload),
+      ipcCall<{ url: string }, { notes: string; highlights: unknown[] }>('research:getNotes', {
+        url,
+      }),
+    export: (payload: {
+      format: 'markdown' | 'obsidian' | 'notion';
+      sources: string[];
+      includeNotes?: boolean;
+    }) => ipcCall<typeof payload, any>('research:export', payload),
     saveSnapshot: (tabId: string) =>
-      ipcCall<{ tabId: string }, { snapshotId: string; url: string }>('research:saveSnapshot', { tabId }),
+      ipcCall<{ tabId: string }, { snapshotId: string; url: string }>('research:saveSnapshot', {
+        tabId,
+      }),
     uploadFile: (file: File) => {
       // Convert File to base64 for IPC
       return new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async () => {
           const base64 = reader.result as string;
-          const result = await ipcCall<{ 
-            filename: string; 
-            content: string; 
-            mimeType: string;
-            size: number;
-          }, { fileId: string }>('research:uploadFile', {
+          const result = await ipcCall<
+            {
+              filename: string;
+              content: string;
+              mimeType: string;
+              size: number;
+            },
+            { fileId: string }
+          >('research:uploadFile', {
             filename: file.name,
             content: base64.split(',')[1], // Remove data URL prefix
             mimeType: file.type,
@@ -1427,13 +2178,38 @@ export const ipc = {
       });
     },
     listDocuments: () =>
-      ipcCall<unknown, { documents: Array<{ id: string; type: string; title: string; uploadedAt: number; chunkCount: number }> }>('research:listDocuments', {}),
+      ipcCall<
+        unknown,
+        {
+          documents: Array<{
+            id: string;
+            type: string;
+            title: string;
+            uploadedAt: number;
+            chunkCount: number;
+          }>;
+        }
+      >('research:listDocuments', {}),
     getDocumentChunks: (documentId: string) =>
-      ipcCall<{ documentId: string }, { chunks: Array<{ id: string; content: string; metadata: any }> }>('research:getDocumentChunks', { documentId }),
+      ipcCall<
+        { documentId: string },
+        { chunks: Array<{ id: string; content: string; metadata: any }> }
+      >('research:getDocumentChunks', { documentId }),
     capturePage: (tabId?: string) =>
-      ipcCall<{ tabId?: string }, { snapshotId: string; url: string; title: string; dimensions: { width: number; height: number } }>('research:capturePage', tabId ? { tabId } : {}),
+      ipcCall<
+        { tabId?: string },
+        {
+          snapshotId: string;
+          url: string;
+          title: string;
+          dimensions: { width: number; height: number };
+        }
+      >('research:capturePage', tabId ? { tabId } : {}),
     captureSelection: (text?: string, tabId?: string) =>
-      ipcCall<{ tabId?: string; text?: string }, { clipId: string; url: string; text: string }>('research:captureSelection', { tabId, text }),
+      ipcCall<{ tabId?: string; text?: string }, { clipId: string; url: string; text: string }>(
+        'research:captureSelection',
+        { tabId, text }
+      ),
   },
   reader: {
     summarize: (payload: { url?: string; title?: string; content: string; html?: string }) =>
@@ -1450,54 +2226,106 @@ export const ipc = {
       limitPrice?: number;
       stopPrice?: number;
       timeInForce?: 'day' | 'gtc' | 'ioc' | 'fok';
-      bracket?: { stopLoss: number; takeProfit: number; stopLossType?: 'price' | 'percent' | 'atr'; takeProfitType?: 'price' | 'percent' | 'atr' };
-      trailingStop?: { distance: number; distanceType: 'price' | 'percent' | 'atr'; activationPrice?: number };
+      bracket?: {
+        stopLoss: number;
+        takeProfit: number;
+        stopLossType?: 'price' | 'percent' | 'atr';
+        takeProfitType?: 'price' | 'percent' | 'atr';
+      };
+      trailingStop?: {
+        distance: number;
+        distanceType: 'price' | 'percent' | 'atr';
+        activationPrice?: number;
+      };
       paper?: boolean;
       aiSignalId?: string;
     }) => ipcCall<typeof order, { orderId: string }>('trade:placeOrder', order),
     cancelOrder: (orderId: string) =>
       ipcCall<{ orderId: string }, { success: boolean }>('trade:cancelOrder', { orderId }),
     getOrders: (status?: string) =>
-      ipcCall<{ status?: string }, { orders: Array<{
-        id: string;
-        symbol: string;
-        side: 'buy' | 'sell';
-        quantity: number;
-        filledQuantity: number;
-        orderType: string;
-        status: string;
-        limitPrice?: number;
-        stopPrice?: number;
-        averageFillPrice?: number;
-        createdAt: number;
-        filledAt?: number;
-        paper: boolean;
-      }> }>('trade:getOrders', status ? { status } : {}),
+      ipcCall<
+        { status?: string },
+        {
+          orders: Array<{
+            id: string;
+            symbol: string;
+            side: 'buy' | 'sell';
+            quantity: number;
+            filledQuantity: number;
+            orderType: string;
+            status: string;
+            limitPrice?: number;
+            stopPrice?: number;
+            averageFillPrice?: number;
+            createdAt: number;
+            filledAt?: number;
+            paper: boolean;
+          }>;
+        }
+      >('trade:getOrders', status ? { status } : {}),
     getPositions: () =>
-      ipcCall<unknown, { positions: Array<{
-        id: string;
-        symbol: string;
-        quantity: number;
-        averageEntryPrice: number;
-        currentPrice: number;
-        unrealizedPnL: number;
-        realizedPnL: number;
-        entryOrderId: string;
-        paper: boolean;
-      }> }>('trade:getPositions', {}),
+      ipcCall<
+        unknown,
+        {
+          positions: Array<{
+            id: string;
+            symbol: string;
+            quantity: number;
+            averageEntryPrice: number;
+            currentPrice: number;
+            unrealizedPnL: number;
+            realizedPnL: number;
+            entryOrderId: string;
+            paper: boolean;
+          }>;
+        }
+      >('trade:getPositions', {}),
     closePosition: (symbol: string, quantity?: number) =>
-      ipcCall<{ symbol: string; quantity?: number }, { success: boolean; orderId?: string; error?: string }>('trade:closePosition', { symbol, quantity }),
+      ipcCall<
+        { symbol: string; quantity?: number },
+        { success: boolean; orderId?: string; error?: string }
+      >('trade:closePosition', { symbol, quantity }),
     getBalance: () =>
-      ipcCall<unknown, { cash: number; buyingPower: number; portfolioValue: number }>('trade:getBalance', {}),
-    connectBroker: (config: { brokerId: string; apiKey: string; apiSecret: string; paper: boolean }) =>
-      ipcCall<typeof config, { success: boolean }>('trade:connectBroker', config),
+      ipcCall<unknown, { cash: number; buyingPower: number; portfolioValue: number }>(
+        'trade:getBalance',
+        {}
+      ),
+    connectBroker: (config: {
+      brokerId: string;
+      apiKey: string;
+      apiSecret: string;
+      paper: boolean;
+    }) => ipcCall<typeof config, { success: boolean }>('trade:connectBroker', config),
     getQuote: (symbol: string) =>
-      ipcCall<{ symbol: string }, { symbol: string; bid: number; ask: number; last: number; volume: number; timestamp: number }>('trade:getQuote', { symbol }),
+      ipcCall<
+        { symbol: string },
+        {
+          symbol: string;
+          bid: number;
+          ask: number;
+          last: number;
+          volume: number;
+          timestamp: number;
+        }
+      >('trade:getQuote', { symbol }),
     getCandles: (params: { symbol: string; timeframe: string; from: number; to: number }) =>
-      ipcCall<typeof params, { candles: Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }> }>('trade:getCandles', params),
+      ipcCall<
+        typeof params,
+        {
+          candles: Array<{
+            time: number;
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            volume: number;
+          }>;
+        }
+      >('trade:getCandles', params),
   },
   dns: {
-    status: () => ipcCall<unknown, { enabled: boolean; provider: 'cloudflare' | 'quad9' }>('dns:status', {}),
+    status: () =>
+      ipcCall<unknown, { enabled: boolean; provider: 'cloudflare' | 'quad9' }>('dns:status', {}),
     enableDoH: (provider: 'cloudflare' | 'quad9' = 'cloudflare') =>
       ipcCall<{ provider: 'cloudflare' | 'quad9' }>('dns:enableDoH', { provider }),
     disableDoH: () => ipcCall('dns:disableDoH', {}),
@@ -1505,53 +2333,88 @@ export const ipc = {
   privacy: {
     sentinel: {
       audit: (tabId?: string | null) =>
-        ipcCall<{ tabId?: string | null } | undefined, PrivacyAuditSummary>('privacy:sentinel:audit', tabId ? { tabId } : {}),
+        ipcCall<{ tabId?: string | null } | undefined, PrivacyAuditSummary>(
+          'privacy:sentinel:audit',
+          tabId ? { tabId } : {}
+        ),
     },
-    getStats: () => ipcCall<unknown, {
-      trackersBlocked: number;
-      adsBlocked: number;
-      cookiesBlocked: number;
-      scriptsBlocked: number;
-      httpsUpgrades: number;
-      fingerprintingEnabled: boolean;
-      webrtcBlocked: boolean;
-      totalCookies: number;
-      totalOrigins: number;
-      privacyScore: number;
-    }>('privacy:getStats', {}),
-    getTrackers: (limit?: number) => ipcCall<{ limit?: number }, Array<{
-      domain: string;
-      category: string;
-      count: number;
-      blocked: boolean;
-      lastSeen: number;
-    }>>('privacy:getTrackers', { limit: limit || 50 }),
-    exportReport: (format?: 'json' | 'csv') => ipcCall<{ format?: 'json' | 'csv' }, {
-      stats: any;
-      trackers: any[];
-      origins: any[];
-      timestamp: number;
-      exportFormat: 'json' | 'csv';
-    }>('privacy:exportReport', { format: format || 'json' }),
+    getStats: () =>
+      ipcCall<
+        unknown,
+        {
+          trackersBlocked: number;
+          adsBlocked: number;
+          cookiesBlocked: number;
+          scriptsBlocked: number;
+          httpsUpgrades: number;
+          fingerprintingEnabled: boolean;
+          webrtcBlocked: boolean;
+          totalCookies: number;
+          totalOrigins: number;
+          privacyScore: number;
+        }
+      >('privacy:getStats', {}),
+    getTrackers: (limit?: number) =>
+      ipcCall<
+        { limit?: number },
+        Array<{
+          domain: string;
+          category: string;
+          count: number;
+          blocked: boolean;
+          lastSeen: number;
+        }>
+      >('privacy:getTrackers', { limit: limit || 50 }),
+    exportReport: (format?: 'json' | 'csv') =>
+      ipcCall<
+        { format?: 'json' | 'csv' },
+        {
+          stats: any;
+          trackers: any[];
+          origins: any[];
+          timestamp: number;
+          exportFormat: 'json' | 'csv';
+        }
+      >('privacy:exportReport', { format: format || 'json' }),
   },
   redix: {
     ask: (prompt: string, options?: { sessionId?: string; stream?: boolean }) =>
       ipcCall<
         { prompt: string; sessionId?: string; stream?: boolean },
-        { success: boolean; response?: string; tokens?: number; cached?: boolean; ready?: boolean; error?: string; streaming?: boolean }
+        {
+          success: boolean;
+          response?: string;
+          tokens?: number;
+          cached?: boolean;
+          ready?: boolean;
+          error?: string;
+          streaming?: boolean;
+        }
       >('redix:ask', { prompt, ...options }),
     status: () =>
-      ipcCall<unknown, { success: boolean; ready: boolean; backend: string; message: string; error?: string }>('redix:status', {}),
+      ipcCall<
+        unknown,
+        { success: boolean; ready: boolean; backend: string; message: string; error?: string }
+      >('redix:status', {}),
     stream: (
       prompt: string,
       options?: { sessionId?: string },
-      onChunk?: (chunk: { type: string; text?: string; tokens?: number; done?: boolean; error?: string }) => void
+      onChunk?: (chunk: {
+        type: string;
+        text?: string;
+        tokens?: number;
+        done?: boolean;
+        error?: string;
+      }) => void
     ) => {
       // For streaming, we'll use events
       let handler: ((_event: any, data: any) => void) | null = null;
-      
+
       if (onChunk && typeof window !== 'undefined' && window.ipc) {
-        handler = (_event: any, data: { type: string; text?: string; tokens?: number; done?: boolean; error?: string }) => {
+        handler = (
+          _event: any,
+          data: { type: string; text?: string; tokens?: number; done?: boolean; error?: string }
+        ) => {
           try {
             onChunk(data);
             if (data.done || data.error) {
@@ -1568,18 +2431,18 @@ export const ipc = {
             handler = null;
           }
         };
-        
+
         try {
           window.ipc.on?.('redix:chunk', handler);
         } catch (error) {
           console.error('[Redix] Failed to register stream handler:', error);
         }
       }
-      
-      return ipcCall<{ prompt: string; sessionId?: string; stream: boolean }, { success: boolean; error?: string }>(
-        'redix:stream',
-        { prompt, stream: true, ...options }
-      ).catch((error) => {
+
+      return ipcCall<
+        { prompt: string; sessionId?: string; stream: boolean },
+        { success: boolean; error?: string }
+      >('redix:stream', { prompt, stream: true, ...options }).catch(error => {
         // Clean up handler on error
         if (handler && typeof window !== 'undefined' && window.ipc?.removeListener) {
           window.ipc.removeListener('redix:chunk', handler);
@@ -1587,6 +2450,178 @@ export const ipc = {
         throw error;
       });
     },
+  },
+  system: {
+    getStatus: () =>
+      ipcCall<
+        unknown,
+        {
+          redisConnected: boolean;
+          redixAvailable: boolean;
+          workerState: 'running' | 'stopped' | 'error';
+          vpn: { connected: boolean; profile?: string; type?: string };
+          tor: { running: boolean; bootstrapped: boolean };
+          mode: string;
+          uptime: number;
+          memoryUsage: {
+            heapUsed: number;
+            heapTotal: number;
+            external: number;
+            rss: number;
+          };
+        }
+      >('system:getStatus', {}),
+  },
+  session: {
+    checkRestore: () =>
+      ipcCall<
+        unknown,
+        {
+          available: boolean;
+          snapshot?: {
+            tabCount: number;
+            mode: string;
+            timestamp: number;
+            activeTabId: string | null;
+          };
+        }
+      >('session:checkRestore', {}),
+    getSnapshot: () =>
+      ipcCall<
+        unknown,
+        {
+          version: number;
+          tabs: Array<{
+            id: string;
+            url: string;
+            title: string;
+            active: boolean;
+            mode?: string;
+            containerId?: string;
+          }>;
+          mode: string;
+          activeTabId: string | null;
+          chromeOffsets?: { top: number; bottom: number; left: number; right: number };
+          rightDockPx?: number;
+          timestamp: number;
+        } | null
+      >('session:getSnapshot', {}),
+    dismissRestore: () => ipcCall<unknown, { success: boolean }>('session:dismissRestore', {}),
+  },
+  gpu: {
+    getStatus: () => ipcCall<unknown, { enabled: boolean }>('gpu:getStatus', {}),
+    setEnabled: (payload: { enabled: boolean }) =>
+      ipcCall<typeof payload, { success: boolean; enabled: boolean; requiresRestart: boolean }>(
+        'gpu:setEnabled',
+        payload
+      ),
+  },
+  features: {
+    list: () =>
+      ipcCall<
+        unknown,
+        {
+          flags: Array<{
+            name: string;
+            enabled: boolean;
+            description?: string;
+          }>;
+        }
+      >('features:list', {}),
+    get: (payload: { name: string }) =>
+      ipcCall<typeof payload, { enabled: boolean }>('features:get', payload),
+    set: (payload: { name: string; enabled: boolean }) =>
+      ipcCall<typeof payload, { success: boolean }>('features:set', payload),
+  },
+  regen: {
+    query: (payload: {
+      sessionId: string;
+      message: string;
+      mode?: 'research' | 'trade' | 'browser' | 'automation' | 'handsFree';
+      source?: 'text' | 'voice';
+      tabId?: string;
+      context?: { url?: string; title?: string; dom?: string };
+    }) =>
+      ipcCall<
+        typeof payload,
+        {
+          intent: string;
+          text: string;
+          commands?: Array<{ type: string; payload: Record<string, unknown> }>;
+          metadata?: Record<string, unknown>;
+        }
+      >('regen:query', payload),
+    getDom: (payload: { tabId: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:getDom',
+        payload
+      ),
+    clickElement: (payload: { tabId: string; selector: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:clickElement',
+        payload
+      ),
+    scroll: (payload: { tabId: string; amount: number }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:scroll',
+        payload
+      ),
+    openTab: (payload: { url: string; background?: boolean }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:openTab',
+        payload
+      ),
+    typeIntoElement: (payload: { tabId: string; selector: string; text: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:typeIntoElement',
+        payload
+      ),
+    goBack: (payload: { tabId: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:goBack',
+        payload
+      ),
+    goForward: (payload: { tabId: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:goForward',
+        payload
+      ),
+    switchTab: (payload: { index?: number; id?: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:switchTab',
+        payload
+      ),
+    closeTab: (payload: { tabId: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:closeTab',
+        payload
+      ),
+    readPage: (payload: { tabId: string }) =>
+      ipcCall<typeof payload, { success: boolean; data?: unknown; error?: string }>(
+        'regen:readPage',
+        payload
+      ),
+    tradeConfirm: (payload: {
+      orderId?: string;
+      confirmed: boolean;
+      pendingOrder: {
+        type: 'buy' | 'sell';
+        symbol: string;
+        quantity: number;
+        orderType?: 'market' | 'limit';
+        price?: number;
+      };
+    }) =>
+      ipcCall<
+        typeof payload,
+        {
+          success: boolean;
+          orderId?: string;
+          cancelled?: boolean;
+          message?: string;
+          error?: string;
+        }
+      >('regen:trade:confirm', payload),
   },
 };
 
@@ -1605,4 +2640,3 @@ type ConsentVaultSnapshot = {
   anchor: string;
   updatedAt: number;
 };
-

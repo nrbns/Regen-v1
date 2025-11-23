@@ -115,27 +115,38 @@ export const TabGoForwardResponse = z.object({
 
 export const TabReloadRequest = z.object({
   id: z.string(),
+  hard: z.boolean().optional(),
 });
 
 export const TabReloadResponse = z.object({
   success: z.boolean(),
 });
 
-export const TabListResponse = z.array(z.object({
+export const TabStopRequest = z.object({
   id: z.string(),
-  title: z.string(),
-  active: z.boolean(),
-  url: z.string().optional(),
-  mode: z.enum(['normal', 'ghost', 'private']).optional(),
-  containerId: z.string().optional(),
-  containerName: z.string().optional(),
-  containerColor: z.string().optional(),
-  createdAt: z.number().optional(),
-  lastActiveAt: z.number().optional(),
-  sessionId: z.string().optional(),
-  profileId: z.string().optional(),
-  sleeping: z.boolean().optional(),
-}));
+});
+
+export const TabStopResponse = z.object({
+  success: z.boolean(),
+});
+
+export const TabListResponse = z.array(
+  z.object({
+    id: z.string(),
+    title: z.string(),
+    active: z.boolean(),
+    url: z.string().optional(),
+    mode: z.enum(['normal', 'ghost', 'private']).optional(),
+    containerId: z.string().optional(),
+    containerName: z.string().optional(),
+    containerColor: z.string().optional(),
+    createdAt: z.number().optional(),
+    lastActiveAt: z.number().optional(),
+    sessionId: z.string().optional(),
+    profileId: z.string().optional(),
+    sleeping: z.boolean().optional(),
+  })
+);
 // Container schemas
 export const ContainerSchema = z.object({
   id: z.string(),
@@ -176,7 +187,6 @@ export const ContainerSitePermissionEntry = z.object({
 
 export const ContainerSitePermissionListResponse = z.array(ContainerSitePermissionEntry);
 
-
 export const TabInfo = z.object({
   id: z.string(),
   title: z.string(),
@@ -194,24 +204,26 @@ export const TabInfo = z.object({
 });
 
 // Proxy schemas
-export const ProxySetRequest = z.object({
-  type: z.enum(['socks5', 'http']).optional(),
-  host: z.string().optional(),
-  port: z.number().min(1).max(65535).optional(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-  tabId: z.string().optional(), // Per-tab proxy
-  profileId: z.string().optional(), // Profile-level proxy
-  proxyRules: z.string().optional(), // Legacy format
-  mode: z.string().optional(),
-}).refine((data) => {
-  if (data.tabId || data.profileId) {
-    // Allow clearing per-tab or per-profile proxies without additional fields
-    return true;
-  }
-  // Either use legacy proxyRules/mode OR use typed fields
-  return (data.proxyRules || data.mode) || (data.type && data.host && data.port);
-}, 'Must provide either proxyRules/mode or type/host/port');
+export const ProxySetRequest = z
+  .object({
+    type: z.enum(['socks5', 'http']).optional(),
+    host: z.string().optional(),
+    port: z.number().min(1).max(65535).optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    tabId: z.string().optional(), // Per-tab proxy
+    profileId: z.string().optional(), // Profile-level proxy
+    proxyRules: z.string().optional(), // Legacy format
+    mode: z.string().optional(),
+  })
+  .refine(data => {
+    if (data.tabId || data.profileId) {
+      // Allow clearing per-tab or per-profile proxies without additional fields
+      return true;
+    }
+    // Either use legacy proxyRules/mode OR use typed fields
+    return data.proxyRules || data.mode || (data.type && data.host && data.port);
+  }, 'Must provide either proxyRules/mode or type/host/port');
 
 export const ProxyKillRequest = z.object({
   enabled: z.boolean(),
@@ -230,10 +242,12 @@ export const ProxyProfile = z.object({
 export const ProxyStatusResponse = z.object({
   healthy: z.boolean(),
   killSwitchEnabled: z.boolean(),
-  active: z.object({
-    profileId: z.string().optional(),
-    tabId: z.string().optional(),
-  }).optional(),
+  active: z
+    .object({
+      profileId: z.string().optional(),
+      tabId: z.string().optional(),
+    })
+    .optional(),
 });
 
 // Profile schemas
@@ -301,29 +315,39 @@ export const ReaderExportRequest = z.object({
 
 // Settings schemas
 export const SettingsSchema = z.object({
-  privacy: z.object({
-    burnOnClose: z.boolean().default(false),
-    telemetry: z.enum(['off', 'on']).default('off'),
-    doNotTrack: z.boolean().default(true),
-  }).default({}),
-  network: z.object({
-    doh: z.boolean().default(false),
-    dohProvider: z.enum(['cloudflare', 'quad9']).default('cloudflare'),
-    proxy: z.string().nullable().default(null),
-    perTabProxy: z.boolean().default(false),
-  }).default({}),
-  downloads: z.object({
-    requireConsent: z.boolean().default(true),
-  }).default({}),
-  performance: z.object({
-    tabSleepMins: z.number().min(1).max(120).default(20),
-    memoryCapMB: z.number().min(100).max(8192).default(2048),
-  }).default({}),
-  ai: z.object({
-    provider: z.enum(['local', 'openai', 'anthropic']).default('local'),
-    model: z.string().default('qwen2.5-coder'),
-    maxTokens: z.number().default(8192),
-  }).default({}),
+  privacy: z
+    .object({
+      burnOnClose: z.boolean().default(false),
+      telemetry: z.enum(['off', 'on']).default('off'),
+      doNotTrack: z.boolean().default(true),
+    })
+    .default({}),
+  network: z
+    .object({
+      doh: z.boolean().default(false),
+      dohProvider: z.enum(['cloudflare', 'quad9']).default('cloudflare'),
+      proxy: z.string().nullable().default(null),
+      perTabProxy: z.boolean().default(false),
+    })
+    .default({}),
+  downloads: z
+    .object({
+      requireConsent: z.boolean().default(true),
+    })
+    .default({}),
+  performance: z
+    .object({
+      tabSleepMins: z.number().min(1).max(120).default(20),
+      memoryCapMB: z.number().min(100).max(8192).default(2048),
+    })
+    .default({}),
+  ai: z
+    .object({
+      provider: z.enum(['local', 'openai', 'anthropic']).default('local'),
+      model: z.string().default('qwen2.5-coder'),
+      maxTokens: z.number().default(8192),
+    })
+    .default({}),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -350,14 +374,18 @@ export const ThreatScanRequest = z.object({
 export const ThreatScanResponse = z.object({
   url: z.string().optional(),
   filePath: z.string().optional(),
-  dns: z.object({
-    resolved: z.array(z.string()),
-    cname: z.string().optional(),
-  }).optional(),
-  tls: z.object({
-    grade: z.string(),
-    valid: z.boolean(),
-  }).optional(),
+  dns: z
+    .object({
+      resolved: z.array(z.string()),
+      cname: z.string().optional(),
+    })
+    .optional(),
+  tls: z
+    .object({
+      grade: z.string(),
+      valid: z.boolean(),
+    })
+    .optional(),
   trackers: z.array(z.string()),
   risks: z.array(z.string()),
   score: z.number().min(0).max(100),
@@ -428,12 +456,14 @@ export const SetSettingRequest = z.object({
   value: z.unknown(),
 });
 
-export const ListWorkspacesResponse = z.array(z.object({
-  id: z.string(),
-  name: z.string(),
-  partition: z.string(),
-  proxyProfileId: z.string().optional(),
-}));
+export const ListWorkspacesResponse = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    partition: z.string(),
+    proxyProfileId: z.string().optional(),
+  })
+);
 
 export const SaveWorkspaceRequest = z.object({
   id: z.string(),
@@ -445,15 +475,112 @@ export const SaveWorkspaceRequest = z.object({
 // Agent enhancements
 export const AgentAskRequest = z.object({
   query: z.string().min(1),
-  context: z.object({
-    url: z.string().optional(),
-    text: z.string().optional(),
-  }).optional(),
+  context: z
+    .object({
+      url: z.string().optional(),
+      text: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const AgentAskResponse = z.object({
   answer: z.string(),
   sources: z.array(z.string()).optional(),
+});
+
+export const AgentAskWithScrapeRequest = z.object({
+  url: z.string().url(),
+  question: z.string().min(1),
+  task: z.enum(['summarize', 'qa', 'threat']).optional().default('qa'),
+  waitFor: z.number().optional().default(8),
+});
+
+export const AgentAskWithScrapeResponse = z.object({
+  jobId: z.string(),
+  task: z.string().optional(),
+  status: z.enum(['complete', 'enqueued']).optional(),
+  answer: z.string().optional(),
+  summary: z.string().optional(),
+  highlights: z.array(z.string()).optional(),
+  model: z
+    .union([
+      z.string(),
+      z.object({
+        name: z.string(),
+        provider: z.string(),
+        temperature: z.number(),
+        tokensUsed: z.number(),
+      }),
+    ])
+    .optional(),
+  sources: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          url: z.string(),
+          jobId: z.string(),
+          selector: z.string().nullable(),
+        }),
+      ])
+    )
+    .optional(),
+  provenance: z
+    .object({
+      scrapeJobId: z.string(),
+      url: z.string().nullable(),
+      status: z.number(),
+      cached: z.boolean(),
+      fetchedAt: z.string(),
+      durationMs: z.number(),
+      headers: z.record(z.unknown()),
+      bodyKey: z.string(),
+      excerpt: z.string(),
+      scrapeErrors: z.string().nullable(),
+    })
+    .optional(),
+  scrape: z
+    .object({
+      status: z.number(),
+      cached: z.boolean(),
+      fetchedAt: z.string().optional(),
+    })
+    .optional(),
+  agentResult: z
+    .object({
+      answer: z.string(),
+      summary: z.string().optional(),
+      highlights: z.array(z.string()).optional(),
+      model: z.union([
+        z.string(),
+        z.object({
+          name: z.string(),
+          provider: z.string(),
+          temperature: z.number(),
+          tokensUsed: z.number(),
+        }),
+      ]),
+      sources: z.array(
+        z.object({
+          url: z.string(),
+          jobId: z.string(),
+          selector: z.string().nullable(),
+        })
+      ),
+      provenance: z.object({
+        scrapeJobId: z.string(),
+        url: z.string().nullable(),
+        status: z.number(),
+        cached: z.boolean(),
+        fetchedAt: z.string(),
+        durationMs: z.number(),
+        headers: z.record(z.unknown()),
+        bodyKey: z.string(),
+        excerpt: z.string(),
+        scrapeErrors: z.string().nullable(),
+      }),
+    })
+    .optional(),
 });
 
 export const DeepResearchRequest = z.object({
@@ -465,15 +592,19 @@ export const DeepResearchRequest = z.object({
 
 export const DeepResearchResponse = z.object({
   query: z.string(),
-  sources: z.array(z.object({
-    url: z.string(),
-    title: z.string(),
-    summary: z.string(),
-    citations: z.array(z.object({
-      claim: z.string(),
-      citation: z.string().optional(),
-    })),
-  })),
+  sources: z.array(
+    z.object({
+      url: z.string(),
+      title: z.string(),
+      summary: z.string(),
+      citations: z.array(
+        z.object({
+          claim: z.string(),
+          citation: z.string().optional(),
+        })
+      ),
+    })
+  ),
   synthesized: z.string(),
   exported: z.string().optional(),
 });
@@ -485,20 +616,24 @@ export const CitationGraphExtractRequest = z.object({
 });
 
 export const CitationGraphGetResponse = z.object({
-  nodes: z.array(z.object({
-    id: z.string(),
-    type: z.enum(['url', 'entity', 'claim']),
-    label: z.string(),
-    url: z.string().optional(),
-    metadata: z.record(z.unknown()).optional(),
-  })),
-  edges: z.array(z.object({
-    id: z.string(),
-    source: z.string(),
-    target: z.string(),
-    type: z.enum(['cites', 'mentions', 'relates_to']),
-    weight: z.number().optional(),
-  })),
+  nodes: z.array(
+    z.object({
+      id: z.string(),
+      type: z.enum(['url', 'entity', 'claim']),
+      label: z.string(),
+      url: z.string().optional(),
+      metadata: z.record(z.unknown()).optional(),
+    })
+  ),
+  edges: z.array(
+    z.object({
+      id: z.string(),
+      source: z.string(),
+      target: z.string(),
+      type: z.enum(['cites', 'mentions', 'relates_to']),
+      weight: z.number().optional(),
+    })
+  ),
 });
 
 export const CitationGraphExportRequest = z.object({
@@ -519,26 +654,32 @@ export const OllamaListModelsResponse = z.object({
 
 // Knowledge clustering
 export const ClusteringRequest = z.object({
-  sources: z.array(z.object({
-    url: z.string(),
-    title: z.string(),
-    text: z.string().optional(),
-  })),
+  sources: z.array(
+    z.object({
+      url: z.string(),
+      title: z.string(),
+      text: z.string().optional(),
+    })
+  ),
   threshold: z.number().min(0).max(1).default(0.7),
 });
 
 export const ClusteringResponse = z.object({
-  clusters: z.array(z.object({
-    id: z.string(),
-    label: z.string(),
-    topics: z.array(z.string()),
-    sources: z.array(z.object({
-      url: z.string(),
-      title: z.string(),
-      similarity: z.number(),
-    })),
-    createdAt: z.number(),
-  })),
+  clusters: z.array(
+    z.object({
+      id: z.string(),
+      label: z.string(),
+      topics: z.array(z.string()),
+      sources: z.array(
+        z.object({
+          url: z.string(),
+          title: z.string(),
+          similarity: z.number(),
+        })
+      ),
+      createdAt: z.number(),
+    })
+  ),
 });
 
 // PDF parsing
@@ -558,14 +699,16 @@ export const PDFParseResponse = z.object({
     abstract: z.string().optional(),
   }),
   text: z.string(),
-  citations: z.array(z.object({
-    text: z.string(),
-    authors: z.array(z.string()).optional(),
-    year: z.number().optional(),
-    title: z.string().optional(),
-    journal: z.string().optional(),
-    url: z.string().optional(),
-  })),
+  citations: z.array(
+    z.object({
+      text: z.string(),
+      authors: z.array(z.string()).optional(),
+      year: z.number().optional(),
+      title: z.string().optional(),
+      journal: z.string().optional(),
+      url: z.string().optional(),
+    })
+  ),
   bibtex: z.string().optional(),
 });
 
@@ -583,11 +726,13 @@ export const CognitiveGetSuggestionsRequest = z.object({
   recentActions: z.array(z.string()).optional(),
 });
 
-export const CognitiveGetSuggestionsResponse = z.array(z.object({
-  type: z.enum(['action', 'topic', 'workflow']),
-  message: z.string(),
-  confidence: z.number(),
-}));
+export const CognitiveGetSuggestionsResponse = z.array(
+  z.object({
+    type: z.enum(['action', 'topic', 'workflow']),
+    message: z.string(),
+    confidence: z.number(),
+  })
+);
 
 export const CognitiveGetPersonaResponse = z.object({
   interests: z.array(z.string()),
@@ -599,20 +744,24 @@ export const CognitiveGetPersonaResponse = z.object({
 export const WorkspaceV2SaveRequest = z.object({
   id: z.string(),
   name: z.string(),
-  tabs: z.array(z.object({
-    id: z.string(),
-    url: z.string(),
-    title: z.string().optional(),
-    position: z.number(),
-  })),
+  tabs: z.array(
+    z.object({
+      id: z.string(),
+      url: z.string(),
+      title: z.string().optional(),
+      position: z.number(),
+    })
+  ),
   notes: z.record(z.string()).optional(),
   proxyProfileId: z.string().optional(),
   mode: z.string().optional(),
-  layout: z.object({
-    sidebarWidth: z.number().optional(),
-    rightPanelWidth: z.number().optional(),
-    splitPaneRatio: z.number().optional(),
-  }).optional(),
+  layout: z
+    .object({
+      sidebarWidth: z.number().optional(),
+      rightPanelWidth: z.number().optional(),
+      splitPaneRatio: z.number().optional(),
+    })
+    .optional(),
 });
 
 export const WorkspaceV2LoadRequest = z.object({
@@ -676,16 +825,18 @@ export const OmniBrainSearchRequest = z.object({
   limit: z.number().min(1).max(100).default(10),
 });
 
-export const OmniBrainSearchResponse = z.array(z.object({
-  document: z.object({
-    id: z.string(),
-    text: z.string(),
-    url: z.string().optional(),
-    metadata: z.record(z.unknown()).optional(),
-    timestamp: z.number(),
-  }),
-  similarity: z.number(),
-}));
+export const OmniBrainSearchResponse = z.array(
+  z.object({
+    document: z.object({
+      id: z.string(),
+      text: z.string(),
+      url: z.string().optional(),
+      metadata: z.record(z.unknown()).optional(),
+      timestamp: z.number(),
+    }),
+    similarity: z.number(),
+  })
+);
 
 // Spiritual layer
 export const SpiritualFocusModeEnableRequest = z.object({
@@ -725,20 +876,24 @@ export const ThreatDetectFingerprintRequest = z.object({
 
 // Performance
 export const PerformanceSnapshotCreateRequest = z.object({
-  windows: z.array(z.object({
-    bounds: z.object({
-      x: z.number(),
-      y: z.number(),
-      width: z.number(),
-      height: z.number(),
-    }),
-    tabs: z.array(z.object({
-      id: z.string(),
-      url: z.string(),
-      title: z.string().optional(),
-    })),
-    activeTabId: z.string().optional(),
-  })),
+  windows: z.array(
+    z.object({
+      bounds: z.object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number(),
+        height: z.number(),
+      }),
+      tabs: z.array(
+        z.object({
+          id: z.string(),
+          url: z.string(),
+          title: z.string().optional(),
+        })
+      ),
+      activeTabId: z.string().optional(),
+    })
+  ),
   workspace: z.string().optional(),
 });
 
@@ -751,9 +906,10 @@ export const WorkerScrapingRunRequest = z.object({
   id: z.string(),
   urls: z.array(z.string().url()),
   selectors: z.array(z.string()).optional(),
-  pagination: z.object({
-    maxPages: z.number(),
-    nextSelector: z.string().optional(),
-  }).optional(),
+  pagination: z
+    .object({
+      maxPages: z.number(),
+      nextSelector: z.string().optional(),
+    })
+    .optional(),
 });
-

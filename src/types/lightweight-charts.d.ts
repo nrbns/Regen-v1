@@ -1,26 +1,83 @@
 declare module 'lightweight-charts' {
   export type UTCTimestamp = number;
-  export type PriceScaleOptions = any;
-  export type TimeScaleOptions = any;
+  export type Time = UTCTimestamp | string;
 
   export enum ColorType {
+    Solid = 'solid',
+  }
+
+  export enum LineStyle {
     Solid = 0,
+    Dotted = 1,
+    Dashed = 2,
+  }
+
+  export type SeriesType = 'Area' | 'Bar' | 'Baseline' | 'Candlestick' | 'Histogram' | 'Line';
+
+  export interface LineData {
+    time: UTCTimestamp;
+    value: number;
+  }
+
+  export interface HistogramData {
+    time: UTCTimestamp;
+    value: number;
+    color?: string;
+  }
+
+  export interface CandleData {
+    time: UTCTimestamp;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
   }
 
   export interface ChartOptions {
     width?: number;
     height?: number;
-    layout?: any;
-    priceScale?: PriceScaleOptions;
-    rightPriceScale?: PriceScaleOptions;
-    leftPriceScale?: PriceScaleOptions;
-    timeScale?: TimeScaleOptions;
-    crosshair?: any;
+    layout?: {
+      background?: { type: ColorType; color: string };
+      textColor?: string;
+    };
     grid?: any;
-    localization?: any;
-    handleScroll?: boolean;
-    handleScale?: boolean;
-    kineticScroll?: any;
+    timeScale?: {
+      timeVisible?: boolean;
+      secondsVisible?: boolean;
+      borderColor?: string;
+    };
+    rightPriceScale?: {
+      borderColor?: string;
+    };
+    crosshair?: any;
+  }
+
+  export interface CreatePriceLineOptions {
+    price: number;
+    color?: string;
+    lineWidth?: number;
+    lineStyle?: LineStyle;
+    axisLabelVisible?: boolean;
+  }
+
+  export interface IPriceLine {
+    applyOptions(options: CreatePriceLineOptions): void;
+  }
+
+  export interface ISeriesApi<_TSeriesType extends SeriesType> {
+    setData(data: any[]): void;
+    updateData(data: any): void;
+    setMarkers(markers: any[]): void;
+    applyOptions(options: any): void;
+    remove(): void;
+    createPriceLine?(options: CreatePriceLineOptions): IPriceLine;
+    removePriceLine?(line: IPriceLine): void;
+  }
+
+  export interface ITimeScaleApi {
+    scrollToTime(time: Time, animated?: boolean): void;
+    scrollToPosition(position: number, animated?: boolean): void;
+    fitContent(): void;
   }
 
   export interface IChartApi {
@@ -28,55 +85,16 @@ declare module 'lightweight-charts' {
     resize(width: number, height: number, forceRepaint?: boolean): void;
     applyOptions(options: Partial<ChartOptions>): void;
     options(): ChartOptions;
-    addAreaSeries(options?: any): ISeriesApi<'Area'>;
-    addBarSeries(options?: any): ISeriesApi<'Bar'>;
-    addBaselineSeries(options?: any): ISeriesApi<'Baseline'>;
-    addCandlestickSeries(options?: any): ISeriesApi<'Candlestick'>;
-    addHistogramSeries(options?: any): ISeriesApi<'Histogram'>;
-    addLineSeries(options?: any): ISeriesApi<'Line'>;
-    addVolumeProfileSeries(options?: any): ISeriesApi<'VolumeProfile'>;
     timeScale(): ITimeScaleApi;
-    priceScale(priceScaleId?: string): IPriceScaleApi;
-    removeSeries(series: ISeriesApi<any>): void;
-    subscribeClick(param: any, handler: any): void;
-    unsubscribeClick(param: any, handler: any): void;
-  }
-
-  export interface ISeriesApi<_T extends SeriesType> {
-    setData(data: any[]): void;
-    updateData(data: any): void;
-    setMarkers(markers: any[]): void;
-    applyOptions(options: any): void;
-    priceToCoordinate(price: number): number | null;
-    coordinateToPrice(coordinate: number): number | null;
-    remove(): void;
-  }
-
-  export type SeriesType = 'Area' | 'Bar' | 'Baseline' | 'Candlestick' | 'Histogram' | 'Line' | 'VolumeProfile';
-
-  export interface ITimeScaleApi {
-    scrollToPosition(position: number, animated?: boolean): void;
-    scrollToRealTime(): void;
-    getVisibleRange(): Range<Time> | null;
-    setVisibleRange(range: Range<Time>): void;
-    resetTimeScale(): void;
-    fitContent(): void;
-    scrollToTime(time: Time, animated?: boolean): void;
-  }
-
-  export interface IPriceScaleApi {
-    applyOptions(options: any): void;
-    options(): any;
-    width(): number;
-  }
-
-  export type Time = UTCTimestamp | string;
-
-  export interface Range<T> {
-    from: T;
-    to: T;
+    addCandlestickSeries(options?: any): ISeriesApi<'Candlestick'>;
+    addLineSeries(options?: any): ISeriesApi<'Line'>;
+    addHistogramSeries(options?: any): ISeriesApi<'Histogram'>;
+    removeSeries(series: ISeriesApi<SeriesType>): void;
   }
 
   export function createChart(container: HTMLElement | string, options?: ChartOptions): IChartApi;
+  export const LightweightCharts: {
+    createChart: typeof createChart;
+    ColorType: typeof ColorType;
+  };
 }
-

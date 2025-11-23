@@ -2,237 +2,89 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+      - master
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v0.1.0)'
-        required: true
-        type: string
-      platform:
-        description: 'Platform to build (all, win, mac, linux)'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - win
-          - mac
-          - linux
-
-env:
-  ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
-  ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
 jobs:
-  prepare:
-    name: Prepare Release
+  release:
+    name: Semantic Release
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Extract version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-            TAG="${{ github.event.inputs.version }}"
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-            VERSION="${TAG#v}"
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION (tag: $TAG)"
-      
-      - name: Update package.json version
-        run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          TARGET_VERSION="${{ steps.version.outputs.version }}"
-          if [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
-            npm version "$TARGET_VERSION" --no-git-tag-version
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add package.json
-            git commit -m "chore: bump version to $TARGET_VERSION" || exit 0
-            git push || exit 0
-          else
-            echo "Version already set to $TARGET_VERSION"
-          fi
 
-  build:
-    name: Build ${{ matrix.platform }}
-    needs: prepare
-    runs-on: ${{ matrix.runs-on }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: win
-            runs-on: windows-latest
-            target: --win
-          - platform: mac
-            runs-on: macos-latest
-            target: --mac
-          - platform: linux
-            runs-on: ubuntu-latest
-            target: --linux
-    if: |
-      github.event_name == 'push' || 
-      github.event.inputs.platform == 'all' || 
-      github.event.inputs.platform == matrix.platform
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Node.js
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 18
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Build application
-        run: npm run build
-      
-      - name: Build Electron app
-        run: npx electron-builder ${{ matrix.target }} --publish never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-${{ matrix.platform }}
-          path: dist-release/*
-          retention-days: 90
-      
-      - name: Upload build logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs-${{ matrix.platform }}
-          path: |
-            dist-release/**/*.log
-            *.log
-          retention-days: 7
 
-  release:
-    name: Create Release
-    needs: [prepare, build]
-    runs-on: ubuntu-latest
-    if: success()
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: dist-*
-          merge-multiple: false
-      
-      - name: Extract CHANGELOG
-        id: changelog
-        run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
-          TAG="${{ needs.prepare.outputs.tag }}"
-          
-          if [ -f CHANGELOG.md ]; then
-            # Try to find the section for this version (with or without brackets)
-            if grep -qE "^## \[?$VERSION\]?" CHANGELOG.md; then
-              # Extract from ## [version] or ## version to next ##
-              awk "/^## \[?$VERSION\]?/,/^## /{if (!/^## \[?$VERSION\]?/ && /^## /) exit; print}" CHANGELOG.md > release-notes.md
-            elif grep -q "## \[Unreleased\]" CHANGELOG.md; then
-              # Extract Unreleased section (up to next ##)
-              awk "/^## \[Unreleased\]/,/^## /{if (!/^## \[Unreleased\]/ && /^## /) exit; print}" CHANGELOG.md | sed 's/\[Unreleased\]/'"$VERSION"'/' > release-notes.md
-            else
-              # Fallback: create basic release notes
-              echo "## $TAG" > release-notes.md
-              echo "" >> release-notes.md
-              echo "See [CHANGELOG.md](CHANGELOG.md) for details." >> release-notes.md
-            fi
-          else
-            # No CHANGELOG, create basic release notes
-            echo "## $TAG" > release-notes.md
-            echo "" >> release-notes.md
-            echo "Release $VERSION" >> release-notes.md
-            echo "" >> release-notes.md
-            echo "See commit history for changes." >> release-notes.md
-          fi
-          
-          # Display extracted notes for debugging
-          echo "Release notes:" 
-          cat release-notes.md
-      
-      - name: Generate SHA-256 checksums
-        id: checksums
-        run: |
-          echo "# SHA-256 Checksums" > checksums.md
-          echo "" >> checksums.md
-          echo "## Windows" >> checksums.md
-          find artifacts/dist-win -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.msi" \) | while read file; do
-            if [ -f "$file" ]; then
-              sha256=$(sha256sum "$file" | cut -d' ' -f1)
-              filename=$(basename "$file")
-              echo "\`$filename\`: \`$sha256\`" >> checksums.md
-            fi
-          done || echo "No Windows artifacts found" >> checksums.md
-          
-          echo "" >> checksums.md
-          echo "## macOS" >> checksums.md
-          find artifacts/dist-mac -type f \( -name "*.dmg" -o -name "*.zip" -o -name "*.pkg" \) | while read file; do
-            if [ -f "$file" ]; then
-              sha256=$(sha256sum "$file" | cut -d' ' -f1)
-              filename=$(basename "$file")
-              echo "\`$filename\`: \`$sha256\`" >> checksums.md
-            fi
-          done || echo "No macOS artifacts found" >> checksums.md
-          
-          echo "" >> checksums.md
-          echo "## Linux" >> checksums.md
-          find artifacts/dist-linux -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.zip" \) | while read file; do
-            if [ -f "$file" ]; then
-              sha256=$(sha256sum "$file" | cut -d' ' -f1)
-              filename=$(basename "$file")
-              echo "\`$filename\`: \`$sha256\`" >> checksums.md
-            fi
-          done || echo "No Linux artifacts found" >> checksums.md
-          
-          cat checksums.md
-      
-      - name: Combine release notes with checksums
-        run: |
-          echo "" >> release-notes.md
-          echo "" >> release-notes.md
-          cat checksums.md >> release-notes.md
-      
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
-          name: Release ${{ needs.prepare.outputs.version }}
-          body_path: release-notes.md
-          draft: false
-          prerelease: ${{ contains(needs.prepare.outputs.version, 'alpha') || contains(needs.prepare.outputs.version, 'beta') || contains(needs.prepare.outputs.version, 'rc') }}
-          files: |
-            artifacts/dist-win/**/*
-            artifacts/dist-mac/**/*
-            artifacts/dist-linux/**/*
+      - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
+
+  canary:
+    name: Canary Release
+    runs-on: ${{ matrix.os }}
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build Electron app
+        run: npm run build:app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload canary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-${{ matrix.os }}
+          path: dist-release/*
+          retention-days: 30
+
+      - name: Create draft release
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: canary-${{ github.sha }}
+          name: Canary Release - ${{ github.sha }}
+          draft: true
+          prerelease: true
+          body: |
+            ## Canary Release
+
+            This is an automated canary release for testing.
+
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref }}
+
+            ### Artifacts
+
+            Download the appropriate build for your platform from the artifacts.
