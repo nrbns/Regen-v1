@@ -69,6 +69,10 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
       localStorage.setItem('omnibrowser:tos:accepted', JSON.stringify(acceptanceData));
       console.log('[TermsAcceptance] Acceptance saved to localStorage');
 
+      // Update state to hide component immediately
+      setAcceptedVersion('2025-12-17');
+      console.log('[TermsAcceptance] acceptedVersion state updated');
+
       // Call onAccept callback - use setTimeout to ensure state updates are processed
       if (typeof onAccept === 'function') {
         console.log('[TermsAcceptance] Calling onAccept callback');
@@ -81,7 +85,8 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
       }
     } catch (error) {
       console.error('[TermsAcceptance] Failed to save acceptance:', error);
-      // Still call onAccept to allow app to continue
+      // Still update state and call onAccept to allow app to continue
+      setAcceptedVersion('2025-12-17');
       if (typeof onAccept === 'function') {
         setTimeout(() => {
           onAccept();

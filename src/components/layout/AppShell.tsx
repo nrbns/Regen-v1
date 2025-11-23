@@ -529,9 +529,21 @@ export function AppShell() {
   // Memoize TOS callbacks to prevent hook order issues - must be called unconditionally
   const handleTOSAccept = useCallback(() => {
     console.log('[AppShell] handleTOSAccept called - closing TOS modal');
+    console.log(
+      '[AppShell] Current state - showTOS:',
+      showTOS,
+      'hasConsented:',
+      hasConsented,
+      'showCookieConsent:',
+      showCookieConsent
+    );
     setShowTOS(false);
     // The onboarding will start automatically via the useEffect that checks showTOS
-  }, []);
+    // But first cookie consent will be shown if not already consented
+    console.log(
+      '[AppShell] TOS modal closed, waiting for cookie consent and onboarding to start...'
+    );
+  }, [showTOS, hasConsented, showCookieConsent]);
 
   const handleTOSDecline = useCallback(() => {
     // User declined TOS - could show a message or prevent app usage
@@ -1049,11 +1061,32 @@ export function AppShell() {
   // Only start if TOS and Cookie Consent are not showing
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (showTOS || showCookieConsent) return; // Don't start onboarding if modals are showing
+    if (showTOS || showCookieConsent) {
+      console.log(
+        '[AppShell] Onboarding blocked - showTOS:',
+        showTOS,
+        'showCookieConsent:',
+        showCookieConsent
+      );
+      return; // Don't start onboarding if modals are showing
+    }
+
+    console.log('[AppShell] Checking if onboarding should start...', {
+      isCompleted: onboardingStorage.isCompleted(),
+      onboardingVisible,
+    });
 
     const timer = setTimeout(() => {
       if (!onboardingStorage.isCompleted() && !onboardingVisible) {
+        console.log('[AppShell] Starting onboarding...');
         startOnboarding();
+      } else {
+        console.log(
+          '[AppShell] Onboarding not started - isCompleted:',
+          onboardingStorage.isCompleted(),
+          'visible:',
+          onboardingVisible
+        );
       }
     }, 1200); // Delay to let UI render first (increased for slower machines)
     return () => clearTimeout(timer);
