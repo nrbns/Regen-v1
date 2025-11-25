@@ -28,6 +28,7 @@ import { parsePdfFile } from '../docs/parsers/pdf';
 import { parseDocxFile } from '../docs/parsers/docx';
 import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
+import { detectLanguage } from '../../services/languageDetection';
 import {
   ResearchResult,
   ResearchSource,
@@ -715,6 +716,31 @@ export default function ResearchPanel() {
   const handleSearch = async (input?: string) => {
     const searchQuery = typeof input === 'string' ? input : query;
     if (!searchQuery.trim()) return;
+
+    // Auto-detect language if set to 'auto'
+    if (language === 'auto' && searchQuery.trim().length > 2) {
+      try {
+        const detection = await detectLanguage(searchQuery, {
+          preferIndic: true,
+          useBackend: true,
+        });
+        if (detection.confidence > 0.7) {
+          const detectedLang = detection.language;
+          if (detectedLang !== 'en' || detection.isIndic) {
+            useSettingsStore.getState().setLanguage(detectedLang);
+            setSelectedLanguage(detectedLang);
+            console.log(
+              '[Research] Auto-detected language:',
+              detectedLang,
+              'confidence:',
+              detection.confidence
+            );
+          }
+        }
+      } catch (error) {
+        console.warn('[Research] Language auto-detection failed:', error);
+      }
+    }
 
     setLoading(true);
     setError(null);

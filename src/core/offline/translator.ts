@@ -123,6 +123,7 @@ function simpleOfflineTranslate(text: string, sourceLang: string, targetLang: st
 /**
  * Translate text offline or online
  * Uses Bhashini API for Indic languages when available
+ * Auto-detects source language if not provided
  */
 export async function translateText(
   text: string,
@@ -130,7 +131,26 @@ export async function translateText(
   sourceLanguage?: string
 ): Promise<TranslationResult> {
   const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
-  const sourceLang = sourceLanguage || 'auto';
+
+  // Auto-detect source language if not provided or set to 'auto'
+  let sourceLang = sourceLanguage;
+  if (!sourceLang || sourceLang === 'auto') {
+    try {
+      const { detectLanguage } = await import('../../services/languageDetection');
+      const detection = await detectLanguage(text, { preferIndic: true });
+      sourceLang = detection.language;
+      log.debug(
+        '[OfflineTranslator] Auto-detected language:',
+        sourceLang,
+        'confidence:',
+        detection.confidence
+      );
+    } catch (error) {
+      log.warn('[OfflineTranslator] Language auto-detection failed:', error);
+      sourceLang = 'en'; // Fallback to English
+    }
+  }
+
   const targetLang = targetLanguage === 'auto' ? 'en' : targetLanguage;
 
   // If online and Bhashini is configured, try Bhashini first for Indic languages
