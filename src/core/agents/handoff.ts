@@ -153,45 +153,78 @@ export async function handoffToN8n(
 ): Promise<HandoffResult> {
   try {
     const workflowId = payload.data.workflowId as string;
-    const workflowUrl = (payload.data.workflowUrl as string) || 'http://localhost:5678';
+    const workflowUrl = payload.data.workflowUrl as string;
+    const isLoop = Boolean(payload.data.loop);
+    const loopInterval = payload.data.loopInterval ? Number(payload.data.loopInterval) : undefined;
+    const maxIterations = payload.data.maxIterations
+      ? Number(payload.data.maxIterations)
+      : undefined;
 
-    if (!workflowId && !workflowUrl) {
-      return { success: false, error: 'No workflow ID or URL provided' };
+    if (!workflowId) {
+      return { success: false, error: 'No workflow ID provided' };
     }
 
-    // Call n8n webhook
-    const n8nUrl = workflowUrl.includes('http')
-      ? `${workflowUrl}/webhook/${workflowId}`
-      : `http://localhost:5678/webhook/${workflowId}`;
+    // Use n8n service
+    const { callN8nWorkflow, runN8nWorkflowLoop } = await import('../../services/n8nService');
 
-    const response = await fetch(n8nUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...payload.data,
-        language,
-        sourceMode: payload.sourceMode,
-        timestamp: Date.now(),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`n8n workflow returned ${response.status}`);
-    }
-
-    const result = await response.json().catch(() => ({}));
-
-    toast.success(`Workflow triggered: ${workflowId}`, {
-      duration: 3000,
-    });
-
-    return {
-      success: true,
-      targetId: workflowId,
-      data: result,
+    const call = {
+      workflowId,
+      data: payload.data,
+      language,
+      sourceMode: payload.sourceMode,
+      metadata: payload.metadata,
     };
+
+    const config = workflowUrl ? { baseUrl: workflowUrl } : undefined;
+
+    if (isLoop) {
+      // Run workflow in loop
+      const results = await runN8nWorkflowLoop(
+        call,
+        {
+          workflowId,
+          interval: loopInterval || 1000,
+          maxIterations: maxIterations || 10,
+        },
+        config
+      );
+
+      const lastResult = results[results.length - 1];
+
+      toast.success(`Workflow loop completed: ${workflowId} (${results.length} iterations)`, {
+        duration: 3000,
+      });
+
+      return {
+        success: lastResult?.success || false,
+        targetId: workflowId,
+        data: {
+          iterations: results.length,
+          results,
+          lastResult,
+        },
+      };
+    } else {
+      // Single workflow call
+      const result = await callN8nWorkflow(call, config);
+
+      if (result.success) {
+        toast.success(`Workflow triggered: ${workflowId}`, {
+          duration: 3000,
+        });
+      } else {
+        toast.error(`Workflow failed: ${result.error}`, {
+          duration: 5000,
+        });
+      }
+
+      return {
+        success: result.success,
+        targetId: workflowId,
+        data: result.data,
+        error: result.error,
+      };
+    }
   } catch (error: any) {
     return {
       success: false,

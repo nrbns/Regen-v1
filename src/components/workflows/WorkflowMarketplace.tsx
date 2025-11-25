@@ -100,7 +100,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
     setLoading(true);
     try {
       if (workflow.workflowId) {
-        // Test the workflow
+        // Use handoffToN8n to trigger workflow (now supports loops)
         const result = await handoffToN8n(
           {
             type: 'install-workflow',
