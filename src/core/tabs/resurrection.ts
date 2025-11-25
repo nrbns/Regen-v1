@@ -22,7 +22,7 @@ export interface ResurrectableTab {
 }
 
 const RESURRECTION_KEY = 'regen:tabs:resurrection';
-const RESURRECTION_DELAY_MS = 5000; // Auto-resurrect after 5 minutes
+const RESURRECTION_DELAY_MS = 300000; // Auto-resurrect after 5 minutes (300000ms)
 const MAX_RESURRECTABLE_TABS = 20;
 
 /**

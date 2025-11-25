@@ -108,15 +108,15 @@ import { reopenMostRecentClosedTab } from '../../lib/tabLifecycle';
 import { toast } from '../../utils/toast';
 import { startSnapshotting } from '../../core/recovery';
 import { initTradeAlertsCron } from '../../services/tradeAlertsCron';
-import { useAppError } from '../../hooks/useAppError';
-import { LoopResumeModal } from '../agents/LoopResumeModal';
-import { checkForCrashedLoops } from '../../core/agents/loopResume';
-import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
 import {
   startAutoSaveTabs,
   checkForResurrectableTabs,
   scheduleAutoResurrection,
 } from '../../core/tabs/resurrection';
+import { useAppError } from '../../hooks/useAppError';
+import { LoopResumeModal } from '../agents/LoopResumeModal';
+import { checkForCrashedLoops } from '../../core/agents/loopResume';
+import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
 
 declare global {
   interface Window {
@@ -380,20 +380,7 @@ export function AppShell() {
     }
   }, []);
 
-  // Start tab auto-save and check for resurrectable tabs
-  useEffect(() => {
-    startAutoSaveTabs();
-    const resurrectable = checkForResurrectableTabs();
-    if (resurrectable.length > 0) {
-      // Auto-resurrect tabs after delay
-      scheduleAutoResurrection(3000);
-    }
-    // Initialize extension API (handled by extensions/platform.ts)
-    // Extension registration is handled automatically via window.regenExtensions
-    return () => {
-      // Cleanup handled by stopAutoSaveTabs
-    };
-  }, []);
+  // Tab resurrection is now handled in the initialization effect below
 
   // Initialize fullscreen state on mount - ensure it starts as false
   useEffect(() => {

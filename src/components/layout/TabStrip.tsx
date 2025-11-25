@@ -50,6 +50,11 @@ import {
   DropdownMenuItem,
 } from '../ui/dropdown-menu';
 import { reopenClosedTab } from '../../lib/tabLifecycle';
+import {
+  saveTabForResurrection,
+  scheduleAutoResurrection,
+  RESURRECTION_DELAY_MS,
+} from '../../core/tabs/resurrection';
 import { useAppError } from '../../hooks/useAppError';
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
@@ -1438,6 +1443,10 @@ export function TabStrip() {
       const tabBeingClosed = currentTabs[idx];
       if (tabBeingClosed) {
         rememberClosedTab(tabBeingClosed);
+        // Save for resurrection (auto-reopen after 5 minutes)
+        saveTabForResurrection(tabBeingClosed);
+        // Schedule auto-resurrection after 5 minutes
+        scheduleAutoResurrection(RESURRECTION_DELAY_MS);
       }
       const wasActive = currentTabs[idx]?.active;
       const remaining = currentTabs.filter(t => t.id !== tabId);
@@ -1492,6 +1501,10 @@ export function TabStrip() {
       return;
     }
     rememberClosedTab(tabToClose);
+    // Save for resurrection (auto-reopen after 5 minutes)
+    saveTabForResurrection(tabToClose);
+    // Schedule auto-resurrection after 5 minutes
+    scheduleAutoResurrection(RESURRECTION_DELAY_MS);
 
     const wasActive = tabToClose.active;
     const tabIndex = currentTabs.findIndex(t => t.id === tabId);
