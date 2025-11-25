@@ -302,9 +302,22 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-800 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              Workflows run on your local n8n instance. Install n8n to use workflows.
-            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-gray-400">
+                Workflows run on your local n8n instance. Install n8n to use workflows.
+              </p>
+              <p className="text-xs text-gray-500">
+                Share n8n workflows – Earn affiliates{' '}
+                <a
+                  href="https://github.com/regenbrowser/workflows"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline"
+                >
+                  GitHub repo
+                </a>
+              </p>
+            </div>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
