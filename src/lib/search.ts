@@ -47,25 +47,91 @@ export function buildSearchUrl(
   }
 }
 
+/**
+ * Check if a string is likely a URL
+ */
+function isLikelyUrl(input: string): boolean {
+  const trimmed = input.trim().toLowerCase();
+
+  // Has protocol
+  if (/^[a-z][a-z0-9+.-]*:/.test(trimmed)) {
+    return true;
+  }
+
+  // Has spaces - definitely not a URL
+  if (/\s/.test(trimmed)) {
+    return false;
+  }
+
+  // Looks like a domain (has TLD)
+  const domainPattern = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(\/.*)?$/i;
+  if (domainPattern.test(trimmed)) {
+    // Check if it's a valid domain format
+    try {
+      const testUrl = new URL(`https://${trimmed}`);
+      // Valid domain-like structure
+      return testUrl.hostname.includes('.') && testUrl.hostname.split('.').length >= 2;
+    } catch {
+      return false;
+    }
+  }
+
+  // IP address pattern
+  const ipPattern = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?(\/.*)?$/;
+  if (ipPattern.test(trimmed)) {
+    return true;
+  }
+
+  // Localhost
+  if (trimmed.startsWith('localhost') || trimmed.startsWith('127.0.0.1')) {
+    return true;
+  }
+
+  // Special protocols
+  if (/^(about|file|data|blob|javascript):/i.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Normalize input to URL or search query
+ * Enhanced to properly detect non-URLs and convert to Google search in language
+ */
 export function normalizeInputToUrlOrSearch(
   input: string,
-  provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'all',
+  provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'all' = 'google',
   language?: string
-) {
+): string {
   const trimmed = input.trim();
-  if (!trimmed) return null;
-  // If contains spaces, treat as search
-  if (/[\s]/.test(trimmed)) return buildSearchUrl(provider as any, trimmed, language);
-  // Try as-is URL
-  try {
-    const u = new URL(trimmed);
-    if (u.protocol === 'http:' || u.protocol === 'https:') return u.toString();
-  } catch {}
-  // Try with https://
-  try {
-    const u2 = new URL(`https://${trimmed}`);
-    return u2.toString();
-  } catch {}
-  // Fallback to search
-  return buildSearchUrl(provider as any, trimmed, language);
+  if (!trimmed) {
+    return 'about:blank';
+  }
+
+  // Check if it's likely a URL
+  if (isLikelyUrl(trimmed)) {
+    // Try parsing as-is URL
+    try {
+      const url = new URL(trimmed);
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        return url.toString();
+      }
+    } catch {
+      // Not a valid URL with protocol
+    }
+
+    // Try with https:// prefix
+    try {
+      const url = new URL(`https://${trimmed}`);
+      return url.toString();
+    } catch {
+      // Not a valid URL even with https://
+    }
+  }
+
+  // Not a URL - convert to search
+  // Default to Google if provider is 'all'
+  const searchProvider = provider === 'all' ? 'google' : provider;
+  return buildSearchUrl(searchProvider, trimmed, language);
 }

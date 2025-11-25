@@ -808,6 +808,8 @@ export const Omnibox = forwardRef<
     }
 
     // Use normalizeInputToUrlOrSearch for proper URL/search handling
+    // This function automatically detects if input is a URL or search query
+    // and converts non-URLs to Google search in the user's language
     const normalized = normalizeInputToUrlOrSearch(
       finalUrl,
       'google',
@@ -815,24 +817,6 @@ export const Omnibox = forwardRef<
     );
     if (normalized) {
       finalUrl = normalized;
-    } else if (
-      !finalUrl.startsWith('http://') &&
-      !finalUrl.startsWith('https://') &&
-      !finalUrl.startsWith('about:') &&
-      !finalUrl.startsWith('file://') &&
-      !finalUrl.startsWith('ob://')
-    ) {
-      const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/;
-      if (domainPattern.test(finalUrl) || finalUrl.includes('.')) {
-        finalUrl = `https://${finalUrl}`;
-      } else {
-        // Build search URL - ensure it's properly encoded
-        finalUrl = buildSearchUrl(
-          'google',
-          finalUrl.trim(),
-          language !== 'auto' ? language : undefined
-        );
-      }
     }
 
     const openInBackground = background && !newWindow;
