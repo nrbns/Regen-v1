@@ -8,6 +8,7 @@ import { isElectronRuntime } from '../../lib/env';
 import { OmniDesk } from '../OmniDesk';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
+import { useSettingsStore } from '../../state/settingsStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
 
@@ -28,6 +29,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   // const webviewRef = useRef<any>(null); // Not used - BrowserView managed by main process
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isElectron = isElectronRuntime();
+  const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
@@ -44,17 +46,21 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // Convert to Google search
-      const searchUrl = normalizeInputToUrlOrSearch(url, 'google');
+      // Convert to Google search in user's language
+      const searchUrl = normalizeInputToUrlOrSearch(
+        url,
+        'google',
+        language !== 'auto' ? language : undefined
+      );
       if (searchUrl) {
         return searchUrl;
       }
-      // Fallback to Google search
+      // Fallback to Google search (shouldn't happen, but just in case)
       return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
     }
 
     return url;
-  }, [tab?.url]);
+  }, [tab?.url, language]);
 
   // In Electron, BrowserView is managed by main process, so we don't need webview event handlers
   // The main process handles all BrowserView lifecycle events
