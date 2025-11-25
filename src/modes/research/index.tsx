@@ -19,6 +19,7 @@ import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
 import { multiSourceSearch, type MultiSourceSearchResult } from '../../services/multiSourceSearch';
+import { performLiveWebSearch } from '../../services/liveWebSearch';
 import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
 import { aiEngine, type AITaskResult } from '../../core/ai';
@@ -759,6 +760,41 @@ export default function ResearchPanel() {
           }
         } catch (multiSourceError) {
           console.warn('[Research] Multi-source search failed:', multiSourceError);
+        }
+
+        // Fallback to live web search if multiSourceSearch returned no results
+        if (aggregatedSources.length === 0) {
+          try {
+            const liveResults = await performLiveWebSearch(searchQuery, {
+              count: 15,
+              language: language !== 'auto' ? language : undefined,
+            });
+
+            if (liveResults.length > 0) {
+              aggregatedSources = liveResults.map((hit, idx) => ({
+                id: `live-${hit.provider}-${idx}`,
+                title: hit.title,
+                url: hit.url,
+                domain: hit.domain,
+                snippet: hit.snippet,
+                text: hit.snippet,
+                type: inferSourceType(hit.domain),
+                sourceType: inferSourceType(hit.domain),
+                relevanceScore: Math.round(hit.score * 100),
+                timestamp: Date.now(),
+                metadata: {
+                  provider: hit.provider,
+                },
+              }));
+              aggregatedProviderNames = Array.from(new Set(liveResults.map(r => r.provider)));
+
+              console.log(
+                `[Research] Live web search returned ${liveResults.length} results from ${aggregatedProviderNames.join(', ')}`
+              );
+            }
+          } catch (liveSearchError) {
+            console.warn('[Research] Live web search failed:', liveSearchError);
+          }
         }
       }
 
