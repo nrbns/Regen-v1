@@ -228,7 +228,45 @@ export default function ResearchPanel() {
           provider: finalResult?.provider || 'ai',
           model: finalResult?.model,
         };
-        const finalAnswer = streamedText || finalResult?.text || '';
+        let finalAnswer = streamedText || finalResult?.text || '';
+
+        // If offline and no answer, try offline mBART summarization
+        if (!finalAnswer && typeof navigator !== 'undefined' && !navigator.onLine) {
+          try {
+            // Collect all source text for summarization
+            const sourceTexts: string[] = [];
+            if (scrapedSnapshots.length > 0) {
+              scrapedSnapshots.forEach(snapshot => {
+                if (snapshot.excerpt) sourceTexts.push(snapshot.excerpt);
+                if (snapshot.text) sourceTexts.push(snapshot.text);
+              });
+            }
+            if (aggregatedSources.length > 0) {
+              aggregatedSources.forEach(source => {
+                if (source.snippet) sourceTexts.push(source.snippet);
+                if (source.title) sourceTexts.push(source.title);
+              });
+            }
+
+            if (sourceTexts.length > 0) {
+              const offlineSummary = await summarizeOffline(sourceTexts.join(' '), {
+                maxLength: 500,
+                minLength: 100,
+                language: language !== 'auto' ? language : 'en',
+                useOfflineModel: true,
+              });
+              if (offlineSummary.summary) {
+                finalAnswer = offlineSummary.summary;
+                aiMetaRef.current = {
+                  provider: 'offline-mbart',
+                  model: offlineSummary.method === 'mbart' ? 'mBART' : 'extraction',
+                };
+              }
+            }
+          } catch (error) {
+            console.warn('[Research] Offline summarization failed:', error);
+          }
+        }
 
         if (finalAnswer && typeof window !== 'undefined' && window.graph) {
           try {
