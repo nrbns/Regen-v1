@@ -2,9 +2,17 @@
  * Offline Multilingual Translation
  * Uses lightweight translation for offline mode (50+ languages)
  * Falls back to online APIs when available
+ * Integrates with Bhashini API for 22 Indic languages
  */
 
 // import { useSettingsStore } from '../../state/settingsStore'; // Reserved for future use
+import {
+  translateWithBhashini,
+  isBhashiniSupported,
+  isBhashiniConfigured,
+  type BhashiniTranslationRequest,
+} from '../../services/bhashiniService';
+import { log } from '../../utils/logger';
 
 export interface TranslationResult {
   text: string;
@@ -15,22 +23,34 @@ export interface TranslationResult {
 }
 
 // Language code mapping for offline translation
+// Includes 22 Indic languages supported by Bhashini
 const LANGUAGE_CODES: Record<string, string> = {
   en: 'en',
-  hi: 'hi',
-  ta: 'ta',
-  te: 'te',
-  bn: 'bn',
-  mr: 'mr',
-  kn: 'kn',
-  ml: 'ml',
-  gu: 'gu',
-  pa: 'pa',
-  ur: 'ur',
-  or: 'or',
-  as: 'as',
-  si: 'si',
-  ne: 'ne',
+  // 22 Indic languages (Bhashini supported)
+  as: 'as', // Assamese
+  bn: 'bn', // Bengali
+  brx: 'brx', // Bodo
+  doi: 'doi', // Dogri
+  gom: 'gom', // Konkani
+  gu: 'gu', // Gujarati
+  hi: 'hi', // Hindi
+  kn: 'kn', // Kannada
+  ks: 'ks', // Kashmiri
+  mai: 'mai', // Maithili
+  ml: 'ml', // Malayalam
+  mni: 'mni', // Manipuri
+  mr: 'mr', // Marathi
+  ne: 'ne', // Nepali
+  or: 'or', // Odia
+  pa: 'pa', // Punjabi
+  sa: 'sa', // Sanskrit
+  sat: 'sat', // Santali
+  sd: 'sd', // Sindhi
+  ta: 'ta', // Tamil
+  te: 'te', // Telugu
+  ur: 'ur', // Urdu
+  // Other languages
+  si: 'si', // Sinhala
   es: 'es',
   fr: 'fr',
   de: 'de',
@@ -102,6 +122,7 @@ function simpleOfflineTranslate(text: string, sourceLang: string, targetLang: st
 
 /**
  * Translate text offline or online
+ * Uses Bhashini API for Indic languages when available
  */
 export async function translateText(
   text: string,
@@ -112,7 +133,37 @@ export async function translateText(
   const sourceLang = sourceLanguage || 'auto';
   const targetLang = targetLanguage === 'auto' ? 'en' : targetLanguage;
 
-  // If online, try to use online translation API
+  // If online and Bhashini is configured, try Bhashini first for Indic languages
+  if (isOnline && isBhashiniConfigured()) {
+    // Check if either source or target is an Indic language
+    const sourceIsIndic = sourceLang !== 'auto' && isBhashiniSupported(sourceLang);
+    const targetIsIndic = isBhashiniSupported(targetLang);
+
+    if (sourceIsIndic || targetIsIndic) {
+      try {
+        const bhashiniRequest: BhashiniTranslationRequest = {
+          text,
+          sourceLanguage: sourceLang === 'auto' ? 'en' : sourceLang,
+          targetLanguage: targetLang,
+        };
+
+        const bhashiniResult = await translateWithBhashini(bhashiniRequest);
+        if (bhashiniResult && bhashiniResult.translatedText) {
+          return {
+            text: bhashiniResult.translatedText,
+            sourceLanguage: bhashiniResult.sourceLanguage,
+            targetLanguage: bhashiniResult.targetLanguage,
+            confidence: bhashiniResult.confidence || 0.95,
+            method: 'online',
+          };
+        }
+      } catch (error) {
+        log.warn('[OfflineTranslator] Bhashini translation failed, trying fallback:', error);
+      }
+    }
+  }
+
+  // If online, try to use backend translation API if available
   if (isOnline) {
     try {
       // Try to use backend translation API if available

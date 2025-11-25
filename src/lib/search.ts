@@ -1,14 +1,28 @@
 const LANGUAGE_LOCALE_MAP: Record<string, string> = {
-  hi: 'hi-IN',
-  ta: 'ta-IN',
-  te: 'te-IN',
-  bn: 'bn-IN',
-  mr: 'mr-IN',
-  kn: 'kn-IN',
-  ml: 'ml-IN',
-  gu: 'gu-IN',
-  pa: 'pa-IN',
-  ur: 'ur-PK',
+  // 22 Indic languages (Bhashini supported)
+  as: 'as-IN', // Assamese
+  bn: 'bn-IN', // Bengali
+  brx: 'brx-IN', // Bodo
+  doi: 'doi-IN', // Dogri
+  gom: 'gom-IN', // Konkani
+  gu: 'gu-IN', // Gujarati
+  hi: 'hi-IN', // Hindi
+  kn: 'kn-IN', // Kannada
+  ks: 'ks-IN', // Kashmiri
+  mai: 'mai-IN', // Maithili
+  ml: 'ml-IN', // Malayalam
+  mni: 'mni-IN', // Manipuri
+  mr: 'mr-IN', // Marathi
+  ne: 'ne-NP', // Nepali
+  or: 'or-IN', // Odia
+  pa: 'pa-IN', // Punjabi
+  sa: 'sa-IN', // Sanskrit
+  sat: 'sat-IN', // Santali
+  sd: 'sd-PK', // Sindhi
+  ta: 'ta-IN', // Tamil
+  te: 'te-IN', // Telugu
+  ur: 'ur-PK', // Urdu
+  // Other languages
   en: 'en-US',
   es: 'es-ES',
   fr: 'fr-FR',
