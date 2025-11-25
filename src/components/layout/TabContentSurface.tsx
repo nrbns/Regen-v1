@@ -226,6 +226,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
     // Set loading timeout
     timeoutId = setTimeout(() => {
+      if (!isMounted) return; // Don't update state if unmounted
       setLoading(false);
       setFailedMessage(
         'This page is taking too long to load. Check your connection or try refreshing.'
