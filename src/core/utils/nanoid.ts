@@ -11,5 +11,3 @@ export function nanoid(length: number = 16): string {
   }
   return id;
 }
-
-
