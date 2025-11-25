@@ -4,13 +4,23 @@
  */
 
 import { useState } from 'react';
-import { Search, AlertTriangle, CheckCircle, ExternalLink, BookOpen, TrendingUp } from 'lucide-react';
+import {
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  BookOpen,
+  TrendingUp,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 
 interface ResearchResult {
   query: string;
+  language?: string;
+  languageLabel?: string;
+  languageConfidence?: number;
   sources: Array<{
     url: string;
     title: string;
@@ -65,13 +75,13 @@ export default function ResearchModePanel() {
 
     try {
       // Call enhanced research API
-      const researchResult = await (window.ipc as any).invoke('ob://ipc/v1/research:queryEnhanced', {
+      const researchResult = (await ipc.research.queryEnhanced({
         query: query.trim(),
         maxSources: 12,
         includeCounterpoints,
         recencyWeight,
         authorityWeight,
-      }) as ResearchResult;
+      })) as ResearchResult;
 
       setResult(researchResult);
     } catch (error) {
@@ -95,11 +105,16 @@ export default function ResearchModePanel() {
 
   const getSourceTypeColor = (type: string) => {
     switch (type) {
-      case 'academic': return 'text-blue-400';
-      case 'news': return 'text-green-400';
-      case 'documentation': return 'text-purple-400';
-      case 'forum': return 'text-orange-400';
-      default: return 'text-gray-400';
+      case 'academic':
+        return 'text-blue-400';
+      case 'news':
+        return 'text-green-400';
+      case 'documentation':
+        return 'text-purple-400';
+      case 'forum':
+        return 'text-orange-400';
+      default:
+        return 'text-gray-400';
     }
   };
 
@@ -128,7 +143,7 @@ export default function ResearchModePanel() {
 
         {/* Search Input */}
         <form
-          onSubmit={(e) => {
+          onSubmit={e => {
             e.preventDefault();
             handleSearch();
           }}
@@ -139,7 +154,7 @@ export default function ResearchModePanel() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
               placeholder="Enter your research question..."
               className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               disabled={loading}
@@ -171,10 +186,12 @@ export default function ResearchModePanel() {
                   max="1"
                   step="0.1"
                   value={recencyWeight}
-                  onChange={(e) => setRecencyWeight(parseFloat(e.target.value))}
+                  onChange={e => setRecencyWeight(parseFloat(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-xs text-gray-500 mt-1">Current: {(recencyWeight * 100).toFixed(0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Current: {(recencyWeight * 100).toFixed(0)}%
+                </div>
               </div>
 
               <div>
@@ -185,17 +202,19 @@ export default function ResearchModePanel() {
                   max="1"
                   step="0.1"
                   value={authorityWeight}
-                  onChange={(e) => setAuthorityWeight(parseFloat(e.target.value))}
+                  onChange={e => setAuthorityWeight(parseFloat(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-xs text-gray-500 mt-1">Current: {(authorityWeight * 100).toFixed(0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Current: {(authorityWeight * 100).toFixed(0)}%
+                </div>
               </div>
 
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={includeCounterpoints}
-                  onChange={(e) => setIncludeCounterpoints(e.target.checked)}
+                  onChange={e => setIncludeCounterpoints(e.target.checked)}
                   className="rounded"
                 />
                 <span>Include Counterpoints</span>
@@ -223,6 +242,15 @@ export default function ResearchModePanel() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-lg">Summary</h3>
                 <div className="flex items-center gap-2">
+                  {result.languageLabel && (
+                    <span className="text-xs text-gray-500">
+                      Language:&nbsp;
+                      <strong className="text-gray-300">{result.languageLabel}</strong>
+                      {typeof result.languageConfidence === 'number' && (
+                        <> ({(result.languageConfidence * 100).toFixed(0)}% detect)</>
+                      )}
+                    </span>
+                  )}
                   <span className="text-xs text-gray-400">Confidence:</span>
                   <div className="flex items-center gap-2">
                     <div className="w-24 h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -231,7 +259,9 @@ export default function ResearchModePanel() {
                         style={{ width: `${result.confidence * 100}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-300">{(result.confidence * 100).toFixed(0)}%</span>
+                    <span className="text-xs text-gray-300">
+                      {(result.confidence * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -246,11 +276,13 @@ export default function ResearchModePanel() {
 
               {/* Verification Status */}
               {result.verification && (
-                <div className={`mt-4 p-3 rounded-lg border ${
-                  result.verification.verified
-                    ? 'bg-green-900/20 border-green-700/50'
-                    : 'bg-yellow-900/20 border-yellow-700/50'
-                }`}>
+                <div
+                  className={`mt-4 p-3 rounded-lg border ${
+                    result.verification.verified
+                      ? 'bg-green-900/20 border-green-700/50'
+                      : 'bg-yellow-900/20 border-yellow-700/50'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-2">
                     {result.verification.verified ? (
                       <CheckCircle size={16} className="text-green-400" />
@@ -263,7 +295,10 @@ export default function ResearchModePanel() {
                   </div>
                   <div className="text-xs text-gray-400 space-y-1">
                     <div>Citation Coverage: {result.verification.citationCoverage.toFixed(1)}%</div>
-                    <div>Hallucination Risk: {(result.verification.hallucinationRisk * 100).toFixed(1)}%</div>
+                    <div>
+                      Hallucination Risk: {(result.verification.hallucinationRisk * 100).toFixed(1)}
+                      %
+                    </div>
                     {result.verification.suggestions.length > 0 && (
                       <div className="mt-2">
                         <div className="font-medium mb-1">Suggestions:</div>
@@ -317,14 +352,18 @@ export default function ResearchModePanel() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-medium ${getSourceTypeColor(source.sourceType)}`}>
+                          <span
+                            className={`text-xs font-medium ${getSourceTypeColor(source.sourceType)}`}
+                          >
                             {source.sourceType.toUpperCase()}
                           </span>
                           <span className="text-xs text-gray-500">
                             Score: {source.relevanceScore.toFixed(1)}
                           </span>
                         </div>
-                        <h4 className="font-medium text-sm text-gray-200 truncate">{source.title}</h4>
+                        <h4 className="font-medium text-sm text-gray-200 truncate">
+                          {source.title}
+                        </h4>
                         <p className="text-xs text-gray-400 truncate mt-1">{source.domain}</p>
                         <p className="text-xs text-gray-500 mt-2 line-clamp-2">{source.snippet}</p>
                       </div>
@@ -346,7 +385,7 @@ export default function ResearchModePanel() {
               <div>
                 <h3 className="font-semibold mb-3">Citations</h3>
                 <div className="space-y-2">
-                  {result.citations.map((citation) => {
+                  {result.citations.map(citation => {
                     const source = result.sources[citation.sourceIndex];
                     return (
                       <div
@@ -356,7 +395,9 @@ export default function ResearchModePanel() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-blue-400">[{citation.index}]</span>
+                              <span className="text-xs font-medium text-blue-400">
+                                [{citation.index}]
+                              </span>
                               <span className="text-xs text-gray-400">
                                 Confidence: {(citation.confidence * 100).toFixed(0)}%
                               </span>
@@ -388,4 +429,3 @@ export default function ResearchModePanel() {
     </div>
   );
 }
-

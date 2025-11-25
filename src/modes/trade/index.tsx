@@ -15,6 +15,7 @@ import { ipc } from '../../lib/ipc-typed';
 import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { toast } from '../../utils/toast';
+import { useSettingsStore } from '../../state/settingsStore';
 
 const TRADE_PREFS_STORAGE_KEY = 'trade_mode_preferences_v1';
 
@@ -24,6 +25,7 @@ type TradePreferences = {
 };
 
 export default function TradePanel() {
+  const language = useSettingsStore(state => state.language || 'auto');
   const [balance, setBalance] = useState({
     cash: 100000,
     buyingPower: 200000,
@@ -287,6 +289,7 @@ Format the response as structured trading analysis.`;
               symbol,
               currentPrice,
               timeframe,
+              ...(language !== 'auto' ? { language } : {}),
             },
             llm: {
               temperature: 0.3, // Lower temperature for more consistent trading signals
@@ -853,7 +856,7 @@ Provide the recommended position size (number of shares) and brief rationale.`;
   }, [symbol]);
 
   return (
-    <div className="mode-theme mode-theme--trade h-full w-full overflow-hidden">
+    <div className="mode-theme mode-theme--trade h-full w-full overflow-hidden bg-[#131722]">
       <div className="h-full w-full p-4 space-y-4 overflow-y-auto">
         {/* Dashboard */}
         <TradeDashboard
@@ -866,7 +869,19 @@ Provide the recommended position size (number of shares) and brief rationale.`;
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Chart - Takes 2 columns on large screens */}
           <div className="lg:col-span-2 space-y-4">
-            <TimeframeSelector value={timeframe} onChange={handleTimeframeChange} />
+            <div className="flex items-center gap-2">
+              <TimeframeSelector value={timeframe} onChange={handleTimeframeChange} />
+              {/* Mobile: Floating order button */}
+              <button
+                onClick={() => {
+                  const sheet = document.querySelector('.mobile-order-sheet');
+                  sheet?.classList.remove('translate-y-full');
+                }}
+                className="md:hidden ml-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-lg transition"
+              >
+                Place Order
+              </button>
+            </div>
             <TradingViewChart
               symbol={symbol}
               timeframe={timeframe}
@@ -920,25 +935,67 @@ Provide the recommended position size (number of shares) and brief rationale.`;
               onSelect={handleSymbolSelect}
             />
 
-            {/* Order Entry */}
-            <OrderEntry
-              symbol={symbol}
-              currentPrice={currentPrice}
-              atr={atr}
-              onSubmit={handleOrderSubmit}
-              preset={riskPreset ?? undefined}
-              aiSuggestion={
-                aiSignal && (aiSignal.action === 'buy' || aiSignal.action === 'sell')
-                  ? {
-                      action: aiSignal.action as 'buy' | 'sell',
-                      price: aiSignal.entryPrice,
-                      confidence: aiSignal.confidence ?? 0,
-                      stopLoss: aiSignal.stopLoss,
-                      takeProfit: aiSignal.takeProfit,
-                    }
-                  : undefined
-              }
-            />
+            {/* Order Entry - Desktop */}
+            <div className="hidden md:block">
+              <OrderEntry
+                symbol={symbol}
+                currentPrice={currentPrice}
+                atr={atr}
+                onSubmit={handleOrderSubmit}
+                preset={riskPreset ?? undefined}
+                aiSuggestion={
+                  aiSignal && (aiSignal.action === 'buy' || aiSignal.action === 'sell')
+                    ? {
+                        action: aiSignal.action as 'buy' | 'sell',
+                        price: aiSignal.entryPrice,
+                        confidence: aiSignal.confidence ?? 0,
+                        stopLoss: aiSignal.stopLoss,
+                        takeProfit: aiSignal.takeProfit,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+
+            {/* Mobile Order Sheet - Bottom Sheet */}
+            <div className="mobile-order-sheet md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-gray-800 rounded-t-lg shadow-2xl max-h-[80vh] overflow-y-auto translate-y-full transition-transform duration-300">
+              <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+                <h3 className="font-semibold text-white">Place Order</h3>
+                <button
+                  onClick={() => {
+                    const sheet = document.querySelector('.mobile-order-sheet');
+                    sheet?.classList.add('translate-y-full');
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-4">
+                <OrderEntry
+                  symbol={symbol}
+                  currentPrice={currentPrice}
+                  atr={atr}
+                  onSubmit={order => {
+                    handleOrderSubmit(order);
+                    const sheet = document.querySelector('.mobile-order-sheet');
+                    sheet?.classList.add('translate-y-full');
+                  }}
+                  preset={riskPreset ?? undefined}
+                  aiSuggestion={
+                    aiSignal && (aiSignal.action === 'buy' || aiSignal.action === 'sell')
+                      ? {
+                          action: aiSignal.action as 'buy' | 'sell',
+                          price: aiSignal.entryPrice,
+                          confidence: aiSignal.confidence ?? 0,
+                          stopLoss: aiSignal.stopLoss,
+                          takeProfit: aiSignal.takeProfit,
+                        }
+                      : undefined
+                  }
+                />
+              </div>
+            </div>
 
             <RiskManager
               symbol={symbol}
@@ -968,6 +1025,46 @@ Provide the recommended position size (number of shares) and brief rationale.`;
               onCloseAll={handleCloseAll}
               onClosePosition={handleClosePosition}
               openPositions={openPositions}
+            />
+          </div>
+        </div>
+
+        {/* Mobile Order Sheet - Bottom Sheet */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1a1a1a] border-t border-gray-800 rounded-t-lg shadow-2xl max-h-[80vh] overflow-y-auto mobile-order-sheet translate-y-full transition-transform duration-300">
+          <div className="sticky top-0 bg-[#1a1a1a] border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+            <h3 className="font-semibold text-white">Place Order</h3>
+            <button
+              onClick={() => {
+                const sheet = document.querySelector('.mobile-order-sheet');
+                sheet?.classList.add('translate-y-full');
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-4">
+            <OrderEntry
+              symbol={symbol}
+              currentPrice={currentPrice}
+              atr={atr}
+              onSubmit={order => {
+                handleOrderSubmit(order);
+                const sheet = document.querySelector('.mobile-order-sheet');
+                sheet?.classList.add('translate-y-full');
+              }}
+              preset={riskPreset ?? undefined}
+              aiSuggestion={
+                aiSignal && (aiSignal.action === 'buy' || aiSignal.action === 'sell')
+                  ? {
+                      action: aiSignal.action as 'buy' | 'sell',
+                      price: aiSignal.entryPrice,
+                      confidence: aiSignal.confidence ?? 0,
+                      stopLoss: aiSignal.stopLoss,
+                      takeProfit: aiSignal.takeProfit,
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>

@@ -46,7 +46,12 @@ async function sendPromptServer(
   messages.push({ role: 'user', content: prompt });
 
   const body: any = {
-    model: provider === 'openai' ? 'gpt-4o-mini' : provider === 'anthropic' ? 'claude-3-5-sonnet-20241022' : 'mistral-large-latest',
+    model:
+      provider === 'openai'
+        ? 'gpt-4o-mini'
+        : provider === 'anthropic'
+          ? 'claude-3-5-sonnet-20241022'
+          : 'mistral-large-latest',
     messages,
     max_tokens: options.maxTokens || 1000,
     temperature: options.temperature ?? 0.7,
@@ -63,11 +68,12 @@ async function sendPromptServer(
     headers['Authorization'] = `Bearer ${apiKey!}`;
   }
 
-  const url = provider === 'anthropic'
-    ? 'https://api.anthropic.com/v1/messages'
-    : provider === 'ollama'
-    ? `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/chat`
-    : `${baseUrl}/chat/completions`;
+  const url =
+    provider === 'anthropic'
+      ? 'https://api.anthropic.com/v1/messages'
+      : provider === 'ollama'
+        ? `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/api/chat`
+        : `${baseUrl}/chat/completions`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -83,9 +89,10 @@ async function sendPromptServer(
   const data = await response.json();
   const latency = Date.now() - startTime;
 
-  const text = provider === 'anthropic'
-    ? data.content[0]?.text || ''
-    : data.choices?.[0]?.message?.content || data.message?.content || '';
+  const text =
+    provider === 'anthropic'
+      ? data.content[0]?.text || ''
+      : data.choices?.[0]?.message?.content || data.message?.content || '';
 
   return { text, latency };
 }
@@ -167,12 +174,15 @@ server.addHook('onRequest', async (request, reply) => {
     if (!checkRateLimit(clientIp)) {
       const entry = rateLimitStore.get(clientIp);
       const retryAfter = entry ? Math.ceil((entry.resetAt - Date.now()) / 1000) : 60;
-      
+
       reply.code(429).header('Retry-After', String(retryAfter));
       reply.header('X-RateLimit-Limit', String(RATE_LIMIT_MAX_REQUESTS));
       reply.header('X-RateLimit-Remaining', '0');
-      reply.header('X-RateLimit-Reset', String(entry?.resetAt || Date.now() + RATE_LIMIT_WINDOW_MS));
-      
+      reply.header(
+        'X-RateLimit-Reset',
+        String(entry?.resetAt || Date.now() + RATE_LIMIT_WINDOW_MS)
+      );
+
       return reply.send({
         error: 'Rate limit exceeded',
         message: `Too many requests. Please try again in ${retryAfter} seconds.`,
@@ -184,28 +194,32 @@ server.addHook('onRequest', async (request, reply) => {
     const entry = rateLimitStore.get(clientIp);
     if (entry) {
       reply.header('X-RateLimit-Limit', String(RATE_LIMIT_MAX_REQUESTS));
-      reply.header('X-RateLimit-Remaining', String(Math.max(0, RATE_LIMIT_MAX_REQUESTS - entry.count)));
+      reply.header(
+        'X-RateLimit-Remaining',
+        String(Math.max(0, RATE_LIMIT_MAX_REQUESTS - entry.count))
+      );
       reply.header('X-RateLimit-Reset', String(entry.resetAt));
     }
   }
   // CORS: Only allow from same origin or configured origins in production
-  const allowedOrigin = process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGIN || 'http://localhost:5173')
-    : '*';
-  
+  const allowedOrigin =
+    process.env.NODE_ENV === 'production'
+      ? process.env.ALLOWED_ORIGIN || 'http://localhost:5173'
+      : '*';
+
   reply.header('Access-Control-Allow-Origin', allowedOrigin);
   reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   reply.header('Access-Control-Allow-Headers', 'Content-Type');
   reply.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
+
   // Security headers
   reply.header('X-Content-Type-Options', 'nosniff');
   reply.header('X-Frame-Options', 'DENY');
   reply.header('X-XSS-Protection', '1; mode=block');
   reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   // Additional security headers
-  
+
   if (request.method === 'OPTIONS') {
     reply.code(200).send();
     return;
@@ -236,11 +250,14 @@ interface AggregatedSearchResponse {
  */
 async function searchDuckDuckGo(query: string): Promise<SearchResult[]> {
   try {
-    const response = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`, {
-      headers: {
-        'User-Agent': 'OmniBrowser/1.0',
-      },
-    });
+    const response = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`,
+      {
+        headers: {
+          'User-Agent': 'Regen/1.0',
+        },
+      }
+    );
 
     if (!response.ok) {
       console.warn('[SearchProxy] DuckDuckGo request failed:', response.status);
@@ -295,7 +312,7 @@ async function searchBing(query: string, apiKey?: string): Promise<SearchResult[
       {
         headers: {
           'Ocp-Apim-Subscription-Key': apiKey,
-          'User-Agent': 'OmniBrowser/1.0',
+          'User-Agent': 'Regen/1.0',
         },
       }
     );
@@ -340,7 +357,7 @@ async function searchBrave(query: string, apiKey?: string): Promise<SearchResult
       {
         headers: {
           'X-Subscription-Token': apiKey,
-          'User-Agent': 'OmniBrowser/1.0',
+          'User-Agent': 'Regen/1.0',
         },
       }
     );
@@ -395,7 +412,10 @@ function deduplicateResults(results: SearchResult[]): SearchResult[] {
 async function generateSummaryWithCitations(
   query: string,
   results: SearchResult[]
-): Promise<{ text: string; citations: Array<{ index: number; url: string; title: string }> } | null> {
+): Promise<{
+  text: string;
+  citations: Array<{ index: number; url: string; title: string }>;
+} | null> {
   if (results.length === 0) {
     return null;
   }
@@ -425,7 +445,8 @@ Summary:`;
     const response = await sendPromptServer(prompt, {
       maxTokens: 300,
       temperature: 0.7,
-      systemPrompt: 'You are a helpful assistant that summarizes search results with accurate citations.',
+      systemPrompt:
+        'You are a helpful assistant that summarizes search results with accurate citations.',
     });
 
     // Extract citations from the response
@@ -441,7 +462,7 @@ Summary:`;
 
     const citationList = Array.from(citations)
       .sort((a, b) => a - b)
-      .map((index) => ({
+      .map(index => ({
         index: index + 1, // Convert back to 1-based for display
         url: results[index].url,
         title: results[index].title,
@@ -463,7 +484,12 @@ Summary:`;
 server.post<{
   Body: { query: string; sources?: string[]; limit?: number; includeSummary?: boolean };
 }>('/api/search', async (request, reply) => {
-  const { query, sources = ['duckduckgo', 'bing'], limit = 20, includeSummary = false } = request.body;
+  const {
+    query,
+    sources = ['duckduckgo', 'bing'],
+    limit = 20,
+    includeSummary = false,
+  } = request.body;
 
   // Validate and sanitize query
   if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -472,7 +498,9 @@ server.post<{
 
   const sanitizedQuery = sanitizeQuery(query);
   if (!sanitizedQuery) {
-    return reply.code(400).send({ error: 'Invalid query. Query must be between 1-500 characters.' });
+    return reply
+      .code(400)
+      .send({ error: 'Invalid query. Query must be between 1-500 characters.' });
   }
 
   // Validate sources array
@@ -514,7 +542,9 @@ server.post<{
   const limited = unique.slice(0, validatedLimit);
 
   // Generate summary if requested
-  let summary: { text: string; citations: Array<{ index: number; url: string; title: string }> } | undefined;
+  let summary:
+    | { text: string; citations: Array<{ index: number; url: string; title: string }> }
+    | undefined;
   if (includeSummary && limited.length > 0) {
     summary = (await generateSummaryWithCitations(trimmedQuery, limited)) || undefined;
   }
@@ -545,33 +575,38 @@ server.get<{
   // Validate and sanitize input
   const sanitizedQuery = sanitizeQuery(q);
   if (!sanitizedQuery) {
-    return reply.code(400).send({ error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.' });
+    return reply
+      .code(400)
+      .send({
+        error:
+          'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
+      });
   }
 
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(sanitizedQuery)}&format=json&no_redirect=1&skip_disambig=1`;
-    
+
     // Set timeout for security
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-    
+
     let r: Response;
     try {
       r = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'OmniBrowser/1.0',
+          'User-Agent': 'Regen/1.0',
         },
       });
     } finally {
       clearTimeout(timeoutId);
     }
-    
+
     if (!r.ok) {
       console.error('[SearchProxy] DuckDuckGo request failed:', r.status);
       return reply.code(502).send({ error: 'Search service temporarily unavailable' });
     }
-    
+
     const ddg = await r.json().catch(() => null);
     if (!ddg || typeof ddg !== 'object') {
       return reply.code(502).send({ error: 'Invalid response from search service' });
@@ -579,8 +614,12 @@ server.get<{
 
     // Sanitize and validate results
     const normalized = {
-      heading: (ddg.Heading && typeof ddg.Heading === 'string') ? ddg.Heading.slice(0, 200) : sanitizedQuery,
-      abstract: (ddg.AbstractText && typeof ddg.AbstractText === 'string') ? ddg.AbstractText.slice(0, 1000) : '',
+      heading:
+        ddg.Heading && typeof ddg.Heading === 'string' ? ddg.Heading.slice(0, 200) : sanitizedQuery,
+      abstract:
+        ddg.AbstractText && typeof ddg.AbstractText === 'string'
+          ? ddg.AbstractText.slice(0, 1000)
+          : '',
       results: (Array.isArray(ddg.Results) ? ddg.Results : [])
         .slice(0, 10)
         .filter((r: any) => r && typeof r === 'object' && r.FirstURL && r.Text)
@@ -600,11 +639,11 @@ server.get<{
     return reply.send({ query: sanitizedQuery, ddg: normalized });
   } catch (error: any) {
     console.error('[SearchProxy] /api/search error:', error);
-    
+
     if (error.name === 'AbortError') {
       return reply.code(504).send({ error: 'Request timeout' });
     }
-    
+
     return reply.code(500).send({ error: 'Internal server error' });
   }
 });
@@ -638,19 +677,19 @@ server.get<{
  */
 function sanitizeQuery(q: string): string | null {
   if (!q || typeof q !== 'string') return null;
-  
+
   // Trim and check length
   const trimmed = q.trim();
   if (trimmed.length === 0 || trimmed.length > 500) return null;
-  
+
   // Remove control characters and normalize whitespace
   const sanitized = trimmed
     .replace(CONTROL_CHAR_PATTERN, '') // Remove control characters
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
-  
+
   if (sanitized.length === 0) return null;
-  
+
   return sanitized;
 }
 
@@ -659,17 +698,19 @@ function sanitizeQuery(q: string): string | null {
  */
 function sanitizeForPrompt(text: string): string {
   if (!text || typeof text !== 'string') return '';
-  
+
   // Remove potential prompt injection patterns
   // Remove control characters using Unicode escapes (safer than \x00-\x1f)
-  return text
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
-    .replace(/```/g, '') // Remove code blocks
-    .replace(/---/g, '') // Remove markdown separators
-    .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines
-    .slice(0, 10000) // Limit length
-    .trim();
+  return (
+    text
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
+      .replace(/```/g, '') // Remove code blocks
+      .replace(/---/g, '') // Remove markdown separators
+      .replace(/\n{3,}/g, '\n\n') // Limit consecutive newlines
+      .slice(0, 10000) // Limit length
+      .trim()
+  );
 }
 
 /**
@@ -684,35 +725,40 @@ server.get<{
   // Validate and sanitize input
   const sanitizedQuery = sanitizeQuery(q);
   if (!sanitizedQuery) {
-    return reply.code(400).send({ error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.' });
+    return reply
+      .code(400)
+      .send({
+        error:
+          'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
+      });
   }
 
   try {
     // First, get search results directly from DuckDuckGo
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(sanitizedQuery)}&format=json&no_redirect=1&skip_disambig=1`;
-    
+
     // Set timeout and user agent for security
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-    
+
     let r: Response;
     try {
       r = await fetch(url, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'OmniBrowser/1.0',
+          'User-Agent': 'Regen/1.0',
         },
       });
     } finally {
       clearTimeout(timeoutId);
     }
-    
+
     if (!r.ok) {
       // Don't leak internal error details
       console.error('[SearchProxy] DuckDuckGo request failed:', r.status);
       return reply.code(502).send({ error: 'Search service temporarily unavailable' });
     }
-    
+
     const ddg = await r.json().catch(() => null);
     if (!ddg || typeof ddg !== 'object') {
       return reply.code(502).send({ error: 'Invalid response from search service' });
@@ -720,8 +766,12 @@ server.get<{
 
     // Sanitize and validate results
     const normalized = {
-      heading: (ddg.Heading && typeof ddg.Heading === 'string') ? ddg.Heading.slice(0, 200) : sanitizedQuery,
-      abstract: (ddg.AbstractText && typeof ddg.AbstractText === 'string') ? ddg.AbstractText.slice(0, 1000) : '',
+      heading:
+        ddg.Heading && typeof ddg.Heading === 'string' ? ddg.Heading.slice(0, 200) : sanitizedQuery,
+      abstract:
+        ddg.AbstractText && typeof ddg.AbstractText === 'string'
+          ? ddg.AbstractText.slice(0, 1000)
+          : '',
       results: (Array.isArray(ddg.Results) ? ddg.Results : [])
         .slice(0, 10) // Limit results
         .filter((r: any) => r && typeof r === 'object' && r.FirstURL && r.Text)
@@ -737,7 +787,7 @@ server.get<{
           text: String(rt.Text || rt.Name || '').slice(0, 500),
         })),
     };
-    
+
     // Combine search results into text for LLM (sanitized)
     const joined = [
       sanitizeForPrompt(normalized.abstract),
@@ -751,7 +801,7 @@ server.get<{
     // Generate LLM summary with sanitized prompt
     const sanitizedQueryForPrompt = sanitizeForPrompt(sanitizedQuery);
     const prompt = `You are an AI research assistant inside a browser. Summarize the following search context in 4 bullet points, then give 2 recommended follow-up questions.\n\nQuery: ${sanitizedQueryForPrompt}\n\nContext:\n${joined}`;
-    
+
     const llmResponse = await sendPromptServer(prompt, {
       maxTokens: 512,
       temperature: 0.3,
@@ -766,12 +816,12 @@ server.get<{
   } catch (error: any) {
     // Don't leak error details to client
     console.error('[SearchProxy] /api/search_llm error:', error);
-    
+
     // Check for specific error types
     if (error.name === 'AbortError') {
       return reply.code(504).send({ error: 'Request timeout' });
     }
-    
+
     return reply.code(500).send({
       error: 'Internal server error',
     });
@@ -795,11 +845,11 @@ server.post<{
   }
 
   const startTime = Date.now();
-  
+
   try {
     const summary = await generateSummaryWithCitations(query.trim(), results);
     const latency = Date.now() - startTime;
-    
+
     console.log(`[SearchProxy] LLM summary generated in ${latency}ms for query: "${query}"`);
 
     if (!summary) {
@@ -848,4 +898,3 @@ if (require.main === module) {
 }
 
 export { server, start };
-

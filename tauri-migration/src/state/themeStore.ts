@@ -10,7 +10,7 @@ interface ThemeState {
   cyclePreference: () => void;
 }
 
-const STORAGE_KEY = 'omnibrowser:theme-preference';
+const STORAGE_KEY = 'regen:theme-preference';
 const isBrowser = typeof window !== 'undefined';
 
 const getSystemTheme = (): ResolvedTheme => {
@@ -36,7 +36,8 @@ const initialPreference: ThemePreference = (() => {
   return 'system';
 })();
 
-const initialResolved: ResolvedTheme = initialPreference === 'system' ? getSystemTheme() : initialPreference;
+const initialResolved: ResolvedTheme =
+  initialPreference === 'system' ? getSystemTheme() : initialPreference;
 if (typeof document !== 'undefined') {
   applyTheme(initialPreference);
 }
@@ -44,7 +45,7 @@ if (typeof document !== 'undefined') {
 export const useThemeStore = create<ThemeState>((set, get) => ({
   preference: initialPreference,
   resolved: initialResolved,
-  setPreference: (preference) => {
+  setPreference: preference => {
     if (isBrowser) {
       window.localStorage.setItem(STORAGE_KEY, preference);
     }

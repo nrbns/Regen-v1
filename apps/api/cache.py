@@ -1,5 +1,5 @@
 """
-Redis cache helpers for OmniBrowser API.
+Redis cache helpers for Regen API.
 """
 
 from __future__ import annotations

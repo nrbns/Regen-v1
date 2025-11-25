@@ -42,7 +42,7 @@ class CrashReporter {
    */
   initialize(): void {
     // Check user consent
-    const consent = localStorage.getItem('omnibrowser_crash_reporting_consent');
+    const consent = localStorage.getItem('regen_crash_reporting_consent');
     this.enabled = consent === 'true';
 
     // Global error handler
@@ -123,10 +123,10 @@ class CrashReporter {
       log.info('[CrashReporter] Would send report:', report.id);
 
       // Store locally for manual review
-      const stored = localStorage.getItem('omnibrowser_crash_reports');
+      const stored = localStorage.getItem('regen_crash_reports');
       const reports = stored ? JSON.parse(stored) : [];
       reports.push(report);
-      localStorage.setItem('omnibrowser_crash_reports', JSON.stringify(reports.slice(-10))); // Keep last 10
+      localStorage.setItem('regen_crash_reports', JSON.stringify(reports.slice(-10))); // Keep last 10
     } catch (error) {
       log.error('[CrashReporter] Failed to send report:', error);
     }
@@ -144,7 +144,7 @@ class CrashReporter {
    */
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    localStorage.setItem('omnibrowser_crash_reporting_consent', String(enabled));
+    localStorage.setItem('regen_crash_reporting_consent', String(enabled));
     log.info('[CrashReporter]', enabled ? 'Enabled' : 'Disabled');
   }
 
@@ -153,7 +153,7 @@ class CrashReporter {
    */
   getStoredReports(): CrashReport[] {
     try {
-      const stored = localStorage.getItem('omnibrowser_crash_reports');
+      const stored = localStorage.getItem('regen_crash_reports');
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -164,7 +164,7 @@ class CrashReporter {
    * Clear stored reports
    */
   clearStoredReports(): void {
-    localStorage.removeItem('omnibrowser_crash_reports');
+    localStorage.removeItem('regen_crash_reports');
     this.reports = [];
   }
 }

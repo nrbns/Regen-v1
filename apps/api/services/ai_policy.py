@@ -274,7 +274,7 @@ def get_system_prompt(kind: str) -> str:
     }
     default = os.getenv(
         "AI_TASK_DEFAULT_SYSTEM_PROMPT",
-        "You are OmniBrowser's assistant. Be factual and concise.",
+        "You are Regen's assistant. Be factual and concise.",
     )
     return prompts.get(kind.lower(), default)
 

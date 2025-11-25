@@ -1,6 +1,6 @@
 /**
  * Regen Sidebar Component
- * The AI brain of OmniBrowser - chat + voice interface
+ * The AI brain of Regen - chat + voice interface
  */
 
 import { useState, useEffect, useRef } from 'react';

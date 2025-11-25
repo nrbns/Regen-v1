@@ -271,4 +271,4 @@ User: "Stop"
 
 **Hands-Free Mode is now fully operational! 🎙️✨**
 
-Users can browse the web entirely by voice, making OmniBrowser truly accessible and hands-free.
+Users can browse the web entirely by voice, making Regen truly accessible and hands-free.

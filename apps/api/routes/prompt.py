@@ -34,7 +34,7 @@ async def prompt_agent(request: PromptRequest):
     """
     try:
         # Build context-aware prompt
-        system_prompt = "You are Redix, an AI assistant for OmniBrowser. Provide helpful, concise answers."
+        system_prompt = "You are Redix, an AI assistant for Regen. Provide helpful, concise answers."
         
         user_prompt = request.prompt
         if request.context:

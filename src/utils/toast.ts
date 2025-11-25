@@ -16,10 +16,27 @@ export type ToastType = 'info' | 'success' | 'error' | 'warning';
  * Toast utility object with convenience methods
  */
 const toastObj = {
-  info: (message: string) => showToastFromStore('info', message),
-  success: (message: string) => showToastFromStore('success', message),
-  error: (message: string) => showToastFromStore('error', message),
-  warning: (message: string) => showToastFromStore('warning', message),
+  info: (message: string) => {
+    showToastFromStore('info', message);
+  },
+  success: (message: string) => {
+    showToastFromStore('success', message);
+  },
+  error: (message: string) => {
+    showToastFromStore('error', message);
+  },
+  warning: (message: string) => {
+    showToastFromStore('warning', message);
+  },
+  loading: (message: string) => {
+    showToastFromStore('info', message, { duration: 0 }); // Loading toasts don't auto-dismiss
+    // Return the last toast ID for dismissal
+    const state = useToastStore.getState();
+    return state.toasts[state.toasts.length - 1]?.id;
+  },
+  dismiss: (id: string) => {
+    useToastStore.getState().dismiss(id);
+  },
 };
 
 // Create toast function that also has methods

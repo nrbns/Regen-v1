@@ -9,8 +9,6 @@ import {
   Search,
   Sparkles,
   FileText,
-  TrendingUp,
-  Shield,
   Settings,
   BookOpen,
   FolderOpen,
@@ -39,7 +37,6 @@ export function CommandBar() {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const mode = useAppStore(state => state.mode);
   const setMode = useAppStore(state => state.setMode);
   const bookmarks = useBookmarksStore(state => state.bookmarks);
   const { data: systemStatus } = useSystemStatus();
@@ -56,33 +53,6 @@ export function CommandBar() {
         keywords: ['research', 'mode', 'switch'],
         category: 'modes',
         action: () => setMode('Research'),
-      },
-      {
-        id: 'mode-browse',
-        label: 'Switch to Browse Mode',
-        description: 'Standard web browsing',
-        icon: FileText,
-        keywords: ['browse', 'mode', 'switch'],
-        category: 'modes',
-        action: () => setMode('Browse'),
-      },
-      {
-        id: 'mode-trade',
-        label: 'Switch to Trade Mode',
-        description: 'Trading and market analysis',
-        icon: TrendingUp,
-        keywords: ['trade', 'mode', 'switch'],
-        category: 'modes',
-        action: () => setMode('Trade'),
-      },
-      {
-        id: 'mode-threats',
-        label: 'Switch to Threats Mode',
-        description: 'Security and threat analysis',
-        icon: Shield,
-        keywords: ['threats', 'security', 'mode'],
-        category: 'modes',
-        action: () => setMode('Threats'),
       },
       // Actions
       {
@@ -125,7 +95,7 @@ export function CommandBar() {
       {
         id: 'open-settings',
         label: 'Open Settings',
-        description: 'Configure OmniBrowser',
+        description: 'Configure Regen',
         icon: Settings,
         keywords: ['settings', 'preferences', 'config'],
         category: 'navigation',
@@ -199,7 +169,7 @@ export function CommandBar() {
     });
 
     return items;
-  }, [mode, bookmarks, setMode, systemStatus]);
+  }, [bookmarks, setMode, systemStatus]);
 
   // Filter commands based on query
   const filteredCommands = useMemo(() => {

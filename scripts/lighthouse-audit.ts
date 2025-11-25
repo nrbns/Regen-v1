@@ -1,5 +1,5 @@
 /**
- * Lighthouse audit script for OmniBrowser
+ * Lighthouse audit script for Regen
  * Runs Lighthouse CI on the built app
  */
 
@@ -33,9 +33,9 @@ try {
 
   // Run Lighthouse
   console.log('📊 Analyzing performance, accessibility, best practices, and SEO...\n');
-  
+
   const reportPath = path.join(REPORT_DIR, `lighthouse-${Date.now()}.html`);
-  
+
   execSync(
     `npx lighthouse http://localhost:5173 --output html --output-path "${reportPath}" --chrome-flags="--headless --no-sandbox" --only-categories=performance,accessibility,best-practices,seo`,
     {
@@ -45,7 +45,7 @@ try {
         ...process.env,
         // Allow non-zero exit codes
       },
-    },
+    }
   );
 
   console.log(`\n✅ Lighthouse report saved to: ${reportPath}`);
@@ -56,4 +56,3 @@ try {
   console.log('   Or build the app first (npm run build) and serve it locally.\n');
   process.exit(1);
 }
-

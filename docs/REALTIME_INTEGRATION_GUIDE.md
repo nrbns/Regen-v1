@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide shows exactly how real-time communication works in OmniBrowser:
+This guide shows exactly how real-time communication works in Regen:
 
 **Electron Browser ⟷ Backend ⟷ Redis (Redix) ⟷ Regen / n8n**
 
@@ -23,7 +23,7 @@ This guide shows exactly how real-time communication works in OmniBrowser:
 │  (Fastify + WS) │
 └────────┬────────┘
          │ Redis Pub/Sub
-         │ Channel: omnibrowser:out:{clientId}
+         │ Channel: regen:out:{clientId}
          ▼
 ┌─────────────────┐
 │  Redis (Redix)  │
@@ -61,7 +61,7 @@ useEffect(() => {
 **File:** `server/services/realtime/websocket-server.js`
 
 - Maintains `clientId → WebSocket` map
-- Subscribes to Redis channel: `omnibrowser:out:*`
+- Subscribes to Redis channel: `regen:out:*`
 - Forwards Redis events to WebSocket clients
 
 **Key Functions:**
@@ -73,7 +73,7 @@ useEffect(() => {
 
 ### 3. Redis Pub/Sub Bridge
 
-**Channel Pattern:** `omnibrowser:out:{clientId}`
+**Channel Pattern:** `regen:out:{clientId}`
 
 When Regen wants to send an event:
 
@@ -91,7 +91,7 @@ await sendToClient({
 
 **Flow:**
 
-1. `sendToClient()` publishes to Redis: `omnibrowser:out:client-123`
+1. `sendToClient()` publishes to Redis: `regen:out:client-123`
 2. Redis subscriber receives event
 3. WebSocket server forwards to client's WebSocket
 4. Browser receives event instantly

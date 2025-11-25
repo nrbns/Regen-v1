@@ -2,7 +2,7 @@
 
 ## What is Regen?
 
-Regen is the **AI brain of OmniBrowser** - a unified system that lets you:
+Regen is the **AI brain of Regen** - a unified system that lets you:
 
 - 🔍 **Research** - Search, analyze, and compare (any language)
 - 📈 **Trade** - Paper trading with natural language commands

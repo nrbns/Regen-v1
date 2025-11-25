@@ -1,6 +1,6 @@
 # Consent Ledger
 
-The **Consent Ledger** is OmniBrowser's audit trail system for tracking user consent to sensitive operations.
+The **Consent Ledger** is Regen's audit trail system for tracking user consent to sensitive operations.
 
 ## Purpose
 
@@ -42,6 +42,7 @@ interface LedgerEntry {
 ### 3. Chain of Trust
 
 Each entry includes a hash of:
+
 - Previous entry hash (parent_hash)
 - Current action data
 - Timestamp
@@ -52,24 +53,27 @@ This creates an immutable chain that detects tampering.
 
 ```typescript
 // Verify ledger integrity
-ledger.verify() // Returns { ok: boolean, badId?: number }
+ledger.verify(); // Returns { ok: boolean, badId?: number }
 ```
 
 ## What Requires Consent
 
 ### High Risk
+
 - **File System Access**: Reading/writing files
 - **Camera/Microphone**: Media access
 - **Agent Tool Execution**: External tool calls
 - **Download Large Files**: > 100MB downloads
 
 ### Medium Risk
+
 - **Location Access**: Geolocation
 - **Notifications**: Push notifications
 - **Agent Actions**: Navigation, form filling
 - **Workspace Export**: Exporting session data
 
 ### Low Risk
+
 - **Download Small Files**: < 100MB
 - **Agent Information Gathering**: Read-only operations
 - **History Access**: Reading browsing history
@@ -77,6 +81,7 @@ ledger.verify() // Returns { ok: boolean, badId?: number }
 ## User Controls
 
 ### 1. View Ledger
+
 - **Settings → Privacy → Consent Ledger**
 - Shows all entries with filters:
   - By date range
@@ -85,16 +90,19 @@ ledger.verify() // Returns { ok: boolean, badId?: number }
   - By origin
 
 ### 2. Export Ledger
+
 - Export as JSON or CSV
 - Includes all entries with hashes
 - Verify integrity later
 
 ### 3. Clear Ledger
+
 - **Warning**: This clears audit trail
 - Useful for privacy after sensitive operations
 - Cannot be undone
 
 ### 4. Auto-Approve (Optional)
+
 - Set TTL (Time-To-Live) for low-risk actions
 - Auto-approve for trusted origins
 - Still logged in ledger
@@ -167,4 +175,3 @@ function hashEntry(entry: LedgerEntry): string {
 ---
 
 **Last Updated**: 2024-12
-

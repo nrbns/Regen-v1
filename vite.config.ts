@@ -13,6 +13,10 @@ export default defineConfig({
     }),
     // Electron plugin removed - using Tauri now
   ],
+  optimizeDeps: {
+    exclude: ['@sentry/electron/renderer'], // Sentry is optional
+    include: ['lightweight-charts'],
+  },
   root: resolve(__dirname),
   publicDir: 'public',
   esbuild: {
@@ -106,9 +110,6 @@ export default defineConfig({
         },
       },
     },
-  },
-  optimizeDeps: {
-    include: ['lightweight-charts'],
   },
   server: {
     port: 5173,

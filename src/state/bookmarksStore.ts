@@ -133,7 +133,7 @@ export const useBookmarksStore = create<BookmarksState>()(
       };
     },
     {
-      name: 'omnibrowser_bookmarks_v1',
+      name: 'regen_bookmarks_v1',
     }
   )
 );

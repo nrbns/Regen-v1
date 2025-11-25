@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**OmniBrowser** is designed with privacy as a core principle. This document explains how we handle your data.
+**Regen** is designed with privacy as a core principle. This document explains how we handle your data.
 
 ## Data Collection
 
@@ -21,17 +21,20 @@
 ## Privacy Features
 
 ### 1. Private/Incognito Mode
+
 - **Ephemeral Partitions**: Each private window uses a temporary, in-memory session
 - **Auto-Cleanup**: All data cleared on window close
 - **Content Protection**: macOS screen recording prevention
 - **Fingerprint Protection**: Canvas/audio noise, WebRTC blocking
 
 ### 2. Ghost Mode
+
 - **Isolated Tabs**: Ghost tabs use separate partitions
 - **No Persistence**: Cookies, storage, cache cleared on close
 - **Timer-Based Auto-Close**: Optional automatic cleanup
 
 ### 3. Shields
+
 - **Ad/Tracker Blocking**: Local filters, no external requests
 - **HTTPS-Only Mode**: Force secure connections
 - **3rd-Party Cookie Blocking**: Per-site configuration
@@ -39,12 +42,14 @@
 - **WebRTC Leak Prevention**: Block unauthorized peer connections
 
 ### 4. Network Privacy
+
 - **DNS-over-HTTPS (DoH)**: Encrypted DNS queries
 - **Tor Integration**: Route traffic through Tor network
 - **Proxy Support**: Per-tab/proxy routing
 - **IPv6 Leak Protection**: Disable IPv6 to prevent leaks
 
 ### 5. Consent Ledger
+
 - **Explicit Approvals**: All sensitive operations require user consent
 - **Audit Trail**: SHA-256 hashed ledger of all consent actions
 - **No Auto-Approval**: Nothing happens without your permission
@@ -52,6 +57,7 @@
 ## Data Sharing
 
 **We do not share your data with anyone.** All data stays on your device unless you explicitly:
+
 - Export workspaces/research notes
 - Share via system clipboard
 - Use cloud sync (if enabled in settings)

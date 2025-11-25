@@ -3,17 +3,19 @@
 const { spawn } = require('node:child_process');
 const process = require('node:process');
 const path = require('node:path');
+const net = require('node:net');
+const { URL } = require('node:url');
 
 const processes = [];
 const isWin = process.platform === 'win32';
 const npmCmd = isWin ? 'npm.cmd' : 'npm';
 
-function spawnCommand(name, cmd, args, env) {
+function spawnCommand(name, cmd, args, env = {}, cwd = process.cwd()) {
   const options = {
     env: { ...process.env, ...env },
     stdio: ['inherit', 'inherit', 'inherit'],
     shell: false, // Don't use shell by default (more reliable)
-    cwd: process.cwd(),
+    cwd,
   };
   
   // Special handling for npm on Windows (needs shell)
@@ -33,22 +35,18 @@ function spawnCommand(name, cmd, args, env) {
   child.spawnTime = Date.now();
   child.on('exit', (code) => {
     console.log(`[${name}] exited with code ${code}`);
-    // Only shutdown on critical process failures (Vite)
-    // Engine and Redix are optional and can fail without crashing the app
     if (code !== 0) {
-      if (name === 'renderer') {
+      if (CRITICAL_PROCESSES.has(name)) {
         console.error(`[${name}] Critical process exited with code ${code}, shutting down...`);
         shutdown();
       } else {
         console.warn(`[${name}] Non-critical process exited with code ${code}, continuing...`);
-        // Don't shutdown - allow other processes to continue
       }
     }
   });
   child.on('error', (err) => {
     console.error(`[${name}] spawn error:`, err);
-    // Only shutdown on critical process errors
-    if (name === 'renderer') {
+    if (CRITICAL_PROCESSES.has(name)) {
       console.error(`[${name}] Critical process error, shutting down...`);
       shutdown();
     } else {
@@ -57,6 +55,8 @@ function spawnCommand(name, cmd, args, env) {
   });
   processes.push(child);
 }
+
+const CRITICAL_PROCESSES = new Set(['renderer', 'tauri']);
 
 function shutdown() {
   console.log('[dev] 🛑 Shutting down all processes...');
@@ -234,27 +234,94 @@ process.on('SIGTERM', () => {
 });
 
 const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const disableRedis = process.env.DISABLE_REDIS === '1';
+const IS_DEV = process.env.NODE_ENV !== 'production';
 console.log(`[dev] ✅ Starting integrated development environment...`);
-console.log(`[dev] Redis URL: ${redisUrl} (optional - will gracefully degrade if unavailable)`);
+if (disableRedis) {
+  console.log('[dev] Redis features disabled (DISABLE_REDIS=1)');
+} else {
+  console.log(
+    `[dev] Redis URL: ${redisUrl} (optional - will gracefully degrade if unavailable)`
+  );
+}
 
 // Use process.execPath to get the current node executable (more reliable on Windows)
 const nodeExe = process.execPath;
 
-// Start Redix server and worker (optional - will gracefully degrade if Redis unavailable)
-// Add small delay to prevent race conditions
-setTimeout(() => {
-  spawnCommand('redix-server', nodeExe, [path.resolve('server/redix-server.js')], { REDIS_URL: redisUrl });
-}, 100);
+// Start Redix server and worker unless disabled
+function checkRedisAvailability(url) {
+  return new Promise(resolve => {
+    try {
+      const parsed = new URL(url);
+      const port = Number(parsed.port) || 6379;
+      const socket = net.createConnection(
+        { host: parsed.hostname, port },
+        () => {
+          socket.destroy();
+          resolve(true);
+        }
+      );
+      socket.setTimeout(1000, () => {
+        socket.destroy();
+        resolve(false);
+      });
+      socket.on('error', () => {
+        socket.destroy();
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
 
-setTimeout(() => {
-  spawnCommand('redix-worker', nodeExe, [path.resolve('server/redix-worker.js')], { REDIS_URL: redisUrl });
-}, 200);
+function startRenderer() {
+  setTimeout(() => {
+    spawnCommand('renderer', npmCmd, ['run', 'dev:web'], {});
+  }, 500);
+}
 
-// Start main dev environment (Vite + Engine)
-// Electron removed - using Tauri now
-// Add delay to ensure Redix services start first
-setTimeout(() => {
-  spawnCommand('renderer', npmCmd, ['run', 'dev:basic'], {});
-}, 500);
+function startTauri() {
+  const tauriDir = path.resolve('tauri-migration');
+  if (!fs.existsSync(tauriDir)) {
+    console.warn('[dev] Tauri workspace not found at tauri-migration, skipping desktop shell.');
+    return;
+  }
+  setTimeout(() => {
+    spawnCommand('tauri', npmCmd, ['run', 'tauri:dev'], {}, tauriDir);
+  }, 1000);
+}
 
+async function bootstrap() {
+  let redisEnabled = !disableRedis;
+  if (redisEnabled) {
+    const available = await checkRedisAvailability(redisUrl);
+    if (!available) {
+      console.warn(
+        `[dev] Redis not reachable at ${redisUrl}. Skipping Redix services (set DISABLE_REDIS=1 to hide this message).`
+      );
+      redisEnabled = false;
+    }
+  }
 
+  if (redisEnabled) {
+    setTimeout(() => {
+      spawnCommand('redix-server', nodeExe, [path.resolve('server/redix-server.js')], {
+        REDIS_URL: redisUrl,
+      });
+    }, 100);
+
+    setTimeout(() => {
+      spawnCommand('redix-worker', nodeExe, [path.resolve('server/redix-worker.js')], {
+        REDIS_URL: redisUrl,
+      });
+    }, 200);
+  } else if (IS_DEV) {
+    console.log('[dev] Redix services disabled (Redis unavailable or DISABLE_REDIS=1)');
+  }
+
+  startRenderer();
+  startTauri();
+}
+
+bootstrap();

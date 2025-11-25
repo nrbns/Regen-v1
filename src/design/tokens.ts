@@ -63,7 +63,7 @@ export const tokens = {
 
   // Color palette (dark theme optimized)
   colors: {
-    // Brand colors - OmniBrowser signature gradient
+    // Brand colors - Regen signature gradient
     brand: {
       primary: '#8b5cf6', // Purple
       secondary: '#06b6d4', // Cyan
@@ -164,4 +164,3 @@ export const cssVariables = {
   '--animation-fast': tokens.animation.duration.fast,
   '--animation-normal': tokens.animation.duration.normal,
 } as const;
-

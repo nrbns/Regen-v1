@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     # App
     DEBUG: bool = True
     SECRET_KEY: str = "dev-secret-key-change-in-production"
-    PROJECT_NAME: str = "OmniBrowser Research Backend"
+    PROJECT_NAME: str = "Regen Research Backend"
     
     # CORS
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]

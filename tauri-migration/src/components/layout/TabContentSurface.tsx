@@ -14,7 +14,7 @@ interface TabContentSurfaceProps {
   overlayActive?: boolean;
 }
 
-const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'omnibrowser://'];
+const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'regen://'];
 
 function isInternalUrl(url?: string | null): boolean {
   if (!url) return true;

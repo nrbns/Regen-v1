@@ -132,14 +132,14 @@ async function snapshotTab(tabId, mode) {
 
 function createTabPayload(snapshot, mode) {
   return {
-    project: 'omnibrowser',
+    project: 'regen',
     type: 'tab',
     title: snapshot.title,
     text: snapshot.text.slice(0, 1000),
     mode,
     tags: [`mode:${mode}`, `url:${snapshot.url}`],
     origin: {
-      app: 'omnibrowser',
+      app: 'regen',
       mode,
       url: snapshot.url,
     },

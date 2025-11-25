@@ -1,9 +1,9 @@
 /**
  * LangChain Agentic Workflows - Multi-Agent Orchestration for Redix
- * 
+ *
  * Implements ReAct agents, tool integration, and LangGraph workflows
  * for autonomous AI agents that can reason, act, and collaborate.
- * 
+ *
  * Architecture:
  * - ReAct Agents: Reason → Act → Observe loops
  * - Tools: Web search, calculators, APIs
@@ -77,9 +77,9 @@ class EcoScorer {
   estimateEnergy(provider: string, tokens: number): number {
     const energyPer1K: Record<string, number> = {
       ollama: 0.01,
-      'openai': 0.05,
-      'anthropic': 0.06,
-      'mistral': 0.04,
+      openai: 0.05,
+      anthropic: 0.06,
+      mistral: 0.04,
     };
     const base = energyPer1K[provider] || 0.05;
     return (tokens / 1000) * base;
@@ -92,7 +92,8 @@ class AgentTools {
   static createSearchTool() {
     return new DynamicStructuredTool({
       name: 'web_search',
-      description: 'Search the web for information. Use this when you need to find current information, research topics, or look up facts.',
+      description:
+        'Search the web for information. Use this when you need to find current information, research topics, or look up facts.',
       schema: z.object({
         query: z.string().describe('The search query'),
         maxResults: z.number().optional().default(5).describe('Maximum number of results'),
@@ -102,19 +103,19 @@ class AgentTools {
           // Use DuckDuckGo Instant Answer API
           const searchUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
           const response = await fetch(searchUrl, {
-            headers: { 'User-Agent': 'OmniBrowser/1.0' },
+            headers: { 'User-Agent': 'Regen/1.0' },
             signal: AbortSignal.timeout(5000),
           }).catch(() => null);
-          
+
           if (response?.ok) {
             const data = await response.json();
             const results: string[] = [];
-            
+
             // Add abstract if available
             if (data.AbstractText) {
               results.push(`Abstract: ${data.AbstractText}`);
             }
-            
+
             // Add related topics
             if (data.RelatedTopics) {
               const topics = data.RelatedTopics.slice(0, maxResults);
@@ -123,19 +124,17 @@ class AgentTools {
                 else if (r.FirstURL) results.push(r.FirstURL);
               });
             }
-            
+
             // Add results
             if (data.Results) {
               data.Results.slice(0, maxResults).forEach((r: any) => {
                 if (r.Text) results.push(r.Text);
               });
             }
-            
-            return results.length > 0 
-              ? results.join('\n\n')
-              : `No results found for "${query}"`;
+
+            return results.length > 0 ? results.join('\n\n') : `No results found for "${query}"`;
           }
-          
+
           return `Search completed for "${query}" but no results returned.`;
         } catch (error: any) {
           return `Search failed: ${error.message || 'Network error'}`;
@@ -148,9 +147,12 @@ class AgentTools {
   static createCalculatorTool() {
     return new DynamicStructuredTool({
       name: 'calculator',
-      description: 'Perform mathematical calculations. Use this for arithmetic, algebra, or numerical computations.',
+      description:
+        'Perform mathematical calculations. Use this for arithmetic, algebra, or numerical computations.',
       schema: z.object({
-        expression: z.string().describe('Mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)")'),
+        expression: z
+          .string()
+          .describe('Mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)")'),
       }),
       func: async ({ expression }) => {
         try {
@@ -169,7 +171,8 @@ class AgentTools {
   static createCodeTool() {
     return new DynamicStructuredTool({
       name: 'code_executor',
-      description: 'Execute simple code snippets (sandboxed). Use this for code generation, testing, or data processing.',
+      description:
+        'Execute simple code snippets (sandboxed). Use this for code generation, testing, or data processing.',
       schema: z.object({
         code: z.string().describe('Code to execute (JavaScript-like syntax)'),
         language: z.string().optional().default('javascript').describe('Programming language'),
@@ -185,7 +188,8 @@ class AgentTools {
   static createKnowledgeGraphTool() {
     return new DynamicStructuredTool({
       name: 'knowledge_graph',
-      description: 'Query or update the knowledge graph. Use this to store relationships, find connections, or retrieve structured knowledge.',
+      description:
+        'Query or update the knowledge graph. Use this to store relationships, find connections, or retrieve structured knowledge.',
       schema: z.object({
         operation: z.enum(['query', 'store']).describe('Operation type'),
         entity: z.string().describe('Entity or relationship to query/store'),
@@ -244,20 +248,20 @@ export class AgenticWorkflowEngine {
     if (!ChatOllama) {
       throw new Error('Ollama not available. Install: npm install @langchain/community');
     }
-    
+
     const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
     const model = process.env.OLLAMA_MODEL || 'llama3.2';
-    
+
     // Check if Ollama is available
     try {
-      const check = await fetch(`${baseUrl}/api/tags`, { 
-        signal: AbortSignal.timeout(1000) 
+      const check = await fetch(`${baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(1000),
       });
       if (!check.ok) throw new Error('Ollama not running');
     } catch {
       throw new Error('Ollama not available. Start Ollama: ollama serve');
     }
-    
+
     return new ChatOllama({
       baseUrl,
       model,
@@ -279,7 +283,10 @@ export class AgenticWorkflowEngine {
     try {
       // Step 1: Search Agent
       const searchTools = [AgentTools.createSearchTool()];
-      const searchAgent = await this.createReActAgent(this.getGPTModel(options.temperature ?? 0.7), searchTools);
+      const searchAgent = await this.createReActAgent(
+        this.getGPTModel(options.temperature ?? 0.7),
+        searchTools
+      );
       const searchExecutor = {
         invoke: async (input: { input: string }) => {
           return await searchAgent.invoke(input);
@@ -303,7 +310,10 @@ export class AgenticWorkflowEngine {
 
       // Step 2: Summarize Agent
       const summarizePrompt = ChatPromptTemplate.fromMessages([
-        ['system', 'You are a research summarizer. Create a concise summary of the search results.'],
+        [
+          'system',
+          'You are a research summarizer. Create a concise summary of the search results.',
+        ],
         ['human', 'Search results: {search_results}\n\nQuery: {query}\n\nProvide a clear summary:'],
       ]);
 
@@ -326,7 +336,10 @@ export class AgenticWorkflowEngine {
 
       // Step 3: Ethics Check Agent
       const ethicsPrompt = ChatPromptTemplate.fromMessages([
-        ['system', 'You are an ethics checker. Review the summary for ethical concerns, bias, or safety issues.'],
+        [
+          'system',
+          'You are an ethics checker. Review the summary for ethical concerns, bias, or safety issues.',
+        ],
         ['human', 'Summary: {summary}\n\nQuery: {query}\n\nCheck for ethics, bias, and safety:'],
       ]);
 
@@ -348,8 +361,9 @@ export class AgenticWorkflowEngine {
       const fusedResult = `Research Summary:\n${summary}\n\nEthics Check:\n${ethicsCheck}`;
 
       // Calculate eco score
-      const energy = this.ecoScorer.estimateEnergy('openai', totalTokens * 0.6) +
-                     this.ecoScorer.estimateEnergy('anthropic', totalTokens * 0.4);
+      const energy =
+        this.ecoScorer.estimateEnergy('openai', totalTokens * 0.6) +
+        this.ecoScorer.estimateEnergy('anthropic', totalTokens * 0.4);
       const greenScore = this.ecoScorer.calculateGreenScore(energy, totalTokens);
       const latency = Date.now() - startTime;
 
@@ -373,14 +387,16 @@ export class AgenticWorkflowEngine {
         const steps: any[] = [];
         let currentInput = input.input;
         let iteration = 0;
-        
+
         // ReAct loop: Reason → Act → Observe
         while (iteration < maxIterations) {
           iteration++;
-          
+
           // Step 1: REASON - LLM decides what to do
           const reasoningPrompt = ChatPromptTemplate.fromMessages([
-            ['system', `You are a ReAct agent. You have access to these tools: ${tools.map(t => t.name).join(', ')}.
+            [
+              'system',
+              `You are a ReAct agent. You have access to these tools: ${tools.map(t => t.name).join(', ')}.
             
 Think step by step:
 1. What is the current question/task?
@@ -390,44 +406,49 @@ Think step by step:
 Format your response as:
 Thought: [your reasoning]
 Action: [tool_name or final_answer]
-Action Input: [arguments as JSON or final answer]`],
-            ['human', `Question: ${currentInput}
+Action Input: [arguments as JSON or final answer]`,
+            ],
+            [
+              'human',
+              `Question: ${currentInput}
 
 Previous steps: ${steps.length > 0 ? JSON.stringify(steps.slice(-2), null, 2) : 'None'}
 
-What should I do next?`],
+What should I do next?`,
+            ],
           ]);
-          
+
           const reasoningChain = reasoningPrompt.pipe(llm).pipe(new StringOutputParser());
           const reasoning = await reasoningChain.invoke({});
-          
+
           steps.push({ step: iteration, type: 'reason', content: reasoning });
-          
+
           // Parse reasoning to extract action
           const actionMatch = reasoning.match(/Action:\s*(\w+)/i);
           const actionInputMatch = reasoning.match(/Action Input:\s*(.+?)(?:\n|$)/is);
-          
+
           if (!actionMatch) {
             // No action found, return final answer
             const finalAnswer = reasoning.split('Final Answer:')[1] || reasoning;
             return { output: finalAnswer.trim(), steps };
           }
-          
+
           const action = actionMatch[1].toLowerCase();
-          
+
           // Check if we should finish
           if (action === 'final_answer' || action === 'finish') {
-            const finalAnswer = actionInputMatch?.[1] || reasoning.split('Final Answer:')[1] || reasoning;
+            const finalAnswer =
+              actionInputMatch?.[1] || reasoning.split('Final Answer:')[1] || reasoning;
             return { output: finalAnswer.trim(), steps };
           }
-          
+
           // Step 2: ACT - Execute tool
           const tool = tools.find(t => t.name.toLowerCase() === action);
           if (!tool) {
             steps.push({ step: iteration, type: 'error', content: `Tool "${action}" not found` });
             continue;
           }
-          
+
           let toolInput: any = {};
           if (actionInputMatch) {
             try {
@@ -441,14 +462,18 @@ What should I do next?`],
               }
             }
           }
-          
+
           steps.push({ step: iteration, type: 'action', tool: tool.name, input: toolInput });
-          
+
           // Step 3: OBSERVE - Get tool result
           try {
             const observation = await tool.func(toolInput);
-            steps.push({ step: iteration, type: 'observation', content: String(observation).slice(0, 500) });
-            
+            steps.push({
+              step: iteration,
+              type: 'observation',
+              content: String(observation).slice(0, 500),
+            });
+
             // Update input for next iteration
             currentInput = `Original question: ${input.input}\n\nTool result: ${observation}\n\nWhat should I do next?`;
           } catch (error: any) {
@@ -456,11 +481,11 @@ What should I do next?`],
             break;
           }
         }
-        
+
         // Max iterations reached, return what we have
-        return { 
-          output: steps[steps.length - 1]?.content || 'Max iterations reached', 
-          steps 
+        return {
+          output: steps[steps.length - 1]?.content || 'Max iterations reached',
+          steps,
         };
       },
     };
@@ -511,8 +536,9 @@ What should I do next?`],
       }
 
       // Calculate final eco score
-      const energy = this.ecoScorer.estimateEnergy('openai', totalTokens * 0.7) +
-                     this.ecoScorer.estimateEnergy('anthropic', totalTokens * 0.3);
+      const energy =
+        this.ecoScorer.estimateEnergy('openai', totalTokens * 0.7) +
+        this.ecoScorer.estimateEnergy('anthropic', totalTokens * 0.3);
       const greenScore = this.ecoScorer.calculateGreenScore(energy, totalTokens);
       const latency = Date.now() - startTime;
 
@@ -533,7 +559,12 @@ What should I do next?`],
   async ragWorkflow(
     query: string,
     context = '',
-    options: { maxIterations?: number; maxTokens?: number; temperature?: number; useOllama?: boolean } = {},
+    options: {
+      maxIterations?: number;
+      maxTokens?: number;
+      temperature?: number;
+      useOllama?: boolean;
+    } = {},
     streamCallback?: StreamCallback
   ): Promise<AgenticWorkflowResponse> {
     const startTime = Date.now();
@@ -545,7 +576,7 @@ What should I do next?`],
       // Step 1: Retrieve - Search for relevant information
       const searchTool = AgentTools.createSearchTool();
       const searchResult = await searchTool.func({ query, maxResults: 5 });
-      
+
       if (streamCallback) {
         streamCallback({ type: 'step', step: 1, content: 'Searching for relevant information...' });
       }
@@ -578,17 +609,24 @@ What should I do next?`],
       }
 
       if (streamCallback) {
-        streamCallback({ type: 'step', step: 2, content: 'Generating answer with retrieved context...' });
+        streamCallback({
+          type: 'step',
+          step: 2,
+          content: 'Generating answer with retrieved context...',
+        });
       }
 
       // Step 3: Generate - Create answer with citations
       const generatePrompt = ChatPromptTemplate.fromMessages([
-        ['system', 'You are a RAG (Retrieval-Augmented Generation) assistant. Answer questions using the provided context. Cite sources when possible.'],
+        [
+          'system',
+          'You are a RAG (Retrieval-Augmented Generation) assistant. Answer questions using the provided context. Cite sources when possible.',
+        ],
         ['human', '{augmented_prompt}'],
       ]);
 
       const generateChain = generatePrompt.pipe(model).pipe(new StringOutputParser());
-      
+
       let generatedText = '';
       if (options.stream && streamCallback) {
         // Streaming mode
@@ -618,9 +656,9 @@ What should I do next?`],
       const latency = Date.now() - startTime;
 
       if (streamCallback) {
-        streamCallback({ 
-          type: 'done', 
-          data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed } 
+        streamCallback({
+          type: 'done',
+          data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed },
         });
       }
 
@@ -645,7 +683,13 @@ What should I do next?`],
     request: AgenticWorkflowRequest,
     streamCallback?: StreamCallback
   ): Promise<AgenticWorkflowResponse> {
-    const { query, context = '', workflowType = 'research', tools: _tools = [], options = {} } = request;
+    const {
+      query,
+      context = '',
+      workflowType = 'research',
+      tools: _tools = [],
+      options = {},
+    } = request;
 
     switch (workflowType) {
       case 'research':
@@ -669,4 +713,3 @@ export function getAgenticWorkflowEngine(): AgenticWorkflowEngine {
   }
   return workflowEngineInstance;
 }
-

@@ -1,12 +1,69 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '../utils/toast';
+import { useSettingsStore } from '../state/settingsStore';
+import { Mic, MicOff } from 'lucide-react';
 
 type Props = { onResult: (text: string) => void; small?: boolean };
+
+const LANGUAGE_LOCALE_MAP: Record<string, string> = {
+  hi: 'hi-IN',
+  ta: 'ta-IN',
+  te: 'te-IN',
+  bn: 'bn-IN',
+  mr: 'mr-IN',
+  kn: 'kn-IN',
+  ml: 'ml-IN',
+  gu: 'gu-IN',
+  pa: 'pa-IN',
+  ur: 'ur-PK',
+  en: 'en-US',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  zh: 'zh-CN',
+  ja: 'ja-JP',
+  ko: 'ko-KR',
+  ru: 'ru-RU',
+  pt: 'pt-PT',
+  ar: 'ar-SA',
+};
+
+function getSpeechRecognitionLocale(lang?: string): string {
+  if (!lang || lang === 'auto') return 'en-US';
+  return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
+}
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  hi: 'हिंदी',
+  ta: 'தமிழ்',
+  te: 'తెలుగు',
+  bn: 'বাংলা',
+  mr: 'मराठी',
+  kn: 'ಕನ್ನಡ',
+  ml: 'മലയാളം',
+  gu: 'ગુજરાતી',
+  pa: 'ਪੰਜਾਬੀ',
+  ur: 'اردو',
+  en: 'English',
+  es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
+  zh: '中文',
+  ja: '日本語',
+  ko: '한국어',
+  ru: 'Русский',
+  pt: 'Português',
+  ar: 'العربية',
+};
 
 export default function VoiceButton({ onResult, small }: Props) {
   const [active, setActive] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const recogRef = useRef<any>(null);
+  const animationRef = useRef<number | null>(null);
+  const language = useSettingsStore(state => state.language || 'auto');
+  const langLabel = LANGUAGE_LABELS[language] || language || 'auto';
 
   useEffect(() => {
     const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -15,36 +72,47 @@ export default function VoiceButton({ onResult, small }: Props) {
         const r = new SR();
         r.continuous = false;
         r.interimResults = false;
-        r.lang = 'en-US';
+        r.lang = getSpeechRecognitionLocale(language);
         r.onresult = (e: any) => {
           try {
+            setIsProcessing(true);
             const results = Array.isArray(e.results) ? Array.from(e.results) : [];
             const transcripts = results
               .map((res: any) => res?.[0]?.transcript)
               .filter((t: any) => t && typeof t === 'string');
             const t = transcripts.join(' ').trim();
             if (t) {
+              // Show success toast with language info
+              toast.success(`Voice input received in ${langLabel}`);
               onResult(t);
             }
             setActive(false);
+            setIsProcessing(false);
           } catch (error) {
             console.error('[VoiceButton] Error processing speech result:', error);
             setActive(false);
+            setIsProcessing(false);
             toast.error('Failed to process speech recognition result.');
           }
         };
         r.onerror = (e: any) => {
           console.error('[VoiceButton] Speech recognition error:', e.error);
           setActive(false);
+          setIsProcessing(false);
+          stopWaveformAnimation();
           if (e.error === 'not-allowed') {
             toast.error('Microphone permission denied. Please enable it in your browser settings.');
           } else if (e.error === 'no-speech') {
-            toast.error('No speech detected. Please try again.');
+            toast.error(`No speech detected in ${langLabel}. Please try again.`);
           } else {
             toast.error('Speech recognition failed. Please try again.');
           }
         };
-        r.onend = () => setActive(false);
+        r.onend = () => {
+          setActive(false);
+          setIsProcessing(false);
+          stopWaveformAnimation();
+        };
         recogRef.current = r;
         setIsAvailable(true);
       } catch (error) {
@@ -54,7 +122,14 @@ export default function VoiceButton({ onResult, small }: Props) {
     } else {
       setIsAvailable(false);
     }
-  }, [onResult]);
+  }, [onResult, language]);
+
+  // Update language when it changes
+  useEffect(() => {
+    if (recogRef.current) {
+      recogRef.current.lang = getSpeechRecognitionLocale(language);
+    }
+  }, [language]);
 
   const start = async () => {
     const SR: any = recogRef.current;
@@ -66,18 +141,54 @@ export default function VoiceButton({ onResult, small }: Props) {
     }
     try {
       setActive(true);
+      // Show loading toast with language info
+      toast.info(`Listening in ${langLabel}... Speak now`);
       SR.start();
+
+      // Start waveform animation
+      startWaveformAnimation();
     } catch (error: any) {
       console.error('[VoiceButton] Failed to start recognition:', error);
       setActive(false);
+      stopWaveformAnimation();
       toast.error('Failed to start voice recognition. Please try again.');
     }
   };
 
+  const startWaveformAnimation = () => {
+    if (animationRef.current) return;
+    const animate = () => {
+      if (active) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        animationRef.current = null;
+      }
+    };
+    animate();
+  };
+
+  const stopWaveformAnimation = () => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!active) {
+      stopWaveformAnimation();
+    }
+    return () => stopWaveformAnimation();
+  }, [active]);
+
   return (
     <button
       type="button"
-      className={`${small ? 'text-[11px] px-2 py-1' : 'text-xs px-2 py-1'} ml-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${active ? 'bg-red-600 text-white' : 'bg-neutral-800'}`}
+      className={`${small ? 'text-[11px] px-2 py-1' : 'text-xs px-3 py-2'} ml-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all ${
+        active
+          ? 'bg-red-600 text-white shadow-lg shadow-red-600/50'
+          : 'bg-neutral-800 hover:bg-neutral-700 text-gray-300'
+      } ${isProcessing ? 'animate-pulse' : ''}`}
       onClick={start}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -85,11 +196,79 @@ export default function VoiceButton({ onResult, small }: Props) {
           start();
         }
       }}
-      aria-label={active ? 'Stop voice recognition' : 'Start voice search'}
+      aria-label={
+        active ? `Stop voice recognition (${langLabel})` : `Start voice search (${langLabel})`
+      }
       aria-pressed={active}
-      title="Voice search"
+      title={`Voice search in ${langLabel}`}
+      disabled={!isAvailable}
     >
-      <span aria-hidden="true">{active ? 'Listening…' : '🎤'}</span>
+      <div className="flex items-center gap-2">
+        {active ? (
+          <>
+            <Mic className="w-4 h-4 animate-pulse" />
+            {!small && (
+              <div className="flex items-center gap-1">
+                {/* Waveform visualization - animated bars */}
+                <div className="flex items-end gap-0.5 h-4">
+                  <div
+                    className="w-0.5 bg-white rounded-full"
+                    style={{
+                      height: '60%',
+                      animation: 'waveform 1s ease-in-out infinite',
+                      animationDelay: '0ms',
+                    }}
+                  />
+                  <div
+                    className="w-0.5 bg-white rounded-full"
+                    style={{
+                      height: '80%',
+                      animation: 'waveform 1s ease-in-out infinite',
+                      animationDelay: '200ms',
+                    }}
+                  />
+                  <div
+                    className="w-0.5 bg-white rounded-full"
+                    style={{
+                      height: '100%',
+                      animation: 'waveform 1s ease-in-out infinite',
+                      animationDelay: '400ms',
+                    }}
+                  />
+                  <div
+                    className="w-0.5 bg-white rounded-full"
+                    style={{
+                      height: '70%',
+                      animation: 'waveform 1s ease-in-out infinite',
+                      animationDelay: '600ms',
+                    }}
+                  />
+                  <div
+                    className="w-0.5 bg-white rounded-full"
+                    style={{
+                      height: '90%',
+                      animation: 'waveform 1s ease-in-out infinite',
+                      animationDelay: '800ms',
+                    }}
+                  />
+                </div>
+                <style>{`
+                  @keyframes waveform {
+                    0%, 100% { transform: scaleY(0.5); opacity: 0.7; }
+                    50% { transform: scaleY(1); opacity: 1; }
+                  }
+                `}</style>
+                <span className="text-xs ml-1">{langLabel}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <MicOff className="w-4 h-4" />
+            {!small && <span className="text-xs">{langLabel}</span>}
+          </>
+        )}
+      </div>
     </button>
   );
 }

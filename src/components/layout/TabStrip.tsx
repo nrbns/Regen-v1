@@ -52,10 +52,16 @@ import {
 import { reopenClosedTab } from '../../lib/tabLifecycle';
 import { useAppError } from '../../hooks/useAppError';
 
-const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
+const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
 const IS_DEV = isDevEnv();
 const IS_ELECTRON = isElectronRuntime();
 const NEW_GROUP_DROP_ID = '__new-tab-group__';
+
+const stopEventPropagation = (event: { stopPropagation?: () => void; nativeEvent?: Event }) => {
+  event?.stopPropagation?.();
+  const native = event?.nativeEvent as { stopImmediatePropagation?: () => void } | undefined;
+  native?.stopImmediatePropagation?.();
+};
 
 interface Tab {
   id: string;
@@ -247,13 +253,11 @@ export function TabStrip() {
       <button
         type="button"
         onClick={e => {
-          (e as any).stopImmediatePropagation();
-          e.stopPropagation();
+          stopEventPropagation(e);
           toggleGroupCollapsed(group.id);
         }}
         onMouseDown={e => {
-          (e as any).stopImmediatePropagation();
-          e.stopPropagation();
+          stopEventPropagation(e);
         }}
         className="p-1 rounded hover:bg-gray-800/60 transition-colors text-gray-300 hover:text-gray-100"
         style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -270,13 +274,11 @@ export function TabStrip() {
         <button
           type="button"
           onClick={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
             handleRenameGroup(group);
           }}
           onMouseDown={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
           }}
           className="text-[11px] font-semibold text-gray-200 hover:text-white truncate"
           style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -289,13 +291,11 @@ export function TabStrip() {
         <button
           type="button"
           onClick={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
             handleCycleGroupColor(group);
           }}
           onMouseDown={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
           }}
           className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
           style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -306,13 +306,11 @@ export function TabStrip() {
         <button
           type="button"
           onClick={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
             handleRenameGroup(group);
           }}
           onMouseDown={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
           }}
           className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
           style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -323,13 +321,11 @@ export function TabStrip() {
         <button
           type="button"
           onClick={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
             handleDeleteGroup(group);
           }}
           onMouseDown={e => {
-            (e as any).stopImmediatePropagation();
-            e.stopPropagation();
+            stopEventPropagation(e);
           }}
           className="p-1 rounded hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"
           style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -359,10 +355,10 @@ export function TabStrip() {
           aria-controls={`tabpanel-${tab.id}`}
           aria-label={`Tab: ${tab.title || 'Untitled'}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
           tabIndex={tab.active ? 0 : -1}
-          layout
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
+          layout={false}
+          initial={false}
+          animate={false}
+          exit={false}
           className={`
             relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg
             ${tab.pinned ? 'min-w-[40px] max-w-[40px]' : 'min-w-[100px] max-w-[220px]'} cursor-pointer group
@@ -413,8 +409,7 @@ export function TabStrip() {
           }}
           onClick={e => {
             e.preventDefault();
-            e.stopPropagation();
-            (e as any).stopImmediatePropagation();
+            stopEventPropagation(e);
             void activateTab(tab.id);
           }}
           onKeyDown={e => {
@@ -461,8 +456,7 @@ export function TabStrip() {
           onAuxClick={(e: React.MouseEvent) => {
             if (e.button === 1) {
               e.preventDefault();
-              e.stopPropagation();
-              (e as any).stopImmediatePropagation();
+              stopEventPropagation(e);
               closeTab(tab.id);
             }
           }}
@@ -483,8 +477,13 @@ export function TabStrip() {
           }}
           onMouseEnter={() => {
             // Defensive: Check if tab is last in filteredTabs
-            const validFilteredTabs = Array.isArray(filteredTabs) ? filteredTabs.filter(t => t && t.id) : [];
-            if (validFilteredTabs.length > 0 && tab === validFilteredTabs[validFilteredTabs.length - 1]) {
+            const validFilteredTabs = Array.isArray(filteredTabs)
+              ? filteredTabs.filter(t => t && t.id)
+              : [];
+            if (
+              validFilteredTabs.length > 0 &&
+              tab === validFilteredTabs[validFilteredTabs.length - 1]
+            ) {
               setHolographicPreviewTabId(tab.id);
               setPreviewMetadata({ url: tab.url || '', title: tab.title || 'Untitled' });
             }
@@ -604,13 +603,11 @@ export function TabStrip() {
             type="button"
             onClick={e => {
               e.preventDefault();
-              e.stopPropagation();
-              (e as any).stopImmediatePropagation();
+              stopEventPropagation(e);
               togglePinTab(tab.id);
             }}
             onMouseDown={e => {
-              e.stopPropagation();
-              (e as any).stopImmediatePropagation();
+              stopEventPropagation(e);
             }}
             aria-label={tab.pinned ? `Unpin tab: ${tab.title}` : `Pin tab: ${tab.title}`}
             className={`${tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-blue-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1`}
@@ -627,13 +624,11 @@ export function TabStrip() {
               type="button"
               onClick={e => {
                 e.preventDefault();
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation();
+                stopEventPropagation(e);
                 openPeek(tab);
               }}
               onMouseDown={e => {
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation();
+                stopEventPropagation(e);
               }}
               aria-label={`Peek preview: ${tab.title}`}
               className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
@@ -651,21 +646,18 @@ export function TabStrip() {
               type="button"
               onClick={e => {
                 e.preventDefault();
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation();
+                stopEventPropagation(e);
                 closeTab(tab.id);
               }}
               onAuxClick={e => {
                 if (e.button === 1) {
                   e.preventDefault();
-                  e.stopPropagation();
-                  (e as any).stopImmediatePropagation();
+                  stopEventPropagation(e);
                   closeTab(tab.id);
                 }
               }}
               onMouseDown={e => {
-                e.stopPropagation();
-                (e as any).stopImmediatePropagation();
+                stopEventPropagation(e);
               }}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -1983,8 +1975,7 @@ export function TabStrip() {
             <motion.button
               type="button"
               onClick={e => {
-                (e as any).stopImmediatePropagation();
-                e.stopPropagation();
+                stopEventPropagation(e);
                 const namePrompt =
                   window.prompt('New group name', `Group ${tabGroups.length + 1}`) ?? undefined;
                 const group = handleCreateGroupShortcut(
@@ -1996,8 +1987,7 @@ export function TabStrip() {
                 }
               }}
               onMouseDown={e => {
-                (e as any).stopImmediatePropagation();
-                e.stopPropagation();
+                stopEventPropagation(e);
               }}
               onDragOver={e => {
                 if (!draggedTabIdRef.current) return;
@@ -2091,19 +2081,16 @@ export function TabStrip() {
             </DropdownMenu>
             <motion.button
               onClick={e => {
-                (e as any).stopImmediatePropagation();
-                e.stopPropagation();
+                stopEventPropagation(e);
                 addTab();
               }}
               onMouseDown={e => {
-                (e as any).stopImmediatePropagation();
-                e.stopPropagation();
+                stopEventPropagation(e);
               }}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  (e as any).stopImmediatePropagation();
-                  e.stopPropagation();
+                  stopEventPropagation(e);
                   addTab();
                 }
               }}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Regen has been fully integrated into OmniBrowser as the AI brain that controls the browser, automates workflows via n8n, and provides a unified chat + voice interface. Everything works as **one unified app** - the user never sees separate products.
+Regen has been fully integrated into Regen as the AI brain that controls the browser, automates workflows via n8n, and provides a unified chat + voice interface. Everything works as **one unified app** - the user never sees separate products.
 
 ## Architecture
 
@@ -238,6 +238,6 @@ BACKEND_URL=http://localhost:4000
 
 ---
 
-**Regen is now fully integrated into OmniBrowser! 🎉**
+**Regen is now fully integrated into Regen! 🎉**
 
 The browser, AI agent, and automation workflows all work together as one unified experience.

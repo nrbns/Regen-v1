@@ -13,7 +13,7 @@ export type SessionState = {
   savedAt: number;
 };
 
-const SESSION_KEY = 'omnibrowser_session_v1';
+const SESSION_KEY = 'regen_session_v1';
 const SAVE_DEBOUNCE_MS = 2000; // Save 2 seconds after last change
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -92,4 +92,3 @@ export function getSessionSummary(): { tabCount: number; savedAt: number | null 
     savedAt: session.savedAt,
   };
 }
-

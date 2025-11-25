@@ -12,6 +12,7 @@ import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
 import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
 import { ipc } from './lib/ipc-typed';
 import { ThemeProvider } from './ui/theme';
+import { CSP_DIRECTIVE } from './config/security';
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -82,7 +83,26 @@ const ConsentTimelinePage = lazyWithErrorHandling(
   'ConsentTimelinePage'
 );
 
-// Loading component - ensure it's always visible but doesn't block modals
+const ensureCSPMeta = () => {
+  if (typeof document === 'undefined') return;
+  const existing = document.querySelector(
+    'meta[http-equiv="Content-Security-Policy"]'
+  ) as HTMLMetaElement | null;
+  if (existing) {
+    if (!existing.content || existing.content.trim() !== CSP_DIRECTIVE) {
+      existing.content = CSP_DIRECTIVE;
+    }
+    return;
+  }
+  const meta = document.createElement('meta');
+  meta.httpEquiv = 'Content-Security-Policy';
+  meta.content = CSP_DIRECTIVE;
+  document.head.prepend(meta);
+};
+
+ensureCSPMeta();
+
+// Ultra-lightweight loading component - minimal DOM for fast render
 function LoadingFallback() {
   return (
     <div
@@ -98,30 +118,13 @@ function LoadingFallback() {
         position: 'fixed',
         top: 0,
         left: 0,
-        zIndex: 1000, // Lower than modals (10001-10002) so it doesn't block them
-        pointerEvents: 'auto', // Allow clicks to pass through to modals if they're above
+        zIndex: 1000,
       }}
     >
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌐</div>
-        <div style={{ fontSize: '16px' }}>Initializing...</div>
-        <div
-          style={{
-            marginTop: '16px',
-            fontSize: '12px',
-            color: '#64748b',
-            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-          }}
-        >
-          Loading application...
-        </div>
+        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌐</div>
+        <div style={{ fontSize: '14px' }}>Loading...</div>
       </div>
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -270,7 +273,7 @@ if (!rootElement.hasAttribute('data-initialized')) {
 
 try {
   if (isDevEnv()) {
-    console.log('%c🚀 Mounting OmniBrowser...', 'color:#34d399;font-weight:bold;');
+    console.log('%c🚀 Mounting Regen...', 'color:#34d399;font-weight:bold;');
     console.log('[Main] Root element:', rootElement);
     console.log('[Main] Document ready state:', document.readyState);
   }
@@ -294,39 +297,47 @@ try {
     track('app_open');
   });
 
-  // Tier 3: Initialize services - defer heavy operations to avoid blocking render
+  // Tier 3: Initialize services - DEFER EVERYTHING to avoid blocking render
   // Initialize crash reporter immediately (lightweight)
   crashReporter.initialize();
 
-  // Defer heavy service initialization to avoid blocking initial render
-  // Use requestIdleCallback or setTimeout to run after initial paint
+  // Defer ALL heavy service initialization until after first paint
+  // Use requestIdleCallback with longer delay for better performance
   const deferHeavyInit = () => {
     if ('requestIdleCallback' in window) {
       requestIdleCallback(
         () => {
           initializeHeavyServices();
         },
-        { timeout: 2000 }
+        { timeout: 3000 } // Longer timeout for better performance
       );
     } else {
-      setTimeout(initializeHeavyServices, 100);
+      setTimeout(initializeHeavyServices, 500); // Increased delay
     }
   };
 
   const initializeHeavyServices = async () => {
     try {
-      // Initialize auth service (can be slow)
-      await authService.initialize();
-      if (authService.getState().isAuthenticated) {
-        // Defer sync service start even further
-        setTimeout(() => {
-          syncService.startAutoSync().catch(err => {
-            if (isDevEnv()) {
-              console.warn('[Main] Sync service failed to start:', err);
-            }
-          });
-        }, 500);
-      }
+      // Initialize auth service (can be slow) - defer even more
+      setTimeout(async () => {
+        try {
+          await authService.initialize();
+          if (authService.getState().isAuthenticated) {
+            // Defer sync service start even further
+            setTimeout(() => {
+              syncService.startAutoSync().catch(err => {
+                if (isDevEnv()) {
+                  console.warn('[Main] Sync service failed to start:', err);
+                }
+              });
+            }, 1000);
+          }
+        } catch (error) {
+          if (isDevEnv()) {
+            console.warn('[Main] Failed to initialize auth service:', error);
+          }
+        }
+      }, 1000);
     } catch (error) {
       if (isDevEnv()) {
         console.warn('[Main] Failed to initialize auth service:', error);
@@ -334,8 +345,14 @@ try {
     }
 
     try {
-      // Restore plugin state (can be slow)
-      pluginRegistry.restorePluginState();
+      // Restore plugin state (can be slow) - defer significantly
+      setTimeout(() => {
+        pluginRegistry.restorePluginState().catch(error => {
+          if (isDevEnv()) {
+            console.warn('[Main] Failed to restore plugin state:', error);
+          }
+        });
+      }, 2000);
     } catch (error) {
       if (isDevEnv()) {
         console.warn('[Main] Failed to restore plugin state:', error);
@@ -345,7 +362,7 @@ try {
 
   deferHeavyInit();
 
-  // Defer telemetry and analytics initialization to avoid blocking render
+  // Defer telemetry and analytics initialization - wait longer for better performance
   setTimeout(() => {
     syncRendererTelemetry().catch(error => {
       if (process.env.NODE_ENV === 'development') {
@@ -362,7 +379,7 @@ try {
           console.warn('[Monitoring] Failed to initialize analytics', error);
         }
       });
-  }, 500);
+  }, 2000); // Increased delay for better performance
 
   if (typeof performance !== 'undefined' && performance.now) {
     const bootMs = Math.round(performance.now());
@@ -373,8 +390,10 @@ try {
     (window as any)[rootKey] = root;
   }
 
-  // Tier 2: Start session snapshotting
-  startSnapshotting();
+  // Tier 2: Start session snapshotting - defer to avoid blocking
+  setTimeout(() => {
+    startSnapshotting();
+  }, 1000);
 
   // Ensure root element is visible before rendering (redundant but safe)
   if (rootElement) {
@@ -434,7 +453,7 @@ try {
   );
 
   if (isDevEnv()) {
-    console.log('%c✅ OmniBrowser mounted successfully', 'color:#60a5fa;font-weight:bold;');
+    console.log('%c✅ Regen mounted successfully', 'color:#60a5fa;font-weight:bold;');
   }
 } catch (error) {
   console.error('❌ Failed to mount application:', error);

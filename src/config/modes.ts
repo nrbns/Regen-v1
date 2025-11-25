@@ -25,9 +25,9 @@ export const MODES: Record<ModeId, ModeConfig> = {
   Browse: {
     id: 'Browse',
     label: 'Browse',
-    enabled: true,
-    comingSoon: false,
-    description: 'Standard browsing mode',
+    enabled: false,
+    comingSoon: true,
+    description: 'Standard browsing returns after the Research alpha.',
   },
   Research: {
     id: 'Research',
@@ -39,9 +39,9 @@ export const MODES: Record<ModeId, ModeConfig> = {
   Trade: {
     id: 'Trade',
     label: 'Trade',
-    enabled: true,
-    comingSoon: false,
-    description: 'Trading mode with AI signals and market analysis',
+    enabled: false,
+    comingSoon: true,
+    description: 'Trading mode (coming after the Research alpha)',
   },
   Games: {
     id: 'Games',
@@ -53,9 +53,9 @@ export const MODES: Record<ModeId, ModeConfig> = {
   Docs: {
     id: 'Docs',
     label: 'Docs',
-    enabled: true,
-    comingSoon: false,
-    description: 'Document analysis and AI digestion',
+    enabled: false,
+    comingSoon: true,
+    description: 'Document mode (coming soon)',
   },
   Images: {
     id: 'Images',
@@ -67,9 +67,9 @@ export const MODES: Record<ModeId, ModeConfig> = {
   Threats: {
     id: 'Threats',
     label: 'Threats',
-    enabled: true,
-    comingSoon: false,
-    description: 'Threat intelligence and URL safety analysis',
+    enabled: false,
+    comingSoon: true,
+    description: 'Threat intelligence mode (coming soon)',
   },
   GraphMind: {
     id: 'GraphMind',
@@ -81,7 +81,7 @@ export const MODES: Record<ModeId, ModeConfig> = {
 };
 
 export const ENABLED_MODES = Object.values(MODES).filter(m => m.enabled);
-export const PRIMARY_MODES: ModeId[] = ['Browse', 'Research'];
+export const PRIMARY_MODES: ModeId[] = ['Research'];
 export const TIER1_MODE: ModeId = 'Research';
 
 /**

@@ -8,8 +8,7 @@ import { createCircuit } from '../circuit/circuit.js';
 
 const AbortControllerImpl = globalThis.AbortController || AbortControllerPkg;
 
-const SCRAPER_USER_AGENT =
-  process.env.SCRAPER_USER_AGENT || 'OmniBrowserBot/1.0 (+https://omnibrowser.ai/bot)';
+const SCRAPER_USER_AGENT = process.env.SCRAPER_USER_AGENT || 'RegenBot/1.0 (+https://regen.ai/bot)';
 const CACHE_TTL_SECONDS = Number(process.env.SCRAPER_CACHE_TTL || 60 * 5);
 const ROBOTS_TTL_SECONDS = Number(process.env.SCRAPER_ROBOTS_TTL || 60 * 60);
 const REQUEST_TIMEOUT = Number(process.env.SCRAPER_TIMEOUT_MS || 10_000);

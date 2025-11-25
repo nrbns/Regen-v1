@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OmniBrowser",
+  "productName": "Regen",
   "version": "0.1.0-alpha",
-  "identifier": "com.omnibrowser.app",
+  "identifier": "com.regen.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5183",
     "frontendDist": "../dist"
   },
   "app": {
@@ -14,7 +14,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "OmniBrowser",
+        "title": "Regen",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -23,18 +23,39 @@
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": false,
+    "withGlobalTauri": false
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["msi"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "© 2025 RegenBrowser. All rights reserved.",
+    "category": "public.app-category.productivity",
+    "shortDescription": "RegenBrowser - Multilingual AI Browser",
+    "longDescription": "Next-generation AI automation platform with full agent layer, automation workflows, and multi-browser capabilities. Features multilingual support (100+ languages), AI-powered research, trading tools, and privacy-first browsing.",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "bannerPath": null,
+        "dialogImagePath": null,
+        "fipsCompliant": false,
+        "language": "en-US",
+        "template": null,
+        "upgradeCode": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+      }
+    }
   },
   "plugins": {}
 }

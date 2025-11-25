@@ -1,7 +1,7 @@
-# Start OmniBrowser Project
+# Start Regen Project
 # Starts both backend server and Tauri app
 
-Write-Host "=== Starting OmniBrowser ===" -ForegroundColor Cyan
+Write-Host "=== Starting Regen ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Get project root

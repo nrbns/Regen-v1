@@ -8,13 +8,15 @@ import { isElectronRuntime } from '../../lib/env';
 import { OmniDesk } from '../OmniDesk';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
+import { SAFE_IFRAME_SANDBOX } from '../../config/security';
+import { normalizeInputToUrlOrSearch } from '../../lib/search';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
   overlayActive?: boolean;
 }
 
-const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'omnibrowser://'];
+const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'regen://'];
 
 function isInternalUrl(url?: string | null): boolean {
   if (!url) return true;
@@ -33,11 +35,24 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   // const retryCountRef = useRef(0); // Not used - BrowserView managed by main process
 
   const targetUrl = useMemo(() => {
-    const url = tab?.url;
+    let url = tab?.url;
+
     // For about:blank or empty URLs, show OmniDesk (search page) instead of webview
     if (!url || url === 'about:blank' || isInternalUrl(url)) {
       return null;
     }
+
+    // If URL doesn't start with http/https, treat as search query
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // Convert to Google search
+      const searchUrl = normalizeInputToUrlOrSearch(url, 'google');
+      if (searchUrl) {
+        return searchUrl;
+      }
+      // Fallback to Google search
+      return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    }
+
     return url;
   }, [tab?.url]);
 
@@ -331,10 +346,18 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             border: 'none',
           }}
           src={targetUrl ?? 'about:blank'}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          allow="fullscreen"
+          sandbox={SAFE_IFRAME_SANDBOX}
+          allow="fullscreen; autoplay; camera; microphone; geolocation; payment"
+          allowFullScreen
           title={tab?.title ?? 'Tab content'}
-          aria-label={tab?.title ? `Content for ${tab.title}` : 'Tab content'}
+          aria-label={
+            tab?.title
+              ? `Content for ${tab.title}`
+              : targetUrl
+                ? `External content for ${new URL(targetUrl).hostname}`
+                : 'Tab content'
+          }
+          aria-live="off"
         />
       )}
 

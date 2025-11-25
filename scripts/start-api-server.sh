@@ -2,7 +2,7 @@
 # Start API Server from project root
 # This ensures Python can find the apps.api module
 
-echo "Starting OmniBrowser API Server..."
+echo "Starting Regen API Server..."
 echo "Running from: $(pwd)"
 
 # Check if we're in the project root

@@ -5,14 +5,14 @@ x-tenant: dev
 x-user: u42
 
 {
-  "project": "omnibrowser",
+  "project": "regen",
   "type": "tab",
   "title": "Redix Memory Design",
   "mode": "research",
-  "text": "OmniBrowser integrates with the Redix core to persist browsing context.",
-  "tags": ["mode:research", "url:omnibrowser.dev"],
+  "text": "Regen integrates with the Redix core to persist browsing context.",
+  "tags": ["mode:research", "url:regen.dev"],
   "origin": {
-    "app": "omnibrowser",
+    "app": "regen",
     "mode": "research"
   }
 }
@@ -27,7 +27,7 @@ x-user: u42
   "query": "Redix memory design",
   "top_k": 5,
   "filters": {
-    "project": "omnibrowser"
+    "project": "regen"
   }
 }
 

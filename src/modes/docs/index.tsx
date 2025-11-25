@@ -107,7 +107,11 @@ export default function DocsPanel() {
       }
 
       setUploadProgress(30);
-      const review = await ipc.document.ingest(payloadSource, payloadType, fileToIngest?.name || ingestUrl || undefined);
+      const review = await ipc.document.ingest(
+        payloadSource,
+        payloadType,
+        fileToIngest?.name || ingestUrl || undefined
+      );
       setUploadProgress(90);
 
       const reviewData = review as DocumentReview;
@@ -148,9 +152,7 @@ export default function DocsPanel() {
       />
 
       <main className="flex-1 overflow-y-auto">
-        {viewMode === 'list' && (
-          <EmptyState onCreate={handleStartIngest} />
-        )}
+        {viewMode === 'list' && <EmptyState onCreate={handleStartIngest} />}
 
         {viewMode === 'ingest' && (
           <IngestForm
@@ -187,7 +189,10 @@ export default function DocsPanel() {
             onExport={async (format, style) => {
               try {
                 setLoading(true);
-                const outputPath = window.prompt('Save to path', `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`);
+                const outputPath = window.prompt(
+                  'Save to path',
+                  `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`
+                );
                 if (!outputPath) return;
                 await ipc.document.export(activeReview.id, format, outputPath, style);
                 alert('Export completed successfully');
@@ -251,17 +256,21 @@ function Sidebar({ reviews, activeReview, onSelectReview, onCreate }: SidebarPro
           </div>
         ) : (
           <ul>
-            {reviews.map((review) => (
+            {reviews.map(review => (
               <li key={review.id}>
                 <button
                   onClick={() => onSelectReview(review)}
                   className={`w-full text-left px-4 py-3 border-b border-gray-800/40 hover:bg-gray-800/30 transition-colors ${activeReview?.id === review.id ? 'bg-gray-800/50' : ''}`}
                 >
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span className="uppercase tracking-wide text-[10px] text-gray-500">{review.type}</span>
+                    <span className="uppercase tracking-wide text-[10px] text-gray-500">
+                      {review.type}
+                    </span>
                     <span>{formatDistanceToNow(review.updatedAt, { addSuffix: true })}</span>
                   </div>
-                  <div className="mt-1 font-medium text-sm text-gray-100 line-clamp-2">{review.title}</div>
+                  <div className="mt-1 font-medium text-sm text-gray-100 line-clamp-2">
+                    {review.title}
+                  </div>
                   <div className="mt-2 text-[11px] text-gray-500">
                     {review.sections.length} sections • {review.claims.length} claims
                   </div>
@@ -356,7 +365,7 @@ function IngestForm({
           Source type
         </label>
         <div className="flex gap-3">
-          {(['pdf', 'docx', 'web'] as IngestType[]).map((type) => (
+          {(['pdf', 'docx', 'web'] as IngestType[]).map(type => (
             <button
               key={type}
               onClick={() => onTypeChange(type)}
@@ -374,18 +383,16 @@ function IngestForm({
 
       {ingestType === 'web' ? (
         <div className="rounded border border-gray-800/60 bg-gray-900/40 p-6">
-          <label className="block text-sm font-medium text-gray-300">
-            Web URL
-          </label>
+          <label className="block text-sm font-medium text-gray-300">Web URL</label>
           <input
             type="url"
             value={ingestUrl}
-            onChange={(e) => onUrlChange(e.target.value)}
+            onChange={e => onUrlChange(e.target.value)}
             placeholder="https://example.com/article"
             className="mt-2 w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <p className="mt-2 text-xs text-gray-500">
-            OmniBrowser will fetch the article, strip boilerplate, and analyze claims.
+            Regen will fetch the article, strip boilerplate, and analyze claims.
           </p>
         </div>
       ) : (
@@ -441,7 +448,10 @@ function IngestForm({
 interface DocumentReviewViewProps {
   review: DocumentReview;
   onReverify(): void;
-  onExport(format: 'markdown' | 'html', style: 'apa' | 'mla' | 'chicago' | 'ieee' | 'harvard'): void;
+  onExport(
+    format: 'markdown' | 'html',
+    style: 'apa' | 'mla' | 'chicago' | 'ieee' | 'harvard'
+  ): void;
   onDelete(): void;
 }
 
@@ -453,7 +463,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
 
   useEffect(() => {
     if (review.type === 'pdf') {
-      setPdfPath(`omnibrowser://document/${review.id}`);
+      setPdfPath(`regen://document/${review.id}`);
     } else {
       setPdfPath(null);
     }
@@ -465,14 +475,14 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
   const auditTrail = review.auditTrail ?? [];
   const entityGraph = useMemo(() => {
     if (review.entityGraph) return review.entityGraph;
-    return review.entities.map((entity) => ({
+    return review.entities.map(entity => ({
       name: entity.name,
       count: entity.occurrences.length,
       type: entity.type,
       connections: review.claims
-        .filter((claim) => claim.text.toLowerCase().includes(entity.name.toLowerCase()))
+        .filter(claim => claim.text.toLowerCase().includes(entity.name.toLowerCase()))
         .slice(0, 3)
-        .map((claim) => claim.id),
+        .map(claim => claim.id),
     }));
   }, [review.entityGraph, review.entities, review.claims]);
 
@@ -513,7 +523,8 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
         <div className="space-y-2">
           <h2 className="text-2xl font-semibold text-gray-100">{review.title}</h2>
           <div className="text-xs uppercase tracking-wide text-gray-500">
-            {review.type.toUpperCase()} • {review.sections.length} sections • {review.entities.length} entities • {review.claims.length} claims
+            {review.type.toUpperCase()} • {review.sections.length} sections •{' '}
+            {review.entities.length} entities • {review.claims.length} claims
           </div>
           <div className="flex gap-3 text-xs text-gray-500">
             <span>Created {formatDistanceToNow(review.createdAt, { addSuffix: true })}</span>
@@ -558,7 +569,11 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
               <SummaryRow label="Total claims" value={verificationSummary.total} />
               <SummaryRow label="Verified" value={verificationSummary.verified} tone="success" />
               <SummaryRow label="Disputed" value={verificationSummary.disputed} tone="warning" />
-              <SummaryRow label="Unverified" value={verificationSummary.unverified} tone="neutral" />
+              <SummaryRow
+                label="Unverified"
+                value={verificationSummary.unverified}
+                tone="neutral"
+              />
             </div>
           </section>
 
@@ -614,7 +629,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
 
           <div className="flex-1 overflow-y-auto">
             <ul className="divide-y divide-gray-800/40">
-              {review.claims.map((claim) => (
+              {review.claims.map(claim => (
                 <motion.li
                   key={claim.id}
                   layout
@@ -631,11 +646,15 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
                     {claim.text}
                   </p>
                   <div className="mt-2 text-[11px] text-gray-500">
-                    Confidence {(claim.verification.confidence * 100).toFixed(0)}% • {claim.section || 'Unknown section'}
+                    Confidence {(claim.verification.confidence * 100).toFixed(0)}% •{' '}
+                    {claim.section || 'Unknown section'}
                   </div>
                   <div className="mt-3 space-y-1">
                     {claim.verification.sources.slice(0, 3).map((source, idx) => (
-                      <div key={`${claim.id}-src-${idx}`} className="flex items-center gap-2 text-[11px] text-gray-400">
+                      <div
+                        key={`${claim.id}-src-${idx}`}
+                        className="flex items-center gap-2 text-[11px] text-gray-400"
+                      >
                         <span className={source.supports ? 'text-emerald-400' : 'text-amber-400'}>
                           {source.supports ? 'Supports' : 'Disputes'}
                         </span>
@@ -651,8 +670,8 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
           {showComments && (
             <CommentsPanel
               comments={comments}
-              onAddComment={(comment) => {
-                setComments((prev) => [
+              onAddComment={comment => {
+                setComments(prev => [
                   ...prev,
                   {
                     id: `comment_${Date.now()}`,
@@ -661,7 +680,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
                   },
                 ]);
               }}
-              onDeleteComment={(id) => setComments((prev) => prev.filter((comment) => comment.id !== id))}
+              onDeleteComment={id => setComments(prev => prev.filter(comment => comment.id !== id))}
               currentPage={1}
             />
           )}
@@ -694,16 +713,18 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
   );
 }
 
-function groupHighlightsBySection(highlights: FactHighlight[], sections: DocumentReview['sections']) {
+function groupHighlightsBySection(
+  highlights: FactHighlight[],
+  sections: DocumentReview['sections']
+) {
   const map = new Map<string, FactHighlight[]>();
   if (highlights.length === 0) return map;
 
-  highlights.forEach((highlight) => {
+  highlights.forEach(highlight => {
     const section =
       sections.find(
-        (sec) =>
-          highlight.position >= sec.startPosition && highlight.position < sec.endPosition
-      ) || sections.find((sec) => sec.title === highlight.section);
+        sec => highlight.position >= sec.startPosition && highlight.position < sec.endPosition
+      ) || sections.find(sec => sec.title === highlight.section);
     const key = section?.title || highlight.section || 'Document';
     const list = map.get(key) ?? [];
     list.push(highlight);
@@ -732,7 +753,7 @@ function renderSectionContent(
   const nodes: Array<string | JSX.Element> = [];
   let cursor = 0;
 
-  sorted.forEach((highlight) => {
+  sorted.forEach(highlight => {
     const needle = highlight.text.trim();
     if (!needle) return;
 
@@ -753,7 +774,9 @@ function renderSectionContent(
         key={`${highlight.claimId}-${index}`}
         id={`highlight-${highlight.claimId}`}
         className={`rounded px-1 ${highlightTone[highlight.importance]} ${
-          activeClaimId === highlight.claimId ? 'ring-2 ring-purple-400 ring-offset-1 ring-offset-[#1A1D28]' : ''
+          activeClaimId === highlight.claimId
+            ? 'ring-2 ring-purple-400 ring-offset-1 ring-offset-[#1A1D28]'
+            : ''
         }`}
       >
         {markedText}
@@ -790,7 +813,7 @@ function FactHighlightsPanel({
         <span className="text-xs uppercase tracking-wide">Fact highlights</span>
       </div>
       <ul className="space-y-2 text-xs">
-        {ordered.map((highlight) => (
+        {ordered.map(highlight => (
           <li key={highlight.claimId}>
             <button
               onClick={() => onSelect(highlight.claimId)}
@@ -802,9 +825,7 @@ function FactHighlightsPanel({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{highlight.section || 'Document'}</span>
-                <span className="text-[10px] uppercase tracking-wide">
-                  {highlight.importance}
-                </span>
+                <span className="text-[10px] uppercase tracking-wide">{highlight.importance}</span>
               </div>
               <p className="mt-1 text-[11px] text-emerald-100/90 line-clamp-3">{highlight.text}</p>
             </button>
@@ -835,7 +856,7 @@ function AssumptionsPanel({
         <span className="text-xs uppercase tracking-wide">Assumptions & gaps</span>
       </div>
       <ul className="space-y-2 text-xs">
-        {assumptions.map((assumption) => (
+        {assumptions.map(assumption => (
           <li key={assumption.claimId}>
             <button
               onClick={() => onSelect(assumption.claimId)}
@@ -869,11 +890,8 @@ function EntityGraphPanel({
         <span className="text-xs uppercase tracking-wide">Entity graph</span>
       </div>
       <ul className="space-y-2 text-xs text-gray-300">
-        {graph.slice(0, 12).map((node) => (
-          <li
-            key={node.name}
-            className="rounded border border-blue-500/30 bg-blue-500/5 px-2 py-2"
-          >
+        {graph.slice(0, 12).map(node => (
+          <li key={node.name} className="rounded border border-blue-500/30 bg-blue-500/5 px-2 py-2">
             <div className="flex items-center justify-between gap-2">
               <span className="font-semibold text-blue-100">{node.name}</span>
               <span className="text-[10px] uppercase tracking-wide text-blue-200">
@@ -882,7 +900,7 @@ function EntityGraphPanel({
             </div>
             {node.connections.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1">
-                {node.connections.map((connection) => (
+                {node.connections.map(connection => (
                   <button
                     key={connection}
                     onClick={() => onSelect(connection)}
@@ -952,7 +970,7 @@ function AuditTrailTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {auditTrail.map((entry) => (
+              {auditTrail.map(entry => (
                 <tr key={entry.claimId} className="hover:bg-neutral-800/40">
                   <td className="px-3 py-2">
                     <button
@@ -964,19 +982,20 @@ function AuditTrailTable({
                   </td>
                   <td className="px-3 py-2 text-[11px] text-gray-400">
                     {entry.section || '—'}
-                    {entry.page !== undefined && (
-                      <span className="ml-1">• p.{entry.page}</span>
-                    )}
-                    {entry.line !== undefined && (
-                      <span className="ml-1">• line {entry.line}</span>
-                    )}
+                    {entry.page !== undefined && <span className="ml-1">• p.{entry.page}</span>}
+                    {entry.line !== undefined && <span className="ml-1">• line {entry.line}</span>}
                   </td>
                   <td className="px-3 py-2">
                     <StatusPill status={entry.status} />
                   </td>
                   <td className="px-3 py-2 text-[11px] text-gray-400">
                     {entry.link ? (
-                      <a href={entry.link} target="_blank" rel="noreferrer" className="text-indigo-300 hover:text-indigo-100">
+                      <a
+                        href={entry.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-300 hover:text-indigo-100"
+                      >
                         Open source
                       </a>
                     ) : (
@@ -1006,8 +1025,8 @@ function SummaryRow({
     tone === 'success'
       ? 'text-emerald-300'
       : tone === 'warning'
-      ? 'text-amber-300'
-      : 'text-gray-300';
+        ? 'text-amber-300'
+        : 'text-gray-300';
   return (
     <div className="flex items-center justify-between text-xs text-gray-400">
       <span>{label}</span>
@@ -1016,13 +1035,17 @@ function SummaryRow({
   );
 }
 
-function StatusPill({ status }: { status: DocumentReview['claims'][number]['verification']['status'] }) {
+function StatusPill({
+  status,
+}: {
+  status: DocumentReview['claims'][number]['verification']['status'];
+}) {
   const tone =
     status === 'verified'
       ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/30'
       : status === 'disputed'
-      ? 'bg-amber-500/10 text-amber-200 border-amber-500/30'
-      : 'bg-gray-500/10 text-gray-300 border-gray-500/30';
+        ? 'bg-amber-500/10 text-amber-200 border-amber-500/30'
+        : 'bg-gray-500/10 text-gray-300 border-gray-500/30';
   return (
     <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${tone}`}>
       {status}

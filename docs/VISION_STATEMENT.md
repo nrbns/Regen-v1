@@ -1,4 +1,4 @@
-# OmniBrowser Vision Statement
+# Regen Vision Statement
 
 ## The End-Game Browser
 
@@ -10,14 +10,14 @@
 
 ### Not Just a Browser
 
-OmniBrowser is **not**:
+Regen is **not**:
 
 - ❌ Another Chrome copy
 - ❌ Another AI sidebar
 - ❌ Another Perplexity clone
 - ❌ Another privacy browser
 
-OmniBrowser **is**:
+Regen **is**:
 
 - ✅ The first **AGENTIC browser** - AI drives the browser
 - ✅ The first **voice-driven multilingual browser** - 12 languages
@@ -185,4 +185,4 @@ India-first privacy. No US servers, no tracking, data sovereignty.
 
 ---
 
-**OmniBrowser is not just a browser. It's the Internet Operating System. And it's Made in India. 🚀🇮🇳**
+**Regen is not just a browser. It's the Internet Operating System. And it's Made in India. 🚀🇮🇳**

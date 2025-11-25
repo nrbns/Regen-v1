@@ -1,6 +1,6 @@
 /**
  * Redix SuperCore - Main Entry Point
- * The execution engine for OmniBrowser
+ * The execution engine for Regen
  */
 
 /* eslint-disable @typescript-eslint/no-require-imports */

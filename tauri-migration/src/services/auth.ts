@@ -31,7 +31,7 @@ class AuthService {
    */
   async initialize(): Promise<AuthState> {
     try {
-      const stored = localStorage.getItem('omnibrowser_auth');
+      const stored = localStorage.getItem('regen_auth');
       if (stored) {
         const data = JSON.parse(stored);
         this.currentUser = data.user;
@@ -173,7 +173,7 @@ class AuthService {
     const userId = this.currentUser?.id;
     this.currentUser = null;
     this.authMethod = null;
-    localStorage.removeItem('omnibrowser_auth');
+    localStorage.removeItem('regen_auth');
 
     log.info('[Auth] User signed out:', userId);
     track('auth_signed_out', { userId });
@@ -202,7 +202,7 @@ class AuthService {
    */
   private persistState(): void {
     localStorage.setItem(
-      'omnibrowser_auth',
+      'regen_auth',
       JSON.stringify({
         user: this.currentUser,
         method: this.authMethod,

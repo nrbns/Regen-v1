@@ -16,7 +16,7 @@ export interface SessionSnapshot {
   version: number;
 }
 
-const SNAPSHOT_KEY = 'omnibrowser_snapshot';
+const SNAPSHOT_KEY = 'regen_snapshot';
 const SNAPSHOT_VERSION = 1;
 const SNAPSHOT_INTERVAL = 30000; // 30 seconds
 
@@ -111,4 +111,3 @@ export function clearSnapshot(): void {
   localStorage.removeItem(SNAPSHOT_KEY);
   log.info('Session snapshot cleared');
 }
-

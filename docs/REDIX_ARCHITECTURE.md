@@ -1,6 +1,6 @@
 # 🌱 Redix Green-Tech Engine Architecture
 
-**Vision:** Make OmniBrowser the world's first energy-efficient browser that is buttery smooth even on low RAM devices, using less battery and less CO₂.
+**Vision:** Make Regen the world's first energy-efficient browser that is buttery smooth even on low RAM devices, using less battery and less CO₂.
 
 ---
 
@@ -18,7 +18,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                   OmniBrowser                            │
+│                   Regen                            │
 ├─────────────────────────────────────────────────────────┤
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │   Research   │  │    Trade     │  │    Games     │  │

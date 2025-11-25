@@ -89,7 +89,7 @@ const STEPS: OnboardingStep[] = [
   },
   {
     id: 'welcome',
-    title: 'Welcome to OmniBrowser × Redix',
+    title: 'Welcome to Regen × Redix',
     description:
       'This browser is built for agentic research. Let’s take a 30-second tour of the core controls and regenerative superpowers.',
     tips: [
@@ -225,7 +225,7 @@ const STEPS: OnboardingStep[] = [
   },
   {
     id: 'telemetry',
-    title: 'Help improve OmniBrowser',
+    title: 'Help improve Regen',
     description:
       'Opt-in to privacy-safe telemetry to help us improve performance and fix bugs. We never collect personal information, URLs, or browsing history.',
     tips: [
@@ -1253,7 +1253,7 @@ export function OnboardingTour({ onClose }: { onClose: () => void }) {
                       Enable privacy-safe telemetry
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                      Help us improve OmniBrowser by sharing anonymized performance data and crash
+                      Help us improve Regen by sharing anonymized performance data and crash
                       reports. No personal information is collected.
                     </p>
                     <a

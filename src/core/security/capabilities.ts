@@ -78,7 +78,7 @@ export const useCapabilityStore = create<CapabilityState>()(
       },
     }),
     {
-      name: 'omnibrowser_capabilities_v1',
+      name: 'regen_capabilities_v1',
     }
   )
 );
@@ -115,4 +115,3 @@ export function requireCapability(capability: AgentCapability): void {
     throw new Error(`Capability required: ${capability}. Enable it in Settings > Safety.`);
   }
 }
-

@@ -27,7 +27,7 @@ type OnboardingStep = {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to OmniBrowser',
+    title: 'Welcome to Regen',
     description:
       "Your AI-powered research and automation browser. Let's get you started in 30 seconds.",
     icon: Sparkles,
@@ -129,7 +129,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       // Move to next step or complete
       if (isLastStep) {
         track('onboarding_completed' as any);
-        localStorage.setItem('omnibrowser_onboarding_completed', 'true');
+        localStorage.setItem('regen_onboarding_completed', 'true');
         finishOnboarding();
         onComplete();
       } else {
@@ -152,7 +152,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleSkip = () => {
     try {
       track('onboarding_skipped' as any, { step: step?.id || 'unknown' });
-      localStorage.setItem('omnibrowser_onboarding_completed', 'true');
+      localStorage.setItem('regen_onboarding_completed', 'true');
       finishOnboarding();
       onComplete();
     } catch (error) {
@@ -263,6 +263,6 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 // Check if onboarding should be shown
 export function shouldShowOnboarding(): boolean {
   if (typeof window === 'undefined') return false;
-  const completed = localStorage.getItem('omnibrowser_onboarding_completed');
+  const completed = localStorage.getItem('regen_onboarding_completed');
   return !completed;
 }

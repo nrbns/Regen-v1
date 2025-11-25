@@ -4,12 +4,34 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Send, Cpu, MemoryStick, Network, Brain, Shield, Activity, AlertTriangle, X, RefreshCw, Wifi, MoonStar, FileText, Loader2, MoreHorizontal } from 'lucide-react';
+import {
+  Send,
+  Cpu,
+  MemoryStick,
+  Network,
+  Brain,
+  Shield,
+  Activity,
+  AlertTriangle,
+  X,
+  RefreshCw,
+  Wifi,
+  MoonStar,
+  FileText,
+  Loader2,
+  MoreHorizontal,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EcoBadgeCompact } from '../EcoBadge';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
-import { EfficiencyModeEvent, NetworkStatus, EfficiencyAlert, EfficiencyAlertAction, ShadowSessionEndedEvent } from '../../lib/ipc-events';
+import {
+  EfficiencyModeEvent,
+  NetworkStatus,
+  EfficiencyAlert,
+  EfficiencyAlertAction,
+  ShadowSessionEndedEvent,
+} from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { PrivacySwitch } from '../PrivacySwitch';
 import { useEfficiencyStore } from '../../state/efficiencyStore';
@@ -19,6 +41,7 @@ import { useShadowStore } from '../../state/shadowStore';
 // import { SymbioticVoiceCompanion } from '../voice';
 import { useMetricsStore, type MetricSample } from '../../state/metricsStore';
 import { getEnvVar, isElectronRuntime } from '../../lib/env';
+import { isBackendAvailable, onBackendStatusChange } from '../../lib/backend-status';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 
 type PrivacyEventEntry = {
@@ -66,44 +89,51 @@ export function BottomStatus() {
   const { activeId } = useTabsStore();
   const [prompt, setPrompt] = useState('');
   const [promptLoading, setPromptLoading] = useState(false);
-  const [isOffline, setIsOffline] = useState(() => (typeof navigator !== 'undefined' ? !navigator.onLine : false));
+  const [isOffline, setIsOffline] = useState(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
   const [promptResponse, setPromptResponse] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
-  const [promptEcoScore, setPromptEcoScore] = useState<{score: number; tier: string; co2Saved: number} | null>(null);
+  const [promptEcoScore, setPromptEcoScore] = useState<{
+    score: number;
+    tier: string;
+    co2Saved: number;
+  } | null>(null);
   // const promptSessionRef = useRef<string | null>(null); // Unused for now
   const [extraOpen, setExtraOpen] = useState(false);
   const [trendOpen, setTrendOpen] = useState(false);
   const extraRef = useRef<HTMLDivElement | null>(null);
   const trendRef = useRef<HTMLDivElement | null>(null);
   const [dohStatus, setDohStatus] = useState({ enabled: false, provider: 'cloudflare' });
-  const latestSample = useMetricsStore((state) => state.latest);
+  const latestSample = useMetricsStore(state => state.latest);
   // Use metrics store for real-time CPU/memory updates
   const cpuUsage = latestSample?.cpu ?? 0;
   const memoryUsage = latestSample?.memory ?? 0;
-  const pushMetricSample = useMetricsStore((state) => state.pushSample);
+  const pushMetricSample = useMetricsStore(state => state.pushSample);
   const [modelReady] = useState(true);
+  const [backendOnline, setBackendOnline] = useState(() => isBackendAvailable());
   const [privacyMode, setPrivacyMode] = useState<'Normal' | 'Ghost' | 'Tor'>('Normal');
   const [efficiencyAlert, setEfficiencyAlert] = useState<EfficiencyAlert | null>(null);
-  const efficiencyLabel = useEfficiencyStore((state) => state.label);
-  const efficiencyBadge = useEfficiencyStore((state) => state.badge);
-  const efficiencySnapshot = useEfficiencyStore((state) => state.snapshot);
-  const setEfficiencyEvent = useEfficiencyStore((state) => state.setEvent);
-  const shadowSessionId = useShadowStore((state) => state.activeSessionId);
-  const shadowLoading = useShadowStore((state) => state.loading);
-  const shadowSummary = useShadowStore((state) => state.summary);
-  const handleShadowEnded = useShadowStore((state) => state.handleSessionEnded);
-  const clearShadowSummary = useShadowStore((state) => state.clearSummary);
+  const efficiencyLabel = useEfficiencyStore(state => state.label);
+  const efficiencyBadge = useEfficiencyStore(state => state.badge);
+  const efficiencySnapshot = useEfficiencyStore(state => state.snapshot);
+  const setEfficiencyEvent = useEfficiencyStore(state => state.setEvent);
+  const shadowSessionId = useShadowStore(state => state.activeSessionId);
+  const shadowLoading = useShadowStore(state => state.loading);
+  const shadowSummary = useShadowStore(state => state.summary);
+  const handleShadowEnded = useShadowStore(state => state.handleSessionEnded);
+  const clearShadowSummary = useShadowStore(state => state.clearSummary);
   const carbonIntensity = efficiencySnapshot.carbonIntensity ?? null;
-  const torStatus = usePrivacyStore((state) => state.tor);
-  const vpnStatus = usePrivacyStore((state) => state.vpn);
-  const refreshTor = usePrivacyStore((state) => state.refreshTor);
-  const refreshVpn = usePrivacyStore((state) => state.refreshVpn);
-  const startTor = usePrivacyStore((state) => state.startTor);
-  const stopTor = usePrivacyStore((state) => state.stopTor);
-  const newTorIdentity = usePrivacyStore((state) => state.newTorIdentity);
-  const checkVpn = usePrivacyStore((state) => state.checkVpn);
-  const metricsHistory = useMetricsStore((state) => state.history);
-  const dailyCarbon = useMetricsStore((state) => state.dailyTotalCarbon);
+  const torStatus = usePrivacyStore(state => state.tor);
+  const vpnStatus = usePrivacyStore(state => state.vpn);
+  const refreshTor = usePrivacyStore(state => state.refreshTor);
+  const refreshVpn = usePrivacyStore(state => state.refreshVpn);
+  const startTor = usePrivacyStore(state => state.startTor);
+  const stopTor = usePrivacyStore(state => state.stopTor);
+  const newTorIdentity = usePrivacyStore(state => state.newTorIdentity);
+  const checkVpn = usePrivacyStore(state => state.checkVpn);
+  const metricsHistory = useMetricsStore(state => state.history);
+  const dailyCarbon = useMetricsStore(state => state.dailyTotalCarbon);
   const highCpuRef = useRef<MetricSample[]>([]);
   const highRamRef = useRef<MetricSample[]>([]);
   const [metricsAlert, setMetricsAlert] = useState<{
@@ -111,15 +141,21 @@ export function BottomStatus() {
     message: string;
     severity: 'info' | 'warning' | 'critical';
   } | null>(null);
-  const [vpnProfiles, setVpnProfiles] = useState<Array<{ id: string; name: string; type: string; server?: string }>>([]);
-  const vpnProfilesRef = useRef<Array<{ id: string; name: string; type: string; server?: string }>>([]);
+  const [vpnProfiles, setVpnProfiles] = useState<
+    Array<{ id: string; name: string; type: string; server?: string }>
+  >([]);
+  const vpnProfilesRef = useRef<Array<{ id: string; name: string; type: string; server?: string }>>(
+    []
+  );
   const [vpnActiveId, setVpnActiveId] = useState<string | null>(null);
   const [vpnBusy, setVpnBusy] = useState(false);
   const [vpnError, setVpnError] = useState<string | null>(null);
   const [privacyEvents, setPrivacyEvents] = useState<PrivacyEventEntry[]>([]);
   const [privacyToast, setPrivacyToast] = useState<PrivacyEventEntry | null>(null);
-  const [shieldsStats, setShieldsStats] = useState<{ trackersBlocked: number; adsBlocked: number }>({ trackersBlocked: 0, adsBlocked: 0 });
-  
+  const [shieldsStats, setShieldsStats] = useState<{ trackersBlocked: number; adsBlocked: number }>(
+    { trackersBlocked: 0, adsBlocked: 0 }
+  );
+
   // Privacy scorecard: Track blocked trackers and ads
   useEffect(() => {
     const updateShieldsStats = async () => {
@@ -135,7 +171,7 @@ export function BottomStatus() {
         console.debug('[BottomStatus] Failed to get shields stats:', error);
       }
     };
-    
+
     updateShieldsStats();
     const interval = setInterval(updateShieldsStats, 5000); // Update every 5 seconds
     return () => clearInterval(interval);
@@ -151,9 +187,9 @@ export function BottomStatus() {
     );
   }, []);
   const metricsSocketRef = useRef<WebSocket | EventSource | null>(null);
-  const openTrustDashboard = useTrustDashboardStore((state) => state.open);
-  const trustRefresh = useTrustDashboardStore((state) => state.refresh);
-  const trustBadgeData = useTrustDashboardStore((state) => ({
+  const openTrustDashboard = useTrustDashboardStore(state => state.open);
+  const trustRefresh = useTrustDashboardStore(state => state.refresh);
+  const trustBadgeData = useTrustDashboardStore(state => ({
     pending: state.consentStats.pending,
     blocked: state.blockedSummary.trackers,
     loading: state.loading,
@@ -164,9 +200,13 @@ export function BottomStatus() {
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    const unsubscribe = onBackendStatusChange(status => {
+      setBackendOnline(status);
+    });
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      unsubscribe();
     };
   }, []);
 
@@ -182,10 +222,10 @@ export function BottomStatus() {
         status: event.status,
         message: event.message,
       };
-      setPrivacyEvents((current) => [...current.slice(-29), entry]);
+      setPrivacyEvents(current => [...current.slice(-29), entry]);
       setPrivacyToast(entry);
     },
-    [],
+    []
   );
 
   // Temporary alias for compatibility with new naming while keeping existing references working.
@@ -195,45 +235,61 @@ export function BottomStatus() {
   const prevTorRef = useRef(torStatus);
 
   // Listen for network status
-  useIPCEvent<NetworkStatus>('net:status', (status) => {
-    if (status.doh) {
-      setDohStatus(status.doh);
-    }
-    if (status.tor?.enabled && status.tor.circuitEstablished) {
-      setPrivacyMode('Tor');
-    } else if (status.proxy?.enabled) {
-      setPrivacyMode('Ghost');
-    } else {
-      setPrivacyMode('Normal');
-    }
-    if (status.vpn) {
-      if (!status.vpn.connected) {
-        setVpnActiveId(null);
+  useIPCEvent<NetworkStatus>(
+    'net:status',
+    status => {
+      if (status.doh) {
+        setDohStatus(status.doh);
+      }
+      if (status.tor?.enabled && status.tor.circuitEstablished) {
+        setPrivacyMode('Tor');
+      } else if (status.proxy?.enabled) {
+        setPrivacyMode('Ghost');
       } else {
-        const profiles = vpnProfilesRef.current;
-        const match =
-          profiles.find((p) => p.name === status.vpn?.provider) ||
-          profiles.find((p) => p.server && p.server === status.vpn?.server);
-        if (match) {
-          setVpnActiveId(match.id);
-        } else if (status.vpn.provider) {
-          setVpnActiveId(status.vpn.provider);
+        setPrivacyMode('Normal');
+      }
+      if (status.vpn) {
+        if (!status.vpn.connected) {
+          setVpnActiveId(null);
+        } else {
+          const profiles = vpnProfilesRef.current;
+          const match =
+            profiles.find(p => p.name === status.vpn?.provider) ||
+            profiles.find(p => p.server && p.server === status.vpn?.server);
+          if (match) {
+            setVpnActiveId(match.id);
+          } else if (status.vpn.provider) {
+            setVpnActiveId(status.vpn.provider);
+          }
         }
       }
-    }
-  }, []);
+    },
+    []
+  );
 
-  useIPCEvent<EfficiencyModeEvent>('efficiency:mode', (event) => {
-    setEfficiencyEvent(event);
-  }, [setEfficiencyEvent]);
+  useIPCEvent<EfficiencyModeEvent>(
+    'efficiency:mode',
+    event => {
+      setEfficiencyEvent(event);
+    },
+    [setEfficiencyEvent]
+  );
 
-  useIPCEvent<EfficiencyAlert>('efficiency:alert', (alert) => {
-    setEfficiencyAlert(alert);
-  }, []);
+  useIPCEvent<EfficiencyAlert>(
+    'efficiency:alert',
+    alert => {
+      setEfficiencyAlert(alert);
+    },
+    []
+  );
 
-  useIPCEvent<ShadowSessionEndedEvent>('private:shadow:ended', (payload) => {
-    handleShadowEnded(payload);
-  }, [handleShadowEnded]);
+  useIPCEvent<ShadowSessionEndedEvent>(
+    'private:shadow:ended',
+    payload => {
+      handleShadowEnded(payload);
+    },
+    [handleShadowEnded]
+  );
 
   useEffect(() => {
     void refreshTor();
@@ -285,8 +341,8 @@ export function BottomStatus() {
     if (latestSample) {
       // CPU and memory now come directly from latestSample (real-time updates)
       const samples = metricsHistory.slice(-5);
-      highCpuRef.current = samples.filter((sample) => sample.cpu >= 85);
-      highRamRef.current = samples.filter((sample) => sample.memory >= 85);
+      highCpuRef.current = samples.filter(sample => sample.cpu >= 85);
+      highRamRef.current = samples.filter(sample => sample.memory >= 85);
 
       if (highCpuRef.current.length >= 3) {
         setMetricsAlert({
@@ -316,10 +372,18 @@ export function BottomStatus() {
       addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Tor stopped' });
     }
     if (!previous.stub && torStatus.stub) {
-      addPrivacyEvent({ kind: 'tor', status: 'warning', message: 'Tor binary not found – running in stub mode' });
+      addPrivacyEvent({
+        kind: 'tor',
+        status: 'warning',
+        message: 'Tor binary not found – running in stub mode',
+      });
     }
     if (torStatus.error && torStatus.error !== previous.error) {
-      addPrivacyEvent({ kind: 'tor', status: 'warning', message: `Tor warning: ${torStatus.error}` });
+      addPrivacyEvent({
+        kind: 'tor',
+        status: 'warning',
+        message: `Tor warning: ${torStatus.error}`,
+      });
     }
     prevTorRef.current = torStatus;
   }, [torStatus, addPrivacyEvent]);
@@ -328,7 +392,11 @@ export function BottomStatus() {
     const previous = prevVpnRef.current;
     if (!previous.connected && vpnStatus.connected) {
       const label = vpnStatus.name || vpnStatus.type || 'VPN';
-      addPrivacyEvent({ kind: 'vpn', status: 'success', message: `VPN connected${label ? `: ${label}` : ''}` });
+      addPrivacyEvent({
+        kind: 'vpn',
+        status: 'success',
+        message: `VPN connected${label ? `: ${label}` : ''}`,
+      });
     }
     if (previous.connected && !vpnStatus.connected) {
       addPrivacyEvent({ kind: 'vpn', status: 'info', message: 'VPN disconnected' });
@@ -344,18 +412,18 @@ export function BottomStatus() {
 
       const pollMetrics = async () => {
         if (cancelled) return;
-        
+
         try {
           const metrics = await ipc.performance.getMetrics();
           if (cancelled || !metrics) return;
-          
+
           const sample = {
             timestamp: metrics.timestamp || Date.now(),
             cpu: metrics.cpu || 0,
             memory: metrics.memory || 0,
             carbonIntensity: undefined, // Can be added later if available
           };
-          
+
           pushMetricSample(sample);
         } catch (error) {
           if (!cancelled) {
@@ -375,6 +443,22 @@ export function BottomStatus() {
         }
       };
     } else {
+      if (!backendOnline) {
+        if (metricsSocketRef.current) {
+          try {
+            metricsSocketRef.current.close();
+          } catch {
+            // ignore
+          }
+          metricsSocketRef.current = null;
+        }
+        pushMetricSample({
+          timestamp: Date.now(),
+          cpu: 0,
+          memory: 0,
+        });
+        return;
+      }
       // Non-Electron: Use WebSocket with auto-reconnect
       let socket: WebSocket | null = null;
       let reconnectTimeout: NodeJS.Timeout | null = null;
@@ -384,13 +468,13 @@ export function BottomStatus() {
 
       const connectWebSocket = () => {
         if (socket?.readyState === WebSocket.OPEN) return;
-        
+
         try {
           const wsUrl = `${apiBaseUrl.replace(/^http/, 'ws')}/ws/metrics`;
           socket = new WebSocket(wsUrl);
           metricsSocketRef.current = socket;
 
-          socket.onmessage = (event) => {
+          socket.onmessage = event => {
             try {
               const data = JSON.parse(event.data);
               if (data.type !== 'metrics') return;
@@ -398,7 +482,8 @@ export function BottomStatus() {
                 timestamp: typeof data.timestamp === 'number' ? data.timestamp : Date.now(),
                 cpu: typeof data.cpu === 'number' ? data.cpu : 0,
                 memory: typeof data.memory === 'number' ? data.memory : 0,
-                carbonIntensity: typeof data.carbon_intensity === 'number' ? data.carbon_intensity : undefined,
+                carbonIntensity:
+                  typeof data.carbon_intensity === 'number' ? data.carbon_intensity : undefined,
               };
               pushMetricSample(sample);
               reconnectAttempts = 0; // Reset on successful message
@@ -412,7 +497,7 @@ export function BottomStatus() {
             reconnectAttempts = 0;
           };
 
-          socket.onerror = (event) => {
+          socket.onerror = event => {
             console.warn('[metrics] Metrics websocket error', event);
           };
 
@@ -420,7 +505,7 @@ export function BottomStatus() {
             console.info('[metrics] Metrics websocket closed');
             socket = null;
             metricsSocketRef.current = null;
-            
+
             // Auto-reconnect with exponential backoff
             if (reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
@@ -468,22 +553,22 @@ export function BottomStatus() {
         metricsSocketRef.current = null;
       };
     }
-  }, [isElectron, apiBaseUrl, pushMetricSample]);
+  }, [isElectron, apiBaseUrl, pushMetricSample, backendOnline]);
 
   // Poll shields stats for privacy scorecard
   useEffect(() => {
     if (!isElectron) return;
-    
+
     let cancelled = false;
     let pollInterval: NodeJS.Timeout | null = null;
 
     const pollShieldsStats = async () => {
       if (cancelled) return;
-      
+
       try {
         const status = await ipc.shields.getStatus();
         if (cancelled || !status) return;
-        
+
         setShieldsStats({
           trackersBlocked: status.trackersBlocked || 0,
           adsBlocked: status.adsBlocked || 0,
@@ -509,13 +594,13 @@ export function BottomStatus() {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     // Wait a bit for IPC to be ready before making calls
     const initStatus = async () => {
       if (!isMounted) return;
-      
+
       // Electron removed - always use HTTP API via ipc.invoke()
-      
+
       // Load DoH status
       try {
         const status = await ipc.dns.status();
@@ -534,10 +619,10 @@ export function BottomStatus() {
       //   setModelReady(status.ready);
       // }).catch(() => {});
     };
-    
+
     // Delay initial load to allow IPC to initialize
     setTimeout(initStatus, 400);
-    
+
     return () => {
       isMounted = false;
     };
@@ -584,7 +669,7 @@ export function BottomStatus() {
     warning: 'bg-amber-500/10 border-amber-400/40 text-amber-100',
     critical: 'bg-red-500/10 border-red-400/40 text-red-100',
   };
- 
+
   const clampPercent = (value?: number | null) => {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return 0;
@@ -633,11 +718,20 @@ export function BottomStatus() {
     );
   };
 
-  const sparklinePoints = useMemo(() => metricsHistory.map((sample) => clampPercent(sample.cpu)), [metricsHistory]);
+  const sparklinePoints = useMemo(
+    () => metricsHistory.map(sample => clampPercent(sample.cpu)),
+    [metricsHistory]
+  );
   const trendSamples = useMemo(() => metricsHistory.slice(-180), [metricsHistory]);
-  const trendCpuPoints = useMemo(() => trendSamples.map((sample) => clampPercent(sample.cpu)), [trendSamples]);
-  const trendRamPoints = useMemo(() => trendSamples.map((sample) => clampPercent(sample.memory)), [trendSamples]);
-  const trendLabels = useMemo(() => trendSamples.map((sample) => sample.timestamp), [trendSamples]);
+  const trendCpuPoints = useMemo(
+    () => trendSamples.map(sample => clampPercent(sample.cpu)),
+    [trendSamples]
+  );
+  const trendRamPoints = useMemo(
+    () => trendSamples.map(sample => clampPercent(sample.memory)),
+    [trendSamples]
+  );
+  const trendLabels = useMemo(() => trendSamples.map(sample => sample.timestamp), [trendSamples]);
 
   const StatusMeter = ({
     icon: Icon,
@@ -667,7 +761,9 @@ export function BottomStatus() {
         onClick={onClick}
         title={title}
         className={`flex items-center gap-1.5 rounded-full border border-gray-700/60 bg-gray-800/60 px-2 py-1 text-xs text-gray-200 ${
-          onClick ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/40' : ''
+          onClick
+            ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/40'
+            : ''
         }`}
       >
         <Icon size={12} className="text-gray-400" />
@@ -739,17 +835,23 @@ export function BottomStatus() {
       <Component
         type={onClick ? 'button' : undefined}
         onClick={onClick}
-        onKeyDown={onClick ? (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClick();
-          }
-        } : undefined}
+        onKeyDown={
+          onClick
+            ? e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onClick();
+                }
+              }
+            : undefined
+        }
         title={title}
         aria-label={title || label}
         aria-busy={loading}
         className={`${palette[variant]} ${className ?? ''} flex items-center gap-1.5 rounded-full px-2 py-1 text-xs ${
-          onClick ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/30' : ''
+          onClick
+            ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/30'
+            : ''
         }`}
       >
         <Icon size={12} className="opacity-80" aria-hidden="true" />
@@ -765,9 +867,9 @@ export function BottomStatus() {
         {pulse && (
           <motion.span
             className="inline-flex h-1.5 w-1.5 rounded-full bg-current"
-            animate={{ 
+            animate={{
               opacity: [0.4, 1, 0.4],
-              scale: [1, 1.2, 1]
+              scale: [1, 1.2, 1],
             }}
             transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
             aria-hidden="true"
@@ -809,21 +911,23 @@ export function BottomStatus() {
 
   const handlePromptSubmit = useCallback(async () => {
     if (!prompt.trim() || promptLoading) return;
-    
+
     setPromptLoading(true);
     setPromptError(null);
     setPromptResponse('');
-    
+
     // Get active tab context for better AI responses
     const activeTab = useTabsStore.getState().tabs.find(t => t.id === activeId);
-    const tabContext = activeTab ? {
-      url: activeTab.url,
-      title: activeTab.title,
-      tabId: activeTab.id,
-    } : undefined;
-    
+    const tabContext = activeTab
+      ? {
+          url: activeTab.url,
+          title: activeTab.title,
+          tabId: activeTab.id,
+        }
+      : undefined;
+
     const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
-    
+
     try {
       // Try Redix /workflow endpoint with RAG workflow for better context-aware responses
       const workflowResponse = await fetch(`${redixUrl}/workflow`, {
@@ -840,22 +944,22 @@ export function BottomStatus() {
           },
         }),
       }).catch(() => null);
-      
+
       if (workflowResponse?.ok) {
         const workflowData = await workflowResponse.json();
         setPromptResponse(workflowData.result || 'No response generated.');
-        
+
         // Store eco metrics if available
         if (workflowData.greenScore !== undefined) {
           setPromptEcoScore({
             score: workflowData.greenScore,
             tier: workflowData.greenTier || 'Green',
-            co2Saved: workflowData.co2SavedG || 0
+            co2Saved: workflowData.co2SavedG || 0,
           });
         }
         return;
       }
-      
+
       // Fallback to Redix /ask endpoint
       const askResponse = await fetch(`${redixUrl}/ask`, {
         method: 'POST',
@@ -869,26 +973,26 @@ export function BottomStatus() {
           },
         }),
       }).catch(() => null);
-      
+
       if (askResponse?.ok) {
         const askData = await askResponse.json();
         setPromptResponse(askData.text || 'No response generated.');
-        
+
         // Store eco metrics if available
         if (askData.greenScore !== undefined) {
           setPromptEcoScore({
             score: askData.greenScore,
             tier: askData.greenTier || 'Green',
-            co2Saved: askData.co2SavedG || 0
+            co2Saved: askData.co2SavedG || 0,
           });
         }
         return;
       }
-      
+
       // Final fallback: Use LLM adapter directly
       try {
         const { sendPrompt } = await import('../../core/llm/adapter');
-        const contextPrompt = tabContext 
+        const contextPrompt = tabContext
           ? `Context: You are viewing "${tabContext.title}" at ${tabContext.url}\n\nUser question: ${prompt}`
           : prompt;
         const response = await sendPrompt(contextPrompt, {
@@ -972,7 +1076,7 @@ export function BottomStatus() {
         setVpnBusy(false);
       }
     },
-    [checkVpn, addPrivacyEvent, vpnBusy],
+    [checkVpn, addPrivacyEvent, vpnBusy]
   );
 
   const handleVpnDisconnect = useCallback(async () => {
@@ -997,7 +1101,9 @@ export function BottomStatus() {
 
   const efficiencyDetails = [
     efficiencyBadge || null,
-    typeof efficiencySnapshot.batteryPct === 'number' ? `${Math.round(efficiencySnapshot.batteryPct)}%` : null,
+    typeof efficiencySnapshot.batteryPct === 'number'
+      ? `${Math.round(efficiencySnapshot.batteryPct)}%`
+      : null,
     typeof carbonIntensity === 'number' ? `${Math.round(carbonIntensity)} gCO₂/kWh` : null,
     dailyCarbon > 0 ? `${dailyCarbon.toFixed(2)} gCO₂ saved today` : null,
   ]
@@ -1007,15 +1113,15 @@ export function BottomStatus() {
   const efficiencyVariant: 'default' | 'positive' | 'info' = efficiencyLabel.includes('Regen')
     ? 'positive'
     : efficiencyLabel.includes('Battery')
-    ? 'info'
-    : 'default';
+      ? 'info'
+      : 'default';
 
   const torBadgeDescription = torStatusLabel.replace(/^Tor:?\s*/i, '');
   const torBadgeVariant: 'default' | 'positive' | 'warning' | 'info' = torStatus.stub
     ? 'warning'
     : torStatus.running
-    ? 'info'
-    : 'default';
+      ? 'info'
+      : 'default';
 
   const vpnBadgeDescription = vpnStatus.connected
     ? vpnStatus.type
@@ -1023,7 +1129,6 @@ export function BottomStatus() {
       : 'Active'
     : 'Disconnected';
 
- 
   return (
     <>
       <AnimatePresence>
@@ -1038,8 +1143,8 @@ export function BottomStatus() {
               privacyToast.status === 'success'
                 ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100'
                 : privacyToast.status === 'warning'
-                ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
-                : 'border-sky-500/40 bg-sky-500/15 text-sky-100'
+                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
+                  : 'border-sky-500/40 bg-sky-500/15 text-sky-100'
             }`}
           >
             {privacyToast.kind === 'tor' ? (
@@ -1049,7 +1154,9 @@ export function BottomStatus() {
             )}
             <div className="flex flex-col">
               <span className="font-medium">{privacyToast.message}</span>
-              <span className="text-[10px] opacity-80">{formatRelativeTime(privacyToast.timestamp)}</span>
+              <span className="text-[10px] opacity-80">
+                {formatRelativeTime(privacyToast.timestamp)}
+              </span>
             </div>
             <button
               type="button"
@@ -1062,7 +1169,10 @@ export function BottomStatus() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300" data-onboarding="status-bar">
+      <div
+        className="flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300"
+        data-onboarding="status-bar"
+      >
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 text-xs sm:text-sm text-gray-300">
           <PrivacySwitch />
 
@@ -1139,11 +1249,15 @@ export function BottomStatus() {
                 ? shieldsStats.trackersBlocked > 0 && shieldsStats.adsBlocked > 0
                   ? `${shieldsStats.trackersBlocked} trackers, ${shieldsStats.adsBlocked} ads`
                   : shieldsStats.trackersBlocked > 0
-                  ? `${shieldsStats.trackersBlocked} trackers`
-                  : `${shieldsStats.adsBlocked} ads`
+                    ? `${shieldsStats.trackersBlocked} trackers`
+                    : `${shieldsStats.adsBlocked} ads`
                 : '0 trackers'
             }
-            variant={shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0 ? 'positive' : 'default'}
+            variant={
+              shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
+                ? 'positive'
+                : 'default'
+            }
             onClick={() => void openTrustDashboard()}
             title={
               shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
@@ -1166,7 +1280,7 @@ export function BottomStatus() {
             <button
               type="button"
               className="hidden md:flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
-              onClick={() => setTrendOpen((prev) => !prev)}
+              onClick={() => setTrendOpen(prev => !prev)}
               title="View detailed performance trends"
             >
               <Activity size={14} />
@@ -1177,8 +1291,8 @@ export function BottomStatus() {
               <input
                 type="text"
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
+                onChange={e => setPrompt(e.target.value)}
+                onKeyDown={e => {
                   if (e.key === 'Enter') {
                     void handlePromptSubmit();
                   }
@@ -1190,7 +1304,10 @@ export function BottomStatus() {
                 }`}
               />
               {promptLoading ? (
-                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-blue-300" aria-label="Sending prompt" />
+                <Loader2
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-blue-300"
+                  aria-label="Sending prompt"
+                />
               ) : (
                 <button
                   type="button"
@@ -1234,7 +1351,7 @@ export function BottomStatus() {
               <button
                 type="button"
                 className="flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
-                onClick={() => setExtraOpen((prev) => !prev)}
+                onClick={() => setExtraOpen(prev => !prev)}
                 title="Security & network controls"
               >
                 <MoreHorizontal size={14} />
@@ -1255,33 +1372,57 @@ export function BottomStatus() {
                         label="Tor"
                         description={torBadgeDescription}
                         variant={torBadgeVariant}
-                        onClick={!torStatus.loading ? async () => {
-                          if (torStatus.running) {
-                            addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Stopping Tor…' });
-                            await stopTor();
-                            // Verify status after stopping
-                            setTimeout(async () => {
-                              await refreshTor();
-                              const status = await ipc.proxy.status() as any;
-                              if (status?.tor?.enabled === false) {
-                                addPrivacyEvent({ kind: 'tor', status: 'success', message: 'Tor stopped. Proxy disabled.' });
+                        onClick={
+                          !torStatus.loading
+                            ? async () => {
+                                if (torStatus.running) {
+                                  addPrivacyEvent({
+                                    kind: 'tor',
+                                    status: 'info',
+                                    message: 'Stopping Tor…',
+                                  });
+                                  await stopTor();
+                                  // Verify status after stopping
+                                  setTimeout(async () => {
+                                    await refreshTor();
+                                    const status = (await ipc.proxy.status()) as any;
+                                    if (status?.tor?.enabled === false) {
+                                      addPrivacyEvent({
+                                        kind: 'tor',
+                                        status: 'success',
+                                        message: 'Tor stopped. Proxy disabled.',
+                                      });
+                                    }
+                                  }, 1000);
+                                } else {
+                                  addPrivacyEvent({
+                                    kind: 'tor',
+                                    status: 'info',
+                                    message: 'Starting Tor…',
+                                  });
+                                  await startTor();
+                                  // Verify status after starting
+                                  setTimeout(async () => {
+                                    await refreshTor();
+                                    const status = (await ipc.proxy.status()) as any;
+                                    if (status?.tor?.enabled && status?.tor?.circuitEstablished) {
+                                      addPrivacyEvent({
+                                        kind: 'tor',
+                                        status: 'success',
+                                        message: `Tor active. Circuit: ${status.tor.circuitId || 'established'}`,
+                                      });
+                                    } else if (status?.tor?.enabled) {
+                                      addPrivacyEvent({
+                                        kind: 'tor',
+                                        status: 'info',
+                                        message: 'Tor starting, circuit establishing…',
+                                      });
+                                    }
+                                  }, 2000);
+                                }
                               }
-                            }, 1000);
-                          } else {
-                            addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Starting Tor…' });
-                            await startTor();
-                            // Verify status after starting
-                            setTimeout(async () => {
-                              await refreshTor();
-                              const status = await ipc.proxy.status() as any;
-                              if (status?.tor?.enabled && status?.tor?.circuitEstablished) {
-                                addPrivacyEvent({ kind: 'tor', status: 'success', message: `Tor active. Circuit: ${status.tor.circuitId || 'established'}` });
-                              } else if (status?.tor?.enabled) {
-                                addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Tor starting, circuit establishing…' });
-                              }
-                            }, 2000);
-                          }
-                        } : undefined}
+                            : undefined
+                        }
                         loading={torStatus.loading}
                         title={torTooltip}
                         className={`justify-start ${torStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -1291,14 +1432,27 @@ export function BottomStatus() {
                           type="button"
                           onClick={() => {
                             if (torStatus.loading) return;
-                            addPrivacyEvent({ kind: 'tor', status: 'info', message: 'Requesting new Tor identity…' });
+                            addPrivacyEvent({
+                              kind: 'tor',
+                              status: 'info',
+                              message: 'Requesting new Tor identity…',
+                            });
                             void newTorIdentity()
                               .then(() => {
-                                addPrivacyEvent({ kind: 'tor', status: 'success', message: 'Tor identity refreshed' });
+                                addPrivacyEvent({
+                                  kind: 'tor',
+                                  status: 'success',
+                                  message: 'Tor identity refreshed',
+                                });
                               })
-                              .catch((error) => {
-                                const message = error instanceof Error ? error.message : String(error);
-                                addPrivacyEvent({ kind: 'tor', status: 'warning', message: `Tor identity error: ${message}` });
+                              .catch(error => {
+                                const message =
+                                  error instanceof Error ? error.message : String(error);
+                                addPrivacyEvent({
+                                  kind: 'tor',
+                                  status: 'warning',
+                                  message: `Tor identity error: ${message}`,
+                                });
                               });
                           }}
                           className="flex items-center gap-2 rounded-md border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] text-purple-100 transition-colors hover:border-purple-400/60"
@@ -1321,7 +1475,7 @@ export function BottomStatus() {
                         <div className="space-y-2 rounded-md border border-gray-800/60 bg-gray-900/40 p-2">
                           <span className="text-[10px] uppercase text-gray-400">VPN Profiles</span>
                           <div className="space-y-1">
-                            {vpnProfiles.map((profile) => {
+                            {vpnProfiles.map(profile => {
                               const isActive = vpnActiveId === profile.id;
                               return (
                                 <button
@@ -1337,7 +1491,9 @@ export function BottomStatus() {
                                 >
                                   <div className="flex items-center justify-between">
                                     <span>{profile.name}</span>
-                                    {isActive && <span className="text-[10px] opacity-70">Active</span>}
+                                    {isActive && (
+                                      <span className="text-[10px] opacity-70">Active</span>
+                                    )}
                                   </div>
                                   {profile.server && (
                                     <div className="text-[10px] opacity-60">{profile.server}</div>
@@ -1359,7 +1515,11 @@ export function BottomStatus() {
                               <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300" />
                             )}
                           </div>
-                          {vpnError && <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">{vpnError}</div>}
+                          {vpnError && (
+                            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
+                              {vpnError}
+                            </div>
+                          )}
                         </div>
                       )}
                       {privacyEvents.length > 0 && (
@@ -1381,16 +1541,22 @@ export function BottomStatus() {
                             {privacyEvents
                               .slice()
                               .reverse()
-                              .map((event) => {
+                              .map(event => {
                                 const dotColor =
                                   event.status === 'success'
                                     ? 'bg-emerald-400'
                                     : event.status === 'warning'
-                                    ? 'bg-amber-400'
-                                    : 'bg-sky-400';
+                                      ? 'bg-amber-400'
+                                      : 'bg-sky-400';
                                 return (
-                                  <div key={event.id} className="flex items-start gap-2 text-[11px] text-gray-300">
-                                    <span className={`mt-1 h-2 w-2 rounded-full ${dotColor}`} aria-hidden="true" />
+                                  <div
+                                    key={event.id}
+                                    className="flex items-start gap-2 text-[11px] text-gray-300"
+                                  >
+                                    <span
+                                      className={`mt-1 h-2 w-2 rounded-full ${dotColor}`}
+                                      aria-hidden="true"
+                                    />
                                     <div className="space-y-0.5">
                                       <div className="flex items-center gap-1">
                                         {event.kind === 'tor' ? (
@@ -1400,7 +1566,9 @@ export function BottomStatus() {
                                         )}
                                         <span>{event.message}</span>
                                       </div>
-                                      <div className="text-[9px] text-gray-500">{formatRelativeTime(event.timestamp)}</div>
+                                      <div className="text-[9px] text-gray-500">
+                                        {formatRelativeTime(event.timestamp)}
+                                      </div>
                                     </div>
                                   </div>
                                 );
@@ -1457,7 +1625,9 @@ export function BottomStatus() {
                   className="absolute right-0 top-12 w-72 rounded-lg border border-gray-800 bg-slate-950/95 p-4 shadow-xl"
                 >
                   <div className="mb-2 flex items-center justify-between text-xs text-gray-300">
-                    <span className="font-semibold uppercase tracking-wide">Performance Trends</span>
+                    <span className="font-semibold uppercase tracking-wide">
+                      Performance Trends
+                    </span>
                     <button
                       className="text-xs opacity-70 transition-opacity hover:opacity-100"
                       onClick={() => setTrendOpen(false)}
@@ -1466,7 +1636,12 @@ export function BottomStatus() {
                       <X size={12} />
                     </button>
                   </div>
-                  <TrendChart label="CPU %" points={trendCpuPoints} color="#38bdf8" labels={trendLabels} />
+                  <TrendChart
+                    label="CPU %"
+                    points={trendCpuPoints}
+                    color="#38bdf8"
+                    labels={trendLabels}
+                  />
                   <TrendChart
                     label="RAM %"
                     points={trendRamPoints}
@@ -1495,7 +1670,7 @@ export function BottomStatus() {
                   <span className="text-[11px] opacity-80">{efficiencyAlert.message}</span>
                 </div>
                 <div className="ml-auto flex items-center gap-2">
-                  {efficiencyAlert.actions.map((action) => (
+                  {efficiencyAlert.actions.map(action => (
                     <button
                       key={action.id}
                       onClick={() => handleEfficiencyAction(action)}
@@ -1555,7 +1730,9 @@ export function BottomStatus() {
                 <FileText size={14} className="mt-0.5 flex-shrink-0" />
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide">Shadow Summary</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide">
+                      Shadow Summary
+                    </span>
                     <button
                       onClick={clearShadowSummary}
                       className="p-1 text-[10px] text-purple-200/80 transition-colors hover:text-purple-50"
@@ -1576,7 +1753,7 @@ export function BottomStatus() {
                     <div className="space-y-0.5">
                       <span className="text-[10px] uppercase opacity-70">Recent</span>
                       <ul className="space-y-0.5">
-                        {shadowSummary.visited.slice(0, 3).map((entry) => (
+                        {shadowSummary.visited.slice(0, 3).map(entry => (
                           <li key={`${entry.url}-${entry.firstSeen}`} className="truncate">
                             <a
                               href={entry.url}

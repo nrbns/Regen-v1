@@ -1,8 +1,8 @@
-# OmniBrowser - The Internet Operating System
+# Regen - The Internet Operating System
 
 > **India's first execution browser: search, automate, trade, all in one.**
 
-OmniBrowser combines **5 pillars** that no browser has together:
+Regen combines **5 pillars** that no browser has together:
 
 - 🚀 **Chrome-level browsing** - Fast, stable, familiar
 - 🤖 **Atlas/Comet automation** - Built-in, not a plugin
@@ -14,9 +14,9 @@ OmniBrowser combines **5 pillars** that no browser has together:
 
 ---
 
-# OmniBrowser / Regen
+# Regen Vision
 
-**OmniBrowser/Regen** is a next-generation, ultra-light browser that combines:
+**Regen** is a next-generation, ultra-light browser that combines:
 
 - a **full AI agent layer**,
 - **automation workflows**,
@@ -138,19 +138,46 @@ npm run tauri dev
 ## Development
 
 ```bash
+# One command: starts Redix helpers, web renderer, and Tauri shell
+npm run dev
+
+# (First time only) install desktop deps
+cd tauri-migration && npm install
+```
+
+`npm run dev` now launches the browser build on http://localhost:5173 and the desktop shell (Tauri) on http://localhost:5183 simultaneously.  
+If you need to run components independently, you can still start them manually:
+
+```bash
 # Start backend
 cd server
 node redix-server.js
 
-# Start Tauri (in new terminal)
+# Start Tauri standalone
 cd tauri-migration
-npm install
 npm run tauri dev
 ```
 
-Tauri dev server runs on 5173; backend runs on 4000.
+Backend HTTP API runs on port 4000.
 
 ## Build
+
+### Windows Installer (MSI)
+
+```bash
+# Build Windows installer (.msi)
+npm run build:windows:installer
+```
+
+This will:
+
+1. Build the frontend (React + Vite)
+2. Build the Tauri app for Windows
+3. Generate an MSI installer in `tauri-migration/src-tauri/target/release/bundle/msi/`
+
+The installer will be named `Regen_0.1.0-alpha_x64_en-US.msi` (or similar).
+
+### Development Build
 
 ```bash
 cd tauri-migration

@@ -1,6 +1,6 @@
 # Test Setup Script for Tauri Migration
 
-Write-Host "=== Testing OmniBrowser Tauri Setup ===" -ForegroundColor Cyan
+Write-Host "=== Testing Regen Tauri Setup ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Test 1: Check Backend Dependencies

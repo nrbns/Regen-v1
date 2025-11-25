@@ -3,8 +3,8 @@
  * Save and restore workspaces
  */
 
-import { useState } from 'react';
-import { Search, Pin, PinOff, Trash2, Save, FolderOpen } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, Pin, PinOff, Trash2, Save, FolderOpen, Upload, Download } from 'lucide-react';
 import { useWorkspacesStore } from '../state/workspacesStore';
 import { useTabsStore } from '../state/tabsStore';
 import { useAppStore } from '../state/appStore';
@@ -12,6 +12,7 @@ import { ipc } from '../lib/ipc-typed';
 import { track } from '../services/analytics';
 import { toast } from '../utils/toast';
 import { formatDistanceToNow } from 'date-fns';
+import { exportSessionToFile, importSessionFromFile } from '../lib/session-transfer';
 
 export function WorkspacesPanel() {
   const workspaces = useWorkspacesStore(state => state.workspaces);
@@ -21,6 +22,8 @@ export function WorkspacesPanel() {
   const search = useWorkspacesStore(state => state.search);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tabsStore = useTabsStore();
   const appMode = useAppStore(state => state.mode);
 
@@ -31,7 +34,10 @@ export function WorkspacesPanel() {
     return b.updatedAt - a.updatedAt;
   });
 
-  const displayedWorkspaces = searchQuery ? search(searchQuery) : sortedWorkspaces;
+  const baseWorkspaces = searchQuery ? search(searchQuery) : sortedWorkspaces;
+  const displayedWorkspaces = baseWorkspaces.filter(
+    workspace => (workspace.mode ?? 'Research') === 'Research'
+  );
 
   const handleSave = async () => {
     setSaving(true);
@@ -102,10 +108,8 @@ export function WorkspacesPanel() {
         }
       }
 
-      // Restore mode
-      if (workspace.mode) {
-        await useAppStore.getState().setMode(workspace.mode as any);
-      }
+      // Restore mode (Research-only alpha)
+      await useAppStore.getState().setMode('Research');
 
       track('workspace_restored', { workspaceId: workspace.id });
       toast.success('Workspace restored!');
@@ -123,20 +127,57 @@ export function WorkspacesPanel() {
     }
   };
 
+  const handleSessionImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      await importSessionFromFile(file);
+    } catch {
+      // errors handled inside helper
+    } finally {
+      setImporting(false);
+      event.target.value = '';
+    }
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100">
       {/* Header */}
       <div className="p-4 border-b border-slate-800">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Workspaces</h2>
-          <button
-            onClick={handleSave}
-            disabled={saving || tabsStore.tabs.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-          >
-            <Save size={14} />
-            Save Current
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={async () => {
+                await exportSessionToFile();
+              }}
+              className="flex items-center gap-2 rounded-lg border border-slate-700/70 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80"
+            >
+              <Download size={14} />
+              Export .omnisession
+            </button>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-700/70 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 cursor-pointer">
+              <Upload size={14} />
+              {importing ? 'Importing...' : 'Import session'}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".omnisession,application/json"
+                className="hidden"
+                onChange={handleSessionImport}
+                disabled={importing}
+              />
+            </label>
+            <button
+              onClick={handleSave}
+              disabled={saving || tabsStore.tabs.length === 0}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            >
+              <Save size={14} />
+              Save Workspace
+            </button>
+          </div>
         </div>
         {/* Search */}
         <div className="relative">

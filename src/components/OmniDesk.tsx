@@ -64,7 +64,7 @@ type Workspace = {
   name: string;
 };
 
-const SEARCH_ENDPOINT = 'https://duckduckgo.com/?q=';
+// SEARCH_ENDPOINT removed - using buildSearchUrlWithLang from search.ts instead
 
 const suggestedPrompts = [
   '@live explain quantum computing basics',
@@ -74,8 +74,11 @@ const suggestedPrompts = [
   'find regenerative design principles',
 ];
 
-function buildSearchUrl(query: string) {
-  return `${SEARCH_ENDPOINT}${encodeURIComponent(query)}`;
+// Use language-aware search from search.ts
+import { buildSearchUrl as buildSearchUrlWithLang } from '../lib/search';
+
+function buildSearchUrl(query: string, language?: string) {
+  return buildSearchUrlWithLang('duckduckgo', query, language);
 }
 
 function useDashboardData() {
@@ -108,19 +111,17 @@ function useDashboardData() {
       const sessions = Array.isArray(sessionsResult) ? (sessionsResult as any[]) : [];
       const continueItems: ContinueSession[] = sessions.slice(0, 3).map((session: any) => ({
         id: session.id,
-        type: session.name?.includes('Research')
-          ? 'Research'
-          : session.name?.includes('Trade')
-            ? 'Trade'
-            : 'Browse',
+        type: session.name?.includes('Research') ? 'Research' : 'Browse',
         title: session.name || 'Untitled Session',
         url: session.lastUrl || 'about:blank',
         timestamp: session.updatedAt || session.createdAt || Date.now() - 3600000,
         sessionId: session.id,
       }));
 
-      if (continueItems.length > 0) {
-        setContinueSessions(continueItems);
+      const researchSessions = continueItems.filter(item => item.type === 'Research');
+
+      if (researchSessions.length > 0) {
+        setContinueSessions(researchSessions);
       } else {
         setContinueSessions([
           {
@@ -128,12 +129,6 @@ function useDashboardData() {
             title: 'Quantum Computing Research',
             url: 'about:blank',
             timestamp: Date.now() - 3600000,
-          },
-          {
-            type: 'Trade',
-            title: 'Market Analysis',
-            url: 'about:blank',
-            timestamp: Date.now() - 7200000,
           },
         ]);
       }
@@ -145,12 +140,6 @@ function useDashboardData() {
           title: 'Quantum Computing Research',
           url: 'about:blank',
           timestamp: Date.now() - 3600000,
-        },
-        {
-          type: 'Trade',
-          title: 'Market Analysis',
-          url: 'about:blank',
-          timestamp: Date.now() - 7200000,
         },
       ]);
       setLoadingSessions(false);
@@ -226,6 +215,7 @@ export function OmniDesk({
 
   // Check if Chrome-style new tab page is enabled (default to true)
   const chromeStyleEnabled = useSettingsStore(state => state.appearance.chromeNewTabPage ?? true);
+  const language = useSettingsStore(state => state.language || 'auto');
 
   const agentPreview = useMemo(() => {
     const latestEvents = agentEvents.slice(-3).reverse();
@@ -574,12 +564,8 @@ export function OmniDesk({
         }
       }
 
-      // Set mode if specified
-      if (session.type === 'Research') {
-        setMode('Research');
-      } else if (session.type === 'Trade') {
-        setMode('Trade');
-      }
+      // Research-only alpha: always ensure Research mode is active
+      setMode('Research');
 
       // Create tab with the URL
       const result = await ipc.tabs.create(urlToLoad);
@@ -653,7 +639,7 @@ export function OmniDesk({
       const isAboutBlank =
         activeTab?.url === 'about:blank' || !activeTab?.url || activeTab?.url?.startsWith('about:');
 
-      const targetUrl = buildSearchUrl(query);
+      const targetUrl = buildSearchUrl(query, language !== 'auto' ? language : undefined);
       setMode('Research');
 
       try {
@@ -806,7 +792,7 @@ export function OmniDesk({
               Regenerative Command Center
             </p>
             <h1 className="mt-3 text-3xl font-bold text-slate-50 sm:text-4xl lg:text-5xl leading-tight">
-              Guide your next deep work session with OmniBrowser & Redix
+              Guide your next deep work session with Regen & Redix
             </h1>
             <p className="mt-3 max-w-2xl text-base text-slate-300 leading-relaxed">
               Spin up an agent, resume an exploration, or launch a new search. Your flow state

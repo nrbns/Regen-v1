@@ -1,6 +1,6 @@
 # Redix Green Intelligence Engine
 
-Regenerative AI backend for OmniBrowser with eco-scoring, model fusion, and ethical consent tracking.
+Regenerative AI backend for Regen with eco-scoring, model fusion, and ethical consent tracking.
 
 ## Architecture
 
@@ -66,6 +66,7 @@ docker-compose up
 ## API Endpoints
 
 ### POST `/ask`
+
 Single query with AI response
 
 ```bash
@@ -79,6 +80,7 @@ curl -X POST http://localhost:8000/ask \
 ```
 
 ### POST `/workflow`
+
 Agentic workflows (RAG, research, multi-agent)
 
 ```bash
@@ -92,6 +94,7 @@ curl -X POST http://localhost:8000/workflow \
 ```
 
 ### GET `/metrics`
+
 Get current system metrics
 
 ```bash
@@ -99,17 +102,19 @@ curl http://localhost:8000/metrics
 ```
 
 ### WebSocket `/ws/metrics`
+
 Real-time metrics streaming
 
 ```javascript
 const ws = new WebSocket('ws://localhost:8000/ws/metrics');
-ws.onmessage = (event) => {
+ws.onmessage = event => {
   const data = JSON.parse(event.data);
   console.log('CPU:', data.cpu, 'RAM:', data.ram);
 };
 ```
 
 ### POST `/consent`
+
 Log consent decision
 
 ```bash
@@ -122,9 +127,10 @@ curl -X POST http://localhost:8000/consent \
   }'
 ```
 
-## Integration with OmniBrowser
+## Integration with Regen
 
 The frontend already has integration points in:
+
 - `src/components/SearchBar.tsx` - Uses `/ask` endpoint
 - `src/components/layout/BottomStatus.tsx` - Uses `/workflow` endpoint
 - `server/redix-core.ts` - TypeScript bridge (can be enhanced)
@@ -144,6 +150,7 @@ curl -X POST http://localhost:8000/ask \
 ## Eco-Scoring
 
 Green score calculation:
+
 - **Local (Ollama)**: ~95-100 (excellent)
 - **Cloud (GPT/Claude)**: ~70-90 (good)
 - **Low battery**: -10 penalty
@@ -151,5 +158,4 @@ Green score calculation:
 
 ## License
 
-Part of OmniBrowser project.
-
+Part of Regen project.

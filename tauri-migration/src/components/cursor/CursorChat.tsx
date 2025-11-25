@@ -158,11 +158,14 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
 
     // Use WebSocket for cursor stream (replaces Electron IPC)
     const ws = new WebSocket('ws://127.0.0.1:4000/ws/cursor');
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'cursor:stream' && data.jobId === currentJobId) {
-          handleStream(null, data);
+          handleStream({
+            jobId: data.jobId,
+            chunk: data.chunk || { type: data.chunkType || 'token', data: data.data },
+          });
         }
       } catch (error) {
         console.error('[CursorChat] Failed to parse WebSocket message:', error);

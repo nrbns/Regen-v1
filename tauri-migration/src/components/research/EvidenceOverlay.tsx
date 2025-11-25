@@ -89,7 +89,7 @@ export function EvidenceOverlay({
                 highlight.style.padding = '2px 4px';
                 highlight.style.borderRadius = '3px';
                 highlight.style.boxShadow = '0 0 8px rgba(59, 130, 246, 0.6)';
-                highlight.className = 'omnibrowser-evidence-highlight';
+                highlight.className = 'regen-evidence-highlight';
                 highlight.setAttribute('data-evidence-id', ${JSON.stringify(activeEvidenceId)});
                 
                 try {
@@ -121,7 +121,9 @@ export function EvidenceOverlay({
         } else {
           // Try to scroll to quote if we can't inject script
           // This is a fallback - full script injection would require backend support
-          console.log('Evidence highlight requires fragment URL or backend script injection support');
+          console.log(
+            'Evidence highlight requires fragment URL or backend script injection support'
+          );
         }
 
         // Store cleanup (for future script injection support)
@@ -129,7 +131,6 @@ export function EvidenceOverlay({
           // Cleanup would be handled by page navigation or script removal
           // Currently relies on fragment URLs for highlighting
         });
-
       } catch (error) {
         console.warn('Failed to highlight evidence:', error);
       }
@@ -148,4 +149,3 @@ export function EvidenceOverlay({
   // It just manages evidence highlighting in the active tab
   return null;
 }
-

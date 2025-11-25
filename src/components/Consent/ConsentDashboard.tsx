@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, RefreshCw, Filter, Download, ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react';
+import {
+  X,
+  RefreshCw,
+  Filter,
+  Download,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+} from 'lucide-react';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { ipc } from '../../lib/ipc-typed';
 import type { ConsentRecord, ConsentActionType, ConsentRisk } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 import { ConsentVaultPanel } from './ConsentVaultPanel';
-import { CONSENT_ACTION_LABELS, CONSENT_ACTION_OPTIONS, CONSENT_STATUS_OPTIONS } from './consentLabels';
+import {
+  CONSENT_ACTION_LABELS,
+  CONSENT_ACTION_OPTIONS,
+  CONSENT_STATUS_OPTIONS,
+} from './consentLabels';
 import { ConsentFlowGraph } from './ConsentFlowGraph';
 
 const statusLabel = (record: ConsentRecord): { label: string; tone: string } => {
@@ -26,7 +38,8 @@ const riskIcon = (risk: ConsentRisk) => {
 };
 
 export function ConsentDashboard() {
-  const { visible, records, loading, error, filter, close, refresh, setFilter, approve, revoke } = useConsentOverlayStore();
+  const { visible, records, loading, error, filter, close, refresh, setFilter, approve, revoke } =
+    useConsentOverlayStore();
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -37,9 +50,15 @@ export function ConsentDashboard() {
     return () => clearInterval(interval);
   }, [visible, refresh]);
 
-  const pendingCount = useMemo(() => records.filter((record) => !record.approved).length, [records]);
-  const revokedCount = useMemo(() => records.filter((record) => Boolean(record.revokedAt)).length, [records]);
-  const approvedCount = useMemo(() => records.filter((record) => record.approved && !record.revokedAt).length, [records]);
+  const pendingCount = useMemo(() => records.filter(record => !record.approved).length, [records]);
+  const revokedCount = useMemo(
+    () => records.filter(record => Boolean(record.revokedAt)).length,
+    [records]
+  );
+  const approvedCount = useMemo(
+    () => records.filter(record => record.approved && !record.revokedAt).length,
+    [records]
+  );
 
   const handleExport = async () => {
     try {
@@ -49,7 +68,7 @@ export function ConsentDashboard() {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `omnibrowser-consent-ledger-${new Date().toISOString()}.json`;
+      anchor.download = `regen-consent-ledger-${new Date().toISOString()}.json`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -65,15 +84,22 @@ export function ConsentDashboard() {
     const status = statusLabel(record);
     const distance = formatDistanceToNow(new Date(record.timestamp), { addSuffix: true });
     return (
-      <div key={record.id} className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
+      <div
+        key={record.id}
+        className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3"
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-200">
             {riskIcon(record.action.risk)}
             <span>{CONSENT_ACTION_LABELS[record.action.type]}</span>
           </div>
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${status.tone}`}>{status.label}</span>
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${status.tone}`}>
+            {status.label}
+          </span>
         </div>
-        <div className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">{record.action.description}</div>
+        <div className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">
+          {record.action.description}
+        </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-500">
           <div>
             <span className="text-gray-400">Target:</span>{' '}
@@ -149,8 +175,12 @@ export function ConsentDashboard() {
             <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-emerald-300/80">
               <ShieldAlert size={14} /> Consent Playground
             </div>
-            <div className="text-lg font-semibold text-white">Review & control ethical AI memory</div>
-            <div className="text-[11px] text-gray-500">Pending {pendingCount} · Approved {approvedCount} · Revoked {revokedCount}</div>
+            <div className="text-lg font-semibold text-white">
+              Review & control ethical AI memory
+            </div>
+            <div className="text-[11px] text-gray-500">
+              Pending {pendingCount} · Approved {approvedCount} · Revoked {revokedCount}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -179,16 +209,23 @@ export function ConsentDashboard() {
         </div>
 
         <div className="flex flex-col gap-4 p-6 overflow-y-auto max-h-[75vh]">
-          <ConsentFlowGraph records={records} onApprove={approve} onRevoke={revoke} loading={loading} />
+          <ConsentFlowGraph
+            records={records}
+            onApprove={approve}
+            onRevoke={revoke}
+            loading={loading}
+          />
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),auto]">
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
               <Filter size={14} />
               <select
                 value={filter.type ?? 'all'}
-                onChange={(event) => void setFilter({ type: event.target.value as ConsentActionType | 'all' })}
+                onChange={event =>
+                  void setFilter({ type: event.target.value as ConsentActionType | 'all' })
+                }
                 className="rounded-lg border border-slate-700/60 bg-slate-900/70 px-2 py-1 text-gray-200"
               >
-                {CONSENT_ACTION_OPTIONS.map((option) => (
+                {CONSENT_ACTION_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -196,10 +233,14 @@ export function ConsentDashboard() {
               </select>
               <select
                 value={filter.status ?? 'all'}
-                onChange={(event) => void setFilter({ status: event.target.value as 'all' | 'pending' | 'approved' | 'revoked' })}
+                onChange={event =>
+                  void setFilter({
+                    status: event.target.value as 'all' | 'pending' | 'approved' | 'revoked',
+                  })
+                }
                 className="rounded-lg border border-slate-700/60 bg-slate-900/70 px-2 py-1 text-gray-200"
               >
-                {CONSENT_STATUS_OPTIONS.map((option) => (
+                {CONSENT_STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -224,9 +265,7 @@ export function ConsentDashboard() {
               <div>No consent records yet. Run agent actions to populate the ledger.</div>
             </div>
           ) : (
-            <div className="grid gap-3">
-              {records.map(renderRecord)}
-            </div>
+            <div className="grid gap-3">{records.map(renderRecord)}</div>
           )}
         </div>
       </motion.div>

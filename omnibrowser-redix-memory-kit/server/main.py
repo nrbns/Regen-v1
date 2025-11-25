@@ -22,7 +22,7 @@ logger = logging.getLogger("redix.api")
 
 app = FastAPI(
     title="Redix Memory API",
-    description="FastAPI service for OmniBrowser memory ingestion and recall.",
+    description="FastAPI service for Regen memory ingestion and recall.",
     version="0.1.0",
 )
 
@@ -31,7 +31,7 @@ JWT_ALGORITHM = "HS256"
 ASYNC_EMBED = os.getenv("ASYNC_EMBED", "false").lower() in {"1", "true", "yes"}
 ALLOWED_PROJECTS = {
     project.strip()
-    for project in os.getenv("ALLOWED_PROJECTS", "omnibrowser,redix").split(",")
+    for project in os.getenv("ALLOWED_PROJECTS", "regen,redix").split(",")
     if project.strip()
 }
 

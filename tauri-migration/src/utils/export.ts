@@ -137,7 +137,7 @@ export function exportMemories(events: MemoryEvent[], options: ExportOptions): v
   // Generate filename
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const extension = options.format === 'json' ? 'json' : 'csv';
-  const filename = `omnibrowser-memories-${timestamp}.${extension}`;
+  const filename = `regen-memories-${timestamp}.${extension}`;
 
   // Export based on format
   let content: string;

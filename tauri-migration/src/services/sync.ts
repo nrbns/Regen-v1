@@ -41,7 +41,7 @@ class SyncService {
     }
 
     this.syncEnabled = true;
-    localStorage.setItem('omnibrowser_sync_enabled', 'true');
+    localStorage.setItem('regen_sync_enabled', 'true');
     log.info('[Sync] Sync enabled');
     track('sync_enabled');
 
@@ -56,7 +56,7 @@ class SyncService {
    */
   disable(): void {
     this.syncEnabled = false;
-    localStorage.removeItem('omnibrowser_sync_enabled');
+    localStorage.removeItem('regen_sync_enabled');
     log.info('[Sync] Sync disabled');
     track('sync_disabled');
   }
@@ -66,7 +66,7 @@ class SyncService {
    */
   isEnabled(): boolean {
     if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem('omnibrowser_sync_enabled');
+    const stored = localStorage.getItem('regen_sync_enabled');
     return stored === 'true' && authService.getState().isAuthenticated;
   }
 

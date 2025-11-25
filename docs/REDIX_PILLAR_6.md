@@ -2,7 +2,7 @@
 
 ## Overview
 
-Redix (Redis) is not just a database - it's the **backend nervous system** that makes OmniBrowser the world's first **real-time execution browser**.
+Redix (Redis) is not just a database - it's the **backend nervous system** that makes Regen the world's first **real-time execution browser**.
 
 **No AI browser today has Redis-central execution** - not Perplexity, not Arc, not Atlas, not Brave.
 
@@ -24,8 +24,8 @@ This is our **secret weapon**.
 **Channels:**
 
 ```
-omnibrowser:events:{clientId}
-omnibrowser:commands:{clientId}
+regen:events:{clientId}
+regen:commands:{clientId}
 regen:status:{sessionId}
 n8n:workflow:callbacks
 automation:triggers:{userId}
@@ -174,7 +174,7 @@ browser → receives notification instantly
 
 ```
 ┌──────────────────────────────────────────────┐
-│              OmniBrowser UI                  │
+│              Regen UI                  │
 │  Tabs │ Regen Chat │ Hands-Free │ Automations│
 └──────────────────────▲───────────────────────┘
                        │ WebSocket/SSE
@@ -240,7 +240,7 @@ browser → receives notification instantly
 - ❌ Arc → UI only
 - ❌ Chrome → passive browsing
 
-### OmniBrowser Becomes
+### Regen Becomes
 
 ✅ **THE FIRST REAL-TIME EXECUTION BROWSER**
 
@@ -262,7 +262,7 @@ Powered by Redix:
 
 ### Main Tagline
 
-> **"OmniBrowser — The World's First Execution Browser."**
+> **"Regen — The World's First Execution Browser."**
 
 ### Supporting Taglines
 
@@ -280,4 +280,4 @@ Powered by Redix:
 
 ---
 
-**Redix is not just infrastructure. It's the execution engine that makes OmniBrowser impossible to compete with. 🚀**
+**Redix is not just infrastructure. It's the execution engine that makes Regen impossible to compete with. 🚀**

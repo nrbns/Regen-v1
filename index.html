@@ -4,10 +4,13 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OmniBrowser</title>
-    <!-- Preload critical fonts for better text rendering -->
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>Regen</title>
+    <!-- Defer font loading for faster initial render -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { height: 100%; width: 100%; }
@@ -23,7 +26,7 @@
       // This script runs before React loads to apply theme immediately
       (function() {
         try {
-          const themeKey = 'omnibrowser:theme-preference';
+          const themeKey = 'regen:theme-preference';
           const saved = localStorage.getItem(themeKey);
           const html = document.documentElement;
           

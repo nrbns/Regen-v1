@@ -147,7 +147,7 @@ async function initRedisSubscriber() {
       // Subscribe to all client channels with pattern (only if connected)
       if (redisSub.status === 'ready') {
         try {
-          await redisSub.psubscribe('omnibrowser:out:*');
+          await redisSub.psubscribe('regen:out:*');
         } catch (error) {
           if (
             error?.code === 'ECONNREFUSED' ||
@@ -181,7 +181,7 @@ async function initRedisSubscriber() {
 
     redisSub.on('pmessage', (pattern, channel, message) => {
       try {
-        const clientId = channel.replace('omnibrowser:out:', '');
+        const clientId = channel.replace('regen:out:', '');
         const client = wsClients.get(clientId);
 
         if (!client) {
@@ -205,7 +205,7 @@ async function initRedisSubscriber() {
       }
     });
 
-    log.info('Redis subscriber initialized and subscribed to omnibrowser:out:*');
+    log.info('Redis subscriber initialized and subscribed to regen:out:*');
   } catch (error) {
     // Don't fail if Redis is unavailable - continue with direct WebSocket
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
@@ -285,7 +285,7 @@ async function sendToClient(event) {
     try {
       const { redisPub } = require('../../config/redis-client');
       if (redisPub && redisPub.status === 'ready') {
-        const channel = `omnibrowser:out:${event.clientId}`;
+        const channel = `regen:out:${event.clientId}`;
         await redisPub.publish(channel, JSON.stringify(event));
         log.debug('Event sent via Redis Pub/Sub', { clientId: event.clientId, type: event.type });
         return true;

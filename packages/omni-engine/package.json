@@ -1,5 +1,5 @@
 {
-  "name": "@omnibrowser/omni-engine",
+  "name": "@regen/omni-engine",
   "version": "0.1.0",
   "description": "Omni Engine - AI, workflows, and command execution service",
   "main": "dist/index.js",

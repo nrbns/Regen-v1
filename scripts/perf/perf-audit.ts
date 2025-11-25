@@ -56,8 +56,10 @@ async function runScenario(name: string, url: string) {
   const metrics = await page.evaluate(() => {
     const navEntry = performance.getEntriesByType('navigation')[0] as any;
     const paintEntries = performance.getEntriesByType('paint') as any[];
-    const fcp = paintEntries.find((entry) => entry.name === 'first-contentful-paint');
-    const memory = (performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }).memory;
+    const fcp = paintEntries.find(entry => entry.name === 'first-contentful-paint');
+    const memory = (
+      performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number } }
+    ).memory;
     const cpu = (performance as unknown as { now?: () => number }).now?.() ?? null;
 
     return {
@@ -100,17 +102,29 @@ function formatNumber(value: number | null, digits = 2): string {
 function budgetViolations(result: ScenarioResult): string[] {
   const violations: string[] = [];
   if (result.durationMs > PERF_BUDGETS.durationMs) {
-    violations.push(`duration ${result.durationMs.toFixed(0)}ms > budget ${PERF_BUDGETS.durationMs}ms`);
+    violations.push(
+      `duration ${result.durationMs.toFixed(0)}ms > budget ${PERF_BUDGETS.durationMs}ms`
+    );
   }
   const { metrics } = result;
-  if (metrics.domContentLoaded !== null && metrics.domContentLoaded > PERF_BUDGETS.domContentLoaded) {
-    violations.push(`DOMContentLoaded ${metrics.domContentLoaded.toFixed(0)}ms > ${PERF_BUDGETS.domContentLoaded}ms`);
+  if (
+    metrics.domContentLoaded !== null &&
+    metrics.domContentLoaded > PERF_BUDGETS.domContentLoaded
+  ) {
+    violations.push(
+      `DOMContentLoaded ${metrics.domContentLoaded.toFixed(0)}ms > ${PERF_BUDGETS.domContentLoaded}ms`
+    );
   }
   if (metrics.loadTime !== null && metrics.loadTime > PERF_BUDGETS.loadTime) {
     violations.push(`load ${metrics.loadTime.toFixed(0)}ms > ${PERF_BUDGETS.loadTime}ms`);
   }
-  if (metrics.firstContentfulPaint !== null && metrics.firstContentfulPaint > PERF_BUDGETS.firstContentfulPaint) {
-    violations.push(`FCP ${metrics.firstContentfulPaint.toFixed(0)}ms > ${PERF_BUDGETS.firstContentfulPaint}ms`);
+  if (
+    metrics.firstContentfulPaint !== null &&
+    metrics.firstContentfulPaint > PERF_BUDGETS.firstContentfulPaint
+  ) {
+    violations.push(
+      `FCP ${metrics.firstContentfulPaint.toFixed(0)}ms > ${PERF_BUDGETS.firstContentfulPaint}ms`
+    );
   }
   if (metrics.heapUsedMB !== null && metrics.heapUsedMB > PERF_BUDGETS.heapUsedMB) {
     violations.push(`heap ${metrics.heapUsedMB.toFixed(1)}MB > ${PERF_BUDGETS.heapUsedMB}MB`);
@@ -119,7 +133,7 @@ function budgetViolations(result: ScenarioResult): string[] {
 }
 
 async function main() {
-  console.log('🔍 Running OmniBrowser performance audit scenarios...');
+  console.log('🔍 Running Regen performance audit scenarios...');
   await ensureOutputDir();
   const results: ScenarioResult[] = [];
   const failures: Array<{ scenario: string; issues: string[] }> = [];
@@ -130,12 +144,12 @@ async function main() {
       const result = await runScenario(scenario.name, scenario.url);
       results.push(result);
       console.log(
-        `    duration=${formatNumber(result.durationMs, 0)}ms heap=${formatNumber(result.metrics.heapUsedMB)}MB FCP=${formatNumber(result.metrics.firstContentfulPaint)}ms`,
+        `    duration=${formatNumber(result.durationMs, 0)}ms heap=${formatNumber(result.metrics.heapUsedMB)}MB FCP=${formatNumber(result.metrics.firstContentfulPaint)}ms`
       );
       const issues = budgetViolations(result);
       if (issues.length > 0) {
         failures.push({ scenario: scenario.name, issues });
-        issues.forEach((issue) => console.warn(`    ⚠ budget violation: ${issue}`));
+        issues.forEach(issue => console.warn(`    ⚠ budget violation: ${issue}`));
       }
     } catch (error) {
       console.error(`    ✖ scenario failed: ${(error as Error).message}`);
@@ -160,7 +174,7 @@ async function main() {
     console.error('\n⛔ Performance budgets exceeded:');
     failures.forEach(({ scenario, issues }) => {
       console.error(`  - ${scenario}:`);
-      issues.forEach((issue) => console.error(`      • ${issue}`));
+      issues.forEach(issue => console.error(`      • ${issue}`));
     });
     // In CI/dev we only log budget violations; do not fail the process
     // so that perf audits are informative but non-blocking.
@@ -172,8 +186,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().catch(error => {
   console.error('Performance audit failed:', error);
   process.exitCode = 1;
 });
-

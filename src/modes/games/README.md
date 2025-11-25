@@ -1,6 +1,6 @@
 # Game Hub - Friv-Style Game Browser
 
-Legal, fast, browser-first game launcher for OmniBrowser.
+Legal, fast, browser-first game launcher for Regen.
 
 ## Features
 
@@ -15,6 +15,7 @@ Legal, fast, browser-first game launcher for OmniBrowser.
 ## Legal Compliance
 
 All games are:
+
 - ✅ Open-source with MIT or compatible licenses
 - ✅ Properly attributed with source links
 - ✅ No proprietary content from Friv or other commercial portals
@@ -25,11 +26,13 @@ See [LEGAL.md](./LEGAL.md) for detailed licensing information.
 ## Game Catalog
 
 The catalog includes games from:
+
 - **Phaser Examples** (MIT License)
 - **Lee Reilly Games Archive** (MIT License)
 - **Other Open-Source Repositories**
 
 Each game entry includes:
+
 - Title, description, thumbnail
 - Category and tags
 - Source repository link
@@ -43,6 +46,7 @@ To add a new game:
 
 1. Find an open-source game (MIT or compatible license)
 2. Add entry to `gameCatalog.json`:
+
 ```json
 {
   "id": "unique-id",
@@ -90,6 +94,7 @@ Games marked `offline_capable: true` can be cached:
 3. Cache is managed automatically
 
 To enable offline for a game:
+
 1. Mark `offline_capable: true` in catalog
 2. Ensure all assets use relative paths
 3. Test in offline mode
@@ -97,7 +102,7 @@ To enable offline for a game:
 ## Development
 
 ```bash
-# The Game Hub is integrated into OmniBrowser
+# The Game Hub is integrated into Regen
 # Switch to Games mode to see it
 ```
 
@@ -115,4 +120,3 @@ To enable offline for a game:
 3. **Analytics**: Add play tracking and analytics
 4. **More Games**: Expand catalog with more open-source games
 5. **Embedding**: Contact publishers for embeddable games
-

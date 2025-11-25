@@ -1,3 +1,1 @@
-console.log('[omnibrowser] Postinstall complete. If Playwright is desired, install it separately.');
-
-
+console.log('[regen] Postinstall complete. If Playwright is desired, install it separately.');

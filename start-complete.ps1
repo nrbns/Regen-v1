@@ -1,7 +1,7 @@
-# Complete OmniBrowser Startup Script
+# Complete Regen Startup Script
 # Starts backend, frontend, and Tauri window
 
-Write-Host "=== Starting OmniBrowser ===" -ForegroundColor Cyan
+Write-Host "=== Starting Regen ===" -ForegroundColor Cyan
 Write-Host ""
 
 # Step 1: Configure Rust

@@ -54,7 +54,7 @@ curl -X POST http://localhost:8000/ask \
   -d '{"query": "What is Redix?"}'
 ```
 
-## Integration with OmniBrowser
+## Integration with Regen
 
 The frontend is already configured to use Redix:
 
@@ -76,14 +76,17 @@ docker-compose up
 ## Troubleshooting
 
 ### "No models available"
+
 - Check your `.env` file has API keys
 - Or start Ollama: `ollama serve`
 
 ### "Ollama connection failed"
+
 - Make sure Ollama is running: `ollama serve`
 - Check `OLLAMA_BASE_URL` in `.env`
 
 ### Port already in use
+
 - Change `REDIX_PORT` in `.env`
 - Or use: `uvicorn main:app --port 8001`
 
@@ -92,4 +95,3 @@ docker-compose up
 - Read `README.md` for full documentation
 - Check `test_main.py` for examples
 - See `REDIX_BACKEND_IMPLEMENTATION.md` for architecture
-

@@ -16,6 +16,7 @@ export default tseslint.config(
       'scripts/**',
       'src/plugins/examples/**',
       'tests/**',
+      'tauri-migration/src-tauri/target/**',
     ],
   },
   js.configs.recommended,

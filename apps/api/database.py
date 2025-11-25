@@ -10,7 +10,7 @@ import os
 # Database URL (use SQLite for local, PostgreSQL for production)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./omnibrowser.db"
+    "sqlite:///./regen.db"
 )
 
 # Create engine

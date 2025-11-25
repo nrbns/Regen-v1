@@ -11,4 +11,3 @@ export {
   clearSnapshot,
 } from './snapshot';
 export { resumeSession, type ResumeResult } from './resume';
-

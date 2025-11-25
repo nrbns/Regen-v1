@@ -1,7 +1,7 @@
 # Start API Server from project root
 # This ensures Python can find the apps.api module
 
-Write-Host "Starting OmniBrowser API Server..." -ForegroundColor Green
+Write-Host "Starting Regen API Server..." -ForegroundColor Green
 Write-Host "Running from: $(Get-Location)" -ForegroundColor Gray
 
 # Check if we're in the project root

@@ -240,7 +240,7 @@ async def _simulate_run(run_id: str, queue: asyncio.Queue, goal: str, cache_key:
     messages = [
         {
             "role": "system",
-            "content": "You are Redix, an AI assistant for OmniBrowser. Provide helpful, concise answers with citations when relevant.",
+            "content": "You are Redix, an AI assistant for Regen. Provide helpful, concise answers with citations when relevant.",
         },
         {
             "role": "user",

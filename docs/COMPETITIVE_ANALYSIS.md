@@ -1,14 +1,14 @@
-# Competitive Analysis: OmniBrowser vs The World
+# Competitive Analysis: Regen vs The World
 
 ## The 5-Pillar Advantage
 
-OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
+Regen is the **only browser** with all 5 pillars. Here's how we stack up:
 
 ---
 
 ## vs Chrome
 
-| Feature        | Chrome               | OmniBrowser               |
+| Feature        | Chrome               | Regen                     |
 | -------------- | -------------------- | ------------------------- |
 | Browsing Speed | ✅ Fast              | ✅ Fast (Chromium-based)  |
 | AI Assistant   | ❌ None              | ✅ Regen (built-in)       |
@@ -19,13 +19,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | Voice Control  | ❌ None              | ✅ Hands-free mode        |
 | Trading        | ❌ None              | ✅ Paper trading mode     |
 
-**Verdict:** OmniBrowser wins on **6 out of 8** features.
+**Verdict:** Regen wins on **6 out of 8** features.
 
 ---
 
 ## vs Perplexity
 
-| Feature                 | Perplexity               | OmniBrowser                 |
+| Feature                 | Perplexity               | Regen                       |
 | ----------------------- | ------------------------ | --------------------------- |
 | Research Quality        | ✅ Excellent             | ✅ Excellent                |
 | Multi-source            | ✅ Yes                   | ✅ Yes                      |
@@ -36,13 +36,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Memory Across Pages** | ❌ **Limited**           | ✅ **Persistent memory**    |
 | **Voice**               | ❌ **English only**      | ✅ **12 languages**         |
 
-**Verdict:** OmniBrowser wins because **research is inside the browser**, not external.
+**Verdict:** Regen wins because **research is inside the browser**, not external.
 
 ---
 
 ## vs Atlas / Comet
 
-| Feature         | Atlas/Comet         | OmniBrowser               |
+| Feature         | Atlas/Comet         | Regen                     |
 | --------------- | ------------------- | ------------------------- |
 | Automation      | ✅ Yes              | ✅ Yes                    |
 | **Integration** | ❌ **Plugin**       | ✅ **Built-in**           |
@@ -52,13 +52,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Trading**     | ❌ **None**         | ✅ **Paper trading**      |
 | **Cost**        | ❌ **Paid**         | ✅ **Free**               |
 
-**Verdict:** OmniBrowser wins because automation is **native**, not a plugin.
+**Verdict:** Regen wins because automation is **native**, not a plugin.
 
 ---
 
 ## vs Brave
 
-| Feature          | Brave               | OmniBrowser             |
+| Feature          | Brave               | Regen                   |
 | ---------------- | ------------------- | ----------------------- |
 | Privacy          | ✅ Excellent        | ✅ Excellent            |
 | Tracker Blocking | ✅ Yes              | ✅ Yes                  |
@@ -69,13 +69,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Multilingual** | ❌ **English only** | ✅ **12 languages**     |
 | **India Focus**  | ❌ **US-focused**   | ✅ **India-first**      |
 
-**Verdict:** OmniBrowser wins because we have **privacy + AI + automation + India features**.
+**Verdict:** Regen wins because we have **privacy + AI + automation + India features**.
 
 ---
 
 ## vs Arc
 
-| Feature          | Arc                 | OmniBrowser            |
+| Feature          | Arc                 | Regen                  |
 | ---------------- | ------------------- | ---------------------- |
 | UI Innovation    | ✅ Modern           | ✅ Modern              |
 | Tab Management   | ✅ Spaces           | ✅ Workspaces          |
@@ -86,13 +86,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Multilingual** | ❌ **English only** | ✅ **12 languages**    |
 | **Privacy**      | ⚠️ **Basic**        | ✅ **Brave-grade**     |
 
-**Verdict:** OmniBrowser wins because we have **AI + automation + research + trading**.
+**Verdict:** Regen wins because we have **AI + automation + research + trading**.
 
 ---
 
 ## vs Edge (with Copilot)
 
-| Feature             | Edge + Copilot       | OmniBrowser            |
+| Feature             | Edge + Copilot       | Regen                  |
 | ------------------- | -------------------- | ---------------------- |
 | AI Assistant        | ✅ Copilot           | ✅ Regen               |
 | **Browser Control** | ⚠️ **Limited**       | ✅ **Full control**    |
@@ -103,13 +103,13 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Privacy**         | ❌ **Tracks**        | ✅ **Privacy-first**   |
 | **Voice**           | ⚠️ **Basic**         | ✅ **Hands-free**      |
 
-**Verdict:** OmniBrowser wins because **Regen can control the browser**, not just chat.
+**Verdict:** Regen wins because **Regen can control the browser**, not just chat.
 
 ---
 
 ## vs Opera
 
-| Feature          | Opera          | OmniBrowser            |
+| Feature          | Opera          | Regen                  |
 | ---------------- | -------------- | ---------------------- |
 | Built-in VPN     | ✅ Yes         | 🔄 Planned             |
 | **AI**           | ❌ **None**    | ✅ **Regen**           |
@@ -119,11 +119,11 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 | **Multilingual** | ❌ **Limited** | ✅ **12 languages**    |
 | **Privacy**      | ⚠️ **Basic**   | ✅ **Brave-grade**     |
 
-**Verdict:** OmniBrowser wins on **AI + automation + research + trading**.
+**Verdict:** Regen wins on **AI + automation + research + trading**.
 
 ---
 
-## The OmniBrowser Advantage
+## The Regen Advantage
 
 ### What Makes Us Unbeatable
 
@@ -221,4 +221,4 @@ OmniBrowser is the **only browser** with all 5 pillars. Here's how we stack up:
 
 ---
 
-**OmniBrowser is not competing. We're defining the future of browsing. 🚀**
+**Regen is not competing. We're defining the future of browsing. 🚀**

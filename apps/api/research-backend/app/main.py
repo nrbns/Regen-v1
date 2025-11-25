@@ -1,5 +1,5 @@
 """
-OmniBrowser Research Mode Backend - FastAPI Application
+Regen Research Mode Backend - FastAPI Application
 """
 
 from contextlib import asynccontextmanager
@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="OmniBrowser Research Mode API",
+    title="Regen Research Mode API",
     description="Backend API for Research Mode with vector search and streaming",
     version="0.1.0",
     lifespan=lifespan,

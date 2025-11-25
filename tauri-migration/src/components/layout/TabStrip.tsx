@@ -52,7 +52,7 @@ import {
 import { reopenClosedTab } from '../../lib/tabLifecycle';
 import { useAppError } from '../../hooks/useAppError';
 
-const TAB_GRAPH_DRAG_MIME = 'application/x-omnibrowser-tab-id';
+const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
 const IS_DEV = isDevEnv();
 const IS_ELECTRON = isElectronRuntime();
 const NEW_GROUP_DROP_ID = '__new-tab-group__';
@@ -483,8 +483,13 @@ export function TabStrip() {
           }}
           onMouseEnter={() => {
             // Defensive: Check if tab is last in filteredTabs
-            const validFilteredTabs = Array.isArray(filteredTabs) ? filteredTabs.filter(t => t && t.id) : [];
-            if (validFilteredTabs.length > 0 && tab === validFilteredTabs[validFilteredTabs.length - 1]) {
+            const validFilteredTabs = Array.isArray(filteredTabs)
+              ? filteredTabs.filter(t => t && t.id)
+              : [];
+            if (
+              validFilteredTabs.length > 0 &&
+              tab === validFilteredTabs[validFilteredTabs.length - 1]
+            ) {
               setHolographicPreviewTabId(tab.id);
               setPreviewMetadata({ url: tab.url || '', title: tab.title || 'Untitled' });
             }

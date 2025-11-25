@@ -76,8 +76,7 @@ export function ShortcutsHelp() {
           Keyboard reference
         </h1>
         <p className="text-sm text-slate-400">
-          Every shortcut in OmniBrowser grouped by context. Type to filter or scan per-mode
-          highlights.
+          Every shortcut in Regen grouped by context. Type to filter or scan per-mode highlights.
         </p>
         <div className="relative mt-4">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />

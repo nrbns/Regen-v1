@@ -2,7 +2,7 @@
 
 ## Overview
 
-Regen is the **AI brain of OmniBrowser** - a unified system that handles Research, Trade, Multilingual, and Hands-Free modes. It's built as **4 layers** around your existing browser, making it feel like one seamless experience.
+Regen is the **AI brain of Regen** - a unified system that handles Research, Trade, Multilingual, and Hands-Free modes. It's built as **4 layers** around your existing browser, making it feel like one seamless experience.
 
 ---
 

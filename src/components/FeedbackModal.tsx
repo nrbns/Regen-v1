@@ -82,7 +82,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-100 mb-1">Share Your Feedback</h3>
                   <p className="text-sm text-gray-400">
-                    Help us improve OmniBrowser. What's one thing that confused you or broke?
+                    Help us improve Regen. What's one thing that confused you or broke?
                   </p>
                 </div>
                 <button

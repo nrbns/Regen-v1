@@ -125,7 +125,7 @@ export function CommandBar() {
       {
         id: 'open-settings',
         label: 'Open Settings',
-        description: 'Configure OmniBrowser',
+        description: 'Configure Regen',
         icon: Settings,
         keywords: ['settings', 'preferences', 'config'],
         category: 'navigation',

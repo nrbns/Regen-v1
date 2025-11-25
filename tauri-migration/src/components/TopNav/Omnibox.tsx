@@ -5,8 +5,25 @@
 
 // @ts-nocheck
 
-import { forwardRef, useState, useEffect, useRef, useCallback, useMemo, useImperativeHandle } from 'react';
-import { Search, Lock, Shield, AlertCircle, Globe, Calculator, Sparkles, Clock } from 'lucide-react';
+import {
+  forwardRef,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useImperativeHandle,
+} from 'react';
+import {
+  Search,
+  Lock,
+  Shield,
+  AlertCircle,
+  Globe,
+  Calculator,
+  Sparkles,
+  Clock,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -74,8 +91,8 @@ const formatCalcResult = (expr: string, result: number | null) => {
     Math.abs(result) > 1_000_000 || Math.abs(result) < 0.0001
       ? result.toExponential(6)
       : Number.isInteger(result)
-      ? result.toString()
-      : result.toPrecision(8).replace(/\.?0+$/, '');
+        ? result.toString()
+        : result.toPrecision(8).replace(/\.?0+$/, '');
   return `${expr} = ${formatted}`;
 };
 
@@ -155,7 +172,10 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
   return null;
 };
 
-const buildSuggestionFromAction = (action: SuggestionAction, rawInput: string): Suggestion | null => {
+const buildSuggestionFromAction = (
+  action: SuggestionAction,
+  rawInput: string
+): Suggestion | null => {
   switch (action.type) {
     case 'calc': {
       if (!action.expr) {
@@ -178,7 +198,7 @@ const buildSuggestionFromAction = (action: SuggestionAction, rawInput: string): 
       return {
         type: 'command',
         title: `Ask AI assistant${action.prompt ? `: ${action.prompt}` : ''}`,
-        subtitle: action.prompt ? 'OmniBrowser agent' : 'Provide a prompt to continue',
+        subtitle: action.prompt ? 'Regen agent' : 'Provide a prompt to continue',
         action,
       };
     case 'agent':
@@ -193,12 +213,12 @@ const buildSuggestionFromAction = (action: SuggestionAction, rawInput: string): 
         action.engine === 'duckduckgo'
           ? 'DuckDuckGo'
           : action.engine === 'wiki'
-          ? 'Wikipedia'
-          : action.engine === 'youtube'
-          ? 'YouTube'
-          : action.engine === 'twitter'
-          ? 'Twitter/X'
-          : 'Google';
+            ? 'Wikipedia'
+            : action.engine === 'youtube'
+              ? 'YouTube'
+              : action.engine === 'twitter'
+                ? 'Twitter/X'
+                : 'Google';
       return {
         type: 'search',
         title: `${engineLabel}: ${action.query || rawInput}`,
@@ -221,12 +241,31 @@ const buildSuggestionFromAction = (action: SuggestionAction, rawInput: string): 
 const RECENTS_STORAGE_KEY = 'omnibox:recent';
 const MAX_RECENTS = 20;
 
-export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void; onRedixOpen?: (prompt: string) => void }>(({ onCommandPalette, onRedixOpen }, ref) => {
+export const Omnibox = forwardRef<
+  OmniboxHandle,
+  { onCommandPalette: () => void; onRedixOpen?: (prompt: string) => void }
+>(({ onCommandPalette, onRedixOpen }, ref) => {
   const { tabs, activeId } = useTabsStore();
-  const activeContainerId = useContainerStore((state) => state.activeContainerId);
+  const activeContainerId = useContainerStore(state => state.activeContainerId);
   const isElectron = isElectronRuntime();
-  const formatTabsForEvent = (list: Array<{ id: string; title?: string; url?: string; active?: boolean; mode?: string; containerId?: string; containerName?: string; containerColor?: string; createdAt?: number; lastActiveAt?: number; sessionId?: string; profileId?: string; sleeping?: boolean }>) =>
-    list.map((t) => ({
+  const formatTabsForEvent = (
+    list: Array<{
+      id: string;
+      title?: string;
+      url?: string;
+      active?: boolean;
+      mode?: string;
+      containerId?: string;
+      containerName?: string;
+      containerColor?: string;
+      createdAt?: number;
+      lastActiveAt?: number;
+      sessionId?: string;
+      profileId?: string;
+      sleeping?: boolean;
+    }>
+  ) =>
+    list.map(t => ({
       id: t.id,
       title: t.title || 'New Tab',
       url: t.url || 'about:blank',
@@ -248,7 +287,9 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
   const [siteInfo, setSiteInfo] = useState<{ secure: boolean; shieldCount?: number } | null>(null);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [recentItems, setRecentItems] = useState<Array<{ title: string; url: string; timestamp: number }>>([]);
+  const [recentItems, setRecentItems] = useState<
+    Array<{ title: string; url: string; timestamp: number }>
+  >([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [liveResults, setLiveResults] = useState<LiveResult[]>([]);
   const [liveStatus, setLiveStatus] = useState<string | null>(null);
@@ -301,7 +342,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
         setFocused(false);
       },
     }),
-    [],
+    []
   );
 
   useEffect(() => {
@@ -319,9 +360,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
           setRecentItems(
-            parsed
-              .filter((item: any) => typeof item?.url === 'string')
-              .slice(0, MAX_RECENTS)
+            parsed.filter((item: any) => typeof item?.url === 'string').slice(0, MAX_RECENTS)
           );
         }
       }
@@ -334,9 +373,12 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     if (!finalUrl || finalUrl.startsWith('about:') || finalUrl.startsWith('ob://')) {
       return;
     }
-    setRecentItems((prev) => {
-      const filtered = prev.filter((item) => item.url !== finalUrl);
-      const next = [{ title: title || finalUrl, url: finalUrl, timestamp: Date.now() }, ...filtered].slice(0, MAX_RECENTS);
+    setRecentItems(prev => {
+      const filtered = prev.filter(item => item.url !== finalUrl);
+      const next = [
+        { title: title || finalUrl, url: finalUrl, timestamp: Date.now() },
+        ...filtered,
+      ].slice(0, MAX_RECENTS);
       try {
         localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(next));
       } catch (error) {
@@ -369,8 +411,8 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     }
 
     if (step.type === 'result' && step.result) {
-      setLiveResults((prev) => {
-        const existingIndex = prev.findIndex((item) => item.url === step.result.url);
+      setLiveResults(prev => {
+        const existingIndex = prev.findIndex(item => item.url === step.result.url);
         if (existingIndex >= 0) {
           const updated = prev.slice();
           updated[existingIndex] = { ...updated[existingIndex], ...step.result };
@@ -382,7 +424,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     }
 
     if (step.type === 'complete') {
-      setLiveStatus((current) => current ?? 'Live results updated');
+      setLiveStatus(current => current ?? 'Live results updated');
       return;
     }
 
@@ -418,32 +460,40 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
         setLiveStatus('Live search failed');
       }
     },
-    [attachIpcListener, detachIpcListener, handleLiveStep, stopLiveSession],
+    [attachIpcListener, detachIpcListener, handleLiveStep, stopLiveSession]
   );
 
   // Listen for tab updates
-  useIPCEvent<TabUpdate[]>('tabs:updated', (tabList) => {
-    const tab = Array.isArray(tabList) ? tabList.find((t: any) => t.active) : null;
-    if (tab && !focused) {
-      setUrl(tab.url || '');
-      try {
-        const urlObj = new URL(tab.url || 'about:blank');
-        setSiteInfo({
-          secure: urlObj.protocol === 'https:',
-        });
-      } catch {
-        setSiteInfo(null);
+  useIPCEvent<TabUpdate[]>(
+    'tabs:updated',
+    tabList => {
+      const tab = Array.isArray(tabList) ? tabList.find((t: any) => t.active) : null;
+      if (tab && !focused) {
+        setUrl(tab.url || '');
+        try {
+          const urlObj = new URL(tab.url || 'about:blank');
+          setSiteInfo({
+            secure: urlObj.protocol === 'https:',
+          });
+        } catch {
+          setSiteInfo(null);
+        }
       }
-    }
-  }, [activeId, focused]);
+    },
+    [activeId, focused]
+  );
 
   // Listen for progress updates
-  useIPCEvent<{ tabId: string; progress: number }>('tabs:progress', (data) => {
-    if (data.tabId === activeId) {
-      setProgress(data.progress);
-      setIsLoading(data.progress < 100 && data.progress > 0);
-    }
-  }, [activeId]);
+  useIPCEvent<{ tabId: string; progress: number }>(
+    'tabs:progress',
+    data => {
+      if (data.tabId === activeId) {
+        setProgress(data.progress);
+        setIsLoading(data.progress < 100 && data.progress > 0);
+      }
+    },
+    [activeId]
+  );
 
   // Search suggestions with history and tabs
   const searchSuggestions = useCallback(
@@ -460,11 +510,11 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
       const pushSuggestion = (suggestion: Suggestion, front = false) => {
         if (!suggestion.title) return;
         const exists = results.some(
-          (item) =>
+          item =>
             item.title === suggestion.title &&
             item.subtitle === suggestion.subtitle &&
             item.url === suggestion.url &&
-            item.type === suggestion.type,
+            item.type === suggestion.type
         );
         if (!exists) {
           if (front) {
@@ -499,7 +549,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
             badge: '@redix',
             icon: 'sparkles',
           },
-          true,
+          true
         );
       } else if (!trimmed) {
         const defaultPrompts = [
@@ -520,8 +570,8 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
                 badge: '@redix',
                 icon: 'sparkles',
               },
-              true,
-            ),
+              true
+            )
           );
       }
 
@@ -546,8 +596,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
       tabs.forEach(tab => {
         const title = tab.title || 'Untitled';
         const tabUrl = tab.url || '';
-        if (title.toLowerCase().includes(queryLower) ||
-            tabUrl.toLowerCase().includes(queryLower)) {
+        if (title.toLowerCase().includes(queryLower) || tabUrl.toLowerCase().includes(queryLower)) {
           pushSuggestion({
             type: 'tab',
             title,
@@ -597,10 +646,15 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
       }
 
       const localRecentMatches = recentItems
-        .filter((item) => !queryLower || item.title.toLowerCase().includes(queryLower) || item.url.toLowerCase().includes(queryLower))
+        .filter(
+          item =>
+            !queryLower ||
+            item.title.toLowerCase().includes(queryLower) ||
+            item.url.toLowerCase().includes(queryLower)
+        )
         .slice(0, 5);
 
-      localRecentMatches.forEach((item) => {
+      localRecentMatches.forEach(item => {
         pushSuggestion({
           type: 'history',
           title: item.title,
@@ -619,14 +673,17 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
       debounce((searchTerm: string) => {
         startLiveSearch(searchTerm);
       }, 250),
-    [startLiveSearch],
+    [startLiveSearch]
   );
 
   useEffect(() => () => debouncedLiveSearch.cancel(), [debouncedLiveSearch]);
 
-  useEffect(() => () => {
-    stopLiveSession();
-  }, [stopLiveSession]);
+  useEffect(
+    () => () => {
+      stopLiveSession();
+    },
+    [stopLiveSession]
+  );
 
   useEffect(() => {
     const trimmed = url.trim();
@@ -663,14 +720,14 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
           (searchTerm.length < 2
             ? 'Type at least 2 characters to begin streaming'
             : liveResults.length === 0
-            ? 'Streaming results…'
-            : 'Live results ready'),
+              ? 'Streaming results…'
+              : 'Live results ready'),
         interactive: false,
         icon: 'sparkles',
       },
     ];
 
-    liveResults.forEach((result) => {
+    liveResults.forEach(result => {
       base.push({
         type: 'search',
         title: result.title || result.url,
@@ -701,7 +758,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifier = isMac ? e.metaKey : e.ctrlKey;
-      
+
       if (modifier && e.key === 'l') {
         e.preventDefault();
         inputRef.current?.focus();
@@ -718,7 +775,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
 
   const navigateToUrl = async (
     targetUrl: string,
-    options: { background?: boolean; newWindow?: boolean; titleOverride?: string } = {},
+    options: { background?: boolean; newWindow?: boolean; titleOverride?: string } = {}
   ) => {
     const { background = false, newWindow = false, titleOverride } = options;
     // Normalize URL
@@ -749,13 +806,13 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     if (!isElectron) {
       const normalizedTitle = titleOverride || finalUrl;
       const state = useTabsStore.getState();
-      const baseTabs = (state.tabs ?? []).map((tab) => ({ ...tab }));
+      const baseTabs = (state.tabs ?? []).map(tab => ({ ...tab }));
       let nextTabs = baseTabs;
       let nextActiveId = state.activeId ?? null;
 
       if (!state.activeId || baseTabs.length === 0) {
         const newId = `local-${Date.now()}`;
-        nextTabs = baseTabs.map((tab) => ({ ...tab, active: false }));
+        nextTabs = baseTabs.map(tab => ({ ...tab, active: false }));
         nextTabs.push({
           id: newId,
           title: normalizedTitle,
@@ -766,7 +823,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
         nextActiveId = newId;
       } else if (openInBackground) {
         const newId = `local-${Date.now()}`;
-        nextTabs = baseTabs.map((tab) => ({ ...tab }));
+        nextTabs = baseTabs.map(tab => ({ ...tab }));
         nextTabs.push({
           id: newId,
           title: normalizedTitle,
@@ -775,7 +832,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
           mode: 'normal',
         });
       } else {
-        nextTabs = baseTabs.map((tab) => ({
+        nextTabs = baseTabs.map(tab => ({
           ...tab,
           title: tab.id === state.activeId ? normalizedTitle : tab.title,
           url: tab.id === state.activeId ? finalUrl : tab.url,
@@ -821,15 +878,27 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
     try {
       // Electron check removed - always use HTTP API
 
-      console.log('[Omnibox] Navigating to:', finalUrl, { activeId, openInBackground, activeContainerId });
-      
+      console.log('[Omnibox] Navigating to:', finalUrl, {
+        activeId,
+        openInBackground,
+        activeContainerId,
+      });
+
       if (!activeId) {
         console.log('[Omnibox] Creating new tab (no active tab)');
-        const newTab = await ipc.tabs.create({ url: finalUrl, containerId: activeContainerId, activate: !openInBackground });
+        const newTab = await ipc.tabs.create({
+          url: finalUrl,
+          containerId: activeContainerId,
+          activate: !openInBackground,
+        });
         console.log('[Omnibox] Tab created:', newTab);
       } else if (openInBackground) {
         console.log('[Omnibox] Creating background tab');
-        const newTab = await ipc.tabs.create({ url: finalUrl, containerId: activeContainerId, activate: false });
+        const newTab = await ipc.tabs.create({
+          url: finalUrl,
+          containerId: activeContainerId,
+          activate: false,
+        });
         console.log('[Omnibox] Background tab created:', newTab);
       } else {
         console.log('[Omnibox] Navigating active tab:', activeId);
@@ -848,7 +917,11 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
       try {
         // Electron check removed - always use HTTP API
 
-        const newTab = await ipc.tabs.create({ url: finalUrl, containerId: activeContainerId, activate: !openInBackground });
+        const newTab = await ipc.tabs.create({
+          url: finalUrl,
+          containerId: activeContainerId,
+          activate: !openInBackground,
+        });
         if (newTab && newTab.id) {
           setFocused(false);
           setSuggestions([]);
@@ -868,7 +941,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
   const executeAction = async (
     action: SuggestionAction | null | undefined,
     fallbackInput: string,
-    options: { background?: boolean; newWindow?: boolean; titleOverride?: string } = {},
+    options: { background?: boolean; newWindow?: boolean; titleOverride?: string } = {}
   ) => {
     if (!action) {
       await navigateToUrl(fallbackInput, options);
@@ -877,7 +950,10 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
 
     switch (action.type) {
       case 'nav':
-        await navigateToUrl(action.url, { ...options, titleOverride: action.title ?? options.titleOverride });
+        await navigateToUrl(action.url, {
+          ...options,
+          titleOverride: action.title ?? options.titleOverride,
+        });
         return;
       case 'search': {
         const query = action.query || fallbackInput.trim();
@@ -886,12 +962,12 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
           action.engine === 'duckduckgo'
             ? 'DuckDuckGo'
             : action.engine === 'wiki'
-            ? 'Wikipedia'
-            : action.engine === 'youtube'
-            ? 'YouTube'
-            : action.engine === 'twitter'
-            ? 'Twitter/X'
-            : 'Google';
+              ? 'Wikipedia'
+              : action.engine === 'youtube'
+                ? 'YouTube'
+                : action.engine === 'twitter'
+                  ? 'Twitter/X'
+                  : 'Google';
         await navigateToUrl(buildSearchUrl(action.engine, query), {
           ...options,
           titleOverride: `${engineLabel}: ${query}`,
@@ -933,19 +1009,17 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
           }
           // Fallback: try Redix IPC directly
           const tabUrl = activeTab?.url;
-          const _context = tabUrl ? await ipc.tabs.getContext(activeTab.id).catch(() => null) : null;
+          const _context = tabUrl
+            ? await ipc.tabs.getContext(activeTab.id).catch(() => null)
+            : null;
           // Start Redix stream (will show in status bar or open dialog)
-          await ipc.redix.stream(
-            prompt,
-            { sessionId: `omnibox-${Date.now()}` },
-            (chunk) => {
-              // Stream handler - could emit event for UI to display
-              if (chunk.type === 'token' && chunk.text) {
-                // Emit event for Redix response display
-                ipcEvents.emit('redix:response', { prompt, text: chunk.text, done: chunk.done });
-              }
+          await ipc.redix.stream(prompt, { sessionId: `omnibox-${Date.now()}` }, chunk => {
+            // Stream handler - could emit event for UI to display
+            if (chunk.type === 'token' && chunk.text) {
+              // Emit event for Redix response display
+              ipcEvents.emit('redix:response', { prompt, text: chunk.text, done: chunk.done });
             }
-          );
+          });
         } catch (error) {
           console.error('Redix agent error:', error);
           // Fallback to search
@@ -998,7 +1072,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
 
   const handleSuggestionActivate = async (
     suggestion: Suggestion,
-    options: { background?: boolean; newWindow?: boolean } = {},
+    options: { background?: boolean; newWindow?: boolean } = {}
   ) => {
     if (suggestion.interactive === false) {
       return;
@@ -1076,16 +1150,26 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
         <div className="relative flex items-center">
           {/* Site Info Icons */}
           {siteInfo && url && !focused && (
-            <div className="absolute left-3 flex items-center gap-2 z-10 pointer-events-none" aria-hidden="true">
+            <div
+              className="absolute left-3 flex items-center gap-2 z-10 pointer-events-none"
+              aria-hidden="true"
+            >
               {siteInfo.secure ? (
                 <Lock size={14} className="text-green-400" aria-label="Secure connection" />
               ) : url.startsWith('http://') ? (
-                <AlertCircle size={14} className="text-amber-400" aria-label="Insecure connection" />
+                <AlertCircle
+                  size={14}
+                  className="text-amber-400"
+                  aria-label="Insecure connection"
+                />
               ) : (
                 <Globe size={14} className="text-gray-400" aria-label="Web page" />
               )}
               {siteInfo.shieldCount !== undefined && siteInfo.shieldCount > 0 && (
-                <div className="flex items-center gap-1" aria-label={`${siteInfo.shieldCount} shields active`}>
+                <div
+                  className="flex items-center gap-1"
+                  aria-label={`${siteInfo.shieldCount} shields active`}
+                >
                   <Shield size={14} className="text-blue-400" />
                   <span className="text-xs text-gray-400">{siteInfo.shieldCount}</span>
                 </div>
@@ -1097,7 +1181,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
             ref={inputRef}
             type="text"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={e => setUrl(e.target.value)}
             onFocus={() => setFocused(true)}
             onBlur={() => setTimeout(() => setFocused(false), 200)} // Delay for suggestion clicks
             onKeyDown={handleKeyDown}
@@ -1130,7 +1214,9 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
           {/* Search Icon */}
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40">
             <span className="hidden sm:inline">
-              {typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC') ? '⌘ K' : 'CTRL K'}
+              {typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC')
+                ? '⌘ K'
+                : 'CTRL K'}
             </span>
             <Search size={14} className="text-white/50" />
           </div>
@@ -1151,7 +1237,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
                 key={index}
                 type="button"
                 disabled={suggestion.interactive === false}
-                onMouseDown={async (event) => {
+                onMouseDown={async event => {
                   event.preventDefault();
                   if (suggestion.interactive === false) return;
                   const background = event.shiftKey && !event.altKey;
@@ -1159,7 +1245,7 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
                   await handleSuggestionActivate(suggestion, { background, newWindow });
                 }}
                 onMouseEnter={() => setSelectedIndex(index)}
-                onKeyDown={(e) => {
+                onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     if (suggestion.interactive === false) return;
@@ -1174,25 +1260,44 @@ export const Omnibox = forwardRef<OmniboxHandle, { onCommandPalette: () => void;
                 className={`
                   w-full flex items-center gap-3 px-4 py-2.5 text-left
                   transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset
-                  ${selectedIndex === index
-                    ? 'bg-gray-800/60 text-gray-100'
-                    : 'text-gray-300 hover:bg-gray-800/40'
+                  ${
+                    selectedIndex === index
+                      ? 'bg-gray-800/60 text-gray-100'
+                      : 'text-gray-300 hover:bg-gray-800/40'
                   }
                   ${suggestion.interactive === false ? 'cursor-default opacity-80' : ''}
                 `}
               >
                 <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
-                  {suggestion.icon === 'sparkles' && <Sparkles size={14} className="text-emerald-400" />}
+                  {suggestion.icon === 'sparkles' && (
+                    <Sparkles size={14} className="text-emerald-400" />
+                  )}
                   {suggestion.icon === 'search' && <Search size={14} className="text-purple-400" />}
                   {suggestion.icon === 'history' && <Clock size={13} className="text-gray-400" />}
-                  {!suggestion.icon && suggestion.action?.type === 'calc' && <Calculator size={14} className="text-amber-400" />}
-                  {!suggestion.icon && suggestion.action?.type === 'ai' && <Sparkles size={14} className="text-violet-400" />}
-                  {!suggestion.icon && suggestion.action?.type === 'agent' && <Sparkles size={14} className="text-blue-400" />}
-                  {!suggestion.icon && suggestion.action?.type === 'search' && <Search size={14} className="text-purple-400" />}
-                  {!suggestion.icon && suggestion.type === 'tab' && <div className="w-3 h-3 bg-blue-500 rounded-full" />}
-                  {!suggestion.icon && suggestion.type === 'history' && <Clock size={13} className="text-gray-400" />}
-                  {!suggestion.icon && !suggestion.action && suggestion.type === 'command' && <Search size={14} className="text-blue-400" />}
-                  {!suggestion.icon && !suggestion.action && suggestion.type === 'search' && <Search size={14} className="text-purple-400" />}
+                  {!suggestion.icon && suggestion.action?.type === 'calc' && (
+                    <Calculator size={14} className="text-amber-400" />
+                  )}
+                  {!suggestion.icon && suggestion.action?.type === 'ai' && (
+                    <Sparkles size={14} className="text-violet-400" />
+                  )}
+                  {!suggestion.icon && suggestion.action?.type === 'agent' && (
+                    <Sparkles size={14} className="text-blue-400" />
+                  )}
+                  {!suggestion.icon && suggestion.action?.type === 'search' && (
+                    <Search size={14} className="text-purple-400" />
+                  )}
+                  {!suggestion.icon && suggestion.type === 'tab' && (
+                    <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                  )}
+                  {!suggestion.icon && suggestion.type === 'history' && (
+                    <Clock size={13} className="text-gray-400" />
+                  )}
+                  {!suggestion.icon && !suggestion.action && suggestion.type === 'command' && (
+                    <Search size={14} className="text-blue-400" />
+                  )}
+                  {!suggestion.icon && !suggestion.action && suggestion.type === 'search' && (
+                    <Search size={14} className="text-purple-400" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate">{suggestion.title}</div>

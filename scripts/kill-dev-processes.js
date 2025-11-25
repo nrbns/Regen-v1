@@ -12,7 +12,7 @@ console.log('🛑 Killing all development processes...');
 try {
   if (isWin) {
     // Kill by port
-    const ports = [5173, 4000, 3030, 9229];
+    const ports = [5173, 5183, 4000, 3030, 9229];
     ports.forEach(port => {
       try {
         const result = execSync(`netstat -ano | findstr :${port}`, {
@@ -52,7 +52,7 @@ try {
     } catch {}
   } else {
     // Unix: Kill by port
-    const ports = [5173, 4000, 3030, 9229];
+    const ports = [5173, 5183, 4000, 3030, 9229];
     ports.forEach(port => {
       try {
         execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { stdio: 'ignore' });

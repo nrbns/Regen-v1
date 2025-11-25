@@ -56,12 +56,11 @@ export function ResearchPane() {
   } | null>(null);
   const [viewerHighlight, setViewerHighlight] = useState<string | undefined>();
   const { activeId, tabs } = useTabsStore();
-  const activeTab = tabs.find((tab) => tab.id === activeId);
+  const activeTab = tabs.find(tab => tab.id === activeId);
   const streamChannelRef = useRef<string | null>(null);
-  const listenerRef = useRef<((event: any, payload: any) => void) | null>(null);
 
   // Check if Research Mode is active
-  const mode = useAppStore((s) => s.mode);
+  const mode = useAppStore(s => s.mode);
   const isResearchMode = mode === 'Research';
 
   useEffect(() => {
@@ -74,7 +73,7 @@ export function ResearchPane() {
   // Sync documents from backend on mount
   useEffect(() => {
     if (isOpen) {
-      syncDocumentsFromBackend().catch((error) => {
+      syncDocumentsFromBackend().catch(error => {
         console.error('Failed to sync documents on mount:', error);
       });
     }
@@ -85,7 +84,7 @@ export function ResearchPane() {
     const handleKeyboardOpen = () => {
       setIsOpen(true);
     };
-    
+
     ipcEvents.on('research:keyboard-open-pane', handleKeyboardOpen);
     return () => {
       ipcEvents.off('research:keyboard-open-pane', handleKeyboardOpen);
@@ -115,7 +114,7 @@ export function ResearchPane() {
       const localResults = await searchChunks(query.trim(), 5);
       if (localResults.length > 0) {
         // Show local results immediately
-        const localSources: SourceCard[] = localResults.map((chunk) => ({
+        const localSources: SourceCard[] = localResults.map(chunk => ({
           id: chunk.id,
           title: chunk.metadata.title || 'Cached Document',
           url: chunk.metadata.url || '',
@@ -132,13 +131,13 @@ export function ResearchPane() {
 
       // Use WebSocket for streaming (replaces window.ipc.on)
       const ws = new WebSocket(`ws://127.0.0.1:4000/ws/research/${channel}`);
-      
-      ws.onmessage = (event) => {
+
+      ws.onmessage = event => {
         try {
           const payload = JSON.parse(event.data);
           switch (payload?.type) {
             case 'chunk':
-              setAnswerChunks((prev) => [
+              setAnswerChunks(prev => [
                 ...prev,
                 { content: payload.content, citations: payload.citations || [] },
               ]);
@@ -157,9 +156,9 @@ export function ResearchPane() {
                       publishedAt: cite.publishedAt,
                     }))
                 );
-                setSources((prev) => {
-                  const existingIds = new Set(prev.map((s) => s.id));
-                  const newSources = sourceList.filter((s) => !existingIds.has(s.id));
+                setSources(prev => {
+                  const existingIds = new Set(prev.map(s => s.id));
+                  const newSources = sourceList.filter(s => !existingIds.has(s.id));
                   return [...prev, ...newSources];
                 });
               }
@@ -195,7 +194,7 @@ export function ResearchPane() {
     try {
       const { snapshotId } = await ipc.research.saveSnapshot(activeTab.id);
       console.log('Tab snapshot saved:', snapshotId);
-      
+
       // Sync to cache after a short delay (allowing backend processing)
       setTimeout(async () => {
         try {
@@ -216,7 +215,7 @@ export function ResearchPane() {
     try {
       const fileId = await ipc.research.uploadFile(file);
       console.log('File uploaded:', fileId);
-      
+
       // Sync to cache after a short delay (allowing backend processing)
       setTimeout(async () => {
         try {
@@ -225,7 +224,7 @@ export function ResearchPane() {
           console.error('Failed to sync to cache:', error);
         }
       }, 2000);
-      
+
       // Reset input
       event.target.value = '';
     } catch (error) {
@@ -234,17 +233,20 @@ export function ResearchPane() {
     }
   }, []);
 
-  const handleOpenSource = useCallback(async (url: string) => {
-    try {
-      if (activeId) {
-        await ipc.tabs.navigate(activeId, url);
-      } else {
-        await ipc.tabs.create(url);
+  const handleOpenSource = useCallback(
+    async (url: string) => {
+      try {
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, url);
+        } else {
+          await ipc.tabs.create(url);
+        }
+      } catch (error) {
+        console.error('Failed to open source:', error);
       }
-    } catch (error) {
-      console.error('Failed to open source:', error);
-    }
-  }, [activeId]);
+    },
+    [activeId]
+  );
 
   const handleViewDocument = useCallback(async (source: SourceCard, highlight?: string) => {
     // Try to get full content from cache or backend
@@ -319,7 +321,7 @@ export function ResearchPane() {
       {/* Query Bar */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">
         <form
-          onSubmit={(e) => {
+          onSubmit={e => {
             e.preventDefault();
             handleQuery();
           }}
@@ -330,7 +332,7 @@ export function ResearchPane() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
               placeholder="Ask a research question..."
               className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               disabled={isLoading}
@@ -379,7 +381,11 @@ export function ResearchPane() {
                             }
                           }}
                           className="ml-1 inline-flex items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-200 hover:bg-blue-500/25 hover:border-blue-400/60 transition-colors cursor-pointer"
-                          title={citedSource ? `View source: ${citedSource.title}` : `Citation ${citeNum}`}
+                          title={
+                            citedSource
+                              ? `View source: ${citedSource.title}`
+                              : `Citation ${citeNum}`
+                          }
                         >
                           [{citeNum}]
                         </button>
@@ -407,7 +413,7 @@ export function ResearchPane() {
             </h3>
             <div className="space-y-2">
               <AnimatePresence>
-                {sources.map((source) => (
+                {sources.map(source => (
                   <motion.div
                     key={source.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -418,7 +424,9 @@ export function ResearchPane() {
                         ? 'border-blue-500/60 bg-blue-500/10'
                         : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'
                     }`}
-                    onClick={() => setActiveSourceId(activeSourceId === source.id ? null : source.id)}
+                    onClick={() =>
+                      setActiveSourceId(activeSourceId === source.id ? null : source.id)
+                    }
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -432,15 +440,19 @@ export function ResearchPane() {
                             </span>
                           )}
                         </div>
-                        <h4 className="text-sm font-medium text-gray-200 truncate">{source.title}</h4>
+                        <h4 className="text-sm font-medium text-gray-200 truncate">
+                          {source.title}
+                        </h4>
                         {source.snippet && (
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{source.snippet}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {source.snippet}
+                          </p>
                         )}
                         <p className="text-[10px] text-gray-500 truncate mt-1">{source.url}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleViewDocument(source, source.snippet);
                           }}
@@ -451,7 +463,7 @@ export function ResearchPane() {
                         </button>
                         {source.url && (
                           <button
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               handleOpenSource(source.url);
                             }}
@@ -499,4 +511,3 @@ export function ResearchPane() {
     </motion.div>
   );
 }
-

@@ -9,7 +9,7 @@ export interface DiskCacheEntry<T> {
   ttl?: number;
 }
 
-const DB_NAME = 'omnibrowser_cache';
+const DB_NAME = 'regen_cache';
 const STORE_NAME = 'cache_entries';
 const DB_VERSION = 1;
 
@@ -190,4 +190,3 @@ export class DiskCache<T = unknown> {
     });
   }
 }
-

@@ -22,7 +22,7 @@ async function publish(channel, event) {
       return false;
     }
 
-    const channelName = channel.startsWith('omnibrowser:') ? channel : `omnibrowser:${channel}`;
+    const channelName = channel.startsWith('regen:') ? channel : `regen:${channel}`;
     const payload = JSON.stringify({
       ...event,
       timestamp: Date.now(),
@@ -48,7 +48,7 @@ async function subscribe(channel, callback) {
       return null;
     }
 
-    const channelName = channel.startsWith('omnibrowser:') ? channel : `omnibrowser:${channel}`;
+    const channelName = channel.startsWith('regen:') ? channel : `regen:${channel}`;
     const IORedis = require('ioredis');
     const subscriber = new IORedis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
       maxRetriesPerRequest: 3,

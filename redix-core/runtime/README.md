@@ -1,6 +1,6 @@
 # Redix Runtime Skeleton
 
-Lightweight hot/cold memory runtime compiled to WebAssembly and consumed by the OmniBrowser renderer.  
+Lightweight hot/cold memory runtime compiled to WebAssembly and consumed by the Regen renderer.  
 This skeleton gives you:
 
 1. A Rust `wasm-bindgen` crate that stores tab snapshots + contextual memories with hot/cold eviction.
@@ -60,7 +60,7 @@ await ensureRedixRuntime({ maxHotEntries: 6, coldBytes: 32 * 1024 * 1024 });
 await snapshotTab({
   tabId: 'tab-123',
   state: { scrollY: 420, form: { draft: 'Hello' } },
-  meta: { title: 'Docs', url: 'https://omnibrowser.app/docs' },
+  meta: { title: 'Docs', url: 'https://regen.app/docs' },
 });
 
 const restored = await restoreTab('tab-123');

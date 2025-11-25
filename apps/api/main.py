@@ -1,5 +1,5 @@
 """
-OmniBrowser API Server - FastAPI Backend
+Regen API Server - FastAPI Backend
 REST + WebSocket API for desktop and mobile clients
 """
 
@@ -68,13 +68,13 @@ metrics_task: asyncio.Task | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("OmniBrowser API Server starting...")
+    print("Regen API Server starting...")
     init_db()  # Initialize database tables
     global metrics_task
     metrics_task = asyncio.create_task(metrics_publisher())
     yield
     # Shutdown
-    print("OmniBrowser API Server shutting down...")
+    print("Regen API Server shutting down...")
     if metrics_task:
         metrics_task.cancel()
         with suppress(asyncio.CancelledError):
@@ -82,8 +82,8 @@ async def lifespan(app: FastAPI):
 
 logging_config.configure_logging()
 app = FastAPI(
-    title="OmniBrowser API",
-    description="REST + WebSocket API for OmniBrowser",
+    title="Regen API",
+    description="REST + WebSocket API for Regen",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -127,7 +127,7 @@ app.include_router(health_routes.router)
 
 @app.get("/")
 async def root():
-    return {"message": "OmniBrowser API v1.0", "status": "ok"}
+    return {"message": "Regen API v1.0", "status": "ok"}
 
 @app.get("/health", include_in_schema=False)
 async def deprecated_health():

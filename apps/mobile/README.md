@@ -1,12 +1,12 @@
-# OmniBrowser Mobile Shell
+# Regen Mobile Shell
 
-Mobile companion app for OmniBrowser desktop browser.
+Mobile companion app for Regen desktop browser.
 
 ## Architecture
 
 - **Framework**: React Native (Expo) or Flutter
 - **Communication**: WebSocket connection to desktop API server
-- **Features**: 
+- **Features**:
   - Remote tab management
   - Mobile browsing via desktop proxy
   - Agent console access
@@ -97,8 +97,8 @@ npm run android
 See `apps/api/` for API documentation.
 
 Main endpoints:
+
 - `GET /api/tabs` - List tabs
 - `POST /api/tabs` - Create tab
 - `DELETE /api/tabs/:id` - Close tab
 - `WS /ws` - Real-time updates
-

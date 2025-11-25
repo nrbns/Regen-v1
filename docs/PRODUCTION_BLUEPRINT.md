@@ -1,4 +1,4 @@
-# OmniBrowser Production Blueprint
+# Regen Production Blueprint
 
 > **Status:** This blueprint is a living document tracking implementation of the 5-Pillar Architecture.
 >
@@ -11,7 +11,7 @@
 
 ---
 
-# OmniBrowser Production Blueprint
+# Regen Production Blueprint
 
 **Founder → CTO Level Documentation**
 

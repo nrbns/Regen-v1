@@ -81,7 +81,7 @@ export function BottomStatusBar({
           level: 85 + Math.random() * 10,
           charging: false,
         },
-        model: 'OmniBrowser v0.1.0-alpha',
+        model: 'Regen v0.1.0-alpha',
         network: {
           connected: true,
           speed: '1.2 Gbps',

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, Loader2 } from 'lucide-react';
 import { useToastStore } from '../../state/toastStore';
 
 const toastIcon = {
@@ -8,6 +8,7 @@ const toastIcon = {
   success: CheckCircle2,
   error: AlertTriangle,
   warning: AlertTriangle,
+  loading: Loader2,
 } as const;
 
 export function ToastHost() {
@@ -16,7 +17,10 @@ export function ToastHost() {
   useEffect(() => {
     if (toasts.length === 0) return;
 
-    const timers = toasts.map(toast => setTimeout(() => dismiss(toast.id), 4000));
+    // Auto-dismiss toasts that have a duration set (and it's not 0)
+    const timers = toasts
+      .filter(toast => toast.duration !== undefined && toast.duration > 0)
+      .map(toast => setTimeout(() => dismiss(toast.id), toast.duration!));
 
     return () => {
       timers.forEach(clearTimeout);
@@ -35,6 +39,9 @@ export function ToastHost() {
                 ? 'border-rose-400/40 bg-rose-500/10 text-rose-50'
                 : 'border-slate-400/40 bg-slate-800/80 text-slate-100';
 
+          const isLoading = toast.type === 'info' && toast.duration === 0;
+          const LoadingIcon = isLoading ? Loader2 : Icon;
+
           return (
             <motion.div
               key={toast.id}
@@ -42,9 +49,12 @@ export function ToastHost() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg shadow-black/40 ${palette}`}
+              className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg shadow-black/40 ${palette} ${isLoading ? 'border-blue-400/40 bg-blue-500/10' : ''}`}
             >
-              <Icon size={16} className="flex-shrink-0" />
+              <LoadingIcon
+                size={16}
+                className={`flex-shrink-0 ${isLoading ? 'animate-spin' : ''}`}
+              />
               <span className="text-sm leading-snug">{toast.message}</span>
             </motion.div>
           );

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Sparkles, BookOpen, TrendingUp, Code } from 'lucide-react';
+import logo from '/logo.png';
 import { useTokens } from '../useTokens';
 import { Button } from '../button';
 import { Container } from '../layout';
@@ -54,12 +55,20 @@ export function HeroPanel({ className, compact, onQuickAction }: HeroPanelProps)
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            className="flex flex-col items-center gap-3"
           >
+            <img
+              src={logo}
+              alt="Regen logo"
+              width={72}
+              height={72}
+              className="drop-shadow-xl rounded-full bg-black/20 p-4"
+            />
             <h1
               className="font-bold text-[var(--text-primary)] mb-2"
               style={{ fontSize: compact ? tokens.fontSize['3xl'] : tokens.fontSize['5xl'] }}
             >
-              OmniBrowser
+              Regen
             </h1>
             <p className="text-[var(--text-muted)]" style={{ fontSize: tokens.fontSize.lg }}>
               Your intelligent browser for research, trading, and development

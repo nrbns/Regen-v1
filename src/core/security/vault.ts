@@ -77,14 +77,14 @@ class SecureVault {
   }
 
   private getOrCreateVaultKey(): string {
-    const stored = localStorage.getItem('omnibrowser:vault:key');
+    const stored = localStorage.getItem('regen:vault:key');
     if (stored) {
       return stored;
     }
 
     // Generate new key
     const key = `vault-${Date.now()}-${Math.random().toString(36).slice(2, 18)}`;
-    localStorage.setItem('omnibrowser:vault:key', key);
+    localStorage.setItem('regen:vault:key', key);
     return key;
   }
 
@@ -95,7 +95,7 @@ class SecureVault {
     try {
       const encrypted = await encrypt(value, this.vaultKey);
       this.storage.set(key, encrypted);
-      localStorage.setItem(`omnibrowser:vault:${key}`, encrypted);
+      localStorage.setItem(`regen:vault:${key}`, encrypted);
       log.debug('Secret stored in vault', { key });
     } catch (error) {
       log.error('Failed to store secret', { key, error });
@@ -110,7 +110,7 @@ class SecureVault {
     try {
       let encrypted = this.storage.get(key);
       if (!encrypted) {
-        encrypted = localStorage.getItem(`omnibrowser:vault:${key}`) ?? undefined;
+        encrypted = localStorage.getItem(`regen:vault:${key}`) ?? undefined;
         if (encrypted) {
           this.storage.set(key, encrypted);
         }
@@ -133,7 +133,7 @@ class SecureVault {
    */
   delete(key: string): void {
     this.storage.delete(key);
-    localStorage.removeItem(`omnibrowser:vault:${key}`);
+    localStorage.removeItem(`regen:vault:${key}`);
     log.debug('Secret deleted from vault', { key });
   }
 
@@ -141,7 +141,7 @@ class SecureVault {
    * Check if secret exists
    */
   has(key: string): boolean {
-    return this.storage.has(key) || localStorage.getItem(`omnibrowser:vault:${key}`) !== null;
+    return this.storage.has(key) || localStorage.getItem(`regen:vault:${key}`) !== null;
   }
 
   /**
@@ -149,7 +149,7 @@ class SecureVault {
    */
   clear(): void {
     this.storage.clear();
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('omnibrowser:vault:'));
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('regen:vault:'));
     keys.forEach(k => localStorage.removeItem(k));
     log.info('Vault cleared');
   }

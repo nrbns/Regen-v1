@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document provides examples and usage patterns for LangChain agentic workflows in OmniBrowser's Redix integration.
+This document provides examples and usage patterns for LangChain agentic workflows in Regen's Redix integration.
 
 ## Quick Start
 
@@ -14,8 +14,8 @@ import { getAgenticWorkflowEngine } from './langchain-agents';
 const engine = getAgenticWorkflowEngine();
 
 const result = await engine.ragWorkflow(
-  "What is quantum computing?",
-  "User is researching quantum computing for a paper",
+  'What is quantum computing?',
+  'User is researching quantum computing for a paper',
   {
     useOllama: true, // Use local Ollama for efficiency
     temperature: 0.7,
@@ -29,14 +29,10 @@ console.log(result.greenScore); // Eco-score (0-100)
 ### 2. Research Workflow (Search → Summarize → Ethics Check)
 
 ```typescript
-const result = await engine.researchWorkflow(
-  "Research quantum computing ethics in 2025",
-  "",
-  {
-    temperature: 0.7,
-    maxIterations: 5,
-  }
-);
+const result = await engine.researchWorkflow('Research quantum computing ethics in 2025', '', {
+  temperature: 0.7,
+  maxIterations: 5,
+});
 
 // Result includes:
 // - Search results
@@ -49,8 +45,8 @@ const result = await engine.researchWorkflow(
 
 ```typescript
 const result = await engine.multiAgentWorkflow(
-  "Generate code for a quantum computing simulation",
-  "",
+  'Generate code for a quantum computing simulation',
+  '',
   {
     temperature: 0.2, // Lower temp for code generation
   }
@@ -76,8 +72,8 @@ const streamCallback = (chunk: any) => {
 };
 
 await engine.ragWorkflow(
-  "Explain quantum entanglement",
-  "",
+  'Explain quantum entanglement',
+  '',
   { stream: true, useOllama: true },
   streamCallback
 );
@@ -128,7 +124,7 @@ function RAGAgent() {
   const handleQuery = async () => {
     setStreaming(true);
     setResult('');
-    
+
     const response = await fetch('http://localhost:8001/workflow', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -153,7 +149,7 @@ function RAGAgent() {
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = JSON.parse(line.slice(6));
-          
+
           if (data.type === 'token') {
             setResult(prev => prev + data.content);
           } else if (data.type === 'step') {
@@ -169,9 +165,9 @@ function RAGAgent() {
 
   return (
     <div>
-      <input 
-        value={query} 
-        onChange={(e) => setQuery(e.target.value)}
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
         placeholder="Ask a question..."
       />
       <button onClick={handleQuery} disabled={streaming}>
@@ -186,16 +182,19 @@ function RAGAgent() {
 ## Workflow Types
 
 ### `rag` - Retrieval-Augmented Generation
+
 - **Use case**: Answer questions with web search context
 - **Tools**: Web search
 - **Best for**: Research, Q&A, fact-checking
 
 ### `research` - Research Workflow
+
 - **Use case**: Deep research with ethics check
 - **Tools**: Web search, summarization, ethics checker
 - **Best for**: Academic research, content creation
 
 ### `multi-agent` - Multi-Agent Collaboration
+
 - **Use case**: Complex tasks requiring multiple agents
 - **Tools**: All available tools
 - **Best for**: Code generation, complex problem solving
@@ -228,6 +227,7 @@ Then use in workflows:
 ```
 
 **Benefits**:
+
 - ✅ Lower latency (local execution)
 - ✅ Better privacy (no API calls)
 - ✅ Lower cost (free)
@@ -282,6 +282,7 @@ Green score formula: `100 - (energy * 10 + tokens * 0.001)`
 ## Troubleshooting
 
 ### Ollama not available
+
 ```bash
 # Check if Ollama is running
 curl http://localhost:11434/api/tags
@@ -291,6 +292,7 @@ ollama serve
 ```
 
 ### API keys missing
+
 ```bash
 # Set environment variables
 export OPENAI_API_KEY="your-key"
@@ -298,6 +300,7 @@ export ANTHROPIC_API_KEY="your-key"
 ```
 
 ### Streaming not working
+
 - Ensure `stream: true` in request
 - Check Content-Type headers
 - Verify SSE support in client
@@ -308,4 +311,3 @@ export ANTHROPIC_API_KEY="your-key"
 - Implement LangGraph for complex multi-agent workflows
 - Add memory/context management
 - Integrate with SuperMemory for persistent context
-

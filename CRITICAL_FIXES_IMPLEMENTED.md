@@ -1,4 +1,4 @@
-# Critical Fixes Implemented - OmniBrowser Stability & Performance
+# Critical Fixes Implemented - Regen Stability & Performance
 
 ## Overview
 

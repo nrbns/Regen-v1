@@ -21,7 +21,7 @@ export type AppState = {
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
-  mode: 'Browse',
+  mode: 'Research',
   setMode: async mode => {
     const currentMode = get().mode;
     if (mode === currentMode) return;

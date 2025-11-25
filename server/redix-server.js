@@ -31,15 +31,15 @@ import { runSearch } from './redix-search.js';
 import { enqueueScrape } from './services/queue/queue.js';
 import { analyzeWithLLM } from './services/agent/llm.js';
 import { createCircuit } from './services/circuit/circuit.js';
+import { researchSearch } from './services/research/search.js';
+import { generateResearchAnswer, streamResearchAnswer } from './services/research/answer.js';
+import { queryEnhancedResearch } from './services/research/enhanced.js';
 import crypto from 'crypto';
-import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-// Create require function for CommonJS modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const require = createRequire(import.meta.url);
 
 // Load metrics - provide stub for now (metrics.js is CommonJS)
 const getMetrics = () => {
@@ -88,12 +88,6 @@ const initWebSocketServer = () => {
   // WebSocket functionality will be handled by Fastify's websocket plugin
 };
 
-// Regen controller stub
-const regenController = {
-  handleAgentQuery: async () => ({ error: 'Regen controller not available' }),
-  handleAgentStream: async () => ({ error: 'Regen controller not available' }),
-};
-
 // Voice controller stub
 const voiceController = {
   handleVoiceRecognize: async () => ({ error: 'Voice controller not available' }),
@@ -140,17 +134,117 @@ const fastify = Fastify({
   },
 });
 
+const AI_PROXY_PROVIDER =
+  nodeProcess?.env.AI_PROXY_PROVIDER || (nodeProcess?.env.OPENAI_API_KEY ? 'openai' : 'disabled');
+
+const openAIConfig = {
+  apiKey: nodeProcess?.env.OPENAI_API_KEY || '',
+  baseUrl: nodeProcess?.env.OPENAI_API_BASE || 'https://api.openai.com/v1/chat/completions',
+  model: nodeProcess?.env.OPENAI_API_MODEL || 'gpt-4o-mini',
+};
+
+// ============================================================================
+// V1 RESEARCH API
+// ============================================================================
+fastify.post('/v1/search', async (request, reply) => {
+  const { q, size, source_filters, sort, language, from_date, to_date } = request.body ?? {};
+  try {
+    const searchResponse = await researchSearch({
+      query: q,
+      size,
+      sourceFilters: source_filters,
+      sort,
+      language,
+      fromDate: from_date,
+      toDate: to_date,
+    });
+    return searchResponse;
+  } catch (error) {
+    const status = error.message?.includes('Query is required') ? 400 : 500;
+    reply.code(status);
+    return {
+      error: status === 400 ? 'bad_request' : 'search_failed',
+      message: error.message,
+      request_id: request.id,
+    };
+  }
+});
+
+fastify.post('/v1/answer', async (request, reply) => {
+  const { q, max_context_tokens, source_filters, freshness, return_documents } = request.body ?? {};
+  try {
+    const answer = await generateResearchAnswer({
+      query: q,
+      max_context_tokens,
+      source_filters,
+      freshness,
+      return_documents,
+    });
+    return answer;
+  } catch (error) {
+    const status = error.message?.includes('Query is required') ? 400 : 500;
+    reply.code(status);
+    return {
+      error: status === 400 ? 'bad_request' : 'answer_failed',
+      message: error.message,
+      request_id: request.id,
+    };
+  }
+});
+
+fastify.post('/v1/answer/stream', async (request, reply) => {
+  const body = request.body ?? {};
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache, no-transform');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  reply.raw.flushHeaders?.();
+
+  const sendEvent = (event, payload) => {
+    reply.raw.write(`event: ${event}\n`);
+    reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    reply.raw.flush?.();
+  };
+
+  try {
+    const result = await streamResearchAnswer({
+      query: body.q,
+      max_context_tokens: body.max_context_tokens,
+      source_filters: body.source_filters,
+      freshness: body.freshness,
+      onToken: chunk => {
+        if (chunk && chunk.trim().length > 0) {
+          sendEvent('token', { text: chunk });
+        }
+      },
+      onSources: citations => {
+        sendEvent('citations', { citations });
+      },
+    });
+
+    sendEvent('done', { query_id: result.query_id, model: result.model });
+  } catch (error) {
+    const status = error.message?.includes('Query is required') ? 400 : 500;
+    reply.code(status);
+    sendEvent('error', {
+      error: status === 400 ? 'bad_request' : 'answer_failed',
+      message: error.message,
+    });
+  } finally {
+    reply.raw.end();
+  }
+});
+
 // Register CORS for Tauri migration
 fastify.register(cors, {
   origin: [
-    'http://localhost:1420',  // Tauri dev server
-    'tauri://localhost',       // Tauri production
-    'http://localhost:5173',   // Vite dev (Electron fallback)
+    'http://localhost:1420', // Tauri dev server
+    'tauri://localhost', // Tauri production
+    'http://localhost:5173', // Vite dev (Electron fallback)
     'http://127.0.0.1:1420',
     'http://127.0.0.1:5173',
-    'http://localhost:4000',   // Direct backend access
-    'http://127.0.0.1:4000',  // Direct backend access
-    '*'  // Allow all origins for development
+    'http://localhost:4000', // Direct backend access
+    'http://127.0.0.1:4000', // Direct backend access
+    '*', // Allow all origins for development
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -216,7 +310,7 @@ const notificationStore = [
   {
     id: uuidv4(),
     type: 'info',
-    title: 'Welcome to OmniBrowser',
+    title: 'Welcome to Regen',
     body: 'Use ⌘K / Ctrl+K to open the universal command palette.',
     timestamp: new Date().toISOString(),
     read: false,
@@ -999,18 +1093,24 @@ fastify.post('/api/voice/recognize', async (request, reply) => {
 
 // Regen event endpoint (for n8n callbacks)
 fastify.post('/api/regen/event', async (request, reply) => {
-  const { type, data, userId, automationId } = request.body;
+  const { type, data, userId, automationId, language } = request.body;
 
   // Add to automation triggers stream
   await automationTriggers.addTriggerEvent({
     type,
     userId,
     automationId,
-    data,
+    data: {
+      ...data,
+      language: language || 'auto', // Include language in automation data
+    },
   });
 
-  // Also broadcast via event bus
-  await eventBus.publishN8nCallback(automationId || 'unknown', data);
+  // Also broadcast via event bus with language
+  await eventBus.publishN8nCallback(automationId || 'unknown', {
+    ...data,
+    language: language || 'auto',
+  });
 
   // Send to WebSocket clients
   const event = {
@@ -1068,7 +1168,7 @@ fastify.get('/api/tabs', async () => {
   return Array.from(tabsStore.values());
 });
 
-fastify.post('/api/tabs', async (request, reply) => {
+fastify.post('/api/tabs', async request => {
   const { url = 'about:blank', profileId } = request.body;
   const tabId = uuidv4();
   const tab = {
@@ -1194,7 +1294,7 @@ fastify.get('/api/sessions', async () => {
   return Array.from(sessionsStore.values());
 });
 
-fastify.post('/api/sessions', async (request, reply) => {
+fastify.post('/api/sessions', async request => {
   const { name = 'New Session', profileId, color } = request.body;
   const sessionId = uuidv4();
   const session = {
@@ -1258,7 +1358,7 @@ fastify.post('/api/agent/ask', async (request, reply) => {
     reply.code(400);
     return { error: 'Prompt is required' };
   }
-  
+
   try {
     // Use existing agent query endpoint logic
     const jobId = uuidv4();
@@ -1267,7 +1367,7 @@ fastify.post('/api/agent/ask', async (request, reply) => {
       sessionId,
       jobId,
     });
-    
+
     return {
       response: result?.response || 'Agent response unavailable',
       jobId,
@@ -1345,7 +1445,7 @@ fastify.get('/api/storage/:key', async (request, reply) => {
   return { error: 'Key not found' };
 });
 
-fastify.post('/api/storage/:key', async (request, reply) => {
+fastify.post('/api/storage/:key', async request => {
   const { key } = request.params;
   const { value } = request.body;
   storageStore.set(key, value);
@@ -1406,12 +1506,12 @@ fastify.get('/api/storage/accounts', async () => {
 // ============================================================================
 const historyStore = [];
 
-fastify.get('/api/history', async (request) => {
+fastify.get('/api/history', async request => {
   const limit = Number(request.query?.limit) || 100;
   return historyStore.slice(0, limit);
 });
 
-fastify.post('/api/history', async (request, reply) => {
+fastify.post('/api/history', async request => {
   const { url, title, typed } = request.body;
   const entry = {
     id: uuidv4(),
@@ -1428,39 +1528,159 @@ fastify.post('/api/history', async (request, reply) => {
   return { success: true, id: entry.id };
 });
 
-fastify.get('/api/history/search', async (request) => {
+fastify.get('/api/history/search', async request => {
   const { query, limit = 50 } = request.query;
   if (!query) {
     return [];
   }
   const searchTerm = query.toLowerCase();
   const results = historyStore
-    .filter(entry => 
-      entry.url.toLowerCase().includes(searchTerm) ||
-      entry.title.toLowerCase().includes(searchTerm)
+    .filter(
+      entry =>
+        entry.url.toLowerCase().includes(searchTerm) ||
+        entry.title.toLowerCase().includes(searchTerm)
     )
     .slice(0, Number(limit));
   return results;
 });
 
 // ============================================================================
+// AI PROXY API
+// ============================================================================
+function buildSystemPrompt(kind) {
+  switch (kind) {
+    case 'search':
+      return 'You are Regen Research Copilot. Cite sources inline when possible.';
+    case 'agent':
+      return 'You are Regen Execution Agent. Respond with concise, actionable steps.';
+    case 'summary':
+      return 'You summarize webpages for human readers.';
+    default:
+      return 'You are Regen assistant.';
+  }
+}
+
+function buildContextBlock(context) {
+  if (!context || typeof context !== 'object') return '';
+  const serialized = Object.entries(context)
+    .filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+    .map(([key, value]) => `${key}: ${String(value).slice(0, 1500)}`);
+  if (!serialized.length) return '';
+  return `\nContext:\n${serialized.join('\n')}`;
+}
+
+async function callOpenAI(payload) {
+  const { prompt, kind, context, temperature = 0.2, max_tokens = 800 } = payload;
+  if (!openAIConfig.apiKey) {
+    return {
+      status: 503,
+      body: { error: 'OpenAI API key missing on server' },
+    };
+  }
+
+  const headers = {
+    Authorization: `Bearer ${openAIConfig.apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  const body = {
+    model: openAIConfig.model,
+    temperature: Math.min(Math.max(temperature, 0), 1),
+    max_tokens: Math.min(Math.max(max_tokens, 64), 2000),
+    messages: [
+      {
+        role: 'system',
+        content: `${buildSystemPrompt(kind)}${buildContextBlock(context)}`,
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  };
+
+  const response = await fetch(openAIConfig.baseUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const data = await response.json();
+  return {
+    status: response.status,
+    body: data,
+  };
+}
+
+fastify.post('/api/ai/task', async (request, reply) => {
+  const { prompt, kind = 'agent', context, temperature, max_tokens } = request.body || {};
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    reply.code(400);
+    return { error: 'Prompt is required' };
+  }
+
+  if (AI_PROXY_PROVIDER === 'disabled') {
+    reply.code(503);
+    return { error: 'AI proxy is disabled on this server' };
+  }
+
+  try {
+    let proxyResult;
+    switch (AI_PROXY_PROVIDER) {
+      case 'openai':
+      default:
+        proxyResult = await callOpenAI({
+          prompt: prompt.trim(),
+          kind,
+          context,
+          temperature,
+          max_tokens,
+        });
+        break;
+    }
+
+    if (!proxyResult || proxyResult.status >= 500) {
+      fastify.log.error({ proxyResult }, 'AI proxy upstream failure');
+      reply.code(502);
+      return { error: 'AI provider unavailable' };
+    }
+
+    if (proxyResult.status >= 400) {
+      reply.code(proxyResult.status);
+      return { error: proxyResult.body?.error || 'AI provider error' };
+    }
+
+    const choice = proxyResult.body?.choices?.[0]?.message?.content || '';
+    return {
+      text: choice?.trim() || '',
+      provider: AI_PROXY_PROVIDER,
+      model: proxyResult.body?.model || openAIConfig.model,
+      usage: proxyResult.body?.usage,
+      citations: [],
+    };
+  } catch (error) {
+    fastify.log.error({ error }, 'AI proxy request failed');
+    reply.code(502);
+    return { error: 'AI provider request failed' };
+  }
+});
+
+// ============================================================================
 // RESEARCH API - For Tauri migration
 // ============================================================================
 fastify.post('/api/research/query', async (request, reply) => {
-  const { query, mode } = request.body;
+  const { query, language } = request.body ?? {};
   if (!query) {
     reply.code(400);
     return { error: 'Query is required' };
   }
-  
-  // Use existing search functionality
+
   try {
-    const results = await runSearch(query, { limit: 10 });
-    return {
+    const results = await researchSearch({
       query,
-      results: results || [],
-      mode: mode || 'default',
-    };
+      size: 12,
+      language,
+    });
+    return results;
   } catch (error) {
     fastify.log.error({ error }, 'Research query failed');
     reply.code(500);
@@ -1469,27 +1689,15 @@ fastify.post('/api/research/query', async (request, reply) => {
 });
 
 fastify.post('/api/research/enhanced', async (request, reply) => {
-  const { query, mode } = request.body;
+  const { query, ...options } = request.body ?? {};
   if (!query) {
     reply.code(400);
     return { error: 'Query is required' };
   }
-  
+
   try {
-    // Enhanced research with LLM
-    const jobId = uuidv4();
-    const result = await LLMCircuit.fire({
-      prompt: `Research: ${query}`,
-      mode: mode || 'research',
-      jobId,
-    });
-    
-    return {
-      query,
-      response: result?.response || 'Research unavailable',
-      sources: [],
-      jobId,
-    };
+    const result = await queryEnhancedResearch({ query, ...options });
+    return result;
   } catch (error) {
     fastify.log.error({ error }, 'Enhanced research failed');
     reply.code(500);
@@ -1510,12 +1718,12 @@ fastify.get('/api/graph', async () => {
 });
 
 fastify.post('/api/graph', async (request, reply) => {
-  const { node, edges } = request.body;
+  const { node } = request.body;
   if (!node || !node.id) {
     reply.code(400);
     return { error: 'Node with ID is required' };
   }
-  
+
   const graphNode = {
     id: node.id,
     type: node.type || 'default',
@@ -1532,7 +1740,7 @@ fastify.post('/api/graph/node', async (request, reply) => {
     reply.code(400);
     return { error: 'Node ID is required' };
   }
-  
+
   const node = {
     id,
     type: type || 'default',
@@ -1566,30 +1774,31 @@ fastify.get('/api/graph/node/:id', async (request, reply) => {
 // ============================================================================
 const ledgerStore = [];
 
-fastify.get('/api/ledger', async (request) => {
+fastify.get('/api/ledger', async request => {
   const limit = Number(request.query?.limit) || 100;
   return ledgerStore.slice(0, limit);
 });
 
-fastify.post('/api/ledger', async (request, reply) => {
+fastify.post('/api/ledger', async request => {
   const { url, passage, action, domain, timestamp, metadata } = request.body;
-  
+
   // Support both formats: { url, passage } and { action, domain, ... }
-  const entry = url && passage
-    ? {
-        id: uuidv4(),
-        url,
-        passage,
-        timestamp: Date.now(),
-      }
-    : {
-        id: uuidv4(),
-        action: action || 'unknown',
-        domain: domain || 'unknown',
-        timestamp: timestamp || Date.now(),
-        metadata: metadata || {},
-      };
-  
+  const entry =
+    url && passage
+      ? {
+          id: uuidv4(),
+          url,
+          passage,
+          timestamp: Date.now(),
+        }
+      : {
+          id: uuidv4(),
+          action: action || 'unknown',
+          domain: domain || 'unknown',
+          timestamp: timestamp || Date.now(),
+          metadata: metadata || {},
+        };
+
   ledgerStore.unshift(entry);
   if (ledgerStore.length > 10000) {
     ledgerStore.length = 10000;
@@ -1658,12 +1867,12 @@ fastify.get('/api/proxy/status', async () => {
   return { enabled: false, type: null, address: null };
 });
 
-fastify.post('/api/proxy/enable', async (request, reply) => {
+fastify.post('/api/proxy/enable', async request => {
   const { type, address, port } = request.body;
   return { success: true, enabled: true, type, address, port };
 });
 
-fastify.post('/api/proxy', async (request) => {
+fastify.post('/api/proxy', async request => {
   const rules = request.body;
   return { success: true, rules };
 });
@@ -1672,7 +1881,7 @@ fastify.post('/api/proxy/disable', async () => {
   return { success: true, enabled: false };
 });
 
-fastify.post('/api/proxy/kill-switch', async (request) => {
+fastify.post('/api/proxy/kill-switch', async request => {
   const { enabled } = request.body;
   return { success: true, enabled: enabled || false };
 });
@@ -1686,7 +1895,7 @@ fastify.post('/api/threats/scan', async (request, reply) => {
     reply.code(400);
     return { error: 'URL is required' };
   }
-  
+
   return {
     url,
     safe: true,
@@ -1701,7 +1910,7 @@ fastify.post('/api/threats/scan-url', async (request, reply) => {
     reply.code(400);
     return { error: 'URL is required' };
   }
-  
+
   return {
     url,
     safe: true,
@@ -1716,7 +1925,7 @@ fastify.post('/api/threats/scan-file', async (request, reply) => {
     reply.code(400);
     return { error: 'File path is required' };
   }
-  
+
   return {
     filePath,
     safe: true,
@@ -1744,7 +1953,7 @@ fastify.post('/api/video/stop', async () => {
   return { success: true };
 });
 
-fastify.delete('/api/video/:id', async (request, reply) => {
+fastify.delete('/api/video/:id', async request => {
   const { id } = request.params;
   return { success: true, id };
 });
@@ -1753,7 +1962,7 @@ fastify.get('/api/video/consent', async () => {
   return false;
 });
 
-fastify.post('/api/video/consent', async (request) => {
+fastify.post('/api/video/consent', async request => {
   const { value } = request.body;
   return { success: true, value: value || false };
 });
@@ -1761,12 +1970,12 @@ fastify.post('/api/video/consent', async (request) => {
 // ============================================================================
 // UI API - For Tauri migration
 // ============================================================================
-fastify.post('/api/ui/chrome-offsets', async (request) => {
+fastify.post('/api/ui/chrome-offsets', async request => {
   const offsets = request.body;
   return { success: true, offsets };
 });
 
-fastify.post('/api/ui/right-dock', async (request) => {
+fastify.post('/api/ui/right-dock', async request => {
   const { px } = request.body;
   return { success: true, px: px || 0 };
 });
@@ -1817,7 +2026,7 @@ fastify.get('/api/session/load-tabs', async () => {
   return { tabs: Array.from(tabsStore.values()) };
 });
 
-fastify.post('/api/session/add-history', async (request, reply) => {
+fastify.post('/api/session/add-history', async request => {
   const { url, title, typed } = request.body;
   const entry = {
     id: uuidv4(),
@@ -1830,7 +2039,7 @@ fastify.post('/api/session/add-history', async (request, reply) => {
   return { success: true, id: entry.id };
 });
 
-fastify.get('/api/session/history', async (request) => {
+fastify.get('/api/session/history', async request => {
   const limit = Number(request.query?.limit) || 100;
   return { history: historyStore.slice(0, limit) };
 });
@@ -1843,15 +2052,16 @@ fastify.post('/api/session/search-history', async (request, reply) => {
   }
   const searchTerm = query.toLowerCase();
   const results = historyStore
-    .filter(entry => 
-      entry.url.toLowerCase().includes(searchTerm) ||
-      entry.title.toLowerCase().includes(searchTerm)
+    .filter(
+      entry =>
+        entry.url.toLowerCase().includes(searchTerm) ||
+        entry.title.toLowerCase().includes(searchTerm)
     )
     .slice(0, Number(limit));
   return { results };
 });
 
-fastify.post('/api/session/save-setting', async (request, reply) => {
+fastify.post('/api/session/save-setting', async request => {
   const { key, value } = request.body;
   storageStore.set(`settings:${key}`, value);
   return { success: true };

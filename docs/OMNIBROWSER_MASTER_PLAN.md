@@ -1,4 +1,4 @@
-# OmniBrowser Master Plan
+# Regen Master Plan
 
 ## The End-Game Browser - 5 Pillars to Domination
 
@@ -10,7 +10,7 @@
 
 > **NEW:** Pillar 6 - Redix SuperCore (The Execution Engine)
 >
-> Redis is not just a database - it's the backend nervous system that makes OmniBrowser the world's first **real-time execution browser**.
+> Redis is not just a database - it's the backend nervous system that makes Regen the world's first **real-time execution browser**.
 >
 > See: `docs/REDIX_PILLAR_6.md` for full details.
 
@@ -149,7 +149,7 @@ Perplexity **cannot**:
 - Navigate between sources
 - Keep memory across pages
 
-OmniBrowser **can**:
+Regen **can**:
 
 - ✅ Search
 - ✅ Summarize
@@ -283,7 +283,7 @@ When forking Chromium:
 
 **India = Largest retail trader growth on Earth**
 
-This alone makes OmniBrowser **explode in adoption**.
+This alone makes Regen **explode in adoption**.
 
 **Status:** ✅ Core Complete | 🔄 Advanced features in progress
 
@@ -293,7 +293,7 @@ This alone makes OmniBrowser **explode in adoption**.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              OmniBrowser UI Layer                       │
+│              Regen UI Layer                       │
 │  ┌──────────┐  ┌──────────────┐  ┌─────────────────┐  │
 │  │   Tabs   │  │ Regen Sidebar │  │ Hands-Free Mode │  │
 │  │          │  │               │  │                 │  │
@@ -368,7 +368,7 @@ Redix (Redis) is the **backend nervous system** that enables:
 - ❌ Arc → UI only
 - ❌ Chrome → passive browsing
 
-**OmniBrowser becomes:**
+**Regen becomes:**
 
 - ✅ **THE FIRST REAL-TIME EXECUTION BROWSER**
 - ✅ Browses like Chrome
@@ -456,30 +456,30 @@ Redix (Redis) is the **backend nervous system** that enables:
 
 ### vs Chrome
 
-- ✅ **OmniBrowser:** AI-native, automation, privacy
+- ✅ **Regen:** AI-native, automation, privacy
 - ❌ **Chrome:** Just browsing, tracking, no AI
 
 ### vs Perplexity
 
-- ✅ **OmniBrowser:** Inside browser, can open pages, automate
+- ✅ **Regen:** Inside browser, can open pages, automate
 - ❌ **Perplexity:** External, can't control browser
 
 ### vs Atlas/Comet
 
-- ✅ **OmniBrowser:** Built-in, no plugin needed, multilingual
+- ✅ **Regen:** Built-in, no plugin needed, multilingual
 - ❌ **Atlas/Comet:** Plugin, English-only, separate tool
 
 ### vs Brave
 
-- ✅ **OmniBrowser:** AI + automation + research + India-first
+- ✅ **Regen:** AI + automation + research + India-first
 - ❌ **Brave:** Just privacy, no AI, no automation
 
 ### vs Arc
 
-- ✅ **OmniBrowser:** Full automation, multilingual, India features
+- ✅ **Regen:** Full automation, multilingual, India features
 - ❌ **Arc:** Just UI, no automation, US-focused
 
-**Result:** OmniBrowser has **all 5 pillars** - no competitor has more than 2.
+**Result:** Regen has **all 5 pillars** - no competitor has more than 2.
 
 ---
 
@@ -640,4 +640,4 @@ Redix (Redis) is the **backend nervous system** that enables:
 
 ---
 
-**OmniBrowser is not just a browser. It's the Internet Operating System for India. 🚀🇮🇳**
+**Regen is not just a browser. It's the Internet Operating System for India. 🚀🇮🇳**

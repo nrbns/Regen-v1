@@ -57,7 +57,7 @@ export async function runAgent(task: AgentTask): Promise<AgentResult> {
 
         const duration = performance.now() - startTime;
         metricsCollector.recordAgent({
-          agentId: 'omnibrowser',
+          agentId: 'regen',
           runId: `run-${Date.now()}`,
           duration,
           success: true,
@@ -69,7 +69,7 @@ export async function runAgent(task: AgentTask): Promise<AgentResult> {
       } catch (error) {
         const duration = performance.now() - startTime;
         metricsCollector.recordAgent({
-          agentId: 'omnibrowser',
+          agentId: 'regen',
           runId: `run-${Date.now()}`,
           duration,
           success: false,
@@ -226,4 +226,3 @@ async function handleExplainPage(task: {
     content: `Explanation of ${result.sources?.[0]?.title || task.url}:\n\n${result.content}`,
   };
 }
-

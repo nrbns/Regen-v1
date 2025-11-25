@@ -4,6 +4,8 @@
  * Supports Ollama (local) and OpenAI for content analysis
  */
 
+import { getLanguageLabel, normalizeLanguage } from '../lang/detect.js';
+
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -129,34 +131,157 @@ async function callOpenAI(messages, options = {}) {
   };
 }
 
+async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
+  const model = options.model || OPENAI_MODEL;
+  const temperature = options.temperature ?? 0.0;
+  const maxTokens = options.maxTokens ?? 2000;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+      temperature,
+      max_tokens: maxTokens,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const error = await response.text();
+    throw new Error(`OpenAI stream error: ${response.status} ${error}`);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let modelName = model;
+
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let boundary;
+    while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+      const event = buffer.slice(0, boundary).trim();
+      buffer = buffer.slice(boundary + 2);
+      if (!event.startsWith('data:')) continue;
+      const data = event.slice(5).trim();
+      if (data === '[DONE]') {
+        return {
+          model: modelName,
+          provider: 'openai',
+        };
+      }
+      try {
+        const payload = JSON.parse(data);
+        modelName = payload.model || modelName;
+        const delta = payload.choices?.[0]?.delta;
+        if (delta?.content) {
+          onToken?.(delta.content);
+        }
+      } catch (error) {
+        console.warn('[llm] Failed to parse OpenAI stream chunk', error);
+      }
+    }
+  }
+
+  return {
+    model: modelName,
+    provider: 'openai',
+  };
+}
+
+async function callOllamaStream(messages, options = {}, { onToken } = {}) {
+  const model = options.model || OLLAMA_MODEL;
+
+  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })),
+      stream: true,
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    const error = await response.text();
+    throw new Error(`Ollama stream error: ${response.status} ${error}`);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for await (const chunk of response.body) {
+    buffer += decoder.decode(chunk, { stream: true });
+    let boundary;
+    while ((boundary = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, boundary).trim();
+      buffer = buffer.slice(boundary + 1);
+      if (!line) continue;
+      try {
+        const payload = JSON.parse(line);
+        if (payload.done) {
+          return {
+            model: payload.model || model,
+            provider: 'ollama',
+          };
+        }
+        if (payload.message?.content) {
+          onToken?.(payload.message.content);
+        }
+      } catch (error) {
+        console.warn('[llm] Failed to parse Ollama stream chunk', error);
+      }
+    }
+  }
+  return {
+    model,
+    provider: 'ollama',
+  };
+}
+
+function buildLanguageDirective(language) {
+  if (!language) return '';
+  const normalized = normalizeLanguage(language);
+  const label = getLanguageLabel(normalized);
+  return ` Respond in ${label} (${normalized}).`;
+}
+
 /**
  * Build prompt for task
  */
-function buildPrompt(task, question, inputText, url) {
+function buildPrompt(task, question, inputText, url, language) {
   const baseContext = url ? `Source URL: ${url}\n\n` : '';
   const contentPreview = inputText.slice(0, 2000);
+  const languageInstruction = buildLanguageDirective(language);
 
   switch (task) {
     case 'summarize':
       return {
-        system: 'You are a helpful assistant that summarizes web content concisely and accurately.',
+        system: `You are a helpful assistant that summarizes web content concisely and accurately.${languageInstruction}`,
         user: `${baseContext}Content:\n${contentPreview}\n\nPlease provide a concise summary (2-3 sentences) and highlight 3-5 key points.`,
       };
     case 'qa':
       return {
-        system:
-          'You are a helpful assistant that answers questions based on provided content. Cite specific parts when possible.',
+        system: `You are a helpful assistant that answers questions based on provided content. Cite specific parts when possible.${languageInstruction}`,
         user: `${baseContext}Content:\n${contentPreview}\n\nQuestion: ${question}\n\nAnswer the question based on the content above.`,
       };
     case 'threat':
       return {
-        system:
-          'You are a security analyst. Analyze web content for potential threats, suspicious scripts, malware indicators, and privacy risks.',
+        system: `You are a security analyst. Analyze web content for potential threats, suspicious scripts, malware indicators, and privacy risks.${languageInstruction}`,
         user: `${baseContext}Content:\n${contentPreview}\n\nAnalyze this content for security threats, suspicious patterns, and privacy concerns. Provide a structured assessment.`,
       };
     default:
       return {
-        system: 'You are a helpful assistant.',
+        system: `You are a helpful assistant.${languageInstruction}`,
         user: `${baseContext}Content:\n${contentPreview}\n\nQuestion: ${question || 'Analyze this content.'}`,
       };
   }
@@ -171,6 +296,7 @@ export async function analyzeWithLLM({
   url,
   question,
   userId: _userId,
+  language,
 }) {
   const startTime = Date.now();
 
@@ -185,7 +311,7 @@ export async function analyzeWithLLM({
   const primaryChunk = chunks[0];
 
   // Build prompt
-  const { system, user } = buildPrompt(task, question, primaryChunk, url);
+  const { system, user } = buildPrompt(task, question, primaryChunk, url, language);
 
   const messages = [
     { role: 'system', content: system },
@@ -236,5 +362,66 @@ export async function analyzeWithLLM({
       tokensUsed: llmResult.tokensUsed,
     },
     latencyMs,
+  };
+}
+
+export async function streamLLMAnswer({
+  task = 'summarize',
+  inputText,
+  url,
+  question,
+  onToken,
+  language,
+}) {
+  const startTime = Date.now();
+  const text = inputText?.includes('<') ? extractText(inputText) : inputText;
+  if (!text || text.length < 10) {
+    throw new Error('Insufficient content to analyze');
+  }
+
+  const chunks = chunkText(text, 4000);
+  const primaryChunk = chunks[0];
+  const { system, user } = buildPrompt(task, question, primaryChunk, url, language);
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user', content: user },
+  ];
+
+  try {
+    if (LLM_PROVIDER === 'openai' && OPENAI_API_KEY) {
+      const meta = await callOpenAIStream(messages, { temperature: 0.0 }, { onToken });
+      return {
+        model: meta.model,
+        provider: meta.provider,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+    if (LLM_PROVIDER === 'ollama') {
+      const meta = await callOllamaStream(messages, {}, { onToken });
+      return {
+        model: meta.model,
+        provider: meta.provider,
+        latencyMs: Date.now() - startTime,
+      };
+    }
+  } catch (error) {
+    console.warn('[llm] stream failed, falling back to batch', error);
+  }
+
+  const fallback = await analyzeWithLLM({
+    task,
+    inputText,
+    url,
+    question,
+    language,
+  });
+  const tokens = fallback.answer.split(/(\.|\n)/).filter(Boolean);
+  for (const chunk of tokens) {
+    onToken?.(chunk);
+  }
+  return {
+    model: fallback.model?.name || fallback.model || 'fallback',
+    provider: fallback.model?.provider || 'fallback',
+    latencyMs: fallback.latencyMs ?? Date.now() - startTime,
   };
 }

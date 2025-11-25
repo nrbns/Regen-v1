@@ -554,9 +554,7 @@ export function AppShell() {
     // User declined TOS - could show a message or prevent app usage
     // For now, we'll just close the app or show a message
     if (
-      window.confirm(
-        'You must accept the Terms of Service to use OmniBrowser. Would you like to exit?'
-      )
+      window.confirm('You must accept the Terms of Service to use Regen. Would you like to exit?')
     ) {
       // In Electron, we could close the window
       if (typeof window !== 'undefined' && (window as any).api?.app?.quit) {
@@ -628,7 +626,7 @@ export function AppShell() {
   // Check TOS acceptance on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('omnibrowser:tos:accepted');
+      const stored = localStorage.getItem('regen:tos:accepted');
       if (stored) {
         const data = JSON.parse(stored);
         const currentVersion = '2025-12-17'; // Update when TOS changes
@@ -670,7 +668,7 @@ export function AppShell() {
     const isGraphDrag = (event: DragEvent) => {
       const types = event.dataTransfer?.types;
       if (!types) return false;
-      return Array.from(types).includes('application/x-omnibrowser-tab-id');
+      return Array.from(types).includes('application/x-regen-tab-id');
     };
 
     const handleDragEnter = (event: DragEvent) => {
@@ -706,7 +704,7 @@ export function AppShell() {
       event.preventDefault();
       dragCounter = 0;
       setGraphDropHint(false);
-      const tabId = event.dataTransfer?.getData('application/x-omnibrowser-tab-id');
+      const tabId = event.dataTransfer?.getData('application/x-regen-tab-id');
       if (tabId) {
         try {
           void useTabGraphStore.getState().focusTab(tabId);
@@ -1962,7 +1960,7 @@ export function AppShell() {
         <CookieConsent
           onAccept={preferences => {
             console.log('[AppShell] Cookie consent accepted:', preferences);
-            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(preferences));
+            localStorage.setItem('regen:cookie-consent', JSON.stringify(preferences));
             // Force a small delay to ensure localStorage is written and state updates
             setTimeout(() => {
               setShowCookieConsent(false);
@@ -1988,7 +1986,7 @@ export function AppShell() {
               timestamp: Date.now(),
               version: '2025-12-17',
             };
-            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(minimal));
+            localStorage.setItem('regen:cookie-consent', JSON.stringify(minimal));
             setTimeout(() => {
               setShowCookieConsent(false);
               console.log('[AppShell] Cookie consent modal closed, onboarding should start now');

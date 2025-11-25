@@ -1,8 +1,8 @@
 {
-  "name": "omnibrowser",
+  "name": "regen",
   "version": "0.1.0-alpha",
   "private": true,
-  "description": "OmniBrowser/Regen: Next-generation AI automation platform with full agent layer, automation workflows, Redix execution environment, and multi-browser capabilities",
+  "description": "Regen/Regen: Next-generation AI automation platform with full agent layer, automation workflows, Redix execution environment, and multi-browser capabilities",
   "scripts": {
     "test:all": "node scripts/test-all-functionality.js",
     "test:ai-offline": "node scripts/test-ai-offline.js",
@@ -19,10 +19,13 @@
     "build": "cross-env JSDOM_NO_CANVAS=1 vite build",
     "build:types": "tsc -b",
     "build:app": "cd tauri-migration && npm run tauri build",
+    "build:windows": "npm run build && cd tauri-migration && npm run tauri:build -- --target x86_64-pc-windows-msvc",
+    "build:windows:installer": "npm run build && cd tauri-migration && npm run tauri:build -- --bundles msi",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 0",
     "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:multilingual-offline": "playwright test tests/e2e/multilingual-offline.spec.ts --config=playwright.config.ts",
     "test:backend": "playwright test tests/e2e/backend-api.spec.ts --config=playwright.config.ts",
     "test:visual": "playwright test --config=playwright.visual.config.ts",
     "test:visual:update": "playwright test --config=playwright.visual.config.ts --update-snapshots",
@@ -52,6 +55,7 @@
     "@langchain/openai": "^1.1.1",
     "@mozilla/readability": "^0.6.0",
     "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@tanstack/react-table": "^8.21.3",
     "@types/dompurify": "^3.0.5",
     "abort-controller": "^3.0.0",
     "bufferutil": "file:stubs/bufferutil-stub",
@@ -63,6 +67,7 @@
     "fast-xml-parser": "^4.5.0",
     "fastify": "^5.6.2",
     "framer-motion": "^11.18.2",
+    "franc": "^6.1.0",
     "html-entities": "^2.5.2",
     "iconv-lite": "^0.6.3",
     "ioredis": "^5.8.2",
@@ -87,6 +92,7 @@
     "radix-ui": "^1.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.26.1",
     "reactflow": "^11.10.3",
     "robots-parser": "^3.0.1",
@@ -146,8 +152,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.example.omnibrowser",
-    "productName": "OmniBrowser",
+    "appId": "com.example.regen",
+    "productName": "Regen",
     "files": [
       "dist-web/**",
       "package.json"

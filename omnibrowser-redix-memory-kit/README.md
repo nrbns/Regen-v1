@@ -1,6 +1,6 @@
-# OmniBrowser × Redix Memory Kit
+# Regen × Redix Memory Kit
 
-Zero-cloud, mode-aware memory infrastructure for OmniBrowser. This bundle includes:
+Zero-cloud, mode-aware memory infrastructure for Regen. This bundle includes:
 
 - Dockerized FastAPI stack (Postgres + Qdrant + Redis) with ONNX embeddings
 - Browser extension (Manifest V3) for tab/session ingestion and omnibar recall
@@ -16,7 +16,7 @@ Zero-cloud, mode-aware memory infrastructure for OmniBrowser. This bundle includ
 ## 2. Quickstart
 
 ```bash
-cd omnibrowser-redix-memory-kit
+cd regen-redix-memory-kit
 docker compose up -d
 ```
 
@@ -25,12 +25,12 @@ docker compose up -d
 2. Seed settings in devtools console:
    ```js
    chrome.storage.local.set({
-     MEMORY_BASE: "http://localhost:8080",
-     JWT: "dev",
+     MEMORY_BASE: 'http://localhost:8080',
+     JWT: 'dev',
      SYNC_ENABLED: true,
-     MODE: "research",
-     TENANT: "dev",
-     USER: "u42"
+     MODE: 'research',
+     TENANT: 'dev',
+     USER: 'u42',
    });
    ```
 3. Browse any page, press `Ctrl+Shift+M` to cycle modes, `Alt + drag` to highlight and store notes.
@@ -85,4 +85,3 @@ Set `ASYNC_EMBED=true` (default in `docker-compose.yml`) to route writes through
 ---
 
 Ship questions? Ping the Grok sidebar: `memory.search("phishing playbooks")` and riff from there. 🚀
-

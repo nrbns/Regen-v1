@@ -61,7 +61,7 @@ async def ask_about_page(request: AskAboutPageRequest):
             page_context = f"Title: {extracted.title}\n\nContent: {extracted.content[:5000]}"  # Limit to 5000 chars
         
         # Build prompt with context
-        system_prompt = """You are Redix, an AI assistant for OmniBrowser. 
+        system_prompt = """You are Redix, an AI assistant for Regen. 
 You help users understand web pages by answering questions about their content.
 Provide accurate, concise answers based on the page content provided."""
         
@@ -165,7 +165,7 @@ async def summarize_page(request: SummarizePageRequest):
         }
         style_instruction = style_instructions.get(request.style, style_instructions["concise"])
         
-        system_prompt = """You are Redix, an AI assistant for OmniBrowser.
+        system_prompt = """You are Redix, an AI assistant for Regen.
 You create clear, accurate summaries of web pages."""
         
         user_prompt = f"""Page URL: {request.url}
@@ -255,7 +255,7 @@ async def llm_assistant(request: LLMAssistantRequest):
     Can be used for any AI assistant task with optional context.
     """
     try:
-        system_prompt = request.system_prompt or "You are Redix, an AI assistant for OmniBrowser. Provide helpful, concise answers."
+        system_prompt = request.system_prompt or "You are Redix, an AI assistant for Regen. Provide helpful, concise answers."
         
         user_prompt = request.prompt
         if request.context:

@@ -1,4 +1,4 @@
-# OmniBrowser Research Mode Backend
+# Regen Research Mode Backend
 
 Production-ready backend for Research Mode with realtime streaming, vector search, and document ingestion.
 
@@ -163,6 +163,7 @@ alembic upgrade head
 ## Deployment
 
 See `deploy/` directory for:
+
 - Kubernetes manifests
 - Terraform infrastructure
 - Docker production configs
@@ -172,4 +173,3 @@ See `deploy/` directory for:
 - Prometheus metrics: `http://localhost:8000/metrics`
 - Health check: `http://localhost:8000/health`
 - API docs: `http://localhost:8000/docs`
-

@@ -13,7 +13,7 @@ export default function AccountBadge() {
         setAccounts(Array.isArray(l) ? l.filter(a => a && a.id && a.name) : []);
         // Try to load saved account preference
         try {
-          const saved = localStorage.getItem('omnibrowser:selectedAccount');
+          const saved = localStorage.getItem('regen:selectedAccount');
           if (saved && l && Array.isArray(l) && l.some((a: Account) => a.id === saved)) {
             setCurrent(saved);
           }
@@ -33,9 +33,9 @@ export default function AccountBadge() {
     // Save preference
     try {
       if (newValue === 'default') {
-        localStorage.removeItem('omnibrowser:selectedAccount');
+        localStorage.removeItem('regen:selectedAccount');
       } else {
-        localStorage.setItem('omnibrowser:selectedAccount', newValue);
+        localStorage.setItem('regen:selectedAccount', newValue);
       }
     } catch (error) {
       console.warn('[AccountBadge] Failed to save account preference:', error);

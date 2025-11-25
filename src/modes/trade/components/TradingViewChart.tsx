@@ -150,31 +150,35 @@ export default function TradingViewChart({
 
     const chart = createChart(containerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: '#05070d' },
+        background: { type: ColorType.Solid, color: '#1a1a1a' },
         textColor: '#d1d5db',
       },
       grid: {
-        vertLines: { color: '#111828' },
-        horzLines: { color: '#111828' },
+        vertLines: { color: '#2a2a2a', style: 1 },
+        horzLines: { color: '#2a2a2a', style: 1 },
       },
       width: containerRef.current.clientWidth,
       height,
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: '#1f2937',
+        borderColor: '#3a3a3a',
       },
       rightPriceScale: {
-        borderColor: '#1f2937',
+        borderColor: '#3a3a3a',
       },
       crosshair: {
         mode: 0,
         vertLine: {
           color: '#818cf8',
+          width: 1,
+          style: 2,
           labelBackgroundColor: '#4c1d95',
         },
         horzLine: {
           color: '#818cf8',
+          width: 1,
+          style: 2,
           labelBackgroundColor: '#4c1d95',
         },
       },
@@ -195,11 +199,17 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
     const series = addCandles({
-      upColor: '#22c55e',
-      downColor: '#ef4444',
-      borderVisible: false,
-      wickUpColor: '#22c55e',
-      wickDownColor: '#ef4444',
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderUpColor: '#26a69a',
+      borderDownColor: '#ef5350',
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
     candleSeriesRef.current = series;
 
@@ -272,17 +282,37 @@ export default function TradingViewChart({
   }, [overlaySeriesData]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#070912] text-white shadow-xl shadow-black/40">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3 text-sm text-gray-400">
-        <div className="space-y-0.5">
-          <p className="text-lg font-semibold tracking-wide text-white">{symbol}</p>
-          <p className="text-xs uppercase tracking-wide text-gray-500">Timeframe {timeframe}</p>
+    <div className="rounded-lg border border-gray-800 bg-[#1a1a1a] text-white shadow-2xl">
+      {/* TradingView-style header with toolbar */}
+      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2.5 bg-[#131722]">
+        <div className="flex items-center gap-4">
+          <div>
+            <p className="text-lg font-bold text-white">{symbol}</p>
+            <p className="text-xs text-gray-400">Timeframe: {timeframe}m</p>
+          </div>
+          {/* Indicator buttons toolbar */}
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition"
+              title="Add Indicator"
+            >
+              Indicators
+            </button>
+            <button
+              className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition"
+              title="Drawing Tools"
+            >
+              Draw
+            </button>
+          </div>
         </div>
-        <span className="text-xs">
-          {isLoading ? 'Loading chart…' : `${data.length} candles loaded`}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            {isLoading ? 'Loading…' : `${data.length} candles`}
+          </span>
+        </div>
       </div>
-      <div ref={containerRef} style={{ height }} />
+      <div ref={containerRef} style={{ height }} className="relative" />
 
       {oscillatorSeriesData.length > 0 && (
         <div className="space-y-3 border-t border-white/5 bg-black/20 px-4 py-4">

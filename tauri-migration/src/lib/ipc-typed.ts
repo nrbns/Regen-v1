@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import type { PrivacyAuditSummary } from './ipc-events';
-import { isDevEnv, isElectronRuntime } from './env';
+import { isDevEnv } from './env';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
@@ -43,7 +43,25 @@ const createDefaultProfile = () => ({
   description: 'Fallback profile (IPC unavailable)',
 });
 
-const FALLBACK_CHANNELS: Record<string, () => unknown> = {
+const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
+  'tabs:setMemoryCap': () => ({ success: true }),
+  'telemetry:trackPerf': () => ({ success: false, stub: true }),
+  'system:getStatus': () => ({
+    redisConnected: false,
+    redixAvailable: false,
+    workerState: 'stopped',
+    vpn: { connected: false },
+    tor: { running: false, bootstrapped: false },
+    mode: 'Research',
+    uptime: 0,
+    memoryUsage: {
+      heapUsed: 0,
+      heapTotal: 0,
+      external: 0,
+      rss: 0,
+    },
+  }),
+  'session:checkRestore': () => ({ available: false }),
   'profiles:list': () => [createDefaultProfile()],
   'profiles:get': () => createDefaultProfile(),
   'profiles:getActive': () => createDefaultProfile(),
@@ -87,9 +105,41 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'vpn:disconnect': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
   'tabs:predictiveGroups': () => ({ groups: [], prefetch: [], summary: undefined }),
-  'tabs:create': () => {
-    // Return a temporary tab ID for fallback
-    return { id: `temp-${Date.now()}`, title: 'New Tab', url: 'about:blank', active: true };
+  'tabs:create': (req?: any) => {
+    const payload = typeof req === 'object' && req ? req : {};
+    const tabsState = getTabsStore();
+    const previousActiveId = tabsState?.activeId;
+    const tabId =
+      (typeof payload.tabId === 'string' && payload.tabId.trim().length > 0
+        ? payload.tabId
+        : undefined) ?? `tab-${Date.now()}`;
+    const url =
+      typeof payload.url === 'string' && payload.url.trim().length > 0
+        ? payload.url
+        : 'about:blank';
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title
+        : deriveTitleFromUrl(url);
+
+    tabsState?.add?.({
+      id: tabId,
+      title,
+      url,
+      mode: payload.mode,
+      appMode: payload.appMode,
+      containerId: payload.containerId,
+      createdAt: payload.createdAt ?? Date.now(),
+      lastActiveAt: payload.lastActiveAt ?? Date.now(),
+      profileId: payload.profileId,
+      sessionId: payload.sessionId,
+    });
+
+    if (payload.activate === false && previousActiveId && tabsState?.setActive) {
+      tabsState.setActive(previousActiveId);
+    }
+
+    return { id: tabId, title, url, success: true };
   },
   'tabs:list': () => {
     try {
@@ -113,6 +163,67 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     }
     return null;
   },
+  'tabs:close': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.remove?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:activate': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.setActive?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:navigate': (req?: { id?: string; url?: string }) => {
+    try {
+      if (req?.id && req?.url) {
+        const state = useTabsStore.getState?.();
+        if (state?.navigateTab) {
+          state.navigateTab(req.id, req.url);
+        } else {
+          state?.updateTab?.(req.id, { url: req.url, title: deriveTitleFromUrl(req.url) });
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:goBack': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.goBack?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:goForward': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.goForward?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:reload': () => ({ success: true }),
+  'tabs:stop': () => ({ success: true }),
   'containers:list': () => {
     try {
       const state = useContainerStore.getState?.();
@@ -174,14 +285,61 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     perfMetrics: [],
   }),
   'analytics:getStatus': () => ({ optIn: false, enabled: false }),
+  'cross-reality:handoff': () => ({ success: false, handoff: null }),
+  'cross-reality:queue': () => ({ handoffs: [] }),
+  'cross-reality:handoffStatus': () => ({ success: true }),
+  'research:queryEnhanced': (payload?: any) => {
+    if (!payload?.query) {
+      return {
+        query: '',
+        summary: 'Enter a question to begin research.',
+        sources: [],
+        citations: [],
+        confidence: 0,
+        language: 'en',
+        languageLabel: 'English',
+        languageConfidence: 0,
+        verification: {
+          verified: false,
+          claimDensity: 0,
+          citationCoverage: 0,
+          ungroundedClaims: [],
+          hallucinationRisk: 1,
+          suggestions: ['Provide a research prompt to continue.'],
+        },
+        contradictions: [],
+      };
+    }
+    return apiClient.research.queryEnhanced(payload);
+  },
 };
 
 const reportedMissingChannels = new Set<string>();
 
-function getFallback<T>(channel: string): T | undefined {
+function getTabsStore() {
+  try {
+    return typeof useTabsStore.getState === 'function' ? useTabsStore.getState() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function deriveTitleFromUrl(url?: string) {
+  if (!url || url === 'about:blank') {
+    return 'New Tab';
+  }
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname || url;
+  } catch {
+    return url;
+  }
+}
+
+function getFallback<T>(channel: string, request?: unknown): T | undefined {
   const factory = FALLBACK_CHANNELS[channel];
   if (!factory) return undefined;
-  return factory() as T;
+  return factory(request) as T;
 }
 
 function noteFallback(channel: string, reason: string) {
@@ -278,101 +436,11 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Wait for IPC to be ready (with timeout)
-// Electron removed - no need to wait for IPC
-async function waitForIPC(_timeout = 10000): Promise<boolean> {
-  // Always return true in Tauri - HTTP API is always available
-  return true;
-  // If already ready, return immediately
-  if (
-    ipcReady &&
-    typeof window !== 'undefined' &&
-    window.ipc &&
-    typeof window.ipc.invoke === 'function'
-  ) {
-    return true;
-  }
-
-  // Check if window.ipc exists (even if not marked as ready)
-  if (typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function') {
-    // Mark as ready if IPC bridge exists
-    if (!ipcReady) {
-      ipcReady = true;
-      const resolvers = [...ipcReadyResolvers];
-      ipcReadyResolvers = [];
-      resolvers.forEach(resolve => resolve());
-      if (IS_DEV) {
-        console.log('[IPC] Bridge detected and marked as ready');
-      }
-    }
-    return true;
-  }
-
-  // Wait for ready signal
-  return new Promise(resolve => {
-    const startTime = Date.now();
-
-    // If already ready, resolve immediately
-    if (ipcReady && window.ipc && typeof window.ipc.invoke === 'function') {
-      resolve(true);
-      return;
-    }
-
-    // Add resolver to list
-    const timeoutId = setTimeout(() => {
-      // Remove from list if timeout
-      ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
-      resolve(false);
-    }, timeout);
-
-    const resolver = () => {
-      clearTimeout(timeoutId);
-      resolve(true);
-    };
-
-    ipcReadyResolvers.push(resolver);
-
-    // Also poll as fallback - check both ipcReady flag AND window.ipc existence
-    const checkInterval = setInterval(() => {
-      const hasIpc =
-        typeof window !== 'undefined' && window.ipc && typeof window.ipc.invoke === 'function';
-      if (ipcReady && hasIpc) {
-        clearInterval(checkInterval);
-        clearTimeout(timeoutId);
-        ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
-        resolve(true);
-      } else if (hasIpc && !ipcReady) {
-        // IPC bridge exists but not marked ready - mark it now
-        ipcReady = true;
-        const allResolvers = [...ipcReadyResolvers];
-        ipcReadyResolvers = [];
-        allResolvers.forEach(r => r());
-        clearInterval(checkInterval);
-        clearTimeout(timeoutId);
-        if (IS_DEV) {
-          console.log('[IPC] Bridge detected during polling and marked as ready');
-        }
-        resolve(true);
-      } else if (Date.now() - startTime > timeout) {
-        clearInterval(checkInterval);
-        clearTimeout(timeoutId);
-        ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
-        if (IS_DEV) {
-          console.warn(`[IPC] Timeout waiting for IPC bridge (${timeout}ms)`);
-        }
-        resolve(false);
-      }
-    }, 100);
-  });
-}
-
 export async function ipcCall<TRequest, TResponse = unknown>(
   channel: string,
   request: TRequest,
   schema?: z.ZodSchema<TResponse>
 ): Promise<TResponse> {
-  const fullChannel = `ob://ipc/v1/${channel}`;
-
   // Tauri migration: Always use HTTP API (Electron removed)
   // Map IPC channel to HTTP endpoint
   const channelMap: Record<string, string | ((req: any) => string)> = {
@@ -391,14 +459,14 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     // Map channel to HTTP endpoint
     let endpoint: string | undefined;
     const endpointOrFn = channelMap[channel];
-    
+
     // Handle dynamic endpoints
     if (typeof endpointOrFn === 'function') {
       endpoint = endpointOrFn(request as any);
     } else if (typeof endpointOrFn === 'string') {
       endpoint = endpointOrFn;
     }
-    
+
     let method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET';
     let body: any = null;
 
@@ -409,7 +477,11 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     } else if (channel.includes(':update') || channel.includes(':set')) {
       method = 'PUT';
       body = request;
-    } else if (channel.includes(':delete') || channel.includes(':close') || channel.includes(':stop')) {
+    } else if (
+      channel.includes(':delete') ||
+      channel.includes(':close') ||
+      channel.includes(':stop')
+    ) {
       method = 'DELETE';
     } else if (channel.includes(':activate') || channel.includes(':navigate')) {
       method = 'POST';
@@ -432,7 +504,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
       const apiMethod = apiClientMethods[channel];
       if (apiMethod) {
         const response = await apiMethod(request);
-        
+
         if (schema && response !== undefined && response !== null) {
           const parsed = schema.safeParse(response);
           if (!parsed.success) {
@@ -444,7 +516,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
       }
 
       // No mapping found - use fallback
-      const fallback = getFallback<TResponse>(channel);
+      const fallback = getFallback<TResponse>(channel, request);
       if (fallback !== undefined) {
         noteFallback(channel, 'no HTTP endpoint mapping');
         return fallback;
@@ -464,14 +536,14 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     }
 
     const httpResponse = await fetch(url, options);
-    
+
     if (!httpResponse.ok) {
       const errorText = await httpResponse.text();
       throw new Error(`HTTP ${httpResponse.status}: ${errorText}`);
     }
 
     const response = await httpResponse.json();
-    
+
     if (schema && response !== undefined && response !== null) {
       const parsed = schema.safeParse(response);
       if (!parsed.success) {
@@ -483,7 +555,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     return response as TResponse;
   } catch (error) {
     // Fallback to default fallback if HTTP call fails
-    const fallback = getFallback<TResponse>(channel);
+    const fallback = getFallback<TResponse>(channel, request);
     if (fallback !== undefined) {
       noteFallback(channel, 'HTTP API unavailable, using fallback');
       return fallback;
@@ -2131,6 +2203,16 @@ export const ipc = {
         }
       ),
     queue: () => ipcCall<unknown, { handoffs: any[] }>('cross-reality:queue', {}),
+    sendHandoffStatus: (status: { platform: string; lastSentAt: number | null }) =>
+      ipcCall<{ platform: string; lastSentAt: number | null }, { success: boolean }>(
+        'cross-reality:handoffStatus',
+        status
+      ).catch(error => {
+        if (IS_DEV) {
+          console.warn('[IPC] Failed to send handoff status:', error);
+        }
+        return { success: false };
+      }),
   },
   identity: {
     status: () => ipcCall<unknown, IdentityVaultSummary>('identity:status', {}),
@@ -2176,6 +2258,14 @@ export const ipc = {
     },
   },
   research: {
+    queryEnhanced: (payload: {
+      query: string;
+      maxSources?: number;
+      includeCounterpoints?: boolean;
+      recencyWeight?: number;
+      authorityWeight?: number;
+      language?: string;
+    }) => ipcCall<typeof payload, any>('research:queryEnhanced', payload),
     extractContent: (tabId?: string) =>
       ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>(
         'research:extractContent',

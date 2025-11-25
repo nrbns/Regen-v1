@@ -7,7 +7,7 @@ interface OnboardingState {
   reset: () => void;
 }
 
-const STORAGE_KEY = 'omnibrowser:onboarding:completed';
+const STORAGE_KEY = 'regen:onboarding:completed';
 
 export const onboardingStorage = {
   isCompleted(): boolean {
@@ -33,10 +33,10 @@ export const onboardingStorage = {
   },
 };
 
-export const useOnboardingStore = create<OnboardingState>((set) => {
+export const useOnboardingStore = create<OnboardingState>(set => {
   // Check if onboarding should be shown on first run
   const shouldShowOnboarding = typeof window !== 'undefined' && !onboardingStorage.isCompleted();
-  
+
   return {
     visible: shouldShowOnboarding,
     start: () => {

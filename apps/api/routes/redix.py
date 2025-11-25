@@ -123,7 +123,7 @@ async def ask_redix(
             messages = [
                 {
                     "role": "system",
-                    "content": "You are Redix, an AI assistant for OmniBrowser. Provide helpful, concise answers.",
+                    "content": "You are Redix, an AI assistant for Regen. Provide helpful, concise answers.",
                 },
                 {
                     "role": "user",

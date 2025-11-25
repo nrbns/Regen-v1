@@ -5,7 +5,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type DownloadStatus = 'queued' | 'downloading' | 'paused' | 'completed' | 'error' | 'cancelled';
+export type DownloadStatus =
+  | 'queued'
+  | 'downloading'
+  | 'paused'
+  | 'completed'
+  | 'error'
+  | 'cancelled';
 
 export interface Download {
   id: string;
@@ -43,8 +49,8 @@ export const useDownloadsStore = create<DownloadsStore>()(
   persist(
     (set, get) => ({
       downloads: [],
-      
-      addDownload: (download) => {
+
+      addDownload: download => {
         const id = crypto.randomUUID();
         const newDownload: Download = {
           ...download,
@@ -53,17 +59,17 @@ export const useDownloadsStore = create<DownloadsStore>()(
           progress: 0,
           startedAt: Date.now(),
         };
-        
-        set((state) => ({
+
+        set(state => ({
           downloads: [...state.downloads, newDownload],
         }));
-        
+
         return id;
       },
-      
+
       updateDownload: (id, updates) => {
-        set((state) => ({
-          downloads: state.downloads.map((d) =>
+        set(state => ({
+          downloads: state.downloads.map(d =>
             d.id === id
               ? {
                   ...d,
@@ -74,58 +80,57 @@ export const useDownloadsStore = create<DownloadsStore>()(
           ),
         }));
       },
-      
-      removeDownload: (id) => {
-        set((state) => ({
-          downloads: state.downloads.filter((d) => d.id !== id),
+
+      removeDownload: id => {
+        set(state => ({
+          downloads: state.downloads.filter(d => d.id !== id),
         }));
       },
-      
-      pauseDownload: (id) => {
-        const download = get().downloads.find((d) => d.id === id);
+
+      pauseDownload: id => {
+        const download = get().downloads.find(d => d.id === id);
         if (download && download.status === 'downloading') {
           get().updateDownload(id, { status: 'paused' });
         }
       },
-      
-      resumeDownload: (id) => {
-        const download = get().downloads.find((d) => d.id === id);
+
+      resumeDownload: id => {
+        const download = get().downloads.find(d => d.id === id);
         if (download && download.status === 'paused') {
           get().updateDownload(id, { status: 'downloading' });
         }
       },
-      
-      cancelDownload: (id) => {
+
+      cancelDownload: id => {
         get().updateDownload(id, { status: 'cancelled' });
       },
-      
+
       clearCompleted: () => {
-        set((state) => ({
-          downloads: state.downloads.filter((d) => d.status !== 'completed'),
+        set(state => ({
+          downloads: state.downloads.filter(d => d.status !== 'completed'),
         }));
       },
-      
+
       clearAll: () => {
         set({ downloads: [] });
       },
-      
+
       getActiveDownloads: () => {
         return get().downloads.filter(
-          (d) => d.status === 'downloading' || d.status === 'queued' || d.status === 'paused'
+          d => d.status === 'downloading' || d.status === 'queued' || d.status === 'paused'
         );
       },
-      
+
       getCompletedDownloads: () => {
-        return get().downloads.filter((d) => d.status === 'completed');
+        return get().downloads.filter(d => d.status === 'completed');
       },
-      
-      getDownload: (id) => {
-        return get().downloads.find((d) => d.id === id);
+
+      getDownload: id => {
+        return get().downloads.find(d => d.id === id);
       },
     }),
     {
-      name: 'omnibrowser-downloads',
+      name: 'regen-downloads',
     }
   )
 );
-

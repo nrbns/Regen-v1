@@ -1,5 +1,5 @@
 {
-  "name": "@omnibrowser/redix-runtime",
+  "name": "@regen/redix-runtime",
   "version": "0.1.0",
   "private": true,
   "scripts": {

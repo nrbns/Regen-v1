@@ -38,7 +38,7 @@ def init_telemetry(app: FastAPI) -> None:
         _logger.warning("OpenTelemetry packages not installed; skipping tracing setup")
         return
 
-    service_name = os.getenv("OTEL_SERVICE_NAME", "omnibrowser-api")
+    service_name = os.getenv("OTEL_SERVICE_NAME", "regen-api")
     resource = Resource.create({"service.name": service_name, "service.version": app.version or "1.0.0"})
     provider = TracerProvider(resource=resource)
     exporter = ConsoleSpanExporter()

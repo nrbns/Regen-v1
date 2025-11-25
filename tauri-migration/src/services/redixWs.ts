@@ -1,3 +1,5 @@
+import { isBackendAvailable, onBackendStatusChange } from '../lib/backend-status';
+
 const DEFAULT_WS_URL = import.meta.env.VITE_REDIX_WS_URL || 'ws://localhost:4000/ws';
 const DEFAULT_HTTP_URL = import.meta.env.VITE_REDIX_HTTP_URL || 'http://localhost:4000/api/query';
 const DEFAULT_SSE_URL = import.meta.env.VITE_REDIX_SSE_URL || 'http://localhost:4000/api/ask';
@@ -22,12 +24,32 @@ export class RedixWS {
   backoff = 1000;
   private errorLogged = false;
   private isConnecting = false;
+  private backendOnline = isBackendAvailable();
+  private unsubscribeBackend?: () => void;
 
   constructor(url: string = DEFAULT_WS_URL) {
     this.url = url;
+    this.unsubscribeBackend = onBackendStatusChange(status => {
+      this.backendOnline = status;
+      if (!status && this.ws) {
+        try {
+          this.ws.close();
+        } catch {
+          // ignore
+        }
+        this.ws = null;
+      }
+      if (status) {
+        this.connect();
+      }
+    });
     // Defer connection attempt to avoid blocking initial render
     // Only connect if Redix is enabled
-    if (import.meta.env.VITE_DISABLE_REDIX !== 'true' && import.meta.env.DISABLE_REDIX !== 'true') {
+    if (
+      this.backendOnline &&
+      import.meta.env.VITE_DISABLE_REDIX !== 'true' &&
+      import.meta.env.DISABLE_REDIX !== 'true'
+    ) {
       // Use requestIdleCallback or setTimeout to defer connection
       if ('requestIdleCallback' in window) {
         requestIdleCallback(
@@ -45,7 +67,7 @@ export class RedixWS {
   }
 
   connect(): void {
-    if (this.isConnecting) return;
+    if (this.isConnecting || !this.backendOnline) return;
 
     // Check if Redix is disabled via environment variable
     if (import.meta.env.VITE_DISABLE_REDIX === 'true' || import.meta.env.DISABLE_REDIX === 'true') {
@@ -130,6 +152,19 @@ export class RedixWS {
   }
 
   send(message: RedixMessage): void {
+    if (!isBackendAvailable()) {
+      if (message.id && this.listeners.has(message.id)) {
+        const listener = this.listeners.get(message.id);
+        listener?.({
+          id: message.id,
+          type: 'error',
+          payload: { message: 'Backend offline' },
+        });
+        this.listeners.delete(message.id);
+      }
+      return;
+    }
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
@@ -191,6 +226,18 @@ export class RedixWS {
         return {};
       }
     };
+
+    if (!isBackendAvailable()) {
+      onMessage({
+        id,
+        type: 'error',
+        payload: { message: 'Backend offline' },
+      });
+      return {
+        id,
+        cancel: () => undefined,
+      };
+    }
 
     const eventSource = new EventSource(url.toString());
 

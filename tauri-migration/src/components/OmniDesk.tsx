@@ -803,7 +803,7 @@ export function OmniDesk({
               Regenerative Command Center
             </p>
             <h1 className="mt-3 text-3xl font-bold text-slate-50 sm:text-4xl lg:text-5xl leading-tight">
-              Guide your next deep work session with OmniBrowser & Redix
+              Guide your next deep work session with Regen & Redix
             </h1>
             <p className="mt-3 max-w-2xl text-base text-slate-300 leading-relaxed">
               Spin up an agent, resume an exploration, or launch a new search. Your flow state

@@ -44,7 +44,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
   // Load saved preferences
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('omnibrowser:cookie-consent');
+      const stored = localStorage.getItem('regen:cookie-consent');
       if (stored) {
         const data = JSON.parse(stored);
         if (data.version === COOKIE_VERSION) {
@@ -110,7 +110,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
     {
       id: 'analytics' as CookieCategory,
       name: 'Analytics Cookies',
-      description: 'Help us understand how you use OmniBrowser to improve the experience.',
+      description: 'Help us understand how you use Regen to improve the experience.',
       required: false,
       examples: ['Usage statistics', 'Performance metrics', 'Error tracking'],
     },
@@ -124,7 +124,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
     {
       id: 'advertising' as CookieCategory,
       name: 'Advertising Cookies',
-      description: 'Used for personalized ads (currently not used in OmniBrowser).',
+      description: 'Used for personalized ads (currently not used in Regen).',
       required: false,
       examples: ['Ad personalization', 'Ad targeting'],
     },
@@ -221,8 +221,8 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     <div className="flex items-start gap-2">
                       <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-blue-200">
-                        <strong>Your Privacy Matters:</strong> OmniBrowser stores data locally on
-                        your device by default. Cookies and similar technologies are used only for
+                        <strong>Your Privacy Matters:</strong> Regen stores data locally on your
+                        device by default. Cookies and similar technologies are used only for
                         essential functionality and optional analytics. You can change these
                         preferences at any time in Settings.
                       </p>
@@ -448,7 +448,7 @@ export function useCookieConsent(): {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('omnibrowser:cookie-consent');
+      const stored = localStorage.getItem('regen:cookie-consent');
       if (stored) {
         const data = JSON.parse(stored);
         if (data.version === COOKIE_VERSION) {
@@ -465,7 +465,7 @@ export function useCookieConsent(): {
   }, []);
 
   const _handleAccept = (prefs: CookiePreferences) => {
-    localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(prefs));
+    localStorage.setItem('regen:cookie-consent', JSON.stringify(prefs));
     setPreferences(prefs);
     setHasConsented(true);
     setShowBanner(false);
@@ -483,7 +483,7 @@ export function useCookieConsent(): {
  */
 export function getCookiePreferences(): CookiePreferences | null {
   try {
-    const stored = localStorage.getItem('omnibrowser:cookie-consent');
+    const stored = localStorage.getItem('regen:cookie-consent');
     if (stored) {
       const data = JSON.parse(stored);
       if (data.version === COOKIE_VERSION) {

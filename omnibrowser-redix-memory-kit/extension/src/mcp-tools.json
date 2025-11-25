@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "memory.search",
-      "description": "Search the OmniBrowser memory graph for prior browsing, notes, and agent activity.",
+      "description": "Search the Regen memory graph for prior browsing, notes, and agent activity.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -19,7 +19,7 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "project": { "type": "string", "default": "omnibrowser" },
+          "project": { "type": "string", "default": "regen" },
           "type": { "type": "string", "default": "tab" },
           "title": { "type": "string" },
           "text": { "type": "string" },
@@ -32,4 +32,3 @@
     }
   ]
 }
-

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document shows exactly how to integrate Redix (Redis) as Pillar 6 - the execution engine that makes OmniBrowser unbeatable.
+This document shows exactly how to integrate Redix (Redis) as Pillar 6 - the execution engine that makes Regen unbeatable.
 
 ---
 
@@ -303,4 +303,4 @@ const session = await sessionStore.getSession('session-123');
 
 ---
 
-**Redix integration makes OmniBrowser the world's first real-time execution browser! 🚀**
+**Redix integration makes Regen the world's first real-time execution browser! 🚀**

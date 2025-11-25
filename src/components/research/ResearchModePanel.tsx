@@ -4,13 +4,29 @@
  */
 
 import { useState } from 'react';
-import { Search, AlertTriangle, CheckCircle, ExternalLink, BookOpen, TrendingUp } from 'lucide-react';
+import {
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  BookOpen,
+  TrendingUp,
+  Send,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
+import { ProsConsTable } from './ProsConsTable';
+import { toast } from '../../utils/toast';
+import { useSettingsStore } from '../../state/settingsStore';
+import { researchToTrade } from '../../core/agents/handoff';
+import { summarizeOffline, isOfflineModeAvailable } from '../../core/offline/translator';
 
 interface ResearchResult {
   query: string;
+  language?: string;
+  languageLabel?: string;
+  languageConfidence?: number;
   sources: Array<{
     url: string;
     title: string;
@@ -33,6 +49,22 @@ interface ResearchResult {
     sources: number[];
     disagreement: 'minor' | 'major';
   }>;
+  prosCons?: {
+    pros: Array<{
+      text: string;
+      source: string;
+      sourceUrl: string;
+      sourceIndex: number;
+      confidence: number;
+    }>;
+    cons: Array<{
+      text: string;
+      source: string;
+      sourceUrl: string;
+      sourceIndex: number;
+      confidence: number;
+    }>;
+  };
   verification?: {
     verified: boolean;
     claimDensity: number;
@@ -47,6 +79,30 @@ interface ResearchResult {
   };
 }
 
+const SUPPORTED_LANGUAGES = [
+  { code: 'auto', label: 'Auto-detect' },
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'ta', label: 'Tamil' },
+  { code: 'te', label: 'Telugu' },
+  { code: 'bn', label: 'Bengali' },
+  { code: 'mr', label: 'Marathi' },
+  { code: 'kn', label: 'Kannada' },
+  { code: 'ml', label: 'Malayalam' },
+  { code: 'gu', label: 'Gujarati' },
+  { code: 'pa', label: 'Punjabi' },
+  { code: 'ur', label: 'Urdu' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'fr', label: 'French' },
+  { code: 'de', label: 'German' },
+  { code: 'zh', label: 'Chinese' },
+  { code: 'ja', label: 'Japanese' },
+  { code: 'ko', label: 'Korean' },
+  { code: 'ru', label: 'Russian' },
+  { code: 'pt', label: 'Portuguese' },
+  { code: 'ar', label: 'Arabic' },
+];
+
 export default function ResearchModePanel() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,7 +111,12 @@ export default function ResearchModePanel() {
   const [recencyWeight, setRecencyWeight] = useState(0.5);
   const [authorityWeight, setAuthorityWeight] = useState(0.5);
   const [includeCounterpoints, setIncludeCounterpoints] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
   const { activeId } = useTabsStore();
+
+  const language = useSettingsStore(state => state.language || 'auto');
+  const effectiveLanguage =
+    selectedLanguage === 'auto' ? (language === 'auto' ? undefined : language) : selectedLanguage;
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -63,19 +124,76 @@ export default function ResearchModePanel() {
     setLoading(true);
     setResult(null);
 
+    // Show loading toast with language info
+    const langLabel = effectiveLanguage
+      ? SUPPORTED_LANGUAGES.find(l => l.code === effectiveLanguage)?.label || effectiveLanguage
+      : 'auto-detecting';
+    toast.info(`Researching in ${langLabel}...`);
+
     try {
-      // Call enhanced research API
-      const researchResult = await (window.ipc as any).invoke('ob://ipc/v1/research:queryEnhanced', {
+      // Check if offline and use offline mode if needed
+      const isOffline = isOfflineModeAvailable();
+
+      if (isOffline) {
+        toast.info('Offline mode: Using cached results and offline translation');
+        // For offline, we'd use cached results or simplified processing
+        // This is a placeholder - in production, you'd load cached research results
+        const offlineSummary = await summarizeOffline(query, effectiveLanguage);
+        setResult({
+          query: query.trim(),
+          summary: offlineSummary,
+          sources: [],
+          citations: [],
+          confidence: 0.6,
+          language: effectiveLanguage,
+          languageLabel: effectiveLanguage,
+          languageConfidence: 0.7,
+        });
+        toast.success('Offline research complete');
+        return;
+      }
+
+      // Call enhanced research API (online)
+      const researchResult = (await ipc.research.queryEnhanced({
         query: query.trim(),
         maxSources: 12,
         includeCounterpoints,
         recencyWeight,
         authorityWeight,
-      }) as ResearchResult;
+        language: effectiveLanguage,
+      })) as ResearchResult;
 
       setResult(researchResult);
+      toast.success(`Research complete! Found ${researchResult.sources.length} sources.`);
+
+      // Offer handoff to Trade mode if symbol detected
+      const symbolMatch = query.match(/\b([A-Z]{2,5})\b/);
+      if (symbolMatch && researchResult.summary) {
+        // Auto-detect if this is a trading-related query
+        const isTradingQuery = /nifty|sensex|stock|trade|price|market|buy|sell/i.test(query);
+        if (isTradingQuery) {
+          // Show option to send to Trade mode
+          setTimeout(() => {
+            toast.info('Sending to Trade mode...');
+            // Automatically send to Trade mode after a short delay
+            setTimeout(async () => {
+              const handoffResult = await researchToTrade(
+                researchResult.summary,
+                symbolMatch[1],
+                effectiveLanguage
+              );
+              if (handoffResult.success) {
+                toast.success('Sent to Trade mode!');
+              } else {
+                toast.error(handoffResult.error || 'Handoff failed');
+              }
+            }, 500);
+          }, 1000);
+        }
+      }
     } catch (error) {
       console.error('Research query failed:', error);
+      toast.error(`Research failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -95,11 +213,16 @@ export default function ResearchModePanel() {
 
   const getSourceTypeColor = (type: string) => {
     switch (type) {
-      case 'academic': return 'text-blue-400';
-      case 'news': return 'text-green-400';
-      case 'documentation': return 'text-purple-400';
-      case 'forum': return 'text-orange-400';
-      default: return 'text-gray-400';
+      case 'academic':
+        return 'text-blue-400';
+      case 'news':
+        return 'text-green-400';
+      case 'documentation':
+        return 'text-purple-400';
+      case 'forum':
+        return 'text-orange-400';
+      default:
+        return 'text-gray-400';
     }
   };
 
@@ -128,7 +251,7 @@ export default function ResearchModePanel() {
 
         {/* Search Input */}
         <form
-          onSubmit={(e) => {
+          onSubmit={e => {
             e.preventDefault();
             handleSearch();
           }}
@@ -139,12 +262,24 @@ export default function ResearchModePanel() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
               placeholder="Enter your research question..."
               className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               disabled={loading}
             />
           </div>
+          <select
+            value={selectedLanguage}
+            onChange={e => setSelectedLanguage(e.target.value)}
+            className="px-3 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-200"
+            disabled={loading}
+          >
+            {SUPPORTED_LANGUAGES.map(lang => (
+              <option key={lang.code} value={lang.code}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
           <button
             type="submit"
             disabled={loading || !query.trim()}
@@ -171,10 +306,12 @@ export default function ResearchModePanel() {
                   max="1"
                   step="0.1"
                   value={recencyWeight}
-                  onChange={(e) => setRecencyWeight(parseFloat(e.target.value))}
+                  onChange={e => setRecencyWeight(parseFloat(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-xs text-gray-500 mt-1">Current: {(recencyWeight * 100).toFixed(0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Current: {(recencyWeight * 100).toFixed(0)}%
+                </div>
               </div>
 
               <div>
@@ -185,17 +322,19 @@ export default function ResearchModePanel() {
                   max="1"
                   step="0.1"
                   value={authorityWeight}
-                  onChange={(e) => setAuthorityWeight(parseFloat(e.target.value))}
+                  onChange={e => setAuthorityWeight(parseFloat(e.target.value))}
                   className="w-full"
                 />
-                <div className="text-xs text-gray-500 mt-1">Current: {(authorityWeight * 100).toFixed(0)}%</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Current: {(authorityWeight * 100).toFixed(0)}%
+                </div>
               </div>
 
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   checked={includeCounterpoints}
-                  onChange={(e) => setIncludeCounterpoints(e.target.checked)}
+                  onChange={e => setIncludeCounterpoints(e.target.checked)}
                   className="rounded"
                 />
                 <span>Include Counterpoints</span>
@@ -223,6 +362,15 @@ export default function ResearchModePanel() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-lg">Summary</h3>
                 <div className="flex items-center gap-2">
+                  {result.languageLabel && (
+                    <span className="text-xs text-gray-500">
+                      Language:&nbsp;
+                      <strong className="text-gray-300">{result.languageLabel}</strong>
+                      {typeof result.languageConfidence === 'number' && (
+                        <> ({(result.languageConfidence * 100).toFixed(0)}% detect)</>
+                      )}
+                    </span>
+                  )}
                   <span className="text-xs text-gray-400">Confidence:</span>
                   <div className="flex items-center gap-2">
                     <div className="w-24 h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -231,7 +379,9 @@ export default function ResearchModePanel() {
                         style={{ width: `${result.confidence * 100}%` }}
                       />
                     </div>
-                    <span className="text-xs text-gray-300">{(result.confidence * 100).toFixed(0)}%</span>
+                    <span className="text-xs text-gray-300">
+                      {(result.confidence * 100).toFixed(0)}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -246,11 +396,13 @@ export default function ResearchModePanel() {
 
               {/* Verification Status */}
               {result.verification && (
-                <div className={`mt-4 p-3 rounded-lg border ${
-                  result.verification.verified
-                    ? 'bg-green-900/20 border-green-700/50'
-                    : 'bg-yellow-900/20 border-yellow-700/50'
-                }`}>
+                <div
+                  className={`mt-4 p-3 rounded-lg border ${
+                    result.verification.verified
+                      ? 'bg-green-900/20 border-green-700/50'
+                      : 'bg-yellow-900/20 border-yellow-700/50'
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-2">
                     {result.verification.verified ? (
                       <CheckCircle size={16} className="text-green-400" />
@@ -263,7 +415,10 @@ export default function ResearchModePanel() {
                   </div>
                   <div className="text-xs text-gray-400 space-y-1">
                     <div>Citation Coverage: {result.verification.citationCoverage.toFixed(1)}%</div>
-                    <div>Hallucination Risk: {(result.verification.hallucinationRisk * 100).toFixed(1)}%</div>
+                    <div>
+                      Hallucination Risk: {(result.verification.hallucinationRisk * 100).toFixed(1)}
+                      %
+                    </div>
                     {result.verification.suggestions.length > 0 && (
                       <div className="mt-2">
                         <div className="font-medium mb-1">Suggestions:</div>
@@ -278,6 +433,22 @@ export default function ResearchModePanel() {
                 </div>
               )}
             </div>
+
+            {/* Pros/Cons Table */}
+            {result.prosCons &&
+              (result.prosCons.pros.length > 0 || result.prosCons.cons.length > 0) && (
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <TrendingUp size={16} />
+                    Pros & Cons Comparison
+                  </h3>
+                  <ProsConsTable
+                    pros={result.prosCons.pros}
+                    cons={result.prosCons.cons}
+                    sources={result.sources}
+                  />
+                </div>
+              )}
 
             {/* Contradictions */}
             {result.contradictions && result.contradictions.length > 0 && (
@@ -317,14 +488,18 @@ export default function ResearchModePanel() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-medium ${getSourceTypeColor(source.sourceType)}`}>
+                          <span
+                            className={`text-xs font-medium ${getSourceTypeColor(source.sourceType)}`}
+                          >
                             {source.sourceType.toUpperCase()}
                           </span>
                           <span className="text-xs text-gray-500">
                             Score: {source.relevanceScore.toFixed(1)}
                           </span>
                         </div>
-                        <h4 className="font-medium text-sm text-gray-200 truncate">{source.title}</h4>
+                        <h4 className="font-medium text-sm text-gray-200 truncate">
+                          {source.title}
+                        </h4>
                         <p className="text-xs text-gray-400 truncate mt-1">{source.domain}</p>
                         <p className="text-xs text-gray-500 mt-2 line-clamp-2">{source.snippet}</p>
                       </div>
@@ -346,7 +521,7 @@ export default function ResearchModePanel() {
               <div>
                 <h3 className="font-semibold mb-3">Citations</h3>
                 <div className="space-y-2">
-                  {result.citations.map((citation) => {
+                  {result.citations.map(citation => {
                     const source = result.sources[citation.sourceIndex];
                     return (
                       <div
@@ -356,7 +531,9 @@ export default function ResearchModePanel() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-blue-400">[{citation.index}]</span>
+                              <span className="text-xs font-medium text-blue-400">
+                                [{citation.index}]
+                              </span>
                               <span className="text-xs text-gray-400">
                                 Confidence: {(citation.confidence * 100).toFixed(0)}%
                               </span>
@@ -388,4 +565,3 @@ export default function ResearchModePanel() {
     </div>
   );
 }
-

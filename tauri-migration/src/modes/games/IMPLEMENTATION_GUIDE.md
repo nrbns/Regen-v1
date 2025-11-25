@@ -5,6 +5,7 @@
 ### Step 1: Choose a Game
 
 Pick an open-source game from:
+
 - [Phaser Examples](https://github.com/phaserjs/examples)
 - [Lee Reilly Games](https://github.com/leereilly/games)
 - [Awesome Open Source Games](https://github.com/michelpereira/awesome-open-source-games)
@@ -67,7 +68,7 @@ Edit `gameCatalog.json` and add your game entry:
 
 ### Step 4: Test
 
-1. Start OmniBrowser
+1. Start Regen
 2. Switch to Games mode
 3. Find your game in the catalog
 4. Click Play
@@ -80,41 +81,41 @@ Here's a minimal Phaser game you can use as a template:
 ```html
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Sample Game</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <div id="game-container"></div>
     <script>
-        const config = {
-            type: Phaser.AUTO,
-            width: 800,
-            height: 600,
-            parent: 'game-container',
-            scene: {
-                create: create,
-                update: update
-            }
-        };
+      const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        parent: 'game-container',
+        scene: {
+          create: create,
+          update: update,
+        },
+      };
 
-        const game = new Phaser.Game(config);
-        let player;
+      const game = new Phaser.Game(config);
+      let player;
 
-        function create() {
-            // Add your game code here
-            this.add.text(400, 300, 'Hello Game!', {
-                fontSize: '32px',
-                fill: '#fff'
-            });
-        }
+      function create() {
+        // Add your game code here
+        this.add.text(400, 300, 'Hello Game!', {
+          fontSize: '32px',
+          fill: '#fff',
+        });
+      }
 
-        function update() {
-            // Update loop
-        }
+      function update() {
+        // Update loop
+      }
     </script>
-</body>
+  </body>
 </html>
 ```
 
@@ -127,11 +128,12 @@ Add to your main app entry point:
 ```typescript
 // Register Service Worker for offline support
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then((registration) => {
+  navigator.serviceWorker
+    .register('/sw.js')
+    .then(registration => {
       console.log('Service Worker registered:', registration);
     })
-    .catch((error) => {
+    .catch(error => {
       console.error('Service Worker registration failed:', error);
     });
 }
@@ -143,6 +145,7 @@ For production, host games on a CDN:
 
 1. Upload games to S3/CloudFront or similar
 2. Update `embed_url` in catalog:
+
 ```json
 {
   "embed_url": "https://cdn.yourdomain.com/games/snake/index.html"
@@ -150,6 +153,7 @@ For production, host games on a CDN:
 ```
 
 3. Update `GamePlayer.tsx` to use `embed_url` when available:
+
 ```typescript
 const getGameUrl = () => {
   if (game.embed_url) {
@@ -169,6 +173,7 @@ const getGameUrl = () => {
 ## Mobile Support
 
 Games should:
+
 - Support touch controls
 - Be responsive (use `window.innerWidth/Height`)
 - Handle orientation changes
@@ -199,4 +204,3 @@ useEffect(() => {
 3. Add analytics tracking
 4. Implement offline caching
 5. Add more games to catalog
-

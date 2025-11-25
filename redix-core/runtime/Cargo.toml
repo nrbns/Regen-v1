@@ -2,7 +2,7 @@
 name = "redix-runtime"
 version = "0.1.0"
 edition = "2021"
-authors = ["OmniBrowser"]
+authors = ["Regen"]
 description = "Redix hot/cold memory runtime compiled to WebAssembly"
 license = "MIT"
 

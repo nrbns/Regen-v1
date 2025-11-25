@@ -15,19 +15,48 @@ import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
-// Voice components disabled by user request
-// import { VoiceTips } from '../voice/VoiceTips';
-// import VoiceCompanion from '../voice/VoiceCompanion';
-// Lazy load heavy Redix services to avoid blocking initial render
+// Voice components removed by user request
+// Lazy load heavy Redix services - DEFER until after first render
 const initializeOptimizer = () =>
-  import('../../core/redix/optimizer').then(m => m.initializeOptimizer());
+  new Promise(resolve =>
+    setTimeout(
+      () => import('../../core/redix/optimizer').then(m => m.initializeOptimizer()).then(resolve),
+      2000
+    )
+  );
 const startTabSuspensionService = () =>
-  import('../../core/redix/tab-suspension').then(m => m.startTabSuspensionService());
+  new Promise(resolve =>
+    setTimeout(
+      () =>
+        import('../../core/redix/tab-suspension')
+          .then(m => m.startTabSuspensionService())
+          .then(resolve),
+      2000
+    )
+  );
 const initBatteryManager = () =>
-  import('../../core/redix/battery-manager').then(m => m.initBatteryManager());
+  new Promise(resolve =>
+    setTimeout(
+      () =>
+        import('../../core/redix/battery-manager').then(m => m.initBatteryManager()).then(resolve),
+      2000
+    )
+  );
 const initMemoryManager = () =>
-  import('../../core/redix/memory-manager').then(m => m.initMemoryManager());
-const initPowerModes = () => import('../../core/redix/power-modes').then(m => m.initPowerModes());
+  new Promise(resolve =>
+    setTimeout(
+      () =>
+        import('../../core/redix/memory-manager').then(m => m.initMemoryManager()).then(resolve),
+      2000
+    )
+  );
+const initPowerModes = () =>
+  new Promise(resolve =>
+    setTimeout(
+      () => import('../../core/redix/power-modes').then(m => m.initPowerModes()).then(resolve),
+      2000
+    )
+  );
 import { useRedix } from '../../core/redix/useRedix';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
@@ -36,9 +65,17 @@ const getPolicyRecommendations = () =>
 import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
 import { ResearchMemoryPanel } from '../research/ResearchMemoryPanel';
 import { trackVisit } from '../../core/supermemory/tracker';
-// Lazy load heavy summarization service to avoid blocking initial render
+// Lazy load heavy summarization service - DEFER significantly
 const initNightlySummarization = () =>
-  import('../../core/supermemory/summarizer').then(m => m.initNightlySummarization());
+  new Promise(resolve =>
+    setTimeout(
+      () =>
+        import('../../core/supermemory/summarizer')
+          .then(m => m.initNightlySummarization())
+          .then(resolve),
+      3000
+    )
+  );
 // RedixDebugPanel - lazy loaded, dev only
 const RedixDebugPanel = isDevEnv()
   ? React.lazy(() => import('../redix/RedixDebugPanel').then(m => ({ default: m.RedixDebugPanel })))
@@ -65,11 +102,20 @@ import {
   useCookieConsent,
   type CookiePreferences,
 } from '../Onboarding/CookieConsent';
+import { useResearchHotkeys } from '../../hooks/useResearchHotkeys';
 import { ToastHost } from '../common/ToastHost';
 import { reopenMostRecentClosedTab } from '../../lib/tabLifecycle';
 import { toast } from '../../utils/toast';
 import { startSnapshotting } from '../../core/recovery';
 import { useAppError } from '../../hooks/useAppError';
+import { LoopResumeModal } from '../agents/LoopResumeModal';
+import { checkForCrashedLoops } from '../../core/agents/loopResume';
+import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
+import {
+  startAutoSaveTabs,
+  checkForResurrectableTabs,
+  scheduleAutoResurrection,
+} from '../../core/tabs/resurrection';
 
 declare global {
   interface Window {
@@ -295,8 +341,8 @@ const ConsentDashboard = React.lazy(() =>
 const TrustEthicsDashboard = React.lazy(() =>
   import('../trust/TrustEthicsDashboard').then(m => ({ default: m.TrustEthicsDashboard }))
 );
-const OnboardingTour = React.lazy(() =>
-  import('../Onboarding/OnboardingTour').then(m => ({ default: m.OnboardingTour }))
+const ResearchTour = React.lazy(() =>
+  import('../Onboarding/ResearchTour').then(m => ({ default: m.ResearchTour }))
 );
 
 import { useOnboardingStore, onboardingStorage } from '../../state/onboardingStore';
@@ -314,11 +360,39 @@ export function AppShell() {
   const setMemorySidebarOpen = useAppStore(state => state.setMemorySidebarOpen);
   const setMode = useAppStore(state => state.setMode);
   const [redixDebugOpen, setRedixDebugOpen] = useState(false);
+  const [loopResumeModalOpen, setLoopResumeModalOpen] = useState(false);
+  const [workflowMarketplaceOpen, setWorkflowMarketplaceOpen] = useState(false);
   const isDev = isDevEnv();
   const themePreference = useSettingsStore(state => state.appearance.theme);
   const compactUI = useSettingsStore(state => state.appearance.compactUI);
   const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
+
+  // Check for crashed loops on mount
+  useEffect(() => {
+    const crashed = checkForCrashedLoops();
+    if (crashed.length > 0) {
+      // Show modal after a short delay to not interrupt initial load
+      setTimeout(() => {
+        setLoopResumeModalOpen(true);
+      }, 2000);
+    }
+  }, []);
+
+  // Start tab auto-save and check for resurrectable tabs
+  useEffect(() => {
+    startAutoSaveTabs();
+    const resurrectable = checkForResurrectableTabs();
+    if (resurrectable.length > 0) {
+      // Auto-resurrect tabs after delay
+      scheduleAutoResurrection(3000);
+    }
+    // Initialize extension API
+    import('../../core/extensions/api').then(m => m.initializeExtensionAPI());
+    return () => {
+      // Cleanup handled by stopAutoSaveTabs
+    };
+  }, []);
 
   // Initialize fullscreen state on mount - ensure it starts as false
   useEffect(() => {
@@ -361,12 +435,17 @@ export function AppShell() {
   const onboardingVisible = useOnboardingStore(state => state.visible);
   const startOnboarding = useOnboardingStore(state => state.start);
   const _finishOnboarding = useOnboardingStore(state => state.finish);
+  useResearchHotkeys();
 
   // Debug: log visibility changes (removed for production performance)
   const [graphDropHint, setGraphDropHint] = useState(false);
   const topChromeRef = useRef<HTMLDivElement | null>(null);
   const bottomChromeRef = useRef<HTMLDivElement | null>(null);
   const isElectron = useMemo(() => isElectronRuntime(), []);
+  const desktopServicesReady =
+    isElectron &&
+    typeof window !== 'undefined' &&
+    !!(window as typeof window & { ipc?: unknown }).ipc;
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -554,9 +633,7 @@ export function AppShell() {
     // User declined TOS - could show a message or prevent app usage
     // For now, we'll just close the app or show a message
     if (
-      window.confirm(
-        'You must accept the Terms of Service to use OmniBrowser. Would you like to exit?'
-      )
+      window.confirm('You must accept the Terms of Service to use Regen. Would you like to exit?')
     ) {
       // In Electron, we could close the window
       if (typeof window !== 'undefined' && (window as any).api?.app?.quit) {
@@ -628,7 +705,7 @@ export function AppShell() {
   // Check TOS acceptance on mount
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('omnibrowser:tos:accepted');
+      const stored = localStorage.getItem('regen:tos:accepted');
       if (stored) {
         const data = JSON.parse(stored);
         const currentVersion = '2025-12-17'; // Update when TOS changes
@@ -670,7 +747,7 @@ export function AppShell() {
     const isGraphDrag = (event: DragEvent) => {
       const types = event.dataTransfer?.types;
       if (!types) return false;
-      return Array.from(types).includes('application/x-omnibrowser-tab-id');
+      return Array.from(types).includes('application/x-regen-tab-id');
     };
 
     const handleDragEnter = (event: DragEvent) => {
@@ -706,7 +783,7 @@ export function AppShell() {
       event.preventDefault();
       dragCounter = 0;
       setGraphDropHint(false);
-      const tabId = event.dataTransfer?.getData('application/x-omnibrowser-tab-id');
+      const tabId = event.dataTransfer?.getData('application/x-regen-tab-id');
       if (tabId) {
         try {
           void useTabGraphStore.getState().focusTab(tabId);
@@ -985,17 +1062,18 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    // Defer tab suspension service
-    setTimeout(() => {
+    if (!desktopServicesReady) return;
+    const timer = setTimeout(() => {
       startTabSuspensionService().catch(err => {
         if (isDevEnv()) console.warn('[AppShell] Tab suspension init failed:', err);
       });
     }, 1000);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [desktopServicesReady]);
 
   useEffect(() => {
-    // Defer battery, power, and memory managers
-    setTimeout(() => {
+    if (!desktopServicesReady) return;
+    const timer = setTimeout(() => {
       Promise.all([
         initBatteryManager().catch(err => {
           if (isDevEnv()) console.warn('[AppShell] Battery manager init failed:', err);
@@ -1010,7 +1088,8 @@ export function AppShell() {
         // Silently handle errors - these are optional services
       });
     }, 1500);
-  }, []);
+    return () => clearTimeout(timer);
+  }, [desktopServicesReady]);
 
   // Watch for Redix performance events
   useRedix(event => {
@@ -1810,9 +1889,7 @@ export function AppShell() {
       {!isFullscreen && (
         <Suspense fallback={null}>
           {/* VoiceTips disabled by user request */}
-          {/* <ErrorBoundary componentName="VoiceTips">
-            <VoiceTips />
-          </ErrorBoundary> */}
+          {/* Voice components removed by user request */}
         </Suspense>
       )}
 
@@ -1836,12 +1913,12 @@ export function AppShell() {
         </Suspense>
       )}
 
-      {/* Onboarding Tour - Only show if TOS and Cookie Consent are not showing */}
+      {/* Research Tour - Only show if TOS and Cookie Consent are not showing */}
       {onboardingVisible && !showTOS && !showCookieConsent && (
         <Suspense fallback={null}>
           <Portal>
-            <ErrorBoundary componentName="OnboardingTour">
-              <OnboardingTour
+            <ErrorBoundary componentName="ResearchTour">
+              <ResearchTour
                 onClose={() => {
                   // Component already calls finishOnboarding() before onClose()
                   // This callback is just for cleanup if needed
@@ -1934,9 +2011,7 @@ export function AppShell() {
       </div>
 
       {/* Voice Companion - Disabled by user request */}
-      {/* <ErrorBoundary componentName="VoiceCompanion">
-        <VoiceCompanion position="bottom-right" />
-      </ErrorBoundary> */}
+      {/* Voice components removed by user request */}
 
       {restoreToast && (
         <Portal>
@@ -1962,7 +2037,7 @@ export function AppShell() {
         <CookieConsent
           onAccept={preferences => {
             console.log('[AppShell] Cookie consent accepted:', preferences);
-            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(preferences));
+            localStorage.setItem('regen:cookie-consent', JSON.stringify(preferences));
             // Force a small delay to ensure localStorage is written and state updates
             setTimeout(() => {
               setShowCookieConsent(false);
@@ -1988,7 +2063,7 @@ export function AppShell() {
               timestamp: Date.now(),
               version: '2025-12-17',
             };
-            localStorage.setItem('omnibrowser:cookie-consent', JSON.stringify(minimal));
+            localStorage.setItem('regen:cookie-consent', JSON.stringify(minimal));
             setTimeout(() => {
               setShowCookieConsent(false);
               console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
@@ -2002,6 +2077,15 @@ export function AppShell() {
       <Suspense fallback={null}>
         <SessionRestoreModal />
       </Suspense>
+
+      {/* Loop Resume Modal */}
+      <LoopResumeModal open={loopResumeModalOpen} onClose={() => setLoopResumeModalOpen(false)} />
+
+      {/* Workflow Marketplace */}
+      <WorkflowMarketplace
+        open={workflowMarketplaceOpen}
+        onClose={() => setWorkflowMarketplaceOpen(false)}
+      />
 
       {/* Mini Hover AI - Text selection assistant */}
       <MiniHoverAI enabled={!overlayActive && showWebContent} />
@@ -2017,8 +2101,8 @@ export function AppShell() {
       {/* Tier 3: Global Command Bar */}
       <CommandBar />
 
-      {/* Tier 3: Onboarding Flow - Legacy fallback, only if OnboardingTour is not available */}
-      {/* OnboardingTour is the primary onboarding component, so this is kept as fallback only */}
+      {/* Tier 3: Onboarding Flow - Legacy fallback, only if ResearchTour is not available */}
+      {/* ResearchTour is the primary onboarding component, so this is kept as fallback only */}
 
       {/* Session Restore Prompt */}
       <SessionRestorePrompt />

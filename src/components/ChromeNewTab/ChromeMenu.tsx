@@ -72,7 +72,7 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
   };
 
   const handleHistory = () => {
-    setMode('Browse');
+    setMode('Research');
     // Open history panel
     setIsOpen(false);
   };

@@ -7,7 +7,8 @@
 import { ipc } from '../ipc-typed';
 import { isElectronRuntime } from '../env';
 
-let rendererSentry: typeof import('@sentry/electron/renderer') | null = null;
+// Sentry is optional - use any to avoid build-time resolution
+let rendererSentry: any = null;
 let sentryInitialized = false;
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || '';
@@ -22,18 +23,38 @@ async function initRendererSentry() {
 
   if (!rendererSentry) {
     try {
-      rendererSentry = await import('@sentry/electron/renderer');
+      // Use Function constructor to prevent Vite from statically analyzing this import
+      // This makes Sentry truly optional - won't fail build if not installed
+      const importSentry = new Function('return import("@sentry/electron/renderer")');
+      const sentryModule = await importSentry().catch(() => null);
+      if (!sentryModule) {
+        console.warn(
+          '[Sentry] @sentry/electron/renderer not installed - skipping Sentry initialization'
+        );
+        return;
+      }
+      rendererSentry = sentryModule;
     } catch (error) {
       console.warn('[Sentry] Renderer SDK unavailable', error);
       return;
     }
   }
 
+  if (!rendererSentry || !rendererSentry.init) {
+    console.warn('[Sentry] Renderer SDK not available');
+    return;
+  }
+
+  if (!rendererSentry || !rendererSentry.init) {
+    console.warn('[Sentry] Renderer SDK not available');
+    return;
+  }
+
   try {
     rendererSentry.init({
       dsn: SENTRY_DSN,
       environment: SENTRY_ENV,
-      release: `omnibrowser-renderer@${RELEASE}`,
+      release: `regen-renderer@${RELEASE}`,
       enableUnresponsive: false,
       tracesSampleRate: Number.isFinite(SENTRY_SAMPLE_RATE) ? SENTRY_SAMPLE_RATE : 0,
       beforeSend(event) {
@@ -61,7 +82,9 @@ async function initRendererSentry() {
 async function shutdownRendererSentry() {
   if (!rendererSentry || !sentryInitialized) return;
   try {
-    await rendererSentry.close?.(2000);
+    if (rendererSentry.close && typeof rendererSentry.close === 'function') {
+      await rendererSentry.close(2000);
+    }
   } catch (error) {
     console.warn('[Sentry] Failed to shutdown renderer SDK', error);
   }
@@ -88,5 +111,3 @@ export async function syncRendererTelemetry() {
     await shutdownRendererSentry();
   }
 }
-
-

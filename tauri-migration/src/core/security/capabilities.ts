@@ -78,7 +78,7 @@ export const useCapabilityStore = create<CapabilityState>()(
       },
     }),
     {
-      name: 'omnibrowser_capabilities_v1',
+      name: 'regen_capabilities_v1',
     }
   )
 );

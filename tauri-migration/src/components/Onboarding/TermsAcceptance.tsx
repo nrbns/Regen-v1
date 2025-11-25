@@ -29,7 +29,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
     hasCheckedRef.current = true;
 
     try {
-      const stored = localStorage.getItem('omnibrowser:tos:accepted');
+      const stored = localStorage.getItem('regen:tos:accepted');
       if (stored) {
         try {
           const data = JSON.parse(stored);
@@ -59,12 +59,20 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
     // Scrolling no longer required to accept, but we keep hook for future metrics
   };
 
+  const callAcceptCallback = () => {
+    if (typeof onAccept === 'function') {
+      Promise.resolve().then(() => {
+        onAccept();
+      });
+    }
+  };
+
   const handleAccept = () => {
     if (!termsChecked) {
       console.warn('[TermsAcceptance] Accept called but terms not checked');
       return;
     }
-    
+
     console.log('[TermsAcceptance] Accept button clicked');
     try {
       const acceptanceData = {
@@ -72,42 +80,26 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
         accepted: true,
         timestamp: Date.now(),
       };
-      localStorage.setItem('omnibrowser:tos:accepted', JSON.stringify(acceptanceData));
+      localStorage.setItem('regen:tos:accepted', JSON.stringify(acceptanceData));
       console.log('[TermsAcceptance] Acceptance saved to localStorage');
 
       // Update state to hide component immediately
       setAcceptedVersion('2025-12-17');
       console.log('[TermsAcceptance] acceptedVersion state updated');
 
-      // Call onAccept callback - use requestAnimationFrame to ensure state updates are processed
-      if (typeof onAccept === 'function') {
-        console.log('[TermsAcceptance] Calling onAccept callback');
-        // Use requestAnimationFrame to ensure React state updates are processed
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            console.log('[TermsAcceptance] Executing onAccept callback now');
-            onAccept();
-          });
-        });
-      } else {
-        console.warn('[TermsAcceptance] onAccept callback is not a function:', typeof onAccept);
-      }
+      callAcceptCallback();
     } catch (error) {
       console.error('[TermsAcceptance] Failed to save acceptance:', error);
       // Still update state and call onAccept to allow app to continue
       setAcceptedVersion('2025-12-17');
-      if (typeof onAccept === 'function') {
-        requestAnimationFrame(() => {
-          onAccept();
-        });
-      }
+      callAcceptCallback();
     }
   };
 
   const handleDecline = () => {
     try {
       // Clear any previous acceptance
-      localStorage.removeItem('omnibrowser:tos:accepted');
+      localStorage.removeItem('regen:tos:accepted');
     } catch (error) {
       console.error('[TermsAcceptance] Failed to clear acceptance:', error);
     }
@@ -213,9 +205,9 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     1. Acceptance of Terms
                   </h3>
                   <p>
-                    By downloading, installing, accessing, or using OmniBrowser, you agree to be
-                    bound by these Terms of Service. If you do not agree to these Terms, do not use
-                    the Software.
+                    By downloading, installing, accessing, or using Regen, you agree to be bound by
+                    these Terms of Service. If you do not agree to these Terms, do not use the
+                    Software.
                   </p>
                 </section>
 
@@ -224,17 +216,17 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     2. Description of Service
                   </h3>
                   <p>
-                    OmniBrowser is a privacy-first, agentic research browser that provides
-                    multi-mode browsing, privacy features (Tor, VPN, Shields, Ghost Mode),
-                    AI-powered content processing, and knowledge graph tracking.
+                    Regen is a privacy-first, agentic research browser that provides multi-mode
+                    browsing, privacy features (Tor, VPN, Shields, Ghost Mode), AI-powered content
+                    processing, and knowledge graph tracking.
                   </p>
                 </section>
 
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">3. Privacy and Data</h3>
                   <p className="mb-2">
-                    OmniBrowser stores data locally on your device by default. When using Ghost Mode
-                    (Tor Browser integration), all data is stored in ephemeral sessions with no
+                    Regen stores data locally on your device by default. When using Ghost Mode (Tor
+                    Browser integration), all data is stored in ephemeral sessions with no
                     persistence.
                   </p>
                   <p>
@@ -245,7 +237,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
 
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">4. Acceptable Use</h3>
-                  <p className="mb-2">You agree NOT to use OmniBrowser to:</p>
+                  <p className="mb-2">You agree NOT to use Regen to:</p>
                   <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
                     <li>Violate any applicable laws or regulations</li>
                     <li>Infringe on intellectual property rights</li>
@@ -271,8 +263,8 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 <section className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-100 mb-3">6. Open Source</h3>
                   <p>
-                    OmniBrowser is open-source software licensed under the MIT License. The source
-                    code is available at{' '}
+                    Regen is open-source software licensed under the MIT License. The source code is
+                    available at{' '}
                     <a
                       href="https://github.com/nrbns/Omnibrowser"
                       target="_blank"
@@ -312,7 +304,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                   <ul className="space-y-2 text-gray-300">
                     <li className="flex items-start gap-2">
                       <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                      <span>OmniBrowser is open-source (MIT License)</span>
+                      <span>Regen is open-source (MIT License)</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
@@ -396,7 +388,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                   I have read and agree to the Terms of Service
                 </span>
               </label>
-              
+
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -443,7 +435,6 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     console.log('[TermsAcceptance] Accept button onClick triggered');
                     e.preventDefault();
                     e.stopPropagation();
-                    (e as any).stopImmediatePropagation();
                     handleAccept();
                   }}
                   onMouseDown={e => {
@@ -455,7 +446,6 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     console.log('[TermsAcceptance] Accept button onMouseDown triggered');
                     e.preventDefault();
                     e.stopPropagation();
-                    (e as any).stopImmediatePropagation();
                     // Don't call handleAccept here - let onClick handle it
                   }}
                   onPointerDown={e => {
@@ -467,7 +457,6 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     console.log('[TermsAcceptance] Accept button onPointerDown triggered');
                     e.preventDefault();
                     e.stopPropagation();
-                    (e as any).stopImmediatePropagation();
                     // Don't call handleAccept here - let onClick handle it
                   }}
                   className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 active:scale-95 ${
@@ -476,7 +465,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                       : 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-50'
                   }`}
                   style={{
-                    pointerEvents: termsChecked ? 'auto' : 'none',
+                    pointerEvents: 'auto',
                     cursor: termsChecked ? 'pointer' : 'not-allowed',
                     zIndex: 10010,
                     position: 'relative',

@@ -76,7 +76,7 @@ export const useWorkspacesStore = create<WorkspacesState>()(
       clear: () => set({ workspaces: [] }),
     }),
     {
-      name: 'omnibrowser_workspaces_v1',
+      name: 'regen_workspaces_v1',
     }
   )
 );

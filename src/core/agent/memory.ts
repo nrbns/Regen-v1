@@ -75,7 +75,7 @@ const useMemoryStore = create<MemoryState>()(
       clear: () => set({ items: [] }),
     }),
     {
-      name: 'omnibrowser_agent_memory_v1',
+      name: 'regen_agent_memory_v1',
     }
   )
 );
@@ -167,4 +167,3 @@ export class AgentMemoryImpl implements AgentMemory {
 
 // Singleton instance
 export const agentMemory = new AgentMemoryImpl();
-

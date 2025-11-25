@@ -19,12 +19,12 @@ def configure_openapi(app: FastAPI) -> None:
             return app.openapi_schema
 
         schema = get_openapi(
-            title="OmniBrowser API",
+            title="Regen API",
             version=app.version or "1.0.0",
-            description=app.description or "REST + WebSocket API for OmniBrowser",
+            description=app.description or "REST + WebSocket API for Regen",
             routes=app.routes,
         )
-        schema.setdefault("info", {}).setdefault("x-service", "omnibrowser-api")
+        schema.setdefault("info", {}).setdefault("x-service", "regen-api")
 
         export_path = os.getenv("OPENAPI_EXPORT_PATH")
         if export_path:

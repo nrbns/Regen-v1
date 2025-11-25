@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>OmniBrowser</title>
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <title>Regen</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body { height: 100%; width: 100%; }
@@ -18,7 +19,7 @@
       // Theme pre-init: prevent FOUC (Flash of Unstyled Content)
       (function() {
         try {
-          const themeKey = 'omnibrowser:theme-preference';
+          const themeKey = 'regen:theme-preference';
           const saved = localStorage.getItem(themeKey);
           const html = document.documentElement;
           

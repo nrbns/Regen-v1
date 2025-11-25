@@ -200,7 +200,7 @@ class PluginRegistry {
       id: p.id,
       enabled: p.enabled,
     }));
-    localStorage.setItem('omnibrowser_plugins_state', JSON.stringify(state));
+    localStorage.setItem('regen_plugins_state', JSON.stringify(state));
   }
 
   /**
@@ -208,7 +208,7 @@ class PluginRegistry {
    */
   restorePluginState(): void {
     try {
-      const stored = localStorage.getItem('omnibrowser_plugins_state');
+      const stored = localStorage.getItem('regen_plugins_state');
       if (!stored) return;
 
       const state = JSON.parse(stored) as Array<{ id: string; enabled: boolean }>;

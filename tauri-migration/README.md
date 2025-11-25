@@ -1,6 +1,6 @@
-# OmniBrowser Tauri
+# Regen Tauri
 
-This is the Tauri version of OmniBrowser, migrated from Electron.
+This is the Tauri version of Regen, migrated from Electron.
 
 ## Setup
 
@@ -15,5 +15,3 @@ This is the Tauri version of OmniBrowser, migrated from Electron.
 - ✅ HTTP API client created
 - ⏳ React code migration in progress
 - ⏳ Backend API endpoints to be added
-
-

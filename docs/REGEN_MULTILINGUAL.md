@@ -339,7 +339,7 @@ Regen: Executes scroll command
 - ❌ Don't understand commands in Indian languages
 - ❌ No voice support for Indian languages
 
-### OmniBrowser + Regen
+### Regen + Regen
 
 - ✅ **Any Indian language** input (text/voice)
 - ✅ **Full power**: search, navigate, automate, trade

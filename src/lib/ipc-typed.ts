@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import type { PrivacyAuditSummary } from './ipc-events';
 import { isDevEnv, isElectronRuntime } from './env';
+import apiClient from './api-client';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
@@ -19,7 +20,6 @@ import type {
 import type { ConsentAction, ConsentRecord } from '../types/consent';
 import { useTabsStore } from '../state/tabsStore';
 import { useContainerStore } from '../state/containerStore';
-import apiClient from './api-client';
 
 const IS_DEV = isDevEnv();
 
@@ -43,7 +43,25 @@ const createDefaultProfile = () => ({
   description: 'Fallback profile (IPC unavailable)',
 });
 
-const FALLBACK_CHANNELS: Record<string, () => unknown> = {
+const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
+  'tabs:setMemoryCap': () => ({ success: true }),
+  'telemetry:trackPerf': () => ({ success: false, stub: true }),
+  'system:getStatus': () => ({
+    redisConnected: false,
+    redixAvailable: false,
+    workerState: 'stopped',
+    vpn: { connected: false },
+    tor: { running: false, bootstrapped: false },
+    mode: 'Research',
+    uptime: 0,
+    memoryUsage: {
+      heapUsed: 0,
+      heapTotal: 0,
+      external: 0,
+      rss: 0,
+    },
+  }),
+  'session:checkRestore': () => ({ available: false }),
   'profiles:list': () => [createDefaultProfile()],
   'profiles:get': () => createDefaultProfile(),
   'profiles:getActive': () => createDefaultProfile(),
@@ -87,9 +105,41 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
   'vpn:disconnect': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
   'tabs:predictiveGroups': () => ({ groups: [], prefetch: [], summary: undefined }),
-  'tabs:create': () => {
-    // Return a temporary tab ID for fallback
-    return { id: `temp-${Date.now()}`, title: 'New Tab', url: 'about:blank', active: true };
+  'tabs:create': (req?: any) => {
+    const payload = typeof req === 'object' && req ? req : {};
+    const tabsState = getTabsStore();
+    const previousActiveId = tabsState?.activeId;
+    const tabId =
+      (typeof payload.tabId === 'string' && payload.tabId.trim().length > 0
+        ? payload.tabId
+        : undefined) ?? `tab-${Date.now()}`;
+    const url =
+      typeof payload.url === 'string' && payload.url.trim().length > 0
+        ? payload.url
+        : 'about:blank';
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title
+        : deriveTitleFromUrl(url);
+
+    tabsState?.add?.({
+      id: tabId,
+      title,
+      url,
+      mode: payload.mode,
+      appMode: payload.appMode,
+      containerId: payload.containerId,
+      createdAt: payload.createdAt ?? Date.now(),
+      lastActiveAt: payload.lastActiveAt ?? Date.now(),
+      profileId: payload.profileId,
+      sessionId: payload.sessionId,
+    });
+
+    if (payload.activate === false && previousActiveId && tabsState?.setActive) {
+      tabsState.setActive(previousActiveId);
+    }
+
+    return { id: tabId, title, url, success: true };
   },
   'tabs:list': () => {
     try {
@@ -113,6 +163,67 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     }
     return null;
   },
+  'tabs:close': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.remove?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:activate': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.setActive?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:navigate': (req?: { id?: string; url?: string }) => {
+    try {
+      if (req?.id && req?.url) {
+        const state = useTabsStore.getState?.();
+        if (state?.navigateTab) {
+          state.navigateTab(req.id, req.url);
+        } else {
+          state?.updateTab?.(req.id, { url: req.url, title: deriveTitleFromUrl(req.url) });
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:goBack': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.goBack?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:goForward': (req?: { id?: string }) => {
+    try {
+      if (req?.id) {
+        const state = useTabsStore.getState?.();
+        state?.goForward?.(req.id);
+      }
+    } catch {
+      // ignore
+    }
+    return { success: true };
+  },
+  'tabs:reload': () => ({ success: true }),
+  'tabs:stop': () => ({ success: true }),
   'containers:list': () => {
     try {
       const state = useContainerStore.getState?.();
@@ -174,14 +285,61 @@ const FALLBACK_CHANNELS: Record<string, () => unknown> = {
     perfMetrics: [],
   }),
   'analytics:getStatus': () => ({ optIn: false, enabled: false }),
+  'cross-reality:handoff': () => ({ success: false, handoff: null }),
+  'cross-reality:queue': () => ({ handoffs: [] }),
+  'cross-reality:handoffStatus': () => ({ success: true }),
+  'research:queryEnhanced': (payload?: any) => {
+    if (!payload?.query) {
+      return {
+        query: '',
+        summary: 'Enter a question to start research.',
+        sources: [],
+        citations: [],
+        confidence: 0,
+        language: 'en',
+        languageLabel: 'English',
+        languageConfidence: 0,
+        verification: {
+          verified: false,
+          claimDensity: 0,
+          citationCoverage: 0,
+          ungroundedClaims: [],
+          hallucinationRisk: 1,
+          suggestions: ['Add a research query to continue.'],
+        },
+        contradictions: [],
+      };
+    }
+    return apiClient.research.queryEnhanced(payload);
+  },
 };
 
 const reportedMissingChannels = new Set<string>();
 
-function getFallback<T>(channel: string): T | undefined {
+function getTabsStore() {
+  try {
+    return typeof useTabsStore.getState === 'function' ? useTabsStore.getState() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function deriveTitleFromUrl(url?: string) {
+  if (!url || url === 'about:blank') {
+    return 'New Tab';
+  }
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname || url;
+  } catch {
+    return url;
+  }
+}
+
+function getFallback<T>(channel: string, request?: unknown): T | undefined {
   const factory = FALLBACK_CHANNELS[channel];
   if (!factory) return undefined;
-  return factory() as T;
+  return factory(request) as T;
 }
 
 function noteFallback(channel: string, reason: string) {
@@ -189,6 +347,63 @@ function noteFallback(channel: string, reason: string) {
   if (reportedMissingChannels.has(channel)) return;
   reportedMissingChannels.add(channel);
   console.warn(`[IPC] Channel ${channel} unavailable (${reason}); using renderer fallback.`);
+}
+
+async function mapIpcToHttp<TRequest, TResponse = unknown>(
+  channel: string,
+  request: TRequest,
+  schema?: z.ZodSchema<TResponse>
+): Promise<TResponse> {
+  const normalized = channel.replace('ob://ipc/v1/', '');
+
+  const handlers: Record<string, (req: any) => Promise<unknown>> = {
+    'tabs:list': () => apiClient.tabs.list(),
+    'tabs:create': async (req: any) => {
+      if (typeof req === 'string') {
+        return apiClient.tabs.create({ url: req });
+      }
+      if (req && typeof req === 'object') {
+        const payload = 'url' in req ? req : { url: 'about:blank' };
+        return apiClient.tabs.create(payload);
+      }
+      return apiClient.tabs.create({ url: 'about:blank' });
+    },
+    'tabs:close': (req: any) => apiClient.tabs.close(req.id),
+    'tabs:activate': (req: any) => apiClient.tabs.activate(req.id),
+    'tabs:navigate': (req: any) => apiClient.tabs.navigate(req),
+    'tabs:goBack': (req: any) => apiClient.tabs.goBack(req.id),
+    'tabs:goForward': (req: any) => apiClient.tabs.goForward(req.id),
+    'tabs:reload': (req: any) => apiClient.tabs.reload(req.id, req),
+    'tabs:stop': (req: any) => apiClient.tabs.stop(req.id),
+    'tabs:overlay/start': () => apiClient.tabs.overlayStart(),
+    'tabs:overlay/pick': () => apiClient.tabs.overlayGetPick(),
+    'tabs:overlay/clear': () => apiClient.tabs.overlayClear(),
+    'sessions:list': () => apiClient.sessions.list(),
+    'sessions:create': (req: any) => apiClient.sessions.create(req),
+    'sessions:getActive': () => apiClient.sessions.getActive(),
+    'session:checkRestore': () => apiClient.session.checkRestore(),
+    'session:getSnapshot': () => apiClient.session.getSnapshot(),
+    'session:dismissRestore': () => apiClient.session.dismissRestore(),
+    'system:getStatus': () => apiClient.system.getStatus(),
+    'agent:ask': (req: any) => apiClient.agent.ask(req),
+    'telemetry:getStatus': () => apiClient.system.getStatus(),
+    'research:queryEnhanced': (req: any) => apiClient.research.queryEnhanced(req),
+  };
+
+  const handler = handlers[normalized];
+  if (!handler) {
+    throw new Error(`No HTTP endpoint mapping for channel: ${normalized}`);
+  }
+
+  const response = await handler(request);
+  if (schema && response !== undefined && response !== null) {
+    const parsed = schema.safeParse(response);
+    if (!parsed.success) {
+      throw new Error(`Invalid response: ${parsed.error.message}`);
+    }
+    return parsed.data;
+  }
+  return response as TResponse;
 }
 
 /**
@@ -402,12 +617,13 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   if (!isElectron) {
     // Map IPC channels to HTTP API calls
     try {
-      return await mapIpcToHttp<TRequest, TResponse>(fullChannel, request);
+      return await mapIpcToHttp<TRequest, TResponse>(fullChannel, request, schema);
     } catch (error) {
       // Fallback to default fallback if HTTP call fails
-      const fallback = getFallback<TResponse>(channel);
+      const normalized = fullChannel.replace('ob://ipc/v1/', '');
+      const fallback = getFallback<TResponse>(normalized, request);
       if (fallback !== undefined) {
-        noteFallback(channel, 'HTTP API unavailable, using fallback');
+        noteFallback(normalized, 'HTTP API unavailable, using fallback');
         return fallback;
       }
       throw error;
@@ -448,7 +664,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
 
   if (!isReady || !ipcBridge || typeof ipcBridge.invoke !== 'function') {
     // Always try fallback first if available, regardless of Electron detection
-    const fallback = getFallback<TResponse>(channel);
+    const fallback = getFallback<TResponse>(channel, request);
     if (fallback !== undefined) {
       const reason = !isElectron && !hasWindowIpc ? 'non-Electron runtime' : 'IPC bridge not ready';
       noteFallback(channel, reason);
@@ -485,7 +701,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('No handler registered')) {
-      const fallback = getFallback<TResponse>(channel);
+      const fallback = getFallback<TResponse>(channel, request);
       if (fallback !== undefined) {
         noteFallback(channel, 'handler not registered');
         return fallback;
@@ -1556,7 +1772,8 @@ export const ipc = {
     available: () => ipcCall<unknown, { available: boolean }>('cloud-vector:available', {}),
   },
   hybridSearch: {
-    search: (query: string, maxResults?: number) => ipcCall('search:hybrid', { query, maxResults }),
+    search: (query: string, maxResults?: number, language?: string) =>
+      ipcCall('search:hybrid', { query, maxResults, language }),
     config: (config: {
       sources?: {
         brave?: { enabled: boolean; apiKey?: string };
@@ -2136,6 +2353,16 @@ export const ipc = {
         }
       ),
     queue: () => ipcCall<unknown, { handoffs: any[] }>('cross-reality:queue', {}),
+    sendHandoffStatus: (status: { platform: string; lastSentAt: number | null }) =>
+      ipcCall<{ platform: string; lastSentAt: number | null }, { success: boolean }>(
+        'cross-reality:handoffStatus',
+        status
+      ).catch(error => {
+        if (IS_DEV) {
+          console.warn('[IPC] Failed to send handoff status:', error);
+        }
+        return { success: false };
+      }),
   },
   identity: {
     status: () => ipcCall<unknown, IdentityVaultSummary>('identity:status', {}),
@@ -2181,6 +2408,14 @@ export const ipc = {
     },
   },
   research: {
+    queryEnhanced: (payload: {
+      query: string;
+      maxSources?: number;
+      includeCounterpoints?: boolean;
+      recencyWeight?: number;
+      authorityWeight?: number;
+      language?: string;
+    }) => ipcCall<typeof payload, any>('research:queryEnhanced', payload),
     extractContent: (tabId?: string) =>
       ipcCall<{ tabId?: string }, { content: string; title: string; html: string }>(
         'research:extractContent',

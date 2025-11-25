@@ -195,7 +195,7 @@ function removePythonCache(dir) {
 }
 
 // Only scan specific Python directories
-const pythonDirs = ['apps/api', 'redix-core', 'omnibrowser-redix-memory-kit/server'];
+const pythonDirs = ['apps/api', 'redix-core', 'regen-redix-memory-kit/server'];
 for (const dir of pythonDirs) {
   const fullPath = path.join(projectRoot, dir);
   if (fs.existsSync(fullPath)) {

@@ -14,6 +14,7 @@ import {
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
+// Toast imported but not used in standard view - used in enhanced view
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
@@ -44,6 +45,7 @@ import { showToast } from '../../state/toastStore';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
+import ResearchModePanel from '../../components/research/ResearchModePanel';
 
 type UploadedDocument = {
   id: string;
@@ -101,6 +103,7 @@ export default function ResearchPanel() {
   const [deepScanLoading, setDeepScanLoading] = useState(false);
   const [deepScanSteps, setDeepScanSteps] = useState<DeepScanStep[]>([]);
   const [deepScanError, setDeepScanError] = useState<string | null>(null);
+  const [useEnhancedView, setUseEnhancedView] = useState(true); // Default to enhanced multilingual view
 
   useEffect(() => {
     if (containers.length === 0) {
@@ -168,6 +171,7 @@ export default function ResearchPanel() {
               region: region !== 'global' ? region : undefined,
               recencyWeight,
               authorityWeight,
+              language: language !== 'auto' ? language : undefined,
             },
             llm: {
               temperature: 0.2,
@@ -773,6 +777,7 @@ export default function ResearchPanel() {
               region: region !== 'global' ? region : undefined,
               recencyWeight,
               authorityWeight,
+              language: language !== 'auto' ? language : undefined,
             },
             llm: {
               temperature: 0.2,
@@ -1387,6 +1392,23 @@ export default function ResearchPanel() {
           <div className="flex-shrink-0 ml-4 flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setUseEnhancedView(prev => !prev)}
+              className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+                useEnhancedView
+                  ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
+                  : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
+              }`}
+              title={
+                useEnhancedView ? 'Switch to Standard View' : 'Switch to Enhanced Multilingual View'
+              }
+            >
+              <span className="flex items-center gap-1.5">
+                <Sparkles size={14} />
+                {useEnhancedView ? 'Enhanced' : 'Standard'}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setCursorPanelOpen(prev => !prev)}
               className={`px-3 py-1.5 rounded-lg border text-sm transition ${
                 cursorPanelOpen
@@ -1525,93 +1547,102 @@ export default function ResearchPanel() {
       </LayoutHeader>
 
       <LayoutBody className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
-        <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
-          <div className="flex h-full flex-col space-y-4 p-5">
-            <ResearchControls
-              authorityBias={authorityBias}
-              includeCounterpoints={includeCounterpoints}
-              region={region}
-              loading={loading}
-              onAuthorityBiasChange={setAuthorityBias}
-              onIncludeCounterpointsChange={setIncludeCounterpoints}
-              onRegionChange={value => setRegion(value)}
-              deepScanEnabled={deepScanEnabled}
-              onDeepScanToggle={value => setDeepScanEnabled(value)}
-            />
-
-            {deepScanEnabled && (
-              <DeepScanStatus
-                loading={deepScanLoading}
-                steps={deepScanSteps}
-                error={deepScanError}
-              />
-            )}
-
-            {error && (
-              <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur">
-                {error}
-              </div>
-            )}
-
-            {loading && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200">
-                  <Sparkles size={14} className="animate-pulse" />
-                  Gathering sources and evaluating evidence…
-                </div>
-                <div className="w-full max-w-2xl space-y-4">
-                  <SkeletonCard />
-                  <SkeletonList items={3} />
-                  <SkeletonText lines={4} />
-                </div>
-                <p className="text-xs text-gray-500">
-                  Cross-checking accuracy, bias, and contradictions before presenting the answer.
-                </p>
-              </div>
-            )}
-
-            {!loading && result && (
-              <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-                <EvidenceOverlay
-                  evidence={result.evidence || []}
-                  sources={result.sources}
-                  activeEvidenceId={activeEvidenceId}
-                  onEvidenceClick={setActiveEvidenceId}
-                />
-                <ResearchResultView
-                  result={result}
-                  onOpenSource={handleOpenUrl}
-                  activeSourceId={activeSourceId}
-                  onActiveSourceChange={setActiveSourceId}
-                  onSaveForCompare={handleSaveForCompare}
-                  onShowCompare={() => setComparePanelOpen(true)}
-                  compareCount={compareEntries.length}
-                />
-                <ResearchGraphSection
-                  showGraph={showGraph}
-                  onToggleGraph={() => setShowGraph(prev => !prev)}
-                  query={result.query}
-                  queryKey={queryKey}
-                  graphData={graphData}
-                  activeSourceId={activeSourceId}
-                  onSelectSource={setActiveSourceId}
-                  onOpenSource={handleOpenUrl}
-                />
-              </div>
-            )}
-
-            {!loading && !result && !error && <EmptyState onRunExample={handleRunExample} />}
+        {useEnhancedView ? (
+          <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+            <ResearchModePanel />
           </div>
-        </section>
+        ) : (
+          <>
+            <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+              <div className="flex h-full flex-col space-y-4 p-5">
+                <ResearchControls
+                  authorityBias={authorityBias}
+                  includeCounterpoints={includeCounterpoints}
+                  region={region}
+                  loading={loading}
+                  onAuthorityBiasChange={setAuthorityBias}
+                  onIncludeCounterpointsChange={setIncludeCounterpoints}
+                  onRegionChange={value => setRegion(value)}
+                  deepScanEnabled={deepScanEnabled}
+                  onDeepScanToggle={value => setDeepScanEnabled(value)}
+                />
 
-        <InsightsSidebar
-          result={result}
-          loading={loading}
-          onOpenSource={handleOpenUrl}
-          activeSourceId={activeSourceId}
-          onSelectSource={setActiveSourceId}
-        />
+                {deepScanEnabled && (
+                  <DeepScanStatus
+                    loading={deepScanLoading}
+                    steps={deepScanSteps}
+                    error={deepScanError}
+                  />
+                )}
+
+                {error && (
+                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur">
+                    {error}
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200">
+                      <Sparkles size={14} className="animate-pulse" />
+                      Gathering sources and evaluating evidence…
+                    </div>
+                    <div className="w-full max-w-2xl space-y-4">
+                      <SkeletonCard />
+                      <SkeletonList items={3} />
+                      <SkeletonText lines={4} />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Cross-checking accuracy, bias, and contradictions before presenting the
+                      answer.
+                    </p>
+                  </div>
+                )}
+
+                {!loading && result && (
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+                    <EvidenceOverlay
+                      evidence={result.evidence || []}
+                      sources={result.sources}
+                      activeEvidenceId={activeEvidenceId}
+                      onEvidenceClick={setActiveEvidenceId}
+                    />
+                    <ResearchResultView
+                      result={result}
+                      onOpenSource={handleOpenUrl}
+                      activeSourceId={activeSourceId}
+                      onActiveSourceChange={setActiveSourceId}
+                      onSaveForCompare={handleSaveForCompare}
+                      onShowCompare={() => setComparePanelOpen(true)}
+                      compareCount={compareEntries.length}
+                    />
+                    <ResearchGraphSection
+                      showGraph={showGraph}
+                      onToggleGraph={() => setShowGraph(prev => !prev)}
+                      query={result.query}
+                      queryKey={queryKey}
+                      graphData={graphData}
+                      activeSourceId={activeSourceId}
+                      onSelectSource={setActiveSourceId}
+                      onOpenSource={handleOpenUrl}
+                    />
+                  </div>
+                )}
+
+                {!loading && !result && !error && <EmptyState onRunExample={handleRunExample} />}
+              </div>
+            </section>
+
+            <InsightsSidebar
+              result={result}
+              loading={loading}
+              onOpenSource={handleOpenUrl}
+              activeSourceId={activeSourceId}
+              onSelectSource={setActiveSourceId}
+            />
+          </>
+        )}
       </LayoutBody>
       <CompareAnswersPanel
         open={comparePanelOpen}

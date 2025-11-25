@@ -1,5 +1,7 @@
-import { sendPrompt, type LLMOptions, type LLMResponse } from '../llm/adapter';
+import { sendPrompt, type LLMOptions, type LLMResponse, type LLMProvider } from '../llm/adapter';
 import { trackAction } from '../supermemory/tracker';
+// @ts-ignore - p-queue types may not be available
+import PQueue from 'p-queue';
 
 export type AITaskKind = 'search' | 'agent' | 'chat' | 'summary';
 
@@ -30,10 +32,7 @@ type StreamHandler = (event: {
 }) => void;
 
 /**
- * Sprint 2 placeholder AI Engine.
- *
- * For now this simply forwards to `sendPrompt` on the renderer, but it gives us a
- * single entrypoint so SearchBar/agents can migrate without waiting for the backend router.
+ * Enhanced AI Engine with provider chaining, rate limiting, and state persistence
  */
 export class AIEngine {
   private readonly apiBase =
@@ -41,17 +40,37 @@ export class AIEngine {
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' ? window.__OB_API_BASE__ : '');
 
+  // Rate limiting: max 2 concurrent AI requests to prevent overload
+  private readonly requestQueue = new PQueue({ concurrency: 2 });
+
+  // Provider chain: try in order, fallback to next on failure
+  private readonly providerChain: LLMProvider[] = ['openai', 'anthropic', 'ollama'];
+
+  // State persistence key
+  private readonly STATE_KEY = 'regen:ai_engine_state';
+
   async runTask(request: AITaskRequest, onStream?: StreamHandler): Promise<AITaskResult> {
     if (!request.prompt?.trim()) {
       throw new Error('Prompt is required for AI tasks');
     }
 
-    const backendResult = await this.callBackendTask(request, onStream);
-    if (backendResult) {
-      return backendResult;
-    }
+    // Save state before running
+    this.saveState(request);
 
-    return this.runLocalLLM(request, onStream);
+    // Use queue to limit concurrency (max 2 concurrent requests)
+    return (await this.requestQueue.add(async (): Promise<AITaskResult> => {
+      // Try backend first
+      const backendResult = await this.callBackendTask(request, onStream);
+      if (backendResult) {
+        this.saveState(request, backendResult);
+        return backendResult;
+      }
+
+      // Fallback to local LLM with provider chaining
+      const localResult = await this.runLocalLLMWithFallback(request, onStream);
+      this.saveState(request, localResult);
+      return localResult;
+    })) as AITaskResult;
   }
 
   private async callBackendTask(
@@ -182,26 +201,124 @@ export class AIEngine {
     }
   }
 
+  /**
+   * Run local LLM with provider chaining (OpenAI → Anthropic → Ollama)
+   */
+  private async runLocalLLMWithFallback(
+    request: AITaskRequest,
+    onStream?: StreamHandler
+  ): Promise<AITaskResult> {
+    let lastError: Error | null = null;
+
+    // Try each provider in chain
+    for (const provider of this.providerChain) {
+      try {
+        const response = await sendPrompt(request.prompt, {
+          ...request.llm,
+          provider,
+          stream: Boolean(onStream) || request.llm?.stream,
+          systemPrompt: request.llm?.systemPrompt ?? this.resolveSystemPrompt(request),
+        });
+
+        const result = {
+          text: response.text,
+          provider: response.provider,
+          model: response.model,
+          usage: response.usage,
+          latency: response.latency,
+        };
+
+        this.saveState(request, result);
+        this.trackTelemetry(result, request);
+        onStream?.({ type: 'done', data: result });
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`[AIEngine] Provider ${provider} failed:`, error.message);
+
+        // If not the last provider, try next one
+        if (provider !== this.providerChain[this.providerChain.length - 1]) {
+          continue;
+        }
+      }
+    }
+
+    // All providers failed
+    const errorMessage = lastError?.message || 'All AI providers failed';
+    onStream?.({ type: 'error', data: errorMessage });
+    throw new Error(errorMessage);
+  }
+
   private async runLocalLLM(
     request: AITaskRequest,
     onStream?: StreamHandler
   ): Promise<AITaskResult> {
-    const response = await sendPrompt(request.prompt, {
-      ...request.llm,
-      stream: Boolean(onStream) || request.llm?.stream,
-      systemPrompt: request.llm?.systemPrompt ?? this.resolveSystemPrompt(request),
-    });
+    // Legacy method - use fallback version instead
+    return this.runLocalLLMWithFallback(request, onStream);
+  }
 
-    const result = {
-      text: response.text,
-      provider: response.provider,
-      model: response.model,
-      usage: response.usage,
-      latency: response.latency,
-    };
-    this.trackTelemetry(result, request);
-    onStream?.({ type: 'done', data: result });
-    return result;
+  /**
+   * Save AI task state to localStorage for crash recovery
+   */
+  private saveState(request: AITaskRequest, result?: AITaskResult): void {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
+    try {
+      const state = {
+        request: {
+          kind: request.kind,
+          prompt: request.prompt.substring(0, 200), // Truncate for storage
+          mode: request.mode,
+          timestamp: Date.now(),
+        },
+        result: result
+          ? {
+              provider: result.provider,
+              model: result.model,
+              textLength: result.text?.length || 0,
+            }
+          : undefined,
+      };
+
+      // Keep only last 10 states
+      const existing = JSON.parse(localStorage.getItem(this.STATE_KEY) || '[]');
+      existing.push(state);
+      const recent = existing.slice(-10);
+      localStorage.setItem(this.STATE_KEY, JSON.stringify(recent));
+    } catch (error) {
+      console.warn('[AIEngine] Failed to save state:', error);
+    }
+  }
+
+  /**
+   * Get last AI task state (for crash recovery)
+   */
+  getLastState(): { request: AITaskRequest; result?: AITaskResult } | null {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+
+    try {
+      const states = JSON.parse(localStorage.getItem(this.STATE_KEY) || '[]');
+      const last = states[states.length - 1];
+      if (!last) return null;
+
+      return {
+        request: {
+          kind: last.request.kind || 'agent',
+          prompt: last.request.prompt || '',
+          mode: last.request.mode,
+        },
+        result: last.result
+          ? {
+              text: '',
+              provider: last.result.provider,
+              model: last.result.model,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      console.warn('[AIEngine] Failed to load state:', error);
+      return null;
+    }
   }
 
   private resolveSystemPrompt(request: AITaskRequest): string | undefined {

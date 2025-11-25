@@ -9,6 +9,14 @@ import { semanticSearchMemories } from '../core/supermemory/search';
 import { useAgentStreamStore } from '../state/agentStreamStore';
 import { useAgentMemoryStore } from '../state/agentMemoryStore';
 import { trackAgent, trackAction } from '../core/supermemory/tracker';
+import {
+  startAutoSave,
+  stopAutoSave,
+  saveLoopState,
+  checkForCrashedLoops,
+  resumeLoop,
+} from '../core/agents/loopResume';
+import { useSettingsStore } from '../state/settingsStore';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -18,15 +26,56 @@ export default function AgentConsole() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
   const responsePaneRef = useRef<HTMLDivElement | null>(null);
-  const dslRef = useRef<string>(JSON.stringify({ goal: "Open example.com", steps: [{ skill: 'navigate', args: { url: 'https://example.com' } }], output: { type: 'json', schema: {} } }, null, 2));
-  const streamMetaRef = useRef<{ startedAt: number; query: string; model?: string; provider?: string } | null>(null);
+  const dslRef = useRef<string>(
+    JSON.stringify(
+      {
+        goal: 'Open example.com',
+        steps: [{ skill: 'navigate', args: { url: 'https://example.com' } }],
+        output: { type: 'json', schema: {} },
+      },
+      null,
+      2
+    )
+  );
+  const streamMetaRef = useRef<{
+    startedAt: number;
+    query: string;
+    model?: string;
+    provider?: string;
+  } | null>(null);
   const latestOutputRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
-  
-  const { status, transcript, events, setRun, setStatus, appendTranscript, reset } = useAgentStreamStore();
-  const agentConsoleHistory = useAgentMemoryStore((state) =>
-    state.entries.filter((entry) => entry.agentId === 'agent.console').slice(0, 5),
+
+  const {
+    status,
+    transcript,
+    events,
+    setRun,
+    setStatus,
+    appendTranscript,
+    reset,
+    runId: currentRunId,
+  } = useAgentStreamStore();
+  const language = useSettingsStore(state => state.language || 'auto');
+  const agentConsoleHistory = useAgentMemoryStore(state =>
+    state.entries.filter(entry => entry.agentId === 'agent.console').slice(0, 5)
   );
+
+  // Check for crashed loops on mount
+  useEffect(() => {
+    const crashed = checkForCrashedLoops();
+    if (crashed.length > 0) {
+      console.log('[AgentConsole] Found', crashed.length, 'crashed loops');
+      // Could show a toast or modal here to offer resume
+    }
+  }, []);
+
+  // Cleanup auto-save on unmount
+  useEffect(() => {
+    return () => {
+      stopAutoSave();
+    };
+  }, []);
 
   // Auto-scroll response pane to bottom when new content arrives
   useEffect(() => {
@@ -49,7 +98,7 @@ export default function AgentConsole() {
         promptTokens?: number | null;
         completionTokens?: number | null;
         totalTokens?: number | null;
-      },
+      }
     ) => {
       const meta = streamMetaRef.current;
       if (!meta) return;
@@ -68,7 +117,7 @@ export default function AgentConsole() {
       }).catch(() => {});
       streamMetaRef.current = null;
     },
-    [],
+    []
   );
 
   const persistConsoleMemory = useCallback(
@@ -126,7 +175,7 @@ export default function AgentConsole() {
         console.warn('[AgentConsole] Failed to persist console memory:', error);
       }
     },
-    [],
+    []
   );
 
   const clearConsoleHistory = useCallback(() => {
@@ -143,7 +192,7 @@ export default function AgentConsole() {
       console.warn('[AgentConsole] window.agent not available');
       return;
     }
-    
+
     const tokenHandler = (t: any) => {
       setLogs((l: any[]) => [...l, t]);
       if (t.type === 'token' && t.text) {
@@ -160,7 +209,7 @@ export default function AgentConsole() {
         content: s.res ? JSON.stringify(s.res) : undefined,
         timestamp: Date.now(),
       });
-      
+
       // Track agent step
       try {
         await trackAgent('step_complete', {
@@ -173,14 +222,14 @@ export default function AgentConsole() {
         console.warn('[AgentConsole] Failed to track agent step:', error);
       }
     };
-    
+
     try {
       window.agent.onToken(tokenHandler);
       window.agent.onStep(stepHandler);
     } catch (error) {
       console.error('[AgentConsole] Failed to register agent handlers:', error);
     }
-    
+
     return () => {
       // Cleanup handled by component unmount
     };
@@ -201,6 +250,12 @@ export default function AgentConsole() {
     const runToken = `agent-stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     setRun(runToken, trimmedQuery);
 
+    // Start auto-save for loop resume
+    startAutoSave({
+      language,
+      mode: 'agent',
+    });
+
     // Track agent action
     try {
       await trackAgent('stream_start', {
@@ -218,7 +273,7 @@ export default function AgentConsole() {
 
     // Add recent agent runs
     if (agentConsoleHistory.length > 0) {
-      context.agent_runs = agentConsoleHistory.slice(0, 3).map((entry) => ({
+      context.agent_runs = agentConsoleHistory.slice(0, 3).map(entry => ({
         prompt: entry.prompt,
         response: entry.response,
         success: entry.success,
@@ -230,8 +285,11 @@ export default function AgentConsole() {
     // Fetch relevant memories for context
     let relevantMemories: any[] = [];
     try {
-      const memoryMatches = await semanticSearchMemories(trimmedQuery, { limit: 5, minSimilarity: 0.6 });
-      relevantMemories = memoryMatches.map((m) => ({
+      const memoryMatches = await semanticSearchMemories(trimmedQuery, {
+        limit: 5,
+        minSimilarity: 0.6,
+      });
+      relevantMemories = memoryMatches.map(m => ({
         value: m.event.value,
         metadata: m.event.metadata,
         id: m.event.id,
@@ -261,13 +319,13 @@ export default function AgentConsole() {
           llm: { temperature: 0.2, maxTokens: 900 },
           signal: controller.signal,
         },
-        (event) => {
+        event => {
           if (event.type === 'token' && typeof event.data === 'string') {
             if (!sawFirstToken) {
               sawFirstToken = true;
               setStatus('live');
             }
-            setStreamingText((prev) => `${prev}${event.data}`);
+            setStreamingText(prev => `${prev}${event.data}`);
             appendTranscript(event.data);
           } else if (event.type === 'done') {
             if (event.data && typeof event.data !== 'string') {
@@ -282,7 +340,7 @@ export default function AgentConsole() {
           } else if (event.type === 'error') {
             streamError = typeof event.data === 'string' ? event.data : 'AI stream failed';
           }
-        },
+        }
       );
 
       abortControllerRef.current = null;
@@ -308,6 +366,12 @@ export default function AgentConsole() {
         setIsStreaming(false);
         setStatus('error');
         useAgentStreamStore.getState().setError(streamError);
+        // Save loop state on error
+        saveLoopState({
+          mode: 'agent',
+          metadata: { language },
+        });
+        stopAutoSave();
         finalizeTelemetry('error', { error: streamError });
         return;
       }
@@ -316,6 +380,15 @@ export default function AgentConsole() {
       const durationMs = streamMetaRef.current
         ? Math.round(performance.now() - streamMetaRef.current.startedAt)
         : undefined;
+
+      // Save final loop state
+      saveLoopState({
+        mode: 'agent',
+        status: 'complete',
+        metadata: { language },
+      });
+      stopAutoSave();
+
       await persistConsoleMemory({
         prompt: trimmedQuery,
         runId: runToken,
@@ -365,7 +438,16 @@ export default function AgentConsole() {
         // Ignore tracking errors
       }
     }
-  }, [query, isStreaming, reset, setStatus, setRun, appendTranscript, finalizeTelemetry, agentConsoleHistory]);
+  }, [
+    query,
+    isStreaming,
+    reset,
+    setStatus,
+    setRun,
+    appendTranscript,
+    finalizeTelemetry,
+    agentConsoleHistory,
+  ]);
 
   const handleStopStream = useCallback(() => {
     if (!abortControllerRef.current) return;
@@ -378,7 +460,7 @@ export default function AgentConsole() {
   const handleCopyResponse = useCallback(async () => {
     const textToCopy = streamingText || transcript;
     if (!textToCopy) return;
-    
+
     try {
       await navigator.clipboard.writeText(textToCopy);
       setCopyStatus('copied');
@@ -425,8 +507,8 @@ export default function AgentConsole() {
                 <input
                   type="text"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
+                  onChange={e => setQuery(e.target.value)}
+                  onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey && !isStreaming) {
                       e.preventDefault();
                       void handleStartStream();
@@ -480,7 +562,7 @@ export default function AgentConsole() {
               <textarea
                 className="h-48 w-full rounded-lg border border-slate-700/60 bg-slate-800/70 p-3 text-xs font-mono text-gray-200 focus:border-blue-500/60 focus:outline-none"
                 defaultValue={dslRef.current}
-                onChange={(e) => (dslRef.current = e.target.value)}
+                onChange={e => (dslRef.current = e.target.value)}
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
@@ -492,10 +574,10 @@ export default function AgentConsole() {
                     }
                     try {
                       const parsed = JSON.parse(dslRef.current);
-                      const res = await window.agent.start(parsed) as any;
+                      const res = (await window.agent.start(parsed)) as any;
                       if (res?.runId) {
                         setRunId(res.runId);
-                        
+
                         // Track agent run start
                         try {
                           await trackAgent('run_start', {
@@ -509,7 +591,9 @@ export default function AgentConsole() {
                       }
                     } catch (error) {
                       console.error('Failed to start agent run:', error);
-                      alert(`Failed to start agent run: ${error instanceof Error ? error.message : String(error)}`);
+                      alert(
+                        `Failed to start agent run: ${error instanceof Error ? error.message : String(error)}`
+                      );
                     }
                   }}
                 >
@@ -527,7 +611,9 @@ export default function AgentConsole() {
                         await window.agent.stop(runId);
                       } catch (error) {
                         console.error('Failed to stop agent run:', error);
-                        alert(`Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`);
+                        alert(
+                          `Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`
+                        );
                       }
                     }
                   }}
@@ -544,25 +630,28 @@ export default function AgentConsole() {
               <h3 className="text-sm font-medium text-gray-300">Recent Events</h3>
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-900/40 p-3">
                 <AnimatePresence>
-                  {events.slice(-5).reverse().map((event) => (
-                    <motion.div
-                      key={event.id}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="rounded-lg border border-slate-700/40 bg-slate-800/50 p-2 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-200">{event.type}</span>
-                        {event.step !== undefined && (
-                          <span className="text-gray-400">Step {event.step}</span>
+                  {events
+                    .slice(-5)
+                    .reverse()
+                    .map(event => (
+                      <motion.div
+                        key={event.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="rounded-lg border border-slate-700/40 bg-slate-800/50 p-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-200">{event.type}</span>
+                          {event.step !== undefined && (
+                            <span className="text-gray-400">Step {event.step}</span>
+                          )}
+                        </div>
+                        {event.content && (
+                          <p className="mt-1 truncate text-gray-400">{event.content}</p>
                         )}
-                      </div>
-                      {event.content && (
-                        <p className="mt-1 truncate text-gray-400">{event.content}</p>
-                      )}
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))}
                 </AnimatePresence>
               </div>
             </div>
@@ -581,7 +670,7 @@ export default function AgentConsole() {
                 </button>
               </div>
               <div className="space-y-2">
-                {agentConsoleHistory.map((entry) => (
+                {agentConsoleHistory.map(entry => (
                   <button
                     key={entry.id}
                     onClick={() => setQuery(entry.prompt)}
@@ -589,7 +678,10 @@ export default function AgentConsole() {
                   >
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-gray-500">
-                        {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(entry.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </span>
                       <span className={entry.success ? 'text-emerald-400' : 'text-rose-400'}>
                         {entry.success ? 'Succeeded' : 'Error'}
@@ -664,8 +756,12 @@ export default function AgentConsole() {
                   <div className="rounded-full border border-slate-700/60 bg-slate-800/60 p-4">
                     <Sparkles size={24} className="text-slate-500" />
                   </div>
-                  <p className="mt-4 text-sm text-gray-400">Ask a question to see streaming AI responses</p>
-                  <p className="mt-1 text-xs text-gray-500">Responses stream in real-time as they're generated</p>
+                  <p className="mt-4 text-sm text-gray-400">
+                    Ask a question to see streaming AI responses
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Responses stream in real-time as they're generated
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -675,5 +771,3 @@ export default function AgentConsole() {
     </div>
   );
 }
-
-

@@ -1,21 +1,24 @@
-# Contributing to OmniBrowser
+# Contributing to Regen
 
-Thank you for your interest in contributing to OmniBrowser! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Regen! This document provides guidelines and instructions for contributing.
 
 ## Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/nrbns/Omnibrowser.git
    cd Omnibrowser
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Run development server**
+
    ```bash
    npm run dev
    ```
@@ -36,6 +39,7 @@ Thank you for your interest in contributing to OmniBrowser! This document provid
 ## Pull Request Process
 
 1. **Create a branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -46,13 +50,16 @@ Thank you for your interest in contributing to OmniBrowser! This document provid
    - Update documentation as needed
 
 3. **Commit your changes**
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
    ```
+
    Use conventional commit messages (feat:, fix:, docs:, etc.)
 
 4. **Push to your fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -98,4 +105,3 @@ Omnibrowser/
 ## Questions?
 
 Feel free to open an issue for questions or discussions about contributions.
-

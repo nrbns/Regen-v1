@@ -1,13 +1,24 @@
 /**
  * GDPRDataExport - GDPR Data Export Component
- * 
- * Allows users to export all their personal data stored in OmniBrowser.
+ *
+ * Allows users to export all their personal data stored in Regen.
  * Complies with GDPR Article 15 (Right of Access).
  */
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Download, FileText, Clock, Bookmark, Settings, Cookie, Shield, Loader2, Check, AlertCircle } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Clock,
+  Bookmark,
+  Settings,
+  Cookie,
+  Shield,
+  Loader2,
+  Check,
+  AlertCircle,
+} from 'lucide-react';
 import { useBookmarksStore } from '../../state/bookmarksStore';
 import { useHistoryStore } from '../../state/historyStore';
 import { useSettingsStore } from '../../state/settingsStore';
@@ -40,11 +51,11 @@ export function GDPRDataExport() {
   const [exported, setExported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exportData, setExportData] = useState<ExportData | null>(null);
-  
-  const bookmarks = useBookmarksStore((state) => state.bookmarks);
-  const historyEntries = useHistoryStore((state) => state.entries);
-  const searchEngineSetting = useSettingsStore((state) => state.searchEngine);
-  const videoDownloadConsent = useSettingsStore((state) => state.videoDownloadConsent);
+
+  const bookmarks = useBookmarksStore(state => state.bookmarks);
+  const historyEntries = useHistoryStore(state => state.entries);
+  const searchEngineSetting = useSettingsStore(state => state.searchEngine);
+  const videoDownloadConsent = useSettingsStore(state => state.videoDownloadConsent);
 
   const handleExport = async () => {
     setExporting(true);
@@ -73,7 +84,9 @@ export function GDPRDataExport() {
           permissions: await getPermissions(),
         },
         metadata: {
-          totalBookmarks: Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length,
+          totalBookmarks: Array.isArray(bookmarks)
+            ? bookmarks.length
+            : Object.keys(bookmarks).length,
           totalHistoryEntries: historyEntries.length,
           exportFormat: 'json',
         },
@@ -89,7 +102,7 @@ export function GDPRDataExport() {
       // Create download link
       const a = document.createElement('a');
       a.href = url;
-      a.download = `omnibrowser-data-export-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `regen-data-export-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -115,7 +128,7 @@ export function GDPRDataExport() {
         return Array.isArray(ledger) ? ledger : [];
       }
       // Fallback: try localStorage
-      const stored = localStorage.getItem('omnibrowser:consent-ledger');
+      const stored = localStorage.getItem('regen:consent-ledger');
       if (stored) {
         return JSON.parse(stored);
       }
@@ -123,7 +136,7 @@ export function GDPRDataExport() {
     } catch {
       // Fallback: try localStorage
       try {
-        const stored = localStorage.getItem('omnibrowser:consent-ledger');
+        const stored = localStorage.getItem('regen:consent-ledger');
         if (stored) {
           return JSON.parse(stored);
         }
@@ -148,8 +161,8 @@ export function GDPRDataExport() {
       <div>
         <h3 className="text-lg font-semibold text-gray-100 mb-2">Export Your Data</h3>
         <p className="text-sm text-gray-400">
-          Under GDPR, you have the right to access your personal data. This will export all data stored in OmniBrowser 
-          including bookmarks, history, settings, and privacy preferences.
+          Under GDPR, you have the right to access your personal data. This will export all data
+          stored in Regen including bookmarks, history, settings, and privacy preferences.
         </p>
       </div>
 
@@ -159,7 +172,10 @@ export function GDPRDataExport() {
           <div className="text-sm text-blue-200">
             <strong>What's included:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1 text-blue-300">
-              <li>Bookmarks ({Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length} items)</li>
+              <li>
+                Bookmarks (
+                {Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length} items)
+              </li>
               <li>Browsing history ({historyEntries.length} entries)</li>
               <li>Settings and preferences</li>
               <li>Cookie preferences</li>
@@ -177,7 +193,11 @@ export function GDPRDataExport() {
             <h4 className="font-medium text-gray-200">Bookmarks</h4>
           </div>
           <p className="text-sm text-gray-400">
-            {Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length} bookmark{(Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length) !== 1 ? 's' : ''} stored
+            {Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length} bookmark
+            {(Array.isArray(bookmarks) ? bookmarks.length : Object.keys(bookmarks).length) !== 1
+              ? 's'
+              : ''}{' '}
+            stored
           </p>
         </div>
 
@@ -275,12 +295,11 @@ export function GDPRDataExport() {
           <span>Privacy & Security</span>
         </h4>
         <p className="text-sm text-gray-400">
-          Your exported data is stored locally and only downloaded to your device. 
-          We do not have access to your exported data. The export file contains all personal data 
-          stored in OmniBrowser in a machine-readable JSON format.
+          Your exported data is stored locally and only downloaded to your device. We do not have
+          access to your exported data. The export file contains all personal data stored in Regen
+          in a machine-readable JSON format.
         </p>
       </div>
     </div>
   );
 }
-

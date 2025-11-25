@@ -262,7 +262,7 @@ export const useExternalApisStore = create<ExternalApisState>()(
       },
     }),
     {
-      name: 'omnibrowser:external-apis-v1',
+      name: 'regen:external-apis-v1',
       version: 1,
       // Don't persist API keys in localStorage (should use secure storage in production)
       partialize: state => ({
@@ -280,4 +280,3 @@ export const useExternalApisStore = create<ExternalApisState>()(
     }
   )
 );
-

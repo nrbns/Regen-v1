@@ -493,13 +493,13 @@ function SafetyPanel() {
 
       <SectionCard title="Crash Reporting" icon={Activity}>
         <p className="text-sm text-slate-400 mb-4">
-          Help improve OmniBrowser by automatically reporting crashes and errors.
+          Help improve Regen by automatically reporting crashes and errors.
         </p>
         <ToggleRow
           label="Send crash reports"
           checked={crashReporter.isEnabled()}
           onChange={enabled => crashReporter.setEnabled(enabled)}
-          description="Automatically send error reports to help improve OmniBrowser"
+          description="Automatically send error reports to help improve Regen"
         />
       </SectionCard>
     </div>

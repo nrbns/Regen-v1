@@ -12,7 +12,33 @@ async function ensureFetch() {
   return module.default;
 }
 
-export async function runSearch(query) {
+const DUCK_REGION_MAP = {
+  hi: 'in-hi',
+  bn: 'in-bn',
+  ta: 'in-ta',
+  te: 'in-te',
+  ml: 'in-ml',
+  kn: 'in-kn',
+  mr: 'in-mr',
+  gu: 'in-gu',
+  pa: 'in-pa',
+  ur: 'pk-ur',
+  en: 'us-en',
+  es: 'es-es',
+  fr: 'fr-fr',
+  de: 'de-de',
+  pt: 'pt-pt',
+  zh: 'cn-zh',
+  ja: 'jp-ja',
+  ru: 'ru-ru',
+};
+
+function getDuckLocale(language = 'en') {
+  const base = language.toLowerCase().split('-')[0];
+  return DUCK_REGION_MAP[language.toLowerCase()] || DUCK_REGION_MAP[base] || 'us-en';
+}
+
+export async function runSearch(query, language = 'en') {
   const fetchImpl = await ensureFetch();
   const AbortCtor = globalThis.AbortController || null;
   const controller = AbortCtor ? new AbortCtor() : null;
@@ -25,11 +51,13 @@ export async function runSearch(query) {
     url.searchParams.set('format', 'json');
     url.searchParams.set('no_redirect', '1');
     url.searchParams.set('no_html', '1');
+    url.searchParams.set('kl', getDuckLocale(language));
+    url.searchParams.set('hl', language.toLowerCase().split('-')[0] || 'en');
 
     const res = await fetchImpl(url.toString(), {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'RedixBot/1.0 (+https://omnibrowser.dev)',
+        'User-Agent': 'RedixBot/1.0 (+https://regen.dev)',
       },
     });
     if (!res.ok) {
@@ -78,5 +106,3 @@ export async function runSearch(query) {
     }
   }
 }
-
-

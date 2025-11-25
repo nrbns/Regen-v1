@@ -59,7 +59,7 @@ export function OmniShell({
         ${className}
       `}
       role="application"
-      aria-label="OmniBrowser"
+      aria-label="Regen"
     >
       {/* Top Bar */}
       {showTopBar && (

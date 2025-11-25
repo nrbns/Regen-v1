@@ -7,7 +7,8 @@
 import { ipc } from '../ipc-typed';
 import { isElectronRuntime } from '../env';
 
-let rendererSentry: typeof import('@sentry/electron/renderer') | null = null;
+// Sentry is optional - use any to avoid build-time resolution
+let rendererSentry: any = null;
 let sentryInitialized = false;
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || '';
@@ -22,7 +23,11 @@ async function initRendererSentry() {
 
   if (!rendererSentry) {
     try {
-      rendererSentry = await import('@sentry/electron/renderer');
+      // Use a string-based dynamic import to prevent Vite from resolving this at build time
+      // This makes Sentry truly optional and prevents build failures if it's not installed
+      rendererSentry = await (new Function(
+        'return import("@sentry/electron/renderer")'
+      )() as Promise<typeof import('@sentry/electron/renderer')>);
     } catch (error) {
       console.warn('[Sentry] Renderer SDK unavailable', error);
       return;
@@ -33,7 +38,7 @@ async function initRendererSentry() {
     rendererSentry.init({
       dsn: SENTRY_DSN,
       environment: SENTRY_ENV,
-      release: `omnibrowser-renderer@${RELEASE}`,
+      release: `regen-renderer@${RELEASE}`,
       enableUnresponsive: false,
       tracesSampleRate: Number.isFinite(SENTRY_SAMPLE_RATE) ? SENTRY_SAMPLE_RATE : 0,
       beforeSend(event) {
@@ -88,5 +93,3 @@ export async function syncRendererTelemetry() {
     await shutdownRendererSentry();
   }
 }
-
-

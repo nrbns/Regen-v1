@@ -15,6 +15,8 @@ import {
   Camera,
   Loader2,
   ExternalLink,
+  ClipboardList,
+  CheckCircle2,
   // ChevronRight,
 } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
@@ -23,6 +25,9 @@ import { useAppStore } from '../../state/appStore';
 import { searchChunks, syncDocumentsFromBackend } from '../../lib/research/cache';
 import { DocumentViewer } from './DocumentViewer';
 import { ipcEvents } from '../../lib/ipc-events';
+import { runResearchAgent, executeResearchAgentAction } from '../../services/researchAgent';
+import type { ResearchAgentResponse, ResearchAgentAction } from '../../types/researchAgent';
+import { showToast } from '../../state/toastStore';
 
 interface SourceCard {
   id: string;
@@ -38,6 +43,9 @@ interface AnswerChunk {
   content: string;
   citations: string[];
 }
+
+const AGENT_DEFAULT_PROMPT =
+  'Summarize this page and list 3 concrete follow-up actions for my research.';
 
 export function ResearchPane() {
   const [query, setQuery] = useState('');
@@ -56,12 +64,18 @@ export function ResearchPane() {
   } | null>(null);
   const [viewerHighlight, setViewerHighlight] = useState<string | undefined>();
   const { activeId, tabs } = useTabsStore();
-  const activeTab = tabs.find((tab) => tab.id === activeId);
+  const activeTab = tabs.find(tab => tab.id === activeId);
   const streamChannelRef = useRef<string | null>(null);
   const listenerRef = useRef<((event: any, payload: any) => void) | null>(null);
+  const agentPromptRef = useRef<HTMLTextAreaElement | null>(null);
+  const [agentPrompt, setAgentPrompt] = useState(AGENT_DEFAULT_PROMPT);
+  const [agentResponse, setAgentResponse] = useState<ResearchAgentResponse | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
   // Check if Research Mode is active
-  const mode = useAppStore((s) => s.mode);
+  const mode = useAppStore(s => s.mode);
   const isResearchMode = mode === 'Research';
 
   useEffect(() => {
@@ -74,7 +88,7 @@ export function ResearchPane() {
   // Sync documents from backend on mount
   useEffect(() => {
     if (isOpen) {
-      syncDocumentsFromBackend().catch((error) => {
+      syncDocumentsFromBackend().catch(error => {
         console.error('Failed to sync documents on mount:', error);
       });
     }
@@ -85,7 +99,7 @@ export function ResearchPane() {
     const handleKeyboardOpen = () => {
       setIsOpen(true);
     };
-    
+
     ipcEvents.on('research:keyboard-open-pane', handleKeyboardOpen);
     return () => {
       ipcEvents.off('research:keyboard-open-pane', handleKeyboardOpen);
@@ -114,7 +128,7 @@ export function ResearchPane() {
       const localResults = await searchChunks(query.trim(), 5);
       if (localResults.length > 0) {
         // Show local results immediately
-        const localSources: SourceCard[] = localResults.map((chunk) => ({
+        const localSources: SourceCard[] = localResults.map(chunk => ({
           id: chunk.id,
           title: chunk.metadata.title || 'Cached Document',
           url: chunk.metadata.url || '',
@@ -133,7 +147,7 @@ export function ResearchPane() {
         const listener = (_event: any, payload: any) => {
           switch (payload?.type) {
             case 'chunk':
-              setAnswerChunks((prev) => [
+              setAnswerChunks(prev => [
                 ...prev,
                 { content: payload.content, citations: payload.citations || [] },
               ]);
@@ -152,9 +166,9 @@ export function ResearchPane() {
                       publishedAt: cite.publishedAt,
                     }))
                 );
-                setSources((prev) => {
-                  const existingIds = new Set(prev.map((s) => s.id));
-                  const newSources = sourceList.filter((s) => !existingIds.has(s.id));
+                setSources(prev => {
+                  const existingIds = new Set(prev.map(s => s.id));
+                  const newSources = sourceList.filter(s => !existingIds.has(s.id));
                   return [...prev, ...newSources];
                 });
               }
@@ -183,7 +197,7 @@ export function ResearchPane() {
     try {
       const { snapshotId } = await ipc.research.saveSnapshot(activeTab.id);
       console.log('Tab snapshot saved:', snapshotId);
-      
+
       // Sync to cache after a short delay (allowing backend processing)
       setTimeout(async () => {
         try {
@@ -204,7 +218,7 @@ export function ResearchPane() {
     try {
       const fileId = await ipc.research.uploadFile(file);
       console.log('File uploaded:', fileId);
-      
+
       // Sync to cache after a short delay (allowing backend processing)
       setTimeout(async () => {
         try {
@@ -213,7 +227,7 @@ export function ResearchPane() {
           console.error('Failed to sync to cache:', error);
         }
       }, 2000);
-      
+
       // Reset input
       event.target.value = '';
     } catch (error) {
@@ -222,17 +236,84 @@ export function ResearchPane() {
     }
   }, []);
 
-  const handleOpenSource = useCallback(async (url: string) => {
+  const buildAgentContext = useCallback(() => {
+    let selection: string | undefined;
+    if (typeof window !== 'undefined' && window.getSelection) {
+      const rawSelection = window.getSelection()?.toString();
+      if (rawSelection) {
+        selection = rawSelection.slice(0, 2000);
+      }
+    }
+    return {
+      url: activeTab?.url || undefined,
+      title: activeTab?.title || undefined,
+      selection,
+      mode: 'research' as const,
+    };
+  }, [activeTab]);
+
+  const handleRunAgent = useCallback(async () => {
+    if (!agentPrompt.trim() || agentLoading) return;
+    setAgentLoading(true);
+    setAgentError(null);
     try {
-      if (activeId) {
-        await ipc.tabs.navigate(activeId, url);
-      } else {
-        await ipc.tabs.create(url);
+      const context = buildAgentContext();
+      const response = await runResearchAgent({
+        prompt: agentPrompt.trim(),
+        context,
+        allowActions: true,
+      });
+      setAgentResponse(response);
+      showToast('success', 'Research Agent ready');
+      if (ipc.telemetry?.trackFeature) {
+        ipc.telemetry.trackFeature('research_agent', 'run').catch(() => {});
       }
     } catch (error) {
-      console.error('Failed to open source:', error);
+      console.error('[ResearchPane] Research Agent failed:', error);
+      setAgentError(error instanceof Error ? error.message : 'Unable to run Research Agent.');
+      showToast('error', 'Research Agent failed');
+    } finally {
+      setAgentLoading(false);
     }
-  }, [activeId]);
+  }, [agentPrompt, agentLoading, buildAgentContext]);
+
+  const handleAgentAction = useCallback(
+    async (action: ResearchAgentAction) => {
+      setPendingActionId(action.id);
+      try {
+        const followUpPrompt = await executeResearchAgentAction(action, buildAgentContext());
+        if (followUpPrompt) {
+          setAgentPrompt(followUpPrompt);
+          requestAnimationFrame(() => agentPromptRef.current?.focus());
+        }
+        showToast(
+          'success',
+          action.type === 'follow_up' ? 'Drafted follow-up question' : 'Action executed'
+        );
+      } catch (error) {
+        console.error('[ResearchPane] Agent action failed:', error);
+        showToast('error', 'Failed to run action');
+      } finally {
+        setPendingActionId(null);
+      }
+    },
+    [buildAgentContext]
+  );
+
+  const handleOpenSource = useCallback(
+    async (url: string) => {
+      try {
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, url);
+        } else {
+          await ipc.tabs.create(url);
+        }
+      } catch (error) {
+        console.error('Failed to open source:', error);
+      }
+    },
+    [activeId]
+  );
 
   const handleViewDocument = useCallback(async (source: SourceCard, highlight?: string) => {
     // Try to get full content from cache or backend
@@ -258,6 +339,7 @@ export function ResearchPane() {
         onClick={() => setIsOpen(true)}
         className="fixed right-4 top-20 z-50 rounded-full bg-blue-600 p-3 text-white shadow-lg hover:bg-blue-700 transition-colors"
         title="Open Research Pane"
+        aria-label="Open Research Pane"
       >
         <BookOpen size={20} />
       </button>
@@ -270,6 +352,8 @@ export function ResearchPane() {
       animate={{ x: 0 }}
       exit={{ x: 400 }}
       className="fixed right-0 top-0 h-full w-96 bg-slate-950 border-l border-slate-800 shadow-2xl z-50 flex flex-col"
+      role="complementary"
+      aria-label="Research Mode panel"
     >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900">
@@ -307,7 +391,8 @@ export function ResearchPane() {
       {/* Query Bar */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">
         <form
-          onSubmit={(e) => {
+          aria-label="Research query form"
+          onSubmit={e => {
             e.preventDefault();
             handleQuery();
           }}
@@ -318,10 +403,11 @@ export function ResearchPane() {
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={e => setQuery(e.target.value)}
               placeholder="Ask a research question..."
               className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               disabled={isLoading}
+              aria-label="Research question"
             />
           </div>
           <button
@@ -346,9 +432,130 @@ export function ResearchPane() {
 
       {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Research Agent */}
+        <div
+          className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
+          role="region"
+          aria-label="Research Agent"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+              <ClipboardList size={16} className="text-blue-400" />
+              Research Agent
+            </div>
+            {agentResponse && (
+              <span className="text-xs text-slate-400">
+                Confidence {(agentResponse.confidence * 100).toFixed(0)}%
+              </span>
+            )}
+          </div>
+          <textarea
+            ref={agentPromptRef}
+            value={agentPrompt}
+            onChange={e => setAgentPrompt(e.target.value)}
+            rows={3}
+            className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-60"
+            placeholder="Ask the Research Agent to summarize, compare, or plan next steps..."
+            aria-label="Research agent prompt"
+            disabled={agentLoading}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRunAgent}
+              disabled={agentLoading || !agentPrompt.trim()}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:from-blue-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {agentLoading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              {agentLoading ? 'Running agent…' : 'Run Research Agent'}
+            </button>
+            {agentResponse && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAgentResponse(null);
+                  setAgentError(null);
+                }}
+                className="rounded-lg border border-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:border-slate-600 hover:text-slate-100 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {agentError && (
+            <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+              {agentError}
+            </div>
+          )}
+          {agentResponse && (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-sm text-slate-100">
+                <p className="whitespace-pre-line leading-relaxed">{agentResponse.summary}</p>
+                {agentResponse.citations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {agentResponse.citations.map(citation => (
+                      <a
+                        key={citation.url}
+                        href={citation.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/40 px-2 py-0.5 text-[11px] text-blue-200 hover:border-blue-400 hover:text-white transition"
+                      >
+                        <ExternalLink size={12} />
+                        {citation.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                {agentResponse.actions.length === 0 && (
+                  <div
+                    className="rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2 text-xs text-slate-400"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    The agent did not recommend any actions for this query.
+                  </div>
+                )}
+                {agentResponse.actions.map(action => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => handleAgentAction(action)}
+                    disabled={pendingActionId === action.id}
+                    className="flex w-full items-center justify-between rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-blue-500/40 hover:bg-slate-900/70 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <div>
+                      <div className="font-medium">{action.label}</div>
+                      {action.description && (
+                        <div className="text-xs text-slate-400">{action.description}</div>
+                      )}
+                      {action.badge && (
+                        <div className="mt-1 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-emerald-200">
+                          {action.badge}
+                        </div>
+                      )}
+                    </div>
+                    {pendingActionId === action.id ? (
+                      <Loader2 size={16} className="animate-spin text-blue-400" />
+                    ) : (
+                      <CheckCircle2 size={16} className="text-emerald-400" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Streaming Answer */}
         {answerChunks.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3" aria-live="polite">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Answer</h3>
             <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 space-y-3">
               {answerChunks.map((chunk, idx) => (
@@ -367,7 +574,11 @@ export function ResearchPane() {
                             }
                           }}
                           className="ml-1 inline-flex items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-200 hover:bg-blue-500/25 hover:border-blue-400/60 transition-colors cursor-pointer"
-                          title={citedSource ? `View source: ${citedSource.title}` : `Citation ${citeNum}`}
+                          title={
+                            citedSource
+                              ? `View source: ${citedSource.title}`
+                              : `Citation ${citeNum}`
+                          }
                         >
                           [{citeNum}]
                         </button>
@@ -395,7 +606,7 @@ export function ResearchPane() {
             </h3>
             <div className="space-y-2">
               <AnimatePresence>
-                {sources.map((source) => (
+                {sources.map(source => (
                   <motion.div
                     key={source.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -406,7 +617,18 @@ export function ResearchPane() {
                         ? 'border-blue-500/60 bg-blue-500/10'
                         : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'
                     }`}
-                    onClick={() => setActiveSourceId(activeSourceId === source.id ? null : source.id)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={activeSourceId === source.id}
+                    onClick={() =>
+                      setActiveSourceId(activeSourceId === source.id ? null : source.id)
+                    }
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setActiveSourceId(activeSourceId === source.id ? null : source.id);
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -420,15 +642,19 @@ export function ResearchPane() {
                             </span>
                           )}
                         </div>
-                        <h4 className="text-sm font-medium text-gray-200 truncate">{source.title}</h4>
+                        <h4 className="text-sm font-medium text-gray-200 truncate">
+                          {source.title}
+                        </h4>
                         {source.snippet && (
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">{source.snippet}</p>
+                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                            {source.snippet}
+                          </p>
                         )}
                         <p className="text-[10px] text-gray-500 truncate mt-1">{source.url}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleViewDocument(source, source.snippet);
                           }}
@@ -439,7 +665,7 @@ export function ResearchPane() {
                         </button>
                         {source.url && (
                           <button
-                            onClick={(e) => {
+                            onClick={e => {
                               e.stopPropagation();
                               handleOpenSource(source.url);
                             }}
@@ -487,4 +713,3 @@ export function ResearchPane() {
     </motion.div>
   );
 }
-

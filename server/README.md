@@ -1,6 +1,6 @@
 # Redix Core - Green Intelligence Engine
 
-**Regenerative AI backend for OmniBrowser/Regen**
+**Regenerative AI backend for Regen/Regen**
 
 Redix is the "Green Intelligence Engine" that powers ethical, eco-efficient AI in Regen Browser. It provides:
 
@@ -22,9 +22,11 @@ REDIX_PORT=8001 npm run dev:redix
 ## API Endpoints
 
 ### `POST /ask`
+
 Main AI query interface (single model).
 
 **Request:**
+
 ```json
 {
   "query": "What is quantum computing?",
@@ -41,6 +43,7 @@ Main AI query interface (single model).
 ```
 
 **Response:**
+
 ```json
 {
   "text": "Quantum computing is...",
@@ -52,9 +55,11 @@ Main AI query interface (single model).
 ```
 
 ### `POST /voice`
+
 **Voice Companion** - Hands-free AI assistant with context awareness and eco-checking.
 
 **Request:**
+
 ```json
 {
   "transcript": "Hey Regen, summarize this page",
@@ -70,6 +75,7 @@ Main AI query interface (single model).
 ```
 
 **Response:**
+
 ```json
 {
   "response": "This page discusses quantum computing...",
@@ -81,6 +87,7 @@ Main AI query interface (single model).
 ```
 
 **Actions:**
+
 - `speak`: Just speak the response
 - `search`: Trigger search action
 - `summarize`: Summarize current page
@@ -88,9 +95,11 @@ Main AI query interface (single model).
 - `none`: No action (eco-constrained)
 
 ### `POST /workflow`
+
 **LangChain Agentic Workflows** - Autonomous agents with tools, ReAct loops, and multi-agent collaboration.
 
 **Request:**
+
 ```json
 {
   "query": "Research quantum computing ethics and generate code",
@@ -106,12 +115,14 @@ Main AI query interface (single model).
 ```
 
 **Workflow Types:**
+
 - `research`: Search → Summarize → Ethics Check
 - `multi-agent`: Research → Code → Ethics (full pipeline)
 - `code`: Code generation with tools
 - `ethics`: Ethics-focused analysis
 
 **Response:**
+
 ```json
 {
   "result": "Research Summary:\n...\n\nEthics Check:\n...",
@@ -138,9 +149,11 @@ Main AI query interface (single model).
 ```
 
 ### `POST /fuse`
+
 **LangChain Multi-LLM Fusion** - Advanced orchestration with sequential/router chains.
 
 **Request:**
+
 ```json
 {
   "query": "Explain quantum fusion in code",
@@ -154,11 +167,13 @@ Main AI query interface (single model).
 ```
 
 **Chain Types:**
+
 - `sequential`: Multi-step fusion (GPT reasoning → GPT code → Claude ethics)
 - `router`: Smart model selection based on query type
 - `simple`: Single model call
 
 **Response:**
+
 ```json
 {
   "result": "Reasoning:\n...\n\nCode/Logic:\n...\n\nEthics Check:\n...",
@@ -171,9 +186,11 @@ Main AI query interface (single model).
 ```
 
 ### `GET /metrics`
+
 System metrics with eco scoring.
 
 **Response:**
+
 ```json
 {
   "cpu": 25.5,
@@ -184,6 +201,7 @@ System metrics with eco scoring.
 ```
 
 ### `GET /health`
+
 Health check endpoint.
 
 ## Architecture
@@ -225,12 +243,14 @@ const data = await response.json();
 Redix includes **LangChain.js** integration for advanced multi-LLM orchestration and autonomous agents:
 
 ### Fusion Features:
+
 - **Sequential Chains**: Multi-step workflows (reason → code → ethics)
 - **Router Chains**: Smart model selection (GPT for code, Claude for ethics)
 - **Eco-Scoring**: All chains wrapped with green score calculation
 - **Memory Support**: Conversation history across chains (coming soon)
 
 ### Agentic Workflow Features:
+
 - **ReAct Agents**: Reason → Act → Observe loops with tool integration
 - **Tools**: Web search, calculator, code executor, knowledge graph
 - **Multi-Agent Collaboration**: Research Agent → Code Agent → Ethics Agent
@@ -238,6 +258,7 @@ Redix includes **LangChain.js** integration for advanced multi-LLM orchestration
 - **Eco-Scoring**: All agent actions calculate green score
 
 ### Voice Companion Features:
+
 - **Always Listening**: Toggle button or wake word ("Hey Regen")
 - **Context-Aware**: Knows current tab, selected text, Redix state
 - **Proactive Suggestions**: "Want me to summarize this page?"
@@ -247,12 +268,14 @@ Redix includes **LangChain.js** integration for advanced multi-LLM orchestration
 - **Floating Orb UI**: Pulsing purple/red when listening
 
 **Example Sequential Chain:**
+
 1. GPT reasons about the query
 2. GPT generates code/logic from reasoning
 3. Claude checks for ethics/bias/safety
 4. Results fused with eco-score
 
 **Example Router Chain:**
+
 - Code queries → GPT
 - Ethics queries → Claude
 - Default → GPT
@@ -268,4 +291,3 @@ Redix includes **LangChain.js** integration for advanced multi-LLM orchestration
 - [ ] Consent ledger persistence
 - [ ] Memory fusion (conversation history across chains)
 - [ ] Zero-ETL for knowledge graphs
-

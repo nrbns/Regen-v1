@@ -14,6 +14,7 @@ export interface MultiSourceSearchResult {
 
 export interface MultiSourceSearchOptions {
   limit?: number;
+  language?: string;
 }
 
 type HybridSearchItem = {
@@ -38,7 +39,8 @@ export async function multiSourceSearch(
   }
 
   try {
-    const response = await ipc.hybridSearch.search(query, options?.limit);
+    // Pass language to backend if available
+    const response = await ipc.hybridSearch.search(query, options?.limit, options?.language);
     const rawResults = normalizeHybridResults(response);
 
     return rawResults.map(item => {
