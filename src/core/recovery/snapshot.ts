@@ -5,19 +5,28 @@
 
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
+import { useAgentStreamStore } from '../../state/agentStreamStore';
 import { log } from '../../utils/logger';
 import type { Tab } from '../../state/tabsStore';
+import type { StreamStatus, AgentStreamEvent } from '../../state/agentStreamStore';
 
 export interface SessionSnapshot {
   tabs: Tab[];
   activeTabId: string | null;
   mode: string;
+  agentState?: {
+    runId: string | null;
+    status: StreamStatus;
+    transcript: string;
+    events: AgentStreamEvent[];
+    lastGoal: string | null;
+  };
   timestamp: number;
   version: number;
 }
 
 const SNAPSHOT_KEY = 'regen_snapshot';
-const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_VERSION = 2; // Bumped to 2 for agent state support
 const SNAPSHOT_INTERVAL = 30000; // 30 seconds
 
 let snapshotInterval: ReturnType<typeof setInterval> | null = null;
@@ -28,11 +37,19 @@ let snapshotInterval: ReturnType<typeof setInterval> | null = null;
 export function createSnapshot(): SessionSnapshot {
   const tabsStore = useTabsStore.getState();
   const appStore = useAppStore.getState();
+  const agentStore = useAgentStreamStore.getState();
 
   return {
     tabs: tabsStore.tabs,
     activeTabId: tabsStore.activeId,
     mode: appStore.mode,
+    agentState: {
+      runId: agentStore.runId,
+      status: agentStore.status,
+      transcript: agentStore.transcript,
+      events: agentStore.events.slice(-100), // Keep last 100 events for recovery
+      lastGoal: agentStore.lastGoal,
+    },
     timestamp: Date.now(),
     version: SNAPSHOT_VERSION,
   };
@@ -61,10 +78,14 @@ export function loadSnapshot(): SessionSnapshot | null {
 
     const snapshot = JSON.parse(raw) as SessionSnapshot;
 
-    // Validate version
-    if (snapshot.version !== SNAPSHOT_VERSION) {
-      log.warn('Snapshot version mismatch, ignoring');
+    // Validate version - allow version 1 for backward compatibility
+    if (snapshot.version && snapshot.version > SNAPSHOT_VERSION) {
+      log.warn('Snapshot version too new, ignoring');
       return null;
+    }
+    // Migrate version 1 to version 2
+    if (snapshot.version === 1) {
+      snapshot.agentState = undefined; // Will be populated from persisted store
     }
 
     return snapshot;

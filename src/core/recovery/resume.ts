@@ -6,6 +6,7 @@
 import { loadSnapshot } from './snapshot';
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
+import { useAgentStreamStore } from '../../state/agentStreamStore';
 import { ipc } from '../../lib/ipc-typed';
 import { log } from '../../utils/logger';
 import { toast } from '../../utils/toast';
@@ -80,7 +81,40 @@ export async function resumeSession(): Promise<ResumeResult> {
       }
     }
 
-    toast.success(`Restored ${restoredCount} tab${restoredCount === 1 ? '' : 's'} from snapshot`);
+    // Restore agent state if available
+    if (snapshot.agentState && snapshot.agentState.runId) {
+      const agentStore = useAgentStreamStore.getState();
+      agentStore.setRun(snapshot.agentState.runId, snapshot.agentState.lastGoal);
+      agentStore.setStatus(snapshot.agentState.status);
+
+      // Restore transcript
+      if (snapshot.agentState.transcript) {
+        agentStore.reset();
+        agentStore.setRun(snapshot.agentState.runId, snapshot.agentState.lastGoal);
+        snapshot.agentState.transcript.split('\n').forEach(line => {
+          if (line.trim()) {
+            agentStore.appendTranscript(line + '\n');
+          }
+        });
+      }
+
+      // Restore events
+      snapshot.agentState.events.forEach(event => {
+        agentStore.appendEvent(event);
+      });
+
+      log.info('Restored agent state', {
+        runId: snapshot.agentState.runId,
+        status: snapshot.agentState.status,
+        eventCount: snapshot.agentState.events.length,
+      });
+    }
+
+    const messages = [`Restored ${restoredCount} tab${restoredCount === 1 ? '' : 's'}`];
+    if (snapshot.agentState?.runId) {
+      messages.push('agent session');
+    }
+    toast.success(messages.join(' and ') + ' from snapshot');
 
     return {
       success: true,
