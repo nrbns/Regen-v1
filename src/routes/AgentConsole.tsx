@@ -14,7 +14,6 @@ import {
   stopAutoSave,
   saveLoopState,
   checkForCrashedLoops,
-  resumeLoop,
 } from '../core/agents/loopResume';
 import { useSettingsStore } from '../state/settingsStore';
 
@@ -54,7 +53,7 @@ export default function AgentConsole() {
     setStatus,
     appendTranscript,
     reset,
-    runId: currentRunId,
+    runId: _currentRunId,
   } = useAgentStreamStore();
   const language = useSettingsStore(state => state.language || 'auto');
   const agentConsoleHistory = useAgentMemoryStore(state =>

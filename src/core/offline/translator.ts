@@ -4,7 +4,7 @@
  * Falls back to online APIs when available
  */
 
-import { useSettingsStore } from '../../state/settingsStore';
+// import { useSettingsStore } from '../../state/settingsStore'; // Reserved for future use
 
 export interface TranslationResult {
   text: string;

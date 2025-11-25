@@ -5,14 +5,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, X, AlertCircle, Play } from 'lucide-react';
+import { X, AlertCircle, Play } from 'lucide-react';
 import {
   checkForCrashedLoops,
   resumeLoop,
   deleteLoopState,
   type LoopState,
 } from '../../core/agents/loopResume';
-import { useAgentStreamStore } from '../../state/agentStreamStore';
 import { toast } from 'react-hot-toast';
 
 interface LoopResumeModalProps {
@@ -22,7 +21,7 @@ interface LoopResumeModalProps {
 
 export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
   const [crashedLoops, setCrashedLoops] = useState<LoopState[]>([]);
-  const { setRun, setStatus } = useAgentStreamStore();
+  // const { setRun, setStatus } = useAgentStreamStore(); // Reserved for future use
 
   useEffect(() => {
     if (open) {

@@ -4,7 +4,6 @@
  */
 
 import { useAgentStreamStore, type AgentStreamEvent } from '../../state/agentStreamStore';
-import { useAgentMemoryStore } from '../../state/agentMemoryStore';
 
 export interface LoopState {
   runId: string;

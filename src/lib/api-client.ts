@@ -7,7 +7,6 @@
 
 import {
   canAttemptBackendRequest,
-  isBackendAvailable,
   markBackendAvailable,
   markBackendUnavailable,
 } from './backend-status';

@@ -3,19 +3,9 @@
  * Browse, share, and install workflows
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Search,
-  Download,
-  Share2,
-  Star,
-  ExternalLink,
-  Workflow,
-  X,
-  Plus,
-  Filter,
-} from 'lucide-react';
+import { Search, Download, Share2, Star, Workflow, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { handoffToN8n } from '../../core/agents/handoff';
 
@@ -86,7 +76,7 @@ interface WorkflowMarketplaceProps {
 }
 
 export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps) {
-  const [workflows, setWorkflows] = useState<Workflow[]>(SAMPLE_WORKFLOWS);
+  const [workflows] = useState<Workflow[]>(SAMPLE_WORKFLOWS);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');

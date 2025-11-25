@@ -11,7 +11,6 @@ import {
   ExternalLink,
   BookOpen,
   TrendingUp,
-  Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';

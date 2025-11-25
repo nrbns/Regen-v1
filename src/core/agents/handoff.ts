@@ -100,7 +100,7 @@ async function handoffToResearch(
 /**
  * Handoff to Trade mode
  */
-async function handoffToTrade(payload: HandoffPayload, language: string): Promise<HandoffResult> {
+async function handoffToTrade(payload: HandoffPayload, _language: string): Promise<HandoffResult> {
   try {
     const symbol = payload.data.symbol as string;
     const action = payload.data.action as 'alert' | 'analyze' | 'signal';
@@ -126,7 +126,7 @@ async function handoffToTrade(payload: HandoffPayload, language: string): Promis
         if (activeTab) {
           await ipc.crossReality?.handoff?.(activeTab.id, 'mobile');
         }
-      } catch (e) {
+      } catch {
         // IPC might not be available, that's okay
         console.debug('[Handoff] Trade IPC not available, using toast only');
       }
@@ -203,7 +203,7 @@ export async function handoffToN8n(
 /**
  * Handoff to Browse mode (open URL in tab)
  */
-async function handoffToBrowse(payload: HandoffPayload, language: string): Promise<HandoffResult> {
+async function handoffToBrowse(payload: HandoffPayload, _language: string): Promise<HandoffResult> {
   try {
     const url = payload.data.url as string;
     if (!url) {
