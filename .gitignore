@@ -28,6 +28,19 @@ redix-core/runtime/pkg/
 .DS_Store
 Thumbs.db
 
+# Rust / Tauri
+/target/
+/**/*.crate
+
+# Binaries / installers
+*.exe
+*.msi
+*.zip
+*.tar.gz
+*.7z
+start-*.ps1
+rustup-init.exe
+
 # Logs
 *.log
 npm-debug.log*
