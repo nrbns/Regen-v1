@@ -1,64 +1,125 @@
 /**
  * Toast Utility
- * Provides toast notification functions for compatibility
+ * Provides toast notification functions using react-hot-toast
+ * Backward compatible with existing code
  */
 
-import {
-  showToast as showToastFromStore,
-  useToastStore,
-  type ToastItem,
-} from '../state/toastStore';
+import toastLib from 'react-hot-toast';
 
-export type Toast = ToastItem;
 export type ToastType = 'info' | 'success' | 'error' | 'warning';
 
 /**
  * Toast utility object with convenience methods
+ * Uses react-hot-toast for better UX with animations and positioning
  */
 const toastObj = {
-  info: (message: string) => {
-    showToastFromStore('info', message);
+  info: (message: string, options?: { duration?: number }) => {
+    return toastLib(message, {
+      icon: 'ℹ️',
+      duration: options?.duration ?? 4000,
+      style: {
+        background: '#1e293b',
+        color: '#e2e8f0',
+        border: '1px solid #334155',
+      },
+    });
   },
-  success: (message: string) => {
-    showToastFromStore('success', message);
+  success: (message: string, options?: { duration?: number }) => {
+    return toastLib.success(message, {
+      duration: options?.duration ?? 4000,
+      style: {
+        background: '#1e293b',
+        color: '#10b981',
+        border: '1px solid #334155',
+      },
+    });
   },
-  error: (message: string) => {
-    showToastFromStore('error', message);
+  error: (message: string, options?: { duration?: number }) => {
+    return toastLib.error(message, {
+      duration: options?.duration ?? 5000,
+      style: {
+        background: '#1e293b',
+        color: '#ef4444',
+        border: '1px solid #334155',
+      },
+    });
   },
-  warning: (message: string) => {
-    showToastFromStore('warning', message);
+  warning: (message: string, options?: { duration?: number }) => {
+    return toastLib(message, {
+      icon: '⚠️',
+      duration: options?.duration ?? 4000,
+      style: {
+        background: '#1e293b',
+        color: '#f59e0b',
+        border: '1px solid #334155',
+      },
+    });
   },
   loading: (message: string) => {
-    showToastFromStore('info', message, { duration: 0 }); // Loading toasts don't auto-dismiss
-    // Return the last toast ID for dismissal
-    const state = useToastStore.getState();
-    return state.toasts[state.toasts.length - 1]?.id;
+    return toastLib.loading(message, {
+      duration: Infinity, // Loading toasts don't auto-dismiss
+      style: {
+        background: '#1e293b',
+        color: '#e2e8f0',
+        border: '1px solid #334155',
+      },
+    });
   },
-  dismiss: (id: string) => {
-    useToastStore.getState().dismiss(id);
+  dismiss: (toastId?: string) => {
+    if (toastId) {
+      toastLib.dismiss(toastId);
+    } else {
+      toastLib.dismiss();
+    }
+  },
+  promise: <T>(
+    promise: Promise<T>,
+    messages: {
+      loading: string;
+      success: string | ((data: T) => string);
+      error: string | ((error: Error) => string);
+    }
+  ) => {
+    return toastLib.promise(promise, messages, {
+      style: {
+        background: '#1e293b',
+        color: '#e2e8f0',
+        border: '1px solid #334155',
+      },
+      success: {
+        style: {
+          color: '#10b981',
+        },
+      },
+      error: {
+        style: {
+          color: '#ef4444',
+        },
+      },
+    });
   },
 };
 
 // Create toast function that also has methods
 function toastFn(type: ToastType, message: string): void {
-  showToastFromStore(type, message);
+  switch (type) {
+    case 'info':
+      toastObj.info(message);
+      break;
+    case 'success':
+      toastObj.success(message);
+      break;
+    case 'error':
+      toastObj.error(message);
+      break;
+    case 'warning':
+      toastObj.warning(message);
+      break;
+  }
 }
 
-// Assign methods to function
+// Assign methods to function for backward compatibility
 export const toast = Object.assign(toastFn, toastObj);
 
-/**
- * Toast manager for subscription-based updates
- */
-export const toastManager = {
-  subscribe: (callback: (toast: Toast) => void) => {
-    const unsubscribe = useToastStore.subscribe(state => {
-      const latestToast = state.toasts[state.toasts.length - 1];
-      if (latestToast) {
-        callback(latestToast);
-      }
-    });
-    return unsubscribe;
-  },
-  getState: () => useToastStore.getState(),
-};
+// Re-export react-hot-toast for direct usage if needed
+export { toastLib };

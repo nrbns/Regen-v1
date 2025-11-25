@@ -1,65 +1,52 @@
-import { useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Info, Loader2 } from 'lucide-react';
-import { useToastStore } from '../../state/toastStore';
+/**
+ * ToastHost - Renders toast notifications using react-hot-toast
+ * Provides better UX with animations, positioning, and loading states
+ */
 
-const toastIcon = {
-  info: Info,
-  success: CheckCircle2,
-  error: AlertTriangle,
-  warning: AlertTriangle,
-  loading: Loader2,
-} as const;
+import { Toaster } from 'react-hot-toast';
 
 export function ToastHost() {
-  const { toasts, dismiss } = useToastStore();
-
-  useEffect(() => {
-    if (toasts.length === 0) return;
-
-    // Auto-dismiss toasts that have a duration set (and it's not 0)
-    const timers = toasts
-      .filter(toast => toast.duration !== undefined && toast.duration > 0)
-      .map(toast => setTimeout(() => dismiss(toast.id), toast.duration!));
-
-    return () => {
-      timers.forEach(clearTimeout);
-    };
-  }, [toasts, dismiss]);
-
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[2000] flex flex-col items-center gap-2 px-4">
-      <AnimatePresence initial={false}>
-        {toasts.map(toast => {
-          const Icon = toastIcon[toast.type];
-          const palette =
-            toast.type === 'success'
-              ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-50'
-              : toast.type === 'error'
-                ? 'border-rose-400/40 bg-rose-500/10 text-rose-50'
-                : 'border-slate-400/40 bg-slate-800/80 text-slate-100';
-
-          const isLoading = toast.type === 'info' && toast.duration === 0;
-          const LoadingIcon = isLoading ? Loader2 : Icon;
-
-          return (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-2xl border px-4 py-3 shadow-lg shadow-black/40 ${palette} ${isLoading ? 'border-blue-400/40 bg-blue-500/10' : ''}`}
-            >
-              <LoadingIcon
-                size={16}
-                className={`flex-shrink-0 ${isLoading ? 'animate-spin' : ''}`}
-              />
-              <span className="text-sm leading-snug">{toast.message}</span>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-    </div>
+    <Toaster
+      position="bottom-right"
+      toastOptions={{
+        duration: 4000,
+        style: {
+          background: '#1e293b',
+          color: '#e2e8f0',
+          border: '1px solid #334155',
+          borderRadius: '0.75rem',
+          padding: '12px 16px',
+          fontSize: '14px',
+          maxWidth: '400px',
+        },
+        success: {
+          duration: 4000,
+          style: {
+            color: '#10b981',
+          },
+          iconTheme: {
+            primary: '#10b981',
+            secondary: '#1e293b',
+          },
+        },
+        error: {
+          duration: 5000,
+          style: {
+            color: '#ef4444',
+          },
+          iconTheme: {
+            primary: '#ef4444',
+            secondary: '#1e293b',
+          },
+        },
+        loading: {
+          duration: Infinity,
+          style: {
+            color: '#e2e8f0',
+          },
+        },
+      }}
+    />
   );
 }

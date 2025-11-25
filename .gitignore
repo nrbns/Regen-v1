@@ -73,10 +73,11 @@ tmp/
 # Documentation (implementation notes)
 *_IMPLEMENTATION*.md
 *_ROADMAP*.md
-*_STATUS*.md
 *_COMPLETE*.md
 FILES_STRUCTURE.md
 PRIVACY_STACK_IMPLEMENTATION.md
+# Allow PROJECT_STATUS.md (official project status)
+!PROJECT_STATUS.md
 
 perf/*.json
 
