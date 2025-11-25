@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, StopCircle, Copy, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { AIThinkingSkeleton } from '../components/common/LoadingSkeleton';
 import { aiEngine, type AITaskResult } from '../core/ai';
 import { MemoryStoreInstance } from '../core/supermemory/store';
 import { semanticSearchMemories } from '../core/supermemory/search';
@@ -743,6 +744,20 @@ export default function AgentConsole() {
                         transition={{ duration: 0.8, repeat: Infinity }}
                       />
                     )}
+                  </div>
+                </motion.div>
+              ) : isStreaming ? (
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-4"
+                >
+                  <AIThinkingSkeleton message="AI is processing your request..." />
+                  <div className="space-y-2">
+                    <div className="h-3 w-full rounded bg-gray-800/50 animate-pulse" />
+                    <div className="h-3 w-5/6 rounded bg-gray-800/50 animate-pulse" />
+                    <div className="h-3 w-4/6 rounded bg-gray-800/50 animate-pulse" />
                   </div>
                 </motion.div>
               ) : (

@@ -25,6 +25,7 @@ import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
 import { parseDocxFile } from '../docs/parsers/docx';
+import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import {
   ResearchResult,
   ResearchSource,
@@ -1589,9 +1590,9 @@ export default function ResearchPanel() {
                       Gathering sources and evaluating evidence…
                     </div>
                     <div className="w-full max-w-2xl space-y-4">
-                      <SkeletonCard />
-                      <SkeletonList items={3} />
-                      <SkeletonText lines={4} />
+                      <LoadingSkeleton variant="card" />
+                      <LoadingSkeleton variant="list" lines={3} />
+                      <LoadingSkeleton variant="text" lines={4} />
                     </div>
                     <p className="text-xs text-gray-500">
                       Cross-checking accuracy, bias, and contradictions before presenting the
