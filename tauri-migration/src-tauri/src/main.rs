@@ -2,7 +2,6 @@
 // Target: < 110 MB RAM usage, < 2 sec cold start
 
 use serde::Deserialize;
-use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, thiserror::Error)]
@@ -63,7 +62,7 @@ fn ensure_selector(selector: &Option<String>) -> AgentResult<&str> {
         .ok_or(AgentCommandError::MissingParam("selector"))
 }
 
-fn ensure_value(value: &Option<String>, field: &'static str) -> AgentResult<&str> {
+fn ensure_value<'a>(value: &'a Option<String>, field: &'static str) -> AgentResult<&'a str> {
     value
         .as_deref()
         .filter(|s| !s.trim().is_empty())
