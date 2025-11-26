@@ -766,7 +766,7 @@ fastify.get('/bounty/status/:id', async (request, reply) => {
 });
 
 // Get leaderboard
-fastify.get('/bounty/leaderboard', async (request, reply) => {
+fastify.get('/bounty/leaderboard', async (request, _reply) => {
   const limit = Number(request.query?.limit || 10);
 
   // In production, would query database
@@ -802,7 +802,7 @@ fastify.get('/bounty/leaderboard', async (request, reply) => {
 });
 
 // Get user submissions
-fastify.get('/bounty/user/:userId', async (request, reply) => {
+fastify.get('/bounty/user/:userId', async (request, _reply) => {
   const { userId } = request.params || {};
 
   const userBounties = Array.from(bountyStore.values()).filter(b => b.userId === userId);

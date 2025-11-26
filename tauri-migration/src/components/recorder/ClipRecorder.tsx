@@ -4,15 +4,11 @@
  */
 
 import { useState, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Video,
   Square,
-  Play,
   Download,
-  Share2,
   Edit3,
-  CheckCircle2,
   Loader2,
   X,
   Instagram,

@@ -4,25 +4,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Shield,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  DollarSign,
-  Eye,
-  Video,
-  Search,
-  Filter,
-  Download,
-} from 'lucide-react';
+import { Shield, CheckCircle2, XCircle, Clock, DollarSign, Eye, Video, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  getLeaderboard,
-  type BountyLeaderboardEntry,
-  verifyVideoViews,
-  getBountyStatus,
-} from '../../services/bountyService';
+import { getLeaderboard, verifyVideoViews } from '../../services/bountyService';
 
 interface BountySubmission {
   id: string;
@@ -93,19 +77,19 @@ export function BountyAdminDashboard() {
     }
   };
 
-  const handleApprove = async (submissionId: string) => {
+  const handleApprove = async (_submissionId: string) => {
     // TODO: Implement approve endpoint
     toast.success('Submission approved');
     await loadSubmissions();
   };
 
-  const handleReject = async (submissionId: string) => {
+  const handleReject = async (_submissionId: string) => {
     // TODO: Implement reject endpoint
     toast.success('Submission rejected');
     await loadSubmissions();
   };
 
-  const handlePayout = async (submissionId: string) => {
+  const handlePayout = async (_submissionId: string) => {
     // TODO: Implement payout endpoint
     toast.success('Payout processed');
     await loadSubmissions();

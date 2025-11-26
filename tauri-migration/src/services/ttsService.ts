@@ -3,7 +3,7 @@
  * Provides TTS functionality using Bhashini, Google Cloud, or Web Speech API
  */
 
-import { generateTTS, type TTSRequest, type TTSResponse } from './bhashiniService';
+import { generateTTS, type TTSResponse } from './bhashiniService';
 
 const CACHE_KEY_PREFIX = 'regen:tts:';
 const CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days

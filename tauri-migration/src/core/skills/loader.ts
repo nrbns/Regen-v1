@@ -3,7 +3,7 @@
  * Loads and executes skills (WASM plugins, JavaScript, or TypeScript)
  */
 
-import type { SkillConfig, SkillExecutionResult, SkillPermission } from './types';
+import type { SkillExecutionResult } from './types';
 import { skillRegistry } from './registry';
 
 class SkillLoader {
@@ -129,7 +129,7 @@ class SkillLoader {
   /**
    * Load WASM module (future implementation)
    */
-  private async loadWASMModule(url: string): Promise<WebAssembly.Module> {
+  private async loadWASMModule(_url: string): Promise<WebAssembly.Module> {
     // In production, would fetch and instantiate WASM
     // const response = await fetch(url);
     // const bytes = await response.arrayBuffer();
@@ -140,7 +140,7 @@ class SkillLoader {
   /**
    * Load JavaScript/TypeScript skill
    */
-  private async loadJSSkill(code: string): Promise<any> {
+  private async loadJSSkill(_code: string): Promise<any> {
     // In production, would:
     // 1. Use isolated VM/iframe for security
     // 2. Validate code before execution

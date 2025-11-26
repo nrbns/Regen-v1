@@ -7,8 +7,6 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Trophy,
-  Video,
-  Link as LinkIcon,
   TrendingUp,
   CheckCircle2,
   AlertCircle,

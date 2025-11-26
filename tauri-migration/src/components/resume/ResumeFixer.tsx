@@ -17,7 +17,6 @@ import {
   TrendingUp,
   FileCheck,
   X,
-  Copy,
 } from 'lucide-react';
 import {
   parseResumeFile,
@@ -35,7 +34,7 @@ import { exportResearchToPDF, downloadPDF } from '../../utils/pdfExport';
 import toast from 'react-hot-toast';
 
 export function ResumeFixer() {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [, setUploadedFile] = useState<File | null>(null);
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [issues, setIssues] = useState<ResumeIssues | null>(null);
   const [reformattedResume, setReformattedResume] = useState<ReformatResult | null>(null);

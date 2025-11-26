@@ -9,15 +9,12 @@ import {
   Search,
   Download,
   Star,
-  Filter,
   Sparkles,
-  TrendingUp,
   Clock,
   User,
   CheckCircle2,
   XCircle,
   Copy,
-  Settings,
   Play,
 } from 'lucide-react';
 import { skillRegistry } from '../../core/skills/registry';

@@ -3,12 +3,7 @@
  * Centralized translation service with caching and multiple providers
  */
 
-import {
-  translateText,
-  mapToBhashiniCode,
-  type TranslationRequest,
-  type TranslationResponse,
-} from './bhashiniService';
+import { translateText, mapToBhashiniCode } from './bhashiniService';
 
 const CACHE_KEY_PREFIX = 'regen:translation:';
 const CACHE_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days

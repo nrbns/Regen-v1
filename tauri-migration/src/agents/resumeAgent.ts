@@ -3,7 +3,7 @@
  * AI-powered resume reformatting and optimization
  */
 
-import type { ResumeData, ResumeIssues } from '../services/resumeService';
+import type { ResumeData } from '../services/resumeService';
 
 export interface ResumeReformatOptions {
   format?: 'ats-friendly' | 'creative' | 'academic';

@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Share2, Globe, Languages, Loader2, CheckCircle2 } from 'lucide-react';
+import { Share2, Globe, Loader2, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../state/settingsStore';
 import { useLanguageState } from '../state/languageState';
@@ -23,8 +23,8 @@ export function ShareButton({ url, title, className, showLabel = false }: ShareB
   const [translating, setTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
   const [shareSuccess, setShareSuccess] = useState(false);
-  const [translationPreview, setTranslationPreview] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [_translationPreview, _setTranslationPreview] = useState<string | null>(null);
+  const [_previewLoading, _setPreviewLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentUrl = url || window.location.href;

@@ -10,7 +10,6 @@ import type {
   ResearchSource,
 } from '../../types/research';
 import { motion } from 'framer-motion';
-import { ipc } from '../../lib/ipc-typed';
 
 interface AnswerWithCitationsProps {
   summary: string;

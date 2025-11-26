@@ -3,7 +3,7 @@
  * Manages skills from GitHub-based registry and local installations
  */
 
-import type { SkillMetadata, SkillConfig, SkillInstallation, SkillReview } from './types';
+import type { SkillMetadata, SkillInstallation, SkillReview } from './types';
 
 const GITHUB_REGISTRY_URL = 'https://api.github.com/repos/regenbrowser/skills/contents';
 const LOCAL_STORAGE_KEY = 'regen:skills:installed';

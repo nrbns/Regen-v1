@@ -47,7 +47,6 @@ export async function generateCaptions(
 async function extractAudioFromVideo(videoBlob: Blob): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
-    const canvas = document.createElement('canvas');
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
     video.src = URL.createObjectURL(videoBlob);
