@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+dist/
+dist-web/
+dist-electron/
+build/
+storybook-static/
+
+# Test files - handled separately
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Generated files
+*.d.ts
+coverage/
+.cache/
+.temp/
+
+# Config files
+*.config.js
+*.config.ts
+*.config.cjs
+*.config.mjs
+
+# Storybook build artifacts
+storybook-static/
+

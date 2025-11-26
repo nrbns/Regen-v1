@@ -1,8 +1,6 @@
 import type { Preview } from '@storybook/react';
-import React from 'react';
-import '../src/styles/globals.css';
-import '../src/styles/theme.css';
-import '../src/styles/design-system.css';
+import '../tauri-migration/src/styles/globals.css';
+import '../tauri-migration/src/styles/mode-themes.css';
 
 const preview: Preview = {
   parameters: {
@@ -10,29 +8,24 @@ const preview: Preview = {
     controls: {
       matchers: {
         color: /(background|color)$/i,
-        date: /Date$/,
+        date: /Date$/i,
       },
     },
-    a11y: {
-      config: {
-        rules: [
-          {
-            id: 'color-contrast',
-            enabled: true,
-          },
-        ],
-      },
+    backgrounds: {
+      default: 'dark',
+      values: [
+        {
+          name: 'dark',
+          value: '#020617',
+        },
+        {
+          name: 'light',
+          value: '#ffffff',
+        },
+      ],
     },
+    layout: 'fullscreen',
   },
-  decorators: [
-    (Story: React.ComponentType) => {
-      return React.createElement(
-        'div',
-        { style: { padding: '2rem', minHeight: '100vh', background: 'var(--surface-root)' } },
-        React.createElement(Story)
-      );
-    },
-  ],
 };
 
 export default preview;

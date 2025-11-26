@@ -25,11 +25,17 @@ export default defineConfig({
   ],
 
   webServer: process.env.CI
-    ? undefined
-    : {
-        command: 'npx storybook dev',
+    ? {
+        // In CI, use static Storybook build
+        command: 'npx http-server ./storybook-static -p 6006 -c-1',
         url: 'http://localhost:6006',
-        reuseExistingServer: !process.env.CI,
+        timeout: 60000,
+        reuseExistingServer: false,
+      }
+    : {
+        command: 'npx storybook dev -p 6006',
+        url: 'http://localhost:6006',
+        reuseExistingServer: true,
         timeout: 120000,
       },
 });

@@ -1,19 +1,35 @@
 import type { StorybookConfig } from '@storybook/react-vite';
+import { mergeConfig } from 'vite';
 
 const config: StorybookConfig = {
-  stories: ['../src/ui/**/*.stories.@(ts|tsx|mdx)', '../src/components/**/*.stories.@(ts|tsx|mdx)'],
-  addons: ['@storybook/addon-essentials', '@storybook/addon-a11y', '@storybook/addon-interactions'],
+  stories: [
+    '../tauri-migration/src/**/*.stories.@(js|jsx|ts|tsx|mdx)',
+    '../src/**/*.stories.@(js|jsx|ts|tsx|mdx)',
+  ],
+  addons: ['@storybook/addon-essentials', '@storybook/addon-interactions', '@storybook/addon-a11y'],
   framework: {
     name: '@storybook/react-vite',
     options: {},
   },
-  typescript: {
-    check: false,
-    reactDocgen: 'react-docgen-typescript',
-    reactDocgenTypescriptOptions: {
-      shouldExtractLiteralValuesFromEnum: true,
-      propFilter: prop => (prop.parent ? !/node_modules/.test(prop.parent.fileName) : true),
-    },
+  core: {
+    builder: '@storybook/builder-vite',
+  },
+  async viteFinal(config) {
+    // Merge with project Vite config
+    return mergeConfig(config, {
+      resolve: {
+        alias: {
+          '@': new URL('../tauri-migration/src', import.meta.url).pathname,
+          '@components': new URL('../tauri-migration/src/components', import.meta.url).pathname,
+          '@lib': new URL('../tauri-migration/src/lib', import.meta.url).pathname,
+          '@state': new URL('../tauri-migration/src/state', import.meta.url).pathname,
+          '@modes': new URL('../tauri-migration/src/modes', import.meta.url).pathname,
+        },
+      },
+    });
+  },
+  docs: {
+    autodocs: 'tag',
   },
 };
 
