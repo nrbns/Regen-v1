@@ -561,7 +561,40 @@ jobs:
 
           # Only exit with error if critical checks failed
           if [ "$FAILED" -eq 1 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ❌ Critical Check Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The **Build Test** failed, which is critical for deployment." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Check the 'Build Test' job logs for detailed error messages" >> $GITHUB_STEP_SUMMARY
+            echo "2. Verify that all TypeScript compilation errors are fixed" >> $GITHUB_STEP_SUMMARY
+            echo "3. Ensure all dependencies are installed correctly" >> $GITHUB_STEP_SUMMARY
+            echo "4. Check that vite.config.ts and package.json are valid" >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "## ❌ Critical Check Failed"
+            echo ""
+            echo "The Build check failed, which is critical for deployment."
+            echo ""
+            echo "Next Steps:"
+            echo "1. Check the 'Build Test' job logs for detailed error messages"
+            echo "2. Verify that all TypeScript compilation errors are fixed"
+            echo "3. Ensure all dependencies are installed correctly"
+            echo "4. Check that vite.config.ts and package.json are valid"
             exit 1
           else
-            echo "✅ All critical checks passed (some optional checks may have warnings)"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ All Critical Checks Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Build and TypeScript compilation succeeded!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Note: Some optional checks may have warnings (Storybook, Security Audit, Tests)." >> $GITHUB_STEP_SUMMARY
+            echo "These are non-blocking and can be addressed separately." >> $GITHUB_STEP_SUMMARY
+            echo ""
+            echo "## ✅ All Critical Checks Passed"
+            echo ""
+            echo "Build and TypeScript compilation succeeded!"
+            echo ""
+            echo "Note: Some optional checks may have warnings (Storybook, Security Audit, Tests)."
+            echo "These are non-blocking and can be addressed separately."
           fi
