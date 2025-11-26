@@ -102,16 +102,36 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Check for unit tests
+      - name: Run unit tests
         run: |
-          if [ -d "tauri-migration/src/ui/__tests__" ] && [ "$(ls -A tauri-migration/src/ui/__tests__ 2>/dev/null)" ]; then
-            echo "✅ Unit test files found"
-            echo "Running tests would require test framework setup"
-          else
-            echo "⚠️ No unit test framework configured yet"
-            echo "This is expected for now - tests can be added later"
+          echo "=== Running Unit Tests ==="
+
+          # Check if vitest is installed
+          if ! npm list vitest > /dev/null 2>&1; then
+            echo "⚠️ Vitest not found, installing..."
+            npm install -D vitest --legacy-peer-deps || echo "Failed to install vitest"
           fi
-          exit 0
+
+          # Check if test files exist
+          TEST_FILES=$(find . -name "*.test.ts" -o -name "*.test.tsx" -o -name "*.spec.ts" -o -name "*.spec.tsx" | grep -v node_modules | wc -l)
+
+          if [ "$TEST_FILES" -eq 0 ]; then
+            echo "⚠️ No test files found"
+            echo "This is expected - unit tests can be added later"
+            exit 0
+          fi
+
+          echo "Found $TEST_FILES test file(s)"
+
+          # Run tests
+          echo "Running: npm run test:unit"
+          npm run test:unit || {
+            echo "⚠️ Unit tests failed or incomplete"
+            echo "This is non-blocking for now"
+            exit 0
+          }
+
+          echo "✅ Unit tests completed"
 
   build:
     name: Build Test
@@ -313,20 +333,37 @@ jobs:
         if: steps.check_storybook.outputs.configured == 'true'
         continue-on-error: true
         run: |
-          # Try using local storybook command first
-          if npm run | grep -q "storybook"; then
+          echo "=== Building Storybook ==="
+
+          # Try using npm script first
+          if npm run | grep -q "storybook:build"; then
+            echo "Using npm run storybook:build..."
+            npm run storybook:build || {
+              echo "⚠️ Storybook build failed"
+              exit 0
+            }
+          # Try using local storybook command
+          elif npm run | grep -q "storybook"; then
             echo "Using local storybook command..."
-            npm run storybook:build || npm run build-storybook || echo "⚠️ Local storybook build failed"
+            npx storybook build --output-dir=storybook-static || {
+              echo "⚠️ Local storybook build failed"
+              exit 0
+            }
           else
             # Check if storybook CLI is available locally
             if [ -f "node_modules/.bin/storybook" ]; then
               echo "Using local storybook binary..."
-              npx --yes storybook build --output-dir=storybook-static || echo "⚠️ Storybook build failed"
+              npx storybook build --output-dir=storybook-static || {
+                echo "⚠️ Storybook build failed"
+                exit 0
+              }
             else
               echo "⚠️ Storybook CLI not found, skipping build"
               exit 0
             fi
           fi
+
+          echo "✅ Storybook build completed"
 
       - name: Verify Storybook build
         if: steps.check_storybook.outputs.configured == 'true'

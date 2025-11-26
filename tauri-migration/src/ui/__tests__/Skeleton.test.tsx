@@ -11,7 +11,8 @@ describe('Skeleton Components', () => {
     const { container } = render(<Skeleton variant="rectangular" width={200} height={40} />);
     const skeleton = container.firstChild as HTMLElement;
     expect(skeleton).toBeTruthy();
-    expect(skeleton.className).toContain('rounded');
+    // Skeleton should have rounded class for rectangular variant
+    expect(skeleton.className).toMatch(/rounded/);
   });
 
   it('should render SkeletonCard', () => {
@@ -23,14 +24,16 @@ describe('Skeleton Components', () => {
 
   it('should render SkeletonText with correct number of lines', () => {
     const { container } = render(<SkeletonText lines={3} />);
-    const lines = container.querySelectorAll('.bg-slate-800');
-    expect(lines.length).toBeGreaterThanOrEqual(3);
+    // SkeletonText renders multiple Skeleton components, check for skeleton elements
+    const skeletons = container.querySelectorAll('[aria-busy="true"]');
+    expect(skeletons.length).toBeGreaterThanOrEqual(3);
   });
 
   it('should have aria-busy attribute during loading', () => {
     const { container } = render(<Skeleton variant="rectangular" />);
     const skeleton = container.firstChild as HTMLElement;
     // Skeleton should indicate loading state for screen readers
+    expect(skeleton).toBeTruthy();
     expect(skeleton.getAttribute('aria-busy')).toBe('true');
   });
 });

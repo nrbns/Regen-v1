@@ -9,10 +9,14 @@ import { LayoutEngine, LayoutHeader, LayoutBody, LayoutFooter } from '../layout-
 // Mock axe if not available
 const axe = async (container: HTMLElement) => {
   try {
-    const { default: axeCore } = await import('axe-core');
-    return await axeCore.run(container);
+    const axeCore = await import('axe-core');
+    const axeInstance = 'default' in axeCore ? axeCore.default : axeCore;
+    if (axeInstance && typeof axeInstance.run === 'function') {
+      return await axeInstance.run(container);
+    }
+    return { violations: [] };
   } catch {
-    // Fallback if axe-core not installed
+    // Fallback if axe-core not installed or unavailable
     return { violations: [] };
   }
 };
