@@ -46,18 +46,46 @@ jobs:
       - name: Run TypeScript check
         continue-on-error: false
         run: |
-          echo "Running TypeScript type check..."
-          npm run build:types 2>&1 | tee typescript-output.txt
-          TYPESCRIPT_EXIT_CODE=${PIPESTATUS[0]}
+          set -e  # Exit on any error
+
+          echo "=== TypeScript Type Check ==="
+          echo "Current directory: $(pwd)"
+
+          # Check if tsconfig files exist
+          if [ ! -f "tsconfig.json" ]; then
+            echo "⚠️ tsconfig.json not found, checking for other configs..."
+            ls -la tsconfig*.json 2>/dev/null || echo "No tsconfig files found"
+          fi
+
+          echo "Running: npm run build:types"
+          if npm run build:types 2>&1 | tee typescript-output.txt; then
+            TYPESCRIPT_EXIT_CODE=0
+          else
+            TYPESCRIPT_EXIT_CODE=${PIPESTATUS[0]}
+          fi
 
           if [ $TYPESCRIPT_EXIT_CODE -ne 0 ]; then
-            echo "❌ TypeScript check failed with exit code $TYPESCRIPT_EXIT_CODE"
-            echo "TypeScript errors:"
-            cat typescript-output.txt | grep -E "(error TS|Error:|Cannot find)" | head -20 || cat typescript-output.txt
+            echo ""
+            echo "=== ❌ TypeScript Check Failed ==="
+            echo "Exit code: $TYPESCRIPT_EXIT_CODE"
+            echo ""
+            echo "=== TypeScript Errors ==="
+            if grep -qE "error TS[0-9]+" typescript-output.txt; then
+              grep -E "error TS[0-9]+" typescript-output.txt | head -20
+            else
+              # Show all errors if no TS error codes found
+              cat typescript-output.txt | grep -iE "error|Cannot find|not found" | head -20 || cat typescript-output.txt
+            fi
+            echo ""
+            echo "=== Full TypeScript Output ==="
+            cat typescript-output.txt
+            echo "=== End TypeScript Output ==="
+            
             exit $TYPESCRIPT_EXIT_CODE
           fi
 
-          echo "✅ TypeScript check passed"
+          echo ""
+          echo "=== ✅ TypeScript Check Passed ==="
 
   unit-tests:
     name: Unit Tests
@@ -102,63 +130,103 @@ jobs:
 
       - name: Build application
         run: |
-          echo "Starting build in CI environment..."
+          set -e  # Exit on any error
+
+          echo "=== CI Build Environment Setup ==="
           echo "Node version: $(node --version)"
           echo "NPM version: $(npm --version)"
           echo "Current directory: $(pwd)"
-          echo "Directory contents before build:"
-          ls -la || echo "Cannot list directory"
-          echo "Environment: NODE_ENV=${NODE_ENV:-not set}, CI=${CI:-not set}"
+          echo "Working directory contents:"
+          ls -la | head -20 || echo "Cannot list directory"
+
+          # Check essential files
+          echo ""
+          echo "=== Checking Essential Files ==="
+          if [ ! -f "package.json" ]; then
+            echo "❌ ERROR: package.json not found"
+            exit 1
+          fi
+          echo "✅ package.json found"
+
+          if [ ! -f "vite.config.ts" ]; then
+            echo "❌ ERROR: vite.config.ts not found"
+            ls -la *.config.* 2>/dev/null || echo "No config files found"
+            exit 1
+          fi
+          echo "✅ vite.config.ts found"
+
+          if [ ! -f "index.html" ]; then
+            echo "❌ ERROR: index.html not found"
+            if [ -f "public/index.html" ]; then
+              echo "⚠️  Found public/index.html instead"
+            fi
+          else
+            echo "✅ index.html found"
+          fi
 
           # Set environment variables
           export NODE_ENV=production
           export CI=true
+          export JSDOM_NO_CANVAS=1
 
-          # Check if vite.config.ts exists
-          if [ ! -f "vite.config.ts" ]; then
-            echo "❌ vite.config.ts not found"
-            echo "Looking for vite config files:"
-            ls -la *.config.* 2>/dev/null || echo "No config files found"
-            exit 1
-          fi
+          echo ""
+          echo "=== Starting Build ==="
+          echo "Environment: NODE_ENV=${NODE_ENV}, CI=${CI}, JSDOM_NO_CANVAS=${JSDOM_NO_CANVAS}"
 
-          # Check if package.json exists
-          if [ ! -f "package.json" ]; then
-            echo "❌ package.json not found"
-            exit 1
-          fi
-
-          # Run build and capture output
+          # Run build with full output capture
           echo "Running: npm run build"
-          npm run build 2>&1 | tee build-output.txt
-          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          if npm run build 2>&1 | tee build-output.txt; then
+            BUILD_EXIT_CODE=0
+          else
+            BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          fi
 
           if [ $BUILD_EXIT_CODE -ne 0 ]; then
-            echo "❌ Build failed with exit code $BUILD_EXIT_CODE"
-            echo "=== Full build output ==="
-            cat build-output.txt
-            echo "=== End build output ==="
+            echo ""
+            echo "=== ❌ BUILD FAILED ==="
+            echo "Exit code: $BUILD_EXIT_CODE"
+            echo ""
+            echo "=== Build Output (Last 100 lines) ==="
+            tail -100 build-output.txt || cat build-output.txt
+            echo ""
+            echo "=== Error Analysis ==="
             
-            # Check for common error patterns
-            if grep -q "Cannot find module" build-output.txt; then
-              echo "Error: Missing module detected"
+            if grep -qi "Cannot find module" build-output.txt; then
+              echo "❌ Missing module detected:"
+              grep -i "Cannot find module" build-output.txt | head -5
             fi
-            if grep -q "Type error" build-output.txt || grep -q "TS[0-9]" build-output.txt; then
-              echo "Error: TypeScript errors detected"
+            
+            if grep -qiE "Type error|TS[0-9]+" build-output.txt; then
+              echo "❌ TypeScript errors detected:"
+              grep -iE "Type error|TS[0-9]+" build-output.txt | head -10
             fi
-            if grep -q "ENOENT" build-output.txt; then
-              echo "Error: File not found"
+            
+            if grep -qi "ENOENT" build-output.txt; then
+              echo "❌ File not found errors:"
+              grep -i "ENOENT" build-output.txt | head -5
             fi
+            
+            if grep -qi "SyntaxError\|ParseError" build-output.txt; then
+              echo "❌ Syntax/Parse errors detected:"
+              grep -i "SyntaxError\|ParseError" build-output.txt | head -5
+            fi
+            
+            echo ""
+            echo "=== Full Build Output ==="
+            cat build-output.txt
+            echo "=== End Build Output ==="
             
             exit $BUILD_EXIT_CODE
           fi
 
-          echo "✅ Build completed successfully"
-          echo "Build output directory check:"
-          ls -la dist-web/ 2>/dev/null || echo "dist-web not created yet"
+          echo ""
+          echo "=== ✅ BUILD SUCCEEDED ==="
+          echo "Checking build artifacts..."
+          ls -la dist-web/ 2>/dev/null || echo "⚠️ dist-web directory not yet visible"
         env:
           NODE_ENV: production
           CI: true
+          JSDOM_NO_CANVAS: 1
 
       - name: Verify build outputs
         run: |
