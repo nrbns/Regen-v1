@@ -2,19 +2,10 @@
 // Target: < 110 MB RAM usage, < 2 sec cold start
 
 use serde::Deserialize;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, WebviewWindow};
 
-#[derive(Debug, thiserror::Error)]
-enum AgentCommandError {
-    #[error("Missing parameter: {0}")]
-    MissingParam(&'static str),
-    #[error("Invalid selector: {0}")]
-    InvalidSelector(String),
-    #[error("Execution failed: {0}")]
-    ExecutionFailed(String),
-}
-
-type AgentResult<T> = Result<T, AgentCommandError>;
+// Using String for errors to match Tauri 2.x command requirements
+type AgentResult<T> = Result<T, String>;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,10 +26,10 @@ struct AgentTask {
     tab_id: Option<String>,
 }
 
-fn eval_js(window: &tauri::Window, script: &str) -> AgentResult<()> {
-    window
+fn eval_js(webview: &WebviewWindow, script: &str) -> AgentResult<()> {
+    webview
         .eval(script)
-        .map_err(|error| AgentCommandError::ExecutionFailed(error.to_string()))
+        .map_err(|error| format!("Execution failed: {}", error))
 }
 
 fn escape_js_string(input: &str) -> String {
@@ -59,21 +50,21 @@ fn ensure_selector(selector: &Option<String>) -> AgentResult<&str> {
     selector
         .as_deref()
         .filter(|s| !s.trim().is_empty())
-        .ok_or(AgentCommandError::MissingParam("selector"))
+        .ok_or_else(|| "Missing parameter: selector".to_string())
 }
 
 fn ensure_value<'a>(value: &'a Option<String>, field: &'static str) -> AgentResult<&'a str> {
     value
         .as_deref()
         .filter(|s| !s.trim().is_empty())
-        .ok_or(AgentCommandError::MissingParam(field))
+        .ok_or_else(|| format!("Missing parameter: {}", field))
 }
 
 #[tauri::command]
 async fn run_agent_task(app: AppHandle, task: AgentTask) -> AgentResult<()> {
     let main_window = app
-        .get_window("main")
-        .ok_or_else(|| AgentCommandError::ExecutionFailed("Main window not found".into()))?;
+        .get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
 
     let active_tab = task
         .tab_id
@@ -120,7 +111,7 @@ async fn run_agent_task(app: AppHandle, task: AgentTask) -> AgentResult<()> {
             let duration = ensure_value(&task.value, "value (milliseconds)")?;
             let ms: u64 = duration
                 .parse()
-                .map_err(|_| AgentCommandError::ExecutionFailed("Invalid wait duration".into()))?;
+                .map_err(|_| "Invalid wait duration".to_string())?;
             tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
             Ok(())
         }
@@ -135,10 +126,9 @@ async fn run_agent_task(app: AppHandle, task: AgentTask) -> AgentResult<()> {
 }
 
 #[tauri::command]
-async fn trigger_haptic(app: AppHandle, haptic_type: String) -> Result<(), String> {
+async fn trigger_haptic(_app: AppHandle, _haptic_type: String) -> Result<(), String> {
     #[cfg(mobile)]
     {
-        use tauri::plugin::TauriPlugin;
         // Tauri mobile haptic API (requires tauri-plugin-haptics)
         // For now, return success (actual implementation would use platform-specific APIs)
         Ok(())
