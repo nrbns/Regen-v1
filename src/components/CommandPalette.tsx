@@ -75,6 +75,32 @@ export function CommandPalette() {
         toast.info('WISPR activated');
       },
     },
+    {
+      id: 'new-workspace',
+      label: 'New Workspace',
+      description: 'Create a new workspace for organizing tabs',
+      icon: FileText,
+      keywords: ['workspace', 'new', 'create', 'folder'],
+      action: async () => {
+        setIsOpen(false);
+        // Trigger workspace creation
+        window.dispatchEvent(new CustomEvent('create-workspace'));
+        toast.info('New workspace created');
+      },
+    },
+    {
+      id: 'look-it-up',
+      label: 'Look It Up',
+      description: 'Quick search and summarize (SigmaOS-style)',
+      icon: Search,
+      keywords: ['look', 'search', 'summarize', 'quick'],
+      action: async () => {
+        setIsOpen(false);
+        // Open quick search
+        window.dispatchEvent(new CustomEvent('open-quick-search'));
+        toast.info('Quick search opened');
+      },
+    },
   ];
 
   // Filter commands based on query

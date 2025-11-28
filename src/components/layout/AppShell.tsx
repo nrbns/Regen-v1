@@ -88,6 +88,7 @@ import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
+import { WorkspaceTabs } from '../tabs/WorkspaceTabs';
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
 const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
