@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Sparkles, TrendingUp, Globe, FileText, Settings, X } from 'lucide-react';
 import { useAppStore } from '../state/appStore';
 import { toast } from '../utils/toast';
-import { executeWisprCommand } from '../core/wispr/commandHandler';
 
 interface Command {
   id: string;
