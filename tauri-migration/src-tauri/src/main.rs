@@ -10,6 +10,7 @@ use std::process::Command;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tokio::time::{sleep, Duration};
 use browser::{BrowserLaunchOptions, BrowserResult};
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
 
 // Using String for errors to match Tauri 2.x command requirements
 type AgentResult<T> = Result<T, String>;
@@ -333,7 +334,7 @@ async fn correct_text(text: String) -> Result<String, String> {
 /// Capture current screen (for WISPR vision)
 #[tauri::command]
 async fn capture_screen(app: AppHandle) -> Result<String, String> {
-    let window = app
+    let _window = app
         .get_webview_window("main")
         .ok_or_else(|| "Main window not found".to_string())?;
 
@@ -539,6 +540,68 @@ pub fn run() {
             
             // Inject grammar watcher after page loads
             window.eval(grammar_js).ok();
+            
+            // Register global shortcuts (OS-level hotkeys) using on_shortcut
+            let app_handle = app.handle().clone();
+            let window_wispr = window.clone();
+            
+            // Ctrl+Shift+Space = Wake WISPR from anywhere
+            if let Err(e) = app_handle.global_shortcut().register(
+                Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space),
+            ) {
+                eprintln!("[Regen] Failed to register Ctrl+Shift+Space: {}", e);
+            } else {
+                println!("[Regen] Global shortcut registered: Ctrl+Shift+Space (Wake WISPR)");
+                let window_wispr_clone = window_wispr.clone();
+                let _ = app_handle.global_shortcut().on_shortcut(
+                    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space),
+                    move |_app, _shortcut, _event| {
+                        let _ = window_wispr_clone.emit("wake-wispr", ());
+                        let _ = window_wispr_clone.unminimize();
+                        let _ = window_wispr_clone.set_focus();
+                    },
+                );
+            }
+            
+            // Ctrl+Shift+T = Open Trade Mode instantly
+            let app_handle_trade = app.handle().clone();
+            let window_trade = window.clone();
+            if let Err(e) = app_handle_trade.global_shortcut().register(
+                Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT),
+            ) {
+                eprintln!("[Regen] Failed to register Ctrl+Shift+T: {}", e);
+            } else {
+                println!("[Regen] Global shortcut registered: Ctrl+Shift+T (Trade Mode)");
+                let window_trade_clone = window_trade.clone();
+                let _ = app_handle_trade.global_shortcut().on_shortcut(
+                    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT),
+                    move |_app, _shortcut, _event| {
+                        let _ = window_trade_clone.emit("open-trade-mode", ());
+                        let _ = window_trade_clone.unminimize();
+                        let _ = window_trade_clone.set_focus();
+                    },
+                );
+            }
+            
+            // Ctrl+Shift+R = Open Research Mode
+            let app_handle_research = app.handle().clone();
+            let window_research = window.clone();
+            if let Err(e) = app_handle_research.global_shortcut().register(
+                Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyR),
+            ) {
+                eprintln!("[Regen] Failed to register Ctrl+Shift+R: {}", e);
+            } else {
+                println!("[Regen] Global shortcut registered: Ctrl+Shift+R (Research Mode)");
+                let window_research_clone = window_research.clone();
+                let _ = app_handle_research.global_shortcut().on_shortcut(
+                    Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyR),
+                    move |_app, _shortcut, _event| {
+                        let _ = window_research_clone.emit("open-research-mode", ());
+                        let _ = window_research_clone.unminimize();
+                        let _ = window_research_clone.set_focus();
+                    },
+                );
+            }
             
             // Auto-start Ollama on launch
             tokio::spawn(async move {

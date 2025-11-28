@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Folder, FolderOpen, X, Plus, Lock } from 'lucide-react';
+import { Folder, FolderOpen, Plus, Lock } from 'lucide-react';
 import { useTabsStore } from '../../state/tabsStore';
 import { toast } from '../../utils/toast';
 
@@ -50,7 +50,7 @@ export function WorkspaceTabs({ nestLevel = 0, maxNestLevel = Infinity }: Worksp
     toast.info('New workspace created');
   };
 
-  const addTabToWorkspace = (workspaceId: string, tabId: string) => {
+  const _addTabToWorkspace = (workspaceId: string, tabId: string) => {
     setWorkspaces(prev =>
       prev.map(ws => (ws.id === workspaceId ? { ...ws, tabs: [...ws.tabs, tabId] } : ws))
     );

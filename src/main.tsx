@@ -328,7 +328,7 @@ try {
     });
 
     // Listen for localhost access request (security prompt)
-    window.addEventListener('request-localhost-access', ((e: CustomEvent) => {
+    window.addEventListener('request-localhost-access', ((_e: CustomEvent) => {
       // Show permission prompt (one-time)
       const hasPrompted = localStorage.getItem('localhost-access-prompted');
       if (!hasPrompted) {

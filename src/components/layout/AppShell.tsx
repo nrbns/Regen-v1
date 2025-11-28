@@ -88,7 +88,7 @@ import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
-import { WorkspaceTabs } from '../tabs/WorkspaceTabs';
+// import { WorkspaceTabs } from '../tabs/WorkspaceTabs'; // Reserved for future use
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
 const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
@@ -484,6 +484,35 @@ export function AppShell() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Listen for global shortcut events (OS-level hotkeys)
+  useEffect(() => {
+    if (!isElectron) {
+      return;
+    }
+
+    const unsubscribeWakeWispr = ipcEvents.on('wake-wispr', () => {
+      // Trigger WISPR activation
+      window.dispatchEvent(new CustomEvent('activate-wispr'));
+      toast.info('WISPR activated');
+    });
+
+    const unsubscribeTradeMode = ipcEvents.on('open-trade-mode', () => {
+      setMode('Trade');
+      toast.info('Trade mode opened');
+    });
+
+    const unsubscribeResearchMode = ipcEvents.on('open-research-mode', () => {
+      setMode('Research');
+      toast.info('Research mode opened');
+    });
+
+    return () => {
+      unsubscribeWakeWispr();
+      unsubscribeTradeMode();
+      unsubscribeResearchMode();
+    };
+  }, [setMode]);
 
   useEffect(() => {
     if (!isElectron) {

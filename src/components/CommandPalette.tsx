@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Sparkles, TrendingUp, Globe, FileText, Settings, X } from 'lucide-react';
+import { Search, Sparkles, TrendingUp, Globe, FileText, X } from 'lucide-react';
 import { useAppStore } from '../state/appStore';
 import { toast } from '../utils/toast';
 

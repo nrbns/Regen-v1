@@ -5,9 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use std::time::Duration;
-use tokio::time::sleep;
-use sysinfo::{System, Pid};
+use sysinfo::System;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BrowserLaunchOptions {
@@ -26,6 +24,7 @@ pub struct BrowserResult {
 }
 
 /// Check if Playwright Chromium is available
+#[allow(dead_code)]
 pub fn check_playwright() -> bool {
     // Check for bundled Chromium
     let bundled_paths = vec![
@@ -163,7 +162,7 @@ pub async fn launch_browser(options: BrowserLaunchOptions) -> Result<BrowserResu
 }
 
 /// Capture screenshot of browser page
-pub async fn capture_screenshot(url: &str) -> Result<String, String> {
+pub async fn capture_screenshot(_url: &str) -> Result<String, String> {
     // Simplified implementation
     // In production, this would use Playwright to:
     // 1. Launch headless browser

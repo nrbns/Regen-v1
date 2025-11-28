@@ -46,6 +46,7 @@ pub async fn correct_text(text: String) -> Result<String, String> {
 }
 
 /// Quick grammar check (faster, less accurate)
+#[allow(dead_code)]
 pub async fn quick_correct(text: String) -> Result<String, String> {
     // For very short text, use simple rules
     if text.len() < 10 {
