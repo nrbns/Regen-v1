@@ -61,6 +61,25 @@ pub fn check_playwright() -> bool {
     }
 }
 
+/// Regen launch with mode support (simplified - uses system browser for now)
+pub async fn regen_launch(url: &str, mode: &str) -> Result<String, String> {
+    // Mode-specific URLs
+    let target_url = if mode == "trade" {
+        "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT"
+    } else {
+        url
+    };
+    
+    // Launch browser (simplified - opens in system browser)
+    let _ = launch_browser(BrowserLaunchOptions {
+        url: target_url.to_string(),
+        headless: Some(false),
+        timeout: Some(30),
+    }).await;
+    
+    Ok(format!("Browser ready for: {}", target_url))
+}
+
 /// Launch browser and navigate to URL (simplified - uses system browser for now)
 pub async fn launch_browser(options: BrowserLaunchOptions) -> Result<BrowserResult, String> {
     // For now, use system browser as fallback
