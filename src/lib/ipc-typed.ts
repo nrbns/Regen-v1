@@ -1888,6 +1888,21 @@ export const ipc = {
         { url }
       ),
   },
+  grammar: {
+    correct: (text: string) => ipcCall<{ text: string }, string>('correct_text', { text }),
+  },
+  vision: {
+    captureScreen: () => ipcCall<unknown, string>('capture_screen', {}),
+    analyze: (prompt: string, screenshot?: string) =>
+      ipcCall<{ prompt: string; screenshot?: string }, string>('ollama_vision', {
+        prompt,
+        screenshot,
+      }),
+  },
+  trade: {
+    execute: (query: string) =>
+      ipcCall<{ query: string }, string>('execute_trade_command', { query }),
+  },
   trust: {
     list: () => ipcCall<unknown, { records: TrustSummary[] }>('trust:list', {}),
     get: (domain: string) =>

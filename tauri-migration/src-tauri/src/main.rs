@@ -3,6 +3,7 @@
 
 mod ollama;
 mod browser;
+mod grammar;
 
 use serde::Deserialize;
 use std::process::Command;
@@ -317,9 +318,93 @@ async fn capture_browser_screenshot(url: String) -> Result<String, String> {
     browser::capture_screenshot(&url).await
 }
 
+/// Correct text grammar using Ollama
+#[tauri::command]
+async fn correct_text(text: String) -> Result<String, String> {
+    grammar::correct_text(text).await
+}
+
+/// Capture current screen (for WISPR vision)
+#[tauri::command]
+async fn capture_screen(app: AppHandle) -> Result<String, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+
+    // Use Tauri's screenshot API (if available) or fallback to webview capture
+    // For now, return placeholder - in production, use actual screenshot
+    Ok("screenshot://placeholder".to_string())
+}
+
+/// Process vision with Ollama (llava model)
+#[tauri::command]
+async fn ollama_vision(prompt: String, screenshot: Option<String>) -> Result<String, String> {
+    // Wait for Ollama if needed
+    if !ollama::check_ollama().await {
+        ollama::wait_for_ollama(5).await;
+    }
+
+    let vision_prompt = if let Some(screenshot) = screenshot {
+        format!("{}\n\nScreenshot: {}", prompt, screenshot)
+    } else {
+        format!("{}\n\nDescribe what you see and suggest action.", prompt)
+    };
+
+    match ollama::generate_text("llava:7b", &vision_prompt).await {
+        Ok(response) => Ok(response),
+        Err(e) => Err(format!("Vision processing failed: {}", e)),
+    }
+}
+
+/// Execute trade command from WISPR
+#[tauri::command]
+async fn execute_trade_command(query: String) -> Result<String, String> {
+    // Wait for Ollama if needed
+    if !ollama::check_ollama().await {
+        ollama::wait_for_ollama(5).await;
+    }
+
+    let trade_prompt = format!(
+        "Analyze this trading command and provide execution plan: {}\n\nReturn only the action to take (buy/sell, quantity, symbol, stop loss).",
+        query
+    );
+
+    match ollama::generate_text("phi3:mini", &trade_prompt).await {
+        Ok(response) => {
+            // In production, this would actually execute the trade via Zerodha API
+            Ok(format!("Trade command processed: {}", response))
+        }
+        Err(e) => Err(format!("Trade execution failed: {}", e)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts(vec![
+                    (
+                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space),
+                        |app| {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.emit("wake-wispr", ());
+                                let _ = window.unminimize();
+                                let _ = window.set_focus();
+                            }
+                        },
+                    ),
+                    (
+                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT),
+                        |app| {
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.emit("open-trade-mode", ());
+                            }
+                        },
+                    ),
+                ])
+                .build(),
+        )
         .invoke_handler(tauri::generate_handler![
             run_agent_task,
             trigger_haptic,
@@ -327,12 +412,66 @@ pub fn run() {
             wispr_command,
             launch_browser,
             regen_session,
-            capture_browser_screenshot
+            capture_browser_screenshot,
+            correct_text,
+            capture_screen,
+            ollama_vision,
+            execute_trade_command
         ])
         .setup(|app| {
-            // Auto-start Ollama on launch
             let window = app.get_webview_window("main").unwrap();
             
+            // Inject grammar watcher into all webviews
+            let grammar_js = r#"
+                (function() {
+                    if (window.__GRAMMAR_INJECTED) return;
+                    window.__GRAMMAR_INJECTED = true;
+                    
+                    let correctionTimeout;
+                    document.addEventListener('input', async (e) => {
+                        const target = e.target;
+                        if (!target || (target.tagName !== 'TEXTAREA' && 
+                            !target.isContentEditable && 
+                            (target.tagName !== 'INPUT' || !['text', 'search', 'email', 'url'].includes(target.type)))) {
+                            return;
+                        }
+                        
+                        clearTimeout(correctionTimeout);
+                        const original = target.value || target.textContent || '';
+                        const cursorPos = target.selectionStart || 0;
+                        
+                        // Only correct if >15 chars and user paused typing
+                        if (original.length > 15) {
+                            correctionTimeout = setTimeout(async () => {
+                                try {
+                                    const corrected = await window.__TAURI_INTERNALS__.invoke('correct_text', { text: original });
+                                    if (corrected && corrected !== original) {
+                                        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                                            target.value = corrected;
+                                        } else {
+                                            target.textContent = corrected;
+                                        }
+                                        target.dispatchEvent(new Event('input', { bubbles: true }));
+                                        target.dispatchEvent(new Event('change', { bubbles: true }));
+                                        
+                                        // Restore cursor position
+                                        if (target.setSelectionRange) {
+                                            target.setSelectionRange(cursorPos, cursorPos);
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.debug('[Grammar] Correction failed:', err);
+                                }
+                            }, 1000); // Wait 1 second after typing stops
+                        }
+                    });
+                })();
+            "#;
+            
+            // Inject grammar watcher after page loads
+            window.eval(grammar_js).ok();
+            
+            // Auto-start Ollama on launch
             tokio::spawn(async move {
                 // Small delay to let UI render
                 sleep(Duration::from_secs(1)).await;

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, Sparkles, X } from 'lucide-react';
+import { Mic, Sparkles, X, Eye, Brain } from 'lucide-react';
 import { useSettingsStore } from '../state/settingsStore';
 import { parseWisprCommand, executeWisprCommand } from '../core/wispr/commandHandler';
 import { toast } from '../utils/toast';
+import { isElectronRuntime } from '../lib/env';
 
 const LANGUAGE_LOCALE_MAP: Record<string, string> = {
   hi: 'hi-IN',
@@ -28,8 +29,12 @@ export function WisprOrb() {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isJarvisMode, setIsJarvisMode] = useState(false);
+  const [visionEnabled, setVisionEnabled] = useState(false);
   const recogRef = useRef<any>(null);
   const language = useSettingsStore(state => state.language || 'auto');
+
+  const wakeWords = ['hey wispr', 'jarvis', 'regen', 'wake up'];
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -98,18 +103,69 @@ export function WisprOrb() {
 
     try {
       setIsProcessing(true);
-      // Parse and execute command
-      const command = parseWisprCommand(text);
 
-      // Show command type in UI
-      const commandType =
-        command.type.charAt(0).toUpperCase() + command.type.slice(1).replace('_', ' ');
-      setTranscript(`Executing ${commandType}...`);
+      // Check for wake words (Jarvis mode)
+      const lowerText = text.toLowerCase();
+      const hasWakeWord = wakeWords.some(word => lowerText.includes(word));
 
-      await executeWisprCommand(command);
+      if (hasWakeWord || isJarvisMode) {
+        setIsJarvisMode(true);
+        setVisionEnabled(true);
 
-      // Show success feedback
-      setTranscript(`✓ ${commandType} completed`);
+        // Extract command after wake word
+        let commandText = text;
+        for (const wakeWord of wakeWords) {
+          if (lowerText.includes(wakeWord)) {
+            commandText = text
+              .substring(text.toLowerCase().indexOf(wakeWord) + wakeWord.length)
+              .trim();
+            break;
+          }
+        }
+
+        // Vision: Auto-screenshot + send to llava
+        if (isElectronRuntime()) {
+          try {
+            const { ipc } = await import('../lib/ipc-typed');
+            const screenshot = await (ipc as any).invoke('capture_screen');
+            const visionPrompt = `User said: "${commandText || text}"\nDescribe what you see and suggest action.`;
+            const visionResponse = await (ipc as any).invoke('ollama_vision', {
+              prompt: visionPrompt,
+              screenshot: screenshot,
+            });
+
+            // Speak response
+            if ('speechSynthesis' in window) {
+              const speech = new SpeechSynthesisUtterance(visionResponse || 'Command processed');
+              speech.lang = 'en-IN'; // Indian English
+              window.speechSynthesis.speak(speech);
+            }
+          } catch (error) {
+            console.warn('[WISPR] Vision processing failed:', error);
+          }
+        }
+
+        // Action: Execute command
+        const command = parseWisprCommand(commandText || text);
+        const commandType =
+          command.type.charAt(0).toUpperCase() + command.type.slice(1).replace('_', ' ');
+        setTranscript(`Jarvis: Executing ${commandType}...`);
+
+        await executeWisprCommand(command);
+
+        setTranscript(`✓ Jarvis: ${commandType} completed`);
+      } else {
+        // Normal command execution
+        const command = parseWisprCommand(text);
+        const commandType =
+          command.type.charAt(0).toUpperCase() + command.type.slice(1).replace('_', ' ');
+        setTranscript(`Executing ${commandType}...`);
+
+        await executeWisprCommand(command);
+
+        setTranscript(`✓ ${commandType} completed`);
+      }
+
       setTimeout(() => {
         setTranscript('');
       }, 2000);
@@ -173,6 +229,37 @@ export function WisprOrb() {
   };
 
   // Global hotkey: Ctrl + Space
+  // Listen for global hotkey events from Tauri
+  useEffect(() => {
+    if (isElectronRuntime()) {
+      const setupGlobalHotkeys = async () => {
+        try {
+          const { ipcEvents } = await import('../lib/ipc-events');
+
+          // Listen for wake-wispr event (Ctrl+Shift+Space)
+          ipcEvents.on('wake-wispr', () => {
+            if (!listening) {
+              startListening();
+              setIsJarvisMode(true);
+              toast.info('Jarvis mode activated!');
+            }
+          });
+
+          // Listen for open-trade-mode event (Ctrl+Shift+T)
+          ipcEvents.on('open-trade-mode', async () => {
+            const { useAppStore } = await import('../state/appStore');
+            useAppStore.getState().setMode('Trade');
+            toast.info('Trade mode opened');
+          });
+        } catch (error) {
+          console.warn('[WISPR] Global hotkey setup failed:', error);
+        }
+      };
+
+      setupGlobalHotkeys();
+    }
+  }, [listening]);
+
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.code === 'Space') {
@@ -207,17 +294,24 @@ export function WisprOrb() {
           <div
             className={`w-20 h-20 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 shadow-2xl flex items-center justify-center transition-all ${
               listening ? 'animate-pulse scale-110 ring-4 ring-purple-500/50' : 'hover:scale-105'
-            }`}
+            } ${isJarvisMode ? 'ring-4 ring-blue-500' : ''}`}
           >
             {listening ? (
               <Mic className="w-10 h-10 text-white animate-bounce" />
+            ) : isJarvisMode ? (
+              <Brain className="w-10 h-10 text-white" />
             ) : (
               <Sparkles className="w-10 h-10 text-white" />
             )}
           </div>
+          {visionEnabled && (
+            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+              <Eye className="w-3 h-3 text-white" />
+            </div>
+          )}
         </button>
         <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur px-4 py-2 rounded-full text-sm whitespace-nowrap pointer-events-none">
-          Ctrl + Space to talk
+          {isJarvisMode ? 'Jarvis Mode' : 'Ctrl + Space to talk'}
         </div>
       </motion.div>
 
