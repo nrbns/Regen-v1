@@ -306,6 +306,12 @@ async fn launch_browser(url: String, headless: Option<bool>) -> Result<BrowserRe
     browser::launch_browser(options).await
 }
 
+/// Regen launch with mode support
+#[tauri::command]
+async fn regen_launch(url: String, mode: String) -> Result<String, String> {
+    browser::regen_launch(&url, &mode).await
+}
+
 /// Regen browser session (restart with same tabs)
 #[tauri::command]
 async fn regen_session(urls: Vec<String>) -> Result<Vec<BrowserResult>, String> {
