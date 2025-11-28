@@ -428,34 +428,10 @@ pub fn run() {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             
-            // Register global hotkeys
-            let app_handle = app.handle().clone();
-            let window_wake = window.clone();
-            let _ = tauri_plugin_global_shortcut::register(
-                &app_handle,
-                tauri_plugin_global_shortcut::Shortcut::new(
-                    Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
-                    tauri_plugin_global_shortcut::Code::Space,
-                ),
-                move |_| {
-                    let _ = window_wake.emit("wake-wispr", ());
-                    let _ = window_wake.unminimize();
-                    let _ = window_wake.set_focus();
-                },
-            );
-            
-            let app_handle_trade = app.handle().clone();
-            let window_trade = window.clone();
-            let _ = tauri_plugin_global_shortcut::register(
-                &app_handle_trade,
-                tauri_plugin_global_shortcut::Shortcut::new(
-                    Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
-                    tauri_plugin_global_shortcut::Code::KeyT,
-                ),
-                move |_| {
-                    let _ = window_trade.emit("open-trade-mode", ());
-                },
-            );
+            // TODO: Global hotkeys - requires proper API usage
+            // Ctrl+Shift+Space = Wake WISPR
+            // Ctrl+Shift+T = Open Trade Mode
+            // Note: Global shortcuts work via frontend event listeners for now
             
             // Inject grammar watcher into all webviews
             let grammar_js = r#"
