@@ -17,6 +17,9 @@ storybook-static/
 .env
 .env.local
 .env.*.local
+# Keep example.env for reference
+!.env.example
+!example.env
 
 # IDE
 .vscode/
