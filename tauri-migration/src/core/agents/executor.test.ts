@@ -2,8 +2,9 @@
  * Agent Executor Tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { executor, executeActions } from './executor';
+import { ipc } from '../../lib/ipc-typed';
 import type { AgentAction, ExecutionContext } from './executor';
 
 describe('Agent Executor', () => {
@@ -55,7 +56,7 @@ describe('Agent Executor', () => {
 
     it('should respect step limit', async () => {
       const actions: AgentAction[] = Array(20).fill({ type: 'wait', ms: 5 });
-      
+
       const context: ExecutionContext = {
         runId: 'test-run-3',
         timeout: 5000,
@@ -69,9 +70,7 @@ describe('Agent Executor', () => {
     });
 
     it('should respect timeout', async () => {
-      const actions: AgentAction[] = [
-        { type: 'wait', ms: 2000 },
-      ];
+      const actions: AgentAction[] = [{ type: 'wait', ms: 2000 }];
 
       const context: ExecutionContext = {
         runId: 'test-run-4',
@@ -110,22 +109,36 @@ describe('Agent Executor', () => {
     });
 
     it('should include risk assessment', async () => {
+      const navigateSpy = vi.spyOn(ipc.tabs, 'navigate').mockResolvedValue(undefined as any);
       const actions: AgentAction[] = [
         { type: 'read', selector: { type: 'id', value: 'test' } }, // low risk
         { type: 'click', selector: { type: 'id', value: 'test' } }, // medium risk
         { type: 'navigate', url: 'https://example.com' }, // high risk
       ];
 
+      const mockDocument = document.implementation.createHTMLDocument('Audit Test');
+      const interactive = mockDocument.createElement('button');
+      interactive.id = 'test';
+      interactive.textContent = 'Test';
+      mockDocument.body.appendChild(interactive);
+
       const context: ExecutionContext = {
         runId: 'test-run-6',
         timeout: 5000,
         maxSteps: 10,
         requireConsent: false,
+        document: mockDocument,
+        tabId: 'test-tab',
       };
 
       await executeActions(actions, context);
       const auditLog = executor.getAuditLog('test-run-6');
+      navigateSpy.mockRestore();
 
+      if (auditLog.length < 3) {
+        console.error('Audit log missing entries:', auditLog);
+      }
+      expect(auditLog.length).toBeGreaterThanOrEqual(3);
       expect(auditLog[0].risk).toBe('low');
       expect(auditLog[1].risk).toBe('medium');
       expect(auditLog[2].risk).toBe('high');
@@ -134,9 +147,7 @@ describe('Agent Executor', () => {
 
   describe('domain restrictions', () => {
     it('should block navigation to denied domains', async () => {
-      const actions: AgentAction[] = [
-        { type: 'navigate', url: 'https://blocked.com' },
-      ];
+      const actions: AgentAction[] = [{ type: 'navigate', url: 'https://blocked.com' }];
 
       const context: ExecutionContext = {
         runId: 'test-run-7',
@@ -153,9 +164,7 @@ describe('Agent Executor', () => {
     });
 
     it('should allow navigation to allowed domains', async () => {
-      const actions: AgentAction[] = [
-        { type: 'navigate', url: 'https://allowed.com' },
-      ];
+      const actions: AgentAction[] = [{ type: 'navigate', url: 'https://allowed.com' }];
 
       const context: ExecutionContext = {
         runId: 'test-run-8',
@@ -174,9 +183,7 @@ describe('Agent Executor', () => {
 
   describe('cancel', () => {
     it('should cancel active run', async () => {
-      const actions: AgentAction[] = [
-        { type: 'wait', ms: 1000 },
-      ];
+      const actions: AgentAction[] = [{ type: 'wait', ms: 1000 }];
 
       const context: ExecutionContext = {
         runId: 'test-run-9',
@@ -197,4 +204,3 @@ describe('Agent Executor', () => {
     });
   });
 });
-

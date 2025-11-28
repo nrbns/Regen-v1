@@ -56,7 +56,7 @@ class VectorStore {
       // Remove oldest entries (FIFO)
       const entries = Array.from(this.cache.entries());
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      
+
       const toRemove = entries.slice(0, this.cache.size - this.cacheSizeLimit);
       for (const [id] of toRemove) {
         this.cache.delete(id);
@@ -99,7 +99,7 @@ class VectorStore {
           metadata: dbEmbedding.metadata,
           timestamp: dbEmbedding.timestamp,
         };
-        
+
         // Cache it
         this.cache.set(id, embedding);
         return embedding;
@@ -116,12 +116,23 @@ class VectorStore {
    */
   async delete(id: string): Promise<boolean> {
     // Remove from cache
-    this.cache.delete(id);
+    let existed = false;
+    if (this.cache.has(id)) {
+      this.cache.delete(id);
+      existed = true;
+    } else {
+      try {
+        const record = await superMemoryDB.getEmbedding(id);
+        existed = Boolean(record);
+      } catch (error) {
+        console.error('[VectorStore] Failed to check embedding existence:', error);
+      }
+    }
 
     // Delete from IndexedDB
     try {
       await superMemoryDB.deleteEmbedding(id);
-      return true;
+      return existed;
     } catch (error) {
       console.error('[VectorStore] Failed to delete embedding:', error);
       return false;
@@ -214,7 +225,7 @@ class VectorStore {
     }
 
     // Calculate similarities
-    const results: VectorSearchResult[] = allEmbeddings.map((embedding) => {
+    const results: VectorSearchResult[] = allEmbeddings.map(embedding => {
       const similarity = this.cosineSimilarity(queryVector, embedding.vector);
       return {
         embedding,
@@ -225,7 +236,7 @@ class VectorStore {
 
     // Filter by minimum similarity and sort
     const filtered = results
-      .filter((r) => r.similarity >= minSimilarity)
+      .filter(r => r.similarity >= minSimilarity)
       .sort((a, b) => b.similarity - a.similarity);
 
     return filtered;
@@ -335,13 +346,10 @@ export const vectorStore = new VectorStore();
 vectorStore.init().catch(console.warn);
 
 // Export convenience functions
-export const searchVectors = (
-  query: string | number[],
-  options?: VectorStoreOptions
-) => vectorStore.search(query, options);
+export const searchVectors = (query: string | number[], options?: VectorStoreOptions) =>
+  vectorStore.search(query, options);
 export const saveVector = (embedding: Embedding) => vectorStore.save(embedding);
 export const getVector = (id: string) => vectorStore.get(id);
 export const deleteVector = (id: string) => vectorStore.delete(id);
 export const getVectorCount = () => vectorStore.count();
 export const getVectorStats = () => vectorStore.getStats();
-

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, ColorType, type IChartApi, type ISeriesApi } from 'lightweight-charts';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import {
   ArrowDownRight,
   ArrowUpRight,

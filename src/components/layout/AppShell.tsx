@@ -84,6 +84,7 @@ import { SuspensionIndicator } from '../redix/SuspensionIndicator';
 import { BatteryIndicator } from '../redix/BatteryIndicator';
 import { MemoryMonitor } from '../redix/MemoryMonitor';
 import { MiniHoverAI } from '../interaction/MiniHoverAI';
+import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
@@ -119,6 +120,8 @@ import { useAppError } from '../../hooks/useAppError';
 import { LoopResumeModal } from '../agents/LoopResumeModal';
 import { checkForCrashedLoops } from '../../core/agents/loopResume';
 import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
+import { MobileDock } from './MobileDock';
+import { InstallProgressModal } from '../installer/InstallProgressModal';
 
 declare global {
   interface Window {
@@ -365,6 +368,7 @@ export function AppShell() {
   const [redixDebugOpen, setRedixDebugOpen] = useState(false);
   const [loopResumeModalOpen, setLoopResumeModalOpen] = useState(false);
   const [workflowMarketplaceOpen, setWorkflowMarketplaceOpen] = useState(false);
+  const [showInstaller, setShowInstaller] = useState(false);
   const isDev = isDevEnv();
   const themePreference = useSettingsStore(state => state.appearance.theme);
   const compactUI = useSettingsStore(state => state.appearance.compactUI);
@@ -868,6 +872,7 @@ export function AppShell() {
     return safeTabs.find(tab => tab.id === tabsState.activeId) || undefined;
   }, [tabsState.tabs, tabsState.activeId]);
   const mode = useAppStore(state => state.mode);
+  const currentMode = mode ?? 'Browse';
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -928,7 +933,10 @@ export function AppShell() {
     clipperActive ||
     readerActive;
   const activeTabUrl = activeTab?.url ?? '';
+  // Hide webview content in Research and Trade modes - they have their own UI
   const showWebContent =
+    currentMode !== 'Research' &&
+    currentMode !== 'Trade' &&
     Boolean(activeTabUrl) &&
     !activeTabUrl.startsWith('ob://') &&
     !activeTabUrl.startsWith('about:') &&
@@ -983,9 +991,10 @@ export function AppShell() {
   useEffect(() => {
     // Mode manager's onActivate hooks handle most of this, but we ensure UI stays in sync
     if (mode === 'Research') {
-      if (!memorySidebarOpen) {
-        setMemorySidebarOpen(true);
-      }
+      // Don't auto-open memory sidebar in Research Mode - let users toggle it to avoid overlapping the gradient UI
+      // if (!memorySidebarOpen) {
+      //   setMemorySidebarOpen(true);
+      // }
       if (!researchPaneOpen) {
         setResearchPaneOpen(true);
       }
@@ -1611,51 +1620,69 @@ export function AppShell() {
                 </div>
               }
             >
-              {/* Use new TopBar component with mode switching */}
-              <TopBar
-                showAddressBar={true}
-                showQuickActions={true}
-                currentUrl={tabsState.tabs.find(t => t.id === tabsState.activeId)?.url}
-                onModeChange={async (mode: string) => {
-                  // Map mode string to AppState mode
-                  const modeMap: Record<string, 'Browse' | 'Research' | 'Trade'> = {
-                    browse: 'Browse',
-                    research: 'Research',
-                    trade: 'Trade',
-                    dev: 'Browse', // Dev maps to Browse for now
-                  };
-                  const targetMode = modeMap[mode] || 'Browse';
-                  const currentMode = useAppStore.getState().mode;
-                  if (targetMode !== currentMode) {
-                    await setMode(targetMode);
-                  }
-                }}
-                onAddressBarSubmit={async query => {
-                  // Handle address bar navigation/search
-                  try {
-                    const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
-                    const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url;
-
-                    // Check if it's a URL or search query
-                    const isUrl =
-                      /^https?:\/\//i.test(query) || /^[a-z0-9]+(\.[a-z0-9]+)+/i.test(query);
-                    const targetUrl = isUrl
-                      ? query.startsWith('http')
-                        ? query
-                        : `https://${query}`
-                      : `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
-
-                    if (isAboutBlank && activeTab) {
-                      await ipc.tabs.navigate(activeTab.id, targetUrl);
-                    } else {
-                      await ipc.tabs.create(targetUrl);
+              {/* Hide TopBar in Research and Trade modes - they have their own UI */}
+              {currentMode !== 'Research' && currentMode !== 'Trade' && (
+                <TopBar
+                  showAddressBar={true}
+                  showQuickActions={true}
+                  currentUrl={tabsState.tabs.find(t => t.id === tabsState.activeId)?.url}
+                  onModeChange={async (mode: string) => {
+                    // Map mode string to AppState mode
+                    const modeMap: Record<string, 'Browse' | 'Research' | 'Trade'> = {
+                      browse: 'Browse',
+                      research: 'Research',
+                      trade: 'Trade',
+                      dev: 'Browse', // Dev maps to Browse for now
+                    };
+                    const targetMode = modeMap[mode] || 'Browse';
+                    const currentMode = useAppStore.getState().mode;
+                    if (targetMode !== currentMode) {
+                      await setMode(targetMode);
                     }
-                  } catch (error) {
-                    console.error('[TopBar] Failed to navigate:', error);
-                    toast.error('Failed to navigate');
-                  }
-                }}
-              />
+                  }}
+                  onAddressBarSubmit={async query => {
+                    // Handle address bar navigation/search
+                    try {
+                      const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
+                      const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url;
+
+                      // Use normalizeInputToUrlOrSearch to properly handle URLs vs search queries
+                      const { normalizeInputToUrlOrSearch } = await import('../../lib/search');
+                      const settings = useSettingsStore.getState();
+                      const language = settings.language || 'auto';
+                      const searchEngine = settings.searchEngine || 'google';
+
+                      // Normalize search engine type to match function signature
+                      let searchProvider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' = 'google';
+                      if (
+                        searchEngine === 'duckduckgo' ||
+                        searchEngine === 'bing' ||
+                        searchEngine === 'yahoo'
+                      ) {
+                        searchProvider = searchEngine;
+                      } else if (searchEngine === 'all' || searchEngine === 'mock') {
+                        searchProvider = 'google'; // Default to Google for 'all' or 'mock'
+                      }
+
+                      // Normalize the query to a URL or search URL
+                      const targetUrl = normalizeInputToUrlOrSearch(
+                        query,
+                        searchProvider,
+                        language !== 'auto' ? language : undefined
+                      );
+
+                      if (isAboutBlank && activeTab) {
+                        await ipc.tabs.navigate(activeTab.id, targetUrl);
+                      } else {
+                        await ipc.tabs.create(targetUrl);
+                      }
+                    } catch (error) {
+                      console.error('[TopBar] Failed to navigate:', error);
+                      toast.error('Failed to navigate');
+                    }
+                  }}
+                />
+              )}
             </ErrorBoundary>
           </Suspense>
         )}
@@ -1688,53 +1715,62 @@ export function AppShell() {
         {/* Restore Banner and TabStrip */}
         {!isFullscreen && (
           <>
-            {restoreSummary && !restoreDismissed && (
-              <div className="px-4 pt-3">
-                <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-blue-100">
-                      Restore your last browsing session?
-                    </p>
-                    <p className="text-xs text-blue-200">
-                      Last saved {restoreRelativeTime ?? 'recently'} • {restoreSummary.windowCount}{' '}
-                      window
-                      {restoreSummary.windowCount === 1 ? '' : 's'}, {restoreSummary.tabCount} tab
-                      {restoreSummary.tabCount === 1 ? '' : 's'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRestoreSession}
-                      disabled={restoreStatus === 'restoring'}
-                      className="inline-flex items-center rounded-lg border border-blue-500/60 bg-blue-600/20 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {restoreStatus === 'restoring' ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                      )}
-                      Restore
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDismissRestore}
-                      className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
-                      aria-label="Dismiss restore banner"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+            {/* Hide restore banner in Browse mode on new tab */}
+            {restoreSummary &&
+              !restoreDismissed &&
+              !(
+                currentMode === 'Browse' &&
+                (activeTab?.url === 'about:blank' || !activeTab?.url)
+              ) && (
+                <div className="px-4 pt-3">
+                  <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-blue-100">
+                        Restore your last browsing session?
+                      </p>
+                      <p className="text-xs text-blue-200">
+                        Last saved {restoreRelativeTime ?? 'recently'} •{' '}
+                        {restoreSummary.windowCount} window
+                        {restoreSummary.windowCount === 1 ? '' : 's'}, {restoreSummary.tabCount} tab
+                        {restoreSummary.tabCount === 1 ? '' : 's'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleRestoreSession}
+                        disabled={restoreStatus === 'restoring'}
+                        className="inline-flex items-center rounded-lg border border-blue-500/60 bg-blue-600/20 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {restoreStatus === 'restoring' ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                        )}
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDismissRestore}
+                        className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
+                        aria-label="Dismiss restore banner"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+            {/* Hide TabStrip in Research and Trade modes - they have their own UI */}
+            {currentMode !== 'Research' && currentMode !== 'Trade' && (
+              <Suspense fallback={null}>
+                <ErrorBoundary componentName="TabStrip">
+                  <div className="relative z-50 w-full" style={{ pointerEvents: 'auto' }}>
+                    <TabStrip />
+                  </div>
+                </ErrorBoundary>
+              </Suspense>
             )}
-            <Suspense fallback={null}>
-              <ErrorBoundary componentName="TabStrip">
-                <div className="relative z-50 w-full" style={{ pointerEvents: 'auto' }}>
-                  <TabStrip />
-                </div>
-              </ErrorBoundary>
-            </Suspense>
             {showWebContent && !isDesktopLayout && (
               <div className="flex items-center justify-end gap-2 px-3 py-2 text-xs text-slate-300 sm:px-4">
                 <button
@@ -1817,7 +1853,7 @@ export function AppShell() {
         ref={bottomChromeRef}
         className="flex-none shrink-0 border-t border-slate-800 bg-slate-950"
       >
-        {!isFullscreen && (
+        {!isFullscreen && currentMode === 'Browse' && (
           <Suspense fallback={null}>
             <ErrorBoundary componentName="BottomStatus">
               <BottomStatus />
@@ -1825,6 +1861,15 @@ export function AppShell() {
           </Suspense>
         )}
       </div>
+
+      {!isFullscreen && !isDesktopLayout && showWebContent && (
+        <MobileDock
+          activeMode={currentMode}
+          onSelectMode={setMode}
+          onOpenLibrary={() => setUnifiedSidePanelOpen(true)}
+          onOpenAgent={() => setRightPanelOpen(true)}
+        />
+      )}
 
       {/* Agent Overlay */}
       <Suspense fallback={null}>
@@ -1974,21 +2019,26 @@ export function AppShell() {
         />
       )}
 
-      {/* Memory Sidebar - Using new ResearchMemoryPanel for improved UI/UX */}
-      <ResearchMemoryPanel
-        open={memorySidebarOpen}
-        onClose={() => {
-          setMemorySidebarOpen(false);
-          // Dispatch event for TopBar to sync state
-          window.dispatchEvent(
-            new CustomEvent('memory-sidebar:toggle', { detail: { open: false } })
-          );
-        }}
-        onCreateMemory={() => {
-          // Handled by ResearchMemoryPanel internally via CreateMemoryDialog
-        }}
-      />
-      <TradeSidebar open={tradeSidebarOpen} onClose={() => setTradeSidebarOpen(false)} />
+      {/* Memory Sidebar - Collapsible in Research Mode, hidden in other modes */}
+      {currentMode === 'Research' && (
+        <ResearchMemoryPanel
+          open={memorySidebarOpen}
+          onClose={() => {
+            setMemorySidebarOpen(false);
+            // Dispatch event for TopBar to sync state
+            window.dispatchEvent(
+              new CustomEvent('memory-sidebar:toggle', { detail: { open: false } })
+            );
+          }}
+          onCreateMemory={() => {
+            // Handled by ResearchMemoryPanel internally via CreateMemoryDialog
+          }}
+        />
+      )}
+      {/* TradeSidebar - Hidden in Trade Mode (clean UI) */}
+      {currentMode !== 'Trade' && (
+        <TradeSidebar open={tradeSidebarOpen} onClose={() => setTradeSidebarOpen(false)} />
+      )}
 
       {/* Regen Sidebar */}
       {!isFullscreen && isDesktopLayout && regenSidebarOpen && (
@@ -2088,6 +2138,8 @@ export function AppShell() {
         onClose={() => setWorkflowMarketplaceOpen(false)}
       />
 
+      <WisprOrb />
+
       {/* Mini Hover AI - Text selection assistant */}
       <MiniHoverAI enabled={!overlayActive && showWebContent} />
 
@@ -2105,8 +2157,27 @@ export function AppShell() {
       {/* Tier 3: Onboarding Flow - Legacy fallback, only if ResearchTour is not available */}
       {/* ResearchTour is the primary onboarding component, so this is kept as fallback only */}
 
-      {/* Session Restore Prompt */}
-      <SessionRestorePrompt />
+      {/* Session Restore Prompt - Hidden in Browse mode (shows as toast instead) */}
+      {currentMode !== 'Browse' && <SessionRestorePrompt />}
+
+      {/* First Launch Installer */}
+      {showInstaller && (
+        <InstallProgressModal
+          onComplete={async () => {
+            const { markSetupComplete } = await import('../../core/installer/firstLaunch');
+            markSetupComplete();
+            setShowInstaller(false);
+            toast.success('Setup complete! Your AI brain is ready.');
+          }}
+          onError={error => {
+            console.error('[AppShell] Installer error:', error);
+            toast.error(
+              `Setup failed: ${error.message}. You can install Ollama manually from ollama.com`
+            );
+            // Don't close installer - let user retry or skip
+          }}
+        />
+      )}
     </div>
   );
 }

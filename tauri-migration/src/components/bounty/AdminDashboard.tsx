@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { Shield, CheckCircle2, XCircle, Clock, DollarSign, Eye, Video, Search } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { getLeaderboard, verifyVideoViews } from '../../services/bountyService';
 
 interface BountySubmission {

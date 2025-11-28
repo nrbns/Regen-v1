@@ -137,13 +137,17 @@ export function SettingsMenu() {
         aria-expanded={open}
         className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
         onClick={e => {
-          (e as any).stopImmediatePropagation();
           e.stopPropagation();
+          if ((e.nativeEvent as any)?.stopImmediatePropagation) {
+            (e.nativeEvent as any).stopImmediatePropagation();
+          }
           setOpen(value => !value);
         }}
         onMouseDown={e => {
-          (e as any).stopImmediatePropagation();
           e.stopPropagation();
+          if ((e.nativeEvent as any)?.stopImmediatePropagation) {
+            (e.nativeEvent as any).stopImmediatePropagation();
+          }
         }}
       >
         <Settings2 className="h-5 w-5" aria-hidden />

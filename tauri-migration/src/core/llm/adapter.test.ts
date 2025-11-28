@@ -16,6 +16,10 @@ describe('LLM Adapter', () => {
     delete (import.meta as any).env.VITE_ANTHROPIC_API_KEY;
     delete (import.meta as any).env.VITE_MISTRAL_API_KEY;
     delete (import.meta as any).env.VITE_OLLAMA_BASE_URL;
+    delete (process.env as any).OPENAI_API_KEY;
+    delete (process.env as any).ANTHROPIC_API_KEY;
+    delete (process.env as any).MISTRAL_API_KEY;
+    delete (process.env as any).OLLAMA_BASE_URL;
   });
 
   describe('getAvailableProviders', () => {
@@ -26,6 +30,7 @@ describe('LLM Adapter', () => {
 
     it('should return OpenAI when API key is set', () => {
       (import.meta as any).env.VITE_OPENAI_API_KEY = 'test-key';
+      (process.env as any).OPENAI_API_KEY = 'test-key';
       const providers = getAvailableProviders();
       expect(providers).toContain('openai');
     });
@@ -38,7 +43,8 @@ describe('LLM Adapter', () => {
 
     it('should call OpenAI API when key is set', async () => {
       (import.meta as any).env.VITE_OPENAI_API_KEY = 'test-key';
-      
+      (process.env as any).OPENAI_API_KEY = 'test-key';
+
       const mockResponse = {
         choices: [{ message: { content: 'Test response' } }],
         model: 'gpt-4o-mini',
@@ -51,7 +57,7 @@ describe('LLM Adapter', () => {
       });
 
       const response = await sendPrompt('test prompt', { provider: 'openai' });
-      
+
       expect(response.text).toBe('Test response');
       expect(response.provider).toBe('openai');
       expect(global.fetch).toHaveBeenCalledWith(
@@ -67,7 +73,8 @@ describe('LLM Adapter', () => {
 
     it('should handle API errors gracefully', async () => {
       (import.meta as any).env.VITE_OPENAI_API_KEY = 'test-key';
-      
+      (process.env as any).OPENAI_API_KEY = 'test-key';
+
       (global.fetch as any).mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -81,7 +88,9 @@ describe('LLM Adapter', () => {
     it('should retry with fallback provider on error', async () => {
       (import.meta as any).env.VITE_OPENAI_API_KEY = 'test-key';
       (import.meta as any).env.VITE_ANTHROPIC_API_KEY = 'test-key-2';
-      
+      (process.env as any).OPENAI_API_KEY = 'test-key';
+      (process.env as any).ANTHROPIC_API_KEY = 'test-key-2';
+
       // OpenAI fails
       (global.fetch as any).mockResolvedValueOnce({
         ok: false,
@@ -101,10 +110,9 @@ describe('LLM Adapter', () => {
       });
 
       const response = await sendPrompt('test prompt');
-      
+
       expect(response.text).toBe('Anthropic response');
       expect(response.provider).toBe('anthropic');
     });
   });
 });
-

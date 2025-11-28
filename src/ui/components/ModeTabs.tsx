@@ -7,10 +7,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Globe, Search, TrendingUp, Code, MoreHorizontal } from 'lucide-react';
 import { useModeShift } from '../hooks/useModeShift';
+import { useAppStore } from '../../state/appStore';
 import { useTokens } from '../useTokens';
 import { type ModeId } from '../tokens-enhanced';
-import { ModePreviewCard } from './ModePreviewCard';
-
 export interface ModeTabsProps {
   className?: string;
   compact?: boolean;
@@ -31,10 +30,9 @@ const MODE_CONFIG: Array<{
 
 export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
   const tokens = useTokens();
-  const { currentMode, isShifting, shiftMode } = useModeShift();
+  const { currentMode, isShifting } = useModeShift();
+  const setMode = useAppStore(state => state.setMode);
   const [hoveredMode, setHoveredMode] = useState<ModeId | null>(null);
-  const [_previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
-  const [showPreview, setShowPreview] = useState<{ from: ModeId; to: ModeId } | null>(null);
   const buttonRefs = useRef<Record<ModeId, HTMLButtonElement | null>>({
     browse: null,
     research: null,
@@ -52,41 +50,33 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
           ? 'trade'
           : 'browse';
 
-  const getModeChanges = React.useCallback((from: ModeId, to: ModeId): string[] => {
-    const changes: string[] = [];
-
-    if (from !== to) {
-      const fromLabel = MODE_CONFIG.find(m => m.id === from)?.label || from;
-      const toLabel = MODE_CONFIG.find(m => m.id === to)?.label || to;
-      changes.push(`Switching from ${fromLabel} to ${toLabel}`);
-
-      // Mode-specific changes
-      if (from === 'browse' && to === 'research') {
-        changes.push('Research panel will open');
-        changes.push('AI analysis tools will be available');
-      } else if (from === 'browse' && to === 'trade') {
-        changes.push('Trading panel will open');
-        changes.push('Market data will be displayed');
-      } else if (from === 'research' && to === 'trade') {
-        changes.push('Research panel will close');
-        changes.push('Trading panel will open');
-      } else if (from === 'trade' && to === 'research') {
-        changes.push('Trading panel will close');
-        changes.push('Research panel will open');
-      }
-    }
-
-    return changes;
-  }, []);
-
   const handleModeClick = React.useCallback(
-    (modeId: ModeId) => {
+    async (modeId: ModeId) => {
       if (modeId === currentModeId || isShifting) return;
 
-      // Show preview before switching
-      setShowPreview({ from: currentModeId, to: modeId });
+      // Map ModeId to AppState mode
+      const modeMap: Record<
+        ModeId,
+        'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind'
+      > = {
+        browse: 'Browse',
+        research: 'Research',
+        trade: 'Trade',
+        dev: 'Browse', // Dev maps to Browse for now
+      };
+
+      const targetMode = modeMap[modeId];
+      if (!targetMode) return;
+
+      // Immediately switch mode by directly calling setMode
+      await setMode(targetMode);
+
+      // Call onModeChange callback if provided (for TopBar integration)
+      if (onModeChange) {
+        onModeChange(modeId);
+      }
     },
-    [currentModeId, isShifting]
+    [currentModeId, isShifting, setMode, onModeChange]
   );
 
   // Keyboard shortcuts
@@ -122,37 +112,22 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
             ref={el => {
               buttonRefs.current[mode.id] = el;
             }}
-            onClick={e => {
+            onClick={async e => {
               e.preventDefault();
               e.stopPropagation();
-              (e as any).stopImmediatePropagation();
-              handleModeClick(mode.id);
+              if ((e.nativeEvent as any)?.stopImmediatePropagation) {
+                (e.nativeEvent as any).stopImmediatePropagation();
+              }
+              await handleModeClick(mode.id);
             }}
             onMouseDown={e => {
               e.stopPropagation();
             }}
-            onMouseEnter={e => {
-              // Clear any pending close timeout
-              const timeoutId = (e.currentTarget as any).__previewTimeout;
-              if (timeoutId) {
-                clearTimeout(timeoutId);
-                (e.currentTarget as any).__previewTimeout = null;
-              }
+            onMouseEnter={() => {
               setHoveredMode(mode.id);
-              const rect = e.currentTarget.getBoundingClientRect();
-              setPreviewPosition({
-                x: rect.left + rect.width / 2,
-                y: rect.top,
-              });
             }}
-            onMouseLeave={e => {
-              // Small delay to allow moving to preview card
-              const timeoutId = setTimeout(() => {
-                setHoveredMode(null);
-                setPreviewPosition(null);
-              }, 150);
-              // Store timeout to clear if mouse re-enters
-              (e.currentTarget as any).__previewTimeout = timeoutId;
+            onMouseLeave={() => {
+              setHoveredMode(null);
             }}
             disabled={isShifting}
             className={`
@@ -228,37 +203,6 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
         >
           Switching...
         </motion.div>
-      )}
-
-      {/* Mode Preview Card */}
-      {showPreview && buttonRefs.current[showPreview.to] && (
-        <div
-          className="absolute"
-          style={{
-            top: '100%',
-            left: 0,
-            zIndex: 50,
-          }}
-        >
-          <ModePreviewCard
-            preview={{
-              from: showPreview.from,
-              to: showPreview.to,
-              changes: getModeChanges(showPreview.from, showPreview.to),
-            }}
-            onConfirm={async () => {
-              await shiftMode(showPreview.to, {
-                snapshot: true,
-                skipConfirmation: true,
-              });
-              onModeChange?.(showPreview.to);
-              setShowPreview(null);
-            }}
-            onCancel={() => {
-              setShowPreview(null);
-            }}
-          />
-        </div>
       )}
     </div>
   );

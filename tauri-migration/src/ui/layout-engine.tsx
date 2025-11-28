@@ -19,6 +19,15 @@ const LayoutContext = createContext<LayoutContextValue>({
   rightPanelWidth: 0,
 });
 
+const hasSemanticChild = (children: React.ReactNode, tagName: string): boolean => {
+  return React.Children.toArray(children).some(
+    child =>
+      React.isValidElement(child) &&
+      typeof child.type === 'string' &&
+      child.type.toLowerCase() === tagName.toLowerCase()
+  );
+};
+
 export const useLayout = () => useContext(LayoutContext);
 
 interface LayoutEngineProps {
@@ -95,6 +104,14 @@ export function LayoutBody({
   ...props
 }: LayoutBodyProps) {
   const { sidebarWidth, rightPanelWidth } = useLayout();
+  const hasMainChild = hasSemanticChild(children, 'main');
+  const MainComponent: React.ElementType = hasMainChild ? 'div' : 'main';
+  const mainRoleProps = hasMainChild
+    ? {}
+    : {
+        role: 'main' as const,
+        tabIndex: -1,
+      };
 
   return (
     <div className={cn('flex flex-1 min-h-0 overflow-hidden', className)} {...props}>
@@ -109,13 +126,18 @@ export function LayoutBody({
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           className="flex-shrink-0 border-r border-slate-700/50 bg-slate-900/60 overflow-hidden"
           style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
+          aria-label="Primary sidebar"
+          role="complementary"
+          aria-hidden={sidebarCollapsed}
         >
           <div className="h-full overflow-y-auto">{sidebar}</div>
         </motion.aside>
       )}
 
       {/* Main Content */}
-      <main className="flex-1 min-w-0 overflow-hidden bg-slate-950">{children}</main>
+      <MainComponent className="flex-1 min-w-0 overflow-hidden bg-slate-950" {...mainRoleProps}>
+        {children}
+      </MainComponent>
 
       {/* Right Panel */}
       {rightPanel && (
@@ -128,6 +150,9 @@ export function LayoutBody({
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           className="flex-shrink-0 border-l border-slate-700/50 bg-slate-900/60 overflow-hidden"
           style={{ width: rightPanelCollapsed ? 0 : rightPanelWidth || 320 }}
+          aria-label="Secondary panel"
+          role="complementary"
+          aria-hidden={rightPanelCollapsed}
         >
           <div className="h-full overflow-y-auto">{rightPanel}</div>
         </motion.aside>
@@ -144,17 +169,21 @@ interface LayoutFooterProps extends React.HTMLAttributes<HTMLElement> {
  * Layout Footer - Bottom area
  */
 export function LayoutFooter({ sticky = false, className, children, ...props }: LayoutFooterProps) {
+  const hasFooterChild = hasSemanticChild(children, 'footer');
+  const FooterComponent: React.ElementType = hasFooterChild ? 'div' : 'footer';
+
   return (
-    <footer
+    <FooterComponent
       className={cn(
         'flex-shrink-0 border-t border-slate-700/50 bg-slate-900/95 backdrop-blur-xl',
         sticky && 'sticky bottom-0 z-40',
         className
       )}
+      role={hasFooterChild ? undefined : 'contentinfo'}
       {...props}
     >
       {children}
-    </footer>
+    </FooterComponent>
   );
 }
 

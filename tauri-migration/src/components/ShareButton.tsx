@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '../state/settingsStore';
 import { useLanguageState } from '../state/languageState';
 import { getLanguageMeta, LANGUAGE_META } from '../constants/languageMeta';
-import toast from 'react-hot-toast';
+import { toast } from '../utils/toast';
 
 interface ShareButtonProps {
   url?: string;

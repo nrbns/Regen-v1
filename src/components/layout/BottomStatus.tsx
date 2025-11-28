@@ -43,6 +43,7 @@ import { useMetricsStore, type MetricSample } from '../../state/metricsStore';
 import { getEnvVar, isElectronRuntime } from '../../lib/env';
 import { isBackendAvailable, onBackendStatusChange } from '../../lib/backend-status';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
+import { useSettingsStore } from '../../state/settingsStore';
 
 type PrivacyEventEntry = {
   id: string;
@@ -87,6 +88,7 @@ function formatRelativeTime(timestamp: number): string {
 
 export function BottomStatus() {
   const { activeId } = useTabsStore();
+  const uiLanguage = useSettingsStore(state => state.language || 'en');
   const [prompt, setPrompt] = useState('');
   const [promptLoading, setPromptLoading] = useState(false);
   const [isOffline, setIsOffline] = useState(() =>
@@ -1133,6 +1135,23 @@ export function BottomStatus() {
       ? vpnStatus.type.toUpperCase()
       : 'Active'
     : 'Disconnected';
+  const localeKey = uiLanguage?.startsWith('hi')
+    ? 'hi'
+    : uiLanguage?.startsWith('ta')
+      ? 'ta'
+      : 'en';
+  const localeStrings = {
+    shieldsOn: {
+      en: 'Shields ON',
+      hi: 'शील्ड चालू',
+      ta: 'கவசம் இயக்கம்',
+    },
+    blocked: {
+      en: 'Blocked',
+      hi: 'रोकें',
+      ta: 'தடுக்கப்பட்டது',
+    },
+  };
 
   return (
     <>
@@ -1175,7 +1194,7 @@ export function BottomStatus() {
         )}
       </AnimatePresence>
       <div
-        className="flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300"
+        className="hidden md:flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300"
         data-onboarding="status-bar"
       >
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 text-xs sm:text-sm text-gray-300">
@@ -1787,6 +1806,30 @@ export function BottomStatus() {
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      </div>
+      <div className="flex md:hidden items-center justify-between border-t border-slate-900/70 bg-slate-950/95 px-4 py-3 text-xs text-gray-200">
+        <div className="flex flex-col">
+          <span className="text-[11px] text-gray-400">
+            CPU {cpuUsage}% · RAM {memoryUsage}%
+          </span>
+          <button
+            type="button"
+            onClick={() => setPrivacyMode(prev => (prev === 'Normal' ? 'Ghost' : 'Normal'))}
+            className="mt-1 inline-flex items-center gap-2 rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-medium text-gray-100"
+          >
+            <Shield size={12} />
+            {localeStrings.shieldsOn[localeKey]}
+          </button>
+        </div>
+        <div className="text-right">
+          <div className="text-[11px] text-gray-400">
+            {localeStrings.blocked[localeKey]}:{' '}
+            {shieldsStats.trackersBlocked + shieldsStats.adsBlocked}
+          </div>
+          <span className="text-[10px] text-gray-500">
+            VPN: {vpnStatus.connected ? vpnBadgeDescription : 'OFF'}
+          </span>
         </div>
       </div>
     </>

@@ -1,456 +1,288 @@
 /**
- * Enhanced Research Mode Panel
- * Shows multi-source results with citations, confidence bars, contradictions, and verification
+ * Perplexity-Style Research Mode Panel
+ * Clean AI research interface - NO TABS, NO WEBVIEWS, PURE AI
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
-  AlertTriangle,
-  CheckCircle,
+  Sparkles,
+  Languages,
+  ArrowRight,
   ExternalLink,
-  BookOpen,
+  CheckCircle2,
+  XCircle,
+  Globe,
   TrendingUp,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ipc } from '../../lib/ipc-typed';
-import { useTabsStore } from '../../state/tabsStore';
-import { ProsConsTable } from './ProsConsTable';
-import { toast } from '../../utils/toast';
+import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
-import { researchToTrade } from '../../core/agents/handoff';
-import { summarizeOffline, isOfflineModeAvailable } from '../../core/offline/translator';
+import { useAppStore } from '../../state/appStore';
+import { getLanguageMeta } from '../../constants/languageMeta';
+import type { ResearchResult } from '../../types/research';
 
-interface ResearchResult {
-  query: string;
-  language?: string;
-  languageLabel?: string;
-  languageConfidence?: number;
-  sources: Array<{
-    url: string;
-    title: string;
-    snippet: string;
-    timestamp?: number;
-    domain: string;
-    relevanceScore: number;
-    sourceType: 'news' | 'academic' | 'documentation' | 'forum' | 'other';
-  }>;
-  summary: string;
-  citations: Array<{
-    index: number;
-    sourceIndex: number;
-    quote: string;
-    confidence: number;
-  }>;
-  confidence: number;
-  contradictions?: Array<{
-    claim: string;
-    sources: number[];
-    disagreement: 'minor' | 'major';
-  }>;
-  prosCons?: {
-    pros: Array<{
-      text: string;
-      source: string;
-      sourceUrl: string;
-      sourceIndex: number;
-      confidence: number;
-    }>;
-    cons: Array<{
-      text: string;
-      source: string;
-      sourceUrl: string;
-      sourceIndex: number;
-      confidence: number;
-    }>;
-  };
-  verification?: {
-    verified: boolean;
-    claimDensity: number;
-    citationCoverage: number;
-    ungroundedClaims: Array<{
-      text: string;
-      position: number;
-      severity: 'low' | 'medium' | 'high';
-    }>;
-    hallucinationRisk: number;
-    suggestions: string[];
-  };
+interface ResearchModePanelProps {
+  query?: string;
+  result?: ResearchResult | null;
+  loading?: boolean;
+  error?: string | null;
+  onSearch?: (query: string) => void;
+  onFollowUp?: (query: string) => void;
 }
 
-// All 22 Indic languages + global languages
-const INDIC_LANGUAGES = [
-  { code: 'as', label: 'অসমীয়া', english: 'Assamese' },
-  { code: 'bn', label: 'বাংলা', english: 'Bengali' },
-  { code: 'brx', label: 'बड़ो', english: 'Bodo' },
-  { code: 'doi', label: 'डोगरी', english: 'Dogri' },
-  { code: 'gom', label: 'कोंकणी', english: 'Konkani' },
-  { code: 'gu', label: 'ગુજરાતી', english: 'Gujarati' },
-  { code: 'hi', label: 'हिंदी', english: 'Hindi' },
-  { code: 'kn', label: 'ಕನ್ನಡ', english: 'Kannada' },
-  { code: 'ks', label: 'کٲشُر', english: 'Kashmiri' },
-  { code: 'mai', label: 'मैथिली', english: 'Maithili' },
-  { code: 'ml', label: 'മലയാളം', english: 'Malayalam' },
-  { code: 'mni', label: 'ꯃꯤꯇꯩꯂꯣꯟ', english: 'Manipuri' },
-  { code: 'mr', label: 'मराठी', english: 'Marathi' },
-  { code: 'ne', label: 'नेपाली', english: 'Nepali' },
-  { code: 'or', label: 'ଓଡ଼ିଆ', english: 'Odia' },
-  { code: 'pa', label: 'ਪੰਜਾਬੀ', english: 'Punjabi' },
-  { code: 'sa', label: 'संस्कृतम्', english: 'Sanskrit' },
-  { code: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ', english: 'Santali' },
-  { code: 'sd', label: 'سنڌي', english: 'Sindhi' },
-  { code: 'ta', label: 'தமிழ்', english: 'Tamil' },
-  { code: 'te', label: 'తెలుగు', english: 'Telugu' },
-  { code: 'ur', label: 'اردو', english: 'Urdu' },
+const EXAMPLES = [
+  'Compare Nifty vs BankNifty',
+  'हिंदी में iPhone 16 vs Samsung S25',
+  'தமிழில் AI trading strategy',
+  'Best mutual funds for 2026',
+  'निफ्टी की तुलना करें',
+  'நிஃப்டி ஒப்பீடு',
 ];
 
-const GLOBAL_LANGUAGES = [
-  { code: 'en', label: 'English', english: 'English' },
-  { code: 'es', label: 'Español', english: 'Spanish' },
-  { code: 'fr', label: 'Français', english: 'French' },
-  { code: 'de', label: 'Deutsch', english: 'German' },
-  { code: 'zh', label: '中文', english: 'Chinese' },
-  { code: 'ja', label: '日本語', english: 'Japanese' },
-  { code: 'ko', label: '한국어', english: 'Korean' },
-  { code: 'ru', label: 'Русский', english: 'Russian' },
-  { code: 'pt', label: 'Português', english: 'Portuguese' },
-  { code: 'ar', label: 'العربية', english: 'Arabic' },
+const LANGUAGE_OPTIONS = [
+  { code: 'en', label: 'English', native: 'English' },
+  { code: 'hi', label: 'हिंदी', native: 'Hindi' },
+  { code: 'ta', label: 'தமிழ்', native: 'Tamil' },
+  { code: 'bn', label: 'বাংলা', native: 'Bengali' },
+  { code: 'te', label: 'తెలుగు', native: 'Telugu' },
+  { code: 'mr', label: 'मराठी', native: 'Marathi' },
 ];
 
-const SUPPORTED_LANGUAGES = [
-  { code: 'auto', label: 'Auto-detect', english: 'Auto-detect' },
-  ...INDIC_LANGUAGES.map(l => ({ code: l.code, label: l.label, english: l.english })),
-  ...GLOBAL_LANGUAGES.map(l => ({ code: l.code, label: l.label, english: l.english })),
-];
+export default function ResearchModePanel({
+  query: parentQuery = '',
+  result: parentResult = null,
+  loading: parentLoading = false,
+  error: parentError = null,
+  onSearch,
+  onFollowUp,
+}: ResearchModePanelProps) {
+  const [query, setQuery] = useState(parentQuery);
+  const [followUp, setFollowUp] = useState('');
+  const language = useSettingsStore(state => state.language || 'en');
+  const [selectedLang, setSelectedLang] = useState(language === 'auto' ? 'en' : language);
+  const langMeta = getLanguageMeta(selectedLang);
+  const currentMode = useAppStore(state => state.mode);
+  const setMode = useAppStore(state => state.setMode);
 
-export default function ResearchModePanel() {
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ResearchResult | null>(null);
-  const [showControls, setShowControls] = useState(false);
-  const [recencyWeight, setRecencyWeight] = useState(0.5);
-  const [authorityWeight, setAuthorityWeight] = useState(0.5);
-  const [includeCounterpoints, setIncludeCounterpoints] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('auto');
-  const { activeId } = useTabsStore();
-
-  const language = useSettingsStore(state => state.language || 'auto');
-  const effectiveLanguage =
-    selectedLanguage === 'auto' ? (language === 'auto' ? undefined : language) : selectedLanguage;
-
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setResult(null);
-
-    // Show loading toast with language info
-    const langLabel = effectiveLanguage
-      ? SUPPORTED_LANGUAGES.find(l => l.code === effectiveLanguage)?.label || effectiveLanguage
-      : 'auto-detecting';
-    toast.info(`Researching in ${langLabel}...`);
-
-    try {
-      // Check if offline and use offline mode if needed
-      const isOffline = isOfflineModeAvailable();
-
-      if (isOffline) {
-        toast.info('Offline mode: Using cached results and offline translation');
-        // For offline, we'd use cached results or simplified processing
-        // This is a placeholder - in production, you'd load cached research results
-        const offlineSummary = await summarizeOffline(query, effectiveLanguage);
-        setResult({
-          query: query.trim(),
-          summary: offlineSummary,
-          sources: [],
-          citations: [],
-          confidence: 0.6,
-          language: effectiveLanguage,
-          languageLabel: effectiveLanguage,
-          languageConfidence: 0.7,
-        });
-        toast.success('Offline research complete');
-        return;
-      }
-
-      // Call enhanced research API (online)
-      const researchResult = (await ipc.research.queryEnhanced({
-        query: query.trim(),
-        maxSources: 12,
-        includeCounterpoints,
-        recencyWeight,
-        authorityWeight,
-        language: effectiveLanguage,
-      })) as ResearchResult;
-
-      setResult(researchResult);
-      toast.success(`Research complete! Found ${researchResult.sources.length} sources.`);
-
-      // Offer handoff to Trade mode if symbol detected
-      const symbolMatch = query.match(/\b([A-Z]{2,5})\b/);
-      if (symbolMatch && researchResult.summary) {
-        // Auto-detect if this is a trading-related query
-        const isTradingQuery = /nifty|sensex|stock|trade|price|market|buy|sell/i.test(query);
-        if (isTradingQuery) {
-          // Show option to send to Trade mode
-          setTimeout(() => {
-            toast.info('Sending to Trade mode...');
-            // Automatically send to Trade mode after a short delay
-            setTimeout(async () => {
-              const handoffResult = await researchToTrade(
-                researchResult.summary,
-                symbolMatch[1],
-                effectiveLanguage
-              );
-              if (handoffResult.success) {
-                toast.success('Sent to Trade mode!');
-              } else {
-                toast.error(handoffResult.error || 'Handoff failed');
-              }
-            }, 500);
-          }, 1000);
-        }
-      }
-    } catch (error) {
-      console.error('Research query failed:', error);
-      toast.error(`Research failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
+  // Sync query with parent
+  useEffect(() => {
+    if (parentQuery !== query) {
+      setQuery(parentQuery);
     }
+  }, [parentQuery]);
+
+  const handleSubmit = (q: string) => {
+    if (!q.trim()) return;
+    setQuery(q);
+    onSearch?.(q);
   };
 
-  const handleOpenUrl = async (url: string) => {
-    try {
-      if (activeId) {
-        await ipc.tabs.navigate(activeId, url);
-      } else {
-        await ipc.tabs.create(url);
-      }
-    } catch (error) {
-      console.error('Failed to open URL:', error);
-    }
+  const handleFollowUp = (q: string) => {
+    if (!q.trim()) return;
+    setFollowUp('');
+    onFollowUp?.(q);
   };
 
-  const getSourceTypeColor = (type: string) => {
-    switch (type) {
-      case 'academic':
-        return 'text-blue-400';
-      case 'news':
-        return 'text-green-400';
-      case 'documentation':
-        return 'text-purple-400';
-      case 'forum':
-        return 'text-orange-400';
-      default:
-        return 'text-gray-400';
-    }
+  const handleOpenSource = (url: string) => {
+    // Open in new window instead of tab
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.7) return 'bg-green-500';
-    if (confidence >= 0.4) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
+  const result = parentResult;
+  const loading = parentLoading;
+  const error = parentError;
 
   return (
-    <div className="h-full flex flex-col bg-[#1A1D28] text-gray-100">
+    <div className="h-full bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <BookOpen size={20} />
-            Research Mode
-          </h2>
-          <button
-            onClick={() => setShowControls(!showControls)}
-            className="text-sm text-gray-400 hover:text-gray-200 transition-colors"
-          >
-            {showControls ? 'Hide' : 'Show'} Controls
-          </button>
+      <div className="p-6 border-b border-purple-800/50 bg-black/20 backdrop-blur-xl flex-shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl">
+              <Sparkles className="w-6 h-6 text-purple-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Research Mode
+              </h1>
+              <p className="text-sm text-gray-400">AI-powered research in any language</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/50 rounded-lg p-1">
+              <button
+                onClick={() => setMode('Browse')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  currentMode === 'Browse'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Switch to Browse Mode"
+              >
+                <Globe size={14} />
+                <span className="hidden sm:inline">Browse</span>
+              </button>
+              <button
+                onClick={() => setMode('Research')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  currentMode === 'Research'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Switch to Research Mode"
+              >
+                <Sparkles size={14} />
+                <span className="hidden sm:inline">Research</span>
+              </button>
+              <button
+                onClick={() => setMode('Trade')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  currentMode === 'Trade'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                }`}
+                title="Switch to Trade Mode"
+              >
+                <TrendingUp size={14} />
+                <span className="hidden sm:inline">Trade</span>
+              </button>
+            </div>
+
+            {/* Language Selector */}
+            <div className="flex items-center gap-2">
+              <Languages className="w-5 h-5 text-gray-400" />
+              <select
+                value={selectedLang}
+                onChange={e => {
+                  setSelectedLang(e.target.value);
+                  useSettingsStore.getState().setLanguage(e.target.value);
+                }}
+                className="bg-slate-800/80 border border-slate-700/50 px-3 py-1.5 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              >
+                {LANGUAGE_OPTIONS.map(lang => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.label} ({lang.native})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        {/* Search Input */}
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            handleSearch();
-          }}
-          className="flex items-center gap-2"
-        >
-          <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Enter your research question..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              disabled={loading}
-            />
-          </div>
-          <select
-            value={selectedLanguage}
-            onChange={e => setSelectedLanguage(e.target.value)}
-            className="px-3 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-gray-200"
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !loading) {
+                handleSubmit(query);
+              }
+            }}
+            placeholder={
+              selectedLang === 'hi'
+                ? 'हिंदी में पूछें: निफ्टी vs बैंक निफ्टी'
+                : selectedLang === 'ta'
+                  ? 'தமிழில் கேளுங்கள்: நிஃப்டி ஒப்பீடு'
+                  : 'Ask in any language: Compare Nifty vs BankNifty...'
+            }
             disabled={loading}
-          >
-            {SUPPORTED_LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>
-                {lang.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            disabled={loading || !query.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-          >
-            {loading ? 'Searching...' : 'Search'}
-          </button>
-        </form>
-
-        {/* Controls */}
-        <AnimatePresence>
-          {showControls && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 pt-3 border-t border-gray-800 space-y-3"
-            >
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Recency Weight</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={recencyWeight}
-                  onChange={e => setRecencyWeight(parseFloat(e.target.value))}
-                  className="w-full"
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  Current: {(recencyWeight * 100).toFixed(0)}%
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Authority Weight</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={authorityWeight}
-                  onChange={e => setAuthorityWeight(parseFloat(e.target.value))}
-                  className="w-full"
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  Current: {(authorityWeight * 100).toFixed(0)}%
-                </div>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={includeCounterpoints}
-                  onChange={e => setIncludeCounterpoints(e.target.checked)}
-                  className="rounded"
-                />
-                <span>Include Counterpoints</span>
-              </label>
-            </motion.div>
+            className="w-full pl-12 pr-4 py-4 bg-slate-800/60 border border-slate-700/50 rounded-2xl text-lg placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-600/50 transition-all disabled:opacity-50"
+          />
+          {loading && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+            </div>
           )}
-        </AnimatePresence>
+        </div>
       </div>
 
-      {/* Results */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-900/20 border border-red-700/50 rounded-xl text-red-200"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        {!result && !loading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto text-center mt-16"
+          >
+            <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Ask Regen in Any Language
+            </h2>
+            <p className="text-xl text-gray-300 mb-8">
+              Your best answers and agent handoffs land here automatically.
+            </p>
+
+            {/* Example Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+              {EXAMPLES.map((ex, i) => (
+                <motion.button
+                  key={i}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSubmit(ex)}
+                  className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl text-left hover:bg-slate-700/60 transition-all group"
+                >
+                  <p className="font-medium text-gray-200 group-hover:text-white transition-colors">
+                    {ex}
+                  </p>
+                  <ArrowRight className="w-5 h-5 mt-2 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
         {loading && (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-gray-400">Searching multiple sources...</p>
+          <div className="max-w-4xl mx-auto mt-16">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              <p className="text-gray-400">Researching in {langMeta.nativeName}...</p>
             </div>
           </div>
         )}
 
         {result && (
-          <>
-            {/* Summary with Citations */}
-            <div className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/50">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-lg">Summary</h3>
-                <div className="flex items-center gap-2">
-                  {/* Handoff to Trade Button */}
-                  {(() => {
-                    const symbolMatch = result.query.match(/\b([A-Z]{2,5})\b/);
-                    const isTradingQuery =
-                      /nifty|sensex|stock|trade|price|market|buy|sell|symbol|ticker/i.test(
-                        result.query
-                      );
-                    if (symbolMatch || isTradingQuery) {
-                      return (
-                        <button
-                          onClick={async () => {
-                            const symbol = symbolMatch ? symbolMatch[1] : undefined;
-                            const handoffResult = await researchToTrade(
-                              result.summary,
-                              symbol,
-                              result.language || 'auto'
-                            );
-                            if (handoffResult.success) {
-                              toast.success(`Sent to Trade mode${symbol ? ` for ${symbol}` : ''}!`);
-                            } else {
-                              toast.error(handoffResult.error || 'Handoff failed');
-                            }
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-lg transition-colors"
-                          title="Send research results to Trade mode"
-                        >
-                          <TrendingUp size={14} />
-                          Send to Trade
-                        </button>
-                      );
-                    }
-                    return null;
-                  })()}
-                  {result.languageLabel && (
-                    <span className="text-xs text-gray-500">
-                      Language:&nbsp;
-                      <strong className="text-gray-300">{result.languageLabel}</strong>
-                      {typeof result.languageConfidence === 'number' && (
-                        <> ({(result.languageConfidence * 100).toFixed(0)}% detect)</>
-                      )}
-                    </span>
-                  )}
-                  <span className="text-xs text-gray-400">Confidence:</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${getConfidenceColor(result.confidence)}`}
-                        style={{ width: `${result.confidence * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-300">
-                      {(result.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="max-w-4xl mx-auto space-y-6"
+          >
+            {/* Summary */}
+            <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-2xl font-bold text-white">Summary</h3>
+                {((result as any).languageLabel || (result as any).language) && (
+                  <span className="text-sm text-gray-400">
+                    {(result as any).languageLabel || (result as any).language}
+                    {(result as any).languageConfidence && (
+                      <span className="ml-2 text-gray-500">
+                        ({((result as any).languageConfidence * 100).toFixed(0)}% confidence)
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
-
-              <div className="prose prose-invert max-w-none text-sm text-gray-300 whitespace-pre-wrap">
-                {result.summary.split('\n').map((para, idx) => (
-                  <p key={idx} className="mb-2">
-                    {para}
-                  </p>
-                ))}
+              <div className="prose prose-invert max-w-none">
+                <p className="text-lg leading-relaxed text-gray-200 whitespace-pre-wrap">
+                  {result.summary}
+                </p>
               </div>
-
-              {/* Verification Status */}
               {result.verification && (
                 <div
-                  className={`mt-4 p-3 rounded-lg border ${
+                  className={`mt-4 p-4 rounded-xl border ${
                     result.verification.verified
                       ? 'bg-green-900/20 border-green-700/50'
                       : 'bg-yellow-900/20 border-yellow-700/50'
@@ -458,161 +290,131 @@ export default function ResearchModePanel() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     {result.verification.verified ? (
-                      <CheckCircle size={16} className="text-green-400" />
+                      <CheckCircle2 className="w-5 h-5 text-green-400" />
                     ) : (
-                      <AlertTriangle size={16} className="text-yellow-400" />
+                      <XCircle className="w-5 h-5 text-yellow-400" />
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="font-medium">
                       {result.verification.verified ? 'Verified' : 'Needs Review'}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-400 space-y-1">
+                  <div className="text-sm text-gray-400 space-y-1">
                     <div>Citation Coverage: {result.verification.citationCoverage.toFixed(1)}%</div>
                     <div>
                       Hallucination Risk: {(result.verification.hallucinationRisk * 100).toFixed(1)}
                       %
                     </div>
-                    {result.verification.suggestions.length > 0 && (
-                      <div className="mt-2">
-                        <div className="font-medium mb-1">Suggestions:</div>
-                        <ul className="list-disc list-inside space-y-1">
-                          {result.verification.suggestions.map((s, i) => (
-                            <li key={i}>{s}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Pros/Cons Table */}
-            {result.prosCons &&
-              (result.prosCons.pros.length > 0 || result.prosCons.cons.length > 0) && (
-                <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <TrendingUp size={16} />
-                    Pros & Cons Comparison
-                  </h3>
-                  <ProsConsTable
-                    pros={result.prosCons.pros}
-                    cons={result.prosCons.cons}
-                    sources={result.sources}
-                  />
+            {/* Pros/Cons - Handle optional prosCons field */}
+            {(result as any).prosCons &&
+              ((result as any).prosCons.pros?.length > 0 ||
+                (result as any).prosCons.cons?.length > 0) && (
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-green-900/20 border border-green-700/50 rounded-2xl p-6">
+                    <h4 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5" />
+                      Pros
+                    </h4>
+                    <ul className="space-y-3">
+                      {((result as any).prosCons.pros || []).map((p: any, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
+                          <span className="text-gray-200">{p.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="bg-red-900/20 border border-red-700/50 rounded-2xl p-6">
+                    <h4 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
+                      <XCircle className="w-5 h-5" />
+                      Cons
+                    </h4>
+                    <ul className="space-y-3">
+                      {((result as any).prosCons.cons || []).map((c: any, i: number) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <div className="w-2 h-2 bg-red-400 rounded-full mt-2 flex-shrink-0" />
+                          <span className="text-gray-200">{c.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
 
-            {/* Contradictions */}
-            {result.contradictions && result.contradictions.length > 0 && (
-              <div className="bg-orange-900/20 border border-orange-700/50 rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle size={16} className="text-orange-400" />
-                  <h3 className="font-semibold">Expert Disagreements</h3>
-                </div>
-                <div className="text-sm text-gray-300 space-y-2">
-                  {result.contradictions.map((c, idx) => (
-                    <div key={idx} className="border-l-2 border-orange-500 pl-3">
-                      <div className="font-medium">{c.claim}</div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Sources {c.sources.join(', ')} have {c.disagreement} disagreements
+            {/* Sources */}
+            {result.sources.length > 0 && (
+              <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
+                <h3 className="text-xl font-bold mb-4">Sources ({result.sources.length})</h3>
+                <div className="space-y-3">
+                  {result.sources.map((source, i) => (
+                    <motion.a
+                      key={source.id || source.url || i}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      onClick={e => {
+                        e.preventDefault();
+                        handleOpenSource(source.url);
+                      }}
+                      className="block p-4 bg-slate-700/30 rounded-xl hover:bg-slate-700/50 transition-all group"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-purple-400 uppercase">
+                              {source.sourceType || 'SOURCE'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              Score: {source.relevanceScore?.toFixed(1) || 'N/A'}
+                            </span>
+                          </div>
+                          <h4 className="font-medium text-gray-200 group-hover:text-white transition-colors line-clamp-1">
+                            {source.title}
+                          </h4>
+                          <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                            {source.snippet}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">{source.domain}</p>
+                        </div>
+                        <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-purple-400 transition-colors flex-shrink-0" />
                       </div>
-                    </div>
+                    </motion.a>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Sources */}
-            <div>
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <TrendingUp size={16} />
-                Sources ({result.sources.length})
-              </h3>
-              <div className="space-y-2">
-                {result.sources.map((source, idx) => (
-                  <motion.div
-                    key={source.url}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    className="bg-gray-900/60 rounded-lg p-3 border border-gray-800/50 hover:border-gray-700/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`text-xs font-medium ${getSourceTypeColor(source.sourceType)}`}
-                          >
-                            {source.sourceType.toUpperCase()}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            Score: {source.relevanceScore.toFixed(1)}
-                          </span>
-                        </div>
-                        <h4 className="font-medium text-sm text-gray-200 truncate">
-                          {source.title}
-                        </h4>
-                        <p className="text-xs text-gray-400 truncate mt-1">{source.domain}</p>
-                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{source.snippet}</p>
-                      </div>
-                      <button
-                        onClick={() => handleOpenUrl(source.url)}
-                        className="p-2 hover:bg-gray-800/60 rounded-lg transition-colors"
-                        title="Open in tab"
-                      >
-                        <ExternalLink size={16} className="text-gray-400" />
-                      </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+            {/* Follow-up */}
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={followUp}
+                onChange={e => setFollowUp(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !loading) {
+                    handleFollowUp(followUp);
+                  }
+                }}
+                placeholder="Ask a follow-up question..."
+                disabled={loading}
+                className="flex-1 px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
+              />
+              <button
+                onClick={() => handleFollowUp(followUp)}
+                disabled={loading || !followUp.trim()}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Ask
+              </button>
             </div>
-
-            {/* Citations */}
-            {result.citations.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-3">Citations</h3>
-                <div className="space-y-2">
-                  {result.citations.map(citation => {
-                    const source = result.sources[citation.sourceIndex];
-                    return (
-                      <div
-                        key={citation.index}
-                        className="bg-gray-900/60 rounded-lg p-3 border border-gray-800/50 text-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-blue-400">
-                                [{citation.index}]
-                              </span>
-                              <span className="text-xs text-gray-400">
-                                Confidence: {(citation.confidence * 100).toFixed(0)}%
-                              </span>
-                            </div>
-                            <p className="text-gray-300 italic">"{citation.quote}..."</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              Source: {source?.title || 'Unknown'}
-                            </p>
-                          </div>
-                          {source && (
-                            <button
-                              onClick={() => handleOpenUrl(source.url)}
-                              className="p-2 hover:bg-gray-800/60 rounded-lg transition-colors"
-                              title="View source"
-                            >
-                              <ExternalLink size={14} className="text-gray-400" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </>
+          </motion.div>
         )}
       </div>
     </div>

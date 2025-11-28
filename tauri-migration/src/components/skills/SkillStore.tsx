@@ -20,7 +20,7 @@ import {
 import { skillRegistry } from '../../core/skills/registry';
 import { skillLoader } from '../../core/skills/loader';
 import type { SkillMetadata, SkillCategory, SkillReview } from '../../core/skills/types';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 
 export function SkillStore() {
   const [skills, setSkills] = useState<SkillMetadata[]>([]);

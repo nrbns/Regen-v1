@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from '../utils/toast';
 import { useSettingsStore } from '../state/settingsStore';
 import { Mic, MicOff } from 'lucide-react';
+import { getLanguageMeta } from '../constants/languageMeta';
 
 type Props = { onResult: (text: string) => void; small?: boolean };
 
@@ -64,6 +65,7 @@ export default function VoiceButton({ onResult, small }: Props) {
   const animationRef = useRef<number | null>(null);
   const language = useSettingsStore(state => state.language || 'auto');
   const langLabel = LANGUAGE_LABELS[language] || language || 'auto';
+  const languageMeta = getLanguageMeta(language);
 
   useEffect(() => {
     const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -185,9 +187,7 @@ export default function VoiceButton({ onResult, small }: Props) {
     <button
       type="button"
       className={`${small ? 'text-[11px] px-2 py-1' : 'text-xs px-3 py-2'} ml-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all ${
-        active
-          ? 'bg-red-600 text-white shadow-lg shadow-red-600/50'
-          : 'bg-neutral-800 hover:bg-neutral-700 text-gray-300'
+        active ? 'text-white shadow-lg' : 'bg-neutral-800 hover:bg-neutral-700 text-gray-300'
       } ${isProcessing ? 'animate-pulse' : ''}`}
       onClick={start}
       onKeyDown={e => {
@@ -202,6 +202,14 @@ export default function VoiceButton({ onResult, small }: Props) {
       aria-pressed={active}
       title={`Voice search in ${langLabel}`}
       disabled={!isAvailable}
+      style={
+        active
+          ? {
+              background: `linear-gradient(120deg, ${languageMeta.gradient[0]}, ${languageMeta.gradient[1]})`,
+              boxShadow: `0 12px 24px ${languageMeta.gradient[0]}40`,
+            }
+          : undefined
+      }
     >
       <div className="flex items-center gap-2">
         {active ? (
@@ -212,43 +220,48 @@ export default function VoiceButton({ onResult, small }: Props) {
                 {/* Waveform visualization - animated bars */}
                 <div className="flex items-end gap-0.5 h-4">
                   <div
-                    className="w-0.5 bg-white rounded-full"
+                    className="w-0.5 rounded-full"
                     style={{
                       height: '60%',
                       animation: 'waveform 1s ease-in-out infinite',
                       animationDelay: '0ms',
+                      background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
                     }}
                   />
                   <div
-                    className="w-0.5 bg-white rounded-full"
+                    className="w-0.5 rounded-full"
                     style={{
                       height: '80%',
                       animation: 'waveform 1s ease-in-out infinite',
                       animationDelay: '200ms',
+                      background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
                     }}
                   />
                   <div
-                    className="w-0.5 bg-white rounded-full"
+                    className="w-0.5 rounded-full"
                     style={{
                       height: '100%',
                       animation: 'waveform 1s ease-in-out infinite',
                       animationDelay: '400ms',
+                      background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
                     }}
                   />
                   <div
-                    className="w-0.5 bg-white rounded-full"
+                    className="w-0.5 rounded-full"
                     style={{
                       height: '70%',
                       animation: 'waveform 1s ease-in-out infinite',
                       animationDelay: '600ms',
+                      background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
                     }}
                   />
                   <div
-                    className="w-0.5 bg-white rounded-full"
+                    className="w-0.5 rounded-full"
                     style={{
                       height: '90%',
                       animation: 'waveform 1s ease-in-out infinite',
                       animationDelay: '800ms',
+                      background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
                     }}
                   />
                 </div>

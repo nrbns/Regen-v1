@@ -68,7 +68,8 @@ function getApiKey(provider: LLMProvider): string | null {
   };
 
   for (const key of keys[provider] || []) {
-    const value = import.meta.env[key] || (typeof process !== 'undefined' ? process.env[key] : null);
+    const value =
+      import.meta.env[key] || (typeof process !== 'undefined' ? process.env[key] : null);
     if (value) return value;
   }
   return null;
@@ -79,10 +80,16 @@ function getApiKey(provider: LLMProvider): string | null {
  */
 function getBaseUrl(provider: LLMProvider): string {
   const baseUrls: Record<LLMProvider, string> = {
-    openai: import.meta.env.VITE_OPENAI_BASE_URL || import.meta.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    openai:
+      import.meta.env.VITE_OPENAI_BASE_URL ||
+      import.meta.env.OPENAI_BASE_URL ||
+      'https://api.openai.com/v1',
     anthropic: 'https://api.anthropic.com/v1',
     mistral: 'https://api.mistral.ai/v1',
-    ollama: import.meta.env.VITE_OLLAMA_BASE_URL || import.meta.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    ollama:
+      import.meta.env.VITE_OLLAMA_BASE_URL ||
+      import.meta.env.OLLAMA_BASE_URL ||
+      'http://localhost:11434',
   };
   return baseUrls[provider] || baseUrls.openai;
 }
@@ -340,20 +347,21 @@ async function callOllama(
  * Send a prompt to an LLM provider
  * Automatically handles retries, fallbacks, and error recovery
  */
-export async function sendPrompt(
-  prompt: string,
-  options: LLMOptions = {}
-): Promise<LLMResponse> {
-  const providers: LLMProvider[] = options.provider
-    ? [options.provider]
-    : (['openai', 'anthropic', 'mistral', 'ollama'] as LLMProvider[]);
+export async function sendPrompt(prompt: string, options: LLMOptions = {}): Promise<LLMResponse> {
+  const providers: LLMProvider[] = options.provider ? [options.provider] : getAvailableProviders();
+
+  if (providers.length === 0) {
+    throw new Error(
+      'No LLM provider configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, MISTRAL_API_KEY, or OLLAMA_BASE_URL.'
+    );
+  }
 
   let lastError: LLMError | null = null;
 
   for (const provider of providers) {
     try {
       const apiKey = provider !== 'ollama' ? getApiKey(provider) : null;
-      
+
       // Skip if API key is required but missing
       if (provider !== 'ollama' && !apiKey) {
         continue;
@@ -432,7 +440,7 @@ export async function streamPrompt(
   // For streaming, prefer OpenAI or Anthropic
   const provider = options.provider || detectProvider() || 'openai';
   const apiKey = getApiKey(provider);
-  
+
   if (!apiKey && provider !== 'ollama') {
     throw new Error(`API key required for ${provider}`);
   }
@@ -458,12 +466,14 @@ export async function streamPrompt(
  */
 export function getAvailableProviders(): LLMProvider[] {
   const providers: LLMProvider[] = [];
-  
+
   if (getApiKey('openai')) providers.push('openai');
   if (getApiKey('anthropic')) providers.push('anthropic');
   if (getApiKey('mistral')) providers.push('mistral');
-  if (getBaseUrl('ollama')) providers.push('ollama'); // Assume Ollama is available if URL is set
+  const hasOllama =
+    Boolean(import.meta.env.VITE_OLLAMA_BASE_URL || import.meta.env.OLLAMA_BASE_URL) ||
+    Boolean(typeof process !== 'undefined' && process.env.OLLAMA_BASE_URL);
+  if (hasOllama) providers.push('ollama');
 
   return providers;
 }
-

@@ -1,16 +1,8 @@
 // @ts-nocheck
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Sparkles,
-  Info,
-  RefreshCcw,
-  ChevronRight,
-  Search,
-  Upload,
-  FileText,
-  X,
-} from 'lucide-react';
+import { Sparkles, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
@@ -46,7 +38,7 @@ import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
 import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
 import { useResearchCompareStore } from '../../state/researchCompareStore';
-import { toast } from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
@@ -74,6 +66,8 @@ export default function ResearchPanel() {
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [detectedLang, setDetectedLang] = useState<string>('en');
+  const language = useSettingsStore(s => s.language || 'auto');
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [includeCounterpoints, setIncludeCounterpoints] = useState(false);
   const [authorityBias, setAuthorityBias] = useState(50); // 0 = recency, 100 = authority
@@ -126,6 +120,27 @@ export default function ResearchPanel() {
   }, [containers.length, setContainers]);
 
   // Listen for handoff events from Trade mode
+  // WISPR Research Command Handler
+  useEffect(() => {
+    const handleWisprResearch = (event: CustomEvent) => {
+      const { query: researchQuery } = event.detail;
+      if (researchQuery) {
+        setQuery(researchQuery);
+        toast.success(`Researching: ${researchQuery}`, { duration: 3000 });
+        // Trigger search after a short delay - handleSearch will be called via query change
+        setTimeout(() => {
+          // Dispatch a custom event that will trigger search
+          window.dispatchEvent(
+            new CustomEvent('research:trigger', { detail: { query: researchQuery } })
+          );
+        }, 500);
+      }
+    };
+
+    window.addEventListener('wispr:research', handleWisprResearch as EventListener);
+    return () => window.removeEventListener('wispr:research', handleWisprResearch as EventListener);
+  }, []);
+
   useEffect(() => {
     const handleHandoff = (event: CustomEvent) => {
       const { query: handoffQuery, symbol, language: _handoffLanguage } = event.detail;
@@ -1255,6 +1270,22 @@ export default function ResearchPanel() {
   };
 
   useEffect(() => {
+    const handleQuickstart = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      if (!detail?.query) return;
+      setQuery(detail.query);
+      setTimeout(() => {
+        void handleSearch(detail.query);
+      }, 100);
+    };
+
+    window.addEventListener('research:quickstart', handleQuickstart as EventListener);
+    return () => {
+      window.removeEventListener('research:quickstart', handleQuickstart as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     void refreshGraph();
   }, [refreshGraph]);
 
@@ -1577,13 +1608,28 @@ export default function ResearchPanel() {
                 onChange={e => {
                   setQuery(e.target.value);
                   setShowAutocomplete(true);
+                  // Auto-detect language as user types
+                  if (e.target.value.length > 3) {
+                    detectLanguage(e.target.value)
+                      .then(result => {
+                        setDetectedLang(result.language);
+                      })
+                      .catch(() => {});
+                  }
                 }}
                 onFocus={() => {
                   if (autocompleteSuggestions.length > 0) {
                     setShowAutocomplete(true);
                   }
                 }}
-                placeholder="Ask a question, compare claims, or request a briefing…"
+                placeholder={(() => {
+                  const effectiveLang = language === 'auto' ? detectedLang : language;
+                  if (effectiveLang === 'hi')
+                    return 'हिंदी में पूछें: iPhone vs Samsung की तुलना करें';
+                  if (effectiveLang === 'ta')
+                    return 'தமிழில் கேளுங்கள்: iPhone vs Samsung ஒப்பிடுக';
+                  return 'Ask in Hindi: Compare iPhone vs Samsung';
+                })()}
                 disabled={loading}
               />
               <div className="flex items-center gap-2">
@@ -1702,7 +1748,14 @@ export default function ResearchPanel() {
       <LayoutBody className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
         {useEnhancedView ? (
           <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-            <ResearchModePanel />
+            <ResearchModePanel
+              query={query}
+              result={result}
+              loading={loading}
+              error={error}
+              onSearch={handleSearch}
+              onFollowUp={handleSearch}
+            />
           </div>
         ) : (
           <>
@@ -2428,11 +2481,66 @@ function EmptyState({
   onRunExample: (example: string) => void;
   minimal?: boolean;
 }) {
-  const examples = [
-    'Compare claims about Mediterranean diet heart benefits.',
-    'Does remote work hurt productivity? Provide counterpoints.',
-    'Summarize AI safety regulations as of 2025 with sources.',
-  ];
+  const [detectedLang, setDetectedLang] = useState<string>('en');
+  const [langConfidence, setLangConfidence] = useState<number>(0);
+
+  useEffect(() => {
+    // Auto-detect language from browser/system
+    const detectUserLanguage = async () => {
+      try {
+        const result = await detectLanguage(navigator.language || 'en');
+        setDetectedLang(result.language);
+        setLangConfidence(result.confidence);
+      } catch {
+        // Fallback to English
+        setDetectedLang('en');
+      }
+    };
+    void detectUserLanguage();
+  }, []);
+
+  // Multilingual examples based on detected language
+  const examples = useMemo(() => {
+    if (detectedLang === 'hi') {
+      return [
+        'Nifty vs BankNifty की तुलना करें',
+        'iPhone vs Samsung की तुलना करें',
+        'भारत में AI नियमों का सारांश',
+      ];
+    } else if (detectedLang === 'ta') {
+      return [
+        'Nifty vs BankNifty ஒப்பிடுக',
+        'iPhone vs Samsung ஒப்பிடுக',
+        'இந்தியாவில் AI விதிகளின் சுருக்கம்',
+      ];
+    }
+    return [
+      'Compare Nifty vs BankNifty',
+      'Compare iPhone vs Samsung',
+      'Summarize AI regulations in India',
+    ];
+  }, [detectedLang]);
+
+  const welcomeText = useMemo(() => {
+    if (detectedLang === 'hi') {
+      return {
+        title: 'Research Mode में आपका स्वागत है',
+        subtitle: 'हिंदी/तमिल/अंग्रेजी में पूछें: "Nifty vs BankNifty की तुलना करें"',
+        button: 'उदाहरण आज़माएं',
+      };
+    } else if (detectedLang === 'ta') {
+      return {
+        title: 'Research Modeக்கு வரவேற்கிறோம்',
+        subtitle: 'தமிழ்/ஹிந்தி/ஆங்கிலத்தில் கேளுங்கள்: "Nifty vs BankNifty ஒப்பிடுக"',
+        button: 'எடுத்துக்காட்டு முயற்சிக்கவும்',
+      };
+    }
+    return {
+      title: 'Welcome to Research Mode',
+      subtitle: 'Ask in Hindi/Tamil/English: "Compare Nifty vs BankNifty"',
+      button: 'Try Example',
+    };
+  }, [detectedLang]);
 
   if (minimal) {
     return (
@@ -2452,27 +2560,67 @@ function EmptyState({
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-10 py-14 text-center text-sm text-gray-400">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-blue-300">
-        <Info size={20} />
-      </div>
-      <div>
-        <p className="font-medium text-gray-200">Ready when you are.</p>
-        <p className="text-sm text-gray-400">
-          Ask for a briefing, compare opposing claims, or verify a statement with live evidence.
-        </p>
-      </div>
-      <div className="space-y-2 text-sm">
-        {examples.map(example => (
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 rounded-2xl bg-gradient-to-br from-purple-900/40 via-blue-900/40 to-purple-900/40 px-10 py-16 text-center">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+        className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-white/20 bg-white/10 text-blue-300 shadow-lg"
+      >
+        <Sparkles size={32} />
+      </motion.div>
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1, duration: 0.3 }}
+        className="space-y-3"
+      >
+        <h1 className="text-3xl font-bold text-white">{welcomeText.title}</h1>
+        <p className="text-base text-gray-300 max-w-md">{welcomeText.subtitle}</p>
+      </motion.div>
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        className="flex flex-col gap-3 w-full max-w-md"
+      >
+        {examples.map((example, idx) => (
           <button
             key={example}
             onClick={() => onRunExample(example)}
-            className="block w-full rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-gray-200 hover:border-blue-400/40 hover:bg-blue-400/10"
+            className="group relative overflow-hidden rounded-xl border border-white/20 bg-white/10 px-6 py-4 text-left text-gray-200 transition-all hover:border-blue-400/60 hover:bg-blue-500/20 hover:shadow-lg hover:shadow-blue-500/20"
           >
-            {example}
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-300">
+                {idx + 1}
+              </div>
+              <span className="font-medium">{example}</span>
+            </div>
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10"
+              initial={{ x: '-100%' }}
+              whileHover={{ x: 0 }}
+              transition={{ duration: 0.3 }}
+            />
           </button>
         ))}
-      </div>
+        <button
+          onClick={() => onRunExample(examples[0])}
+          className="mt-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-3 font-bold text-white shadow-lg transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-xl"
+        >
+          {welcomeText.button}
+        </button>
+      </motion.div>
+      {langConfidence > 0.5 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-xs text-gray-400"
+        >
+          Detected: {detectedLang.toUpperCase()} ({(langConfidence * 100).toFixed(0)}% confidence)
+        </motion.div>
+      )}
     </div>
   );
 }

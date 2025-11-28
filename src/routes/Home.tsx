@@ -1,7 +1,6 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { useAppStore } from '../state/appStore';
 import { ipcEvents } from '../lib/ipc-events';
-import { ResearchSplit } from '../components/Panels/ResearchSplit';
 import { OmniDesk } from '../components/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
 import { Loader2 } from 'lucide-react';
@@ -99,28 +98,12 @@ export default function Home() {
         </div>
       ) : mode === 'Research' ? (
         <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
-          {/* Top: Research Panel (full width) - Only load when Research mode is active */}
-          {!isFullscreen && (
-            <div className="h-96 border-b border-gray-700/30 flex-shrink-0 overflow-hidden">
-              <ErrorBoundary componentName="ResearchPanel" retryable={true}>
-                <Suspense fallback={<ModeLoadingFallback />}>
-                  <ResearchPanel />
-                </Suspense>
-              </ErrorBoundary>
-            </div>
-          )}
-          {/* Bottom: Browser view with ResearchSplit overlay */}
-          {/* Browser content is handled by AppShell via TabContentSurface */}
-          <div className="flex-1 relative min-h-0 overflow-hidden">
-            {/* Show ResearchSplit overlay when not fullscreen */}
-            {!isFullscreen && (
-              <div className="absolute inset-0 pointer-events-none z-30">
-                <div className="pointer-events-auto h-full w-full overflow-hidden">
-                  <ResearchSplit />
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Research Panel - Full height, no browser view, no tabs, pure AI interface */}
+          <ErrorBoundary componentName="ResearchPanel" retryable={true}>
+            <Suspense fallback={<ModeLoadingFallback />}>
+              <ResearchPanel />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       ) : mode === 'Trade' ? (
         <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">

@@ -4,6 +4,7 @@ const { spawn } = require('node:child_process');
 const process = require('node:process');
 const path = require('node:path');
 const net = require('node:net');
+const http = require('node:http');
 const { URL } = require('node:url');
 
 const processes = [];
@@ -281,15 +282,59 @@ function startRenderer() {
   }, 500);
 }
 
-function startTauri() {
+function checkDevServerReady(url, maxAttempts = 30, interval = 1000) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const check = () => {
+      attempts++;
+      const req = http.get(url, { timeout: 1000 }, (res) => {
+        if (res.statusCode === 200) {
+          console.log('[dev] ✅ Dev server is ready');
+          resolve(true);
+        } else {
+          if (attempts >= maxAttempts) {
+            reject(new Error(`Dev server not ready after ${maxAttempts} attempts`));
+          } else {
+            setTimeout(check, interval);
+          }
+        }
+      });
+      req.on('error', () => {
+        if (attempts >= maxAttempts) {
+          reject(new Error(`Dev server not ready after ${maxAttempts} attempts`));
+        } else {
+          setTimeout(check, interval);
+        }
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        if (attempts >= maxAttempts) {
+          reject(new Error(`Dev server not ready after ${maxAttempts} attempts`));
+        } else {
+          setTimeout(check, interval);
+        }
+      });
+    };
+    check();
+  });
+}
+
+async function startTauri() {
   const tauriDir = path.resolve('tauri-migration');
   if (!fs.existsSync(tauriDir)) {
     console.warn('[dev] Tauri workspace not found at tauri-migration, skipping desktop shell.');
     return;
   }
-  setTimeout(() => {
+  // Wait for the main dev server to be ready before starting Tauri
+  console.log('[dev] ⏳ Waiting for dev server to be ready...');
+  try {
+    await checkDevServerReady('http://localhost:5173');
+    console.log('[dev] 🚀 Starting Tauri...');
     spawnCommand('tauri', npmCmd, ['run', 'tauri:dev'], {}, tauriDir);
-  }, 1000);
+  } catch (error) {
+    console.warn('[dev] ⚠️  Dev server check failed, starting Tauri anyway:', error.message);
+    spawnCommand('tauri', npmCmd, ['run', 'tauri:dev'], {}, tauriDir);
+  }
 }
 
 async function bootstrap() {

@@ -21,37 +21,45 @@ const axe = async (container: HTMLElement) => {
   }
 };
 
+const renderInDocumentBody = (ui: React.ReactElement) =>
+  render(ui, { container: document.body, baseElement: document.body });
+
 describe('LayoutEngine Accessibility', () => {
   it('should have no accessibility violations', async () => {
-    const { container } = render(
+    document.body.innerHTML = '';
+    const { container } = renderInDocumentBody(
       <LayoutEngine sidebarWidth={240} navHeight={64}>
         <LayoutHeader>
           <nav>Header Navigation</nav>
         </LayoutHeader>
-        <LayoutBody sidebar={<aside>Sidebar</aside>}>
-          <main>Main Content</main>
+        <LayoutBody sidebar={<div>Sidebar</div>}>
+          <div>Main Content</div>
         </LayoutBody>
         <LayoutFooter>
-          <footer>Footer</footer>
+          <div>Footer</div>
         </LayoutFooter>
       </LayoutEngine>
     );
 
     const results = await axe(container);
+    if (results.violations.length) {
+      console.error('Accessibility violations:', results.violations);
+    }
     expect(results.violations).toHaveLength(0);
   });
 
   it('should have proper ARIA landmarks', () => {
-    const { container } = render(
+    document.body.innerHTML = '';
+    const { container } = renderInDocumentBody(
       <LayoutEngine sidebarWidth={240} navHeight={64}>
         <LayoutHeader>
           <nav>Header</nav>
         </LayoutHeader>
-        <LayoutBody>
-          <main>Content</main>
+        <LayoutBody sidebar={<div>Sidebar</div>}>
+          <div>Content</div>
         </LayoutBody>
         <LayoutFooter>
-          <footer>Footer</footer>
+          <div>Footer</div>
         </LayoutFooter>
       </LayoutEngine>
     );
@@ -67,13 +75,14 @@ describe('LayoutEngine Accessibility', () => {
   });
 
   it('should support keyboard navigation', () => {
-    const { container } = render(
+    document.body.innerHTML = '';
+    const { container } = renderInDocumentBody(
       <LayoutEngine sidebarWidth={240} navHeight={64}>
         <LayoutHeader>
           <button>Button 1</button>
           <button>Button 2</button>
         </LayoutHeader>
-        <LayoutBody>
+        <LayoutBody sidebar={<div>Sidebar</div>}>
           <button>Button 3</button>
         </LayoutBody>
       </LayoutEngine>

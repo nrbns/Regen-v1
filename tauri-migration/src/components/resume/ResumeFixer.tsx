@@ -31,7 +31,7 @@ import {
   type JobMatchResult,
 } from '../../agents/resumeAgent';
 import { exportResearchToPDF, downloadPDF } from '../../utils/pdfExport';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 
 export function ResumeFixer() {
   const [, setUploadedFile] = useState<File | null>(null);

@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "in.omnibrowser.regen",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "node scripts/noop.js",
     "beforeBuildCommand": "",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
@@ -14,15 +14,16 @@
     "windows": [
       {
         "title": "RegenBrowser",
-        "width": 1280,
-        "height": 800,
+        "width": 1400,
+        "height": 900,
         "resizable": true,
         "fullscreen": false,
-        "url": "/"
+        "url": "/",
+        "theme": "Dark"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws:; img-src * data: blob: https:; media-src * data: blob: https:; font-src * data: https:; connect-src * wss: ws: https:; script-src * 'unsafe-inline' 'unsafe-eval' https:; style-src * 'unsafe-inline' https:;"
     }
   },
   "bundle": {

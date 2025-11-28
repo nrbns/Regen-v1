@@ -56,6 +56,22 @@ export interface PageInfo {
   readyState: DocumentReadyState;
 }
 
+function getDocumentWindow(doc: Document): (Window & typeof globalThis) | null {
+  if (doc.defaultView) {
+    return doc.defaultView as Window & typeof globalThis;
+  }
+
+  if (typeof window !== 'undefined' && doc === window.document) {
+    return window;
+  }
+
+  return null;
+}
+
+function isHeadlessDocument(doc: Document): boolean {
+  return !getDocumentWindow(doc);
+}
+
 /**
  * Convert selector to DOM element
  */
@@ -72,11 +88,7 @@ function resolveSelector(selector: DOMSelector, document: Document): Element | n
         return document.querySelector(selector.value);
       case 'text':
         // Find element containing text
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
         let node;
         while ((node = walker.nextNode())) {
           if (node.textContent?.includes(selector.value)) {
@@ -110,12 +122,13 @@ function waitForElement(
   document: Document,
   timeout = 5000
 ): Promise<Element | null> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const startTime = Date.now();
 
     const check = () => {
       const element = resolveSelector(selector, document);
-      if (element && isVisible(element)) {
+      const headlessDocument = isHeadlessDocument(document);
+      if (element && (headlessDocument || isVisible(element))) {
         resolve(element);
         return;
       }
@@ -138,7 +151,15 @@ function waitForElement(
 function isVisible(element: Element): boolean {
   if (!(element instanceof HTMLElement)) return false;
 
-  const style = window.getComputedStyle(element);
+  const view =
+    element.ownerDocument?.defaultView ||
+    (typeof window !== 'undefined' && element.ownerDocument === window.document ? window : null);
+
+  if (!view) {
+    return true;
+  }
+
+  const style = view.getComputedStyle(element);
   if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
     return false;
   }
@@ -177,14 +198,16 @@ function isClickable(element: Element): boolean {
 async function scrollIntoView(element: Element, options: ScrollOptions = {}): Promise<void> {
   if (!(element instanceof HTMLElement)) return;
 
-  element.scrollIntoView({
-    behavior: options.behavior || 'smooth',
-    block: options.block || 'center',
-    inline: 'nearest',
-  });
+  if (typeof element.scrollIntoView === 'function') {
+    element.scrollIntoView({
+      behavior: options.behavior || 'smooth',
+      block: options.block || 'center',
+      inline: 'nearest',
+    });
+  }
 
   // Wait for scroll to complete
-  await new Promise((resolve) => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
+  await new Promise(resolve => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
 }
 
 /**
@@ -237,15 +260,22 @@ export async function clickElement(
 
   if (!(element instanceof HTMLElement)) return false;
 
+  const ownerDocument = element.ownerDocument || document;
+  const headlessDoc = ownerDocument ? isHeadlessDocument(ownerDocument) : true;
   // Scroll into view
   await scrollIntoView(element);
 
   // Create and dispatch click event
-  const clickEvent = new MouseEvent('click', {
+  const eventView = headlessDoc ? null : getDocumentWindow(ownerDocument);
+  const eventOptions = {
     bubbles: true,
     cancelable: true,
-    view: window,
-  });
+  };
+
+  const clickEvent =
+    eventView && typeof MouseEvent !== 'undefined'
+      ? new MouseEvent('click', { ...eventOptions, view: eventView })
+      : new Event('click', eventOptions);
 
   element.dispatchEvent(clickEvent);
 
@@ -256,7 +286,7 @@ export async function clickElement(
 
   // Wait for navigation if requested
   if (options.waitForNavigation) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
   return true;
@@ -325,7 +355,7 @@ export function readPageText(document: Document = window.document): string {
 
   // Remove script and style elements
   const scripts = clone.querySelectorAll('script, style, noscript');
-  scripts.forEach((el) => el.remove());
+  scripts.forEach(el => el.remove());
 
   return clone.textContent?.trim() || '';
 }
@@ -384,7 +414,7 @@ export async function scrollPage(
     behavior: options.behavior || 'smooth',
   });
 
-  await new Promise((resolve) => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
+  await new Promise(resolve => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
 }
 
 /**
@@ -394,7 +424,13 @@ export async function waitForPageReady(
   document: Document = window.document,
   timeout = 10000
 ): Promise<boolean> {
-  return new Promise((resolve) => {
+  if (isHeadlessDocument(document)) {
+    return true;
+  }
+
+  const docWindow = getDocumentWindow(document)!;
+
+  return new Promise(resolve => {
     if (document.readyState === 'complete') {
       resolve(true);
       return;
@@ -417,7 +453,7 @@ export async function waitForPageReady(
     };
 
     document.addEventListener('DOMContentLoaded', () => resolve(true));
-    window.addEventListener('load', () => resolve(true));
+    docWindow.addEventListener('load', () => resolve(true));
 
     check();
   });
@@ -427,12 +463,16 @@ export async function waitForPageReady(
  * Get page information
  */
 export function getPageInfo(document: Document = window.document): PageInfo {
+  const docWindow = getDocumentWindow(document);
+  const href =
+    document.location?.href || docWindow?.location?.href || (document as any).URL || 'about:blank';
+
   return {
-    url: document.location.href,
-    title: document.title,
+    url: href,
+    title: document.title || docWindow?.document?.title || '',
     viewport: {
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: docWindow?.innerWidth ?? 0,
+      height: docWindow?.innerHeight ?? 0,
     },
     readyState: document.readyState,
   };
@@ -441,11 +481,8 @@ export function getPageInfo(document: Document = window.document): PageInfo {
 /**
  * Wait for URL to change (navigation detection)
  */
-export async function waitForNavigation(
-  currentUrl: string,
-  timeout = 10000
-): Promise<boolean> {
-  return new Promise((resolve) => {
+export async function waitForNavigation(currentUrl: string, timeout = 10000): Promise<boolean> {
+  return new Promise(resolve => {
     const startTime = Date.now();
 
     const check = () => {
@@ -469,9 +506,7 @@ export async function waitForNavigation(
 /**
  * Extract structured data from page (uses pageExtractor)
  */
-export async function extractStructuredData(
-  document: Document = window.document
-): Promise<any> {
+export async function extractStructuredData(document: Document = window.document): Promise<any> {
   try {
     const { extractPageContent } = await import('../../utils/pageExtractor');
     return extractPageContent(document);
@@ -501,4 +536,3 @@ export async function saveToMemory(
     return null;
   }
 }
-

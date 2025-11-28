@@ -18,6 +18,7 @@ import {
   Filter,
   LayoutGrid,
   List,
+  ChevronRight,
 } from 'lucide-react';
 import { MemoryEvent } from '../../core/supermemory/tracker';
 import { semanticSearchMemories, SemanticMemoryMatch } from '../../core/supermemory/search';
@@ -706,16 +707,29 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div
-                  className="flex flex-col items-center justify-center text-center"
+                  className="flex flex-col items-center justify-center text-center rounded-2xl border border-[var(--surface-border)] bg-gradient-to-br from-[#281b5f] via-[#152038] to-[#0f172a] text-white shadow-inner shadow-black/30"
                   style={{ padding: tokens.spacing(8), minHeight: '300px' }}
                 >
-                  <FileText size={48} className="text-[var(--text-muted)] mb-4 opacity-50" />
-                  <p className="text-[var(--text-primary)] font-medium mb-2">No memories found</p>
-                  <p className="text-[var(--text-muted)]" style={{ fontSize: tokens.fontSize.sm }}>
-                    {searchQuery
-                      ? 'Try a different search term'
-                      : 'Start browsing to create memories'}
+                  <FileText size={48} className="mb-4 text-purple-200" />
+                  <p className="text-2xl font-semibold mb-2">Welcome to Research Mode</p>
+                  <p className="text-sm text-purple-100/80 max-w-md mb-4">
+                    Ask Regen in Hindi, Tamil, Bengali, or English. Your best answers and agent
+                    handoffs land here automatically.
                   </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent('research:quickstart', {
+                          detail: { query: 'Compare Nifty vs BankNifty for intraday' },
+                        })
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-[#0f172a] transition hover:bg-white"
+                  >
+                    Try “Compare Nifty vs BankNifty”
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
               ) : (
                 <ul

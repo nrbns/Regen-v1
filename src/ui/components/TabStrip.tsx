@@ -184,87 +184,98 @@ export function TabStrip({
 
       {/* Tabs */}
       <div className="flex items-center gap-1 flex-1 min-w-0">
-        <AnimatePresence mode="popLayout">
-          {tabs.map(tab => {
-            const isActive = tab.id === activeTabId;
-            return (
-              <motion.button
-                key={tab.id}
-                ref={el => {
-                  if (el) {
-                    tabRefs.current.set(tab.id, el);
-                  } else {
-                    tabRefs.current.delete(tab.id);
-                  }
-                }}
-                onClick={() => handleTabClick(tab.id)}
-                className={`
-                  group relative flex items-center gap-2 px-3 py-1.5
-                  rounded-t-md
-                  transition-all duration-150
-                  focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-                  ${
-                    isActive
-                      ? 'bg-[var(--surface-root)] text-[var(--text-primary)] border-t-2 border-t-[var(--color-primary-500)]'
-                      : 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                  }
-                  ${tab.pinned ? 'pl-2' : ''}
-                  ${compact ? 'px-2 py-1' : ''}
-                `}
-                style={{
-                  fontSize: compact ? tokens.fontSize.xs : tokens.fontSize.sm,
-                  minWidth: tab.pinned ? '32px' : '120px',
-                  maxWidth: tab.pinned ? '32px' : '240px',
-                }}
-                role="tab"
-                aria-selected={isActive}
-                aria-controls={`tabpanel-${tab.id}`}
-                title={tab.url || tab.label}
-              >
-                {/* Pinned indicator */}
-                {tab.pinned && (
-                  <div className="w-1 h-1 rounded-full bg-[var(--color-primary-500)]" />
-                )}
-
-                {/* Tab icon */}
-                {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
-
-                {/* Tab label */}
-                {!tab.pinned && <span className="truncate flex-1 text-left">{tab.label}</span>}
-
-                {/* Close button */}
-                {!tab.pinned && (
-                  <button
-                    onClick={e => handleTabClose(e, tab.id)}
-                    className={`
-                      flex-shrink-0 p-0.5 rounded
-                      opacity-0 group-hover:opacity-100
-                      text-[var(--text-muted)] hover:text-[var(--text-primary)]
-                      hover:bg-[var(--surface-active)]
-                      transition-all
-                      focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-500)]
-                    `}
-                    aria-label={`Close ${tab.label}`}
-                    title="Close tab (Ctrl+W)"
-                    onMouseDown={e => e.stopPropagation()}
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-
-                {/* Active indicator */}
-                {isActive && (
-                  <motion.div
-                    layoutId="active-tab-indicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary-500)]"
-                    initial={false}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                )}
-              </motion.button>
-            );
-          })}
-        </AnimatePresence>
+        {tabs.length === 0 ? (
+          <div className="flex flex-1 items-center justify-between rounded-lg border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-4 py-2 text-[var(--text-secondary)]">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <span role="img" aria-label="welcome">
+                🏠
+              </span>
+              <span>
+                Welcome! Hit <strong>Ctrl+L</strong> or paste a URL to launch your first tab.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onTabNew}
+              className="rounded-full bg-[var(--color-primary-600)] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[var(--color-primary-500)]"
+            >
+              New tab
+            </button>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {tabs.map(tab => {
+              const isActive = tab.id === activeTabId;
+              return (
+                <motion.button
+                  key={tab.id}
+                  ref={el => {
+                    if (el) {
+                      tabRefs.current.set(tab.id, el);
+                    } else {
+                      tabRefs.current.delete(tab.id);
+                    }
+                  }}
+                  onClick={() => handleTabClick(tab.id)}
+                  className={`
+                    group relative flex items-center gap-2 px-3 py-1.5
+                    rounded-t-md
+                    transition-all duration-150
+                    focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                    ${
+                      isActive
+                        ? 'bg-[var(--surface-root)] text-[var(--text-primary)] border-t-2 border-t-[var(--color-primary-500)]'
+                        : 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                    }
+                    ${tab.pinned ? 'pl-2' : ''}
+                    ${compact ? 'px-2 py-1' : ''}
+                  `}
+                  style={{
+                    fontSize: compact ? tokens.fontSize.xs : tokens.fontSize.sm,
+                    minWidth: tab.pinned ? '32px' : '120px',
+                    maxWidth: tab.pinned ? '32px' : '240px',
+                  }}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`tabpanel-${tab.id}`}
+                  title={tab.url || tab.label}
+                >
+                  {tab.pinned && (
+                    <div className="w-1 h-1 rounded-full bg-[var(--color-primary-500)]" />
+                  )}
+                  {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
+                  {!tab.pinned && <span className="truncate flex-1 text-left">{tab.label}</span>}
+                  {!tab.pinned && (
+                    <button
+                      onClick={e => handleTabClose(e, tab.id)}
+                      className={`
+                        flex-shrink-0 p-0.5 rounded
+                        opacity-0 group-hover:opacity-100
+                        text-[var(--text-muted)] hover:text-[var(--text-primary)]
+                        hover:bg-[var(--surface-active)]
+                        transition-all
+                        focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-500)]
+                      `}
+                      aria-label={`Close ${tab.label}`}
+                      title="Close tab (Ctrl+W)"
+                      onMouseDown={e => e.stopPropagation()}
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-tab-indicator"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-primary-500)]"
+                      initial={false}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

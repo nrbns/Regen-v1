@@ -347,11 +347,13 @@ try {
     try {
       // Restore plugin state (can be slow) - defer significantly
       setTimeout(() => {
-        pluginRegistry.restorePluginState().catch(error => {
+        try {
+          pluginRegistry.restorePluginState();
+        } catch (error) {
           if (isDevEnv()) {
             console.warn('[Main] Failed to restore plugin state:', error);
           }
-        });
+        }
       }, 2000);
     } catch (error) {
       if (isDevEnv()) {

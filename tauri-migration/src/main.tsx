@@ -12,7 +12,6 @@ import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
 import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
 import { ipc } from './lib/ipc-typed';
 import { ThemeProvider } from './ui/theme';
-import { Toaster } from 'react-hot-toast';
 import { QuickTour } from './components/Onboarding/QuickTour';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { AgentOverlay } from './components/AgentOverlay';
@@ -338,7 +337,6 @@ try {
           </Suspense>
         </GlobalErrorBoundary>
         <AgentOverlay />
-        <Toaster position="bottom-center" />
         <QuickTour />
         <PerformanceMonitor />
       </ThemeProvider>

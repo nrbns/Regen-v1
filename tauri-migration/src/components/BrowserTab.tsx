@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from '../utils/toast';
+import { Skeleton } from './common/Skeleton';
 
 interface BrowserTabProps {
   url?: string;
@@ -51,8 +52,21 @@ export function BrowserTab({ url }: BrowserTabProps) {
   return (
     <div className="relative h-full w-full bg-slate-950">
       {isLoading && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/90">
-          <div className="text-2xl font-semibold text-white animate-pulse">Loading...</div>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/95 backdrop-blur-sm">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-800/60 bg-slate-900/80 p-6 shadow-2xl shadow-black/50">
+            <div className="space-y-2">
+              <Skeleton variant="rectangular" height={16} width="50%" />
+              <Skeleton variant="text" lines={2} />
+            </div>
+            <div className="space-y-3">
+              <Skeleton variant="rectangular" height={96} className="w-full rounded-xl" />
+              <Skeleton variant="text" lines={3} />
+            </div>
+            <div className="flex items-center gap-3">
+              <Skeleton variant="circular" width={32} height={32} />
+              <Skeleton variant="text" width="60%" />
+            </div>
+          </div>
         </div>
       )}
 

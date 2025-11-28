@@ -2,7 +2,11 @@ export const getEnvVar = (key: string): string | undefined => {
   if (typeof process !== 'undefined' && process?.env && process.env[key] !== undefined) {
     return process.env[key];
   }
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key] !== undefined) {
+  if (
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any).env &&
+    (import.meta as any).env[key] !== undefined
+  ) {
     return (import.meta as any).env[key];
   }
   return undefined;
@@ -17,9 +21,22 @@ export const isDevEnv = (): boolean => {
   return viteMode === 'development';
 };
 
+export const isTauriRuntime = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  // Check for Tauri runtime
+  return !!(window as any).__TAURI__;
+};
+
 export const isElectronRuntime = (): boolean => {
   if (typeof window === 'undefined') {
     return false;
+  }
+
+  // Check for Tauri first (Tauri also has IPC)
+  if (isTauriRuntime()) {
+    return false; // Tauri is not Electron
   }
 
   // Check for IPC bridge (most reliable indicator)

@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Tab } from '../../state/tabsStore';
-import { isElectronRuntime } from '../../lib/env';
+import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
 import { OmniDesk } from '../OmniDesk';
+import NewTabPage from '../Browse/NewTabPage';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useSettingsStore } from '../../state/settingsStore';
+import { useAppStore } from '../../state/appStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
 
@@ -26,9 +28,11 @@ function isInternalUrl(url?: string | null): boolean {
 
 export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // const webviewRef = useRef<any>(null); // Not used - BrowserView managed by main process
+  // const webviewRef = useRef<any>(null); // Used for Tauri webview
+  const webviewRef = useRef<any>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isElectron = isElectronRuntime();
+  const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
@@ -62,11 +66,43 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return url;
   }, [tab?.url, language]);
 
+  // Tauri webview event handlers
+  useEffect(() => {
+    if (!isTauri || !targetUrl || !webviewRef.current) {
+      return;
+    }
+
+    const webview = webviewRef.current;
+    setLoading(true);
+    setFailedMessage(null);
+
+    const handleLoad = () => {
+      setLoading(false);
+      setFailedMessage(null);
+    };
+
+    const handleFail = () => {
+      setLoading(false);
+      setFailedMessage('Failed to load this page. Please check the URL or your connection.');
+    };
+
+    // Tauri webview events (similar to Electron)
+    webview.addEventListener('did-finish-load', handleLoad);
+    webview.addEventListener('did-fail-load', handleFail);
+
+    return () => {
+      webview.removeEventListener('did-finish-load', handleLoad);
+      webview.removeEventListener('did-fail-load', handleFail);
+      setLoading(false);
+      setFailedMessage(null);
+    };
+  }, [isTauri, targetUrl]);
+
   // In Electron, BrowserView is managed by main process, so we don't need webview event handlers
   // The main process handles all BrowserView lifecycle events
   // Cleanup: Ensure no memory leaks when tab is hibernated or closed
   useEffect(() => {
-    if (!isElectron || !targetUrl) {
+    if (!isElectron || !targetUrl || isTauri) {
       return;
     }
 
@@ -180,10 +216,10 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       webviewElement.removeEventListener('did-fail-load', handleFailLoad);
     };
     */
-  }, [isElectron, targetUrl]);
+  }, [isElectron, isTauri, targetUrl]);
 
   useEffect(() => {
-    if (isElectron || !iframeRef.current || !targetUrl) {
+    if (isElectron || isTauri || !iframeRef.current || !targetUrl) {
       return;
     }
 
@@ -253,7 +289,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       setFailedMessage(null);
       setBlockedExternal(false);
     };
-  }, [isElectron, targetUrl]);
+  }, [isElectron, isTauri, targetUrl]);
 
   const launchExternal = useCallback(() => {
     if (!targetUrl) return;
@@ -273,9 +309,10 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     }
 
     // In Electron, BrowserView navigation is handled by electron/services/tabs.ts
-    // We don't need to update webview src here
-    if (isElectron) {
-      // BrowserView is managed by main process
+    // In Tauri, webview src is set directly in the JSX
+    // We don't need to update webview src here for Electron/Tauri
+    if (isElectron || isTauri) {
+      // BrowserView/webview is managed by main process or set directly
       return;
     } else {
       const iframe = iframeRef.current;
@@ -286,13 +323,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       }
       setBlockedExternal(false);
     }
-  }, [isElectron, targetUrl]);
+  }, [isElectron, isTauri, targetUrl]);
 
   const panelId = tab?.id ? `tabpanel-${tab.id}` : 'tabpanel-empty';
   const labelledById = tab?.id ? `tab-${tab.id}` : undefined;
   const isInactive = !tab || !tab.active;
 
-  // Show OmniDesk (search page) for about:blank or internal URLs
+  // Show NewTabPage for about:blank or internal URLs in Browse mode
+  // Show OmniDesk for other modes
+  const currentMode = useAppStore(state => state.mode ?? 'Browse');
+  const isBrowseMode = currentMode === 'Browse' || !currentMode;
+
   if (!targetUrl) {
     return (
       <motion.div
@@ -300,7 +341,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         role="tabpanel"
         aria-labelledby={labelledById}
         aria-hidden={isInactive}
-        className="h-full w-full overflow-hidden bg-[#1A1D28]"
+        className="h-full w-full overflow-hidden bg-black"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
@@ -311,7 +352,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           pointerEvents: 'auto',
         }}
       >
-        <OmniDesk variant="split" forceShow />
+        {isBrowseMode ? <NewTabPage /> : <OmniDesk variant="split" forceShow />}
       </motion.div>
     );
   }
@@ -341,8 +382,30 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     >
       {/* In Electron, BrowserView is managed by main process, so we don't render webview tag here */}
       {/* The BrowserView is positioned by electron/services/tabs.ts */}
-      {/* For non-Electron builds, use iframe fallback */}
-      {!isElectron && (
+      {/* For Tauri, use native webview tag */}
+      {/* For web builds, use iframe fallback */}
+      {isTauri && targetUrl ? (
+        <webview
+          ref={webviewRef}
+          src={targetUrl}
+          className="w-full h-full"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            backgroundColor: '#000000',
+            display: loading || failedMessage ? 'none' : 'block',
+          }}
+          allowpopups
+          partition="persist:regen"
+          webpreferences="javascript=yes,contextIsolation=false,webSecurity=false,allowRunningInsecureContent=true"
+        />
+      ) : !isElectron && !isTauri ? (
         <iframe
           ref={iframeRef}
           className="w-full h-full border-0"
@@ -370,7 +433,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           }
           aria-live="off"
         />
-      )}
+      ) : null}
 
       <AnimatePresence>
         {loading && (
@@ -451,7 +514,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                       }
                       setFailedMessage(null);
                       setLoading(true);
-                    } else if (targetUrl && !isElectron && iframeRef.current) {
+                    } else if (targetUrl && isTauri && webviewRef.current) {
+                      // In Tauri, reload webview
+                      setFailedMessage(null);
+                      setLoading(true);
+                      try {
+                        webviewRef.current.reload();
+                      } catch {
+                        // If reload fails, set src again
+                        webviewRef.current.src = targetUrl;
+                      }
+                    } else if (targetUrl && !isElectron && !isTauri && iframeRef.current) {
                       setFailedMessage(null);
                       setLoading(true);
                       iframeRef.current.src = targetUrl;
@@ -468,7 +541,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       </AnimatePresence>
 
       <AnimatePresence>
-        {!isElectron && blockedExternal && (
+        {!isElectron && !isTauri && blockedExternal && (
           <motion.div
             className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 px-6"
             initial={{ opacity: 0 }}

@@ -10,7 +10,7 @@ import {
   setWatermarkEnabled,
   generateQRCodeDataURL,
 } from '../../utils/watermark';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 
 export function WatermarkSettings() {
   const [enabled, setEnabled] = useState(true);

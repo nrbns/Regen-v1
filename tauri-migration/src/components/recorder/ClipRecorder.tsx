@@ -18,7 +18,7 @@ import {
 import { generateCaptions, type Caption, editCaption } from '../../services/captionService';
 import { exportVideo, downloadVideo, shareVideo } from '../../utils/videoExport';
 import { useLanguageState } from '../../state/languageState';
-import toast from 'react-hot-toast';
+import { toast } from '../../utils/toast';
 
 const MAX_RECORDING_DURATION = 8; // seconds
 

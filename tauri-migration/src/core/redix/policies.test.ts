@@ -10,13 +10,14 @@ import {
   updatePolicyMetrics,
   shouldAllowPolicy,
   getPolicyRecommendations,
+  resetPolicyMetrics,
 } from './policies';
 
 describe('Redix Policies', () => {
   beforeEach(() => {
     // Reset to default mode
     setPolicyMode('default');
-    updatePolicyMetrics({});
+    resetPolicyMetrics();
   });
 
   describe('Policy Modes', () => {
@@ -40,7 +41,7 @@ describe('Redix Policies', () => {
     it('should disable prefetch when not on WiFi', () => {
       setPolicyMode('performance');
       updatePolicyMetrics({ isWifi: false });
-      
+
       const allowed = shouldAllowPolicy('prefetch');
       expect(allowed).toBe(false);
     });
@@ -51,7 +52,7 @@ describe('Redix Policies', () => {
         batteryLevel: 15, // Below threshold
         isWifi: true,
       });
-      
+
       const allowed = shouldAllowPolicy('prefetch');
       expect(allowed).toBe(false);
     });
@@ -62,7 +63,7 @@ describe('Redix Policies', () => {
         batteryLevel: 50,
         isWifi: true,
       });
-      
+
       const allowed = shouldAllowPolicy('prefetch');
       expect(allowed).toBe(true);
     });
@@ -84,4 +85,3 @@ describe('Redix Policies', () => {
     });
   });
 });
-
