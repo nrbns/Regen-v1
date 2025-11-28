@@ -1,8 +1,12 @@
 // Tauri main.rs with RAM cap monitoring
 // Target: < 110 MB RAM usage, < 2 sec cold start
 
+mod ollama;
+
 use serde::Deserialize;
-use tauri::{AppHandle, Manager, WebviewWindow};
+use std::process::Command;
+use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
+use tokio::time::{sleep, Duration};
 
 // Using String for errors to match Tauri 2.x command requirements
 type AgentResult<T> = Result<T, String>;
@@ -140,11 +144,177 @@ async fn trigger_haptic(_app: AppHandle, _haptic_type: String) -> Result<(), Str
     }
 }
 
+/// Auto-start Ollama and ensure models are available
+#[tauri::command]
+async fn ensure_ollama_ready(window: WebviewWindow) -> Result<String, String> {
+    // Emit progress
+    let _ = window.emit("ollama-progress", 10i32);
+    
+    // Check if Ollama is already running
+    let check_ollama = || {
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("cmd")
+                .args(["/C", "ollama", "list"])
+                .output()
+                .ok()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new("ollama")
+                .arg("list")
+                .output()
+                .ok()
+                .map(|o| o.status.success())
+                .unwrap_or(false)
+        }
+    };
+
+    // Start Ollama serve if not running
+    if !check_ollama() {
+        let _ = window.emit("ollama-progress", 20i32);
+        
+        #[cfg(target_os = "windows")]
+        {
+            let _ = Command::new("cmd")
+                .args(["/C", "start", "/B", "ollama", "serve"])
+                .spawn();
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = Command::new("ollama")
+                .arg("serve")
+                .spawn();
+        }
+        
+        // Wait for Ollama to start
+        sleep(Duration::from_secs(3)).await;
+    }
+
+    let _ = window.emit("ollama-progress", 40i32);
+
+    // Check and pull required models
+    let models = vec!["phi3:mini", "llava:7b"];
+    for (i, model) in models.iter().enumerate() {
+        let _ = window.emit("ollama-progress", (50 + i * 20) as i32);
+        
+        // Check if model exists
+        let has_model = {
+            #[cfg(target_os = "windows")]
+            {
+                Command::new("cmd")
+                    .args(["/C", "ollama", "list"])
+                    .output()
+                    .ok()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).contains(model))
+                    .unwrap_or(false)
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Command::new("ollama")
+                    .arg("list")
+                    .output()
+                    .ok()
+                    .map(|o| String::from_utf8_lossy(&o.stdout).contains(model))
+                    .unwrap_or(false)
+            }
+        };
+
+        if !has_model {
+            // Pull model
+            let _ = window.emit("ollama-progress", (60 + i * 15) as i32);
+            
+            #[cfg(target_os = "windows")]
+            {
+                let _ = Command::new("cmd")
+                    .args(["/C", "ollama", "pull", model])
+                    .spawn();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = Command::new("ollama")
+                    .args(["pull", model])
+                    .spawn();
+            }
+            
+            // Wait for pull (simplified - in production, poll for completion)
+            sleep(Duration::from_secs(5)).await;
+        }
+    }
+
+    let _ = window.emit("ollama-progress", 100i32);
+    Ok("AI Ready! 🚀".to_string())
+}
+
+/// Execute WISPR command with mode routing
+#[tauri::command]
+async fn wispr_command(
+    _app: AppHandle,
+    input: String,
+    mode: Option<String>,
+) -> Result<String, String> {
+    let current_mode = mode.unwrap_or_else(|| "browse".to_string());
+    
+    // Wait for Ollama if needed
+    if !ollama::check_ollama().await {
+        ollama::wait_for_ollama(5).await;
+    }
+    
+    // Route command to appropriate mode handler
+    match current_mode.as_str() {
+        "trade" => {
+            // Trade mode: Use Ollama to analyze and execute
+            let prompt = format!("Analyze this trading command and provide execution plan: {}", input);
+            match ollama::generate_text("phi3:mini", &prompt).await {
+                Ok(response) => Ok(format!("Trade: {}", response)),
+                Err(e) => Err(format!("AI analysis failed: {}", e)),
+            }
+        }
+        "research" => {
+            // Research mode: Generate research query
+            let prompt = format!("Generate a research query for: {}", input);
+            match ollama::generate_text("phi3:mini", &prompt).await {
+                Ok(response) => Ok(format!("Research: {}", response)),
+                Err(e) => Err(format!("Research generation failed: {}", e)),
+            }
+        }
+        "browse" => {
+            // Browse mode: General command
+            let prompt = format!("Process this browser command: {}", input);
+            match ollama::generate_text("phi3:mini", &prompt).await {
+                Ok(response) => Ok(format!("Browse: {}", response)),
+                Err(e) => Err(format!("Command processing failed: {}", e)),
+            }
+        }
+        _ => Err(format!("Unknown mode: {}", current_mode)),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![run_agent_task, trigger_haptic])
-        .setup(|_app| {
+        .invoke_handler(tauri::generate_handler![
+            run_agent_task,
+            trigger_haptic,
+            ensure_ollama_ready,
+            wispr_command
+        ])
+        .setup(|app| {
+            // Auto-start Ollama on launch
+            let window = app.get_webview_window("main").unwrap();
+            
+            tokio::spawn(async move {
+                // Small delay to let UI render
+                sleep(Duration::from_secs(1)).await;
+                let _ = ensure_ollama_ready(window.clone()).await;
+                let _ = window.emit("ai-ready", ());
+            });
+            
+            // Set CORS environment for Ollama
+            std::env::set_var("OLLAMA_ORIGINS", "*");
+            
             // Performance optimizations for low-RAM devices (₹8K phones)
             #[cfg(desktop)]
             {

@@ -198,7 +198,29 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
  * Execute parsed WISPR command
  */
 export async function executeWisprCommand(command: ParsedWisprCommand): Promise<void> {
+  const currentMode = useAppStore.getState().mode;
+
   try {
+    // Route command to backend if in Tauri
+    const { isElectronRuntime } = await import('../../lib/env');
+    if (isElectronRuntime()) {
+      try {
+        const { ipc } = await import('../../lib/ipc-typed');
+        const modeName = currentMode.toLowerCase();
+        const result = await (ipc as any).invoke('wispr_command', {
+          input: command.originalText,
+          mode: modeName,
+        });
+        if (result) {
+          toast.success(result);
+          return;
+        }
+      } catch (error) {
+        console.warn('[WISPR] Backend routing failed, using frontend:', error);
+      }
+    }
+
+    // Fallback to frontend execution
     switch (command.type) {
       case 'trade':
         await executeTradeCommand(command);

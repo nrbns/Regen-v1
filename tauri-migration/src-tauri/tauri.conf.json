@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws:; img-src * data: blob: https:; media-src * data: blob: https:; font-src * data: https:; connect-src * wss: ws: https:; script-src * 'unsafe-inline' 'unsafe-eval' https:; style-src * 'unsafe-inline' https:;"
+      "csp": "default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws: http://localhost:*; img-src * data: blob: https:; media-src * data: blob: https:; font-src * data: https:; connect-src * wss: ws: https: http://localhost:*; script-src * 'unsafe-inline' 'unsafe-eval' https:; style-src * 'unsafe-inline' https:;"
     }
   },
   "bundle": {

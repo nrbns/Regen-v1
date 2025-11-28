@@ -1668,6 +1668,16 @@ export function AppShell() {
                     const targetMode = modeMap[mode] || 'Browse';
                     const currentMode = useAppStore.getState().mode;
                     if (targetMode !== currentMode) {
+                      // Initialize mode in backend
+                      try {
+                        const { ipc } = await import('../../lib/ipc-typed');
+                        await (ipc as any).invoke('wispr_command', {
+                          input: `Init ${targetMode} mode`,
+                          mode: mode.toLowerCase(),
+                        });
+                      } catch (error) {
+                        console.warn('[AppShell] Mode init failed:', error);
+                      }
                       await setMode(targetMode);
                     }
                   }}

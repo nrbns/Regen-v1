@@ -301,6 +301,26 @@ try {
   // Initialize crash reporter immediately (lightweight)
   crashReporter.initialize();
 
+  // Listen for Ollama progress events (Tauri)
+  if (isElectronRuntime()) {
+    // Tauri events are handled via window events
+    window.addEventListener('ollama-progress', ((e: CustomEvent<number>) => {
+      if (isDevEnv()) {
+        console.log(`[Ollama] Setup progress: ${e.detail}%`);
+      }
+    }) as EventListener);
+
+    window.addEventListener('ai-ready', () => {
+      if (isDevEnv()) {
+        console.log('[Ollama] AI ready!');
+      }
+      // Show notification
+      import('./utils/toast').then(({ toast }) => {
+        toast.success('AI brain ready! Press Ctrl+Space for WISPR.');
+      });
+    });
+  }
+
   // Defer ALL heavy service initialization until after first paint
   // Use requestIdleCallback with longer delay for better performance
   const deferHeavyInit = () => {
