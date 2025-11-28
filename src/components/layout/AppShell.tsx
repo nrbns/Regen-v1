@@ -386,6 +386,37 @@ export function AppShell() {
     }
   }, []);
 
+  // Memory monitoring - auto-unload tabs when memory is low
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+
+    const initMemoryMonitoring = async () => {
+      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs } = await import(
+        '../../core/monitoring/memoryMonitor'
+      );
+
+      startMemoryMonitoring(
+        async () => {
+          // Low memory: unload inactive tabs
+          await unloadInactiveTabs();
+        },
+        async () => {
+          // Critical memory: unload more aggressively
+          await unloadInactiveTabs();
+          toast.warning('Low memory detected. Some tabs were unloaded for better performance.');
+        }
+      );
+
+      cleanup = () => stopMemoryMonitoring();
+    };
+
+    initMemoryMonitoring();
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, []);
+
   // Tab resurrection is now handled in the initialization effect below
 
   // Initialize fullscreen state on mount - ensure it starts as false

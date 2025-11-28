@@ -1,90 +1,135 @@
-name: Release
+name: Build & Release
 
 on:
   push:
-    branches:
-      - main
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: true
 
 jobs:
-  release:
-    name: Semantic Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Run semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npx semantic-release
-
-  canary:
-    name: Canary Release
-    runs-on: ${{ matrix.os }}
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+  build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
+        include:
+          - platform: 'windows-latest'
+            target: 'x86_64-pc-windows-msvc'
+            artifact: 'RegenBrowser-Setup.exe'
+            bundle: 'msi'
+          - platform: 'ubuntu-latest'
+            target: 'x86_64-unknown-linux-gnu'
+            artifact: 'RegenBrowser.AppImage'
+            bundle: 'appimage'
+          - platform: 'macos-latest'
+            target: 'x86_64-apple-darwin'
+            artifact: 'RegenBrowser.dmg'
+            bundle: 'dmg'
+          - platform: 'macos-latest'
+            target: 'aarch64-apple-darwin'
+            artifact: 'RegenBrowser-arm64.dmg'
+            bundle: 'dmg'
 
-      - name: Use Node.js
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Build application
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install system dependencies (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          brew install create-dmg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
         run: npm run build
 
-      - name: Build Electron app
-        run: npm run build:app
+      - name: Build Tauri app
+        working-directory: tauri-migration
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+        run: |
+          npm install
+          npm run tauri build -- --target ${{ matrix.target }}
 
-      - name: Upload canary artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: canary-${{ matrix.os }}
-          path: dist-release/*
+          name: ${{ matrix.artifact }}
+          path: |
+            tauri-migration/src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+            installer.nsi
           retention-days: 30
 
-      - name: Create draft release
-        if: matrix.os == 'ubuntu-latest'
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: canary-${{ github.sha }}
-          name: Canary Release - ${{ github.sha }}
-          draft: true
-          prerelease: true
+          files: artifacts/**/*
           body: |
-            ## Canary Release
+            ## 🚀 RegenBrowser ${{ github.ref_name }}
 
-            This is an automated canary release for testing.
+            ### Downloads
+            - **Windows**: `RegenBrowser-Setup.exe` (one-click installer with Ollama)
+            - **Linux**: `RegenBrowser.AppImage` (runs anywhere)
+            - **macOS Intel**: `RegenBrowser.dmg`
+            - **macOS Apple Silicon**: `RegenBrowser-arm64.dmg`
 
-            **Commit:** ${{ github.sha }}
-            **Branch:** ${{ github.ref }}
+            ### What's New
+            - ✅ WISPR AI agent with voice commands (Hindi/English)
+            - ✅ One-click installer (auto-downloads Ollama + models)
+            - ✅ Fully offline AI (phi3:mini + llava:7b)
+            - ✅ Trade, Research, Browse modes
+            - ✅ Screenshot analysis with GPT-4 Vision
 
-            ### Artifacts
+            ### Installation
+            1. Download for your platform
+            2. Run installer (Windows) or open DMG/AppImage
+            3. First launch auto-downloads AI models (~2GB)
+            4. Press `Ctrl+Space` to activate WISPR
 
-            Download the appropriate build for your platform from the artifacts.
+            ### System Requirements
+            - Windows 10+, Ubuntu 20+, macOS 12+
+            - 4GB RAM minimum (8GB recommended)
+            - 3GB free disk space
+
+            Made with ❤️ in India 🇮🇳
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}

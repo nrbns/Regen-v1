@@ -1,0 +1,51 @@
+/* WISPR Orb Styles */
+#regen-wispr-orb {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 999999;
+  pointer-events: none;
+}
+
+.wispr-orb {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  color: white;
+}
+
+.wispr-orb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 32px rgba(139, 92, 246, 0.6);
+}
+
+.wispr-orb:active {
+  transform: scale(0.95);
+}
+
+#wispr-panel {
+  position: fixed;
+  bottom: 100px;
+  right: 24px;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: 1px solid #8b5cf6;
+  z-index: 999998;
+  max-width: 300px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  display: none;
+  backdrop-filter: blur(10px);
+}
