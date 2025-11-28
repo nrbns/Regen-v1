@@ -5,7 +5,7 @@
   "identifier": "in.omnibrowser.regen",
   "build": {
     "beforeDevCommand": "node scripts/noop.js",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "npm run build && npx playwright install chromium --with-deps || true",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"
   },

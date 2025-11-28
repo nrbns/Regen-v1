@@ -55,6 +55,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev
+          # Install Playwright dependencies
+          npx playwright install-deps chromium || true
 
       - name: Install system dependencies (macOS)
         if: matrix.platform == 'macos-latest'
@@ -63,6 +65,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --save-dev playwright || true
+          npx playwright install chromium --with-deps || true
 
       - name: Build frontend
         run: npm run build

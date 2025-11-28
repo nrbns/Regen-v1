@@ -2,11 +2,13 @@
 // Target: < 110 MB RAM usage, < 2 sec cold start
 
 mod ollama;
+mod browser;
 
 use serde::Deserialize;
 use std::process::Command;
 use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tokio::time::{sleep, Duration};
+use browser::{BrowserLaunchOptions, BrowserResult};
 
 // Using String for errors to match Tauri 2.x command requirements
 type AgentResult<T> = Result<T, String>;
@@ -292,6 +294,29 @@ async fn wispr_command(
     }
 }
 
+/// Launch browser with Playwright (bundled Chromium)
+#[tauri::command]
+async fn launch_browser(url: String, headless: Option<bool>) -> Result<BrowserResult, String> {
+    let options = BrowserLaunchOptions {
+        url,
+        headless,
+        timeout: Some(30),
+    };
+    browser::launch_browser(options).await
+}
+
+/// Regen browser session (restart with same tabs)
+#[tauri::command]
+async fn regen_session(urls: Vec<String>) -> Result<Vec<BrowserResult>, String> {
+    browser::regen_session(urls).await
+}
+
+/// Capture screenshot of browser page
+#[tauri::command]
+async fn capture_browser_screenshot(url: String) -> Result<String, String> {
+    browser::capture_screenshot(&url).await
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -299,7 +324,10 @@ pub fn run() {
             run_agent_task,
             trigger_haptic,
             ensure_ollama_ready,
-            wispr_command
+            wispr_command,
+            launch_browser,
+            regen_session,
+            capture_browser_screenshot
         ])
         .setup(|app| {
             // Auto-start Ollama on launch
