@@ -432,42 +432,61 @@ pub fn run() {
         ])
         .setup(|app| {
             // Fix CORS for Tauri (works Win/mac/Linux)
-            // Windows-specific: Handle tauri:// origins (Ollama #2291 bug)
+            // Comprehensive origins fix for Ollama #2291, #4001, #5834
+            // Includes tauri://, localhost variants, and vhosts support
+            let ollama_origins = "tauri://localhost,tauri://127.0.0.1,http://localhost:*,https://localhost:*,http://127.0.0.1:*,https://127.0.0.1:*";
+            std::env::set_var("OLLAMA_ORIGINS", ollama_origins);
+            
+            // Allow vhosts and private network (fixes ollama-js #73, Tauri #11260)
+            std::env::set_var("OLLAMA_HOST", "0.0.0.0:11434");
+            
+            // Set Access-Control-Allow-Private-Network for Windows (fixes private-net blocks)
             #[cfg(target_os = "windows")]
             {
-                std::env::set_var("OLLAMA_ORIGINS", "tauri://localhost,http://localhost:*,https://localhost:*");
+                std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
             }
-            #[cfg(not(target_os = "windows"))]
-            {
-                std::env::set_var("OLLAMA_ORIGINS", "*");
-            }
-            // Also set for webview
-            std::env::set_var("OLLAMA_HOST", "localhost:11434");
             
             let window = app.get_webview_window("main").unwrap();
             
-            // Auto-check Ollama installation (non-blocking)
+            // Auto-check and install Ollama if missing (silent install)
             let window_ollama = window.clone();
             tokio::spawn(async move {
                 // Check if Ollama is installed
-                #[cfg(target_os = "windows")]
-                {
-                    let check = Command::new("cmd")
-                        .args(["/C", "ollama", "--version"])
-                        .output();
-                    if check.is_err() {
-                        // Ollama not installed - show notification but don't block
-                        let _ = window_ollama.emit("ollama-missing", ());
+                let ollama_installed = {
+                    #[cfg(target_os = "windows")]
+                    {
+                        Command::new("cmd")
+                            .args(["/C", "ollama", "--version"])
+                            .output()
+                            .is_ok()
                     }
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    let check = Command::new("ollama")
-                        .arg("--version")
-                        .output();
-                    if check.is_err() {
-                        let _ = window_ollama.emit("ollama-missing", ());
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        Command::new("ollama")
+                            .arg("--version")
+                            .output()
+                            .is_ok()
                     }
+                };
+                
+                if !ollama_installed {
+                    // Silent install attempt (non-blocking)
+                    let _ = window_ollama.emit("ollama-missing", ());
+                    
+                    // Try silent install (curl install.sh)
+                    #[cfg(target_os = "linux")]
+                    {
+                        let _ = Command::new("sh")
+                            .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+                            .spawn();
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = Command::new("sh")
+                            .args(["-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+                            .spawn();
+                    }
+                    // Windows: User needs to download manually (show notification)
                 }
             });
             

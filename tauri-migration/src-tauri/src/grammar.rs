@@ -6,9 +6,20 @@
 use crate::ollama;
 
 /// Correct text using Ollama (phi3:mini for grammar)
+/// Optimized: Only corrects text >15 chars to reduce delays
 pub async fn correct_text(text: String) -> Result<String, String> {
-    if text.trim().len() < 3 {
+    // Throttle: Only correct if >15 chars (reduces 3-5s delays)
+    if text.trim().len() < 15 {
         return Ok(text); // Too short to correct
+    }
+
+    // Quick check: Skip if text looks correct (simple heuristics)
+    if text.chars().all(|c| c.is_alphanumeric() || c.is_whitespace() || ",.!?".contains(c)) {
+        // Basic validation - if it looks fine, skip expensive LLM call
+        let word_count = text.split_whitespace().count();
+        if word_count < 5 {
+            return Ok(text);
+        }
     }
 
     let prompt = format!(

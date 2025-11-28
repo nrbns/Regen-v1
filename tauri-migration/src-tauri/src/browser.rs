@@ -85,6 +85,7 @@ pub async fn regen_launch(url: &str, mode: &str) -> Result<String, String> {
 
 /// Unload idle browser processes to free memory
 async fn unload_idle_browsers() {
+    // Platform-specific process cleanup
     #[cfg(target_os = "windows")]
     {
         // Kill idle Chromium processes on Windows

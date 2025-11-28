@@ -20,6 +20,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 thiserror = "1"
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-global-shortcut = "2.0"
+# sysinfo = "0.31"  # Commented out - using platform commands for now (can add later for advanced monitoring)
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
 

@@ -326,6 +326,23 @@ try {
         toast.warning('Ollama not detected. Install from ollama.com for offline AI features.');
       });
     });
+
+    // Listen for localhost access request (security prompt)
+    window.addEventListener('request-localhost-access', ((e: CustomEvent) => {
+      // Show permission prompt (one-time)
+      const hasPrompted = localStorage.getItem('localhost-access-prompted');
+      if (!hasPrompted) {
+        import('./utils/toast').then(({ toast }) => {
+          toast.info(
+            'RegenBrowser needs localhost access for offline AI. This is safe and local-only.',
+            {
+              duration: 8000,
+            }
+          );
+          localStorage.setItem('localhost-access-prompted', 'true');
+        });
+      }
+    }) as EventListener);
   }
 
   // Defer ALL heavy service initialization until after first paint

@@ -87,6 +87,7 @@ import { MiniHoverAI } from '../interaction/MiniHoverAI';
 import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
+import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
 const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
@@ -2209,6 +2210,9 @@ export function AppShell() {
 
       {/* Tier 3: Global Command Bar */}
       <CommandBar />
+
+      {/* Quick Command Palette (Cmd+K / Ctrl+K) */}
+      <QuickCommandPalette />
 
       {/* Tier 3: Onboarding Flow - Legacy fallback, only if ResearchTour is not available */}
       {/* ResearchTour is the primary onboarding component, so this is kept as fallback only */}
