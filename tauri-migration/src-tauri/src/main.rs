@@ -385,7 +385,10 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcuts(vec![
                     (
-                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space),
+                        tauri_plugin_global_shortcut::Shortcut::new(
+                            Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
+                            tauri_plugin_global_shortcut::Code::Space,
+                        ),
                         |app| {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.emit("wake-wispr", ());
@@ -395,7 +398,10 @@ pub fn run() {
                         },
                     ),
                     (
-                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyT),
+                        tauri_plugin_global_shortcut::Shortcut::new(
+                            Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
+                            tauri_plugin_global_shortcut::Code::KeyT,
+                        ),
                         |app| {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.emit("open-trade-mode", ());
