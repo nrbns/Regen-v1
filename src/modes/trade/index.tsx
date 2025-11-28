@@ -81,10 +81,7 @@ export default function TradePanel() {
           mode: 'trade',
         });
         if (signal && (signal.includes('BUY') || signal.includes('SELL'))) {
-          toast.success(`Trade Signal: ${signal.substring(0, 50)}`, {
-            duration: 5000,
-            style: { background: '#1e293b', color: '#fff', borderRadius: '12px' },
-          });
+          toast.success(`Trade Signal: ${signal.substring(0, 50)}`);
         }
       } catch (error) {
         console.debug('[Trade] Signal analysis failed:', error);
@@ -235,11 +232,7 @@ export default function TradePanel() {
 
   const executeTrade = () => {
     toast.success(
-      `${qty} × ${selected.name} @ ${selected.currency}${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nSL: ${selected.currency}${sl.toLocaleString()} | TP: ${selected.currency}${tp.toLocaleString()}`,
-      {
-        duration: 5000,
-        style: { background: '#1e293b', color: '#fff', borderRadius: '12px' },
-      }
+      `${qty} × ${selected.name} @ ${selected.currency}${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nSL: ${selected.currency}${sl.toLocaleString()} | TP: ${selected.currency}${tp.toLocaleString()}`
     );
   };
 
