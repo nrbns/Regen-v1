@@ -389,7 +389,7 @@ pub fn run() {
                             Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
                             tauri_plugin_global_shortcut::Code::Space,
                         ),
-                        |app| {
+                        |app: AppHandle| {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.emit("wake-wispr", ());
                                 let _ = window.unminimize();
@@ -402,13 +402,14 @@ pub fn run() {
                             Some(tauri_plugin_global_shortcut::Modifiers::CONTROL | tauri_plugin_global_shortcut::Modifiers::SHIFT),
                             tauri_plugin_global_shortcut::Code::KeyT,
                         ),
-                        |app| {
+                        |app: AppHandle| {
                             if let Some(window) = app.get_webview_window("main") {
                                 let _ = window.emit("open-trade-mode", ());
                             }
                         },
                     ),
                 ])
+                .unwrap()
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
