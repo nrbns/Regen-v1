@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Command;
 use std::time::Duration;
 use tokio::time::sleep;
-use sysinfo::{System, Pid, ProcessExt, SystemExt};
+use sysinfo::{System, Pid};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BrowserLaunchOptions {
@@ -90,7 +90,7 @@ async fn unload_idle_browsers() {
     system.refresh_all();
     
     for (pid, process) in system.processes() {
-        let name = process.name().to_lowercase();
+        let name = process.name().to_string_lossy().to_lowercase();
         if name.contains("chromium") || name.contains("chrome") {
             let cpu_usage = process.cpu_usage();
             let memory_mb = process.memory() / (1024 * 1024);
@@ -100,13 +100,13 @@ async fn unload_idle_browsers() {
                 #[cfg(target_os = "windows")]
                 {
                     let _ = Command::new("taskkill")
-                        .args(["/F", "/PID", &pid.to_string()])
+                        .args(["/F", "/PID", &pid.as_u32().to_string()])
                         .output();
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
                     let _ = Command::new("kill")
-                        .args(["-9", &pid.to_string()])
+                        .args(["-9", &pid.as_u32().to_string()])
                         .output();
                 }
             }
