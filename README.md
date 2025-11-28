@@ -1,3 +1,55 @@
+# RegenBrowser - The #1 AI Browser in the World 🇮🇳
+
+**Offline AI Browser with WISPR (Voice + Vision + Action)**
+
+One-click install → AI auto-sets (60s) → Offline forever.
+
+## Quick Start
+
+1. **Download**: Get `.exe` (Windows) or `.AppImage` (Linux) from [Releases](https://github.com/nrbns/Regenbrowser/releases)
+2. **Install Ollama** (one-time): Download from [ollama.com](https://ollama.com/download)
+3. **Run**: Open RegenBrowser → AI brain auto-sets up in 60 seconds
+4. **Use**: Press `Ctrl+Space` for WISPR → Say "Hey WISPR, research BTC" → Magic happens
+
+## Features
+
+- ✅ **Offline AI** - Works 100% offline with Ollama (phi3:mini, llava:7b)
+- ✅ **WISPR Jarvis** - Voice + Vision + Action ("Hey WISPR" wakes it up)
+- ✅ **Auto Grammar** - Real-time correction in any input field (Gmail, WhatsApp, etc.)
+- ✅ **Trade Mode** - Auto-signals with LLM analysis
+- ✅ **OS-Level Hotkeys** - `Ctrl+Shift+Space` wakes from anywhere
+- ✅ **4GB RAM Compatible** - Auto-unloads tabs, memory capped at 3GB
+
+## Build from Source
+
+```bash
+# Prerequisites
+npm install
+cargo install tauri-cli
+
+# Install Ollama (required)
+# Windows: Download from ollama.com
+# Linux: curl -fsSL https://ollama.com/install.sh | sh
+# macOS: brew install ollama
+
+# Pull models (one-time)
+ollama pull phi3:mini
+ollama pull llava:7b
+
+# Build
+npm run build
+cd tauri-migration/src-tauri
+cargo tauri build --bundles all
+```
+
+## Troubleshooting
+
+**Windows CORS Error?** → Fixed in v1.3.0. If still occurs, set `OLLAMA_ORIGINS=tauri://localhost,http://localhost:*` manually.
+
+**Memory Issues?** → Vision mode auto-disables if <2GB available. Use text-only mode.
+
+**Ollama Not Found?** → Install from [ollama.com](https://ollama.com/download), then restart RegenBrowser.
+
 # RegenBrowser - The Offline AI Browser
 
 > **India's first fully offline AI browser: voice commands, trading, research — all without internet.**

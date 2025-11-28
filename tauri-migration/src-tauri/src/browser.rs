@@ -63,6 +63,9 @@ pub fn check_playwright() -> bool {
 
 /// Regen launch with mode support (simplified - uses system browser for now)
 pub async fn regen_launch(url: &str, mode: &str) -> Result<String, String> {
+    // Unload idle browser processes to prevent OOM
+    unload_idle_browsers().await;
+    
     // Mode-specific URLs
     let target_url = if mode == "trade" {
         "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT"
@@ -78,6 +81,41 @@ pub async fn regen_launch(url: &str, mode: &str) -> Result<String, String> {
     }).await;
     
     Ok(format!("Browser ready for: {}", target_url))
+}
+
+/// Unload idle browser processes to free memory
+async fn unload_idle_browsers() {
+    #[cfg(target_os = "windows")]
+    {
+        // Kill idle Chromium processes on Windows
+        let _ = Command::new("taskkill")
+            .args(["/F", "/IM", "chromium.exe", "/FI", "MEMUSAGE gt 500000"])
+            .output();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Kill idle Chromium processes on Linux
+        let output = Command::new("ps")
+            .args(["aux"])
+            .output()
+            .ok();
+        if let Some(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if stdout.contains("chromium") && stdout.contains("Z") {
+                // Zombie process - kill it
+                let _ = Command::new("pkill")
+                    .args(["-9", "chromium"])
+                    .output();
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // Kill idle Chromium processes on macOS
+        let _ = Command::new("pkill")
+            .args(["-9", "-f", "chromium"])
+            .output();
+    }
 }
 
 /// Launch browser and navigate to URL (simplified - uses system browser for now)

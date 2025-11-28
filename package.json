@@ -4,6 +4,7 @@
   "private": true,
   "description": "Regen/Regen: Next-generation AI automation platform with full agent layer, automation workflows, Redix execution environment, and multi-browser capabilities",
   "scripts": {
+    "setup:ollama": "echo 'Ollama setup: Install from https://ollama.com/download. Then run: ollama pull phi3:mini && ollama pull llava:7b'",
     "test:all": "npm run test:unit && npm run lint && npm run build && npm run audit:prod",
     "test:suite": "node scripts/run-all-tests.js",
     "test:suite:e2e": "node scripts/run-all-tests.js --e2e",

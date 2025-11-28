@@ -348,23 +348,45 @@ async fn capture_screen(app: AppHandle) -> Result<String, String> {
     }
 }
 
-/// Process vision with Ollama (llava model)
+/// Process vision with Ollama (llava model) - Memory optimized
 #[tauri::command]
 async fn ollama_vision(prompt: String, screenshot: Option<String>) -> Result<String, String> {
+    // Check memory before processing (llava spikes to 5GB)
+    // If memory is high, use text-only mode
+    let use_vision = if let Ok(mem_info) = std::fs::read_to_string("/proc/meminfo") {
+        // Parse available memory (Linux)
+        let available_kb = mem_info
+            .lines()
+            .find(|l| l.starts_with("MemAvailable:"))
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(4_000_000); // Default 4GB
+        
+        available_kb > 2_000_000 // Only use vision if >2GB available
+    } else {
+        // Windows/macOS - assume enough memory
+        true
+    };
+
     // Wait for Ollama if needed
     if !ollama::check_ollama().await {
         ollama::wait_for_ollama(5).await;
     }
 
-    let vision_prompt = if let Some(screenshot) = screenshot {
-        format!("{}\n\nScreenshot: {}", prompt, screenshot)
+    if !use_vision || screenshot.is_none() {
+        // Text-only mode (faster, less memory)
+        let text_prompt = format!("{}\n\nAnalyze the user's request and provide a helpful response.", prompt);
+        match ollama::generate_text("phi3:mini", &text_prompt).await {
+            Ok(response) => Ok(format!("[Text Mode] {}", response)),
+            Err(e) => Err(format!("Vision processing failed: {}", e)),
+        }
     } else {
-        format!("{}\n\nDescribe what you see and suggest action.", prompt)
-    };
-
-    match ollama::generate_text("llava:7b", &vision_prompt).await {
-        Ok(response) => Ok(response),
-        Err(e) => Err(format!("Vision processing failed: {}", e)),
+        // Full vision mode (requires more memory)
+        let vision_prompt = format!("{}\n\nScreenshot: {}", prompt, screenshot.unwrap_or_default());
+        match ollama::generate_text("llava:7b", &vision_prompt).await {
+            Ok(response) => Ok(response),
+            Err(e) => Err(format!("Vision processing failed: {}", e)),
+        }
     }
 }
 
@@ -410,7 +432,15 @@ pub fn run() {
         ])
         .setup(|app| {
             // Fix CORS for Tauri (works Win/mac/Linux)
-            std::env::set_var("OLLAMA_ORIGINS", "*");
+            // Windows-specific: Handle tauri:// origins (Ollama #2291 bug)
+            #[cfg(target_os = "windows")]
+            {
+                std::env::set_var("OLLAMA_ORIGINS", "tauri://localhost,http://localhost:*,https://localhost:*");
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                std::env::set_var("OLLAMA_ORIGINS", "*");
+            }
             // Also set for webview
             std::env::set_var("OLLAMA_HOST", "localhost:11434");
             
