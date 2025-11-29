@@ -60,9 +60,43 @@ export default function TradePanel() {
     return () => window.removeEventListener('wispr:trade', handleWisprTrade as EventListener);
   }, [selected]);
 
-  // LIVE PRICE + CANDLE UPDATE (Backend API)
+  // LIVE PRICE + CANDLE UPDATE (Real-time via Tauri or HTTP API)
   useEffect(() => {
     let previousPrice = price;
+    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
+
+    // Set up real-time price listener if Tauri
+    if (isTauri) {
+      const handlePriceUpdate = (e: CustomEvent) => {
+        if (e.detail && e.detail.price !== undefined) {
+          const newPrice = e.detail.price;
+          const delta = newPrice - previousPrice;
+          previousPrice = newPrice;
+          setPrice(newPrice);
+          setChange(Math.abs(e.detail.change || delta));
+          setIsGreen((e.detail.change || delta) >= 0);
+        }
+      };
+
+      window.addEventListener('trade-price', handlePriceUpdate as EventListener);
+
+      // Start streaming
+      (async () => {
+        try {
+          const { ipc } = await import('../../lib/ipc-typed');
+          const symbol = selected.symbol.split(':')[1] || selected.name;
+          await (ipc as any).invoke('trade_stream', { symbol });
+        } catch (error) {
+          console.debug('[Trade] Tauri stream failed, using HTTP API:', error);
+        }
+      })();
+
+      return () => {
+        window.removeEventListener('trade-price', handlePriceUpdate as EventListener);
+      };
+    }
+
+    // Fallback to HTTP API polling
     const fetchQuote = async () => {
       try {
         const { tradeApi } = await import('../../lib/api-client');
@@ -91,7 +125,7 @@ export default function TradePanel() {
     fetchQuote();
     const interval = setInterval(fetchQuote, 3000);
     return () => clearInterval(interval);
-  }, [selected.symbol]);
+  }, [selected.symbol, selected.name]);
 
   // Auto-analyze chart with LLM signals (every 30 seconds)
   useEffect(() => {

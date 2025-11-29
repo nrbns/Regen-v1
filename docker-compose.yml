@@ -1,0 +1,37 @@
+# CATEGORY C FIX: Docker Compose for local dev environment
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - '4000:4000'
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=development
+      - LOG_LEVEL=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server:/app/server
+      - ./node_modules:/app/node_modules
+    command: node server/redix-server.js
+
+volumes:
+  redis-data:

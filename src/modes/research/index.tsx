@@ -44,6 +44,7 @@ import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
 import ResearchModePanel from '../../components/research/ResearchModePanel';
 import { researchApi } from '../../lib/api-client';
+import { getLanguageMeta } from '../../constants/languageMeta';
 
 type UploadedDocument = {
   id: string;
@@ -829,24 +830,57 @@ export default function ResearchPanel() {
           steps: deepScanResult.steps,
         };
       } else {
-        // Try backend API first (real-time, streaming support)
+        // Try Tauri IPC first if available (real-time, streaming support)
         let backendResult: any = null;
-        try {
-          backendResult = await researchApi.queryEnhanced({
-            query: searchQuery,
-            maxSources: 12,
-            includeCounterpoints,
-            recencyWeight,
-            authorityWeight,
-            language: language !== 'auto' ? language : undefined,
-          });
+        const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
 
-          if (backendResult && backendResult.sources && backendResult.sources.length > 0) {
+        if (isTauri && ipc) {
+          try {
+            // Try research_api command (combines search + Ollama)
+            const tauriResult = await (ipc as any).invoke('research_api', { query: searchQuery });
+            if (tauriResult) {
+              backendResult = {
+                summary: tauriResult.summary || tauriResult.answer || '',
+                sources: (tauriResult.sources || []).map((s: any, idx: number) => ({
+                  title: s.Text || s.title || `Source ${idx + 1}`,
+                  url: s.FirstURL || s.url || '',
+                  snippet: s.Text || s.snippet || '',
+                  sourceType: 'web',
+                })),
+                citations: tauriResult.citations || 0,
+                hallucination: tauriResult.hallucination || 'medium',
+              };
+              console.log('[Research] Tauri IPC returned result:', backendResult);
+            }
+          } catch (tauriError) {
+            console.warn('[Research] Tauri IPC failed, trying HTTP API:', tauriError);
+          }
+        }
+
+        // Fallback to HTTP API if Tauri IPC not available or failed
+        if (!backendResult) {
+          try {
+            backendResult = await researchApi.queryEnhanced({
+              query: searchQuery,
+              maxSources: 12,
+              includeCounterpoints,
+              recencyWeight,
+              authorityWeight,
+              language: language !== 'auto' ? language : undefined,
+            });
+          } catch (httpError) {
+            console.warn('[Research] HTTP API failed:', httpError);
+          }
+        }
+
+        if (backendResult) {
+          // Map sources
+          if (backendResult.sources && backendResult.sources.length > 0) {
             aggregatedSources = backendResult.sources.map((source: any, idx: number) => ({
               id: `backend-${idx}`,
               title: source.title || 'Untitled',
               url: source.url || '',
-              domain: source.domain || '',
+              domain: source.domain || new URL(source.url || 'http://example.com').hostname,
               snippet: source.snippet || '',
               text: source.snippet || '',
               type: source.sourceType || 'other',
@@ -858,18 +892,24 @@ export default function ResearchPanel() {
               },
             }));
             aggregatedProviderNames = ['backend-api'];
-
-            // Use backend summary if available
-            if (backendResult.summary) {
-              context.backend_summary = backendResult.summary;
-            }
-
-            console.log(
-              `[Research] Backend API returned ${aggregatedSources.length} results with summary`
-            );
           }
-        } catch (backendError) {
-          console.warn('[Research] Backend API failed, trying multi-source search:', backendError);
+
+          // Use backend summary if available
+          if (backendResult.summary) {
+            context.backend_summary = backendResult.summary;
+          }
+
+          // Store metrics for verification
+          if (backendResult.citations !== undefined || backendResult.hallucination) {
+            context.backend_metrics = {
+              citations: backendResult.citations || 0,
+              hallucination: backendResult.hallucination || 'medium',
+            };
+          }
+
+          console.log(
+            `[Research] Backend API returned ${aggregatedSources.length} results with summary and metrics`
+          );
         }
 
         // Fallback to multi-source search if backend API failed or returned no results
@@ -957,30 +997,154 @@ export default function ResearchPanel() {
         }
 
         // If we got a backend result with summary, use it directly
-        if (backendResult && backendResult.summary && aggregatedSources.length > 0) {
+        if (
+          backendResult &&
+          (backendResult.summary || backendResult.answer) &&
+          aggregatedSources.length > 0
+        ) {
           const dedupedSources = dedupeResearchSources(aggregatedSources);
+
+          // Map backend metrics to verification
+          const citations = backendResult.citations || aggregatedSources.length || 0;
+          const hallucination = backendResult.hallucination || 'medium';
+          const hallucinationRisk =
+            hallucination === 'low' ? 0.2 : hallucination === 'medium' ? 0.5 : 0.8;
+          const citationCoverage = Math.min(
+            (citations / Math.max(aggregatedSources.length, 1)) * 100,
+            100
+          );
+
           setResult({
             query: searchQuery,
-            summary: backendResult.summary,
+            summary: backendResult.summary || backendResult.answer || '',
             sources: dedupedSources.slice(0, 16),
             citations: backendResult.citations || [],
             inlineEvidence: [],
             contradictions: backendResult.contradictions || [],
-            verification: backendResult.verification || {
-              verified: false,
+            verification: {
+              verified: hallucination === 'low',
               claimDensity: aggregatedSources.length,
-              citationCoverage: backendResult.verification?.citationCoverage || 0,
+              citationCoverage: citationCoverage,
               ungroundedClaims: [],
-              hallucinationRisk: backendResult.verification?.hallucinationRisk || 0.5,
-              suggestions: [],
+              hallucinationRisk: hallucinationRisk,
+              suggestions:
+                hallucination === 'high' ? ['Consider verifying with additional sources'] : [],
             },
-            confidence: backendResult.confidence || 0.7,
-            language: backendResult.language,
-            languageLabel: backendResult.languageLabel,
-            languageConfidence: backendResult.languageConfidence,
+            confidence: backendResult.confidence || (hallucination === 'low' ? 0.8 : 0.6),
+            language: backendResult.language || language,
+            languageLabel: backendResult.languageLabel || getLanguageMeta(language).nativeName,
+            languageConfidence: backendResult.languageConfidence || 0.9,
           });
           setLoading(false);
           return;
+        }
+
+        // Try Tauri streaming if available and no result yet
+        // Reuse isTauri from above (line 835) - no need to redeclare
+        if (isTauri && ipc && aggregatedSources.length === 0) {
+          try {
+            // Set up streaming listeners
+            let streamedText = '';
+            let streamCitations = 0;
+            let streamHallucination = 'medium';
+
+            const handleToken = (e: CustomEvent) => {
+              if (typeof e.detail === 'string') {
+                streamedText += e.detail;
+                // Update result in real-time
+                setResult(prev => ({
+                  ...prev,
+                  query: searchQuery,
+                  summary: streamedText,
+                  sources: prev?.sources || [],
+                  citations: prev?.citations || [],
+                  inlineEvidence: [],
+                  contradictions: [],
+                  verification: {
+                    verified: streamHallucination === 'low',
+                    claimDensity: aggregatedSources.length,
+                    citationCoverage:
+                      streamCitations > 0
+                        ? Math.min(
+                            (streamCitations / Math.max(aggregatedSources.length, 1)) * 100,
+                            100
+                          )
+                        : 0,
+                    ungroundedClaims: [],
+                    hallucinationRisk:
+                      streamHallucination === 'low'
+                        ? 0.2
+                        : streamHallucination === 'medium'
+                          ? 0.5
+                          : 0.8,
+                    suggestions:
+                      streamHallucination === 'high'
+                        ? ['Consider verifying with additional sources']
+                        : [],
+                  },
+                  confidence: streamHallucination === 'low' ? 0.8 : 0.6,
+                  language: language,
+                  languageLabel: getLanguageMeta(language).nativeName,
+                  languageConfidence: 0.9,
+                }));
+              }
+            };
+
+            const handleMetrics = (e: CustomEvent) => {
+              if (e.detail) {
+                streamCitations = e.detail.citations || 0;
+                streamHallucination = e.detail.hallucination || 'medium';
+              }
+            };
+
+            const handleEnd = (e: CustomEvent) => {
+              if (e.detail) {
+                streamedText = e.detail.response || streamedText;
+                streamCitations = e.detail.citations || streamCitations;
+                streamHallucination = e.detail.hallucination || streamHallucination;
+              }
+              // Remove listeners
+              window.removeEventListener('research-token', handleToken as EventListener);
+              window.removeEventListener('research-metrics', handleMetrics as EventListener);
+              window.removeEventListener('research-end', handleEnd as EventListener);
+              setLoading(false);
+            };
+
+            // Add listeners
+            window.addEventListener('research-token', handleToken as EventListener);
+            window.addEventListener('research-metrics', handleMetrics as EventListener);
+            window.addEventListener('research-end', handleEnd as EventListener);
+
+            // Start streaming (Tauri command expects query as first parameter, window is auto-injected)
+            await (ipc as any).invoke('research_stream', { query: searchQuery });
+
+            // Set initial result
+            setResult({
+              query: searchQuery,
+              summary: '',
+              sources: [],
+              citations: [],
+              inlineEvidence: [],
+              contradictions: [],
+              verification: {
+                verified: false,
+                claimDensity: 0,
+                citationCoverage: 0,
+                ungroundedClaims: [],
+                hallucinationRisk: 0.5,
+                suggestions: [],
+              },
+              confidence: 0.5,
+              language: language,
+              languageLabel: getLanguageMeta(language).nativeName,
+              languageConfidence: 0.9,
+            });
+
+            return; // Exit early, streaming will update result
+          } catch (streamError) {
+            console.warn('[Research] Tauri streaming failed:', streamError);
+            // Continue to fallback
+          }
         }
       }
 

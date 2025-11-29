@@ -24,6 +24,7 @@ process.on('unhandledRejection', (reason, _promise) => {
 import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
@@ -401,60 +402,119 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
   reply.raw.flushHeaders?.();
 
   const send = payload => {
-    reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    if (reply.raw.destroyed) return;
+    try {
+      reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (error) {
+      fastify.log.debug({ error }, 'Failed to send to client');
+    }
   };
 
-  const ws = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_TOKEN}`);
-  let closed = false;
+  // CRITICAL FIX: Fan-out - reuse upstream connection per symbol
+  let connection = finnhubConnections.get(finnhubSymbol);
+  if (!connection) {
+    // Create new upstream connection
+    const upstream = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_TOKEN}`);
+    const clients = new Set();
 
-  ws.on('open', () => {
-    ws.send(JSON.stringify({ type: 'subscribe', symbol: finnhubSymbol }));
-    send({ status: 'subscribed', symbol: finnhubSymbol, timestamp: Date.now() });
-  });
+    upstream.on('open', () => {
+      upstream.send(JSON.stringify({ type: 'subscribe', symbol: finnhubSymbol }));
+      fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream connected');
+    });
 
-  ws.on('message', buffer => {
-    if (closed) return;
-    try {
-      const payload = JSON.parse(buffer.toString());
-      if (payload.type === 'trade' && Array.isArray(payload.data)) {
-        for (const trade of payload.data) {
-          if (!trade?.p) continue;
-          send({
-            symbol,
-            price: Number(trade.p),
-            volume: trade.v ?? 0,
-            timestamp: trade.t ?? Date.now(),
-          });
+    upstream.on('message', buffer => {
+      try {
+        const payload = JSON.parse(buffer.toString());
+        if (payload.type === 'trade' && Array.isArray(payload.data)) {
+          // Fan out to all clients
+          for (const client of clients) {
+            if (client.destroyed) continue;
+            try {
+              for (const trade of payload.data) {
+                if (!trade?.p) continue;
+                const data = JSON.stringify({
+                  symbol,
+                  price: Number(trade.p),
+                  volume: trade.v ?? 0,
+                  timestamp: trade.t ?? Date.now(),
+                });
+                client.write(`data: ${data}\n\n`);
+              }
+            } catch (error) {
+              fastify.log.debug({ error }, 'Failed to fan out to client');
+            }
+          }
+        }
+      } catch (error) {
+        fastify.log.debug({ err: error }, 'Finnhub stream parse failed');
+      }
+    });
+
+    upstream.on('close', () => {
+      fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream closed');
+      // Notify all clients
+      for (const client of clients) {
+        if (!client.destroyed) {
+          try {
+            client.write(
+              `data: ${JSON.stringify({ status: 'closed', symbol: finnhubSymbol })}\n\n`
+            );
+            client.end();
+          } catch {
+            // ignore
+          }
         }
       }
-    } catch (error) {
-      fastify.log.debug({ err: error }, 'Finnhub stream parse failed');
-    }
-  });
+      finnhubConnections.delete(finnhubSymbol);
+    });
 
-  ws.on('close', () => {
-    if (!closed) {
-      send({ status: 'closed', symbol: finnhubSymbol });
-      reply.raw.end();
-    }
-  });
+    upstream.on('error', error => {
+      fastify.log.warn({ err: error, symbol: finnhubSymbol }, 'Finnhub websocket error');
+      // Notify all clients
+      for (const client of clients) {
+        if (!client.destroyed) {
+          try {
+            client.write(
+              `data: ${JSON.stringify({ status: 'error', message: error?.message || 'stream_error' })}\n\n`
+            );
+          } catch {
+            // ignore
+          }
+        }
+      }
+    });
 
-  ws.on('error', error => {
-    fastify.log.debug({ err: error }, 'Finnhub websocket error');
-    send({ status: 'error', message: error?.message || 'stream_error' });
-  });
+    connection = { upstream, clients };
+    finnhubConnections.set(finnhubSymbol, connection);
+  }
+
+  // Add this client to the set
+  connection.clients.add(reply.raw);
+  send({ status: 'subscribed', symbol: finnhubSymbol, timestamp: Date.now() });
 
   const heartbeat = setInterval(() => {
+    if (reply.raw.destroyed) {
+      clearInterval(heartbeat);
+      return;
+    }
     reply.raw.write(': ping\n\n');
   }, 15000);
 
   request.raw.on('close', () => {
-    closed = true;
     clearInterval(heartbeat);
-    try {
-      ws.close();
-    } catch {
-      /* noop */
+    // Remove client from set
+    if (connection) {
+      connection.clients.delete(reply.raw);
+      // If no more clients, close upstream
+      if (connection.clients.size === 0) {
+        try {
+          connection.upstream.close();
+        } catch {
+          // ignore
+        }
+        finnhubConnections.delete(finnhubSymbol);
+        fastify.log.info({ symbol: finnhubSymbol }, 'Closed Finnhub upstream (no clients)');
+      }
     }
   });
 });
@@ -476,6 +536,46 @@ fastify.register(cors, {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 });
 
+// CATEGORY B FIX: Rate limiting for expensive endpoints
+fastify.register(rateLimit, {
+  global: false, // Apply per-route
+  max: 10, // 10 requests
+  timeWindow: 60 * 1000, // per minute
+  keyGenerator: request => {
+    // Use API key if present, otherwise IP
+    const apiKey =
+      request.headers['x-api-key'] || request.headers['authorization']?.replace('Bearer ', '');
+    return apiKey || getClientIP(request);
+  },
+  errorResponseBuilder: (request, context) => {
+    return {
+      error: 'rate-limit-exceeded',
+      message: `Rate limit exceeded: ${context.max} requests per ${context.timeWindow / 1000} seconds`,
+      retryAfter: Math.ceil(context.ttl / 1000),
+    };
+  },
+});
+
+// CATEGORY B FIX: Rate limiting for expensive endpoints
+fastify.register(rateLimit, {
+  global: false, // Apply per-route
+  max: 10, // 10 requests
+  timeWindow: 60 * 1000, // per minute
+  keyGenerator: request => {
+    // Use API key if present, otherwise IP
+    const apiKey =
+      request.headers['x-api-key'] || request.headers['authorization']?.replace('Bearer ', '');
+    return apiKey || getClientIP(request);
+  },
+  errorResponseBuilder: (request, context) => {
+    return {
+      error: 'rate-limit-exceeded',
+      message: `Rate limit exceeded: ${context.max} requests per ${context.timeWindow / 1000} seconds`,
+      retryAfter: Math.ceil(context.ttl / 1000),
+    };
+  },
+});
+
 const enableWebSockets = nodeProcess?.env.DISABLE_WS === '1' ? false : true;
 // Removed unused agentQueryEndpointTimeout and agentPollInterval - using inline polling in route handlers
 
@@ -489,15 +589,70 @@ const LLMCircuit = createCircuit(analyzeWithLLM, {
   resetTimeout: 30_000,
 });
 
+// CATEGORY B FIX: API Key authentication (simple in-memory store for now)
+const API_KEYS = new Map();
+// Load API keys from env (format: API_KEY_1=key1:quota1,API_KEY_2=key2:quota2)
+if (nodeProcess?.env.API_KEYS) {
+  nodeProcess.env.API_KEYS.split(',').forEach(entry => {
+    const [key, quota = '100'] = entry.split(':');
+    if (key) {
+      API_KEYS.set(key.trim(), { quota: parseInt(quota, 10) || 100, used: 0 });
+    }
+  });
+}
+
+// CATEGORY B FIX: Authentication middleware
+async function authenticateRequest(request, reply) {
+  // Skip auth for public endpoints
+  const publicPaths = ['/metrics', '/metrics/prom', '/health', '/api/health'];
+  if (publicPaths.some(path => request.url.startsWith(path))) {
+    return;
+  }
+
+  const apiKey =
+    request.headers['x-api-key'] || request.headers['authorization']?.replace('Bearer ', '');
+
+  if (!apiKey) {
+    // Allow anonymous access but with lower rate limits
+    request.user = { type: 'anonymous', quota: 10 };
+    return;
+  }
+
+  const keyData = API_KEYS.get(apiKey);
+  if (!keyData) {
+    reply.code(401);
+    return reply.send({ error: 'invalid-api-key', message: 'Invalid or missing API key' });
+  }
+
+  // Check quota
+  if (keyData.used >= keyData.quota) {
+    reply.code(429);
+    return reply.send({
+      error: 'quota-exceeded',
+      message: `API key quota exceeded (${keyData.quota}/day)`,
+    });
+  }
+
+  // Increment usage (in production, persist this)
+  keyData.used++;
+  request.user = { type: 'api-key', key: apiKey, quota: keyData.quota, used: keyData.used };
+}
+
 // Websocket plugin will be registered in async startup function below
 
 // Removed unused waitForScrapeMeta function - using inline polling in route handlers
 
 // Redis connection configuration with error handling
+// CRITICAL FIX: Improved Redis config with exponential backoff reconnect
 const redisConfig = {
   maxRetriesPerRequest: 3,
   retryStrategy: times => {
-    const delay = Math.min(times * 50, 2000);
+    // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, 1600ms, max 2000ms
+    const delay = Math.min(Math.pow(2, times) * 50, 2000);
+    if (times > 10) {
+      // After 10 retries, give up and let error handlers deal with it
+      return null;
+    }
     return delay;
   },
   enableOfflineQueue: false,
@@ -507,6 +662,16 @@ const redisConfig = {
   // Prevent Redis from crashing the server
   enableReadyCheck: false,
   autoResubscribe: false,
+  // CRITICAL FIX: Better reconnection handling
+  reconnectOnError: err => {
+    const targetError = 'READONLY';
+    if (err.message.includes(targetError)) {
+      // Reconnect on READONLY error (Redis is in read-only mode)
+      return true;
+    }
+    // Don't reconnect on other errors - let error handlers deal with it
+    return false;
+  },
 };
 
 // Create Redis clients but don't connect immediately
@@ -523,6 +688,44 @@ const REDIS_ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
 const clients = new Map();
 const metricsClients = new Set();
 const notificationClients = new Set();
+
+// CRITICAL FIX: Connection limits per IP
+const connectionLimits = new Map(); // IP => { sse: number, ws: number }
+const MAX_SSE_PER_IP = 20;
+const MAX_WS_PER_IP = 50;
+
+function getClientIP(request) {
+  return (
+    request.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    request.ip ||
+    request.socket?.remoteAddress ||
+    'unknown'
+  );
+}
+
+function checkConnectionLimit(ip, type) {
+  const limits = connectionLimits.get(ip) || { sse: 0, ws: 0 };
+  const max = type === 'sse' ? MAX_SSE_PER_IP : MAX_WS_PER_IP;
+  const current = limits[type] || 0;
+  if (current >= max) {
+    return false;
+  }
+  limits[type] = current + 1;
+  connectionLimits.set(ip, limits);
+  return true;
+}
+
+function decrementConnectionLimit(ip, type) {
+  const limits = connectionLimits.get(ip);
+  if (limits) {
+    limits[type] = Math.max(0, (limits[type] || 0) - 1);
+    if (limits.sse === 0 && limits.ws === 0) {
+      connectionLimits.delete(ip);
+    } else {
+      connectionLimits.set(ip, limits);
+    }
+  }
+}
 const carbonIntensityDefault = Number(nodeProcess?.env.CARBON_INTENSITY_DEFAULT || 120);
 let workerMetrics = {
   cpu: 0,
@@ -847,11 +1050,69 @@ fastify.get('/metrics', async () => {
   return getMetrics();
 });
 
+// CATEGORY B FIX: Prometheus metrics endpoint
+fastify.get('/metrics/prom', async (request, reply) => {
+  const memUsage = process.memoryUsage();
+  const uptime = process.uptime();
+  const sseCount = Array.from(connectionLimits.values()).reduce(
+    (sum, limits) => sum + (limits.sse || 0),
+    0
+  );
+  const wsCount = clients.size;
+  const metricsCount = metricsClients.size;
+  const notificationCount = notificationClients.size;
+
+  // Prometheus format
+  const promMetrics = [
+    `# HELP regen_uptime_seconds Server uptime in seconds`,
+    `# TYPE regen_uptime_seconds gauge`,
+    `regen_uptime_seconds ${uptime}`,
+    ``,
+    `# HELP regen_memory_bytes Memory usage in bytes`,
+    `# TYPE regen_memory_bytes gauge`,
+    `regen_memory_bytes{type="heapUsed"} ${memUsage.heapUsed}`,
+    `regen_memory_bytes{type="heapTotal"} ${memUsage.heapTotal}`,
+    `regen_memory_bytes{type="rss"} ${memUsage.rss}`,
+    `regen_memory_bytes{type="external"} ${memUsage.external}`,
+    ``,
+    `# HELP regen_connections_active Active connections`,
+    `# TYPE regen_connections_active gauge`,
+    `regen_connections_active{type="sse"} ${sseCount}`,
+    `regen_connections_active{type="websocket"} ${wsCount}`,
+    `regen_connections_active{type="metrics"} ${metricsCount}`,
+    `regen_connections_active{type="notifications"} ${notificationCount}`,
+    ``,
+    `# HELP regen_redis_connected Redis connection status`,
+    `# TYPE regen_redis_connected gauge`,
+    `regen_redis_connected ${redisConnected ? 1 : 0}`,
+    ``,
+    `# HELP regen_llm_circuit_state LLM circuit breaker state (0=closed, 1=open, 2=half-open)`,
+    `# TYPE regen_llm_circuit_state gauge`,
+    `regen_llm_circuit_state ${LLMCircuit.opened ? 1 : LLMCircuit.halfOpen ? 2 : 0}`,
+    ``,
+  ].join('\n');
+
+  reply.type('text/plain; version=0.0.4');
+  return promMetrics;
+});
+
 if (enableWebSockets) {
-  fastify.get('/ws', { websocket: true }, connection => {
+  fastify.get('/ws', { websocket: true }, (connection, request) => {
     const ws = connection.socket;
     const clientId = uuidv4();
-    const meta = { clientId, createdAt: Date.now(), lastPong: Date.now() };
+
+    // CRITICAL FIX: Check connection limit
+    const clientIP = getClientIP(request);
+    if (!checkConnectionLimit(clientIP, 'ws')) {
+      try {
+        ws.close(1008, `Maximum ${MAX_WS_PER_IP} WebSocket connections per IP`);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const meta = { clientId, createdAt: Date.now(), lastPong: Date.now(), ip: clientIP };
 
     clients.set(ws, meta);
     fastify.log.info({ clientId }, 'redix ws connected');
@@ -919,6 +1180,8 @@ if (enableWebSockets) {
     ws.on('close', () => {
       clearInterval(pingInterval);
       clients.delete(ws);
+      // CRITICAL FIX: Decrement connection limit
+      decrementConnectionLimit(clientIP, 'ws');
       fastify.log.info({ clientId }, 'redix ws disconnected');
     });
 
@@ -1094,163 +1357,171 @@ fastify.post('/api/profile/signout', async () => ({ ok: true }));
  * Enhanced agent query endpoint with task support, waitFor polling, and 202 fallback
  * Body: { url, text?, question, task?: 'summarize'|'qa'|'threat', waitFor?: number, callback_url?: string, userId?: string }
  */
-fastify.post('/api/agent/query', async (request, reply) => {
-  const {
-    url,
-    text,
-    question,
-    task = 'summarize',
-    waitFor = 8,
-    callback_url,
-    userId,
-  } = request.body ?? {};
+// CATEGORY B FIX: Rate limit + auth for expensive endpoints
+fastify.post(
+  '/api/agent/query',
+  {
+    config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
+    preHandler: [authenticateRequest],
+  },
+  async (request, reply) => {
+    const {
+      url,
+      text,
+      question,
+      task = 'summarize',
+      waitFor = 8,
+      callback_url,
+      userId,
+    } = request.body ?? {};
 
-  if (!url && !text) {
-    return reply.status(400).send({ error: 'url-or-text-required' });
-  }
-  if (!question && task === 'qa') {
-    return reply.status(400).send({ error: 'question-required-for-qa-task' });
-  }
-
-  let jobId = null;
-  let meta = null;
-  let body = null;
-
-  // If URL provided, enqueue scrape
-  if (url) {
-    jobId = sha256(url);
-    try {
-      await enqueueScrape({ url, userId, jobId });
-    } catch (error) {
-      request.log.error({ error }, 'failed to enqueue scrape for agent query');
-      return reply.status(500).send({ error: 'scrape-enqueue-failed' });
+    if (!url && !text) {
+      return reply.status(400).send({ error: 'url-or-text-required' });
+    }
+    if (!question && task === 'qa') {
+      return reply.status(400).send({ error: 'question-required-for-qa-task' });
     }
 
-    // Poll for scrape meta + body
-    const pollUntil = Date.now() + waitFor * 1000;
-    while (Date.now() < pollUntil) {
-      const raw = await safeRedisOperation(() => redisStore.get(`scrape:meta:${jobId}`), null);
-      if (raw) {
-        try {
-          meta = JSON.parse(raw);
-          if (meta.bodyKey) {
-            body = await safeRedisOperation(() => redisStore.get(meta.bodyKey), null);
-            if (body) break;
-          }
-        } catch (error) {
-          request.log.warn({ error }, 'failed to parse scrape meta');
-        }
+    let jobId = null;
+    let meta = null;
+    let body = null;
+
+    // If URL provided, enqueue scrape
+    if (url) {
+      jobId = sha256(url);
+      try {
+        await enqueueScrape({ url, userId, jobId });
+      } catch (error) {
+        request.log.error({ error }, 'failed to enqueue scrape for agent query');
+        return reply.status(500).send({ error: 'scrape-enqueue-failed' });
       }
-      await new Promise(r => globalThis.setTimeout(r, 400)); // 400ms backoff
-    }
 
-    // If not ready, return 202
-    if (!body) {
-      return reply.status(202).send({
-        jobId,
-        status: 'enqueued',
-        message:
-          'Scrape in progress, poll /api/scrape/meta/:jobId or /api/agent/result/:jobId/:task',
-      });
-    }
+      // Poll for scrape meta + body
+      const pollUntil = Date.now() + waitFor * 1000;
+      while (Date.now() < pollUntil) {
+        const raw = await safeRedisOperation(() => redisStore.get(`scrape:meta:${jobId}`), null);
+        if (raw) {
+          try {
+            meta = JSON.parse(raw);
+            if (meta.bodyKey) {
+              body = await safeRedisOperation(() => redisStore.get(meta.bodyKey), null);
+              if (body) break;
+            }
+          } catch (error) {
+            request.log.warn({ error }, 'failed to parse scrape meta');
+          }
+        }
+        await new Promise(r => globalThis.setTimeout(r, 400)); // 400ms backoff
+      }
 
-    // Validate scrape result
-    if (!meta.allowed || meta.status >= 400) {
-      return reply.status(502).send({ error: 'scrape-failed', jobId, meta });
-    }
-  } else {
-    // For raw text, generate jobId and store in Redis
-    jobId = sha256(text + Date.now());
-    await safeRedisOperation(
-      () => redisStore.set(`agent:input:${jobId}`, text, 'EX', 60 * 60),
-      null
-    );
-    body = text;
-    meta = {
-      jobId,
-      url: null,
-      status: 200,
-      cached: false,
-      fetchedAt: new Date().toISOString(),
-      bodyKey: `agent:input:${jobId}`,
-    };
-  }
-
-  // Prepare provenance
-  const provenance = {
-    scrapeJobId: jobId,
-    url: url || null,
-    status: meta.status,
-    cached: Boolean(meta.cached),
-    fetchedAt: meta.fetchedAt,
-    durationMs: meta.durationMs || 0,
-    headers: meta.headers || {},
-    bodyKey: meta.bodyKey || `agent:input:${jobId}`,
-    excerpt: body?.slice(0, 500) || '',
-    scrapeErrors: meta.reason || null,
-  };
-
-  // Call LLM through circuit breaker
-  try {
-    const llmResult = await LLMCircuit.fire({
-      task,
-      inputText: body,
-      url: url || null,
-      question: question || null,
-      userId: userId || null,
-    });
-
-    const agentResult = {
-      answer: llmResult.answer,
-      summary: llmResult.summary,
-      highlights: llmResult.highlights,
-      model: llmResult.model,
-      sources: [
-        {
-          url: url || 'text-input',
+      // If not ready, return 202
+      if (!body) {
+        return reply.status(202).send({
           jobId,
-          selector: null,
-        },
-      ],
-      provenance,
+          status: 'enqueued',
+          message:
+            'Scrape in progress, poll /api/scrape/meta/:jobId or /api/agent/result/:jobId/:task',
+        });
+      }
+
+      // Validate scrape result
+      if (!meta.allowed || meta.status >= 400) {
+        return reply.status(502).send({ error: 'scrape-failed', jobId, meta });
+      }
+    } else {
+      // For raw text, generate jobId and store in Redis
+      jobId = sha256(text + Date.now());
+      await safeRedisOperation(
+        () => redisStore.set(`agent:input:${jobId}`, text, 'EX', 60 * 60),
+        null
+      );
+      body = text;
+      meta = {
+        jobId,
+        url: null,
+        status: 200,
+        cached: false,
+        fetchedAt: new Date().toISOString(),
+        bodyKey: `agent:input:${jobId}`,
+      };
+    }
+
+    // Prepare provenance
+    const provenance = {
+      scrapeJobId: jobId,
+      url: url || null,
+      status: meta.status,
+      cached: Boolean(meta.cached),
+      fetchedAt: meta.fetchedAt,
+      durationMs: meta.durationMs || 0,
+      headers: meta.headers || {},
+      bodyKey: meta.bodyKey || `agent:input:${jobId}`,
+      excerpt: body?.slice(0, 500) || '',
+      scrapeErrors: meta.reason || null,
     };
 
-    // Store result in Redis
-    const resultKey = `agent:result:${jobId}:${task}`;
-    await safeRedisOperation(
-      () => redisStore.set(resultKey, JSON.stringify(agentResult), 'EX', 60 * 60),
-      null
-    );
-
-    // Optional callback (fire-and-forget)
-    if (callback_url) {
-      fetch(callback_url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(agentResult),
-      }).catch(e => {
-        request.log.warn({ error: e }, 'callback failed');
+    // Call LLM through circuit breaker
+    try {
+      const llmResult = await LLMCircuit.fire({
+        task,
+        inputText: body,
+        url: url || null,
+        question: question || null,
+        userId: userId || null,
       });
-    }
 
-    return reply.send({
-      jobId,
-      task,
-      agentResult,
-    });
-  } catch (error) {
-    request.log.error({ error }, 'LLM analysis failed');
-    // Check if circuit is open
-    if (LLMCircuit.opened) {
-      return reply.status(503).send({
-        error: 'llm-circuit-open',
-        message: 'LLM service temporarily unavailable',
+      const agentResult = {
+        answer: llmResult.answer,
+        summary: llmResult.summary,
+        highlights: llmResult.highlights,
+        model: llmResult.model,
+        sources: [
+          {
+            url: url || 'text-input',
+            jobId,
+            selector: null,
+          },
+        ],
+        provenance,
+      };
+
+      // Store result in Redis
+      const resultKey = `agent:result:${jobId}:${task}`;
+      await safeRedisOperation(
+        () => redisStore.set(resultKey, JSON.stringify(agentResult), 'EX', 60 * 60),
+        null
+      );
+
+      // Optional callback (fire-and-forget)
+      if (callback_url) {
+        fetch(callback_url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(agentResult),
+        }).catch(e => {
+          request.log.warn({ error: e }, 'callback failed');
+        });
+      }
+
+      return reply.send({
         jobId,
+        task,
+        agentResult,
       });
+    } catch (error) {
+      request.log.error({ error }, 'LLM analysis failed');
+      // Check if circuit is open
+      if (LLMCircuit.opened) {
+        return reply.status(503).send({
+          error: 'llm-circuit-open',
+          message: 'LLM service temporarily unavailable',
+          jobId,
+        });
+      }
+      return reply.status(500).send({ error: 'analysis-failed', jobId });
     }
-    return reply.status(500).send({ error: 'analysis-failed', jobId });
   }
-});
+);
 
 /**
  * GET /api/agent/result/:jobId/:task
@@ -1288,6 +1559,16 @@ fastify.get('/api/ask', async (request, reply) => {
   const sessionId =
     typeof sessionParam === 'string' && sessionParam.trim() ? sessionParam.trim() : 'anon';
 
+  // CRITICAL FIX: Check connection limit
+  const clientIP = getClientIP(request);
+  if (!checkConnectionLimit(clientIP, 'sse')) {
+    reply.code(429);
+    return {
+      error: 'connection-limit-exceeded',
+      message: `Maximum ${MAX_SSE_PER_IP} SSE connections per IP`,
+    };
+  }
+
   if (!query) {
     reply.status(400);
     reply.header('content-type', 'application/json');
@@ -1302,21 +1583,22 @@ fastify.get('/api/ask', async (request, reply) => {
 
   let closed = false;
   const requestId = uuidv4();
-  const redisClient = new Redis(REDIS_URL, redisConfig);
+  // CRITICAL FIX: Use duplicate() instead of new Redis() to prevent file descriptor exhaustion
+  const redisClient = redisSub.duplicate();
   let heartbeatInterval;
 
-  // Add error handling for this client
-  redisClient.on('error', error => {
-    const now = Date.now();
-    if (now - lastRedisErrorTime > REDIS_ERROR_SUPPRESSION_MS) {
-      if (error?.code === 'ECONNREFUSED') {
-        // Suppress connection errors
-        return;
-      }
-      fastify.log.warn({ error }, 'Redis client error in SSE handler');
-      lastRedisErrorTime = now;
-    }
-  });
+  // Attach proper error handlers
+  attachRedisErrorHandlers(redisClient, 'sse-client');
+
+  // Ensure connection is established
+  try {
+    await redisClient.connect();
+  } catch (error) {
+    fastify.log.warn({ error }, 'Failed to connect duplicate Redis client for SSE');
+    reply.code(503);
+    reply.send({ error: 'redis-unavailable', message: 'Redis connection failed' });
+    return;
+  }
 
   const sendEvent = (event, payload) => {
     if (closed) return;
@@ -1335,7 +1617,11 @@ fastify.get('/api/ask', async (request, reply) => {
     } catch (error) {
       fastify.log.warn({ error }, 'sse client unsubscribe failed');
     }
-    redisClient.disconnect();
+    try {
+      await redisClient.disconnect();
+    } catch (error) {
+      fastify.log.debug({ error }, 'redis client disconnect error (ignored)');
+    }
     if (shouldEnd) {
       reply.raw.end();
     }
@@ -1414,6 +1700,8 @@ fastify.get('/api/ask', async (request, reply) => {
       cleanup(false).catch(error =>
         fastify.log.error({ error }, 'failed to cleanup after disconnect')
       );
+      // CRITICAL FIX: Decrement connection limit
+      decrementConnectionLimit(clientIP, 'sse');
     }
   });
 });
@@ -2139,6 +2427,45 @@ fastify.get('/api/trade/quote/:symbol', async (request, reply) => {
   }
 
   try {
+    // Try to fetch real data from Yahoo Finance via proxy
+    let realQuote = null;
+    try {
+      const yahooSymbol = symbol.includes('NIFTY')
+        ? '^NSEI'
+        : symbol.includes('BANK')
+          ? '^NSEBANK'
+          : symbol;
+      const response = await axios.get(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}`,
+        {
+          params: { interval: '1m', range: '1d' },
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+          timeout: 5000,
+        }
+      );
+
+      if (response.data?.chart?.result?.[0]?.meta) {
+        const meta = response.data.chart.result[0].meta;
+        realQuote = {
+          symbol,
+          price: meta.regularMarketPrice || meta.previousClose,
+          change: meta.regularMarketChange || 0,
+          changePercent: meta.regularMarketChangePercent || 0,
+          volume: meta.regularMarketVolume || 0,
+          timestamp: Date.now(),
+        };
+      }
+    } catch (yahooError) {
+      fastify.log.debug({ error: yahooError }, 'Yahoo Finance fetch failed, using mock');
+    }
+
+    // Return real quote if available, otherwise mock
+    if (realQuote) {
+      return realQuote;
+    }
+
     // Mock quote data - replace with real broker API
     const mockQuote = {
       symbol,
@@ -2522,204 +2849,219 @@ fastify.get('/api/scrape/:id', async (request, reply) => {
  * Unified summarize endpoint that handles job polling internally.
  * Frontend never needs to poll - this endpoint waits for completion.
  *
- * Body: { url?: string, text?: string, question?: string, maxWaitSeconds?: number }
- * Returns: { summary: string, answer?: string, sources: Array, model: string, jobId: string }
+ * Body: { url?: string, text?: string, question?: string, waitFor?: number }
+ * Returns:
+ *   - 202 Accepted: { jobId, status: 'enqueued', subscribeUrl } (if not ready quickly)
+ *   - 200 OK: { summary, answer, sources, model, jobId } (if ready within waitFor seconds)
  */
-fastify.post('/api/summarize', async (request, reply) => {
-  const { url, text, question, maxWaitSeconds = 30 } = request.body ?? {};
+// CATEGORY B FIX: Rate limit expensive endpoints
+// CATEGORY B FIX: Rate limit + auth for expensive endpoints
+fastify.post(
+  '/api/summarize',
+  {
+    config: { rateLimit: { max: 10, timeWindow: 60 * 1000 } },
+    preHandler: [authenticateRequest],
+  },
+  async (request, reply) => {
+    const { url, text, question, waitFor = 2 } = request.body ?? {};
 
-  if (!url && !text) {
-    return reply.status(400).send({ error: 'url-or-text-required' });
-  }
-
-  // Tier 1: Security guardrails - validate URL before processing
-  if (url) {
-    try {
-      const urlObj = new URL(url);
-      const BLOCKED_HOSTS = [
-        '169.254.169.254',
-        'metadata.google.internal',
-        'localhost',
-        '127.0.0.1',
-        '::1',
-        '0.0.0.0',
-        'metadata.azure.com',
-      ];
-      const ALLOWED_PROTOCOLS = ['http:', 'https:'];
-
-      if (!ALLOWED_PROTOCOLS.includes(urlObj.protocol)) {
-        return reply.status(403).send({
-          error: 'blocked-protocol',
-          message: `Protocol ${urlObj.protocol} is not allowed. Only http: and https: are permitted.`,
-        });
-      }
-
-      if (
-        BLOCKED_HOSTS.includes(urlObj.hostname) ||
-        urlObj.hostname === 'localhost' ||
-        urlObj.hostname.endsWith('.localhost')
-      ) {
-        return reply.status(403).send({
-          error: 'blocked-host',
-          message: 'Internal and private network addresses are not allowed.',
-        });
-      }
-
-      // Check for private IP ranges
-      const privateIPPatterns = [
-        /^10\./,
-        /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-        /^192\.168\./,
-        /^127\./,
-      ];
-      if (privateIPPatterns.some(pattern => pattern.test(urlObj.hostname))) {
-        return reply.status(403).send({
-          error: 'blocked-private-ip',
-          message: 'Private IP addresses are not allowed.',
-        });
-      }
-    } catch {
-      return reply.status(400).send({
-        error: 'invalid-url',
-        message: 'Invalid URL format.',
-      });
-    }
-  }
-
-  let jobId = null;
-  let meta = null;
-  let body = null;
-
-  // If URL provided, enqueue scrape and poll until complete
-  if (url) {
-    jobId = sha256(url);
-    try {
-      await enqueueScrape({ url, userId: request.body?.userId, jobId });
-    } catch (error) {
-      request.log.error({ error }, 'failed to enqueue scrape for summarize');
-      return reply.status(500).send({ error: 'scrape-enqueue-failed' });
+    if (!url && !text) {
+      return reply.status(400).send({ error: 'url-or-text-required' });
     }
 
-    // Poll internally until scrape completes or timeout
-    const pollUntil = Date.now() + maxWaitSeconds * 1000;
-    const pollInterval = 500; // Poll every 500ms
-    let attempts = 0;
-    const maxAttempts = Math.floor((maxWaitSeconds * 1000) / pollInterval);
+    // Tier 1: Security guardrails - validate URL before processing
+    if (url) {
+      try {
+        const urlObj = new URL(url);
+        const BLOCKED_HOSTS = [
+          '169.254.169.254',
+          'metadata.google.internal',
+          'localhost',
+          '127.0.0.1',
+          '::1',
+          '0.0.0.0',
+          'metadata.azure.com',
+        ];
+        const ALLOWED_PROTOCOLS = ['http:', 'https:'];
 
-    while (Date.now() < pollUntil && attempts < maxAttempts) {
-      attempts++;
-      const raw = await safeRedisOperation(() => redisStore.get(`scrape:meta:${jobId}`), null);
-      if (raw) {
-        try {
-          meta = JSON.parse(raw);
-          if (meta.bodyKey) {
-            body = await safeRedisOperation(() => redisStore.get(meta.bodyKey), null);
-            if (body) break;
-          }
-          // Check if scrape failed
-          if (meta.status >= 400 || !meta.allowed) {
-            return reply.status(502).send({
-              error: 'scrape-failed',
-              jobId,
-              meta,
-              message: 'Failed to scrape URL',
-            });
-          }
-        } catch (error) {
-          request.log.warn({ error }, 'failed to parse scrape meta');
+        if (!ALLOWED_PROTOCOLS.includes(urlObj.protocol)) {
+          return reply.status(403).send({
+            error: 'blocked-protocol',
+            message: `Protocol ${urlObj.protocol} is not allowed. Only http: and https: are permitted.`,
+          });
         }
+
+        if (
+          BLOCKED_HOSTS.includes(urlObj.hostname) ||
+          urlObj.hostname === 'localhost' ||
+          urlObj.hostname.endsWith('.localhost')
+        ) {
+          return reply.status(403).send({
+            error: 'blocked-host',
+            message: 'Internal and private network addresses are not allowed.',
+          });
+        }
+
+        // Check for private IP ranges
+        const privateIPPatterns = [
+          /^10\./,
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+          /^192\.168\./,
+          /^127\./,
+        ];
+        if (privateIPPatterns.some(pattern => pattern.test(urlObj.hostname))) {
+          return reply.status(403).send({
+            error: 'blocked-private-ip',
+            message: 'Private IP addresses are not allowed.',
+          });
+        }
+      } catch {
+        return reply.status(400).send({
+          error: 'invalid-url',
+          message: 'Invalid URL format.',
+        });
       }
-      await new Promise(r => globalThis.setTimeout(r, pollInterval));
     }
 
-    // If scrape didn't complete in time, return timeout error
-    if (!body) {
-      return reply.status(504).send({
-        error: 'scrape-timeout',
-        jobId,
-        message: `Scrape did not complete within ${maxWaitSeconds} seconds. Poll /api/scrape/meta/${jobId} for status.`,
-      });
-    }
-  } else {
-    // For raw text, use it directly
-    jobId = sha256(text + Date.now());
-    body = text;
-    meta = {
-      jobId,
-      url: null,
-      status: 200,
-      cached: false,
-      fetchedAt: new Date().toISOString(),
-      bodyKey: `agent:input:${jobId}`,
-    };
-  }
+    let jobId = null;
+    let meta = null;
+    let body = null;
 
-  // Prepare provenance
-  const provenance = {
-    scrapeJobId: jobId,
-    url: url || null,
-    status: meta.status,
-    cached: Boolean(meta.cached),
-    fetchedAt: meta.fetchedAt,
-    durationMs: meta.durationMs || 0,
-    headers: meta.headers || {},
-    bodyKey: meta.bodyKey || `agent:input:${jobId}`,
-    excerpt: body?.slice(0, 500) || '',
-    scrapeErrors: meta.reason || null,
-  };
+    // If URL provided, enqueue scrape and poll until complete
+    if (url) {
+      jobId = sha256(url);
+      try {
+        await enqueueScrape({ url, userId: request.body?.userId, jobId });
+      } catch (error) {
+        request.log.error({ error }, 'failed to enqueue scrape for summarize');
+        return reply.status(500).send({ error: 'scrape-enqueue-failed' });
+      }
 
-  // Call LLM to summarize
-  try {
-    const llmResult = await LLMCircuit.fire({
-      task: 'summarize',
-      inputText: body,
-      url: url || null,
-      question: question || null,
-      userId: request.body?.userId || null,
-    });
+      // CRITICAL FIX: Non-blocking pattern - quick check (2s default), then return 202
+      const quickCheckUntil = Date.now() + (waitFor || 2) * 1000;
+      const pollInterval = 200; // Poll every 200ms for quick check
+      let found = false;
 
-    const result = {
-      summary: llmResult.summary || llmResult.answer,
-      answer: llmResult.answer,
-      highlights: llmResult.highlights || [],
-      model: llmResult.model,
-      jobId,
-      sources: [
-        {
-          url: url || 'text-input',
+      while (Date.now() < quickCheckUntil && !found) {
+        const raw = await safeRedisOperation(() => redisStore.get(`scrape:meta:${jobId}`), null);
+        if (raw) {
+          try {
+            meta = JSON.parse(raw);
+            if (meta.bodyKey) {
+              body = await safeRedisOperation(() => redisStore.get(meta.bodyKey), null);
+              if (body) {
+                found = true;
+                break;
+              }
+            }
+            // Check if scrape failed
+            if (meta.status >= 400 || !meta.allowed) {
+              return reply.status(502).send({
+                error: 'scrape-failed',
+                jobId,
+                meta,
+                message: 'Failed to scrape URL',
+              });
+            }
+          } catch (error) {
+            request.log.warn({ error }, 'failed to parse scrape meta');
+          }
+        }
+        await new Promise(r => globalThis.setTimeout(r, pollInterval));
+      }
+
+      // If not ready quickly, return 202 with subscribe instructions
+      if (!body) {
+        reply.code(202);
+        return {
           jobId,
-          selector: null,
-        },
-      ],
-      provenance,
-    };
-
-    // Store result in Redis for caching (optional)
-    const resultKey = `agent:result:${jobId}:summarize`;
-    await safeRedisOperation(
-      () => redisStore.set(resultKey, JSON.stringify(result), 'EX', 60 * 60),
-      null
-    );
-
-    return result;
-  } catch (error) {
-    request.log.error({ error, jobId }, 'LLM summarize failed');
-
-    // Check if circuit breaker is open
-    if (LLMCircuit.opened) {
-      return reply.status(503).send({
-        error: 'llm-circuit-open',
-        message: 'AI service temporarily unavailable. Please try again later.',
-      });
+          status: 'enqueued',
+          subscribeUrl: `/api/ask?q=${encodeURIComponent(url)}&sessionId=${request.body?.userId || 'anon'}`,
+          message:
+            'Job enqueued. Subscribe to /api/ask with query parameter or poll /api/scrape/meta/:jobId',
+        };
+      }
+    } else {
+      // For raw text, use it directly
+      jobId = sha256(text + Date.now());
+      body = text;
+      meta = {
+        jobId,
+        url: null,
+        status: 200,
+        cached: false,
+        fetchedAt: new Date().toISOString(),
+        bodyKey: `agent:input:${jobId}`,
+      };
     }
 
-    return reply.status(500).send({
-      error: 'summarize-failed',
-      message: error.message || 'Failed to generate summary',
-      jobId,
-    });
+    // Prepare provenance
+    const provenance = {
+      scrapeJobId: jobId,
+      url: url || null,
+      status: meta.status,
+      cached: Boolean(meta.cached),
+      fetchedAt: meta.fetchedAt,
+      durationMs: meta.durationMs || 0,
+      headers: meta.headers || {},
+      bodyKey: meta.bodyKey || `agent:input:${jobId}`,
+      excerpt: body?.slice(0, 500) || '',
+      scrapeErrors: meta.reason || null,
+    };
+
+    // Call LLM to summarize
+    try {
+      const llmResult = await LLMCircuit.fire({
+        task: 'summarize',
+        inputText: body,
+        url: url || null,
+        question: question || null,
+        userId: request.body?.userId || null,
+      });
+
+      const result = {
+        summary: llmResult.summary || llmResult.answer,
+        answer: llmResult.answer,
+        highlights: llmResult.highlights || [],
+        model: llmResult.model,
+        jobId,
+        sources: [
+          {
+            url: url || 'text-input',
+            jobId,
+            selector: null,
+          },
+        ],
+        provenance,
+      };
+
+      // Store result in Redis for caching (optional)
+      const resultKey = `agent:result:${jobId}:summarize`;
+      await safeRedisOperation(
+        () => redisStore.set(resultKey, JSON.stringify(result), 'EX', 60 * 60),
+        null
+      );
+
+      return result;
+    } catch (error) {
+      request.log.error({ error, jobId }, 'LLM summarize failed');
+
+      // Check if circuit breaker is open
+      if (LLMCircuit.opened) {
+        return reply.status(503).send({
+          error: 'llm-circuit-open',
+          message: 'AI service temporarily unavailable. Please try again later.',
+        });
+      }
+
+      return reply.status(500).send({
+        error: 'summarize-failed',
+        message: error.message || 'Failed to generate summary',
+        jobId,
+      });
+    }
   }
-});
+);
 
 // ============================================================================
 // SESSION STATE API - For Tauri migration

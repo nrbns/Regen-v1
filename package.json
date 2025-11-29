@@ -41,6 +41,8 @@
     "storybook": "npx storybook dev -p 6006",
     "storybook:build": "npx storybook build",
     "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:load": "k6 run load-test/k6-summarize.js",
+    "test:load:sse": "k6 run load-test/k6-sse.js",
     "test:multilingual-offline": "playwright test tests/e2e/multilingual-offline.spec.ts --config=playwright.config.ts",
     "test:backend": "playwright test tests/e2e/backend-api.spec.ts --config=playwright.config.ts",
     "test:visual": "playwright test --config=playwright.visual.config.ts",
@@ -65,6 +67,7 @@
     "precommit": "lint-staged"
   },
   "dependencies": {
+    "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.2.0",
     "@langchain/anthropic": "^1.0.1",
     "@langchain/core": "^1.0.5",

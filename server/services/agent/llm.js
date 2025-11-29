@@ -131,7 +131,12 @@ async function callOpenAI(messages, options = {}) {
   };
 }
 
-async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
+// CATEGORY B FIX: Add backpressure to LLM streaming
+async function callOpenAIStream(
+  messages,
+  options = {},
+  { onToken, maxTokensPerSecond = 50, maxBurstSize = 200 } = {}
+) {
   const model = options.model || OPENAI_MODEL;
   const temperature = options.temperature ?? 0.0;
   const maxTokens = options.maxTokens ?? 2000;
@@ -162,6 +167,10 @@ async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
   const decoder = new TextDecoder();
   let buffer = '';
   let modelName = model;
+  let tokenCount = 0;
+  let lastTokenTime = Date.now();
+  let burstBuffer = '';
+  const tokenInterval = 1000 / maxTokensPerSecond; // ms between tokens
 
   for await (const chunk of response.body) {
     buffer += decoder.decode(chunk, { stream: true });
@@ -172,9 +181,15 @@ async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
       if (!event.startsWith('data:')) continue;
       const data = event.slice(5).trim();
       if (data === '[DONE]') {
+        // Flush remaining burst buffer
+        if (burstBuffer && onToken) {
+          onToken(burstBuffer);
+          burstBuffer = '';
+        }
         return {
           model: modelName,
           provider: 'openai',
+          tokensStreamed: tokenCount,
         };
       }
       try {
@@ -182,7 +197,26 @@ async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
         modelName = payload.model || modelName;
         const delta = payload.choices?.[0]?.delta;
         if (delta?.content) {
-          onToken?.(delta.content);
+          const token = delta.content;
+          tokenCount++;
+          burstBuffer += token;
+
+          // CATEGORY B FIX: Rate limit token delivery
+          const now = Date.now();
+          const timeSinceLastToken = now - lastTokenTime;
+
+          if (burstBuffer.length >= maxBurstSize || timeSinceLastToken >= tokenInterval) {
+            if (onToken && burstBuffer) {
+              onToken(burstBuffer);
+              burstBuffer = '';
+            }
+            lastTokenTime = now;
+
+            // If we're sending too fast, add a small delay
+            if (timeSinceLastToken < tokenInterval) {
+              await new Promise(resolve => setTimeout(resolve, tokenInterval - timeSinceLastToken));
+            }
+          }
         }
       } catch (error) {
         console.warn('[llm] Failed to parse OpenAI stream chunk', error);
@@ -190,13 +224,24 @@ async function callOpenAIStream(messages, options = {}, { onToken } = {}) {
     }
   }
 
+  // Flush remaining buffer
+  if (burstBuffer && onToken) {
+    onToken(burstBuffer);
+  }
+
   return {
     model: modelName,
     provider: 'openai',
+    tokensStreamed: tokenCount,
   };
 }
 
-async function callOllamaStream(messages, options = {}, { onToken } = {}) {
+// CATEGORY B FIX: Add backpressure to LLM streaming
+async function callOllamaStream(
+  messages,
+  options = {},
+  { onToken, maxTokensPerSecond = 50, maxBurstSize = 200 } = {}
+) {
   const model = options.model || OLLAMA_MODEL;
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
@@ -219,6 +264,11 @@ async function callOllamaStream(messages, options = {}, { onToken } = {}) {
 
   const decoder = new TextDecoder();
   let buffer = '';
+  let tokenCount = 0;
+  let lastTokenTime = Date.now();
+  let burstBuffer = '';
+  const tokenInterval = 1000 / maxTokensPerSecond; // ms between tokens
+
   for await (const chunk of response.body) {
     buffer += decoder.decode(chunk, { stream: true });
     let boundary;
@@ -229,22 +279,54 @@ async function callOllamaStream(messages, options = {}, { onToken } = {}) {
       try {
         const payload = JSON.parse(line);
         if (payload.done) {
+          // Flush remaining burst buffer
+          if (burstBuffer && onToken) {
+            onToken(burstBuffer);
+            burstBuffer = '';
+          }
           return {
             model: payload.model || model,
             provider: 'ollama',
+            tokensStreamed: tokenCount,
           };
         }
         if (payload.message?.content) {
-          onToken?.(payload.message.content);
+          const token = payload.message.content;
+          tokenCount++;
+          burstBuffer += token;
+
+          // CATEGORY B FIX: Rate limit token delivery
+          const now = Date.now();
+          const timeSinceLastToken = now - lastTokenTime;
+
+          if (burstBuffer.length >= maxBurstSize || timeSinceLastToken >= tokenInterval) {
+            if (onToken && burstBuffer) {
+              onToken(burstBuffer);
+              burstBuffer = '';
+            }
+            lastTokenTime = now;
+
+            // If we're sending too fast, add a small delay
+            if (timeSinceLastToken < tokenInterval) {
+              await new Promise(resolve => setTimeout(resolve, tokenInterval - timeSinceLastToken));
+            }
+          }
         }
       } catch (error) {
         console.warn('[llm] Failed to parse Ollama stream chunk', error);
       }
     }
   }
+
+  // Flush remaining buffer
+  if (burstBuffer && onToken) {
+    onToken(burstBuffer);
+  }
+
   return {
     model,
     provider: 'ollama',
+    tokensStreamed: tokenCount,
   };
 }
 

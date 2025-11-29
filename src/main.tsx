@@ -336,6 +336,27 @@ try {
       }
     });
 
+    // Listen for WISPR wake event (global hotkey Ctrl+Shift+Space)
+    window.addEventListener('wispr-wake', () => {
+      console.log('[Main] WISPR wake triggered via global hotkey');
+      window.dispatchEvent(new CustomEvent('activate-wispr'));
+    });
+
+    // Listen for research metrics events (citations, hallucination risk)
+    window.addEventListener('research-metrics', ((e: CustomEvent) => {
+      console.log('[Research] Metrics updated:', e.detail);
+      // Metrics are handled by ResearchModePanel component
+    }) as EventListener);
+
+    // Listen for research start/end events
+    window.addEventListener('research-start', ((e: CustomEvent) => {
+      console.log('[Research] Started:', e.detail);
+    }) as EventListener);
+
+    window.addEventListener('research-end', ((e: CustomEvent) => {
+      console.log('[Research] Completed:', e.detail);
+    }) as EventListener);
+
     // Listen for iframe-call events (fixes #6204)
     window.addEventListener('iframe-call', ((e: CustomEvent<string>) => {
       try {
