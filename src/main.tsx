@@ -464,7 +464,12 @@ try {
     }
   };
 
-  deferHeavyInit();
+  // DAY 3-4 FIX: Initialize performance monitoring first
+  import('./utils/performance').then(({ initPerformanceMonitoring }) => {
+    initPerformanceMonitoring();
+  }).catch(() => {
+    // Performance monitoring not critical
+  });
 
   // DAY 1 FIX: Initialize Sentry early for crash reporting
   // Initialize Sentry immediately (before other services) for crash capture
@@ -476,8 +481,10 @@ try {
     });
   }
 
-  // Defer telemetry and analytics initialization - wait longer for better performance
-  setTimeout(() => {
+  // DAY 3-4 FIX: Defer ALL non-critical services until after first paint
+  // This significantly improves startup time
+  const deferNonCriticalServices = () => {
+    // Defer telemetry and analytics initialization
     syncRendererTelemetry().catch(error => {
       if (process.env.NODE_ENV === 'development') {
         console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
@@ -493,11 +500,38 @@ try {
           console.warn('[Monitoring] Failed to initialize analytics', error);
         }
       });
-  }, 2000); // Increased delay for better performance
+
+    // DAY 3-4 FIX: Lazy load heavy services after first paint
+    Promise.all([
+      import('./core/crash-reporting').catch(() => null),
+      import('./services/auth').catch(() => null),
+      import('./services/sync').catch(() => null),
+      import('./core/plugins/registry').catch(() => null),
+    ]).then(([crashReporter, authService, syncService, pluginRegistry]) => {
+      // Services loaded, but don't initialize yet - wait for user interaction
+      if (isDevEnv()) {
+        console.log('[Startup] Heavy services loaded (deferred)');
+      }
+    });
+  };
+
+  // Wait for first paint, then defer services
+  if (document.readyState === 'complete') {
+    // Already loaded, defer immediately
+    requestIdleCallback?.(deferNonCriticalServices) || setTimeout(deferNonCriticalServices, 100);
+  } else {
+    // Wait for load event
+    window.addEventListener('load', () => {
+      requestIdleCallback?.(deferNonCriticalServices) || setTimeout(deferNonCriticalServices, 100);
+    }, { once: true });
+  }
+
+  // Keep existing deferHeavyInit for backward compatibility
+  deferHeavyInit();
 
   if (typeof performance !== 'undefined' && performance.now) {
     const bootMs = Math.round(performance.now());
-    void ipc.telemetry.trackPerf('renderer_boot_ms', bootMs);
+    void ipc.telemetry?.trackPerf?.('renderer_boot_ms', bootMs);
   }
 
   if (!existingRoot) {
