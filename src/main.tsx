@@ -25,6 +25,9 @@ if (isDevEnv()) {
 import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
 import { startSnapshotting } from './core/recovery';
 
+// DAY 9 FIX: Onboarding tour for first-time users
+import { QuickStartTour } from './components/Onboarding/QuickStartTour';
+
 // DAY 3-4 FIX: Defer non-critical services - lazy load after first paint
 // These are moved to lazy initialization to improve startup time
 

@@ -19,6 +19,7 @@ mod db;
 mod page_extractor;
 mod chunker;
 mod websocket;
+mod security;
 
 // Production-ready API modules
 pub mod api;
