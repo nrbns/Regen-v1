@@ -3,9 +3,6 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 export default defineConfig({
-  optimizeDeps: {
-    exclude: ['@tauri-apps/api'],
-  },
   plugins: [
     react({
       babel: {
@@ -17,7 +14,7 @@ export default defineConfig({
     // Electron plugin removed - using Tauri now
   ],
   optimizeDeps: {
-    exclude: ['@sentry/electron/renderer'], // Sentry is optional
+    exclude: ['@sentry/electron/renderer', '@tauri-apps/api'], // Sentry and Tauri API are optional
     include: ['lightweight-charts'],
   },
   root: resolve(__dirname),

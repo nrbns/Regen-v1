@@ -1127,6 +1127,7 @@ fn main() {
         .or_else(|_| std::env::var("VITE_SENTRY_DSN"))
         .ok();
     
+    // DAY 1 FIX: Initialize Sentry before panic handler
     let _guard = if let Some(dsn) = sentry_dsn {
         Some(sentry::init((
             dsn,
@@ -1141,11 +1142,14 @@ fn main() {
     };
     
     // DAY 1 FIX: Set up panic handler to capture crashes
-    std::panic::set_hook(Box::new(|panic_info| {
+    // Note: We can't capture _guard in the closure due to lifetime constraints,
+    // but Sentry will still capture panics if initialized
+    let sentry_initialized = _guard.is_some();
+    std::panic::set_hook(Box::new(move |panic_info| {
         eprintln!("[PANIC] Application panicked: {:?}", panic_info);
         
         // Send to Sentry if initialized
-        if let Some(_guard) = _guard.as_ref() {
+        if sentry_initialized {
             sentry::capture_message(
                 &format!("Panic: {:?}", panic_info),
                 sentry::Level::Fatal,
