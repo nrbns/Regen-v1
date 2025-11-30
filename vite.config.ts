@@ -17,6 +17,19 @@ export default defineConfig({
     exclude: ['@sentry/electron/renderer', '@tauri-apps/api'], // Sentry and Tauri API are optional
     include: ['lightweight-charts'],
   },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src'),
+      canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
+      bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
+      'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
+      './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js'),
+      // DAY 10 FIX: Alias @tauri-apps/api to a stub to avoid resolution errors in dev
+      '@tauri-apps/api/core': resolve(__dirname, './stubs/tauri-api-stub.js'),
+      '@tauri-apps/api/event': resolve(__dirname, './stubs/tauri-api-stub.js'),
+      '@tauri-apps/api': resolve(__dirname, './stubs/tauri-api-stub.js'),
+    },
+  },
   root: resolve(__dirname),
   publicDir: 'public',
   esbuild: {
@@ -35,6 +48,9 @@ export default defineConfig({
         '@cliqz/adblocker-electron',
         'chromium-bidi/lib/cjs/bidiMapper/BidiMapper',
         'chromium-bidi/lib/cjs/cdp/CdpConnection',
+        '@tauri-apps/api',
+        '@tauri-apps/api/core',
+        '@tauri-apps/api/event',
       ],
       output: {
         // Optimize chunk names for better caching
@@ -118,15 +134,6 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-    },
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src'),
-      canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
-      bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
-      'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
-      './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js'),
     },
   },
 });
