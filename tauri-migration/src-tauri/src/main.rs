@@ -1132,7 +1132,7 @@ fn main() {
             dsn,
             sentry::ClientOptions {
                 release: sentry::release_name!(),
-                environment: Some(std::env::var("NODE_ENV").unwrap_or_else(|_| "production".to_string())),
+                environment: Some(std::env::var("NODE_ENV").unwrap_or_else(|_| "production".to_string()).into()),
                 ..Default::default()
             },
         )))

@@ -33,12 +33,18 @@ export function FlightCard() {
     window.addEventListener('flight-card', handleFlightCard as EventListener);
     
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
-      const { listen } = require('@tauri-apps/api/event');
-      listen('flight-card', (event: any) => {
-        setFlight(event.payload);
-        setIsVisible(true);
-        setTimeout(() => setIsVisible(false), 20000);
-      });
+      // Dynamic import to avoid Vite dependency scan errors
+      import('@tauri-apps/api/event')
+        .then(({ listen }) => {
+          listen('flight-card', (event: any) => {
+            setFlight(event.payload);
+            setIsVisible(true);
+            setTimeout(() => setIsVisible(false), 20000);
+          });
+        })
+        .catch(() => {
+          // Silently fail if Tauri API is not available
+        });
     }
 
     return () => {
