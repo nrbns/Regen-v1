@@ -633,6 +633,8 @@ try {
                 v7_startTransition: true,
               }}
             />
+            {/* DAY 9 FIX: Show onboarding tour for first-time users */}
+            <QuickStartTour />
           </Suspense>
         </GlobalErrorBoundary>
       </ThemeProvider>
