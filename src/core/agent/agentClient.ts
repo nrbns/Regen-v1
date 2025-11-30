@@ -78,7 +78,56 @@ export async function executeAgent(request: ExecuteRequest): Promise<ExecuteResp
 }
 
 /**
- * Listen for agent events
+ * Start streaming agent research
+ */
+export async function researchAgentStream(request: ResearchAgentRequest): Promise<void> {
+  try {
+    // Extract page text if URL provided
+    let pageText: string | undefined;
+    if (request.url) {
+      try {
+        const extracted = await invoke<{
+          url: string;
+          title: string;
+          text: string;
+          html_hash: string;
+          word_count: number;
+        }>('extract_page_text', { url: request.url });
+        pageText = extracted.text;
+      } catch (err) {
+        console.warn('[Agent] Failed to extract page text:', err);
+      }
+    }
+
+    await invoke('research_agent_stream', {
+      request: {
+        ...request,
+        context: pageText ? pageText.substring(0, 2000) : request.context,
+      },
+    });
+  } catch (error) {
+    console.error('[Agent] Stream failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Listen for agent events (Tauri window events)
+ */
+export async function onAgentEventStream(
+  callback: (event: { type: string; payload: any }) => void
+): Promise<() => void> {
+  const { listen } = await import('@tauri-apps/api/event');
+
+  const unlisten = await listen('agent-event', (event: any) => {
+    callback(event.payload);
+  });
+
+  return unlisten;
+}
+
+/**
+ * Listen for agent events (legacy window events)
  */
 export function onAgentEvent(
   event: 'agent-research-start' | 'agent-research-complete',

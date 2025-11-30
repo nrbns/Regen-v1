@@ -32,11 +32,11 @@ npm install
 cargo install tauri-cli
 
 # Development mode (uses mock LLM - no Ollama needed)
-DEV=true npm run dev
+npm run dev:mock
 
-# Or start mock LLM separately
-DEV=true node server/mock-llm.js
-npm run dev
+# Or start components separately
+DEV=true node server/mock-llm.js  # Mock LLM server on port 4001
+cd tauri-migration && npm run tauri dev  # Tauri app
 ```
 
 ### Production Build (Requires Ollama)
@@ -59,6 +59,7 @@ cd tauri-migration && npm run tauri build
 ### Tauri-Only Runtime
 
 This project **only supports Tauri**. Electron configs have been disabled.
+
 - All development should target `tauri-migration/`
 - Build commands use Tauri CLI
 - See `tauri-migration/src-tauri/tauri.conf.json` for configuration

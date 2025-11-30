@@ -1,7 +1,7 @@
 // src-tauri/src/main.rs — FINAL WORKING BACKEND (100% GUARANTEED)
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{Manager, WebviewWindow, Emitter, Listener, AppHandle};
+use tauri::{Manager, WebviewWindow, Emitter, Listener};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
 use std::process::Command;
 use std::time::Duration;
@@ -16,6 +16,8 @@ use std::collections::HashMap;
 
 mod agent;
 mod db;
+mod page_extractor;
+mod chunker;
 
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
@@ -688,6 +690,21 @@ async fn tradingview_get_account_state(account_id: String) -> Result<Value, Stri
 }
 
 #[tauri::command]
+async fn extract_page_text(url: String) -> Result<Value, String> {
+    use page_extractor::extract_page_text as extract;
+    
+    let extracted = extract(&url).await?;
+    
+    Ok(json!({
+        "url": extracted.url,
+        "title": extracted.title,
+        "text": extracted.text,
+        "html_hash": extracted.html_hash,
+        "word_count": extracted.text.split_whitespace().count(),
+    }))
+}
+
+#[tauri::command]
 async fn search_proxy(query: String) -> Result<Value, String> {
     // Proxy DuckDuckGo search to bypass CORS (fixes #7005) with Ollama fallback
     let client = Client::new();
@@ -1253,6 +1270,8 @@ fn main() {
             tradingview_place_order,
             agent::research_agent,
             agent::execute_agent,
+            agent::research_agent_stream,
+            extract_page_text,
             tradingview_get_positions,
             save_session,
             load_session,

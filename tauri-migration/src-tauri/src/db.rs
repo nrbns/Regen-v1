@@ -3,7 +3,6 @@
 
 use rusqlite::{Connection, Result, params};
 use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -275,12 +274,43 @@ impl Database {
     }
 
     pub fn cache_summary(&self, url: &str, summary: &str) -> Result<()> {
-        let id = format!("cache_{}", url.len());
+        // Generate ID from URL hash for better uniqueness
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        url.hash(&mut hasher);
+        let id = format!("cache_{:x}", hasher.finish());
+        
         self.conn.execute(
             "INSERT OR REPLACE INTO agent_cache (id, url, summary, cached_at) VALUES (?1, ?2, ?3, datetime('now'))",
             params![id, url, summary],
         )?;
         Ok(())
+    }
+    
+    /// Get cached summary by URL and optional HTML hash
+    pub fn get_cached_summary_by_hash(&self, url: &str, html_hash: Option<&str>) -> Result<Option<String>> {
+        let mut stmt = if let Some(_hash) = html_hash {
+            // If hash provided, we could add a hash column later for exact matching
+            // For now, just use URL
+            self.conn.prepare(
+                "SELECT summary FROM agent_cache WHERE url = ?1 ORDER BY cached_at DESC LIMIT 1"
+            )?
+        } else {
+            self.conn.prepare(
+                "SELECT summary FROM agent_cache WHERE url = ?1 ORDER BY cached_at DESC LIMIT 1"
+            )?
+        };
+        
+        let summary_result = stmt.query_row(params![url], |row| {
+            Ok(row.get::<_, String>(0)?)
+        });
+        
+        match summary_result {
+            Ok(summary) => Ok(Some(summary)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 }
 

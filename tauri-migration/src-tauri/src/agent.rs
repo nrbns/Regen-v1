@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use reqwest::Client;
 use tauri::{AppHandle, WebviewWindow, Emitter};
-// Removed unused imports
+use futures_util::StreamExt;
+use std::time::Duration;
+
+// Import db module - it's in the same crate
+use crate::db;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ResearchAgentRequest {
@@ -153,7 +157,7 @@ pub async fn execute_agent(
     }
     
     // If user_id provided and cloud sync enabled, sync to remote
-    if let Some(user_id) = &request.user_id {
+    if let Some(_user_id) = &request.user_id {
         let server_url = std::env::var("REGEN_SERVER_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
         
@@ -335,6 +339,246 @@ async fn sync_to_remote(
         .map_err(|e| format!("Sync failed: {}", e))?;
     
     Ok(())
+}
+
+/**
+ * Tauri command: research_agent_stream
+ * Streaming version that emits AgentEvents as chunks arrive
+ */
+#[tauri::command]
+pub async fn research_agent_stream(
+    request: ResearchAgentRequest,
+    app: AppHandle,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    // Emit start event
+    window.emit("agent-event", json!({
+        "type": "agent_start",
+        "payload": {
+            "query": request.query.clone(),
+            "url": request.url.clone(),
+        }
+    })).ok();
+    
+    // Check cache first (if db module available)
+    if let Some(url) = &request.url {
+        match db::Database::new(&app) {
+            Ok(db) => {
+                if let Ok(Some(cached)) = db.get_cached_summary(url) {
+                window.emit("agent-event", json!({
+                    "type": "partial_summary",
+                    "payload": {
+                        "text": cached.clone(),
+                        "cached": true,
+                    }
+                })).ok();
+                
+                let short_summary: String = cached.chars().take(200).collect();
+                let empty_bullets: Vec<String> = Vec::new();
+                let empty_keywords: Vec<String> = Vec::new();
+                window.emit("agent-event", json!({
+                    "type": "final_summary",
+                    "payload": {
+                        "summary": {
+                            "short": short_summary,
+                            "bullets": empty_bullets,
+                            "keywords": empty_keywords,
+                        },
+                        "cached": true,
+                    }
+                })).ok();
+                
+                window.emit("agent-event", json!({
+                    "type": "agent_end",
+                    "payload": { "success": true, "cached": true }
+                })).ok();
+                
+                return Ok(());
+                }
+            }
+            Err(_) => {
+                // DB not available, continue to LLM
+            }
+        }
+    }
+    
+    // Stream from LLM
+    let ollama_url = std::env::var("OLLAMA_BASE_URL")
+        .unwrap_or_else(|_| "http://localhost:11434".to_string());
+    
+    let model = std::env::var("OLLAMA_MODEL")
+        .unwrap_or_else(|_| "llama3.2:3b".to_string());
+    
+    // Chunk context if it's large
+    let context_text = request.context.as_deref().unwrap_or("");
+    let chunks = if context_text.len() > 4000 {
+        // Use chunker for large contexts
+        use crate::chunker::chunk_by_sentences;
+        chunk_by_sentences(context_text)
+    } else {
+        // Small context, process as single chunk
+        vec![crate::chunker::Chunk {
+            text: context_text.to_string(),
+            index: 0,
+            total: 1,
+        }]
+    };
+    
+    let system_prompt = "You are a research assistant. Provide comprehensive, accurate summaries with citations.";
+    
+    // Process chunks progressively
+    let mut accumulated_summary = String::new();
+    
+    for (chunk_idx, chunk) in chunks.iter().enumerate() {
+        let chunk_prompt = if chunks.len() > 1 {
+            format!(
+                "Query: {}\n\nContext chunk {}/{}:\n{}\n\nProvide a summary of this chunk. Focus on key points relevant to the query.",
+                request.query,
+                chunk.index + 1,
+                chunk.total,
+                chunk.text
+            )
+        } else {
+            format!(
+                "Query: {}\n{}\n\nProvide a detailed research summary with suggested actions.",
+                request.query,
+                chunk.text
+            )
+        };
+        
+        // Emit progress for multi-chunk processing
+        if chunks.len() > 1 {
+            window.emit("agent-event", json!({
+                "type": "partial_summary",
+                "payload": {
+                    "text": format!("\n[Processing chunk {}/{}...]\n", chunk_idx + 1, chunks.len()),
+                    "chunk_index": chunk_idx,
+                }
+            })).ok();
+        }
+        
+        let client = get_http_client();
+        let response = client
+            .post(&format!("{}/api/generate", ollama_url))
+            .json(&json!({
+                "model": model.clone(),
+                "prompt": format!("{}\n\n{}", system_prompt, chunk_prompt),
+                "stream": true,
+                "options": {
+                    "temperature": 0.7,
+                }
+            }))
+            .timeout(Duration::from_secs(60))
+            .send()
+            .await;
+    
+        match response {
+            Ok(res) if res.status().is_success() => {
+                let mut stream = res.bytes_stream();
+                let mut chunk_response = String::new();
+                let mut token_count = 0;
+                
+                while let Some(chunk) = stream.next().await {
+                    if let Ok(bytes) = chunk {
+                        if let Ok(text) = std::str::from_utf8(&bytes) {
+                            for line in text.lines() {
+                                let line = line.trim();
+                                if line.is_empty() { continue; }
+                                
+                                if let Ok(json) = serde_json::from_str::<Value>(line) {
+                                    if json["done"] == true || json["done"].as_bool().unwrap_or(false) {
+                                        // Chunk complete, accumulate
+                                        if !chunk_response.is_empty() {
+                                            accumulated_summary.push_str(&chunk_response);
+                                            accumulated_summary.push_str("\n\n");
+                                        }
+                                        break;
+                                    }
+                                    
+                                    if let Some(token) = json["response"].as_str() {
+                                        chunk_response.push_str(token);
+                                        accumulated_summary.push_str(token);
+                                        token_count += 1;
+                                        
+                                        // Emit partial summary every 5 tokens for real-time feel
+                                        if token_count % 5 == 0 {
+                                            window.emit("agent-event", json!({
+                                                "type": "partial_summary",
+                                                "payload": {
+                                                    "text": token,
+                                                    "chunk_index": chunk_idx,
+                                                }
+                                            })).ok();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {
+                // Chunk failed, continue with next or finalize
+                if chunk_idx == chunks.len() - 1 {
+                    // Last chunk failed
+                    window.emit("agent-event", json!({
+                        "type": "error",
+                        "payload": {
+                            "message": "Failed to process chunk. Partial results available."
+                        }
+                    })).ok();
+                }
+            }
+        }
+    }
+    
+    // Finalize summary from all chunks
+    if !accumulated_summary.is_empty() {
+        let summary = Summary {
+            short: accumulated_summary.chars().take(200).collect(),
+            bullets: accumulated_summary
+                .lines()
+                .filter(|l| l.trim().starts_with("-") || l.trim().starts_with("*"))
+                .take(3)
+                .map(|s| s.trim().trim_start_matches("-").trim_start_matches("*").trim().to_string())
+                .collect::<Vec<_>>(),
+            keywords: extract_keywords(&request.query, &accumulated_summary),
+        };
+        
+        window.emit("agent-event", json!({
+            "type": "final_summary",
+            "payload": {
+                "summary": summary,
+                "citations": 1,
+                "hallucination": "medium",
+                "confidence": 0.7,
+            }
+        })).ok();
+        
+        // Cache result
+        if let Some(url) = &request.url {
+            if let Ok(db) = db::Database::new(&app) {
+                let _ = db.cache_summary(url, &accumulated_summary);
+            }
+        }
+        
+        window.emit("agent-event", json!({
+            "type": "agent_end",
+            "payload": { "success": true }
+        })).ok();
+        
+        Ok(())
+    } else {
+        // No summary generated
+        window.emit("agent-event", json!({
+            "type": "error",
+            "payload": {
+                "message": "Failed to generate summary. Make sure Ollama is running."
+            }
+        })).ok();
+        
+        Err("Failed to generate summary".to_string())
+    }
 }
 
 fn extract_keywords(query: &str, text: &str) -> Vec<String> {

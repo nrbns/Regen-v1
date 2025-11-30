@@ -18,6 +18,7 @@ import {
 import { SessionWorkspace, ResearchSession } from '../../core/workspace/SessionWorkspace';
 import { toast } from '../../utils/toast';
 import { AgentSuggestions } from './AgentSuggestions';
+import { StreamingAgentSidebar } from './StreamingAgentSidebar';
 import { HighlightToNote } from '../../core/content/highlightToNote';
 import { UniversalSearchUI } from '../search/UniversalSearchUI';
 
@@ -233,6 +234,9 @@ export function ResearchWorkspace() {
           </button>
         </div>
       </div>
+
+      {/* Streaming Agent Sidebar */}
+      <StreamingAgentSidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
