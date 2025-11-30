@@ -55,3 +55,4 @@ export async function storeSnapshot(payload: {
     metadataPath: `s3://${config.storage.bucket}/${metaKey}`,
   } satisfies SnapshotRecord;
 }
+

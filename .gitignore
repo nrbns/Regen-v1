@@ -1,13 +1,17 @@
 # Dependencies
 node_modules/
+**/node_modules/
 .pnp
 .pnp.js
+package-lock.json
+yarn.lock
 
 # Build outputs
 dist/
 dist-electron/
 dist-web/
 build/
+.next/
 out/
 redix-core/runtime/pkg/
 *.tsbuildinfo
@@ -17,6 +21,8 @@ storybook-static/
 .env
 .env.local
 .env.*.local
+.env.production
+env.js
 # Keep example.env for reference
 !.env.example
 !example.env
@@ -34,7 +40,10 @@ Thumbs.db
 
 # Rust / Tauri
 /target/
+**/target/
 /**/*.crate
+src-tauri/target/
+tauri-migration/src-tauri/target/
 
 # Binaries / installers
 *.exe
@@ -71,8 +80,10 @@ __pycache__/
 .temp/
 tmp/
 
-# Electron
+# Electron (removed - using Tauri)
 *.asar
+electron/
+electron-builder/
 
 # Documentation (implementation notes)
 *_IMPLEMENTATION*.md
@@ -85,3 +96,14 @@ PRIVACY_STACK_IMPLEMENTATION.md
 
 perf/*.json
 
+# Mobile (if not building yet)
+android/
+ios/
+capacitor.config.ts
+
+# Test automation (move to separate repo later)
+playwright/
+cypress/
+
+# Large assets (only ignore very large ones - keep essential logos/icons)
+# Note: Keep logo.png, favicon, and icon files - only ignore large wallpapers/assets >500KB

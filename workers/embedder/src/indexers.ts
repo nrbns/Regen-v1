@@ -88,3 +88,4 @@ export function createIndexWriter(): IndexWriter {
   }
   return new NoopIndexWriter();
 }
+

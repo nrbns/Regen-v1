@@ -69,8 +69,18 @@ export async function summarize(options: SummarizeOptions): Promise<SummarizeRes
     });
 
     // CATEGORY C FIX: Check if backend returns 202 (async job) - subscribe via SSE
-    const response = await fetch(
-      `${typeof window !== 'undefined' ? (window as any).__API_BASE_URL || 'http://127.0.0.1:4000' : 'http://127.0.0.1:4000'}/api/summarize`,
+    // Read API base URL from .env (Vite env variables)
+    const apiBaseUrl =
+      typeof window !== 'undefined'
+        ? (window as any).__API_BASE_URL ||
+          import.meta.env.VITE_API_BASE_URL ||
+          import.meta.env.VITE_APP_API_URL ||
+          'http://127.0.0.1:4000'
+        : import.meta.env.VITE_API_BASE_URL ||
+          import.meta.env.VITE_APP_API_URL ||
+          'http://127.0.0.1:4000';
+    
+    const response = await fetch(`${apiBaseUrl}/api/summarize`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

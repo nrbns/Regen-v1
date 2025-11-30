@@ -11,10 +11,16 @@ import {
   markBackendUnavailable,
 } from './backend-status';
 
+// CATEGORY C FIX: Read API base URL from .env (Vite env variables)
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (window as any).__API_BASE_URL || 'http://127.0.0.1:4000'
-    : 'http://127.0.0.1:4000';
+    ? (window as any).__API_BASE_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_APP_API_URL ||
+      'http://127.0.0.1:4000'
+    : import.meta.env.VITE_API_BASE_URL ||
+      import.meta.env.VITE_APP_API_URL ||
+      'http://127.0.0.1:4000';
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';

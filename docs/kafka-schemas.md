@@ -185,3 +185,4 @@ Used when batching chunks for embedding.
 - Add headers to Kafka messages for quicker routing:
   - `source_id`, `license`, `crawl_batch`, `retry_count`, `hash`.
 - Schema registry: Confluent Schema Registry or equivalent (Redpanda, Karapace).
+

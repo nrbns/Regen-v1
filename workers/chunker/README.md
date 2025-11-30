@@ -34,3 +34,4 @@ npm run dev
 - Improve tokenizer (sentence-aware, heading-based splits).
 - Support dynamic chunk sizing per source_type.
 - Emit chunk hashes for deduplication / change detection.
+

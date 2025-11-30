@@ -29,3 +29,4 @@ cargo tauri dev
 # Test: Ctrl+Shift+Space (app closed) → WISPR wakes
 # Test: Trade Mode → Click Nifty → Live price + BUY signal streams
 ```
+

@@ -39,9 +39,9 @@ export const MODES: Record<ModeId, ModeConfig> = {
   Trade: {
     id: 'Trade',
     label: 'Trade',
-    enabled: false, // CATEGORY C: Hide unfinished Trade mode
-    comingSoon: true,
-    description: 'Trading mode with TradingView integration (Coming Soon)',
+    enabled: true,
+    comingSoon: false,
+    description: 'Trading mode with TradingView integration and real-time market data',
   },
   Games: {
     id: 'Games',

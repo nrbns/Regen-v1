@@ -66,37 +66,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return url;
   }, [tab?.url, language]);
 
-  // Tauri webview event handlers
-  useEffect(() => {
-    if (!isTauri || !targetUrl || !webviewRef.current) {
-      return;
-    }
-
-    const webview = webviewRef.current;
-    setLoading(true);
-    setFailedMessage(null);
-
-    const handleLoad = () => {
-      setLoading(false);
-      setFailedMessage(null);
-    };
-
-    const handleFail = () => {
-      setLoading(false);
-      setFailedMessage('Failed to load this page. Please check the URL or your connection.');
-    };
-
-    // Tauri webview events (similar to Electron)
-    webview.addEventListener('did-finish-load', handleLoad);
-    webview.addEventListener('did-fail-load', handleFail);
-
-    return () => {
-      webview.removeEventListener('did-finish-load', handleLoad);
-      webview.removeEventListener('did-fail-load', handleFail);
-      setLoading(false);
-      setFailedMessage(null);
-    };
-  }, [isTauri, targetUrl]);
+  // Tauri: Use IPC to navigate main window or create new webview window
+  // For now, we'll use iframe for Tauri as well (Tauri v2 doesn't support webview tag)
 
   // In Electron, BrowserView is managed by main process, so we don't need webview event handlers
   // The main process handles all BrowserView lifecycle events
@@ -219,7 +190,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   }, [isElectron, isTauri, targetUrl]);
 
   useEffect(() => {
-    if (isElectron || isTauri || !iframeRef.current || !targetUrl) {
+    // Use iframe for both web builds and Tauri (Tauri v2 doesn't support webview tag)
+    if (isElectron || !iframeRef.current || !targetUrl) {
       return;
     }
 
@@ -309,10 +281,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     }
 
     // In Electron, BrowserView navigation is handled by electron/services/tabs.ts
-    // In Tauri, webview src is set directly in the JSX
-    // We don't need to update webview src here for Electron/Tauri
-    if (isElectron || isTauri) {
-      // BrowserView/webview is managed by main process or set directly
+    // For Tauri and web builds, use iframe
+    if (isElectron) {
+      // BrowserView is managed by main process
       return;
     } else {
       const iframe = iframeRef.current;
@@ -380,32 +351,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         zIndex: isInactive ? 0 : 1,
       }}
     >
-      {/* In Electron, BrowserView is managed by main process, so we don't render webview tag here */}
-      {/* The BrowserView is positioned by electron/services/tabs.ts */}
-      {/* For Tauri, use native webview tag */}
-      {/* For web builds, use iframe fallback */}
-      {isTauri && targetUrl ? (
-        <webview
-          ref={webviewRef}
-          src={targetUrl}
-          className="w-full h-full"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            backgroundColor: '#000000',
-            display: loading || failedMessage ? 'none' : 'block',
-          }}
-          allowpopups
-          partition="persist:regen"
-          webpreferences="javascript=yes,contextIsolation=false,webSecurity=false,allowRunningInsecureContent=true"
-        />
-      ) : !isElectron && !isTauri ? (
+      {/* In Electron, BrowserView is managed by main process */}
+      {/* For Tauri and web builds, use iframe (Tauri v2 doesn't support webview tag) */}
+      {!isElectron && targetUrl ? (
         <iframe
           ref={iframeRef}
           className="w-full h-full border-0"
@@ -421,8 +369,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           }}
           src={targetUrl ?? 'about:blank'}
           sandbox={SAFE_IFRAME_SANDBOX}
-          allow="fullscreen; autoplay; camera; microphone; geolocation; payment"
+          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write"
           allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
           title={tab?.title ?? 'Tab content'}
           aria-label={
             tab?.title
@@ -514,17 +463,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                       }
                       setFailedMessage(null);
                       setLoading(true);
-                    } else if (targetUrl && isTauri && webviewRef.current) {
-                      // In Tauri, reload webview
-                      setFailedMessage(null);
-                      setLoading(true);
-                      try {
-                        webviewRef.current.reload();
-                      } catch {
-                        // If reload fails, set src again
-                        webviewRef.current.src = targetUrl;
-                      }
-                    } else if (targetUrl && !isElectron && !isTauri && iframeRef.current) {
+                    } else if (targetUrl && !isElectron && iframeRef.current) {
                       setFailedMessage(null);
                       setLoading(true);
                       iframeRef.current.src = targetUrl;
@@ -541,7 +480,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       </AnimatePresence>
 
       <AnimatePresence>
-        {!isElectron && !isTauri && blockedExternal && (
+        {!isElectron && blockedExternal && (
           <motion.div
             className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 px-6"
             initial={{ opacity: 0 }}
@@ -556,20 +495,21 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               className="max-w-lg space-y-4 rounded-3xl border border-emerald-500/40 bg-emerald-500/15 p-6 text-center text-sm text-emerald-100 shadow-2xl shadow-black/50"
             >
               <div className="text-lg font-semibold text-emerald-50">
-                {new URL(targetUrl).hostname} works best in its own tab
+                {targetUrl ? new URL(targetUrl).hostname : 'This page'} cannot be embedded
               </div>
               <p className="text-emerald-100/70">
-                This site blocks embedded views for security. Open it in a dedicated tab or use the
-                Electron build for a fully integrated webview.
+                This site blocks embedded views for security (X-Frame-Options). You can open it in your system browser or use the desktop build for full webview support.
               </p>
-              <button
-                type="button"
-                onClick={launchExternal}
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-50 transition hover:border-emerald-300/70 hover:bg-emerald-500/30"
-              >
-                <ExternalLink size={16} />
-                Open {new URL(targetUrl).hostname}
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={launchExternal}
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-50 transition hover:border-emerald-300/70 hover:bg-emerald-500/30"
+                >
+                  <ExternalLink size={16} />
+                  Open in Browser
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

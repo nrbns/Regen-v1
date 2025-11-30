@@ -2548,6 +2548,44 @@ export const ipc = {
   trade: {
     execute: (query: string) =>
       ipcCall<{ query: string }, string>('execute_trade_command', { query }),
+    // TradingView API Integration
+    tradingviewAuthorize: (login: string, password: string) =>
+      ipcCall<{ login: string; password: string }, { s: string; d: { access_token: string; expiration: number } }>(
+        'tradingview_authorize',
+        { login, password }
+      ),
+    tradingviewQuotes: (accountId: string, symbols: string) =>
+      ipcCall<{ accountId: string; symbols: string }, { s: string; d: Array<any> }>(
+        'tradingview_quotes',
+        { accountId, symbols }
+      ),
+    tradingviewPlaceOrder: (params: {
+      accountId: string;
+      instrument: string;
+      qty: number;
+      side: 'buy' | 'sell';
+      orderType: 'market' | 'limit' | 'stop' | 'stoplimit';
+      limitPrice?: number;
+      stopPrice?: number;
+      currentAsk: number;
+      currentBid: number;
+      stopLoss?: number;
+      takeProfit?: number;
+    }) =>
+      ipcCall<typeof params, { s: string; d: { orderId: string; transactionId?: string } }>(
+        'tradingview_place_order',
+        params
+      ),
+    tradingviewGetPositions: (accountId: string) =>
+      ipcCall<{ accountId: string }, { s: string; d: Array<any> }>(
+        'tradingview_get_positions',
+        { accountId }
+      ),
+    tradingviewGetAccountState: (accountId: string) =>
+      ipcCall<{ accountId: string }, { s: string; d: { balance: number; unrealizedPl: number; equity: number } }>(
+        'tradingview_get_account_state',
+        { accountId }
+      ),
     placeOrder: (order: {
       symbol: string;
       side: 'buy' | 'sell';

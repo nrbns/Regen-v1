@@ -59,3 +59,4 @@ export class FrontierQueue {
     await this.redis.quit();
   }
 }
+

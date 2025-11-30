@@ -21,8 +21,9 @@ export const CSP_DIRECTIVE = [
   'manifest-src *;',
 ].join(' ');
 
+// More permissive sandbox for web builds - allows sites to load properly
 export const SAFE_IFRAME_SANDBOX =
-  'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-top-navigation-by-user-activation allow-downloads allow-modals allow-presentation';
+  'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-pointer-lock allow-top-navigation allow-top-navigation-by-user-activation allow-downloads allow-modals allow-presentation allow-orientation-lock allow-pointer-lock';
 
 export const TRUSTED_EXTENSION_URLS = [
   'regen://extensions',

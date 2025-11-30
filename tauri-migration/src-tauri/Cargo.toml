@@ -23,6 +23,7 @@ futures-util = "0.3"
 urlencoding = "2.1"
 tauri-plugin-global-shortcut = "2.0"
 sysinfo = "0.31"  # For process management and memory monitoring
+dotenv = "0.15"  # For loading .env file
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
 

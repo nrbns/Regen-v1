@@ -9,22 +9,255 @@ use tokio::time::sleep;
 use reqwest::Client;
 use serde_json::{json, Value};
 use futures_util::StreamExt;
+use urlencoding;
 
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
     let client = Client::new();
-    let prompt = format!("Regen Research: Answer '{query}' with sources/citations. Estimate hallucination risk (low/medium/high). Use table for comparisons. Answer in the user's language.");
 
+    // CRITICAL FIX: Try DuckDuckGo first (real search)
+    let proxy_url = format!("https://api.duckduckgo.com/?q={}&format=json&no_html=1", 
+        urlencoding::encode(&query));
+    let proxy_res = client.get(&proxy_url)
+        .header("User-Agent", "RegenBrowser/1.0")
+        .send().await;
+
+    if let Ok(res) = proxy_res {
+        if res.status().is_success() {
+            if let Ok(json) = res.json::<Value>().await {
+                let summary = json["AbstractText"].as_str().unwrap_or("No summary found.");
+                let empty_vec = Vec::<Value>::new();
+                let topics = json["RelatedTopics"].as_array().unwrap_or(&empty_vec);
+                let citations = topics.len() as u32;
+                
+                window.emit("research-start", json!({ 
+                    "query": query.clone(), 
+                    "citations": citations, 
+                    "hallucination": "analyzing" 
+                })).ok();
+                
+                window.emit("research-token", format!("Summary: {summary}\n\n")).ok();
+                
+                if citations > 0 {
+                    for (idx, topic) in topics.iter().take(5).enumerate() {
+                        if let Some(text) = topic["Text"].as_str() {
+                            window.emit("research-token", format!("[{}] {}\n", idx + 1, text)).ok();
+                        }
+                    }
+                }
+                
+                let hallucination = if citations >= 2 { "low" } else { "medium" };
+                window.emit("research-metrics", json!({ 
+                    "citations": citations, 
+                    "hallucination": hallucination 
+                })).ok();
+                window.emit("research-end", json!({ 
+                    "response": format!("Summary: {summary}"), 
+                    "citations": citations, 
+                    "hallucination": hallucination 
+                })).ok();
+                return Ok(());
+            }
+        }
+    }
+
+    // Fallback 1: Try OpenAI if API key is available
+    if let Ok(openai_key) = std::env::var("OPENAI_API_KEY") {
+        if !openai_key.is_empty() && !openai_key.contains("your-") {
+            let openai_prompt = format!("Answer in Hindi/English: {query}. Use table if comparison. Provide sources and citations.");
+            let openai_res = client.post("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", format!("Bearer {}", openai_key))
+                .header("Content-Type", "application/json")
+                .json(&json!({
+                    "model": "gpt-4o-mini",
+                    "messages": [{
+                        "role": "user",
+                        "content": openai_prompt
+                    }],
+                    "stream": true
+                }))
+                .send().await;
+
+            if let Ok(openai_res) = openai_res {
+                if openai_res.status().is_success() {
+                    let mut stream = openai_res.bytes_stream();
+                    let mut full_response = String::new();
+                    
+                    window.emit("research-start", json!({ 
+                        "query": query.clone(), 
+                        "citations": 0, 
+                        "hallucination": "analyzing" 
+                    })).ok();
+
+                    while let Some(chunk) = stream.next().await {
+                        if let Ok(bytes) = chunk {
+                            if let Ok(text) = std::str::from_utf8(&bytes) {
+                                for line in text.lines() {
+                                    let line = line.trim();
+                                    if line.is_empty() || !line.starts_with("data: ") { continue; }
+                                    
+                                    let data = &line[6..];
+                                    if data == "[DONE]" {
+                                        let citations = full_response.matches("source:").count() as u32
+                                            + full_response.matches("citation:").count() as u32;
+                                        let citations = citations.max(1);
+                                        let hallucination = if citations >= 2 { "low" } else { "medium" };
+                                        
+                                        window.emit("research-metrics", json!({ 
+                                            "citations": citations, 
+                                            "hallucination": hallucination 
+                                        })).ok();
+                                        window.emit("research-end", json!({ 
+                                            "response": full_response, 
+                                            "citations": citations, 
+                                            "hallucination": hallucination 
+                                        })).ok();
+                                        return Ok(());
+                                    }
+                                    
+                                    if let Ok(json) = serde_json::from_str::<Value>(data) {
+                                        if let Some(choices) = json["choices"].as_array() {
+                                            if let Some(choice) = choices.first() {
+                                                if let Some(delta) = choice["delta"].as_object() {
+                                                    if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
+                                                        full_response.push_str(content);
+                                                        window.emit("research-token", content).ok();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Stream ended
+                    let citations = full_response.matches("source:").count() as u32
+                        + full_response.matches("citation:").count() as u32;
+                    let citations = citations.max(1);
+                    let hallucination = if citations >= 2 { "low" } else { "medium" };
+                    
+                    window.emit("research-metrics", json!({ 
+                        "citations": citations, 
+                        "hallucination": hallucination 
+                    })).ok();
+                    window.emit("research-end", json!({ 
+                        "response": full_response, 
+                        "citations": citations, 
+                        "hallucination": hallucination 
+                    })).ok();
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Fallback 2: Try Claude if API key is available
+    if let Ok(claude_key) = std::env::var("ANTHROPIC_API_KEY") {
+        if !claude_key.is_empty() && !claude_key.contains("your-") {
+            let claude_prompt = format!("Answer in Hindi/English: {query}. Use table if comparison. Provide sources and citations.");
+            let claude_res = client.post("https://api.anthropic.com/v1/messages")
+                .header("x-api-key", claude_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .json(&json!({
+                    "model": "claude-3-5-sonnet-20241022",
+                    "max_tokens": 4096,
+                    "messages": [{
+                        "role": "user",
+                        "content": claude_prompt
+                    }],
+                    "stream": true
+                }))
+                .send().await;
+
+            if let Ok(claude_res) = claude_res {
+                if claude_res.status().is_success() {
+                    let mut stream = claude_res.bytes_stream();
+                    let mut full_response = String::new();
+                    
+                    window.emit("research-start", json!({ 
+                        "query": query.clone(), 
+                        "citations": 0, 
+                        "hallucination": "analyzing" 
+                    })).ok();
+
+                    while let Some(chunk) = stream.next().await {
+                        if let Ok(bytes) = chunk {
+                            if let Ok(text) = std::str::from_utf8(&bytes) {
+                                for line in text.lines() {
+                                    let line = line.trim();
+                                    if line.is_empty() || !line.starts_with("data: ") { continue; }
+                                    
+                                    let data = &line[6..];
+                                    if data == "[DONE]" || data == "[event:message_stop]" {
+                                        let citations = full_response.matches("source:").count() as u32
+                                            + full_response.matches("citation:").count() as u32;
+                                        let citations = citations.max(1);
+                                        let hallucination = if citations >= 2 { "low" } else { "medium" };
+                                        
+                                        window.emit("research-metrics", json!({ 
+                                            "citations": citations, 
+                                            "hallucination": hallucination 
+                                        })).ok();
+                                        window.emit("research-end", json!({ 
+                                            "response": full_response, 
+                                            "citations": citations, 
+                                            "hallucination": hallucination 
+                                        })).ok();
+                                        return Ok(());
+                                    }
+                                    
+                                    if let Ok(json) = serde_json::from_str::<Value>(data) {
+                                        if let Some(event_type) = json["type"].as_str() {
+                                            if event_type == "content_block_delta" {
+                                                if let Some(delta) = json["delta"].as_object() {
+                                                    if let Some(text) = delta.get("text").and_then(|v| v.as_str()) {
+                                                        full_response.push_str(text);
+                                                        window.emit("research-token", text).ok();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Stream ended
+                    let citations = full_response.matches("source:").count() as u32
+                        + full_response.matches("citation:").count() as u32;
+                    let citations = citations.max(1);
+                    let hallucination = if citations >= 2 { "low" } else { "medium" };
+                    
+                    window.emit("research-metrics", json!({ 
+                        "citations": citations, 
+                        "hallucination": hallucination 
+                    })).ok();
+                    window.emit("research-end", json!({ 
+                        "response": full_response, 
+                        "citations": citations, 
+                        "hallucination": hallucination 
+                    })).ok();
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Fallback 3: Ollama (offline)
+    let prompt = format!("Answer in Hindi/English: {query}. Use table if comparison.");
     let res = client.post("http://127.0.0.1:11434/api/generate")
         .json(&json!({
             "model": "llama3.2:3b",
             "prompt": prompt,
-            "stream": true,
-            "options": { "temperature": 0.3 }
+            "stream": true
         }))
         .send().await;
 
-    // Try Ollama first
+    // Try Ollama
     match res {
         Ok(res) if res.status().is_success() => {
             let mut stream = res.bytes_stream();
@@ -224,6 +457,54 @@ async fn trade_stream(symbol: String, window: WebviewWindow) -> Result<(), Strin
 #[tauri::command]
 async fn trade_api(symbol: String) -> Result<Value, String> {
     let client = Client::new();
+    
+    // Try TradingView API first if configured
+    if let Ok(tv_base_url) = std::env::var("TRADINGVIEW_API_BASE_URL") {
+        if !tv_base_url.is_empty() {
+            if let Ok(access_token) = std::env::var("TRADINGVIEW_ACCESS_TOKEN") {
+                if !access_token.is_empty() {
+                    // Use TradingView /quotes endpoint
+                    let account_id = std::env::var("TRADINGVIEW_ACCOUNT_ID").unwrap_or_else(|_| "default".to_string());
+                    let quotes_url = format!("{}/quotes?accountId={}&symbols={}&locale=en", 
+                        tv_base_url, account_id, symbol);
+                    
+                    let tv_res = client
+                        .get(&quotes_url)
+                        .header("Authorization", format!("Bearer {}", access_token))
+                        .send()
+                        .await;
+                    
+                    if let Ok(res) = tv_res {
+                        if res.status().is_success() {
+                            if let Ok(json) = res.json::<Value>().await {
+                                // Convert TradingView format to our format
+                                if let Some(data) = json["d"].as_array() {
+                                    if let Some(quote) = data.first() {
+                                        let bid = quote["bid"].as_f64().unwrap_or(0.0);
+                                        let ask = quote["ask"].as_f64().unwrap_or(0.0);
+                                        let price = (bid + ask) / 2.0;
+                                        
+                                        return Ok(json!({
+                                            "chart": {
+                                                "result": [{
+                                                    "meta": {
+                                                        "regularMarketPrice": price,
+                                                        "regularMarketChangePercent": 0.0
+                                                    }
+                                                }]
+                                            }
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback to Yahoo Finance
     let yahoo = if symbol == "NIFTY" { "^NSEI" } else { "^NSEBANK" };
     let res = client
         .get(&format!("https://query1.finance.yahoo.com/v8/finance/chart/{}", yahoo))
@@ -243,6 +524,161 @@ fn iframe_invoke(shim: String, window: WebviewWindow) -> Result<(), String> {
     window
         .emit("iframe-call", shim)
         .map_err(|e| format!("Emit failed: {}", e))
+}
+
+// TradingView API Integration
+#[tauri::command]
+async fn tradingview_authorize(login: String, password: String) -> Result<Value, String> {
+    let client = Client::new();
+    let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
+        .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
+    
+    let res = client
+        .post(&format!("{}/authorize", base_url))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!("login={}&password={}&locale=en", 
+            urlencoding::encode(&login), 
+            urlencoding::encode(&password)))
+        .send()
+        .await
+        .map_err(|e| format!("TradingView auth failed: {}", e))?;
+    
+    if res.status().is_success() {
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))
+    } else {
+        Err(format!("Auth failed with status: {}", res.status()))
+    }
+}
+
+#[tauri::command]
+async fn tradingview_quotes(account_id: String, symbols: String) -> Result<Value, String> {
+    let client = Client::new();
+    let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
+        .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
+    let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
+        .unwrap_or_else(|_| "".to_string());
+    
+    let res = client
+        .get(&format!("{}/quotes?accountId={}&symbols={}&locale=en", 
+            base_url, account_id, urlencoding::encode(&symbols)))
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("TradingView quotes failed: {}", e))?;
+    
+    if res.status().is_success() {
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))
+    } else {
+        Err(format!("Quotes failed with status: {}", res.status()))
+    }
+}
+
+#[tauri::command]
+async fn tradingview_place_order(
+    account_id: String,
+    instrument: String,
+    qty: f64,
+    side: String,
+    order_type: String,
+    limit_price: Option<f64>,
+    stop_price: Option<f64>,
+    current_ask: f64,
+    current_bid: f64,
+    stop_loss: Option<f64>,
+    take_profit: Option<f64>
+) -> Result<Value, String> {
+    let client = Client::new();
+    let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
+        .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
+    let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
+        .unwrap_or_else(|_| "".to_string());
+    
+    let mut body = format!(
+        "instrument={}&qty={}&side={}&type={}&currentAsk={}&currentBid={}",
+        urlencoding::encode(&instrument), qty, side, order_type, current_ask, current_bid
+    );
+    
+    if let Some(limit) = limit_price {
+        body.push_str(&format!("&limitPrice={}", limit));
+    }
+    if let Some(stop) = stop_price {
+        body.push_str(&format!("&stopPrice={}", stop));
+    }
+    if let Some(sl) = stop_loss {
+        body.push_str(&format!("&stopLoss={}", sl));
+    }
+    if let Some(tp) = take_profit {
+        body.push_str(&format!("&takeProfit={}", tp));
+    }
+    
+    let res = client
+        .post(&format!("{}/accounts/{}/orders?locale=en", base_url, account_id))
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| format!("TradingView place order failed: {}", e))?;
+    
+    if res.status().is_success() {
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))
+    } else {
+        Err(format!("Place order failed with status: {}", res.status()))
+    }
+}
+
+#[tauri::command]
+async fn tradingview_get_positions(account_id: String) -> Result<Value, String> {
+    let client = Client::new();
+    let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
+        .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
+    let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
+        .unwrap_or_else(|_| "".to_string());
+    
+    let res = client
+        .get(&format!("{}/accounts/{}/positions?locale=en", base_url, account_id))
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("TradingView get positions failed: {}", e))?;
+    
+    if res.status().is_success() {
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))
+    } else {
+        Err(format!("Get positions failed with status: {}", res.status()))
+    }
+}
+
+#[tauri::command]
+async fn tradingview_get_account_state(account_id: String) -> Result<Value, String> {
+    let client = Client::new();
+    let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
+        .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
+    let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
+        .unwrap_or_else(|_| "".to_string());
+    
+    let res = client
+        .get(&format!("{}/accounts/{}/state?locale=en", base_url, account_id))
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await
+        .map_err(|e| format!("TradingView get account state failed: {}", e))?;
+    
+    if res.status().is_success() {
+        res.json::<Value>()
+            .await
+            .map_err(|e| format!("JSON parse failed: {}", e))
+    } else {
+        Err(format!("Get account state failed with status: {}", res.status()))
+    }
 }
 
 #[tauri::command]
@@ -375,12 +811,16 @@ async fn research_api(query: String, _window: WebviewWindow) -> Result<Value, St
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() {
+    // Load .env file if it exists (for API keys: OPENAI_API_KEY, ANTHROPIC_API_KEY)
+    let _ = dotenv::dotenv();
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            // Fix OLLAMA_ORIGIN for Tauri (allows localhost:11434 from webview)
-            std::env::set_var("OLLAMA_ORIGINS", "*"); // Temp dev; restrict prod to "tauri://localhost"
-            std::env::set_var("OLLAMA_HOST", "0.0.0.0:11434"); // Bind all interfaces
+            // CRITICAL FIX: Fix Ollama 403 error in Tauri
+            std::env::set_var("OLLAMA_ORIGIN", "tauri://localhost");
+            std::env::set_var("OLLAMA_ORIGINS", "*"); // Also set for compatibility
+            std::env::set_var("OLLAMA_HOST", "127.0.0.1:11434");
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
 
             let window = app.get_webview_window("main").unwrap();
@@ -400,32 +840,114 @@ fn main() {
                 });
             }
 
-            // AUTO START EVERYTHING
+            // AUTO START EVERYTHING - BUNDLED BINARIES
             #[cfg(target_os = "windows")]
             {
+                // Get app local data directory for bin folder
+                let bin_path = match app.path().app_local_data_dir() {
+                    Ok(path) => path.join("bin"),
+                    Err(_) => {
+                        eprintln!("Failed to get app local data dir");
+                        return Ok(());
+                    }
+                };
+
+                // Ensure bin folder exists
+                if let Err(e) = std::fs::create_dir_all(&bin_path) {
+                    eprintln!("Failed to create bin directory: {}", e);
+                    return Ok(());
+                }
+
+                // Try to copy binaries from resources to local data (if bundled in production)
+                // Note: In dev, binaries should be in src-tauri/bin/ folder
+                // In production, they might be in the bundle resources
+                if let Ok(res_dir) = app.path().resource_dir() {
+                    let bundled_bin = res_dir.join("bin");
+                    if bundled_bin.exists() {
+                        // Copy binaries from bundle to local data
+                        for bin_name in &["ollama.exe", "meilisearch.exe", "n8n.exe"] {
+                            let src = bundled_bin.join(bin_name);
+                            let dst = bin_path.join(bin_name);
+                            if src.exists() && !dst.exists() {
+                                if let Err(e) = std::fs::copy(&src, &dst) {
+                                    eprintln!("Failed to copy {}: {}", bin_name, e);
+                                } else {
+                                    // Make executable (Windows)
+                                    let _ = Command::new("icacls")
+                                        .args([dst.to_str().unwrap(), "/grant", "Everyone:F"])
+                                        .spawn();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Also check for binaries in src-tauri/bin (dev mode)
+                let dev_bin_path = std::env::current_dir()
+                    .ok()
+                    .and_then(|cwd| {
+                        // Try to find src-tauri/bin from current dir
+                        let mut path = cwd;
+                        loop {
+                            let test_path = path.join("src-tauri").join("bin");
+                            if test_path.exists() {
+                                return Some(test_path);
+                            }
+                            match path.parent() {
+                                Some(p) => path = p.to_path_buf(),
+                                None => break,
+                            }
+                        }
+                        None
+                    });
+
+                // Copy from dev bin folder if it exists and binaries aren't in local data
+                if let Some(dev_bin) = dev_bin_path {
+                    for bin_name in &["ollama.exe", "meilisearch.exe", "n8n.exe"] {
+                        let src = dev_bin.join(bin_name);
+                        let dst = bin_path.join(bin_name);
+                        if src.exists() && !dst.exists() {
+                            if let Err(e) = std::fs::copy(&src, &dst) {
+                                eprintln!("Failed to copy {} from dev: {}", bin_name, e);
+                            } else {
+                                let _ = Command::new("icacls")
+                                    .args([dst.to_str().unwrap(), "/grant", "Everyone:F"])
+                                    .spawn();
+                            }
+                        }
+                    }
+                }
+
                 let window_clone = window.clone();
+                let bin_path_clone = bin_path.clone();
                 tauri::async_runtime::spawn(async move {
                     // Wait a bit for UI to render
                     sleep(Duration::from_secs(2)).await;
 
-                    // Check if Ollama is already running
-                    let ollama_running = Command::new("cmd")
-                        .args(["/C", "ollama", "list"])
-                        .output()
-                        .ok()
-                        .map(|o| o.status.success())
-                        .unwrap_or(false);
-
-                    if !ollama_running {
-                        // Try to start Ollama from PATH first
+                    // Start Ollama from bundled location
+                    let ollama_exe = bin_path_clone.join("ollama.exe");
+                    if ollama_exe.exists() {
+                        let _ = Command::new(&ollama_exe)
+                            .arg("serve")
+                            .current_dir(&bin_path_clone)
+                            .spawn();
+                        sleep(Duration::from_secs(3)).await;
+                    } else {
+                        // Fallback to PATH
                         let _ = Command::new("cmd")
                             .args(["/C", "start", "/B", "ollama", "serve"])
                             .spawn();
                         sleep(Duration::from_secs(3)).await;
                     }
 
-                    // Try to pull model (non-blocking) - verify it exists first
-                    let model_check = Command::new("ollama")
+                    // Try to pull model (non-blocking)
+                    let ollama_cmd = if ollama_exe.exists() {
+                        ollama_exe.to_str().unwrap()
+                    } else {
+                        "ollama"
+                    };
+                    
+                    let model_check = Command::new(ollama_cmd)
                         .args(["list"])
                         .output()
                         .ok()
@@ -436,39 +958,39 @@ fn main() {
                         .unwrap_or(true);
                     
                     if needs_pull {
-                        let _ = Command::new("ollama")
+                        let _ = Command::new(ollama_cmd)
                             .args(["pull", "llama3.2:3b"])
                             .spawn();
                     }
 
-                    // Wait a bit more for Ollama to be fully ready
+                    // Start MeiliSearch from bundled location
+                    let meilisearch_exe = bin_path_clone.join("meilisearch.exe");
+                    if meilisearch_exe.exists() {
+                        let _ = Command::new(&meilisearch_exe)
+                            .args(["--master-key=regen2026"])
+                            .current_dir(&bin_path_clone)
+                            .spawn();
+                    } else {
+                        // Fallback to PATH
+                        let _ = Command::new("cmd")
+                            .args(["/C", "start", "/B", "meilisearch", "--master-key=regen2026"])
+                            .spawn();
+                    }
+
+                    // Start n8n from bundled location
+                    let n8n_exe = bin_path_clone.join("n8n.exe");
+                    if n8n_exe.exists() {
+                        let _ = Command::new(&n8n_exe)
+                            .args(["start", "--tunnel"])
+                            .current_dir(&bin_path_clone)
+                            .spawn();
+                    }
+
+                    // Wait a bit more for everything to be ready
                     sleep(Duration::from_secs(2)).await;
                     window_clone.emit("ollama-ready", ()).ok();
                     window_clone.emit("backend-ready", ()).ok();
                 });
-
-                // Try to start MeiliSearch and n8n from bin if available
-                if let Ok(bin_path) = app.path().app_local_data_dir() {
-                    let bin_path = bin_path.join("bin");
-                    if bin_path.exists() {
-                        // MeiliSearch
-                        let _ = Command::new("cmd")
-                            .args(["/C", "start", "/B", "meilisearch.exe", "--master-key=regen2026"])
-                            .current_dir(&bin_path)
-                            .spawn();
-
-                        // n8n
-                        let _ = Command::new("cmd")
-                            .args(["/C", "start", "/B", "n8n.exe", "start", "--tunnel"])
-                            .current_dir(&bin_path)
-                            .spawn();
-                    }
-                }
-
-                // Also try MeiliSearch from PATH if bin doesn't exist
-                let _ = Command::new("cmd")
-                    .args(["/C", "start", "/B", "meilisearch", "--master-key=regen2026"])
-                    .spawn();
             }
 
             Ok(())
@@ -479,7 +1001,12 @@ fn main() {
             trade_stream,
             trade_api,
             iframe_invoke,
-            search_proxy
+            search_proxy,
+            tradingview_authorize,
+            tradingview_quotes,
+            tradingview_place_order,
+            tradingview_get_positions,
+            tradingview_get_account_state
         ])
         .run(tauri::generate_context!())
         .expect("error while running Regen");
