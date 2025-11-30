@@ -3,12 +3,7 @@
  * DAY 8 FIX: Validates and sanitizes all IPC messages for security
  */
 
-import { z } from 'zod';
-
-// Common validation schemas
-const urlSchema = z.string().url().or(z.string().startsWith('regen://'));
-const nonEmptyStringSchema = z.string().min(1).max(10000);
-const safeStringSchema = z.string().regex(/^[a-zA-Z0-9\s\-_.,!?@#$%^&*()]+$/).max(1000);
+// Note: zod schemas removed as they were unused
 
 /**
  * Validate IPC command name
@@ -40,6 +35,7 @@ export function sanitizeString(input: unknown): string {
   }
   
   // Remove null bytes and control characters
+  // eslint-disable-next-line no-control-regex
   let sanitized = input.replace(/[\x00-\x1F\x7F]/g, '');
   
   // Limit length
@@ -153,7 +149,8 @@ export async function safeIpcInvoke<T = unknown>(
   // Import IPC dynamically to avoid circular dependencies
   const { ipc } = await import('../lib/ipc-typed');
   
-  // Invoke with validated payload
-  return ipc.invoke(command, safePayload) as Promise<T>;
+  // Invoke with validated payload using the typed IPC client
+  // @ts-expect-error - invoke is available but not in the type definition
+  return (ipc as any).invoke(command, safePayload) as Promise<T>;
 }
 

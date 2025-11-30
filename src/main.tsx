@@ -510,7 +510,7 @@ try {
       import('./services/auth').catch(() => null),
       import('./services/sync').catch(() => null),
       import('./core/plugins/registry').catch(() => null),
-    ]).then(([crashReporter, authService, syncService, pluginRegistry]) => {
+    ]).then(([_crashReporter, _authService, _syncService, _pluginRegistry]) => {
       // Services loaded, but don't initialize yet - wait for user interaction
       if (isDevEnv()) {
         console.log('[Startup] Heavy services loaded (deferred)');
@@ -521,11 +521,19 @@ try {
   // Wait for first paint, then defer services
   if (document.readyState === 'complete') {
     // Already loaded, defer immediately
-    requestIdleCallback?.(deferNonCriticalServices) || setTimeout(deferNonCriticalServices, 100);
+    if (requestIdleCallback) {
+      requestIdleCallback(deferNonCriticalServices);
+    } else {
+      setTimeout(deferNonCriticalServices, 100);
+    }
   } else {
     // Wait for load event
     window.addEventListener('load', () => {
-      requestIdleCallback?.(deferNonCriticalServices) || setTimeout(deferNonCriticalServices, 100);
+      if (requestIdleCallback) {
+        requestIdleCallback(deferNonCriticalServices);
+      } else {
+        setTimeout(deferNonCriticalServices, 100);
+      }
     }, { once: true });
   }
 

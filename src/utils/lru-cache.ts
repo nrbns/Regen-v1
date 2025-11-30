@@ -56,7 +56,9 @@ export class LRUCache<K, V> {
     // If cache is full, remove least recently used
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
 
     // Add new entry
