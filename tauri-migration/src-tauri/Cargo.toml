@@ -30,6 +30,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }  # For generating IDs
 md5 = "0.7"  # For HTML hashing
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }  # WebSocket server
 futures = "0.3"  # For async streams
+lazy_static = "1.4"  # For static initialization
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
 

@@ -22,6 +22,9 @@ import { listen } from '@tauri-apps/api/event';
 import { useTabsStore } from '../../state/tabsStore';
 import { toast } from '../../utils/toast';
 
+// WebSocket client for real-time streaming
+const WS_URL = 'ws://127.0.0.1:18080/agent_ws';
+
 // AgentEvent types matching Tauri backend
 type AgentEvent =
   | { type: 'agent_start'; payload: { query: string; url?: string } }
@@ -29,7 +32,8 @@ type AgentEvent =
   | { type: 'action_suggestion'; payload: Action }
   | { type: 'final_summary'; payload: FinalSummary }
   | { type: 'agent_end'; payload: { success: boolean; cached?: boolean } }
-  | { type: 'error'; payload: { message: string } };
+  | { type: 'error'; payload: { message: string } }
+  | { type: 'agent_busy'; payload: { message: string } };
 
 interface Action {
   id: string;
@@ -65,6 +69,8 @@ export function StreamingAgentSidebar() {
   const { tabs, activeId } = useTabsStore();
   const activeTab = tabs.find(t => t.id === activeId);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current URL when active tab changes
   useEffect(() => {
@@ -73,72 +79,151 @@ export function StreamingAgentSidebar() {
     }
   }, [activeTab]);
 
-  // Listen for agent events
+  // Connect to WebSocket for real-time streaming
   useEffect(() => {
-    let unlistenFn: (() => void) | null = null;
+    let ws: WebSocket | null = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
 
-    const setupListener = async () => {
+    const connectWebSocket = () => {
       try {
-        unlistenFn = await listen('agent-event', (event: any) => {
-          const agentEvent = event.payload as AgentEvent;
+        ws = new WebSocket(WS_URL);
+        wsRef.current = ws;
 
-          switch (agentEvent.type) {
-            case 'agent_start':
-              setIsStreaming(true);
-              setSummaryText('');
-              setFinalSummary(null);
-              setSuggestedActions([]);
-              setError(null);
-              setIsCached(false);
-              setQuery(agentEvent.payload.query);
-              break;
+        ws.onopen = () => {
+          console.log('[WebSocket] Connected to agent server');
+          reconnectAttempts = 0;
 
-            case 'partial_summary':
-              if (agentEvent.payload.cached) {
-                setIsCached(true);
-              }
-              setSummaryText(prev => prev + agentEvent.payload.text);
-              break;
+          // Send ping to verify connection
+          ws?.send(JSON.stringify({ type: 'ping' }));
+        };
 
-            case 'action_suggestion':
-              setSuggestedActions(prev => [...prev, agentEvent.payload]);
-              break;
+        ws.onmessage = event => {
+          try {
+            const data = JSON.parse(event.data);
 
-            case 'final_summary':
-              setFinalSummary(agentEvent.payload);
-              setIsStreaming(false);
-              break;
+            // Handle pong
+            if (data.type === 'pong') {
+              return;
+            }
 
-            case 'agent_end':
-              setIsStreaming(false);
-              if (agentEvent.payload.success) {
+            // Handle connection confirmation
+            if (data.type === 'connected') {
+              console.log('[WebSocket] Connection confirmed:', data.connection_id);
+              return;
+            }
+
+            // Handle agent events
+            const agentEvent = data as AgentEvent;
+
+            switch (agentEvent.type) {
+              case 'agent_start':
+                setIsStreaming(true);
+                setSummaryText('');
+                setFinalSummary(null);
+                setSuggestedActions([]);
+                setError(null);
+                setIsCached(false);
+                setQuery(agentEvent.payload.query);
+                break;
+
+              case 'partial_summary':
                 if (agentEvent.payload.cached) {
-                  toast.success('Loaded from cache');
-                } else {
-                  toast.success('Research complete');
+                  setIsCached(true);
                 }
-              }
-              break;
+                setSummaryText(prev => prev + agentEvent.payload.text);
+                break;
 
-            case 'error':
-              setError(agentEvent.payload.message);
-              setIsStreaming(false);
-              toast.error(agentEvent.payload.message);
-              break;
+              case 'action_suggestion':
+                setSuggestedActions(prev => [...prev, agentEvent.payload]);
+                break;
+
+              case 'final_summary':
+                setFinalSummary(agentEvent.payload);
+                setIsStreaming(false);
+                break;
+
+              case 'agent_end':
+                setIsStreaming(false);
+                if (agentEvent.payload.success) {
+                  if (agentEvent.payload.cached) {
+                    toast.success('Loaded from cache');
+                  } else {
+                    toast.success('Research complete');
+                  }
+                }
+                break;
+
+              case 'error':
+                setError(agentEvent.payload.message);
+                setIsStreaming(false);
+                toast.error(agentEvent.payload.message);
+                break;
+
+              case 'agent_busy':
+                setError(agentEvent.payload.message);
+                setIsStreaming(false);
+                toast.warning(agentEvent.payload.message);
+                break;
+            }
+          } catch (err) {
+            console.error('[WebSocket] Failed to parse message:', err);
           }
-        });
+        };
 
-        unlistenRef.current = unlistenFn;
+        ws.onerror = error => {
+          console.error('[WebSocket] Error:', error);
+        };
+
+        ws.onclose = () => {
+          console.log('[WebSocket] Connection closed');
+          wsRef.current = null;
+
+          // Attempt reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+            console.log(`[WebSocket] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+
+            wsReconnectTimeoutRef.current = setTimeout(() => {
+              connectWebSocket();
+            }, delay);
+          } else {
+            console.error('[WebSocket] Max reconnect attempts reached');
+            toast.error('Lost connection to agent server');
+          }
+        };
       } catch (err) {
-        console.error('[StreamingAgentSidebar] Failed to setup listener:', err);
+        console.error('[WebSocket] Failed to connect:', err);
+        // Fallback to Tauri events if WebSocket fails
+        setupTauriListener();
       }
     };
 
-    setupListener();
+    // Fallback: Listen for Tauri events if WebSocket unavailable
+    const setupTauriListener = async () => {
+      try {
+        const unlistenFn = await listen('agent-event', (event: any) => {
+          const agentEvent = event.payload as AgentEvent;
+          // Same event handling as WebSocket
+        });
+        unlistenRef.current = unlistenFn;
+      } catch (err) {
+        console.error('[StreamingAgentSidebar] Failed to setup Tauri listener:', err);
+      }
+    };
+
+    connectWebSocket();
 
     return () => {
-      if (unlistenFn) {
-        unlistenFn();
+      if (ws) {
+        ws.close();
+      }
+      if (wsReconnectTimeoutRef.current) {
+        clearTimeout(wsReconnectTimeoutRef.current);
+      }
+      if (unlistenRef.current) {
+        unlistenRef.current();
       }
     };
   }, []);
@@ -168,15 +253,30 @@ export function StreamingAgentSidebar() {
         }
       }
 
-      // Start streaming agent
-      await invoke('research_agent_stream', {
-        request: {
-          query: query.trim(),
-          url: currentUrl || undefined,
-          context: pageText ? pageText.substring(0, 2000) : undefined, // Limit context size
-          mode: 'local' as const,
-        },
-      });
+      // Try WebSocket first, fallback to Tauri invoke
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Send start_agent message via WebSocket
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'start_agent',
+            query: query.trim(),
+            url: currentUrl || undefined,
+            context: pageText ? pageText.substring(0, 2000) : undefined,
+            mode: 'local',
+            session_id: undefined,
+          })
+        );
+      } else {
+        // Fallback to Tauri invoke
+        await invoke('research_agent_stream', {
+          request: {
+            query: query.trim(),
+            url: currentUrl || undefined,
+            context: pageText ? pageText.substring(0, 2000) : undefined,
+            mode: 'local' as const,
+          },
+        });
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to start agent');
       setIsStreaming(false);

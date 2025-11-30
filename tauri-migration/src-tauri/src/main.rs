@@ -18,6 +18,7 @@ mod agent;
 mod db;
 mod page_extractor;
 mod chunker;
+mod websocket;
 
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
@@ -1085,6 +1086,15 @@ fn main() {
             std::env::set_var("OLLAMA_ORIGINS", "*"); // Also set for compatibility
             std::env::set_var("OLLAMA_HOST", "127.0.0.1:11434");
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
+            
+            // Start WebSocket server for real-time agent streaming
+            // Use tauri::async_runtime to spawn in the correct runtime context
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = websocket::start_websocket_server(app_handle).await {
+                    eprintln!("[WebSocket] Failed to start server: {}", e);
+                }
+            });
 
             let window = app.get_webview_window("main").unwrap();
 
