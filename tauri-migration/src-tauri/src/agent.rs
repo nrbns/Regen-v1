@@ -67,9 +67,13 @@ pub struct ExecuteResponse {
     pub executed_at: String,
 }
 
-// Use a function to get HTTP client (simpler than lazy_static)
+// DAY 2 FIX #2: Add User-Agent to all requests for CORS compatibility
 fn get_http_client() -> Client {
-    Client::new()
+    Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .timeout(Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| Client::new())
 }
 
 // Rate limiting: track active streams per session
@@ -283,42 +287,72 @@ async fn stream_llm_response_ws(
                 let mut chunk_response = String::new();
                 let mut token_count = 0;
                 
+                // Improved stream parsing with buffer for chunked responses
+                let mut buffer = String::new();
                 while let Some(chunk) = stream.next().await {
                     if let Ok(bytes) = chunk {
                         if let Ok(text) = std::str::from_utf8(&bytes) {
-                            for line in text.lines() {
-                                let line = line.trim();
+                            buffer.push_str(text);
+                            
+                            // Process complete lines from buffer
+                            while let Some(newline_pos) = buffer.find('\n') {
+                                let line = buffer[..newline_pos].trim().to_string();
+                                buffer = buffer[newline_pos + 1..].to_string();
+                                
                                 if line.is_empty() { continue; }
                                 
-                                if let Ok(json) = serde_json::from_str::<Value>(line) {
-                                    if json["done"] == true || json["done"].as_bool().unwrap_or(false) {
-                                        // Chunk complete, accumulate
-                                        if !chunk_response.is_empty() {
-                                            accumulated_summary.push_str(&chunk_response);
-                                            accumulated_summary.push_str("\n\n");
+                                // Parse JSON - handle both Ollama format and SSE format
+                                match serde_json::from_str::<Value>(&line) {
+                                    Ok(json) => {
+                                        if json["done"] == true || json["done"].as_bool().unwrap_or(false) {
+                                            // Chunk complete, accumulate
+                                            if !chunk_response.is_empty() {
+                                                accumulated_summary.push_str(&chunk_response);
+                                                accumulated_summary.push_str("\n\n");
+                                            }
+                                            break;
                                         }
-                                        break;
-                                    }
-                                    
-                                    if let Some(token) = json["response"].as_str() {
-                                        chunk_response.push_str(token);
-                                        accumulated_summary.push_str(token);
-                                        token_count += 1;
                                         
-                                        // Emit partial summary every 5 tokens for real-time feel
-                                        if token_count % 5 == 0 {
-                                            let partial_event = json!({
-                                                "type": "partial_summary",
-                                                "payload": {
-                                                    "text": token,
-                                                    "chunk_index": chunk_idx,
-                                                }
-                                            });
-                                            tx.send(Message::Text(partial_event.to_string())).await?;
+                                        // Try multiple possible response fields
+                                        let token = json["response"].as_str()
+                                            .or_else(|| json["text"].as_str())
+                                            .or_else(|| json["content"].as_str());
+                                        
+                                        if let Some(token) = token {
+                                            chunk_response.push_str(token);
+                                            accumulated_summary.push_str(token);
+                                            token_count += 1;
+                                            
+                                            // Emit partial summary every 3 tokens for better real-time feel
+                                            if token_count % 3 == 0 {
+                                                let partial_event = json!({
+                                                    "type": "partial_summary",
+                                                    "payload": {
+                                                        "text": token,
+                                                        "chunk_index": chunk_idx,
+                                                    }
+                                                });
+                                                tx.send(Message::Text(partial_event.to_string())).await?;
+                                            }
                                         }
+                                    }
+                                    Err(e) => {
+                                        // Log parse errors in dev mode only
+                                        #[cfg(debug_assertions)]
+                                        eprintln!("[Agent] JSON parse error: {} for line: {}", e, line);
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // Handle any remaining buffer content
+                if !buffer.is_empty() {
+                    if let Ok(json) = serde_json::from_str::<Value>(buffer.trim()) {
+                        if let Some(token) = json["response"].as_str() {
+                            chunk_response.push_str(token);
+                            accumulated_summary.push_str(token);
                         }
                     }
                 }

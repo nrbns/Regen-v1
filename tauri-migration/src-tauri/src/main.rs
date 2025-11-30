@@ -22,7 +22,11 @@ mod websocket;
 
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
 
     // CRITICAL FIX: Try DuckDuckGo first (real search)
     let proxy_url = format!("https://api.duckduckgo.com/?q={}&format=json&no_html=1", 
@@ -398,11 +402,13 @@ async fn research_stream(query: String, window: WebviewWindow) -> Result<(), Str
 
 #[tauri::command]
 async fn trade_stream(symbol: String, window: WebviewWindow) -> Result<(), String> {
-    // Live price
-    let client = Client::new();
+    // Live price - DAY 2 FIX #2: User-Agent for Yahoo CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let yahoo = if symbol == "NIFTY" { "^NSEI" } else { "^NSEBANK" };
     let price_res = client.get(&format!("https://query1.finance.yahoo.com/v8/finance/chart/{}", yahoo))
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .query(&[("interval", "1m"), ("range", "1d")])
         .send().await.ok();
     
@@ -465,7 +471,11 @@ async fn trade_stream(symbol: String, window: WebviewWindow) -> Result<(), Strin
 
 #[tauri::command]
 async fn trade_api(symbol: String) -> Result<Value, String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     
     // Try TradingView API first if configured
     if let Ok(tv_base_url) = std::env::var("TRADINGVIEW_API_BASE_URL") {
@@ -538,7 +548,11 @@ fn iframe_invoke(shim: String, window: WebviewWindow) -> Result<(), String> {
 // TradingView API Integration
 #[tauri::command]
 async fn tradingview_authorize(login: String, password: String) -> Result<Value, String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
         .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
     
@@ -563,7 +577,11 @@ async fn tradingview_authorize(login: String, password: String) -> Result<Value,
 
 #[tauri::command]
 async fn tradingview_quotes(account_id: String, symbols: String) -> Result<Value, String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
         .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
     let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
@@ -644,7 +662,11 @@ async fn tradingview_place_order(
 
 #[tauri::command]
 async fn tradingview_get_positions(account_id: String) -> Result<Value, String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
         .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
     let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
@@ -668,7 +690,11 @@ async fn tradingview_get_positions(account_id: String) -> Result<Value, String> 
 
 #[tauri::command]
 async fn tradingview_get_account_state(account_id: String) -> Result<Value, String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let base_url = std::env::var("TRADINGVIEW_API_BASE_URL")
         .unwrap_or_else(|_| "https://your-rest-implementation.com/api".to_string());
     let access_token = std::env::var("TRADINGVIEW_ACCESS_TOKEN")
@@ -708,13 +734,17 @@ async fn extract_page_text(url: String) -> Result<Value, String> {
 #[tauri::command]
 async fn search_proxy(query: String) -> Result<Value, String> {
     // Proxy DuckDuckGo search to bypass CORS (fixes #7005) with Ollama fallback
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     let url = format!("https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1", 
         urlencoding::encode(&query));
     
     match client
         .get(&url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .header("Accept", "application/json")
         .send()
         .await
     {
@@ -759,7 +789,11 @@ async fn search_proxy(query: String) -> Result<Value, String> {
 #[tauri::command]
 async fn research_api(query: String, _window: WebviewWindow) -> Result<Value, String> {
     // Combined research API: search proxy + Ollama analysis with metrics
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     
     // First try search proxy
     let search_url = format!("https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1", 
@@ -836,7 +870,11 @@ async fn research_api(query: String, _window: WebviewWindow) -> Result<Value, St
 // Weather command - Real API + Offline fallback
 #[tauri::command]
 async fn get_weather(city: String, window: WebviewWindow) -> Result<(), String> {
-    let client = Client::new();
+    // DAY 2 FIX #2: User-Agent for CORS
+    let client = Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| Client::new());
     
     // Try free OpenWeatherMap API (basic tier)
     let api_key = std::env::var("OPENWEATHER_API_KEY").unwrap_or_else(|_| "demo".to_string());
@@ -1081,9 +1119,9 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            // CRITICAL FIX: Fix Ollama 403 error in Tauri
-            std::env::set_var("OLLAMA_ORIGIN", "tauri://localhost");
-            std::env::set_var("OLLAMA_ORIGINS", "*"); // Also set for compatibility
+            // DAY 1 FIX #1: Set OLLAMA_ORIGIN to "*" for 100% compatibility
+            std::env::set_var("OLLAMA_ORIGIN", "*");
+            std::env::set_var("OLLAMA_ORIGINS", "*");
             std::env::set_var("OLLAMA_HOST", "127.0.0.1:11434");
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
             
@@ -1098,9 +1136,9 @@ fn main() {
 
             let window = app.get_webview_window("main").unwrap();
 
-            // Register global hotkey for WISPR orb (Ctrl+Shift+Space)
+            // DAY 3 FIX #2: Register global hotkey for WISPR orb (Ctrl+Space) - simpler, more reliable
             let window_clone = window.clone();
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
+            let shortcut = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
             if let Err(e) = app.global_shortcut().register(shortcut) {
                 eprintln!("Failed to register global hotkey: {}", e);
             } else {
@@ -1197,20 +1235,68 @@ fn main() {
                     // Wait a bit for UI to render
                     sleep(Duration::from_secs(2)).await;
 
-                    // Start Ollama from bundled location
+                    // Start Ollama from bundled location - improved reliability
                     let ollama_exe = bin_path_clone.join("ollama.exe");
+                    let mut ollama_started = false;
+                    
                     if ollama_exe.exists() {
-                        let _ = Command::new(&ollama_exe)
+                        // Try to start from bundled location
+                        match Command::new(&ollama_exe)
                             .arg("serve")
                             .current_dir(&bin_path_clone)
-                            .spawn();
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn() {
+                            Ok(_) => {
+                                ollama_started = true;
+                                eprintln!("[Ollama] Started from bundled location");
+                            }
+                            Err(e) => {
+                                eprintln!("[Ollama] Failed to start from bundle: {}", e);
+                            }
+                        }
                         sleep(Duration::from_secs(3)).await;
-                    } else {
+                    }
+                    
+                    if !ollama_started {
                         // Fallback to PATH
-                        let _ = Command::new("cmd")
+                        match Command::new("cmd")
                             .args(["/C", "start", "/B", "ollama", "serve"])
-                            .spawn();
-                        sleep(Duration::from_secs(3)).await;
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn() {
+                            Ok(_) => {
+                                eprintln!("[Ollama] Started from PATH");
+                                sleep(Duration::from_secs(3)).await;
+                            }
+                            Err(e) => {
+                                eprintln!("[Ollama] Failed to start from PATH: {}", e);
+                                // Emit error to frontend
+                                window_clone.emit("ollama-error", format!("Failed to start Ollama: {}", e)).ok();
+                            }
+                        }
+                    }
+                    
+                    // Verify Ollama is running by checking if port is accessible
+                    let mut ollama_ready = false;
+                    for _ in 0..10 {
+                        if let Ok(res) = reqwest::Client::new()
+                            .get("http://127.0.0.1:11434/api/tags")
+                            .timeout(Duration::from_secs(1))
+                            .send()
+                            .await {
+                            if res.status().is_success() {
+                                ollama_ready = true;
+                                eprintln!("[Ollama] Verified running on port 11434");
+                                break;
+                            }
+                        }
+                        sleep(Duration::from_secs(1)).await;
+                    }
+                    
+                    if !ollama_ready {
+                        eprintln!("[Ollama] Warning: Could not verify Ollama is running");
+                        window_clone.emit("ollama-warning", "Ollama may not be running. Please start manually.").ok();
                     }
 
                     // Try to pull model (non-blocking)
