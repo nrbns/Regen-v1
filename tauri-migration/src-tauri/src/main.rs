@@ -20,6 +20,9 @@ mod page_extractor;
 mod chunker;
 mod websocket;
 
+// Production-ready API modules
+pub mod api;
+
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
     // DAY 2 FIX #2: User-Agent for CORS
