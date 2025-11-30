@@ -55,6 +55,7 @@
     "build:lunr": "node scripts/build-lunr.js",
     "dev:fast": "npx cross-env JSDOM_NO_CANVAS=1 OB_DISABLE_HEAVY_SERVICES=1 vite --mode development",
     "clean": "node scripts/clean-cache.js",
+    "analyze:bundle": "node scripts/analyze-bundle.js",
     "clean:all": "npm run clean && rimraf node_modules && npm install",
     "kill:dev": "node scripts/kill-dev-processes.js",
     "audit:prod": "npm audit --omit=dev",

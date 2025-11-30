@@ -25,11 +25,8 @@ if (isDevEnv()) {
 import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
 import { startSnapshotting } from './core/recovery';
 
-// Tier 3: Initialize services
-import { crashReporter } from './core/crash-reporting';
-import { authService } from './services/auth';
-import { syncService } from './services/sync';
-import { pluginRegistry } from './core/plugins/registry';
+// DAY 3-4 FIX: Defer non-critical services - lazy load after first paint
+// These are moved to lazy initialization to improve startup time
 
 // Lazy load components to avoid loading everything at once
 // Add error handling to prevent blank pages on import failures
