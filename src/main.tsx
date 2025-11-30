@@ -300,7 +300,7 @@ try {
   // Tier 3: Initialize services - DEFER EVERYTHING to avoid blocking render
   // Initialize crash reporter immediately (lightweight) - async to avoid blocking
   import('./core/crash-reporting')
-    .then(({ default: crashReporter }) => {
+    .then(({ crashReporter }) => {
       crashReporter.initialize();
     })
     .catch(() => {
