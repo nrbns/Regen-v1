@@ -75,7 +75,7 @@ fn get_http_client() -> Client {
 #[tauri::command]
 pub async fn research_agent(
     request: ResearchAgentRequest,
-    app: AppHandle,
+    _app: AppHandle,
     window: WebviewWindow,
 ) -> Result<ResearchAgentResponse, String> {
     let start_time = std::time::Instant::now();

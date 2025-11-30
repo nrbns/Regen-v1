@@ -6,6 +6,7 @@ use serde::{Serialize, Deserialize};
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Session {
     pub id: String,
     pub title: String,
@@ -15,6 +16,7 @@ pub struct Session {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Note {
     pub id: String,
     pub session_id: Option<String>,
@@ -24,6 +26,7 @@ pub struct Note {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct AgentCache {
     pub id: String,
     pub url: String,
@@ -105,6 +108,7 @@ impl Database {
     }
 
     // Session operations
+    #[allow(dead_code)]
     pub fn save_session(&self, session: &Session) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO sessions (id, title, user_id, data, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -113,6 +117,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_session(&self, id: &str) -> Result<Option<Session>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, title, user_id, data, created_at FROM sessions WHERE id = ?1"
@@ -135,6 +140,7 @@ impl Database {
         }
     }
 
+    #[allow(dead_code)]
     pub fn list_sessions(&self, user_id: Option<&str>) -> Result<Vec<Session>> {
         let mut sessions = Vec::new();
         
@@ -175,12 +181,14 @@ impl Database {
         Ok(sessions)
     }
 
+    #[allow(dead_code)]
     pub fn delete_session(&self, id: &str) -> Result<()> {
         self.conn.execute("DELETE FROM sessions WHERE id = ?1", params![id])?;
         Ok(())
     }
 
     // Note operations
+    #[allow(dead_code)]
     pub fn save_note(&self, note: &Note) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO notes (id, session_id, content, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -189,6 +197,7 @@ impl Database {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn get_note(&self, id: &str) -> Result<Option<Note>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, session_id, content, metadata, created_at FROM notes WHERE id = ?1"
@@ -211,6 +220,7 @@ impl Database {
         }
     }
 
+    #[allow(dead_code)]
     pub fn list_notes(&self, session_id: Option<&str>) -> Result<Vec<Note>> {
         let mut notes = Vec::new();
         
@@ -251,6 +261,7 @@ impl Database {
         Ok(notes)
     }
 
+    #[allow(dead_code)]
     pub fn delete_note(&self, id: &str) -> Result<()> {
         self.conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
         Ok(())
@@ -289,6 +300,7 @@ impl Database {
     }
     
     /// Get cached summary by URL and optional HTML hash
+    #[allow(dead_code)]
     pub fn get_cached_summary_by_hash(&self, url: &str, html_hash: Option<&str>) -> Result<Option<String>> {
         let mut stmt = if let Some(_hash) = html_hash {
             // If hash provided, we could add a hash column later for exact matching
@@ -315,6 +327,7 @@ impl Database {
 }
 
 // Helper function for optional query results
+#[allow(dead_code)]
 fn get_optional<T>(row: &rusqlite::Row, idx: usize) -> Result<Option<T>>
 where
     T: rusqlite::types::FromSql,
