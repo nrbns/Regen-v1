@@ -334,7 +334,12 @@ async fn research_stream(query: String, window: WebviewWindow) -> Result<(), Str
                                     })).ok();
                                     return Ok(());
                                 }
-                                if let Some(token) = json["response"].as_str() {
+                                // Try multiple possible response fields
+                                let token = json["response"].as_str()
+                                    .or_else(|| json["text"].as_str())
+                                    .or_else(|| json["content"].as_str());
+                                
+                                if let Some(token) = token {
                                     full_response.push_str(token);
                                     window.emit("research-token", token).ok();
                                 }
@@ -1136,18 +1141,23 @@ fn main() {
 
             let window = app.get_webview_window("main").unwrap();
 
-            // DAY 3 FIX #2: Register global hotkey for WISPR orb (Ctrl+Space) - simpler, more reliable
-            let window_clone = window.clone();
+            // FIX 15% LAG #3: Register global hotkey for WISPR orb (Ctrl+Space) - works even when app closed
+            let app_handle_for_hotkey = app.handle().clone();
             let shortcut = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
             if let Err(e) = app.global_shortcut().register(shortcut) {
-                eprintln!("Failed to register global hotkey: {}", e);
+                eprintln!("[WISPR] Failed to register global hotkey: {}", e);
             } else {
+                eprintln!("[WISPR] Global hotkey registered: Ctrl+Space (works even when app closed)");
                 // Listen for the shortcut event and emit wispr-wake
                 // The plugin emits "global-shortcut" events when shortcuts are pressed
-                let app_handle = app.handle().clone();
-                app_handle.listen("global-shortcut", move |_event| {
-                    // Emit wispr-wake event to the window when global shortcut is pressed
-                    window_clone.emit("wispr-wake", ()).ok();
+                let app_handle_clone = app_handle_for_hotkey.clone();
+                app_handle_for_hotkey.listen("global-shortcut", move |_event| {
+                    // Show window if minimized/hidden, then emit wispr-wake
+                    if let Some(win) = app_handle_clone.get_webview_window("main") {
+                        let _ = win.show();
+                        let _ = win.set_focus();
+                        let _ = win.emit("wispr-wake", ());
+                    }
                 });
             }
 
@@ -1299,27 +1309,40 @@ fn main() {
                         window_clone.emit("ollama-warning", "Ollama may not be running. Please start manually.").ok();
                     }
 
-                    // Try to pull model (non-blocking)
-                    let ollama_cmd = if ollama_exe.exists() {
-                        ollama_exe.to_str().unwrap()
-                    } else {
-                        "ollama"
-                    };
-                    
-                    let model_check = Command::new(ollama_cmd)
-                        .args(["list"])
-                        .output()
-                        .ok()
-                        .and_then(|o| String::from_utf8(o.stdout).ok());
-                    
-                    let needs_pull = model_check
-                        .map(|list| !list.contains("llama3.2:3b"))
-                        .unwrap_or(true);
-                    
-                    if needs_pull {
-                        let _ = Command::new(ollama_cmd)
-                            .args(["pull", "llama3.2:3b"])
-                            .spawn();
+                    // FIX 15% LAG #1: Auto-pull model after Ollama is ready (with retry)
+                    if ollama_ready {
+                        let ollama_cmd = if ollama_exe.exists() {
+                            ollama_exe.to_str().unwrap()
+                        } else {
+                            "ollama"
+                        };
+                        
+                        // Wait a bit more for Ollama to be fully ready
+                        sleep(Duration::from_secs(2)).await;
+                        
+                        // Check if model exists
+                        let model_check = Command::new(ollama_cmd)
+                            .args(["list"])
+                            .output()
+                            .ok()
+                            .and_then(|o| String::from_utf8(o.stdout).ok());
+                        
+                        let needs_pull = model_check
+                            .map(|list| !list.contains("llama3.2:3b"))
+                            .unwrap_or(true);
+                        
+                        if needs_pull {
+                            eprintln!("[Ollama] Model llama3.2:3b not found, pulling...");
+                            let _ = Command::new(ollama_cmd)
+                                .args(["pull", "llama3.2:3b"])
+                                .stdout(std::process::Stdio::null())
+                                .stderr(std::process::Stdio::null())
+                                .spawn();
+                            window_clone.emit("ollama-pulling", "Downloading llama3.2:3b model...").ok();
+                        } else {
+                            eprintln!("[Ollama] Model llama3.2:3b already available");
+                            window_clone.emit("ollama-ready", ()).ok();
+                        }
                     }
 
                     // Start MeiliSearch from bundled location
