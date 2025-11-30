@@ -298,8 +298,17 @@ try {
   });
 
   // Tier 3: Initialize services - DEFER EVERYTHING to avoid blocking render
-  // Initialize crash reporter immediately (lightweight)
-  crashReporter.initialize();
+  // Initialize crash reporter immediately (lightweight) - async to avoid blocking
+  import('./core/crash-reporting')
+    .then(({ default: crashReporter }) => {
+      crashReporter.initialize();
+    })
+    .catch(() => {
+      // Silently fail if crash reporter is not available
+      if (isDevEnv()) {
+        console.warn('[Main] Crash reporter not available');
+      }
+    });
 
   // Listen for Ollama progress events (Tauri)
   if (isElectronRuntime()) {
