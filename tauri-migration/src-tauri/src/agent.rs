@@ -260,99 +260,195 @@ async fn stream_llm_response_ws(
             tx.send(Message::Text(progress_event.to_string())).await?;
         }
         
+        // Try Hugging Face first if configured, then Ollama, then mock LLM
+        let llm_provider = std::env::var("LLM_PROVIDER")
+            .unwrap_or_else(|_| "ollama".to_string())
+            .to_lowercase();
+        
         let client = get_http_client();
-        let ollama_url = std::env::var("OLLAMA_BASE_URL")
-            .unwrap_or_else(|_| "http://localhost:11434".to_string());
-        
-        let model = std::env::var("OLLAMA_MODEL")
-            .unwrap_or_else(|_| "llama3.2:3b".to_string());
-        
-        let response = client
-            .post(&format!("{}/api/generate", ollama_url))
-            .json(&json!({
-                "model": model.clone(),
-                "prompt": format!("{}\n\n{}", system_prompt, chunk_prompt),
-                "stream": true,
-                "options": {
-                    "temperature": 0.7,
-                }
-            }))
-            .timeout(Duration::from_secs(60))
-            .send()
-            .await;
+        let response = if llm_provider == "huggingface" || llm_provider == "hf" {
+            // Try Hugging Face Inference API
+            let hf_api_key = std::env::var("HUGGINGFACE_API_KEY")
+                .unwrap_or_else(|_| String::new());
+            let hf_model = std::env::var("HUGGINGFACE_MODEL")
+                .unwrap_or_else(|_| "meta-llama/Llama-2-7b-chat-hf".to_string());
+            
+            if hf_api_key.is_empty() {
+                eprintln!("[Agent] HUGGINGFACE_API_KEY not set, falling back to Ollama");
+                // Fall through to Ollama
+                let ollama_url = std::env::var("OLLAMA_BASE_URL")
+                    .unwrap_or_else(|_| "http://localhost:11434".to_string());
+                let model = std::env::var("OLLAMA_MODEL")
+                    .unwrap_or_else(|_| "llama3.2:3b".to_string());
+                
+                client
+                    .post(&format!("{}/api/generate", ollama_url))
+                    .json(&json!({
+                        "model": model.clone(),
+                        "prompt": format!("{}\n\n{}", system_prompt, chunk_prompt),
+                        "stream": true,
+                        "options": {
+                            "temperature": 0.7,
+                        }
+                    }))
+                    .timeout(Duration::from_secs(60))
+                    .send()
+                    .await
+            } else {
+                // Call Hugging Face Inference API
+                client
+                    .post(&format!("https://api-inference.huggingface.co/models/{}", hf_model))
+                    .header("Authorization", format!("Bearer {}", hf_api_key))
+                    .json(&json!({
+                        "inputs": format!("{}\n\n{}", system_prompt, chunk_prompt),
+                        "parameters": {
+                            "max_new_tokens": 512,
+                            "temperature": 0.7,
+                            "return_full_text": false,
+                        },
+                        "options": {
+                            "wait_for_model": true,
+                        }
+                    }))
+                    .timeout(Duration::from_secs(120))
+                    .send()
+                    .await
+            }
+        } else {
+            // Try Ollama (default)
+            let ollama_url = std::env::var("OLLAMA_BASE_URL")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string());
+            
+            let model = std::env::var("OLLAMA_MODEL")
+                .unwrap_or_else(|_| "llama3.2:3b".to_string());
+            
+            client
+                .post(&format!("{}/api/generate", ollama_url))
+                .json(&json!({
+                    "model": model.clone(),
+                    "prompt": format!("{}\n\n{}", system_prompt, chunk_prompt),
+                    "stream": true,
+                    "options": {
+                        "temperature": 0.7,
+                    }
+                }))
+                .timeout(Duration::from_secs(60))
+                .send()
+                .await
+        };
     
         match response {
             Ok(res) if res.status().is_success() => {
-                let mut stream = res.bytes_stream();
-                let mut chunk_response = String::new();
-                let mut token_count = 0;
+                // Check if this is Hugging Face response (non-streaming JSON) or Ollama (streaming)
+                let llm_provider_check = std::env::var("LLM_PROVIDER")
+                    .unwrap_or_else(|_| "ollama".to_string())
+                    .to_lowercase();
                 
-                // Improved stream parsing with buffer for chunked responses
-                let mut buffer = String::new();
-                while let Some(chunk) = stream.next().await {
-                    if let Ok(bytes) = chunk {
-                        if let Ok(text) = std::str::from_utf8(&bytes) {
-                            buffer.push_str(text);
+                let mut chunk_response = String::new();
+                
+                if llm_provider_check == "huggingface" || llm_provider_check == "hf" {
+                    // Hugging Face returns JSON (non-streaming by default)
+                    match res.json::<Value>().await {
+                        Ok(json) => {
+                            // Extract generated text from Hugging Face response
+                            // HF API returns array of objects with "generated_text" field
+                            let generated_text = if json.is_array() && json.as_array().unwrap().len() > 0 {
+                                json[0]["generated_text"].as_str().unwrap_or("")
+                            } else {
+                                json["generated_text"].as_str().unwrap_or("")
+                            };
                             
-                            // Process complete lines from buffer
-                            while let Some(newline_pos) = buffer.find('\n') {
-                                let line = buffer[..newline_pos].trim().to_string();
-                                buffer = buffer[newline_pos + 1..].to_string();
+                            if !generated_text.is_empty() {
+                                chunk_response.push_str(generated_text);
+                                accumulated_summary.push_str(generated_text);
                                 
-                                if line.is_empty() { continue; }
-                                
-                                // Parse JSON - handle both Ollama format and SSE format
-                                match serde_json::from_str::<Value>(&line) {
-                                    Ok(json) => {
-                                        if json["done"] == true || json["done"].as_bool().unwrap_or(false) {
-                                            // Chunk complete, accumulate
-                                            if !chunk_response.is_empty() {
-                                                accumulated_summary.push_str(&chunk_response);
-                                                accumulated_summary.push_str("\n\n");
-                                            }
-                                            break;
-                                        }
-                                        
-                                        // Try multiple possible response fields
-                                        let token = json["response"].as_str()
-                                            .or_else(|| json["text"].as_str())
-                                            .or_else(|| json["content"].as_str());
-                                        
-                                        if let Some(token) = token {
-                                            chunk_response.push_str(token);
-                                            accumulated_summary.push_str(token);
-                                            token_count += 1;
-                                            
-                                            // Emit partial summary every 3 tokens for better real-time feel
-                                            if token_count % 3 == 0 {
-                                                let partial_event = json!({
-                                                    "type": "partial_summary",
-                                                    "payload": {
-                                                        "text": token,
-                                                        "chunk_index": chunk_idx,
-                                                    }
-                                                });
-                                                tx.send(Message::Text(partial_event.to_string())).await?;
-                                            }
-                                        }
+                                // Emit as partial summary
+                                let partial_event = json!({
+                                    "type": "partial_summary",
+                                    "payload": {
+                                        "text": generated_text,
+                                        "chunk_index": chunk_idx,
                                     }
-                                    Err(e) => {
-                                        // Log parse errors in dev mode only
-                                        #[cfg(debug_assertions)]
-                                        eprintln!("[Agent] JSON parse error: {} for line: {}", e, line);
+                                });
+                                tx.send(Message::Text(partial_event.to_string())).await?;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[Agent] Hugging Face JSON parse error: {}", e);
+                        }
+                    }
+                } else {
+                    // Ollama streaming format
+                    let mut stream = res.bytes_stream();
+                    let mut token_count = 0;
+                    
+                    // Improved stream parsing with buffer for chunked responses
+                    let mut buffer = String::new();
+                    while let Some(chunk) = stream.next().await {
+                        if let Ok(bytes) = chunk {
+                            if let Ok(text) = std::str::from_utf8(&bytes) {
+                                buffer.push_str(text);
+                                
+                                // Process complete lines from buffer
+                                while let Some(newline_pos) = buffer.find('\n') {
+                                    let line = buffer[..newline_pos].trim().to_string();
+                                    buffer = buffer[newline_pos + 1..].to_string();
+                                    
+                                    if line.is_empty() { continue; }
+                                    
+                                    // Parse JSON - handle both Ollama format and SSE format
+                                    match serde_json::from_str::<Value>(&line) {
+                                        Ok(json) => {
+                                            if json["done"] == true || json["done"].as_bool().unwrap_or(false) {
+                                                // Chunk complete, accumulate
+                                                if !chunk_response.is_empty() {
+                                                    accumulated_summary.push_str(&chunk_response);
+                                                    accumulated_summary.push_str("\n\n");
+                                                }
+                                                break;
+                                            }
+                                            
+                                            // Try multiple possible response fields
+                                            let token = json["response"].as_str()
+                                                .or_else(|| json["text"].as_str())
+                                                .or_else(|| json["content"].as_str());
+                                            
+                                            if let Some(token) = token {
+                                                chunk_response.push_str(token);
+                                                accumulated_summary.push_str(token);
+                                                token_count += 1;
+                                                
+                                                // Emit partial summary every 3 tokens for better real-time feel
+                                                if token_count % 3 == 0 {
+                                                    let partial_event = json!({
+                                                        "type": "partial_summary",
+                                                        "payload": {
+                                                            "text": token,
+                                                            "chunk_index": chunk_idx,
+                                                        }
+                                                    });
+                                                    tx.send(Message::Text(partial_event.to_string())).await?;
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            // Log parse errors in dev mode only
+                                            #[cfg(debug_assertions)]
+                                            eprintln!("[Agent] JSON parse error: {} for line: {}", e, line);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                
-                // Handle any remaining buffer content
-                if !buffer.is_empty() {
-                    if let Ok(json) = serde_json::from_str::<Value>(buffer.trim()) {
-                        if let Some(token) = json["response"].as_str() {
-                            chunk_response.push_str(token);
-                            accumulated_summary.push_str(token);
+                    
+                    // Handle any remaining buffer content
+                    if !buffer.is_empty() {
+                        if let Ok(json) = serde_json::from_str::<Value>(buffer.trim()) {
+                            if let Some(token) = json["response"].as_str() {
+                                chunk_response.push_str(token);
+                                accumulated_summary.push_str(token);
+                            }
                         }
                     }
                 }

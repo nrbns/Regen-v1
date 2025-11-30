@@ -16,6 +16,7 @@ One-click install → AI auto-sets (60s) → Offline forever.
 ## Features
 
 - ✅ **Offline AI** - Works 100% offline with Ollama (phi3:mini, llava:7b)
+- ✅ **Hugging Face Integration** - Use Hugging Face Inference API as LLM provider
 - ✅ **WISPR Jarvis** - Voice + Vision + Action ("Hey WISPR" wakes it up)
 - ✅ **Auto Grammar** - Real-time correction in any input field (Gmail, WhatsApp, etc.)
 - ✅ **Trade Mode** - Auto-signals with LLM analysis
@@ -46,6 +47,13 @@ cd tauri-migration && npm run tauri dev  # Tauri app
 # Windows: Download from ollama.com
 # Linux: curl -fsSL https://ollama.com/install.sh | sh
 # macOS: brew install ollama
+
+# Configure LLM Provider (Optional)
+# Set in .env file:
+# LLM_PROVIDER=ollama  # Default: uses local Ollama
+# LLM_PROVIDER=huggingface  # Use Hugging Face Inference API
+# HUGGINGFACE_API_KEY=your_token_here
+# HUGGINGFACE_MODEL=meta-llama/Llama-2-7b-chat-hf
 
 # Pull models (one-time)
 ollama pull phi3:mini
