@@ -47,6 +47,12 @@ Section "RegenBrowser" SecMain
   File /r "dist-web\*"
   File "package.json"
   
+  ; DAY 3 FIX #3: Bundle binaries (ollama.exe, meilisearch.exe, n8n.exe)
+  SetOutPath "$INSTDIR\bin"
+  File "src-tauri\bin\ollama.exe"
+  File "src-tauri\bin\meilisearch.exe"
+  File "src-tauri\bin\n8n.exe"
+  
   ; Create shortcuts
   CreateDirectory "$SMPROGRAMS\RegenBrowser"
   CreateShortcut "$SMPROGRAMS\RegenBrowser\RegenBrowser.lnk" "$INSTDIR\RegenBrowser.exe"
@@ -56,6 +62,10 @@ Section "RegenBrowser" SecMain
   ; Write registry
   WriteRegStr HKCU "Software\RegenBrowser" "" $INSTDIR
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  
+  ; DAY 3 FIX #3: Auto-start Ollama and MeiliSearch on first launch
+  ; The app will handle this automatically via setup() in main.rs
+  DetailPrint "Binaries bundled. Ollama and MeiliSearch will auto-start on first launch."
 SectionEnd
 
 Section "Ollama AI Engine" SecOllama

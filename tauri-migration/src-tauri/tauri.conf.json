@@ -19,7 +19,8 @@
         "resizable": true,
         "fullscreen": false,
         "url": "/",
-        "theme": "Dark"
+        "theme": "Dark",
+        "additionalBrowserArgs": "--disable-web-security --disable-features=VizDisplayCompositor"
       }
     ],
     "security": {
