@@ -28,8 +28,7 @@ function isInternalUrl(url?: string | null): boolean {
 
 export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // const webviewRef = useRef<any>(null); // Used for Tauri webview
-  const webviewRef = useRef<any>(null);
+  // const webviewRef = useRef<any>(null); // Used for Tauri webview (currently unused)
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isElectron = isElectronRuntime();
   const isTauri = isTauriRuntime();
@@ -498,7 +497,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 {targetUrl ? new URL(targetUrl).hostname : 'This page'} cannot be embedded
               </div>
               <p className="text-emerald-100/70">
-                This site blocks embedded views for security (X-Frame-Options). You can open it in your system browser or use the desktop build for full webview support.
+                This site blocks embedded views for security (X-Frame-Options). You can open it in
+                your system browser or use the desktop build for full webview support.
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button

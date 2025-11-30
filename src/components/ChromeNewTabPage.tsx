@@ -11,7 +11,6 @@ import {
   Globe,
   Zap,
   Clock,
-  TrendingDown,
   Cloud,
   Sun,
   ArrowUp,
@@ -24,8 +23,7 @@ import {
 import { ipc } from '../lib/ipc-typed';
 import { useTabsStore } from '../state/tabsStore';
 import { useAppStore } from '../state/appStore';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useSettingsStore } from '../state/settingsStore';
+import { motion } from 'framer-motion';
 
 interface MarketData {
   symbol: string;
@@ -49,12 +47,16 @@ export function ChromeNewTabPage() {
   const [activeCategory, setActiveCategory] = useState('Discover');
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [weatherData, setWeatherData] = useState<{ temp: number; condition: string; location: string; airQuality: string } | null>(null);
+  const [weatherData, setWeatherData] = useState<{
+    temp: number;
+    condition: string;
+    location: string;
+    airQuality: string;
+  } | null>(null);
   const [isLoadingMarkets, setIsLoadingMarkets] = useState(true);
   const [isLoadingNews, setIsLoadingNews] = useState(true);
   const { activeId, tabs } = useTabsStore();
-  const { setMode, mode } = useAppStore();
-  const settings = useSettingsStore();
+  const { setMode } = useAppStore();
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Real-time market data fetching
@@ -74,12 +76,17 @@ export function ChromeNewTabPage() {
           // Try Tauri IPC first
           if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
             const result = await ipc.trade.getQuote(yahooSymbol);
-            if (result && result.price) {
-              const change = result.change || 0;
-              const changePercent = result.changePercent || 0;
+            if (result && result.last) {
+              // Use last price, calculate change from bid/ask if available
+              const price = result.last;
+              const change = result.ask && result.bid ? (result.ask - result.bid) / 2 : 0;
+              const changePercent =
+                result.ask && result.bid && result.last
+                  ? ((result.ask - result.bid) / result.last) * 100
+                  : 0;
               return {
                 symbol,
-                value: result.price,
+                value: price,
                 change,
                 changePercent,
               };
@@ -147,18 +154,21 @@ export function ChromeNewTabPage() {
   const fetchNews = useCallback(async () => {
     try {
       setIsLoadingNews(true);
-      // Try to fetch from DuckDuckGo or news API
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000';
-      
       // Try research API for news
       if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
         try {
-          const result = await ipc.invoke('search_proxy', { query: 'trending news India' });
-          if (result && result.RelatedTopics) {
-            const news = result.RelatedTopics.slice(0, 5).map((item: any, index: number) => ({
+          // Use research queryEnhanced if available, otherwise skip
+          const result = await ipc.research
+            .queryEnhanced({
+              query: 'trending news India',
+              maxSources: 5,
+            })
+            .catch(() => null);
+          if (result && result.sources && result.sources.length > 0) {
+            const news = result.sources.slice(0, 5).map((item: any, index: number) => ({
               id: `news-${index}`,
-              title: item.Text || 'News article',
-              source: 'News',
+              title: item.title || 'News article',
+              source: item.url ? new URL(item.url).hostname : 'News',
               time: `${Math.floor(Math.random() * 24)}h`,
               trending: index < 2,
             }));
@@ -204,9 +214,6 @@ export function ChromeNewTabPage() {
   // Fetch weather data
   const fetchWeather = useCallback(async () => {
     try {
-      // Try to get location from settings or use default
-      const location = 'Medchal'; // Could be from settings
-      
       // Use a weather API (OpenWeatherMap, WeatherAPI, etc.)
       // For now, set mock data
       setWeatherData({
@@ -296,12 +303,48 @@ export function ChromeNewTabPage() {
     .reverse();
 
   const quickAccess = [
-    { id: 'research', label: 'Research', icon: Sparkles, color: 'from-purple-500 to-pink-500', action: () => setMode('Research') },
-    { id: 'trade', label: 'Trade', icon: TrendingUp, color: 'from-green-500 to-emerald-500', action: () => setMode('Trade') },
-    { id: 'browse', label: 'Browse', icon: Globe, color: 'from-blue-500 to-cyan-500', action: () => setMode('Browse') },
-    { id: 'docs', label: 'Docs', icon: BookOpen, color: 'from-orange-500 to-red-500', action: () => {} },
-    { id: 'work', label: 'Work', icon: Briefcase, color: 'from-indigo-500 to-purple-500', action: () => {} },
-    { id: 'games', label: 'Games', icon: Gamepad2, color: 'from-pink-500 to-rose-500', action: () => {} },
+    {
+      id: 'research',
+      label: 'Research',
+      icon: Sparkles,
+      color: 'from-purple-500 to-pink-500',
+      action: () => setMode('Research'),
+    },
+    {
+      id: 'trade',
+      label: 'Trade',
+      icon: TrendingUp,
+      color: 'from-green-500 to-emerald-500',
+      action: () => setMode('Trade'),
+    },
+    {
+      id: 'browse',
+      label: 'Browse',
+      icon: Globe,
+      color: 'from-blue-500 to-cyan-500',
+      action: () => setMode('Browse'),
+    },
+    {
+      id: 'docs',
+      label: 'Docs',
+      icon: BookOpen,
+      color: 'from-orange-500 to-red-500',
+      action: () => {},
+    },
+    {
+      id: 'work',
+      label: 'Work',
+      icon: Briefcase,
+      color: 'from-indigo-500 to-purple-500',
+      action: () => {},
+    },
+    {
+      id: 'games',
+      label: 'Games',
+      icon: Gamepad2,
+      color: 'from-pink-500 to-rose-500',
+      action: () => {},
+    },
   ];
 
   const categories = ['Discover', 'News', 'Markets', 'Research', 'Trade'];
@@ -417,7 +460,9 @@ export function ChromeNewTabPage() {
                         onClick={item.action}
                         className="group flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg transition-all"
                       >
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}>
+                        <div
+                          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}
+                        >
                           <Icon size={24} className="text-white" />
                         </div>
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -446,43 +491,43 @@ export function ChromeNewTabPage() {
                 <div className="space-y-4">
                   {newsItems.length > 0 ? (
                     newsItems.map((item, index) => (
-                    <motion.article
-                      key={item.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
-                      className="group relative p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-xl transition-all cursor-pointer"
-                    >
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            {item.trending && (
-                              <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full">
-                                Trending
+                      <motion.article
+                        key={item.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
+                        className="group relative p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-xl transition-all cursor-pointer"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              {item.trending && (
+                                <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full">
+                                  Trending
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-500 dark:text-slate-400">
+                                {item.source} · {item.time}
                               </span>
-                            )}
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {item.source} · {item.time}
-                            </span>
-                          </div>
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">
-                            {item.title}
-                          </h3>
-                          <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                            <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
-                              <span>12</span>
-                              <span>👍</span>
-                            </button>
-                            <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
-                              <span>Comment</span>
-                            </button>
-                            <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
-                              <span>Share</span>
-                            </button>
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">
+                              {item.title}
+                            </h3>
+                            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+                              <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
+                                <span>12</span>
+                                <span>👍</span>
+                              </button>
+                              <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
+                                <span>Comment</span>
+                              </button>
+                              <button className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400">
+                                <span>Share</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </motion.article>
+                      </motion.article>
                     ))
                   ) : (
                     <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
@@ -523,46 +568,42 @@ export function ChromeNewTabPage() {
                 </div>
                 <div className="space-y-3">
                   {marketData.length > 0 ? (
-                    marketData.map((market, index) => {
-                    const isPositive = market.changePercent >= 0;
-                    return (
-                      <div
-                        key={market.symbol}
-                        className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 last:border-0"
-                      >
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {market.symbol}
+                    marketData.map(market => {
+                      const isPositive = market.changePercent >= 0;
+                      return (
+                        <div
+                          key={market.symbol}
+                          className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                        >
+                          <div className="flex-1">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {market.symbol}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              {market.value.toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div
+                              className={`text-xs flex items-center gap-1 justify-end ${
+                                isPositive
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : 'text-red-600 dark:text-red-400'
+                              }`}
+                            >
+                              {isPositive ? <ArrowUp size={12} /> : <ArrowDown size={12} />}
+                              <span>
+                                {Math.abs(market.changePercent).toFixed(2)}% (
+                                {isPositive ? '+' : ''}
+                                {market.change.toFixed(2)})
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {market.value.toLocaleString('en-IN', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
-                          </div>
-                          <div
-                            className={`text-xs flex items-center gap-1 justify-end ${
-                              isPositive
-                                ? 'text-green-600 dark:text-green-400'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}
-                          >
-                            {isPositive ? (
-                              <ArrowUp size={12} />
-                            ) : (
-                              <ArrowDown size={12} />
-                            )}
-                            <span>
-                              {Math.abs(market.changePercent).toFixed(2)}% (
-                              {isPositive ? '+' : ''}
-                              {market.change.toFixed(2)})
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
+                      );
                     })
                   ) : (
                     <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
@@ -631,7 +672,7 @@ export function ChromeNewTabPage() {
                       <button
                         key={tab.id}
                         onClick={async () => {
-                          await ipc.tabs.activate(tab.id);
+                          await ipc.tabs.activate({ id: tab.id });
                         }}
                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
                       >

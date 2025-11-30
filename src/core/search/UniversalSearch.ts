@@ -2,7 +2,7 @@
  * Universal Search - Search across history, bookmarks, workspace, files
  */
 
-import { SessionWorkspace, ResearchSession } from '../workspace/SessionWorkspace';
+import { SessionWorkspace } from '../workspace/SessionWorkspace';
 
 export interface SearchResult {
   id: string;
@@ -18,10 +18,13 @@ export class UniversalSearch {
   /**
    * Search across all sources
    */
-  static async search(query: string, options: {
-    limit?: number;
-    types?: SearchResult['type'][];
-  } = {}): Promise<SearchResult[]> {
+  static async search(
+    query: string,
+    options: {
+      limit?: number;
+      types?: SearchResult['type'][];
+    } = {}
+  ): Promise<SearchResult[]> {
     const { limit = 50, types } = options;
     const results: SearchResult[] = [];
 
@@ -68,11 +71,12 @@ export class UniversalSearch {
     try {
       const history = await this.getHistory();
       const lowerQuery = query.toLowerCase();
-      
+
       return history
-        .filter(item => 
-          item.title.toLowerCase().includes(lowerQuery) ||
-          item.url.toLowerCase().includes(lowerQuery)
+        .filter(
+          item =>
+            item.title.toLowerCase().includes(lowerQuery) ||
+            item.url.toLowerCase().includes(lowerQuery)
         )
         .map(item => ({
           id: `history_${item.id}`,
@@ -95,11 +99,12 @@ export class UniversalSearch {
     try {
       const bookmarks = await this.getBookmarks();
       const lowerQuery = query.toLowerCase();
-      
+
       return bookmarks
-        .filter(bookmark =>
-          bookmark.title.toLowerCase().includes(lowerQuery) ||
-          bookmark.url.toLowerCase().includes(lowerQuery)
+        .filter(
+          bookmark =>
+            bookmark.title.toLowerCase().includes(lowerQuery) ||
+            bookmark.url.toLowerCase().includes(lowerQuery)
         )
         .map(bookmark => ({
           id: `bookmark_${bookmark.id}`,
@@ -121,12 +126,13 @@ export class UniversalSearch {
   private static searchSessions(query: string): SearchResult[] {
     const sessions = SessionWorkspace.getAllSessions();
     const lowerQuery = query.toLowerCase();
-    
+
     return sessions
-      .filter(session =>
-        session.title.toLowerCase().includes(lowerQuery) ||
-        session.metadata.query?.toLowerCase().includes(lowerQuery) ||
-        session.metadata.keywords?.some(k => k.toLowerCase().includes(lowerQuery))
+      .filter(
+        session =>
+          session.title.toLowerCase().includes(lowerQuery) ||
+          session.metadata.query?.toLowerCase().includes(lowerQuery) ||
+          session.metadata.keywords?.some(k => k.toLowerCase().includes(lowerQuery))
       )
       .map(session => ({
         id: `session_${session.id}`,
@@ -175,11 +181,12 @@ export class UniversalSearch {
     try {
       const tabs = this.getOpenTabs();
       const lowerQuery = query.toLowerCase();
-      
+
       return tabs
-        .filter(tab =>
-          tab.title.toLowerCase().includes(lowerQuery) ||
-          tab.url.toLowerCase().includes(lowerQuery)
+        .filter(
+          tab =>
+            tab.title.toLowerCase().includes(lowerQuery) ||
+            tab.url.toLowerCase().includes(lowerQuery)
         )
         .map(tab => ({
           id: `tab_${tab.id}`,
@@ -197,7 +204,9 @@ export class UniversalSearch {
   /**
    * Get browser history
    */
-  private static async getHistory(): Promise<Array<{ id: string; title: string; url: string; timestamp: number }>> {
+  private static async getHistory(): Promise<
+    Array<{ id: string; title: string; url: string; timestamp: number }>
+  > {
     try {
       const stored = localStorage.getItem('regen-history');
       if (!stored) return [];
@@ -210,7 +219,9 @@ export class UniversalSearch {
   /**
    * Get bookmarks
    */
-  private static async getBookmarks(): Promise<Array<{ id: string; title: string; url: string; createdAt: number }>> {
+  private static async getBookmarks(): Promise<
+    Array<{ id: string; title: string; url: string; createdAt: number }>
+  > {
     try {
       const stored = localStorage.getItem('regen-bookmarks');
       if (!stored) return [];
@@ -241,22 +252,22 @@ export class UniversalSearch {
     const lowerText = text.toLowerCase();
     const lowerQuery = query.toLowerCase();
     const index = lowerText.indexOf(lowerQuery);
-    
+
     if (index === -1) {
       return text.slice(0, length) + (text.length > length ? '...' : '');
     }
-    
+
     const start = Math.max(0, index - 50);
     const end = Math.min(text.length, index + query.length + 50);
     let snippet = text.slice(start, end);
-    
+
     if (start > 0) snippet = '...' + snippet;
     if (end < text.length) snippet = snippet + '...';
-    
+
     // Highlight query
     const regex = new RegExp(`(${query})`, 'gi');
     snippet = snippet.replace(regex, '<mark>$1</mark>');
-    
+
     return snippet;
   }
 
@@ -267,29 +278,29 @@ export class UniversalSearch {
     const lowerQuery = query.toLowerCase();
     const lowerTitle = title.toLowerCase();
     const lowerUrl = url.toLowerCase();
-    
+
     let score = 0;
-    
+
     // Title match
     if (lowerTitle.includes(lowerQuery)) {
       score += 10;
       if (lowerTitle.startsWith(lowerQuery)) score += 5;
       if (lowerTitle === lowerQuery) score += 10;
     }
-    
+
     // URL match
     if (lowerUrl.includes(lowerQuery)) {
       score += 5;
       if (lowerUrl.includes(lowerQuery + '.')) score += 3; // Domain match
     }
-    
+
     // Exact word match
     const words = lowerQuery.split(' ');
     words.forEach(word => {
       if (lowerTitle.includes(word)) score += 2;
       if (lowerUrl.includes(word)) score += 1;
     });
-    
+
     return score;
   }
 
@@ -298,7 +309,7 @@ export class UniversalSearch {
    */
   static createSearchDebounced(delay: number = 300) {
     let timeout: NodeJS.Timeout;
-    
+
     return (query: string, callback: (results: SearchResult[]) => void) => {
       clearTimeout(timeout);
       timeout = setTimeout(async () => {
@@ -312,4 +323,3 @@ export class UniversalSearch {
     };
   }
 }
-

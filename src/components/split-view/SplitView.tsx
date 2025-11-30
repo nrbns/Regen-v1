@@ -4,9 +4,8 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { X, Maximize2, Minimize2, Plus } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
 import { useTabsStore } from '../../state/tabsStore';
-import { ipc } from '../../lib/ipc-typed';
 
 type SplitLayout = 'single' | 'split-2' | 'split-3';
 
@@ -18,14 +17,10 @@ interface Pane {
 
 export function SplitView() {
   const [layout, setLayout] = useState<SplitLayout>('single');
-  const [panes, setPanes] = useState<Pane[]>([
-    { id: 'pane-1', tabId: null, width: 100 },
-  ]);
-  const { tabs, activeId, setActiveId } = useTabsStore();
+  const [panes, setPanes] = useState<Pane[]>([{ id: 'pane-1', tabId: null, width: 100 }]);
+  const { tabs, activeId, setActive } = useTabsStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [resizing, setResizing] = useState<string | null>(null);
-
-  const activeTab = tabs.find(t => t.id === activeId);
 
   const addPane = () => {
     if (layout === 'single') {
@@ -46,23 +41,25 @@ export function SplitView() {
 
   const removePane = (paneId: string) => {
     if (panes.length === 1) return;
-    
+
     const newPanes = panes.filter(p => p.id !== paneId);
     const totalWidth = newPanes.reduce((sum, p) => sum + p.width, 0);
-    
+
     // Redistribute width
     const updatedPanes = newPanes.map(p => ({
       ...p,
       width: (p.width / totalWidth) * 100,
     }));
-    
+
     setPanes(updatedPanes);
-    setLayout(updatedPanes.length === 1 ? 'single' : updatedPanes.length === 2 ? 'split-2' : 'split-3');
+    setLayout(
+      updatedPanes.length === 1 ? 'single' : updatedPanes.length === 2 ? 'split-2' : 'split-3'
+    );
   };
 
   const setPaneTab = (paneId: string, tabId: string) => {
-    setPanes(panes.map(p => p.id === paneId ? { ...p, tabId } : p));
-    setActiveId(tabId);
+    setPanes(panes.map(p => (p.id === paneId ? { ...p, tabId } : p)));
+    setActive(tabId);
   };
 
   const startResize = (paneId: string) => {
@@ -74,25 +71,28 @@ export function SplitView() {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      
+
       const containerWidth = containerRef.current.offsetWidth;
       const mouseX = e.clientX - containerRef.current.getBoundingClientRect().left;
       const newWidth = (mouseX / containerWidth) * 100;
-      
+
       const paneIndex = panes.findIndex(p => p.id === resizing);
       if (paneIndex === -1) return;
-      
+
       const updatedPanes = [...panes];
       const oldWidth = updatedPanes[paneIndex].width;
       const diff = newWidth - oldWidth;
-      
+
       // Adjust current and next pane
       updatedPanes[paneIndex].width = Math.max(20, Math.min(80, newWidth));
-      
+
       if (paneIndex < updatedPanes.length - 1) {
-        updatedPanes[paneIndex + 1].width = Math.max(20, Math.min(80, updatedPanes[paneIndex + 1].width - diff));
+        updatedPanes[paneIndex + 1].width = Math.max(
+          20,
+          Math.min(80, updatedPanes[paneIndex + 1].width - diff)
+        );
       }
-      
+
       setPanes(updatedPanes);
     };
 
@@ -186,4 +186,3 @@ export function SplitView() {
     </div>
   );
 }
-

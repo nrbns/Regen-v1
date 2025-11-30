@@ -38,6 +38,7 @@ import { researchSearch } from './services/research/search.js';
 import { generateResearchAnswer, streamResearchAnswer } from './services/research/answer.js';
 import { queryEnhancedResearch } from './services/research/enhanced.js';
 import { aiProxy } from './services/ai/realtime-ai-proxy.js';
+import { researchAgent, executeAgent } from './api/agent-controller.js';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -146,11 +147,11 @@ const STOCK_HISTORY_CACHE = new Map();
 const STOCK_CACHE_TTL = 1000 * 60; // 1 minute
 const FINNHUB_TOKEN = nodeProcess?.env.FINNHUB_TOKEN || nodeProcess?.env.FINNHUB_API_KEY || '';
 const ZERODHA_API_KEY = nodeProcess?.env.ZERODHA_API_KEY || '';
-const ZERODHA_API_SECRET = nodeProcess?.env.ZERODHA_API_SECRET || '';
+const _ZERODHA_API_SECRET = nodeProcess?.env.ZERODHA_API_SECRET || '';
 let ZERODHA_ACCESS_TOKEN = nodeProcess?.env.ZERODHA_ACCESS_TOKEN || '';
 let ZERODHA_REFRESH_TOKEN = nodeProcess?.env.ZERODHA_REFRESH_TOKEN || '';
-let ZERODHA_TOKEN_EXPIRES_AT = nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT 
-  ? parseInt(nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT, 10) 
+let _ZERODHA_TOKEN_EXPIRES_AT = nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT
+  ? parseInt(nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT, 10)
   : null;
 
 // WebSocket connection pools for market data
@@ -159,7 +160,38 @@ const binanceConnections = new Map();
 
 // Helper to detect if symbol is crypto
 function isCryptoSymbol(symbol) {
-  const cryptoSymbols = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOGE', 'DOT', 'MATIC', 'AVAX', 'LINK', 'UNI', 'ATOM', 'ETC', 'LTC', 'BCH', 'XLM', 'ALGO', 'VET', 'FIL', 'TRX', 'EOS', 'AAVE', 'MKR', 'COMP', 'SUSHI', 'SNX', 'YFI', 'CRV', '1INCH'];
+  const cryptoSymbols = [
+    'BTC',
+    'ETH',
+    'BNB',
+    'SOL',
+    'ADA',
+    'XRP',
+    'DOGE',
+    'DOT',
+    'MATIC',
+    'AVAX',
+    'LINK',
+    'UNI',
+    'ATOM',
+    'ETC',
+    'LTC',
+    'BCH',
+    'XLM',
+    'ALGO',
+    'VET',
+    'FIL',
+    'TRX',
+    'EOS',
+    'AAVE',
+    'MKR',
+    'COMP',
+    'SUSHI',
+    'SNX',
+    'YFI',
+    'CRV',
+    '1INCH',
+  ];
   const upperSymbol = symbol.toUpperCase();
   return cryptoSymbols.some(c => upperSymbol.includes(c)) || upperSymbol.includes('USDT');
 }
@@ -455,17 +487,17 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
     const reconnectDelay = 2000; // Start with 2 seconds
     const clients = new Set();
     let heartbeatInterval = null;
-    let reconnectTimeout = null;
+    let _reconnectTimeout = null;
 
     const connect = () => {
       try {
         upstream = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_TOKEN}`);
-        
+
         upstream.on('open', () => {
           reconnectAttempts = 0; // Reset on successful connection
           upstream.send(JSON.stringify({ type: 'subscribe', symbol: finnhubSymbol }));
           fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream connected');
-          
+
           // Start heartbeat every 20 seconds
           heartbeatInterval = setInterval(() => {
             if (upstream && upstream.readyState === WebSocket.OPEN) {
@@ -514,13 +546,13 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
 
         upstream.on('close', (code, reason) => {
           fastify.log.info({ symbol: finnhubSymbol, code, reason }, 'Finnhub upstream closed');
-          
+
           // Clear heartbeat
           if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
             heartbeatInterval = null;
           }
-          
+
           // Don't notify clients on intentional close (code 1000)
           if (code !== 1000) {
             // Schedule reconnection
@@ -552,11 +584,17 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
 
           reconnectAttempts++;
           const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
-          
-          fastify.log.info({ symbol: finnhubSymbol, attempt: reconnectAttempts, delay }, 'Scheduling reconnection');
-          
+
+          fastify.log.info(
+            { symbol: finnhubSymbol, attempt: reconnectAttempts, delay },
+            'Scheduling reconnection'
+          );
+
           reconnectTimeout = setTimeout(() => {
-            fastify.log.info({ symbol: finnhubSymbol, attempt: reconnectAttempts }, 'Reconnecting to Finnhub');
+            fastify.log.info(
+              { symbol: finnhubSymbol, attempt: reconnectAttempts },
+              'Reconnecting to Finnhub'
+            );
             connect(); // Reconnect
           }, delay);
         };
@@ -564,7 +602,10 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
         connection = { upstream, clients, reconnect: scheduleReconnect };
         finnhubConnections.set(finnhubSymbol, connection);
       } catch (error) {
-        fastify.log.error({ err: error, symbol: finnhubSymbol }, 'Failed to create Finnhub connection');
+        fastify.log.error(
+          { err: error, symbol: finnhubSymbol },
+          'Failed to create Finnhub connection'
+        );
         throw error;
       }
     };
@@ -626,7 +667,7 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
 // Binance WebSocket stream handler for crypto
 async function handleBinanceStream(symbol, request, reply) {
   const binanceSymbol = mapToBinanceSymbol(symbol);
-  
+
   reply.raw.setHeader('Content-Type', 'text/event-stream');
   reply.raw.setHeader('Cache-Control', 'no-cache');
   reply.raw.setHeader('Connection', 'keep-alive');
@@ -656,7 +697,7 @@ async function handleBinanceStream(symbol, request, reply) {
     upstream.on('message', buffer => {
       try {
         const payload = JSON.parse(buffer.toString());
-        
+
         // Binance ticker format: { e: '24hrTicker', c: 'price', P: 'changePercent', v: 'volume', ... }
         if (payload.e === '24hrTicker' && payload.c) {
           const price = Number(payload.c);
@@ -1584,6 +1625,22 @@ fastify.post('/api/profile/switch-org', async (request, reply) => {
 });
 
 fastify.post('/api/profile/signout', async () => ({ ok: true }));
+
+/**
+ * POST /api/agent/research
+ * Real research agent with LLM integration
+ */
+fastify.post('/api/agent/research', async (request, reply) => {
+  return researchAgent(request, reply);
+});
+
+/**
+ * POST /api/agent/execute
+ * Execute agent actions
+ */
+fastify.post('/api/agent/execute', async (request, reply) => {
+  return executeAgent(request, reply);
+});
 
 /**
  * POST /api/agent/query
@@ -2613,7 +2670,7 @@ fastify.post('/api/ai/task', async (request, reply) => {
 // Real-time AI Proxy endpoints
 fastify.post('/api/ai/summarize', async (request, reply) => {
   const { url, content, length = 'medium' } = request.body;
-  
+
   try {
     const result = await aiProxy.summarizePage(url, content, { length });
     return reply.send(result);
@@ -2625,14 +2682,14 @@ fastify.post('/api/ai/summarize', async (request, reply) => {
 
 fastify.post('/api/ai/research/stream', async (request, reply) => {
   const { query, sources } = request.body;
-  
+
   reply.raw.setHeader('Content-Type', 'text/event-stream');
   reply.raw.setHeader('Cache-Control', 'no-cache');
   reply.raw.setHeader('Connection', 'keep-alive');
   reply.raw.flushHeaders?.();
 
   const streamId = await aiProxy.streamResearchSummary(query, sources || []);
-  
+
   const onChunk = ({ streamId: sid, text, fullText }) => {
     if (sid === streamId && !reply.raw.destroyed) {
       try {
@@ -2668,7 +2725,7 @@ fastify.post('/api/ai/research/stream', async (request, reply) => {
 
 fastify.post('/api/ai/suggest-actions', async (request, reply) => {
   const { currentUrl, query, sessionHistory, openTabs } = request.body;
-  
+
   try {
     const actions = await aiProxy.suggestNextActions({
       currentUrl,
@@ -2804,7 +2861,16 @@ fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
     // Route crypto to Binance API
     if (isCryptoSymbol(symbol)) {
       const binanceSymbol = mapToBinanceSymbol(symbol);
-      const intervalMap = { '1': '1m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', 'D': '1d', 'W': '1w', 'M': '1M' };
+      const intervalMap = {
+        1: '1m',
+        5: '5m',
+        15: '15m',
+        30: '30m',
+        60: '1h',
+        D: '1d',
+        W: '1w',
+        M: '1M',
+      };
       const binanceInterval = intervalMap[resolution || interval] || '1d';
       const limitCount = Number(limit) || 50;
 
@@ -2835,7 +2901,13 @@ fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
     const finnhubSymbol = mapToFinnhubSymbol(symbol);
     const res = resolution || (interval === '1d' ? 'D' : interval === '1w' ? 'W' : 'M');
     const to = Math.floor(Date.now() / 1000);
-    const from = to - (res === 'D' ? 86400 * Number(limit) : res === 'W' ? 604800 * Number(limit) : 2592000 * Number(limit));
+    const from =
+      to -
+      (res === 'D'
+        ? 86400 * Number(limit)
+        : res === 'W'
+          ? 604800 * Number(limit)
+          : 2592000 * Number(limit));
 
     if (FINNHUB_TOKEN) {
       const response = await fetch(
@@ -2867,7 +2939,15 @@ fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
       const close = open + (Math.random() - 0.5) * 400;
       const high = Math.max(open, close) + Math.random() * 100;
       const low = Math.min(open, close) - Math.random() * 100;
-      return { time, timestamp: Math.floor(baseDate.getTime() / 1000), open, high, low, close, volume: 0 };
+      return {
+        time,
+        timestamp: Math.floor(baseDate.getTime() / 1000),
+        open,
+        high,
+        low,
+        close,
+        volume: 0,
+      };
     });
     return { symbol, interval, candles };
   } catch (error) {
@@ -2878,20 +2958,14 @@ fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
 });
 
 fastify.post('/api/trade/order', async (request, reply) => {
-  const {
-    symbol,
-    quantity,
-    orderType,
-    stopLoss,
-    takeProfit,
-  } = request.body ?? {};
+  const { symbol, quantity, orderType, stopLoss, takeProfit } = request.body ?? {};
   if (!symbol || !quantity || !orderType) {
     reply.code(400);
     return { error: 'Symbol, quantity, and orderType are required' };
   }
 
   const startTime = Date.now();
-  
+
   try {
     // Try Zerodha Kite Connect if configured
     if (ZERODHA_API_KEY && ZERODHA_ACCESS_TOKEN) {
@@ -2905,7 +2979,7 @@ fastify.post('/api/trade/order', async (request, reply) => {
           method: 'POST',
           headers: {
             'X-Kite-Version': '3',
-            'Authorization': `token ${ZERODHA_API_KEY}:${ZERODHA_ACCESS_TOKEN}`,
+            Authorization: `token ${ZERODHA_API_KEY}:${ZERODHA_ACCESS_TOKEN}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -2923,7 +2997,7 @@ fastify.post('/api/trade/order', async (request, reply) => {
         });
 
         // Timeout after 1.5 seconds
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Order timeout after 1.5s')), 1500)
         );
 
@@ -2932,20 +3006,23 @@ fastify.post('/api/trade/order', async (request, reply) => {
         if (response.ok) {
           const data = await response.json();
           const elapsed = Date.now() - startTime;
-          
+
           // CRITICAL: Validate response
           if (!data.data?.order_id) {
             throw new Error('Invalid response: missing order_id');
           }
-          
-          fastify.log.info({ 
-            symbol, 
-            quantity, 
-            orderType, 
-            orderId: data.data.order_id,
-            elapsed: `${elapsed}ms`
-          }, 'Zerodha order placed');
-          
+
+          fastify.log.info(
+            {
+              symbol,
+              quantity,
+              orderType,
+              orderId: data.data.order_id,
+              elapsed: `${elapsed}ms`,
+            },
+            'Zerodha order placed'
+          );
+
           return {
             success: true,
             orderId: data.data.order_id,
@@ -2959,15 +3036,18 @@ fastify.post('/api/trade/order', async (request, reply) => {
           };
         } else {
           // CRITICAL: Proper error handling
-          const errorData = await response.json().catch(() => ({ 
+          const errorData = await response.json().catch(() => ({
             error: 'Unknown error',
             status: response.status,
-            statusText: response.statusText 
+            statusText: response.statusText,
           }));
-          
+
           // Check for token expiration
           if (response.status === 403 || response.status === 401) {
-            fastify.log.error({ symbol, error: errorData }, 'Zerodha token expired - needs refresh');
+            fastify.log.error(
+              { symbol, error: errorData },
+              'Zerodha token expired - needs refresh'
+            );
             reply.code(401);
             return {
               success: false,
@@ -2978,7 +3058,7 @@ fastify.post('/api/trade/order', async (request, reply) => {
               orderType,
             };
           }
-          
+
           // Check for insufficient funds
           if (response.status === 400 && errorData.message?.includes('insufficient')) {
             fastify.log.warn({ symbol, error: errorData }, 'Insufficient funds');
@@ -2992,7 +3072,7 @@ fastify.post('/api/trade/order', async (request, reply) => {
               orderType,
             };
           }
-          
+
           fastify.log.warn({ symbol, error: errorData }, 'Zerodha order failed');
           reply.code(response.status);
           return {
@@ -3008,12 +3088,15 @@ fastify.post('/api/trade/order', async (request, reply) => {
       } catch (zerodhaError) {
         // CRITICAL: Proper error handling for network/timeout errors
         const elapsed = Date.now() - startTime;
-        fastify.log.error({ 
-          symbol, 
-          error: zerodhaError,
-          elapsed: `${elapsed}ms`
-        }, 'Zerodha API error');
-        
+        fastify.log.error(
+          {
+            symbol,
+            error: zerodhaError,
+            elapsed: `${elapsed}ms`,
+          },
+          'Zerodha API error'
+        );
+
         // If timeout, return specific error
         if (zerodhaError.message?.includes('timeout')) {
           reply.code(504);
@@ -3027,7 +3110,7 @@ fastify.post('/api/trade/order', async (request, reply) => {
             executionTime: elapsed,
           };
         }
-        
+
         // Network errors
         reply.code(502);
         return {
@@ -3044,7 +3127,10 @@ fastify.post('/api/trade/order', async (request, reply) => {
 
     // Fallback: Mock order placement (for testing or when Zerodha not configured)
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    fastify.log.info({ symbol, quantity, orderType }, 'Mock trade order placed (Zerodha not configured)');
+    fastify.log.info(
+      { symbol, quantity, orderType },
+      'Mock trade order placed (Zerodha not configured)'
+    );
     return {
       success: true,
       orderId,
@@ -3737,14 +3823,21 @@ fastify.get('/metrics/prom', async (_request, reply) => {
             fastify.log.info('Zerodha token updated');
           },
         };
-        
+
         // Setup daily refresh at 5:45 AM if credentials are available
-        if (ZERODHA_API_KEY && (ZERODHA_REFRESH_TOKEN || (nodeProcess?.env.ZERODHA_USER_ID && nodeProcess?.env.ZERODHA_TOTP_SECRET))) {
+        if (
+          ZERODHA_API_KEY &&
+          (ZERODHA_REFRESH_TOKEN ||
+            (nodeProcess?.env.ZERODHA_USER_ID && nodeProcess?.env.ZERODHA_TOTP_SECRET))
+        ) {
           setupDailyTokenRefresh(tokenStore.update);
           fastify.log.info('Zerodha daily token refresh scheduled for 5:45 AM');
         }
       } catch (error) {
-        fastify.log.warn({ err: error }, 'Failed to load Zerodha TOTP auth (optional - configure ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET for auto-refresh)');
+        fastify.log.warn(
+          { err: error },
+          'Failed to load Zerodha TOTP auth (optional - configure ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET for auto-refresh)'
+        );
       }
 
       await fastify.listen({ port: PORT, host: '0.0.0.0' });

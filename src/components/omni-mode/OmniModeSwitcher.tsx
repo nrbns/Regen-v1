@@ -74,12 +74,12 @@ const OMNI_MODES: ModeConfig[] = [
 
 export function OmniModeSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<OmniMode | null>(null);
+  const [_selectedMode, setSelectedMode] = useState<OmniMode | null>(null);
   const { setMode } = useAppStore();
 
   const handleModeSelect = (mode: OmniMode) => {
     setSelectedMode(mode);
-    
+
     // Map Omni modes to app modes
     const modeMap: Record<OmniMode, 'Browse' | 'Research' | 'Docs' | 'Images'> = {
       search: 'Browse',
@@ -89,9 +89,9 @@ export function OmniModeSwitcher() {
       translate: 'Browse',
       image: 'Images',
     };
-    
+
     setMode(modeMap[mode]);
-    
+
     // Close after selection
     setTimeout(() => setIsOpen(false), 300);
   };
@@ -149,7 +149,7 @@ export function OmniModeSwitcher() {
 
                 {/* Mode Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {OMNI_MODES.map((mode) => {
+                  {OMNI_MODES.map(mode => {
                     const Icon = mode.icon;
                     return (
                       <motion.button
@@ -207,4 +207,3 @@ function OmniModeKeyboardHandler({ onToggle }: { onToggle: () => void }) {
 
   return null;
 }
-

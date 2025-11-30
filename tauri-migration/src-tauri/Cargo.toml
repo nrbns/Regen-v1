@@ -25,6 +25,8 @@ tauri-plugin-global-shortcut = "2.0"
 sysinfo = "0.31"  # For process management and memory monitoring
 dotenv = "0.15"  # For loading .env file
 chrono = "0.4"  # For date handling
+rusqlite = { version = "0.31", features = ["bundled"] }  # SQLite for local storage
+uuid = { version = "1.0", features = ["v4", "serde"] }  # For generating IDs
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
 

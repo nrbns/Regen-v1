@@ -140,6 +140,10 @@ export const useTabsStore = create<TabsState>()(
           import('../services/analytics').then(({ track }) => {
             track('tab_created', { mode: appMode });
           });
+          // Index tab in MeiliSearch
+          import('../services/meiliIndexer').then(({ indexTab }) => {
+            indexTab(tab).catch(console.error);
+          });
           return newState;
         }),
       setActive: id =>
@@ -250,9 +254,17 @@ export const useTabsStore = create<TabsState>()(
         return state.tabs.filter(tab => !tab.appMode || tab.appMode === mode);
       },
       updateTab: (id: string, updates: Partial<Tab>) =>
-        set(state => ({
-          tabs: state.tabs.map(tab => (tab.id === id ? { ...tab, ...updates } : tab)),
-        })),
+        set(state => {
+          const updatedTabs = state.tabs.map(tab => (tab.id === id ? { ...tab, ...updates } : tab));
+          const updatedTab = updatedTabs.find(t => t.id === id);
+          // Re-index updated tab in MeiliSearch
+          if (updatedTab) {
+            import('../services/meiliIndexer').then(({ indexTab }) => {
+              indexTab(updatedTab).catch(console.error);
+            });
+          }
+          return { tabs: updatedTabs };
+        }),
       rememberClosedTab: (tab: Tab) =>
         set(state => {
           const entry: ClosedTab = {

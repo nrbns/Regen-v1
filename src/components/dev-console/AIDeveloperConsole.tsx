@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Code, Sparkles, Bug, Zap, Play, Copy, Check } from 'lucide-react';
+import { Code, Sparkles, Zap, Play } from 'lucide-react';
 import { toast } from '../../utils/toast';
 
 export function AIDeveloperConsole() {
@@ -31,15 +31,18 @@ export function AIDeveloperConsole() {
 
       // Capture console output
       let capturedOutput = '';
-      const originalLog = iframeWindow.console.log;
-      iframeWindow.console.log = (...args: any[]) => {
-        capturedOutput += args.map(a => String(a)).join(' ') + '\n';
-        originalLog.apply(iframeWindow.console, args);
-      };
+      const consoleObj = (iframeWindow as any).console;
+      if (consoleObj && consoleObj.log) {
+        const originalLog = consoleObj.log;
+        consoleObj.log = (...args: any[]) => {
+          capturedOutput += args.map(a => String(a)).join(' ') + '\n';
+          originalLog.apply(consoleObj, args);
+        };
+      }
 
       // Execute code
-      const result = iframeWindow.eval(code);
-      
+      const result = (iframeWindow as any).eval ? (iframeWindow as any).eval(code) : eval(code);
+
       if (result !== undefined) {
         capturedOutput += String(result) + '\n';
       }
@@ -204,4 +207,3 @@ export function AIDeveloperConsole() {
     </div>
   );
 }
-

@@ -6,7 +6,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Sparkles, BookOpen, TrendingUp, Code } from 'lucide-react';
-import logo from '/logo.png';
+// Logo import - handle gracefully if file doesn't exist
+// Logo will be loaded at runtime, so we don't need to import it here
+const logo: string | undefined = '/logo.png';
 import { useTokens } from '../useTokens';
 import { Button } from '../button';
 import { Container } from '../layout';
@@ -57,13 +59,15 @@ export function HeroPanel({ className, compact, onQuickAction }: HeroPanelProps)
             transition={{ duration: 0.5 }}
             className="flex flex-col items-center gap-3"
           >
-            <img
-              src={logo}
-              alt="Regen logo"
-              width={72}
-              height={72}
-              className="drop-shadow-xl rounded-full bg-black/20 p-4"
-            />
+            {logo && (
+              <img
+                src={logo}
+                alt="Regen logo"
+                width={72}
+                height={72}
+                className="drop-shadow-xl rounded-full bg-black/20 p-4"
+              />
+            )}
             <h1
               className="font-bold text-[var(--text-primary)] mb-2"
               style={{ fontSize: compact ? tokens.fontSize['3xl'] : tokens.fontSize['5xl'] }}

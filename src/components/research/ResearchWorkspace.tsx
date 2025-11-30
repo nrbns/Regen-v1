@@ -3,24 +3,22 @@
  */
 
 import { useState, useEffect } from 'react';
-import { 
-  Save, 
-  FolderOpen, 
-  FileText, 
-  Download, 
-  Trash2, 
+import {
+  Save,
+  FolderOpen,
+  FileText,
+  Download,
+  Trash2,
   Plus,
   Search,
   BookOpen,
   Highlighter,
   Sparkles,
 } from 'lucide-react';
-import { SessionWorkspace, ResearchSession, SessionNote } from '../../core/workspace/SessionWorkspace';
+import { SessionWorkspace, ResearchSession } from '../../core/workspace/SessionWorkspace';
 import { toast } from '../../utils/toast';
 import { AgentSuggestions } from './AgentSuggestions';
-import { PageSummarizer } from '../../core/content/pageSummarizer';
 import { HighlightToNote } from '../../core/content/highlightToNote';
-import { CitationManager } from '../citations/CitationManager';
 import { UniversalSearchUI } from '../search/UniversalSearchUI';
 
 export function ResearchWorkspace() {
@@ -32,10 +30,10 @@ export function ResearchWorkspace() {
     loadSessions();
     const current = SessionWorkspace.getCurrentSession();
     if (current) setCurrentSession(current);
-    
+
     // Enable highlight → note workflow
     HighlightToNote.enable();
-    
+
     return () => {
       HighlightToNote.disable();
     };
@@ -68,7 +66,7 @@ export function ResearchWorkspace() {
     try {
       await SessionWorkspace.exportSession(sessionId);
       toast.success('Session exported');
-    } catch (error) {
+    } catch {
       toast.error('Export failed');
     }
   };
@@ -77,7 +75,7 @@ export function ResearchWorkspace() {
     try {
       await SessionWorkspace.exportToMarkdown(sessionId);
       toast.success('Exported to Markdown');
-    } catch (error) {
+    } catch {
       toast.error('Export failed');
     }
   };
@@ -86,7 +84,7 @@ export function ResearchWorkspace() {
     try {
       await SessionWorkspace.exportToPDF(sessionId);
       toast.success('Exported to PDF');
-    } catch (error) {
+    } catch {
       toast.error('PDF export failed');
     }
   };
@@ -115,9 +113,10 @@ export function ResearchWorkspace() {
     }
   };
 
-  const filteredSessions = sessions.filter(s =>
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.metadata.query?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredSessions = sessions.filter(
+    s =>
+      s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.metadata.query?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -178,7 +177,7 @@ export function ResearchWorkspace() {
                   </div>
                   <div className="flex items-center gap-1 mt-2">
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         exportSession(session.id);
                       }}
@@ -188,7 +187,7 @@ export function ResearchWorkspace() {
                       <Download className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         exportToMarkdown(session.id);
                       }}
@@ -198,7 +197,7 @@ export function ResearchWorkspace() {
                       <FileText className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         exportToPDF(session.id);
                       }}
@@ -208,7 +207,7 @@ export function ResearchWorkspace() {
                       <Download className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         deleteSession(session.id);
                       }}
@@ -262,7 +261,7 @@ export function ResearchWorkspace() {
             <div className="flex-1 overflow-y-auto p-4">
               <SessionContent session={currentSession} />
             </div>
-            
+
             {/* Agent Suggestions */}
             <AgentSuggestions />
           </>
@@ -380,9 +379,7 @@ function SessionContent({ session }: { session: ResearchSession }) {
                 <blockquote className="border-l-4 border-yellow-500 pl-3 py-1 text-gray-300 italic text-sm">
                   {highlight.text}
                 </blockquote>
-                {highlight.note && (
-                  <p className="text-gray-400 text-xs mt-2">{highlight.note}</p>
-                )}
+                {highlight.note && <p className="text-gray-400 text-xs mt-2">{highlight.note}</p>}
                 <a
                   href={highlight.url}
                   target="_blank"
@@ -400,9 +397,7 @@ function SessionContent({ session }: { session: ResearchSession }) {
       {/* Tabs */}
       {session.tabs.length > 0 && (
         <section>
-          <h3 className="text-lg font-semibold text-white mb-3">
-            Tabs ({session.tabs.length})
-          </h3>
+          <h3 className="text-lg font-semibold text-white mb-3">Tabs ({session.tabs.length})</h3>
           <div className="grid grid-cols-2 gap-2">
             {session.tabs.map(tab => (
               <a
@@ -420,16 +415,15 @@ function SessionContent({ session }: { session: ResearchSession }) {
         </section>
       )}
 
-      {session.summaries.length === 0 && 
-       session.notes.length === 0 && 
-       session.highlights.length === 0 && 
-       session.tabs.length === 0 && (
-        <div className="text-center text-gray-400 mt-8">
-          <p className="text-sm">This session is empty</p>
-          <p className="text-xs mt-2">Start researching to add content</p>
-        </div>
-      )}
+      {session.summaries.length === 0 &&
+        session.notes.length === 0 &&
+        session.highlights.length === 0 &&
+        session.tabs.length === 0 && (
+          <div className="text-center text-gray-400 mt-8">
+            <p className="text-sm">This session is empty</p>
+            <p className="text-xs mt-2">Start researching to add content</p>
+          </div>
+        )}
     </div>
   );
 }
-

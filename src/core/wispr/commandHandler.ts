@@ -64,7 +64,7 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
     if (match) {
       const isSell =
         lowerText.includes('sell') || lowerText.includes('becho') || lowerText.includes('बेचो');
-      
+
       // Extract symbol (handle Hindi names)
       let symbol = match[2] || match[1];
       if (lowerText.includes('निफ्टी') || lowerText.includes('nifty')) {
@@ -76,7 +76,7 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
       } else if (lowerText.includes('reliance')) {
         symbol = 'RELIANCE';
       }
-      
+
       // Extract quantity
       let quantity = 1;
       if (match[1] && !isNaN(parseInt(match[1], 10))) {
@@ -84,11 +84,11 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
       } else if (match[2] && !isNaN(parseInt(match[2], 10))) {
         quantity = parseInt(match[2], 10);
       }
-      
+
       // Extract stop loss
       const slMatch = lowerText.match(/(?:SL|stop\s*loss|स्टॉप\s*लॉस)\s*(\d+)/i);
       const stopLoss = slMatch ? parseInt(slMatch[1], 10) : undefined;
-      
+
       return {
         type: 'trade',
         orderType: isSell ? 'sell' : 'buy',
@@ -115,7 +115,7 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
     if (lowerText.includes('कोलकाता') || lowerText.includes('kolkata')) city = 'Kolkata';
     if (lowerText.includes('चेन्नई') || lowerText.includes('chennai')) city = 'Chennai';
     if (lowerText.includes('हैदराबाद') || lowerText.includes('hyderabad')) city = 'Hyderabad';
-    
+
     return {
       type: 'weather',
       query: city,
@@ -394,6 +394,18 @@ export async function executeWisprCommand(command: ParsedWisprCommand): Promise<
         await executeNavigateCommand(command);
         break;
 
+      case 'weather':
+        await executeWeatherCommand(command);
+        break;
+
+      case 'train':
+        await executeTrainCommand(command);
+        break;
+
+      case 'flight':
+        await executeFlightCommand(command);
+        break;
+
       default:
         // Fallback to AI search
         await executeSearchCommand(command);
@@ -417,16 +429,20 @@ async function executeTradeCommand(command: ParsedWisprCommand) {
     return;
   }
 
+  // Filter orderType to only 'buy' or 'sell' (API doesn't accept 'limit' or 'market')
+  const validOrderType: 'buy' | 'sell' =
+    orderType === 'buy' || orderType === 'sell' ? orderType : 'buy';
+
   // Execute REAL Zerodha order via API
   try {
     const startTime = Date.now();
-    toast.info(`Placing ${orderType === 'buy' ? 'buy' : 'sell'} order: ${quantity} ${symbol}...`);
+    toast.info(`Placing ${validOrderType} order: ${quantity} ${symbol}...`);
 
     const { tradeApi } = await import('../../lib/api-client');
     const result = await tradeApi.placeOrder({
       symbol: symbol.toUpperCase(),
       quantity,
-      orderType: orderType || 'buy',
+      orderType: validOrderType,
       stopLoss,
       takeProfit,
     });
@@ -434,13 +450,20 @@ async function executeTradeCommand(command: ParsedWisprCommand) {
     const elapsed = Date.now() - startTime;
 
     if (result.success) {
-      const message = `${orderType === 'buy' ? 'BUY' : 'SELL'} order placed: ${quantity} × ${symbol}\nOrder ID: ${result.orderId}\nTime: ${elapsed}ms${stopLoss ? `\nSL: ₹${stopLoss}` : ''}${takeProfit ? ` | TP: ₹${takeProfit}` : ''}`;
+      const message = `${validOrderType === 'buy' ? 'BUY' : 'SELL'} order placed: ${quantity} × ${symbol}\nOrder ID: ${result.orderId}\nTime: ${elapsed}ms${stopLoss ? `\nSL: ₹${stopLoss}` : ''}${takeProfit ? ` | TP: ₹${takeProfit}` : ''}`;
       toast.success(message);
-      
+
       // Emit event for UI update
       window.dispatchEvent(
         new CustomEvent('wispr:trade', {
-          detail: { symbol, quantity, orderType, stopLoss, orderId: result.orderId, success: true },
+          detail: {
+            symbol,
+            quantity,
+            orderType: validOrderType,
+            stopLoss,
+            orderId: result.orderId,
+            success: true,
+          },
         })
       );
 
@@ -448,21 +471,21 @@ async function executeTradeCommand(command: ParsedWisprCommand) {
       if ('speechSynthesis' in window) {
         const lang = useSettingsStore.getState().language || 'en';
         const utterance = new SpeechSynthesisUtterance(
-          lang === 'hi' 
-            ? `${orderType === 'buy' ? 'खरीद' : 'बिक्री'} आदेश ${result.orderId} सफल`
-            : `${orderType === 'buy' ? 'Buy' : 'Sell'} order ${result.orderId} placed successfully`
+          lang === 'hi'
+            ? `${validOrderType === 'buy' ? 'खरीद' : 'बिक्री'} आदेश ${result.orderId} सफल`
+            : `${validOrderType === 'buy' ? 'Buy' : 'Sell'} order ${result.orderId} placed successfully`
         );
         utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
         speechSynthesis.speak(utterance);
       }
     } else {
-      throw new Error(result.error || 'Order placement failed');
+      throw new Error('Order placement failed');
     }
   } catch (error: any) {
     console.error('[WISPR] Trade order failed:', error);
     const errorMsg = error.message || 'Failed to place order. Check Zerodha API keys.';
     toast.error(`Order failed: ${errorMsg}`);
-    
+
     // Fallback: Emit event for mock execution (for testing)
     window.dispatchEvent(
       new CustomEvent('wispr:trade', {
@@ -639,10 +662,10 @@ async function executeSaveProfileCommand(_command: ParsedWisprCommand) {
   }
 }
 
-async function executeWeatherCommand(command: ParsedWisprCommand) {
+export async function executeWeatherCommand(command: ParsedWisprCommand) {
   try {
     const city = command.query || 'Delhi';
-    
+
     // Use Tauri invoke if available
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
       const { invoke } = await import('@tauri-apps/api/core');
@@ -654,9 +677,7 @@ async function executeWeatherCommand(command: ParsedWisprCommand) {
         const response = await fetch(`http://127.0.0.1:4000/api/weather/${city}`);
         if (response.ok) {
           const data = await response.json();
-          window.dispatchEvent(
-            new CustomEvent('weather-update', { detail: data })
-          );
+          window.dispatchEvent(new CustomEvent('weather-update', { detail: data }));
         }
       } catch (error) {
         console.warn('[WISPR] Weather API fallback failed:', error);
@@ -668,7 +689,7 @@ async function executeWeatherCommand(command: ParsedWisprCommand) {
   }
 }
 
-async function executeTrainCommand(command: ParsedWisprCommand) {
+export async function executeTrainCommand(command: ParsedWisprCommand) {
   try {
     // Parse train command: "Delhi to Mumbai on tomorrow"
     const parts = command.query?.split(' to ') || [];
@@ -690,7 +711,7 @@ async function executeTrainCommand(command: ParsedWisprCommand) {
   }
 }
 
-async function executeFlightCommand(command: ParsedWisprCommand) {
+export async function executeFlightCommand(command: ParsedWisprCommand) {
   try {
     // Parse flight command: "Delhi to Mumbai on tomorrow return 20 December"
     const parts = command.query?.split(' to ') || [];
@@ -706,7 +727,9 @@ async function executeFlightCommand(command: ParsedWisprCommand) {
       await invoke('book_flight', { from, to, departDate, returnDate });
       toast.success(`Booking flight: ${from} → ${to}${returnDate ? ' (round-trip)' : ''}...`);
     } else {
-      toast.info(`Flight booking: ${from} → ${to} on ${departDate}${returnDate ? ` return ${returnDate}` : ''}`);
+      toast.info(
+        `Flight booking: ${from} → ${to} on ${departDate}${returnDate ? ` return ${returnDate}` : ''}`
+      );
     }
   } catch (error) {
     console.error('[WISPR] Flight command failed:', error);

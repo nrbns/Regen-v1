@@ -2,7 +2,7 @@
  * Highlight to Note Workflow - Real-time text selection → note creation
  */
 
-import { SessionWorkspace, SessionHighlight, SessionNote } from '../workspace/SessionWorkspace';
+import { SessionWorkspace } from '../workspace/SessionWorkspace';
 
 export class HighlightToNote {
   private static selectionListener: ((e: MouseEvent) => void) | null = null;
@@ -13,11 +13,11 @@ export class HighlightToNote {
    */
   static enable() {
     if (this.isEnabled) return;
-    
+
     this.isEnabled = true;
     this.selectionListener = this.handleSelection.bind(this);
     document.addEventListener('mouseup', this.selectionListener);
-    
+
     // Add context menu option
     this.addContextMenu();
   }
@@ -27,13 +27,13 @@ export class HighlightToNote {
    */
   static disable() {
     if (!this.isEnabled) return;
-    
+
     this.isEnabled = false;
     if (this.selectionListener) {
       document.removeEventListener('mouseup', this.selectionListener);
       this.selectionListener = null;
     }
-    
+
     this.removeContextMenu();
   }
 
@@ -54,11 +54,7 @@ export class HighlightToNote {
   /**
    * Show floating action button for creating note
    */
-  private static showFloatingButton(
-    selection: Selection,
-    text: string,
-    event: MouseEvent
-  ) {
+  private static showFloatingButton(selection: Selection, text: string, _event: MouseEvent) {
     // Remove existing button
     const existing = document.getElementById('regen-highlight-button');
     if (existing) existing.remove();
@@ -132,22 +128,16 @@ export class HighlightToNote {
   /**
    * Create note from text selection
    */
-  private static async createNoteFromSelection(
-    text: string,
-    selection: Selection
-  ) {
+  private static async createNoteFromSelection(text: string, selection: Selection) {
     const url = window.location.href;
     const range = selection.getRangeAt(0);
-    
-    // Get surrounding context
-    const container = range.commonAncestorContainer;
-    const context = container.nodeType === Node.TEXT_NODE
-      ? container.parentElement?.textContent?.slice(0, 500) || ''
-      : (container as Element).textContent?.slice(0, 500) || '';
+
+    // Get surrounding context (currently unused but may be used for AI context)
+    const _container = range.commonAncestorContainer;
 
     // Show note creation dialog
     const noteContent = await this.showNoteDialog(text, url);
-    
+
     if (!noteContent) return; // User cancelled
 
     // Create highlight
@@ -178,7 +168,7 @@ export class HighlightToNote {
     selection: string,
     url: string
   ): Promise<{ note: string; tags?: string[] } | null> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // Remove existing dialog
       const existing = document.getElementById('regen-note-dialog');
       if (existing) existing.remove();
@@ -400,7 +390,7 @@ export class HighlightToNote {
    */
   private static addContextMenu() {
     // Context menu is handled by browser, but we can add a custom one
-    document.addEventListener('contextmenu', (e) => {
+    document.addEventListener('contextmenu', _e => {
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) {
         // Custom context menu could be added here
@@ -415,4 +405,3 @@ export class HighlightToNote {
     // Cleanup if needed
   }
 }
-

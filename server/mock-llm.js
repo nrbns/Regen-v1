@@ -8,9 +8,9 @@ import Fastify from 'fastify';
 const mockLLM = Fastify({ logger: true });
 
 // Mock research/summarization endpoint
-mockLLM.post('/api/research', async (request, reply) => {
+mockLLM.post('/api/research', async (request, _reply) => {
   const { query } = request.body || {};
-  
+
   return {
     summary: `[MOCK] Summary for: ${query || 'No query provided'}`,
     sources: [
@@ -23,9 +23,9 @@ mockLLM.post('/api/research', async (request, reply) => {
 });
 
 // Mock chat endpoint
-mockLLM.post('/api/chat', async (request, reply) => {
+mockLLM.post('/api/chat', async (request, _reply) => {
   const { message } = request.body || {};
-  
+
   return {
     response: `[MOCK] This is a mock response to: "${message || 'No message'}"\n\nIn production, this would be handled by Ollama or your AI provider.`,
     model: 'mock-llm',
@@ -34,9 +34,9 @@ mockLLM.post('/api/chat', async (request, reply) => {
 });
 
 // Mock vision endpoint
-mockLLM.post('/api/ai/vision', async (request, reply) => {
-  const { image, prompt } = request.body || {};
-  
+mockLLM.post('/api/ai/vision', async (request, _reply) => {
+  const { image: _image, prompt } = request.body || {};
+
   return {
     analysis: `[MOCK] Vision analysis for: "${prompt || 'No prompt'}"\n\nThe image appears to contain text, charts, or UI elements. In production, this would use GPT-4o Vision.`,
     model: 'mock-vision',
@@ -64,4 +64,3 @@ if (process.env.DEV === 'true' || process.env.NODE_ENV === 'development') {
   const port = parseInt(process.env.MOCK_LLM_PORT || '4001', 10);
   startMockLLM(port).catch(console.error);
 }
-

@@ -3,17 +3,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { 
-  Folder, 
-  FolderPlus, 
-  Trash2, 
-  RefreshCw, 
-  Archive,
-  Search,
-  X,
-} from 'lucide-react';
+import { Folder, FolderPlus, RefreshCw, Archive, Search, X } from 'lucide-react';
 import { useTabsStore } from '../../state/tabsStore';
-import { SessionWorkspace } from '../../core/workspace/SessionWorkspace';
 
 interface TabGroup {
   id: string;
@@ -23,7 +14,7 @@ interface TabGroup {
 }
 
 export function TabManager() {
-  const { tabs, activeId, setActiveId, closeTab } = useTabsStore();
+  const { tabs, activeId, remove } = useTabsStore();
   const [groups, setGroups] = useState<TabGroup[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [discardedTabs, setDiscardedTabs] = useState<Set<string>>(new Set());
@@ -58,7 +49,7 @@ export function TabManager() {
       tabIds: [],
       color: `hsl(${Math.random() * 360}, 70%, 50%)`,
     };
-    
+
     const updated = [...groups, group];
     setGroups(updated);
     saveGroups(updated);
@@ -76,7 +67,7 @@ export function TabManager() {
       }
       return g;
     });
-    
+
     setGroups(updated);
     saveGroups(updated);
   };
@@ -88,7 +79,7 @@ export function TabManager() {
       }
       return g;
     });
-    
+
     setGroups(updated);
     saveGroups(updated);
   };
@@ -146,14 +137,14 @@ export function TabManager() {
       timestamp: Date.now(),
       // Could include text content snapshot
     };
-    
+
     localStorage.setItem(`regen-tab-snapshot-${tabId}`, JSON.stringify(snapshot));
   };
 
   const loadTabSnapshot = (tabId: string) => {
     const saved = localStorage.getItem(`regen-tab-snapshot-${tabId}`);
     if (!saved) return null;
-    
+
     try {
       return JSON.parse(saved);
     } catch {
@@ -169,9 +160,10 @@ export function TabManager() {
     localStorage.setItem('regen-discarded-tabs', JSON.stringify(Array.from(discarded)));
   };
 
-  const filteredTabs = tabs.filter(tab =>
-    tab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    tab.url.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTabs = tabs.filter(
+    tab =>
+      tab.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (tab.url?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   const getTabGroup = (tabId: string) => {
@@ -217,10 +209,7 @@ export function TabManager() {
                 className="flex items-center justify-between p-2 bg-gray-800 rounded-lg"
               >
                 <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: group.color }}
-                  />
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
                   <span className="text-sm text-white">{group.name}</span>
                   <span className="text-xs text-gray-400">({group.tabIds.length})</span>
                 </div>
@@ -248,7 +237,7 @@ export function TabManager() {
             {filteredTabs.map(tab => {
               const group = getTabGroup(tab.id);
               const isDiscarded = discardedTabs.has(tab.id);
-              
+
               return (
                 <div
                   key={tab.id}
@@ -292,7 +281,7 @@ export function TabManager() {
                         </button>
                       )}
                       <button
-                        onClick={() => closeTab(tab.id)}
+                        onClick={() => remove(tab.id)}
                         className="p-1 hover:bg-white/20 rounded text-red-400"
                         title="Close"
                       >
@@ -301,7 +290,7 @@ export function TabManager() {
                     </div>
                   </div>
                   <p className="text-xs opacity-75 truncate">{tab.url}</p>
-                  
+
                   {/* Group selector */}
                   <div className="mt-2 flex items-center gap-2">
                     <select
@@ -333,4 +322,3 @@ export function TabManager() {
     </div>
   );
 }
-

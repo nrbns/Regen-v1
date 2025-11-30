@@ -21,7 +21,7 @@ export class PageSummarizer {
     try {
       // Inject content script to extract page content
       const result = await (window as any).__TAURI__?.invoke('extract_page_content', { tabId });
-      
+
       if (result) {
         return result;
       }
@@ -40,25 +40,25 @@ export class PageSummarizer {
   private static extractFromCurrentWindow(): PageContent {
     const url = window.location.href;
     const title = document.title;
-    
+
     // Remove script and style elements
     const clone = document.cloneNode(true) as Document;
     const scripts = clone.querySelectorAll('script, style, noscript');
     scripts.forEach(el => el.remove());
-    
+
     // Extract text content
     const text = clone.body?.innerText || clone.body?.textContent || '';
-    
+
     // Extract images
     const images = Array.from(document.querySelectorAll('img'))
       .map(img => img.src)
       .filter(src => src && !src.startsWith('data:'));
-    
+
     // Extract links
     const links = Array.from(document.querySelectorAll('a[href]'))
       .map(a => (a as HTMLAnchorElement).href)
       .filter(href => href && !href.startsWith('javascript:'));
-    
+
     return {
       url,
       title,
@@ -72,10 +72,7 @@ export class PageSummarizer {
   /**
    * Summarize page with real-time AI
    */
-  static async summarizePage(
-    content: PageContent,
-    length: 'short' | 'medium' | 'long' = 'medium'
-  ) {
+  static async summarizePage(content: PageContent, length: 'short' | 'medium' | 'long' = 'medium') {
     try {
       const response = await fetch('http://localhost:4000/api/ai/summarize', {
         method: 'POST',
@@ -92,7 +89,7 @@ export class PageSummarizer {
       }
 
       const result = await response.json();
-      
+
       // Save to current session
       const summary = SessionWorkspace.addSummary({
         url: content.url,
@@ -127,11 +124,13 @@ export class PageSummarizer {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: `Summarize this page: ${content.title}`,
-          sources: [{
-            title: content.title,
-            url: content.url,
-            snippet: content.text.slice(0, 2000),
-          }],
+          sources: [
+            {
+              title: content.title,
+              url: content.url,
+              snippet: content.text.slice(0, 2000),
+            },
+          ],
         }),
       });
 
@@ -149,16 +148,16 @@ export class PageSummarizer {
 
       while (true) {
         const { done, value } = await reader.read();
-        
+
         if (done) {
           // Save to session
-          const summary = SessionWorkspace.addSummary({
+          SessionWorkspace.addSummary({
             url: content.url,
             summary: fullText,
             keywords: this.extractKeywords(fullText),
             length,
           });
-          
+
           onDone(fullText);
           break;
         }
@@ -175,7 +174,7 @@ export class PageSummarizer {
                 onChunk(data.text, fullText);
               } else if (data.type === 'done') {
                 fullText = data.text;
-                const summary = SessionWorkspace.addSummary({
+                SessionWorkspace.addSummary({
                   url: content.url,
                   summary: fullText,
                   keywords: this.extractKeywords(fullText),
@@ -184,7 +183,7 @@ export class PageSummarizer {
                 onDone(fullText);
                 return;
               }
-            } catch (error) {
+            } catch {
               // Skip malformed JSON
             }
           }
@@ -202,15 +201,14 @@ export class PageSummarizer {
   private static extractKeywords(text: string): string[] {
     const words = text.toLowerCase().match(/\b\w{4,}\b/g) || [];
     const freq: Record<string, number> = {};
-    
+
     words.forEach(w => {
       freq[w] = (freq[w] || 0) + 1;
     });
-    
+
     return Object.entries(freq)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([word]) => word);
   }
 }
-

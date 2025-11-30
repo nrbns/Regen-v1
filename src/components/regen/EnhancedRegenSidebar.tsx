@@ -3,29 +3,21 @@
  * AI Chat + Notes + Saved Research + Quick Tools + Clipboard + Downloads
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Send,
-  Mic,
-  MicOff,
   Sparkles,
   Loader2,
   X,
   Search,
-  TrendingUp,
   FileText,
   Clipboard,
   Download,
   Folder,
   Wrench,
   BookOpen,
-  Plus,
-  Trash2,
   Copy,
-  Check,
 } from 'lucide-react';
-import { useTabsStore } from '../../state/tabsStore';
-import { ipc } from '../../lib/ipc-typed';
 import { toast } from '../../utils/toast';
 
 type SidebarTab = 'chat' | 'notes' | 'research' | 'tools' | 'clipboard' | 'downloads' | 'files';
@@ -64,27 +56,27 @@ interface DownloadItem {
 
 export function EnhancedRegenSidebar() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('chat');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages] = useState<any[]>([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
+  const [isLoading] = useState(false);
+
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
-  
+
   // Research state
   const [savedResearch, setSavedResearch] = useState<SavedResearch[]>([]);
-  
+
   // Clipboard state
   const [clipboardItems, setClipboardItems] = useState<ClipboardItem[]>([]);
-  
+
   // Downloads state
-  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
-  
-  // Files state
-  const [files, setFiles] = useState<string[]>([]);
+  const [downloads] = useState<DownloadItem[]>([]);
+
+  // Files state (currently unused)
+  // const [files] = useState<string[]>([]);
 
   // Load saved data
   useEffect(() => {
@@ -93,48 +85,55 @@ export function EnhancedRegenSidebar() {
     if (savedNotes) {
       setNotes(JSON.parse(savedNotes));
     }
-    
+
     // Load research
     const savedResearchData = localStorage.getItem('regen-research');
     if (savedResearchData) {
       setSavedResearch(JSON.parse(savedResearchData));
     }
-    
+
     // Load clipboard history
     const savedClipboard = localStorage.getItem('regen-clipboard');
     if (savedClipboard) {
       setClipboardItems(JSON.parse(savedClipboard));
     }
-    
+
     // Monitor clipboard
     const handleClipboardChange = () => {
-      navigator.clipboard.readText().then(text => {
-        if (text && text.length > 0) {
-          const newItem: ClipboardItem = {
-            id: `clip-${Date.now()}`,
-            text,
-            timestamp: Date.now(),
-            type: text.startsWith('http') ? 'url' : text.includes('function') || text.includes('const') ? 'code' : 'text',
-          };
-          setClipboardItems(prev => {
-            const updated = [newItem, ...prev].slice(0, 50); // Keep last 50
-            localStorage.setItem('regen-clipboard', JSON.stringify(updated));
-            return updated;
-          });
-        }
-      }).catch(() => {});
+      navigator.clipboard
+        .readText()
+        .then(text => {
+          if (text && text.length > 0) {
+            const newItem: ClipboardItem = {
+              id: `clip-${Date.now()}`,
+              text,
+              timestamp: Date.now(),
+              type: text.startsWith('http')
+                ? 'url'
+                : text.includes('function') || text.includes('const')
+                  ? 'code'
+                  : 'text',
+            };
+            setClipboardItems(prev => {
+              const updated = [newItem, ...prev].slice(0, 50); // Keep last 50
+              localStorage.setItem('regen-clipboard', JSON.stringify(updated));
+              return updated;
+            });
+          }
+        })
+        .catch(() => {});
     };
-    
+
     // Check clipboard every 2 seconds
     const clipboardInterval = setInterval(handleClipboardChange, 2000);
-    
+
     return () => clearInterval(clipboardInterval);
   }, []);
 
   // Save notes
   const saveNote = () => {
     if (!noteTitle.trim() && !noteContent.trim()) return;
-    
+
     const note: Note = selectedNote || {
       id: `note-${Date.now()}`,
       title: noteTitle || 'Untitled',
@@ -142,17 +141,15 @@ export function EnhancedRegenSidebar() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    
+
     if (selectedNote) {
       note.title = noteTitle || note.title;
       note.content = noteContent;
       note.updatedAt = Date.now();
     }
-    
-    const updated = selectedNote
-      ? notes.map(n => n.id === note.id ? note : n)
-      : [note, ...notes];
-    
+
+    const updated = selectedNote ? notes.map(n => (n.id === note.id ? note : n)) : [note, ...notes];
+
     setNotes(updated);
     localStorage.setItem('regen-notes', JSON.stringify(updated));
     setSelectedNote(null);
@@ -161,7 +158,7 @@ export function EnhancedRegenSidebar() {
     toast.success('Note saved');
   };
 
-  const deleteNote = (id: string) => {
+  const _deleteNote = (id: string) => {
     const updated = notes.filter(n => n.id !== id);
     setNotes(updated);
     localStorage.setItem('regen-notes', JSON.stringify(updated));
@@ -236,10 +233,15 @@ export function EnhancedRegenSidebar() {
               </div>
             )}
             {messages.map(msg => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                  msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200'
-                }`}>
+              <div
+                key={msg.id}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                    msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200'
+                  }`}
+                >
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
@@ -401,10 +403,15 @@ export function EnhancedRegenSidebar() {
                   <div key={download.id} className="p-3 bg-gray-800 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-white">{download.filename}</p>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        download.status === 'completed' ? 'bg-green-600' :
-                        download.status === 'failed' ? 'bg-red-600' : 'bg-blue-600'
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded ${
+                          download.status === 'completed'
+                            ? 'bg-green-600'
+                            : download.status === 'failed'
+                              ? 'bg-red-600'
+                              : 'bg-blue-600'
+                        }`}
+                      >
                         {download.status}
                       </span>
                     </div>
@@ -480,9 +487,7 @@ export function EnhancedRegenSidebar() {
               placeholder="Ask Regen anything..."
               className="flex-1 bg-gray-800 text-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-            <button
-              className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            >
+            <button className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
               <Send className="w-5 h-5" />
             </button>
           </div>
@@ -492,7 +497,15 @@ export function EnhancedRegenSidebar() {
   );
 }
 
-function QuickToolButton({ icon: Icon, label, onClick }: { icon: any; label: string; onClick: () => void }) {
+function QuickToolButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: any;
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -503,4 +516,3 @@ function QuickToolButton({ icon: Icon, label, onClick }: { icon: any; label: str
     </button>
   );
 }
-

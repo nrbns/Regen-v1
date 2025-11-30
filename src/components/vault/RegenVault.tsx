@@ -4,9 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Lock, Unlock, Trash2, Eye, EyeOff, Shield } from 'lucide-react';
-import { useTabsStore } from '../../state/tabsStore';
-import { ipc } from '../../lib/ipc-typed';
+import { Lock, Trash2, Eye, Shield } from 'lucide-react';
 
 interface VaultTab {
   id: string;
@@ -84,13 +82,13 @@ export function RegenVault() {
     }
   };
 
-  const createVaultTab = async (url: string, title: string) => {
+  const _createVaultTab = async (url: string, title: string) => {
     const vaultTab: VaultTab = {
       id: `vault-${Date.now()}`,
       url: encrypt(url, encryptionKey),
       title: encrypt(title, encryptionKey),
       createdAt: Date.now(),
-      expiresAt: Date.now() + (deleteAfter * 60 * 1000),
+      expiresAt: Date.now() + deleteAfter * 60 * 1000,
       encrypted: true,
     };
 
@@ -107,12 +105,13 @@ export function RegenVault() {
 
   const openVaultTab = async (vaultTab: VaultTab) => {
     if (!isUnlocked) return;
-    
+
     const url = decrypt(vaultTab.url, encryptionKey);
-    const title = decrypt(vaultTab.title, encryptionKey);
-    
+    // const title = decrypt(vaultTab.title, encryptionKey);
+
     // Create new tab in vault mode
-    await ipc.tabs.create(url);
+    // Note: This would need proper tab creation API
+    window.open(url, '_blank');
   };
 
   const clearAll = () => {
@@ -236,4 +235,3 @@ export function RegenVault() {
     </div>
   );
 }
-

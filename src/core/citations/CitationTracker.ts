@@ -2,7 +2,7 @@
  * Citation Tracker - Track sources and generate citations
  */
 
-import { SessionWorkspace, ResearchSession } from '../workspace/SessionWorkspace';
+import { SessionWorkspace } from '../workspace/SessionWorkspace';
 
 export interface Citation {
   id: string;
@@ -44,7 +44,7 @@ export class CitationTracker {
     if (!session.metadata.sources) {
       session.metadata.sources = [];
     }
-    
+
     (session.metadata.sources as any[]).push(fullCitation);
     SessionWorkspace.saveSession(session);
 
@@ -58,13 +58,16 @@ export class CitationTracker {
     const session = SessionWorkspace.getSession(sessionId);
     if (!session) return [];
 
-    return (session.metadata.sources as Citation[]) || [];
+    return ((session.metadata.sources as unknown as Citation[]) || []) as Citation[];
   }
 
   /**
    * Generate citation in various formats
    */
-  static generateCitation(citation: Citation, format: 'apa' | 'mla' | 'chicago' | 'ieee' = 'apa'): string {
+  static generateCitation(
+    citation: Citation,
+    format: 'apa' | 'mla' | 'chicago' | 'ieee' = 'apa'
+  ): string {
     switch (format) {
       case 'apa':
         return this.generateAPA(citation);
@@ -98,15 +101,15 @@ export class CitationTracker {
    * Generate MLA citation
    */
   private static generateMLA(citation: Citation): string {
-    const author = citation.author || 'Unknown';
-    const date = citation.date || new Date(citation.accessedDate).getFullYear().toString();
+    const _author = citation.author || 'Unknown';
+    const _date = citation.date || new Date(citation.accessedDate).getFullYear().toString();
     const accessed = new Date(citation.accessedDate).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
 
-    return `"${citation.title}." ${citation.metadata?.publisher || 'Web'}, ${date}, ${citation.url}. Accessed ${accessed}.`;
+    return `"${citation.title}." ${citation.metadata?.publisher || 'Web'}, ${_date}, ${citation.url}. Accessed ${accessed}.`;
   }
 
   /**
@@ -128,10 +131,10 @@ export class CitationTracker {
    * Generate IEEE citation
    */
   private static generateIEEE(citation: Citation): string {
-    const author = citation.author || 'Unknown';
-    const date = citation.date || new Date(citation.accessedDate).getFullYear().toString();
+    const _author = citation.author || 'Unknown';
+    const _date = citation.date || new Date(citation.accessedDate).getFullYear().toString();
 
-    return `[1] ${author}, "${citation.title}," ${citation.metadata?.publisher || 'Online'}. Available: ${citation.url}. [Accessed: ${new Date(citation.accessedDate).toLocaleDateString()}].`;
+    return `[1] ${_author}, "${citation.title}," ${citation.metadata?.publisher || 'Online'}. Available: ${citation.url}. [Accessed: ${new Date(citation.accessedDate).toLocaleDateString()}].`;
   }
 
   /**
@@ -220,4 +223,3 @@ export class CitationTracker {
     return JSON.stringify(citations, null, 2);
   }
 }
-

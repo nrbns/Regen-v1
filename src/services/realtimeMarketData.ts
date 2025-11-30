@@ -1,15 +1,13 @@
 /**
  * Real-Time Market Data Service
- * 
+ *
  * Connects to server SSE endpoint for sub-second price updates
  * Supports: NSE/BSE (via Finnhub), Crypto (via Binance), US markets
  */
 
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (window as any).__API_BASE_URL ||
-      import.meta.env.VITE_API_BASE_URL ||
-      'http://127.0.0.1:4000'
+    ? (window as any).__API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000'
     : 'http://127.0.0.1:4000';
 
 export interface PriceUpdate {
@@ -78,7 +76,7 @@ class RealtimeMarketDataService {
         this.reconnectAttempts = 0;
       };
 
-      this.eventSource.onmessage = (event) => {
+      this.eventSource.onmessage = event => {
         try {
           // Handle SSE ping
           if (event.data === ': ping' || event.data.trim() === '') {
@@ -121,7 +119,7 @@ class RealtimeMarketDataService {
         }
       };
 
-      this.eventSource.onerror = (error) => {
+      this.eventSource.onerror = error => {
         console.error(`[RealtimeMarketData] SSE error for ${symbol}:`, error);
         this.eventSource?.close();
         this.scheduleReconnect(symbol);
@@ -141,7 +139,9 @@ class RealtimeMarketDataService {
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
 
-    console.log(`[RealtimeMarketData] Reconnecting to ${symbol} in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    console.log(
+      `[RealtimeMarketData] Reconnecting to ${symbol} in ${delay}ms (attempt ${this.reconnectAttempts})`
+    );
 
     setTimeout(() => {
       if (this.currentSymbol === symbol && this.callbacks.has(symbol)) {
@@ -163,14 +163,16 @@ class RealtimeMarketDataService {
   async getHistoricalCandles(
     symbol: string,
     resolution: '1' | '5' | '15' | '30' | '60' | 'D' | 'W' | 'M' = 'D',
-    from?: number,
-    to?: number
-  ): Promise<Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>> {
+    _from?: number,
+    _to?: number
+  ): Promise<
+    Array<{ time: number; open: number; high: number; low: number; close: number; volume: number }>
+  > {
     try {
       // Use Finnhub API via server
       const normalizedSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
-      const toTimestamp = to || Math.floor(Date.now() / 1000);
-      const fromTimestamp = from || toTimestamp - (resolution === 'D' ? 86400 * 50 : 86400 * 7);
+      // const toTimestamp = to || Math.floor(Date.now() / 1000);
+      // const fromTimestamp = from || toTimestamp - (resolution === 'D' ? 86400 * 50 : 86400 * 7);
 
       // Use Finnhub API via server proxy
       const response = await fetch(
@@ -182,7 +184,7 @@ class RealtimeMarketDataService {
       }
 
       const data = await response.json();
-      
+
       // Convert to lightweight-charts format
       if (data.candles && Array.isArray(data.candles)) {
         return data.candles.map((c: any) => ({
@@ -224,4 +226,3 @@ export function getRealtimeMarketDataService(): RealtimeMarketDataService {
   }
   return instance;
 }
-

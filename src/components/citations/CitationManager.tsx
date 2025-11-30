@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { FileText, Download, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileText, Plus, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { CitationTracker, Citation } from '../../core/citations/CitationTracker';
 import { SessionWorkspace } from '../../core/workspace/SessionWorkspace';
 import { toast } from '../../utils/toast';
@@ -11,7 +11,6 @@ import { toast } from '../../utils/toast';
 export function CitationManager({ sessionId }: { sessionId: string }) {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [selectedFormat, setSelectedFormat] = useState<'apa' | 'mla' | 'chicago' | 'ieee'>('apa');
-  const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
     loadCitations();
@@ -51,7 +50,7 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
 
       loadCitations();
       toast.success('Citation added');
-    } catch (error) {
+    } catch {
       toast.error('Failed to add citation');
     }
   };
@@ -63,9 +62,8 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
     if (!session) return;
 
     if (session.metadata.sources) {
-      (session.metadata.sources as Citation[]) = (session.metadata.sources as Citation[]).filter(
-        c => c.id !== citationId
-      );
+      const sources = session.metadata.sources as unknown as Citation[];
+      session.metadata.sources = sources.filter(c => c.id !== citationId) as unknown as string[];
       SessionWorkspace.saveSession(session);
       loadCitations();
       toast.success('Citation deleted');
@@ -93,7 +91,9 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
     } else {
       // Formatted (selected format)
       content = citations
-        .map((cite, index) => `${index + 1}. ${CitationTracker.generateCitation(cite, selectedFormat)}`)
+        .map(
+          (cite, index) => `${index + 1}. ${CitationTracker.generateCitation(cite, selectedFormat)}`
+        )
         .join('\n\n');
       filename = `citations_${selectedFormat}.txt`;
       mimeType = 'text/plain';
@@ -182,14 +182,16 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {citations.map((citation, index) => (
+            {citations.map(citation => (
               <div key={citation.id} className="bg-gray-800 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-sm font-semibold text-white">{citation.title}</h3>
                       {citation.credibility && (
-                        <div className={`flex items-center gap-1 ${getCredibilityColor(citation.credibility.score)}`}>
+                        <div
+                          className={`flex items-center gap-1 ${getCredibilityColor(citation.credibility.score)}`}
+                        >
                           {getCredibilityIcon(citation.credibility.score)}
                           <span className="text-xs">{citation.credibility.score}/100</span>
                         </div>
@@ -220,7 +222,9 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
 
                 {/* Generated Citation */}
                 <div className="mt-3 p-3 bg-gray-900 rounded border border-gray-700">
-                  <p className="text-xs text-gray-400 mb-1">{selectedFormat.toUpperCase()} Format:</p>
+                  <p className="text-xs text-gray-400 mb-1">
+                    {selectedFormat.toUpperCase()} Format:
+                  </p>
                   <p className="text-xs text-gray-300 font-mono">
                     {CitationTracker.generateCitation(citation, selectedFormat)}
                   </p>
@@ -233,4 +237,3 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
     </div>
   );
 }
-

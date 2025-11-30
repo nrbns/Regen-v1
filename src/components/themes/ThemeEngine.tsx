@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Palette, Sparkles, Moon, Sun, Zap, Heart } from 'lucide-react';
+import { Palette } from 'lucide-react';
 
 export interface Theme {
   id: string;
@@ -144,7 +144,7 @@ export function ThemeEngine() {
   const saveCustomTheme = () => {
     const updated = [...themes];
     const existing = updated.findIndex(t => t.id === 'custom');
-    
+
     if (existing >= 0) {
       updated[existing] = customTheme;
     } else {
@@ -191,19 +191,23 @@ export function ThemeEngine() {
                   <input
                     type="color"
                     value={value}
-                    onChange={e => setCustomTheme({
-                      ...customTheme,
-                      colors: { ...customTheme.colors, [key]: e.target.value }
-                    })}
+                    onChange={e =>
+                      setCustomTheme({
+                        ...customTheme,
+                        colors: { ...customTheme.colors, [key]: e.target.value },
+                      })
+                    }
                     className="w-12 h-10 rounded"
                   />
                   <input
                     type="text"
                     value={value}
-                    onChange={e => setCustomTheme({
-                      ...customTheme,
-                      colors: { ...customTheme.colors, [key]: e.target.value }
-                    })}
+                    onChange={e =>
+                      setCustomTheme({
+                        ...customTheme,
+                        colors: { ...customTheme.colors, [key]: e.target.value },
+                      })
+                    }
                     className="flex-1 bg-gray-700 text-white rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
@@ -238,9 +242,7 @@ export function ThemeEngine() {
               }}
             />
             <p className="text-sm font-semibold text-white">{theme.name}</p>
-            {activeTheme === theme.id && (
-              <p className="text-xs text-purple-400 mt-1">Active</p>
-            )}
+            {activeTheme === theme.id && <p className="text-xs text-purple-400 mt-1">Active</p>}
           </button>
         ))}
       </div>
@@ -250,4 +252,3 @@ export function ThemeEngine() {
 
 // Import toast
 import { toast } from '../../utils/toast';
-

@@ -3,9 +3,42 @@
  * Save/load/export research sessions with tabs, notes, summaries
  */
 
-import { invoke } from '@tauri-apps/api/tauri';
-import { save, open } from '@tauri-apps/api/dialog';
-import { writeTextFile, readTextFile } from '@tauri-apps/api/fs';
+// Tauri API imports - optional, will be dynamically imported if available
+// Using any type to avoid compile-time dependency on Tauri types
+let tauriInvoke: ((command: string, args?: any) => Promise<any>) | null = null;
+let tauriSave: ((options?: any) => Promise<string | null>) | null = null;
+let tauriOpen: ((options?: any) => Promise<string | string[] | null>) | null = null;
+let tauriWriteTextFile: ((path: string, contents: string) => Promise<void>) | null = null;
+let tauriReadTextFile: ((path: string) => Promise<string>) | null = null;
+
+// Dynamically load Tauri APIs if available
+if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+  try {
+    // @ts-ignore - Tauri APIs may not be available at compile time
+    import('@tauri-apps/api/tauri')
+      .then((m: any) => {
+        tauriInvoke = m.invoke;
+      })
+      .catch(() => {});
+    // @ts-ignore - Tauri APIs may not be available at compile time
+    import('@tauri-apps/api/dialog')
+      .then((m: any) => {
+        tauriSave = m.save;
+        tauriOpen = m.open;
+      })
+      .catch(() => {});
+    // @ts-ignore - Tauri APIs may not be available at compile time
+    import('@tauri-apps/api/fs')
+      .then((m: any) => {
+        tauriWriteTextFile = m.writeTextFile;
+        tauriReadTextFile = m.readTextFile;
+      })
+      .catch(() => {});
+  } catch {
+    // Tauri APIs not available
+  }
+}
+
 import { CitationTracker } from '../citations/CitationTracker';
 
 export interface ResearchSession {
@@ -123,7 +156,7 @@ export class SessionWorkspace {
     session.updatedAt = Date.now();
     const sessions = this.getAllSessions();
     const index = sessions.findIndex(s => s.id === session.id);
-    
+
     if (index >= 0) {
       sessions[index] = session;
     } else {
@@ -133,7 +166,7 @@ export class SessionWorkspace {
     // Keep last 100 sessions
     const trimmed = sessions.slice(0, 100);
     localStorage.setItem(this.storageKey, JSON.stringify(trimmed));
-    
+
     // Also save to SQLite via Tauri
     this._saveToSQLite(session).catch(console.error);
   }
@@ -158,7 +191,7 @@ export class SessionWorkspace {
     const session = this.getCurrentSession();
     if (!session) {
       // Create default session
-      const newSession = this.createSession('Untitled Session');
+      this.createSession('Untitled Session');
       return this.addNote(note);
     }
 
@@ -179,7 +212,7 @@ export class SessionWorkspace {
   static addSummary(summary: Omit<SessionSummary, 'id' | 'timestamp'>): SessionSummary {
     const session = this.getCurrentSession();
     if (!session) {
-      const newSession = this.createSession('Untitled Session');
+      this.createSession('Untitled Session');
       return this.addSummary(summary);
     }
 
@@ -200,7 +233,7 @@ export class SessionWorkspace {
   static addHighlight(highlight: Omit<SessionHighlight, 'id' | 'createdAt'>): SessionHighlight {
     const session = this.getCurrentSession();
     if (!session) {
-      const newSession = this.createSession('Untitled Session');
+      this.createSession('Untitled Session');
       return this.addHighlight(highlight);
     }
 
@@ -222,16 +255,30 @@ export class SessionWorkspace {
     const session = this.getSession(sessionId);
     if (!session) throw new Error('Session not found');
 
-    const filePath = await save({
-      filters: [{
-        name: 'OmniSession',
-        extensions: ['omnisession'],
-      }],
+    if (!tauriSave || !tauriWriteTextFile) {
+      // Fallback to browser download
+      const blob = new Blob([JSON.stringify(session, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${session.title.replace(/[^a-z0-9]/gi, '_')}.omnisession`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const filePath = await tauriSave({
+      filters: [
+        {
+          name: 'OmniSession',
+          extensions: ['omnisession'],
+        },
+      ],
       defaultPath: `${session.title.replace(/[^a-z0-9]/gi, '_')}.omnisession`,
     });
 
     if (filePath) {
-      await writeTextFile(filePath, JSON.stringify(session, null, 2));
+      await tauriWriteTextFile(filePath, JSON.stringify(session, null, 2));
     }
   }
 
@@ -244,24 +291,27 @@ export class SessionWorkspace {
 
     // First export to Markdown
     const markdown = await this.exportToMarkdownString(sessionId);
-    
+
     // Use Tauri to convert Markdown to PDF
-    try {
-      await invoke('export_markdown_to_pdf', {
-        markdown,
-        filename: `${session.title.replace(/[^a-z0-9]/gi, '_')}.pdf`,
-      });
-    } catch (error) {
-      console.error('[Workspace] PDF export failed:', error);
-      // Fallback: download as Markdown
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${session.title.replace(/[^a-z0-9]/gi, '_')}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
+    if (tauriInvoke) {
+      try {
+        await tauriInvoke('export_markdown_to_pdf', {
+          markdown,
+          filename: `${session.title.replace(/[^a-z0-9]/gi, '_')}.pdf`,
+        });
+        return;
+      } catch (error) {
+        console.error('[Workspace] PDF export failed:', error);
+      }
     }
+    // Fallback: download as Markdown
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${session.title.replace(/[^a-z0-9]/gi, '_')}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   /**
@@ -343,16 +393,30 @@ export class SessionWorkspace {
 
     const markdown = await this.exportToMarkdownString(sessionId);
 
-    const filePath = await save({
-      filters: [{
-        name: 'Markdown',
-        extensions: ['md'],
-      }],
+    if (!tauriSave || !tauriWriteTextFile) {
+      // Fallback to browser download
+      const blob = new Blob([markdown], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${session.title.replace(/[^a-z0-9]/gi, '_')}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const filePath = await tauriSave({
+      filters: [
+        {
+          name: 'Markdown',
+          extensions: ['md'],
+        },
+      ],
       defaultPath: `${session.title.replace(/[^a-z0-9]/gi, '_')}.md`,
     });
 
     if (filePath) {
-      await writeTextFile(filePath, markdown);
+      await tauriWriteTextFile(filePath, markdown);
     }
   }
 
@@ -360,22 +424,28 @@ export class SessionWorkspace {
    * Import session from .omnisession
    */
   static async importSession(): Promise<ResearchSession> {
-    const filePath = await open({
-      filters: [{
-        name: 'OmniSession',
-        extensions: ['omnisession', 'json'],
-      }],
+    if (!tauriOpen || !tauriReadTextFile) {
+      throw new Error('File import not available in this environment. Please use Tauri runtime.');
+    }
+
+    const filePath = await tauriOpen({
+      filters: [
+        {
+          name: 'OmniSession',
+          extensions: ['omnisession', 'json'],
+        },
+      ],
     });
 
     if (filePath && typeof filePath === 'string') {
-      const content = await readTextFile(filePath);
+      const content = await tauriReadTextFile(filePath);
       const session: ResearchSession = JSON.parse(content);
-      
+
       // Generate new ID to avoid conflicts
       session.id = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       session.createdAt = Date.now();
       session.updatedAt = Date.now();
-      
+
       this.saveSession(session);
       this.currentSessionId = session.id;
       return session;
@@ -391,7 +461,7 @@ export class SessionWorkspace {
     const sessions = this.getAllSessions();
     const filtered = sessions.filter(s => s.id !== sessionId);
     localStorage.setItem(this.storageKey, JSON.stringify(filtered));
-    
+
     if (this.currentSessionId === sessionId) {
       this.currentSessionId = null;
     }
@@ -401,12 +471,14 @@ export class SessionWorkspace {
    * Save to SQLite via Tauri
    */
   private static async _saveToSQLite(session: ResearchSession): Promise<void> {
+    if (!tauriInvoke) {
+      return; // SQLite save only available in Tauri
+    }
     try {
-      await invoke('save_session', { session });
+      await tauriInvoke('save_session', { session });
     } catch (error) {
       console.error('[Workspace] SQLite save failed:', error);
       // Fallback to localStorage only
     }
   }
 }
-

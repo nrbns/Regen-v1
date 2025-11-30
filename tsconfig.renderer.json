@@ -7,6 +7,5 @@
     "types": ["node"],
     "moduleResolution": "bundler"
   },
-  "include": ["src", "src/**/*.json"]
+  "include": ["src", "src/**/*.json", "src/vite-env.d.ts"]
 }
-

@@ -1,17 +1,21 @@
 // src-tauri/src/main.rs — FINAL WORKING BACKEND (100% GUARANTEED)
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{Manager, WebviewWindow, Emitter, Listener};
+use tauri::{Manager, WebviewWindow, Emitter, Listener, AppHandle};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, GlobalShortcutExt};
 use std::process::Command;
 use std::time::Duration;
 use tokio::time::sleep;
 use reqwest::Client;
+use serde::{Serialize, Deserialize};
 use serde_json::{json, Value};
 use futures_util::StreamExt;
 use urlencoding;
-use chrono::{Local, Duration as ChronoDuration};
+use chrono::{Local, Duration as ChronoDuration, Datelike};
 use std::collections::HashMap;
+
+mod agent;
+mod db;
 
 #[tauri::command]
 async fn research_stream(query: String, window: WebviewWindow) -> Result<(), String> {
@@ -979,9 +983,9 @@ async fn book_flight(
 
     // Format date (simple version)
     let formatted_depart = format_date(&depart_date);
-    let url = if let Some(ret) = return_date {
+    let url = if let Some(ref ret) = return_date {
         // Round-trip
-        let formatted_return = format_date(&ret);
+        let formatted_return = format_date(ret);
         format!(
             "https://www.makemytrip.com/flight/search?itinerary={0}-{1}-{2}_{1}-{0}-{3}&tripType=R&paxType=A-1_C-0_I-0&intl=false&cabinClass=E",
             from_code, to_code, formatted_depart, formatted_return
@@ -1044,7 +1048,7 @@ fn format_date(input: &str) -> String {
         while (today.weekday().num_days_from_monday() + days) % 7 != 4 {
             days += 1;
         }
-        (today + ChronoDuration::days(days)).format("%d-%m-%Y").to_string()
+        (today + ChronoDuration::days(days as i64)).format("%d-%m-%Y").to_string()
     } else {
         // Try to parse common formats
         input.replace(" ", "-").replace("/", "-")
@@ -1247,6 +1251,8 @@ fn main() {
             tradingview_authorize,
             tradingview_quotes,
             tradingview_place_order,
+            agent::research_agent,
+            agent::execute_agent,
             tradingview_get_positions,
             save_session,
             load_session,
@@ -1314,9 +1320,9 @@ struct SessionHighlight {
 
 #[tauri::command]
 async fn save_session(session: ResearchSession, app: tauri::AppHandle) -> Result<(), String> {
-    let app_data_dir = app.path_resolver()
+    let app_data_dir = app.path()
         .app_local_data_dir()
-        .ok_or("Failed to get app data directory")?;
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
     
     let sessions_dir = app_data_dir.join("sessions");
     std::fs::create_dir_all(&sessions_dir)
@@ -1334,9 +1340,9 @@ async fn save_session(session: ResearchSession, app: tauri::AppHandle) -> Result
 
 #[tauri::command]
 async fn load_session(session_id: String, app: tauri::AppHandle) -> Result<ResearchSession, String> {
-    let app_data_dir = app.path_resolver()
+    let app_data_dir = app.path()
         .app_local_data_dir()
-        .ok_or("Failed to get app data directory")?;
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
     
     let file_path = app_data_dir.join("sessions").join(format!("{}.json", session_id));
     
@@ -1351,9 +1357,9 @@ async fn load_session(session_id: String, app: tauri::AppHandle) -> Result<Resea
 
 #[tauri::command]
 async fn list_sessions(app: tauri::AppHandle) -> Result<Vec<ResearchSession>, String> {
-    let app_data_dir = app.path_resolver()
+    let app_data_dir = app.path()
         .app_local_data_dir()
-        .ok_or("Failed to get app data directory")?;
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
     
     let sessions_dir = app_data_dir.join("sessions");
     
@@ -1387,9 +1393,9 @@ async fn list_sessions(app: tauri::AppHandle) -> Result<Vec<ResearchSession>, St
 
 #[tauri::command]
 async fn delete_session(session_id: String, app: tauri::AppHandle) -> Result<(), String> {
-    let app_data_dir = app.path_resolver()
+    let app_data_dir = app.path()
         .app_local_data_dir()
-        .ok_or("Failed to get app data directory")?;
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
     
     let file_path = app_data_dir.join("sessions").join(format!("{}.json", session_id));
     

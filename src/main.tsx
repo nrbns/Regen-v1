@@ -327,6 +327,13 @@ try {
       }
       import('./utils/toast').then(({ toast }) => {
         toast.success('Backend ready! Ollama, MeiliSearch, and n8n are running.');
+        // Initialize MeiliSearch indexing and setup indexes
+        import('./services/meiliIndexer').then(({ initMeiliIndexing }) => {
+          initMeiliIndexing().catch(console.error);
+        });
+        import('./lib/meili-setup').then(({ setupMeiliIndexes }) => {
+          setupMeiliIndexes().catch(console.error);
+        });
       });
     });
 

@@ -4,7 +4,6 @@
  * Runs daily at 5:45 AM to refresh access token
  */
 
-import crypto from 'crypto';
 import { createHmac } from 'crypto';
 
 /**
@@ -42,10 +41,11 @@ export function generateTOTP(secret) {
 
   // Dynamic truncation
   const offset = hash[hash.length - 1] & 0xf;
-  const code = ((hash[offset] & 0x7f) << 24) |
-               ((hash[offset + 1] & 0xff) << 16) |
-               ((hash[offset + 2] & 0xff) << 8) |
-               (hash[offset + 3] & 0xff);
+  const code =
+    ((hash[offset] & 0x7f) << 24) |
+    ((hash[offset + 1] & 0xff) << 16) |
+    ((hash[offset + 2] & 0xff) << 8) |
+    (hash[offset + 3] & 0xff);
 
   // Return 6-digit code
   return (code % 1000000).toString().padStart(6, '0');
@@ -104,7 +104,7 @@ export async function loginZerodha(userId, password, totpSecret) {
   }
 
   // Calculate expiration (typically 24 hours)
-  const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
 
   return {
     accessToken: tokenData.data.access_token,
@@ -136,7 +136,7 @@ export async function refreshZerodhaToken(refreshToken) {
 
   return {
     accessToken: data.data?.access_token,
-    expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
   };
 }
 
@@ -160,12 +160,17 @@ export function setupDailyTokenRefresh(storeTokenCallback) {
     setTimeout(async () => {
       try {
         // Get stored credentials
-        const { ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET, ZERODHA_REFRESH_TOKEN } = process.env;
+        const { ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET, ZERODHA_REFRESH_TOKEN } =
+          process.env;
 
         if (ZERODHA_REFRESH_TOKEN) {
           // Try refresh token first
           const refreshed = await refreshZerodhaToken(ZERODHA_REFRESH_TOKEN);
-          await storeTokenCallback(refreshed.accessToken, ZERODHA_REFRESH_TOKEN, refreshed.expiresAt);
+          await storeTokenCallback(
+            refreshed.accessToken,
+            ZERODHA_REFRESH_TOKEN,
+            refreshed.expiresAt
+          );
           console.log('[Zerodha] Token refreshed successfully at', new Date().toISOString());
         } else if (ZERODHA_USER_ID && ZERODHA_PASSWORD && ZERODHA_TOTP_SECRET) {
           // Full login with TOTP
@@ -192,4 +197,3 @@ export function setupDailyTokenRefresh(storeTokenCallback) {
   // Start scheduling
   scheduleRefresh();
 }
-

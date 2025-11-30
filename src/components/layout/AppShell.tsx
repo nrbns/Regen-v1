@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
+import { GlobalSearch } from '../search/GlobalSearch';
 // Voice components removed by user request
 // Lazy load heavy Redix services - DEFER until after first render
 const initializeOptimizer = () =>
@@ -395,9 +396,8 @@ export function AppShell() {
     let cleanup: (() => void) | null = null;
 
     const initMemoryMonitoring = async () => {
-      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs } = await import(
-        '../../core/monitoring/memoryMonitor'
-      );
+      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs } =
+        await import('../../core/monitoring/memoryMonitor');
 
       startMemoryMonitoring(
         async () => {
@@ -2227,6 +2227,7 @@ export function AppShell() {
         onClose={() => setWorkflowMarketplaceOpen(false)}
       />
 
+      <GlobalSearch />
       <WisprOrb />
       <OmniModeSwitcher />
       <FeaturesHub />
