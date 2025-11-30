@@ -2145,3 +2145,15 @@ export function TabStrip() {
     </>
   );
 }
+
+// Export with conditional rendering wrapper
+export default function TabStripWrapper() {
+  const { mode: currentMode } = useAppStore();
+
+  // Hide tab bar in Research/Trade modes (looks like bug - duplicate Welcome tab)
+  if (currentMode === 'Research' || currentMode === 'Trade') {
+    return null;
+  }
+
+  return <TabStrip />;
+}

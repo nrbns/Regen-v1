@@ -33,7 +33,7 @@ mockLLM.get('/api/agent/stream', { websocket: true }, (connection, _req) => {
       const { type, payload } = data;
 
       if (type === 'start_agent') {
-        const { query: agentQuery, url: agentUrl, context } = payload || {};
+        const { query: agentQuery, url: agentUrl } = payload || {};
 
         // Emit start event
         connection.socket.send(

@@ -208,27 +208,61 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       setLoading(false);
       setFailedMessage(null);
       if (!iframeRef.current) return;
+
+      // Check if iframe loaded successfully
+      // Cross-origin frames will throw when accessing contentDocument, but that's OK
+      // Only set blockedExternal if we can't access the iframe at all
       try {
         const doc = iframeRef.current.contentDocument;
         void doc?.title;
         setBlockedExternal(false);
       } catch (error) {
+        // Cross-origin is normal - don't block unless there's an actual error
+        // Only block if we can't even access the iframe element
         if (import.meta.env.DEV) {
-          console.info('[TabContentSurface] cross-origin frame detected', error);
+          console.debug('[TabContentSurface] cross-origin frame (normal)', error);
         }
-        setBlockedExternal(true);
+        // Don't set blockedExternal for cross-origin - many sites work fine
+        // Only block if there's an actual X-Frame-Options error (detected via error handler)
+        setBlockedExternal(false);
       }
     };
 
-    const handleError = () => {
+    const handleError = (event: ErrorEvent | Event) => {
       if (!isMounted) return; // Don't update state if unmounted
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
       setLoading(false);
-      setFailedMessage('Failed to load this page. Please check the URL or your connection.');
-      setBlockedExternal(true);
+
+      // Check if this is an X-Frame-Options blocking error
+      // Note: iframe error events don't always provide detailed error messages
+      // We'll check the iframe's state to determine if it's actually blocked
+      const errorMessage = event instanceof ErrorEvent ? event.message || '' : '';
+      const errorTarget = event.target;
+
+      // Check if the iframe itself failed to load (not just cross-origin)
+      // If iframe has no contentWindow, it might be blocked
+      const isFrameBlocked =
+        (errorMessage &&
+          (errorMessage.toLowerCase().includes('x-frame-options') ||
+            errorMessage.toLowerCase().includes('frame-ancestors') ||
+            errorMessage.toLowerCase().includes('refused to display') ||
+            (errorMessage.toLowerCase().includes('frame') &&
+              errorMessage.toLowerCase().includes('blocked')))) ||
+        (errorTarget === iframe &&
+          iframe.contentWindow === null &&
+          iframe.contentDocument === null);
+
+      if (isFrameBlocked) {
+        setBlockedExternal(true);
+        setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+      } else {
+        // Generic error - don't assume it's blocking, might be network issue
+        setFailedMessage('Failed to load this page. Please check the URL or your connection.');
+        setBlockedExternal(false);
+      }
     };
 
     // Set loading timeout
@@ -242,7 +276,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     }, LOADING_TIMEOUT_MS);
 
     iframe.addEventListener('load', handleLoad);
-    iframe.addEventListener('error', handleError);
+    iframe.addEventListener('error', handleError as EventListener);
 
     // Cleanup function to prevent memory leaks on tab hibernation/close
     return () => {
@@ -366,9 +400,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             height: '100%',
             border: 'none',
           }}
-          src={targetUrl ?? 'about:blank'}
+          src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
           sandbox={SAFE_IFRAME_SANDBOX}
-          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write"
+          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture"
           allowFullScreen
           referrerPolicy="no-referrer-when-downgrade"
           title={tab?.title ?? 'Tab content'}

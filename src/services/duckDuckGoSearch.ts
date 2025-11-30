@@ -60,16 +60,38 @@ export async function fetchDuckDuckGoInstant(
   if (!query || query.trim().length < 2) return null;
 
   try {
+    // Try Tauri search_proxy first (bypasses CORS and activates DuckDuckGo)
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const result = await invoke('search_proxy', { query: query.trim() });
+        if (result && typeof result === 'object') {
+          console.debug('[DuckDuckGo] Using Tauri search_proxy (activated)');
+          return result as DuckDuckGoResult;
+        }
+      } catch (tauriError) {
+        // Fall through to direct fetch
+        if (import.meta.env.DEV) {
+          console.debug('[DuckDuckGo] Tauri search_proxy failed, using direct fetch:', tauriError);
+        }
+      }
+    }
+
+    // Fallback: Direct fetch to DuckDuckGo API
     const locale = getDuckLocale(language);
     const langCode = locale.split('-')[0];
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query.trim())}&format=json&no_redirect=1&skip_disambig=1&kl=${locale}&hl=${langCode}`;
     const res = await fetch(url, {
       headers: {
         Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn('[DuckDuckGo] API request failed:', res.status);
+      return null;
+    }
 
     const data = (await res.json()) as DuckDuckGoResult;
     return data;
@@ -181,39 +203,77 @@ export async function fetchDuckDuckGoWeb(
     // Use DuckDuckGo HTML search page
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query.trim())}&kl=${locale}&hl=${langCode}`;
 
-    // Try to use IPC proxy if available (Electron/Tauri), otherwise direct fetch
+    // Try to use Tauri search_proxy if available, otherwise direct fetch
     let html: string;
     try {
-      // Check if we're in Electron/Tauri and can use IPC proxy
-      if (typeof window !== 'undefined' && (window as any).ipc) {
-        // Use IPC to fetch (bypasses CORS)
-        const response = await (window as any).ipc.fetch?.(searchUrl, {
-          headers: {
-            Accept: 'text/html',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          },
-        });
-        html = response?.text || '';
-      } else {
-        // Direct fetch (may fail due to CORS in browser)
-        const response = await fetch(searchUrl, {
-          headers: {
-            Accept: 'text/html',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          },
-          mode: 'cors',
-        });
-
-        if (!response.ok) {
-          console.warn('[DuckDuckGo] Web search failed:', response.status);
-          return [];
+      // Check if we're in Tauri and can use search_proxy command
+      if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+        try {
+          // Use Tauri invoke to call search_proxy (bypasses CORS)
+          // Note: search_proxy returns JSON, not HTML, so we'll use the instant API instead
+          // For HTML scraping, we need a different approach
+          const instantResult = await fetchDuckDuckGoInstant(query, options?.language);
+          if (instantResult) {
+            // Convert instant results to web results format
+            const formatted = formatDuckDuckGoResults(instantResult);
+            return formatted.map(f => ({
+              title: f.title,
+              url: f.url || '',
+              snippet: f.snippet,
+              domain: f.url ? new URL(f.url).hostname.replace(/^www\./, '') : '',
+            }));
+          }
+        } catch (tauriError) {
+          console.debug('[DuckDuckGo] Tauri search_proxy failed, trying direct fetch:', tauriError);
         }
-
-        html = await response.text();
       }
+
+      // Fallback: Direct fetch (may fail due to CORS in browser)
+      const response = await fetch(searchUrl, {
+        headers: {
+          Accept: 'text/html',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        mode: 'cors',
+      });
+
+      if (!response.ok) {
+        console.warn('[DuckDuckGo] Web search failed:', response.status);
+        // Fallback to instant API
+        const instantResult = await fetchDuckDuckGoInstant(query, options?.language);
+        if (instantResult) {
+          const formatted = formatDuckDuckGoResults(instantResult);
+          return formatted.map(f => ({
+            title: f.title,
+            url: f.url || '',
+            snippet: f.snippet,
+            domain: f.url ? new URL(f.url).hostname.replace(/^www\./, '') : '',
+          }));
+        }
+        return [];
+      }
+
+      html = await response.text();
     } catch (fetchError) {
-      // CORS or network error - return empty results
-      console.debug('[DuckDuckGo] Web search blocked (CORS or network):', fetchError);
+      // CORS or network error - try instant API as fallback
+      console.debug(
+        '[DuckDuckGo] Web search blocked (CORS or network), trying instant API:',
+        fetchError
+      );
+      try {
+        const instantResult = await fetchDuckDuckGoInstant(query, options?.language);
+        if (instantResult) {
+          const formatted = formatDuckDuckGoResults(instantResult);
+          return formatted.map(f => ({
+            title: f.title,
+            url: f.url || '',
+            snippet: f.snippet,
+            domain: f.url ? new URL(f.url).hostname.replace(/^www\./, '') : '',
+          }));
+        }
+      } catch {
+        // Both failed
+      }
       return [];
     }
 

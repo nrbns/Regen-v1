@@ -3,7 +3,8 @@
  */
 
 import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
-import { AlertTriangle, RotateCcw, Loader2, PanelsTopLeft, PanelRightOpen, X } from 'lucide-react';
+import { AlertTriangle, PanelsTopLeft, PanelRightOpen } from 'lucide-react';
+// RotateCcw, Loader2, X - unused (restore banner removed)
 import { Outlet } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
@@ -1042,7 +1043,7 @@ export function AppShell() {
     };
   }, [isResizingContent]);
 
-  const restoreRelativeTime = useMemo(() => {
+  const _restoreRelativeTime = useMemo(() => {
     if (!restoreSummary) return null;
     try {
       return formatDistanceToNow(new Date(restoreSummary.updatedAt), { addSuffix: true });
@@ -1612,13 +1613,13 @@ export function AppShell() {
     }
   };
 
-  const handleRestoreSession = async () => {
+  const _handleRestoreSession = async () => {
     if (!restoreSummary || restoreStatus === 'restoring') return;
     setRestoreStatus('restoring');
     try {
       const result = await restoreSessionSnapshot();
       if (result.restored) {
-        const restoredCount = result.tabCount ?? restoreSummary.tabCount ?? 0;
+        const restoredCount = result.tabCount ?? restoreSummary?.tabCount ?? 0;
         setRestoreToast({
           message: `Restored ${restoredCount} tab${restoredCount === 1 ? '' : 's'} from last session.`,
           variant: 'success',
@@ -1641,7 +1642,7 @@ export function AppShell() {
     }
   };
 
-  const handleDismissRestore = () => {
+  const _handleDismissRestore = () => {
     setRestoreDismissed(true);
     setRestoreSummary(null);
   };
@@ -1804,52 +1805,8 @@ export function AppShell() {
         {/* Restore Banner and TabStrip */}
         {!isFullscreen && (
           <>
-            {/* Hide restore banner in Browse mode on new tab */}
-            {restoreSummary &&
-              !restoreDismissed &&
-              !(
-                currentMode === 'Browse' &&
-                (activeTab?.url === 'about:blank' || !activeTab?.url)
-              ) && (
-                <div className="px-4 pt-3">
-                  <div className="flex flex-col gap-3 rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-blue-100">
-                        Restore your last browsing session?
-                      </p>
-                      <p className="text-xs text-blue-200">
-                        Last saved {restoreRelativeTime ?? 'recently'} •{' '}
-                        {restoreSummary.windowCount} window
-                        {restoreSummary.windowCount === 1 ? '' : 's'}, {restoreSummary.tabCount} tab
-                        {restoreSummary.tabCount === 1 ? '' : 's'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleRestoreSession}
-                        disabled={restoreStatus === 'restoring'}
-                        className="inline-flex items-center rounded-lg border border-blue-500/60 bg-blue-600/20 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {restoreStatus === 'restoring' ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <RotateCcw className="mr-2 h-4 w-4" />
-                        )}
-                        Restore
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDismissRestore}
-                        className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700/80"
-                        aria-label="Dismiss restore banner"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* HIDDEN: Restore session banner (kills premium feel - Chrome 2015 vibes) */}
+            {/* Banner removed - it looked like Chrome 2015 and killed the premium feel */}
             {/* Hide TabStrip in Research and Trade modes - they have their own UI */}
             {currentMode !== 'Research' && currentMode !== 'Trade' && (
               <Suspense fallback={null}>

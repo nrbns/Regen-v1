@@ -68,6 +68,7 @@ export default function ResearchPanel() {
   const [result, setResult] = useState<ResearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [_loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [detectedLang, setDetectedLang] = useState<string>('en');
   const language = useSettingsStore(s => s.language || 'auto');
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
@@ -799,6 +800,8 @@ export default function ResearchPanel() {
     }
 
     setLoading(true);
+    setLoadingMessage('Researching...');
+    toast.loading('Researching...', { duration: 0 }); // Persistent loading toast
     setError(null);
     setResult(null);
     setActiveSourceId(null);
@@ -1036,6 +1039,8 @@ export default function ResearchPanel() {
             languageConfidence: backendResult.languageConfidence || 0.9,
           });
           setLoading(false);
+          setLoadingMessage(null);
+          toast.dismiss();
           return;
         }
 
@@ -1108,6 +1113,8 @@ export default function ResearchPanel() {
               window.removeEventListener('research-metrics', handleMetrics as EventListener);
               window.removeEventListener('research-end', handleEnd as EventListener);
               setLoading(false);
+              setLoadingMessage(null);
+              toast.dismiss();
             };
 
             // Add listeners
@@ -1504,6 +1511,8 @@ export default function ResearchPanel() {
       setError(errorMessage);
     } finally {
       setLoading(false);
+      setLoadingMessage(null);
+      toast.dismiss();
     }
   };
 

@@ -198,7 +198,9 @@ export default function TradePanel() {
         const loadRealCandles = async () => {
           try {
             const realtimeService = getRealtimeMarketDataService();
-            const symbol = selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol;
+            const symbol = selected.symbol.includes(':')
+              ? selected.symbol.split(':')[1]
+              : selected.symbol;
             const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
 
             if (candles.length > 0) {
@@ -288,7 +290,9 @@ export default function TradePanel() {
       const loadCandles = async () => {
         try {
           const realtimeService = getRealtimeMarketDataService();
-          const symbol = selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol;
+          const symbol = selected.symbol.includes(':')
+            ? selected.symbol.split(':')[1]
+            : selected.symbol;
           const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
 
           if (candles.length > 0 && seriesRef.current) {
@@ -428,8 +432,12 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* FULL CANDLE CHART — NOW WORKING */}
-      <div ref={chartContainerRef} className="flex-1 relative pb-32">
+      {/* FULL CANDLE CHART — NOW WORKING - Force 100% height to fix blank space */}
+      <div
+        ref={chartContainerRef}
+        className="flex-1 relative"
+        style={{ minHeight: '100%', height: '100%' }}
+      >
         <div className="absolute top-4 left-4 z-10 bg-black/70 backdrop-blur px-4 py-2 rounded-lg text-xs md:text-sm border border-gray-700">
           1D • EMA • RSI • Volume Profile
         </div>

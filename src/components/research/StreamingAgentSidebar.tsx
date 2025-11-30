@@ -7,7 +7,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot,
-  Send,
   X,
   CheckCircle2,
   AlertCircle,
@@ -203,9 +202,9 @@ export function StreamingAgentSidebar() {
     // Fallback: Listen for Tauri events if WebSocket unavailable
     const setupTauriListener = async () => {
       try {
-        const unlistenFn = await listen('agent-event', (event: any) => {
-          const agentEvent = event.payload as AgentEvent;
-          // Same event handling as WebSocket
+        const unlistenFn = await listen('agent-event', (_event: any) => {
+          // Same event handling as WebSocket (handled by WebSocket connection)
+          // This is a fallback that's not currently used
         });
         unlistenRef.current = unlistenFn;
       } catch (err) {
@@ -299,7 +298,7 @@ export function StreamingAgentSidebar() {
     setPendingAction(null); // Close modal
 
     try {
-      const response = await invoke('execute_agent', {
+      await invoke('execute_agent', {
         request: {
           actions: [action],
           session_id: undefined,
