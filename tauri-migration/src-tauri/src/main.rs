@@ -1121,6 +1121,37 @@ fn format_date(input: &str) -> String {
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() {
+    // DAY 1 FIX: Initialize Sentry for crash reporting (if DSN is configured)
+    let sentry_dsn = std::env::var("SENTRY_DSN")
+        .or_else(|_| std::env::var("VITE_SENTRY_DSN"))
+        .ok();
+    
+    let _guard = if let Some(dsn) = sentry_dsn {
+        Some(sentry::init((
+            dsn,
+            sentry::ClientOptions {
+                release: sentry::release_name!(),
+                environment: Some(std::env::var("NODE_ENV").unwrap_or_else(|_| "production".to_string())),
+                ..Default::default()
+            },
+        )))
+    } else {
+        None
+    };
+    
+    // DAY 1 FIX: Set up panic handler to capture crashes
+    std::panic::set_hook(Box::new(|panic_info| {
+        eprintln!("[PANIC] Application panicked: {:?}", panic_info);
+        
+        // Send to Sentry if initialized
+        if let Some(_guard) = _guard.as_ref() {
+            sentry::capture_message(
+                &format!("Panic: {:?}", panic_info),
+                sentry::Level::Fatal,
+            );
+        }
+    }));
+    
     // Load .env file if it exists (for API keys: OPENAI_API_KEY, ANTHROPIC_API_KEY)
     let _ = dotenv::dotenv();
     

@@ -74,9 +74,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       onError(error, errorInfo);
     }
 
-    // Send to error tracking service in production
-    if (process.env.NODE_ENV === 'production') {
-      // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
+    // Send to error tracking service (Sentry)
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      try {
+        (window as any).Sentry.captureException(error, {
+          contexts: {
+            react: {
+              componentStack: errorInfo.componentStack,
+            },
+          },
+          tags: {
+            component: componentName || 'unknown',
+            level: level || 'component',
+          },
+        });
+      } catch (sentryError) {
+        // Silently fail if Sentry is not available
+        console.warn('Failed to send error to Sentry:', sentryError);
+      }
     }
   }
 

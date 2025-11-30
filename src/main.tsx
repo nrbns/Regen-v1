@@ -469,6 +469,16 @@ try {
 
   deferHeavyInit();
 
+  // DAY 1 FIX: Initialize Sentry early for crash reporting
+  // Initialize Sentry immediately (before other services) for crash capture
+  if (import.meta.env.VITE_SENTRY_DSN || import.meta.env.SENTRY_DSN) {
+    syncRendererTelemetry().catch(error => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Monitoring] Failed to initialize Sentry', error);
+      }
+    });
+  }
+
   // Defer telemetry and analytics initialization - wait longer for better performance
   setTimeout(() => {
     syncRendererTelemetry().catch(error => {
@@ -509,11 +519,26 @@ try {
     rootElement.style.opacity = '1';
   }
 
-  // Add unhandled rejection handler to prevent crashes
+  // DAY 1 FIX: Add comprehensive error handlers
+  // Unhandled promise rejection handler
   window.addEventListener('unhandledrejection', event => {
-    console.error('[Main] Unhandled promise rejection:', event.reason);
+    const error = event.reason;
+    console.error('[Main] Unhandled promise rejection:', error);
+    
+    // Send to Sentry if available
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      try {
+        (window as any).Sentry.captureException(error, {
+          tags: { error_type: 'unhandled_rejection' },
+        });
+      } catch (sentryError) {
+        console.warn('[Sentry] Failed to capture unhandled rejection:', sentryError);
+      }
+    }
+    
     // Prevent default browser error handling
     event.preventDefault();
+    
     // Log but don't crash
     if (isDevEnv()) {
       console.error('[Main] Promise rejection details:', {
@@ -523,9 +548,30 @@ try {
     }
   });
 
-  // Add uncaught error handler
+  // DAY 1 FIX: Add uncaught error handler with Sentry integration
   window.addEventListener('error', event => {
-    console.error('[Main] Uncaught error:', event.error);
+    const error = event.error || new Error(event.message);
+    console.error('[Main] Uncaught error:', error);
+    
+    // Send to Sentry if available
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      try {
+        (window as any).Sentry.captureException(error, {
+          tags: { error_type: 'uncaught_error' },
+          contexts: {
+            error: {
+              message: event.message,
+              filename: event.filename,
+              lineno: event.lineno,
+              colno: event.colno,
+            },
+          },
+        });
+      } catch (sentryError) {
+        console.warn('[Sentry] Failed to capture uncaught error:', sentryError);
+      }
+    }
+    
     // Log but don't crash - let error boundary handle it
     if (isDevEnv()) {
       console.error('[Main] Error details:', {

@@ -32,6 +32,7 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }  # WebSocket
 futures = "0.3"  # For async streams
 lazy_static = "1.4"  # For static initialization
 regex = "1.10"  # For HTML cleaning in extract.rs
+sentry = { version = "0.33", features = ["panic", "tracing"] }  # Crash reporting
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
 
