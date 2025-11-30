@@ -5,6 +5,7 @@ import { toast } from '../../utils/toast';
 import { motion } from 'framer-motion';
 import { Globe, TrendingUp, IndianRupee, Bitcoin, DollarSign, Sparkles } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
+import { getRealtimeMarketDataService, type PriceUpdate } from '../../services/realtimeMarketData';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -60,72 +61,50 @@ export default function TradePanel() {
     return () => window.removeEventListener('wispr:trade', handleWisprTrade as EventListener);
   }, [selected]);
 
-  // LIVE PRICE + CANDLE UPDATE (Real-time via Tauri or HTTP API)
+  // REAL-TIME PRICE UPDATES (Sub-second latency via SSE)
   useEffect(() => {
+    const realtimeService = getRealtimeMarketDataService();
     let previousPrice = price;
-    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
+    let high = price;
+    let low = price;
 
-    // Set up real-time price listener if Tauri
-    if (isTauri) {
-      const handlePriceUpdate = (e: CustomEvent) => {
-        if (e.detail && e.detail.price !== undefined) {
-          const newPrice = e.detail.price;
-          const delta = newPrice - previousPrice;
-          previousPrice = newPrice;
-          setPrice(newPrice);
-          setChange(Math.abs(e.detail.change || delta));
-          setIsGreen((e.detail.change || delta) >= 0);
-        }
-      };
+    // Subscribe to real-time price updates
+    const unsubscribe = realtimeService.subscribe(selected.symbol, (update: PriceUpdate) => {
+      const newPrice = update.price;
+      const delta = newPrice - previousPrice;
+      previousPrice = newPrice;
 
-      window.addEventListener('trade-price', handlePriceUpdate as EventListener);
+      // Update high/low
+      if (newPrice > high) high = newPrice;
+      if (newPrice < low) low = newPrice;
 
-      // Start streaming
-      (async () => {
-        try {
-          const { ipc } = await import('../../lib/ipc-typed');
-          const symbol = selected.symbol.split(':')[1] || selected.name;
-          await (ipc as any).invoke('trade_stream', { symbol });
-        } catch (error) {
-          console.debug('[Trade] Tauri stream failed, using HTTP API:', error);
-        }
-      })();
+      setPrice(newPrice);
+      setChange(Math.abs(delta));
+      setIsGreen(delta >= 0);
+    });
 
-      return () => {
-        window.removeEventListener('trade-price', handlePriceUpdate as EventListener);
-      };
-    }
-
-    // Fallback to HTTP API polling
-    const fetchQuote = async () => {
+    // Fallback: Try HTTP API for initial price if SSE hasn't connected yet
+    const fetchInitialQuote = async () => {
       try {
         const { tradeApi } = await import('../../lib/api-client');
         const quote = await tradeApi.getQuote(selected.symbol);
         if (quote && quote.price) {
-          const delta = quote.price - previousPrice;
           previousPrice = quote.price;
+          high = quote.price;
+          low = quote.price;
           setPrice(quote.price);
-          setChange(Math.abs(delta));
-          setIsGreen(delta >= 0);
         }
       } catch (error) {
-        console.debug('[Trade] Quote fetch failed, using simulation:', error);
-        // Fallback to simulation if API fails
-        const delta = Math.random() > 0.5 ? 15 : -15;
-        setPrice(p => {
-          previousPrice = p;
-          return p + delta;
-        });
-        setChange(Math.abs(delta));
-        setIsGreen(delta > 0);
+        console.debug('[Trade] Initial quote fetch failed, waiting for SSE:', error);
       }
     };
 
-    // Initial fetch
-    fetchQuote();
-    const interval = setInterval(fetchQuote, 3000);
-    return () => clearInterval(interval);
-  }, [selected.symbol, selected.name]);
+    fetchInitialQuote();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selected.symbol]);
 
   // Auto-analyze chart with LLM signals (every 30 seconds)
   useEffect(() => {
@@ -215,25 +194,50 @@ export default function TradePanel() {
           wickDownColor: '#ef4444',
         });
 
-        // REAL 1D CANDLE DATA (replace with Finnhub later)
-        const candleData: Array<{
-          time: string;
-          open: number;
-          high: number;
-          low: number;
-          close: number;
-        }> = Array.from({ length: 50 }, (_, i) => {
-          const baseDate = new Date('2025-11-28');
-          baseDate.setDate(baseDate.getDate() + Math.floor(i / 24));
-          const time = baseDate.toISOString().split('T')[0] as any;
-          const open = 24800 + Math.random() * 300;
-          const close = open + (Math.random() - 0.5) * 400;
-          const high = Math.max(open, close) + Math.random() * 100;
-          const low = Math.min(open, close) - Math.random() * 100;
-          return { time, open, high, low, close };
-        });
+        // REAL CANDLE DATA from Finnhub
+        const loadRealCandles = async () => {
+          try {
+            const realtimeService = getRealtimeMarketDataService();
+            const symbol = selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol;
+            const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
 
-        candlestickSeries.setData(candleData);
+            if (candles.length > 0) {
+              // Convert to lightweight-charts format
+              const candleData = candles.map(c => ({
+                time: (c.time / 1000) as any, // lightweight-charts expects Unix timestamp in seconds
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close,
+              }));
+              candlestickSeries.setData(candleData);
+            } else {
+              // Fallback: Generate mock data if API fails
+              console.warn('[Trade] Using fallback candle data');
+              const fallbackData: Array<{
+                time: string;
+                open: number;
+                high: number;
+                low: number;
+                close: number;
+              }> = Array.from({ length: 50 }, (_, i) => {
+                const baseDate = new Date();
+                baseDate.setDate(baseDate.getDate() - (50 - i));
+                const time = baseDate.toISOString().split('T')[0] as any;
+                const open = 24800 + Math.random() * 300;
+                const close = open + (Math.random() - 0.5) * 400;
+                const high = Math.max(open, close) + Math.random() * 100;
+                const low = Math.min(open, close) - Math.random() * 100;
+                return { time, open, high, low, close };
+              });
+              candlestickSeries.setData(fallbackData);
+            }
+          } catch (error) {
+            console.error('[Trade] Failed to load real candles:', error);
+          }
+        };
+
+        loadRealCandles();
         seriesRef.current = candlestickSeries;
         chartRef.current = chart;
 
@@ -280,9 +284,29 @@ export default function TradePanel() {
   // Update chart when symbol changes
   useEffect(() => {
     if (seriesRef.current && chartRef.current) {
-      // In real implementation, fetch new data for the selected symbol
-      console.log(`[TradePanel] Market changed to ${selected.symbol} (${selected.exchange})`);
-      // For now, just update the price display
+      // Reload candles for new symbol
+      const loadCandles = async () => {
+        try {
+          const realtimeService = getRealtimeMarketDataService();
+          const symbol = selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol;
+          const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
+
+          if (candles.length > 0 && seriesRef.current) {
+            const candleData = candles.map(c => ({
+              time: (c.time / 1000) as any,
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }));
+            seriesRef.current.setData(candleData);
+          }
+        } catch (error) {
+          console.error('[Trade] Failed to reload candles for new symbol:', error);
+        }
+      };
+
+      loadCandles();
     }
   }, [selected]);
 

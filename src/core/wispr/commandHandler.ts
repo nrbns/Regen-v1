@@ -4,6 +4,7 @@
  */
 
 import { useAppStore } from '../../state/appStore';
+import { useSettingsStore } from '../../state/settingsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { toast } from '../../utils/toast';
 import { aiEngine } from '../ai/engine';
@@ -19,6 +20,9 @@ export type WisprCommandType =
   | 'screenshot'
   | 'open_tabs'
   | 'navigate'
+  | 'weather'
+  | 'train'
+  | 'flight'
   | 'unknown';
 
 export interface ParsedWisprCommand {
@@ -42,14 +46,17 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
   const lowerText = text.toLowerCase().trim();
   const originalText = text.trim();
 
-  // Trade commands
+  // Trade commands - Enhanced Hindi + English patterns
   const tradePatterns = [
+    // Hindi: "निफ्टी खरीदो 50" or "निफ्टी 50 खरीदो"
+    /(?:निफ्टी|nifty|reliance|टीसीएस|tcs|hdfc|एचडीएफसी)\s*(?:(\d+)\s*)?(?:खरीदो|kharido|buy|बेचो|becho|sell)/i,
     // "Nifty kharido 50 quantity SL 24700"
     /(?:buy|kharido|खरीदो|becho|बेचो|sell)\s+(\w+)\s*(?:(\d+)\s*(?:quantity|qty|qty|मात्रा))?\s*(?:SL|stop\s*loss|स्टॉप\s*लॉस)\s*(\d+)?/i,
     // "100 HDFC Bank becho at market"
     /(\d+)\s+(\w+(?:\s+\w+)?)\s+(?:buy|kharido|खरीदो|becho|बेचो|sell)\s*(?:at\s*market|market\s*price)?/i,
-    // "Buy 50 Nifty"
+    // "Buy 50 Nifty" or "50 Nifty buy"
     /(?:buy|kharido|खरीदो)\s+(\d+)\s+(\w+)/i,
+    /(\d+)\s+(\w+)\s+(?:buy|kharido|खरीदो|sell|becho|बेचो)/i,
   ];
 
   for (const pattern of tradePatterns) {
@@ -57,15 +64,133 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
     if (match) {
       const isSell =
         lowerText.includes('sell') || lowerText.includes('becho') || lowerText.includes('बेचो');
+      
+      // Extract symbol (handle Hindi names)
+      let symbol = match[2] || match[1];
+      if (lowerText.includes('निफ्टी') || lowerText.includes('nifty')) {
+        symbol = 'NIFTY';
+      } else if (lowerText.includes('टीसीएस') || lowerText.includes('tcs')) {
+        symbol = 'TCS';
+      } else if (lowerText.includes('एचडीएफसी') || lowerText.includes('hdfc')) {
+        symbol = 'HDFC';
+      } else if (lowerText.includes('reliance')) {
+        symbol = 'RELIANCE';
+      }
+      
+      // Extract quantity
+      let quantity = 1;
+      if (match[1] && !isNaN(parseInt(match[1], 10))) {
+        quantity = parseInt(match[1], 10);
+      } else if (match[2] && !isNaN(parseInt(match[2], 10))) {
+        quantity = parseInt(match[2], 10);
+      }
+      
+      // Extract stop loss
+      const slMatch = lowerText.match(/(?:SL|stop\s*loss|स्टॉप\s*लॉस)\s*(\d+)/i);
+      const stopLoss = slMatch ? parseInt(slMatch[1], 10) : undefined;
+      
       return {
         type: 'trade',
         orderType: isSell ? 'sell' : 'buy',
-        symbol: match[2] || match[1],
-        quantity: parseInt(match[1] || match[2] || '1', 10),
-        stopLoss: match[3] ? parseInt(match[3], 10) : undefined,
+        symbol: symbol.toUpperCase(),
+        quantity,
+        stopLoss,
         originalText,
       };
     }
+  }
+
+  // Weather commands - Hindi + English
+  if (
+    lowerText.includes('मौसम') ||
+    lowerText.includes('weather') ||
+    lowerText.includes('बारिश') ||
+    lowerText.includes('गर्मी') ||
+    lowerText.includes('temperature') ||
+    lowerText.includes('तापमान')
+  ) {
+    let city = 'Delhi'; // default
+    if (lowerText.includes('मुंबई') || lowerText.includes('mumbai')) city = 'Mumbai';
+    if (lowerText.includes('बैंगलोर') || lowerText.includes('bangalore')) city = 'Bangalore';
+    if (lowerText.includes('कोलकाता') || lowerText.includes('kolkata')) city = 'Kolkata';
+    if (lowerText.includes('चेन्नई') || lowerText.includes('chennai')) city = 'Chennai';
+    if (lowerText.includes('हैदराबाद') || lowerText.includes('hyderabad')) city = 'Hyderabad';
+    
+    return {
+      type: 'weather',
+      query: city,
+      originalText,
+    };
+  }
+
+  // Train booking commands
+  if (
+    lowerText.includes('ट्रेन') ||
+    lowerText.includes('train') ||
+    lowerText.includes('टिकट') ||
+    lowerText.includes('ticket') ||
+    (lowerText.includes('book') && (lowerText.includes('train') || lowerText.includes('ट्रेन')))
+  ) {
+    let from = 'Delhi';
+    let to = 'Mumbai';
+    let date = 'tomorrow';
+
+    // Extract cities
+    if (lowerText.includes('मुंबई') || lowerText.includes('mumbai')) {
+      if (lowerText.includes('से') || lowerText.includes('from')) to = 'Mumbai';
+      else from = 'Mumbai';
+    }
+    if (lowerText.includes('दिल्ली') || lowerText.includes('delhi')) {
+      if (lowerText.includes('से') || lowerText.includes('from')) from = 'Delhi';
+      else to = 'Delhi';
+    }
+    if (lowerText.includes('चेन्नई') || lowerText.includes('chennai')) to = 'Chennai';
+    if (lowerText.includes('बैंगलोर') || lowerText.includes('bangalore')) to = 'Bangalore';
+    if (lowerText.includes('कोलकाता') || lowerText.includes('kolkata')) to = 'Kolkata';
+
+    return {
+      type: 'train',
+      query: `${from} to ${to} on ${date}`,
+      url: `train:${from}:${to}:${date}`,
+      originalText,
+    };
+  }
+
+  // Flight booking commands
+  if (
+    lowerText.includes('फ्लाइट') ||
+    lowerText.includes('flight') ||
+    lowerText.includes('हवाई जहाज') ||
+    lowerText.includes('उड़ान') ||
+    (lowerText.includes('book') && (lowerText.includes('flight') || lowerText.includes('फ्लाइट')))
+  ) {
+    let from = 'Delhi';
+    let to = 'Mumbai';
+    let date = 'tomorrow';
+    let returnDate: string | undefined = undefined;
+
+    // Extract cities
+    if (lowerText.includes('मुंबई') || lowerText.includes('mumbai')) to = 'Mumbai';
+    if (lowerText.includes('बैंगलोर') || lowerText.includes('bangalore')) to = 'Bangalore';
+    if (lowerText.includes('चेन्नई') || lowerText.includes('chennai')) to = 'Chennai';
+    if (lowerText.includes('दिल्ली') || lowerText.includes('delhi')) from = 'Delhi';
+
+    // Detect round-trip
+    if (
+      lowerText.includes('वापस') ||
+      lowerText.includes('return') ||
+      lowerText.includes('राउंड') ||
+      lowerText.includes('दोनों तरफ')
+    ) {
+      returnDate = '20 December'; // Parse from text if needed
+    }
+
+    return {
+      type: 'flight',
+      query: `${from} to ${to} on ${date}${returnDate ? ` return ${returnDate}` : ''}`,
+      url: `flight:${from}:${to}:${date}${returnDate ? `:${returnDate}` : ''}`,
+      originalText,
+    };
   }
 
   // Research commands
@@ -150,12 +275,19 @@ export function parseWisprCommand(text: string): ParsedWisprCommand {
     };
   }
 
-  // Screenshot/analysis commands
+  // Screenshot/analysis commands - Enhanced Hindi support
   if (
     lowerText.includes('screenshot') ||
+    lowerText.includes('स्क्रीनशॉट') ||
+    lowerText.includes('screenshot le') ||
+    lowerText.includes('स्क्रीनशॉट ले') ||
     lowerText.includes('isme kya hai') ||
     lowerText.includes('इसमें क्या है') ||
-    lowerText.includes('analysis')
+    lowerText.includes('analysis') ||
+    lowerText.includes('analysis kar') ||
+    lowerText.includes('एनालिसिस कर') ||
+    lowerText.includes('yeh chart') ||
+    lowerText.includes('यह चार्ट')
   ) {
     return {
       type: 'screenshot',
@@ -276,27 +408,68 @@ async function executeTradeCommand(command: ParsedWisprCommand) {
   // Switch to Trade mode if not already
   if (useAppStore.getState().mode !== 'Trade') {
     useAppStore.getState().setMode('Trade');
-    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for mode switch
+    await new Promise(resolve => setTimeout(resolve, 300)); // Wait for mode switch
   }
 
-  const { symbol, quantity, orderType, stopLoss } = command;
+  const { symbol, quantity, orderType, stopLoss, takeProfit } = command;
   if (!symbol || !quantity) {
     toast.error('Missing symbol or quantity for trade command');
     return;
   }
 
-  // TODO: Integrate with actual Zerodha API
-  // For now, show confirmation
-  toast.success(
-    `${orderType === 'buy' ? 'Buy' : 'Sell'} order: ${quantity} ${symbol}${stopLoss ? ` SL: ${stopLoss}` : ''}`
-  );
+  // Execute REAL Zerodha order via API
+  try {
+    const startTime = Date.now();
+    toast.info(`Placing ${orderType === 'buy' ? 'buy' : 'sell'} order: ${quantity} ${symbol}...`);
 
-  // Emit event for trade execution (to be handled by trade mode)
-  window.dispatchEvent(
-    new CustomEvent('wispr:trade', {
-      detail: { symbol, quantity, orderType, stopLoss },
-    })
-  );
+    const { tradeApi } = await import('../../lib/api-client');
+    const result = await tradeApi.placeOrder({
+      symbol: symbol.toUpperCase(),
+      quantity,
+      orderType: orderType || 'buy',
+      stopLoss,
+      takeProfit,
+    });
+
+    const elapsed = Date.now() - startTime;
+
+    if (result.success) {
+      const message = `${orderType === 'buy' ? 'BUY' : 'SELL'} order placed: ${quantity} × ${symbol}\nOrder ID: ${result.orderId}\nTime: ${elapsed}ms${stopLoss ? `\nSL: ₹${stopLoss}` : ''}${takeProfit ? ` | TP: ₹${takeProfit}` : ''}`;
+      toast.success(message);
+      
+      // Emit event for UI update
+      window.dispatchEvent(
+        new CustomEvent('wispr:trade', {
+          detail: { symbol, quantity, orderType, stopLoss, orderId: result.orderId, success: true },
+        })
+      );
+
+      // Voice confirmation in Hindi/English
+      if ('speechSynthesis' in window) {
+        const lang = useSettingsStore.getState().language || 'en';
+        const utterance = new SpeechSynthesisUtterance(
+          lang === 'hi' 
+            ? `${orderType === 'buy' ? 'खरीद' : 'बिक्री'} आदेश ${result.orderId} सफल`
+            : `${orderType === 'buy' ? 'Buy' : 'Sell'} order ${result.orderId} placed successfully`
+        );
+        utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
+        speechSynthesis.speak(utterance);
+      }
+    } else {
+      throw new Error(result.error || 'Order placement failed');
+    }
+  } catch (error: any) {
+    console.error('[WISPR] Trade order failed:', error);
+    const errorMsg = error.message || 'Failed to place order. Check Zerodha API keys.';
+    toast.error(`Order failed: ${errorMsg}`);
+    
+    // Fallback: Emit event for mock execution (for testing)
+    window.dispatchEvent(
+      new CustomEvent('wispr:trade', {
+        detail: { symbol, quantity, orderType, stopLoss, success: false, error: errorMsg },
+      })
+    );
+  }
 }
 
 async function executeResearchCommand(command: ParsedWisprCommand) {
@@ -463,6 +636,81 @@ async function executeSaveProfileCommand(_command: ParsedWisprCommand) {
     );
   } else {
     toast.info('No profile data found in forms. Please fill a form first.');
+  }
+}
+
+async function executeWeatherCommand(command: ParsedWisprCommand) {
+  try {
+    const city = command.query || 'Delhi';
+    
+    // Use Tauri invoke if available
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('get_weather', { city });
+      toast.success(`Weather for ${city} loading...`);
+    } else {
+      // Fallback: HTTP API
+      try {
+        const response = await fetch(`http://127.0.0.1:4000/api/weather/${city}`);
+        if (response.ok) {
+          const data = await response.json();
+          window.dispatchEvent(
+            new CustomEvent('weather-update', { detail: data })
+          );
+        }
+      } catch (error) {
+        console.warn('[WISPR] Weather API fallback failed:', error);
+      }
+    }
+  } catch (error) {
+    console.error('[WISPR] Weather command failed:', error);
+    toast.error('Failed to get weather. Check internet connection.');
+  }
+}
+
+async function executeTrainCommand(command: ParsedWisprCommand) {
+  try {
+    // Parse train command: "Delhi to Mumbai on tomorrow"
+    const parts = command.query?.split(' to ') || [];
+    const from = parts[0] || 'Delhi';
+    const toParts = parts[1]?.split(' on ') || [];
+    const to = toParts[0] || 'Mumbai';
+    const date = toParts[1] || 'tomorrow';
+
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('book_train', { from, to, date });
+      toast.success(`Booking train from ${from} to ${to}...`);
+    } else {
+      toast.info(`Train booking: ${from} → ${to} on ${date}`);
+    }
+  } catch (error) {
+    console.error('[WISPR] Train command failed:', error);
+    toast.error('Failed to book train. Please try again.');
+  }
+}
+
+async function executeFlightCommand(command: ParsedWisprCommand) {
+  try {
+    // Parse flight command: "Delhi to Mumbai on tomorrow return 20 December"
+    const parts = command.query?.split(' to ') || [];
+    const from = parts[0] || 'Delhi';
+    const toParts = parts[1]?.split(' on ') || [];
+    const to = toParts[0] || 'Mumbai';
+    const dateParts = toParts[1]?.split(' return ') || [];
+    const departDate = dateParts[0] || 'tomorrow';
+    const returnDate = dateParts[1] || undefined;
+
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('book_flight', { from, to, departDate, returnDate });
+      toast.success(`Booking flight: ${from} → ${to}${returnDate ? ' (round-trip)' : ''}...`);
+    } else {
+      toast.info(`Flight booking: ${from} → ${to} on ${departDate}${returnDate ? ` return ${returnDate}` : ''}`);
+    }
+  } catch (error) {
+    console.error('[WISPR] Flight command failed:', error);
+    toast.error('Failed to book flight. Please try again.');
   }
 }
 

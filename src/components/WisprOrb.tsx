@@ -21,7 +21,8 @@ const LANGUAGE_LOCALE_MAP: Record<string, string> = {
 };
 
 function getSpeechRecognitionLocale(lang?: string): string {
-  if (!lang || lang === 'auto') return 'hi-IN,en-US'; // Support both Hindi and English
+  // Support both Hindi and English simultaneously for best accuracy
+  if (!lang || lang === 'auto') return 'hi-IN,en-US';
   return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 
@@ -269,20 +270,30 @@ export function WisprOrb() {
     }
   }, [listening]);
 
+  // Global hotkey: Ctrl + Space (works everywhere)
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.code === 'Space') {
+      if (event.ctrlKey && event.code === 'Space' && !event.shiftKey) {
         event.preventDefault();
+        event.stopPropagation();
         if (listening) {
           stopListening();
         } else {
           startListening();
+          setIsJarvisMode(true);
         }
+      }
+      
+      // Cancel with "Band kar" / "Stop" - also listen for these keys
+      if (listening && (event.key === 'Escape' || (event.ctrlKey && event.key === 'c'))) {
+        event.preventDefault();
+        stopListening();
+        toast.info('WISPR stopped');
       }
     };
 
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleKey, true); // Use capture phase
+    return () => window.removeEventListener('keydown', handleKey, true);
   }, [listening]);
 
   return (
@@ -351,15 +362,22 @@ export function WisprOrb() {
           {transcript && (
             <div className="mt-4 p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
               <p className="text-sm text-gray-300 mb-2">You said:</p>
-              <p className="text-white font-medium">{transcript}</p>
+              <p className="text-white font-medium text-lg">{transcript}</p>
             </div>
           )}
 
           <p className="mt-4 text-gray-400 text-sm">
             {isProcessing
               ? 'Executing your command...'
-              : 'Say anything in Hindi or English. Try: "Nifty kharido 50" or "Research Tesla earnings"'}
+              : 'Say in Hindi or English:\n"निफ्टी खरीदो 50" or "Buy 50 Nifty"\n"Research Tesla" or "Screenshot le"'}
           </p>
+          
+          <button
+            onClick={stopListening}
+            className="mt-4 w-full bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded-lg px-4 py-2 text-red-300 text-sm font-medium transition-colors"
+          >
+            Band kar / Stop (Esc)
+          </button>
         </motion.div>
       )}
     </>

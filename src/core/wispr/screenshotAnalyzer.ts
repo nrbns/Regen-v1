@@ -57,10 +57,46 @@ async function captureElementScreenshot(element: HTMLElement): Promise<string | 
     if (html2canvas && typeof html2canvas === 'function') {
       const canvas = await html2canvas(element, {
         backgroundColor: '#000000',
-        scale: 1,
+        scale: 2, // Higher scale for better quality
         useCORS: true,
+        logging: false,
+        allowTaint: true,
+        // CRITICAL: Enhance contrast for dark charts
+        onclone: (clonedDoc: Document) => {
+          // Increase brightness/contrast for dark elements
+          const clonedElement = clonedDoc.querySelector(element.tagName.toLowerCase());
+          if (clonedElement) {
+            (clonedElement as HTMLElement).style.filter = 'brightness(1.2) contrast(1.1)';
+          }
+        },
       });
-      return canvas.toDataURL('image/png');
+      
+      // CRITICAL: Post-process for dark charts - enhance visibility
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        
+        // Enhance dark areas (increase brightness for very dark pixels)
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const brightness = (r + g + b) / 3;
+          
+          // If pixel is very dark, brighten it slightly
+          if (brightness < 30) {
+            data[i] = Math.min(255, r + 20);     // Red
+            data[i + 1] = Math.min(255, g + 20); // Green
+            data[i + 2] = Math.min(255, b + 20); // Blue
+          }
+        }
+        
+        ctx.putImageData(imageData, 0, 0);
+      }
+      
+      // Convert to JPEG with quality for better compression and compatibility
+      return canvas.toDataURL('image/jpeg', 0.95);
     }
 
     // Fallback: Use canvas API
@@ -139,14 +175,24 @@ export async function analyzeScreenshot(
   try {
     toast.info('Analyzing screenshot with AI...');
 
-    // Convert data URL to base64
-    const base64Image = screenshotDataUrl.split(',')[1] || screenshotDataUrl;
+    // CRITICAL: Convert data URL to base64 and ensure proper format for GPT-4o Vision
+    let base64Image = screenshotDataUrl.split(',')[1] || screenshotDataUrl;
+    
+    // If it's a data URL, extract base64
+    if (screenshotDataUrl.startsWith('data:image/')) {
+      base64Image = screenshotDataUrl.split(',')[1];
+    }
+    
+    // Ensure image is in correct format (JPEG or PNG base64)
+    // GPT-4o Vision accepts: data:image/jpeg;base64,<data> or data:image/png;base64,<data>
+    const imageFormat = screenshotDataUrl.includes('image/jpeg') ? 'jpeg' : 'png';
+    const imageUrl = `data:image/${imageFormat};base64,${base64Image}`;
 
     // Use AI engine with vision capability
     // Note: This requires backend support for GPT-4 Vision API
     const prompt = query
-      ? `Analyze this screenshot and answer: ${query}. Describe what you see in detail.`
-      : 'Analyze this screenshot. Describe what you see, identify any charts, text, or important information.';
+      ? `Analyze this screenshot and answer: ${query}. Pay special attention to charts, graphs, and dark backgrounds. Describe what you see in detail, including any numbers, trends, or patterns visible.`
+      : 'Analyze this screenshot. Describe what you see, identify any charts, graphs, text, or important information. Pay attention to dark backgrounds and ensure all visible elements are described.';
 
     // Try backend API first (if it supports vision)
     const apiBase =
@@ -162,8 +208,10 @@ export async function analyzeScreenshot(
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            image: base64Image,
+            image: imageUrl, // Send full data URL format for GPT-4o Vision
             prompt,
+            model: 'gpt-4o', // Explicitly use GPT-4o for vision
+            max_tokens: 1000,
           }),
         });
 

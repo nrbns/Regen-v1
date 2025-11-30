@@ -1,6 +1,8 @@
 # RegenBrowser - The #1 AI Browser in the World 🇮🇳
 
-**Offline AI Browser with WISPR (Voice + Vision + Action)**
+**Tauri-Powered AI Browser with WISPR (Voice + Vision + Action)**
+
+> **⚠️ IMPORTANT: This project uses Tauri as the runtime. Electron configs are disabled.**
 
 One-click install → AI auto-sets (60s) → Offline forever.
 
@@ -22,12 +24,25 @@ One-click install → AI auto-sets (60s) → Offline forever.
 
 ## Build from Source
 
+### Quick Start (Development Mode with Mock LLM)
+
 ```bash
 # Prerequisites
 npm install
 cargo install tauri-cli
 
-# Install Ollama (required)
+# Development mode (uses mock LLM - no Ollama needed)
+DEV=true npm run dev
+
+# Or start mock LLM separately
+DEV=true node server/mock-llm.js
+npm run dev
+```
+
+### Production Build (Requires Ollama)
+
+```bash
+# Install Ollama (required for production)
 # Windows: Download from ollama.com
 # Linux: curl -fsSL https://ollama.com/install.sh | sh
 # macOS: brew install ollama
@@ -38,9 +53,15 @@ ollama pull llava:7b
 
 # Build
 npm run build
-cd tauri-migration/src-tauri
-cargo tauri build --bundles all
+cd tauri-migration && npm run tauri build
 ```
+
+### Tauri-Only Runtime
+
+This project **only supports Tauri**. Electron configs have been disabled.
+- All development should target `tauri-migration/`
+- Build commands use Tauri CLI
+- See `tauri-migration/src-tauri/tauri.conf.json` for configuration
 
 ## Troubleshooting
 

@@ -5,6 +5,8 @@ import { OmniDesk } from '../components/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
 import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from '../core/errors/ErrorBoundary';
+import { WeatherCard } from '../components/WeatherCard';
+import { FlightCard } from '../components/FlightCard';
 
 // Tier 3: Load all enabled modes with error handling
 const ResearchPanel = lazy(() => import('../modes/research'));
@@ -145,6 +147,12 @@ export default function Home() {
 
       {/* Research Pane - Available in all modes except Research (which has its own panel) */}
       {!isFullscreen && mode !== 'Research' && <ResearchPane />}
+
+      {/* Weather Card - Shows when weather command is executed */}
+      <WeatherCard />
+
+      {/* Flight Card - Shows when flight booking is initiated */}
+      <FlightCard />
     </div>
   );
 }

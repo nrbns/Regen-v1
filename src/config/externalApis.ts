@@ -43,9 +43,40 @@ export const EXTERNAL_APIS: ExternalAPI[] = [
   },
   // Trade mode APIs
   {
+    id: 'finnhub',
+    name: 'Finnhub',
+    description: 'Real-time market data for NSE/BSE, US markets, and crypto',
+    mode: 'trade',
+    authType: 'apiKey',
+    authEnvKey: 'FINNHUB_API_KEY',
+    baseUrl: 'https://finnhub.io/api/v1',
+    docsUrl: 'https://finnhub.io/docs/api',
+    rateLimitPerMin: 60, // Free tier: 60 calls/min
+  },
+  {
+    id: 'zerodha',
+    name: 'Zerodha Kite',
+    description: 'Real-time order execution for NSE/BSE (India)',
+    mode: 'trade',
+    authType: 'apiKey',
+    authEnvKey: 'ZERODHA_API_KEY',
+    docsUrl: 'https://kite.trade/docs/connect/v3',
+    rateLimitPerMin: 300, // Kite Connect rate limits
+  },
+  {
+    id: 'binance',
+    name: 'Binance',
+    description: 'Real-time crypto prices via WebSocket',
+    mode: 'trade',
+    authType: 'none',
+    baseUrl: 'https://api.binance.com',
+    docsUrl: 'https://binance-docs.github.io/apidocs/spot/en',
+    rateLimitPerMin: 1200, // Binance allows high rate limits
+  },
+  {
     id: 'alpaca',
     name: 'Alpaca',
-    description: 'Stock trading API',
+    description: 'Stock trading API (US markets)',
     mode: 'trade',
     authType: 'apiKey',
     authEnvKey: 'ALPACA_API_KEY',
@@ -84,7 +115,7 @@ export interface DefaultEnabledApis {
 export function getDefaultEnabledApis(): DefaultEnabledApis {
   return {
     research: [],
-    trade: [],
+    trade: ['finnhub', 'binance'], // Enable Finnhub and Binance by default (free tiers)
     threat: [],
     image: [],
   };

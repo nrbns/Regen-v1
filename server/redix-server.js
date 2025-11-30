@@ -37,6 +37,7 @@ import { createCircuit } from './services/circuit/circuit.js';
 import { researchSearch } from './services/research/search.js';
 import { generateResearchAnswer, streamResearchAnswer } from './services/research/answer.js';
 import { queryEnhancedResearch } from './services/research/enhanced.js';
+import { aiProxy } from './services/ai/realtime-ai-proxy.js';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -144,6 +145,34 @@ const openAIConfig = {
 const STOCK_HISTORY_CACHE = new Map();
 const STOCK_CACHE_TTL = 1000 * 60; // 1 minute
 const FINNHUB_TOKEN = nodeProcess?.env.FINNHUB_TOKEN || nodeProcess?.env.FINNHUB_API_KEY || '';
+const ZERODHA_API_KEY = nodeProcess?.env.ZERODHA_API_KEY || '';
+const ZERODHA_API_SECRET = nodeProcess?.env.ZERODHA_API_SECRET || '';
+let ZERODHA_ACCESS_TOKEN = nodeProcess?.env.ZERODHA_ACCESS_TOKEN || '';
+let ZERODHA_REFRESH_TOKEN = nodeProcess?.env.ZERODHA_REFRESH_TOKEN || '';
+let ZERODHA_TOKEN_EXPIRES_AT = nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT 
+  ? parseInt(nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT, 10) 
+  : null;
+
+// WebSocket connection pools for market data
+const finnhubConnections = new Map();
+const binanceConnections = new Map();
+
+// Helper to detect if symbol is crypto
+function isCryptoSymbol(symbol) {
+  const cryptoSymbols = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOGE', 'DOT', 'MATIC', 'AVAX', 'LINK', 'UNI', 'ATOM', 'ETC', 'LTC', 'BCH', 'XLM', 'ALGO', 'VET', 'FIL', 'TRX', 'EOS', 'AAVE', 'MKR', 'COMP', 'SUSHI', 'SNX', 'YFI', 'CRV', '1INCH'];
+  const upperSymbol = symbol.toUpperCase();
+  return cryptoSymbols.some(c => upperSymbol.includes(c)) || upperSymbol.includes('USDT');
+}
+
+// Helper to map crypto symbol to Binance format
+function mapToBinanceSymbol(symbol) {
+  const upperSymbol = symbol.toUpperCase();
+  // Remove exchange prefix if present
+  const cleanSymbol = upperSymbol.includes(':') ? upperSymbol.split(':')[1] : upperSymbol;
+  // Remove USDT if already present, then add it
+  const baseSymbol = cleanSymbol.replace('USDT', '');
+  return `${baseSymbol}USDT`.toLowerCase();
+}
 
 const YAHOO_SYMBOL_MAP = {
   NIFTY: '^NSEI',
@@ -387,6 +416,12 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
     return { error: 'symbol_required', message: 'Symbol path param is required' };
   }
 
+  // Route crypto symbols to Binance WebSocket
+  if (isCryptoSymbol(symbol)) {
+    return handleBinanceStream(symbol, request, reply);
+  }
+
+  // Route stocks/indices to Finnhub
   if (!FINNHUB_TOKEN) {
     reply.code(503);
     return {
@@ -410,63 +445,132 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
     }
   };
 
-  // CRITICAL FIX: Fan-out - reuse upstream connection per symbol
+  // CRITICAL FIX: Fan-out - reuse upstream connection per symbol with auto-reconnect
   let connection = finnhubConnections.get(finnhubSymbol);
   if (!connection) {
-    // Create new upstream connection
-    const upstream = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_TOKEN}`);
+    // Create new upstream connection with reconnection logic
+    let upstream = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
+    const reconnectDelay = 2000; // Start with 2 seconds
     const clients = new Set();
+    let heartbeatInterval = null;
+    let reconnectTimeout = null;
 
-    upstream.on('open', () => {
-      upstream.send(JSON.stringify({ type: 'subscribe', symbol: finnhubSymbol }));
-      fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream connected');
-    });
-
-    upstream.on('message', buffer => {
+    const connect = () => {
       try {
-        const payload = JSON.parse(buffer.toString());
-        if (payload.type === 'trade' && Array.isArray(payload.data)) {
-          // Fan out to all clients
-          for (const client of clients) {
-            if (client.destroyed) continue;
-            try {
-              for (const trade of payload.data) {
-                if (!trade?.p) continue;
-                const data = JSON.stringify({
-                  symbol,
-                  price: Number(trade.p),
-                  volume: trade.v ?? 0,
-                  timestamp: trade.t ?? Date.now(),
-                });
-                client.write(`data: ${data}\n\n`);
+        upstream = new WebSocket(`wss://ws.finnhub.io?token=${FINNHUB_TOKEN}`);
+        
+        upstream.on('open', () => {
+          reconnectAttempts = 0; // Reset on successful connection
+          upstream.send(JSON.stringify({ type: 'subscribe', symbol: finnhubSymbol }));
+          fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream connected');
+          
+          // Start heartbeat every 20 seconds
+          heartbeatInterval = setInterval(() => {
+            if (upstream && upstream.readyState === WebSocket.OPEN) {
+              try {
+                upstream.ping();
+              } catch (error) {
+                fastify.log.debug({ error }, 'Heartbeat ping failed');
               }
-            } catch (error) {
-              fastify.log.debug({ error }, 'Failed to fan out to client');
             }
-          }
-        }
-      } catch (error) {
-        fastify.log.debug({ err: error }, 'Finnhub stream parse failed');
-      }
-    });
+          }, 20000);
+        });
 
-    upstream.on('close', () => {
-      fastify.log.info({ symbol: finnhubSymbol }, 'Finnhub upstream closed');
-      // Notify all clients
-      for (const client of clients) {
-        if (!client.destroyed) {
+        upstream.on('message', buffer => {
           try {
-            client.write(
-              `data: ${JSON.stringify({ status: 'closed', symbol: finnhubSymbol })}\n\n`
-            );
-            client.end();
-          } catch {
-            // ignore
+            const payload = JSON.parse(buffer.toString());
+            if (payload.type === 'trade' && Array.isArray(payload.data)) {
+              // Fan out to all clients
+              for (const client of clients) {
+                if (client.destroyed) continue;
+                try {
+                  for (const trade of payload.data) {
+                    if (!trade?.p) continue;
+                    const data = JSON.stringify({
+                      symbol,
+                      price: Number(trade.p),
+                      volume: trade.v ?? 0,
+                      timestamp: trade.t ?? Date.now(),
+                    });
+                    client.write(`data: ${data}\n\n`);
+                  }
+                } catch (error) {
+                  fastify.log.debug({ error }, 'Failed to fan out to client');
+                }
+              }
+            }
+          } catch (error) {
+            fastify.log.debug({ err: error }, 'Finnhub stream parse failed');
           }
-        }
+        });
+
+        upstream.on('error', error => {
+          fastify.log.warn({ err: error, symbol: finnhubSymbol }, 'Finnhub websocket error');
+          // Trigger reconnection
+          scheduleReconnect();
+        });
+
+        upstream.on('close', (code, reason) => {
+          fastify.log.info({ symbol: finnhubSymbol, code, reason }, 'Finnhub upstream closed');
+          
+          // Clear heartbeat
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+          }
+          
+          // Don't notify clients on intentional close (code 1000)
+          if (code !== 1000) {
+            // Schedule reconnection
+            scheduleReconnect();
+          } else {
+            // Clean shutdown
+            finnhubConnections.delete(finnhubSymbol);
+          }
+        });
+
+        const scheduleReconnect = () => {
+          if (reconnectAttempts >= maxReconnectAttempts) {
+            fastify.log.error({ symbol: finnhubSymbol }, 'Max reconnection attempts reached');
+            // Notify clients of permanent failure
+            for (const client of clients) {
+              if (!client.destroyed) {
+                try {
+                  client.write(
+                    `data: ${JSON.stringify({ status: 'error', symbol: finnhubSymbol, message: 'Connection failed after retries' })}\n\n`
+                  );
+                } catch {
+                  // ignore
+                }
+              }
+            }
+            finnhubConnections.delete(finnhubSymbol);
+            return;
+          }
+
+          reconnectAttempts++;
+          const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
+          
+          fastify.log.info({ symbol: finnhubSymbol, attempt: reconnectAttempts, delay }, 'Scheduling reconnection');
+          
+          reconnectTimeout = setTimeout(() => {
+            fastify.log.info({ symbol: finnhubSymbol, attempt: reconnectAttempts }, 'Reconnecting to Finnhub');
+            connect(); // Reconnect
+          }, delay);
+        };
+
+        connection = { upstream, clients, reconnect: scheduleReconnect };
+        finnhubConnections.set(finnhubSymbol, connection);
+      } catch (error) {
+        fastify.log.error({ err: error, symbol: finnhubSymbol }, 'Failed to create Finnhub connection');
+        throw error;
       }
-      finnhubConnections.delete(finnhubSymbol);
-    });
+    };
+
+    // Initial connection
+    connect();
 
     upstream.on('error', error => {
       fastify.log.warn({ err: error, symbol: finnhubSymbol }, 'Finnhub websocket error');
@@ -518,6 +622,135 @@ fastify.get('/stock/stream/:symbol', async (request, reply) => {
     }
   });
 });
+
+// Binance WebSocket stream handler for crypto
+async function handleBinanceStream(symbol, request, reply) {
+  const binanceSymbol = mapToBinanceSymbol(symbol);
+  
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  reply.raw.flushHeaders?.();
+
+  const send = payload => {
+    if (reply.raw.destroyed) return;
+    try {
+      reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    } catch (error) {
+      fastify.log.debug({ error }, 'Failed to send to client');
+    }
+  };
+
+  // Fan-out: reuse upstream connection per symbol
+  let connection = binanceConnections.get(binanceSymbol);
+  if (!connection) {
+    // Create new Binance WebSocket connection
+    const upstream = new WebSocket(`wss://stream.binance.com:9443/ws/${binanceSymbol}@ticker`);
+    const clients = new Set();
+
+    upstream.on('open', () => {
+      fastify.log.info({ symbol: binanceSymbol }, 'Binance upstream connected');
+      send({ status: 'subscribed', symbol: binanceSymbol, timestamp: Date.now() });
+    });
+
+    upstream.on('message', buffer => {
+      try {
+        const payload = JSON.parse(buffer.toString());
+        
+        // Binance ticker format: { e: '24hrTicker', c: 'price', P: 'changePercent', v: 'volume', ... }
+        if (payload.e === '24hrTicker' && payload.c) {
+          const price = Number(payload.c);
+          const changePercent = Number(payload.P || 0);
+          const change = (price * changePercent) / 100;
+          const volume = Number(payload.v || 0);
+
+          // Fan out to all clients
+          for (const client of clients) {
+            if (client.destroyed) continue;
+            try {
+              const data = JSON.stringify({
+                symbol,
+                price,
+                change,
+                changePercent,
+                volume,
+                timestamp: Date.now(),
+              });
+              client.write(`data: ${data}\n\n`);
+            } catch (error) {
+              fastify.log.debug({ error }, 'Failed to fan out to client');
+            }
+          }
+        }
+      } catch (error) {
+        fastify.log.debug({ err: error }, 'Binance stream parse failed');
+      }
+    });
+
+    upstream.on('close', () => {
+      fastify.log.info({ symbol: binanceSymbol }, 'Binance upstream closed');
+      for (const client of clients) {
+        if (!client.destroyed) {
+          try {
+            client.write(
+              `data: ${JSON.stringify({ status: 'closed', symbol: binanceSymbol })}\n\n`
+            );
+            client.end();
+          } catch {
+            // ignore
+          }
+        }
+      }
+      binanceConnections.delete(binanceSymbol);
+    });
+
+    upstream.on('error', error => {
+      fastify.log.warn({ err: error, symbol: binanceSymbol }, 'Binance websocket error');
+      for (const client of clients) {
+        if (!client.destroyed) {
+          try {
+            client.write(
+              `data: ${JSON.stringify({ status: 'error', message: error?.message || 'stream_error' })}\n\n`
+            );
+          } catch {
+            // ignore
+          }
+        }
+      }
+    });
+
+    connection = { upstream, clients };
+    binanceConnections.set(binanceSymbol, connection);
+  }
+
+  // Add this client to the set
+  connection.clients.add(reply.raw);
+  send({ status: 'subscribed', symbol: binanceSymbol, timestamp: Date.now() });
+
+  const heartbeat = setInterval(() => {
+    if (reply.raw.destroyed) {
+      clearInterval(heartbeat);
+      return;
+    }
+    reply.raw.write(': ping\n\n');
+  }, 15000);
+
+  request.raw.on('close', () => {
+    clearInterval(heartbeat);
+    if (connection) {
+      connection.clients.delete(reply.raw);
+      if (connection.clients.size === 0) {
+        try {
+          connection.upstream.close();
+        } catch {
+          // ignore
+        }
+        binanceConnections.delete(binanceSymbol);
+        fastify.log.info({ symbol: binanceSymbol }, 'Closed Binance upstream (no clients)');
+      }
+    }
+  });
+}
 
 // Register CORS for Tauri migration
 fastify.register(cors, {
@@ -2377,6 +2610,79 @@ fastify.post('/api/ai/task', async (request, reply) => {
 // ============================================================================
 // RESEARCH API - For Tauri migration
 // ============================================================================
+// Real-time AI Proxy endpoints
+fastify.post('/api/ai/summarize', async (request, reply) => {
+  const { url, content, length = 'medium' } = request.body;
+  
+  try {
+    const result = await aiProxy.summarizePage(url, content, { length });
+    return reply.send(result);
+  } catch (error) {
+    fastify.log.error({ err: error, url }, 'Summarization failed');
+    return reply.status(500).send({ error: 'Summarization failed' });
+  }
+});
+
+fastify.post('/api/ai/research/stream', async (request, reply) => {
+  const { query, sources } = request.body;
+  
+  reply.raw.setHeader('Content-Type', 'text/event-stream');
+  reply.raw.setHeader('Cache-Control', 'no-cache');
+  reply.raw.setHeader('Connection', 'keep-alive');
+  reply.raw.flushHeaders?.();
+
+  const streamId = await aiProxy.streamResearchSummary(query, sources || []);
+  
+  const onChunk = ({ streamId: sid, text, fullText }) => {
+    if (sid === streamId && !reply.raw.destroyed) {
+      try {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'chunk', text, fullText })}\n\n`);
+      } catch (error) {
+        fastify.log.debug({ error }, 'Failed to send chunk');
+      }
+    }
+  };
+
+  const onDone = ({ streamId: sid, text }) => {
+    if (sid === streamId && !reply.raw.destroyed) {
+      try {
+        reply.raw.write(`data: ${JSON.stringify({ type: 'done', text })}\n\n`);
+        reply.raw.end();
+      } catch (error) {
+        fastify.log.debug({ error }, 'Failed to send done');
+      }
+      aiProxy.removeListener('chunk', onChunk);
+      aiProxy.removeListener('done', onDone);
+    }
+  };
+
+  aiProxy.on('chunk', onChunk);
+  aiProxy.on('done', onDone);
+
+  request.raw.on('close', () => {
+    aiProxy.cancelStream(streamId);
+    aiProxy.removeListener('chunk', onChunk);
+    aiProxy.removeListener('done', onDone);
+  });
+});
+
+fastify.post('/api/ai/suggest-actions', async (request, reply) => {
+  const { currentUrl, query, sessionHistory, openTabs } = request.body;
+  
+  try {
+    const actions = await aiProxy.suggestNextActions({
+      currentUrl,
+      query,
+      sessionHistory,
+      openTabs,
+    });
+    return reply.send({ actions });
+  } catch (error) {
+    fastify.log.error({ err: error }, 'Action suggestion failed');
+    return reply.status(500).send({ error: 'Suggestion failed' });
+  }
+});
+
 fastify.post('/api/research/query', async (request, reply) => {
   const { query, language } = request.body ?? {};
   if (!query) {
@@ -2488,14 +2794,71 @@ fastify.get('/api/trade/quote/:symbol', async (request, reply) => {
 
 fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
   const { symbol } = request.params;
-  const { interval = '1d', limit = 50 } = request.query;
+  const { interval = '1d', limit = 50, resolution } = request.query;
   if (!symbol) {
     reply.code(400);
     return { error: 'Symbol is required' };
   }
 
   try {
-    // Generate mock candle data - replace with real data source
+    // Route crypto to Binance API
+    if (isCryptoSymbol(symbol)) {
+      const binanceSymbol = mapToBinanceSymbol(symbol);
+      const intervalMap = { '1': '1m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', 'D': '1d', 'W': '1w', 'M': '1M' };
+      const binanceInterval = intervalMap[resolution || interval] || '1d';
+      const limitCount = Number(limit) || 50;
+
+      try {
+        const response = await fetch(
+          `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol.toUpperCase()}&interval=${binanceInterval}&limit=${limitCount}`
+        );
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          const candles = data.map(kline => ({
+            timestamp: Math.floor(kline[0] / 1000), // Binance returns milliseconds, convert to seconds
+            time: kline[0], // Keep milliseconds for time field
+            open: Number(kline[1]),
+            high: Number(kline[2]),
+            low: Number(kline[3]),
+            close: Number(kline[4]),
+            volume: Number(kline[5]),
+          }));
+          return { symbol, interval, candles };
+        }
+      } catch (binanceError) {
+        fastify.log.warn({ symbol, error: binanceError }, 'Binance candles failed, using fallback');
+      }
+    }
+
+    // Use Finnhub API for stocks/indices
+    const finnhubSymbol = mapToFinnhubSymbol(symbol);
+    const res = resolution || (interval === '1d' ? 'D' : interval === '1w' ? 'W' : 'M');
+    const to = Math.floor(Date.now() / 1000);
+    const from = to - (res === 'D' ? 86400 * Number(limit) : res === 'W' ? 604800 * Number(limit) : 2592000 * Number(limit));
+
+    if (FINNHUB_TOKEN) {
+      const response = await fetch(
+        `https://finnhub.io/api/v1/stock/candle?symbol=${finnhubSymbol}&resolution=${res}&from=${from}&to=${to}&token=${FINNHUB_TOKEN}`
+      );
+      const data = await response.json();
+
+      if (data.s === 'ok' && data.c && Array.isArray(data.c)) {
+        const candles = data.c.map((close, i) => ({
+          timestamp: data.t[i],
+          time: data.t[i] * 1000, // Convert to milliseconds
+          open: data.o[i],
+          high: data.h[i],
+          low: data.l[i],
+          close: data.c[i],
+          volume: data.v[i] || 0,
+        }));
+        return { symbol, interval, candles };
+      }
+    }
+
+    // Fallback: Generate mock candle data if Finnhub fails or no token
+    fastify.log.warn({ symbol }, 'Using fallback mock candles (Finnhub not configured)');
     const candles = Array.from({ length: Number(limit) || 50 }, (_, i) => {
       const baseDate = new Date();
       baseDate.setDate(baseDate.getDate() - (Number(limit) || 50) + i);
@@ -2504,7 +2867,7 @@ fastify.get('/api/trade/candles/:symbol', async (request, reply) => {
       const close = open + (Math.random() - 0.5) * 400;
       const high = Math.max(open, close) + Math.random() * 100;
       const low = Math.min(open, close) - Math.random() * 100;
-      return { time, open, high, low, close };
+      return { time, timestamp: Math.floor(baseDate.getTime() / 1000), open, high, low, close, volume: 0 };
     });
     return { symbol, interval, candles };
   } catch (error) {
@@ -2519,19 +2882,169 @@ fastify.post('/api/trade/order', async (request, reply) => {
     symbol,
     quantity,
     orderType,
-    stopLoss: _stopLoss,
-    takeProfit: _takeProfit,
+    stopLoss,
+    takeProfit,
   } = request.body ?? {};
   if (!symbol || !quantity || !orderType) {
     reply.code(400);
     return { error: 'Symbol, quantity, and orderType are required' };
   }
 
+  const startTime = Date.now();
+  
   try {
-    // Mock order placement - replace with real broker API
-    // stopLoss and takeProfit are accepted but not yet implemented in mock
+    // Try Zerodha Kite Connect if configured
+    if (ZERODHA_API_KEY && ZERODHA_ACCESS_TOKEN) {
+      try {
+        // Map symbol to NSE format (e.g., "RELIANCE" -> "NSE:RELIANCE")
+        const nseSymbol = symbol.includes(':') ? symbol.split(':')[1] : symbol;
+        const kiteSymbol = `${nseSymbol}-EQ`; // Zerodha format: RELIANCE-EQ
+
+        // OPTIMIZED: Use timeout and Promise.race for <1.6s execution
+        const orderPromise = fetch(`https://kite.zerodha.com/oms/orders/regular`, {
+          method: 'POST',
+          headers: {
+            'X-Kite-Version': '3',
+            'Authorization': `token ${ZERODHA_API_KEY}:${ZERODHA_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            exchange: 'NSE',
+            tradingsymbol: kiteSymbol,
+            transaction_type: orderType.toUpperCase() === 'BUY' ? 'BUY' : 'SELL',
+            quantity: Number(quantity),
+            price: 0, // Market order (0 = market, >0 = limit)
+            product: 'MIS', // MIS for intraday, CNC for delivery
+            order_type: 'MARKET', // MARKET or LIMIT
+            validity: 'DAY',
+            ...(stopLoss && { stoploss: Number(stopLoss) }),
+            ...(takeProfit && { target: Number(takeProfit) }),
+          }),
+        });
+
+        // Timeout after 1.5 seconds
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Order timeout after 1.5s')), 1500)
+        );
+
+        const response = await Promise.race([orderPromise, timeoutPromise]);
+
+        if (response.ok) {
+          const data = await response.json();
+          const elapsed = Date.now() - startTime;
+          
+          // CRITICAL: Validate response
+          if (!data.data?.order_id) {
+            throw new Error('Invalid response: missing order_id');
+          }
+          
+          fastify.log.info({ 
+            symbol, 
+            quantity, 
+            orderType, 
+            orderId: data.data.order_id,
+            elapsed: `${elapsed}ms`
+          }, 'Zerodha order placed');
+          
+          return {
+            success: true,
+            orderId: data.data.order_id,
+            symbol,
+            quantity,
+            orderType,
+            status: data.data.status || 'pending',
+            broker: 'zerodha',
+            timestamp: Date.now(),
+            executionTime: elapsed,
+          };
+        } else {
+          // CRITICAL: Proper error handling
+          const errorData = await response.json().catch(() => ({ 
+            error: 'Unknown error',
+            status: response.status,
+            statusText: response.statusText 
+          }));
+          
+          // Check for token expiration
+          if (response.status === 403 || response.status === 401) {
+            fastify.log.error({ symbol, error: errorData }, 'Zerodha token expired - needs refresh');
+            reply.code(401);
+            return {
+              success: false,
+              error: 'token_expired',
+              message: 'Zerodha access token expired. Please refresh token.',
+              symbol,
+              quantity,
+              orderType,
+            };
+          }
+          
+          // Check for insufficient funds
+          if (response.status === 400 && errorData.message?.includes('insufficient')) {
+            fastify.log.warn({ symbol, error: errorData }, 'Insufficient funds');
+            reply.code(400);
+            return {
+              success: false,
+              error: 'insufficient_funds',
+              message: 'Insufficient funds to place order',
+              symbol,
+              quantity,
+              orderType,
+            };
+          }
+          
+          fastify.log.warn({ symbol, error: errorData }, 'Zerodha order failed');
+          reply.code(response.status);
+          return {
+            success: false,
+            error: 'order_failed',
+            message: errorData.message || errorData.error || 'Order placement failed',
+            symbol,
+            quantity,
+            orderType,
+            details: errorData,
+          };
+        }
+      } catch (zerodhaError) {
+        // CRITICAL: Proper error handling for network/timeout errors
+        const elapsed = Date.now() - startTime;
+        fastify.log.error({ 
+          symbol, 
+          error: zerodhaError,
+          elapsed: `${elapsed}ms`
+        }, 'Zerodha API error');
+        
+        // If timeout, return specific error
+        if (zerodhaError.message?.includes('timeout')) {
+          reply.code(504);
+          return {
+            success: false,
+            error: 'order_timeout',
+            message: 'Order execution timed out (>1.5s). Market may be volatile.',
+            symbol,
+            quantity,
+            orderType,
+            executionTime: elapsed,
+          };
+        }
+        
+        // Network errors
+        reply.code(502);
+        return {
+          success: false,
+          error: 'network_error',
+          message: zerodhaError.message || 'Network error while placing order',
+          symbol,
+          quantity,
+          orderType,
+          executionTime: elapsed,
+        };
+      }
+    }
+
+    // Fallback: Mock order placement (for testing or when Zerodha not configured)
     const orderId = `order_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    fastify.log.info({ symbol, quantity, orderType }, 'Trade order placed');
+    fastify.log.info({ symbol, quantity, orderType }, 'Mock trade order placed (Zerodha not configured)');
     return {
       success: true,
       orderId,
@@ -2539,7 +3052,9 @@ fastify.post('/api/trade/order', async (request, reply) => {
       quantity,
       orderType,
       status: 'pending',
+      broker: 'mock',
       timestamp: Date.now(),
+      note: 'This is a mock order. Configure ZERODHA_API_KEY and ZERODHA_ACCESS_TOKEN for real orders.',
     };
   } catch (error) {
     fastify.log.error({ error }, 'Trade order failed');
@@ -3204,6 +3719,32 @@ fastify.get('/metrics/prom', async (_request, reply) => {
         fastify.log.info('Admin routes registered');
       } catch (error) {
         fastify.log.warn({ error }, 'Failed to register admin routes');
+      }
+
+      // Initialize Zerodha TOTP auth and daily refresh (if credentials available)
+      try {
+        const { setupDailyTokenRefresh } = await import('./services/zerodha/totp-auth.js');
+        const tokenStore = {
+          update: (accessToken, refreshToken, expiresAt) => {
+            ZERODHA_ACCESS_TOKEN = accessToken;
+            ZERODHA_REFRESH_TOKEN = refreshToken || ZERODHA_REFRESH_TOKEN;
+            ZERODHA_TOKEN_EXPIRES_AT = expiresAt;
+            if (nodeProcess?.env) {
+              nodeProcess.env.ZERODHA_ACCESS_TOKEN = accessToken;
+              if (refreshToken) nodeProcess.env.ZERODHA_REFRESH_TOKEN = refreshToken;
+              nodeProcess.env.ZERODHA_TOKEN_EXPIRES_AT = expiresAt.toString();
+            }
+            fastify.log.info('Zerodha token updated');
+          },
+        };
+        
+        // Setup daily refresh at 5:45 AM if credentials are available
+        if (ZERODHA_API_KEY && (ZERODHA_REFRESH_TOKEN || (nodeProcess?.env.ZERODHA_USER_ID && nodeProcess?.env.ZERODHA_TOTP_SECRET))) {
+          setupDailyTokenRefresh(tokenStore.update);
+          fastify.log.info('Zerodha daily token refresh scheduled for 5:45 AM');
+        }
+      } catch (error) {
+        fastify.log.warn({ err: error }, 'Failed to load Zerodha TOTP auth (optional - configure ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET for auto-refresh)');
       }
 
       await fastify.listen({ port: PORT, host: '0.0.0.0' });
