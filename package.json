@@ -60,6 +60,10 @@
     "kill:dev": "node scripts/kill-dev-processes.js",
     "audit:prod": "npm audit --omit=dev",
     "ci:check": "npm run build:types && npm run lint && npm run audit:prod && npm run perf:test",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"*.{js,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{js,json,md}\"",
+    "verify:build": "node scripts/verify-build.js",
+    "changelog": "node scripts/generate-changelog.js",
     "scraper:worker": "node server/services/queue/worker.js",
     "prepare": "husky",
     "precommit": "lint-staged"

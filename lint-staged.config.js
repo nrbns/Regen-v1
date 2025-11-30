@@ -4,6 +4,10 @@
  * Runs linters and formatters on staged files
  */
 
+/**
+ * Lint-staged Configuration
+ * DAY 10 FIX: Enhanced with prettier formatting
+ */
 module.exports = {
   // TypeScript and JavaScript files
   '**/*.{ts,tsx,js,jsx}': ['eslint --fix', 'prettier --write'],
