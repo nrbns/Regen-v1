@@ -1498,7 +1498,16 @@ fn main() {
             book_flight,
             store_secure,
             get_secure,
-            delete_secure
+            delete_secure,
+            llm_query,
+            check_ollama_status,
+            llm_query_local,
+            start_whisper_stream,
+            stop_whisper_stream,
+            place_order_stub,
+            open_file,
+            save_file,
+            export_pdf
         ])
         .run(tauri::generate_context!())
         .expect("error while running Regen");
@@ -1726,5 +1735,126 @@ async fn delete_secure(key: String, app: tauri::AppHandle) -> Result<(), String>
     store.save()
         .map_err(|e| format!("Failed to save store: {}", e))?;
     
+    Ok(())
+}
+
+// ============================================================================
+// PR 003: Tauri IPC Commands for LLM, Whisper, File Operations
+// ============================================================================
+
+#[tauri::command]
+async fn llm_query(prompt: String, _model: Option<String>, _temperature: Option<f64>) -> Result<String, String> {
+    // Route to local Ollama or cloud provider
+    // For now, return stub - will be implemented with actual LLM routing
+    Ok(format!("[LLM Stub] Response to: {}", prompt))
+}
+
+#[tauri::command]
+async fn check_ollama_status() -> Result<serde_json::Value, String> {
+    // Check if Ollama is running and available
+    let output = Command::new("ollama")
+        .arg("list")
+        .output();
+    
+    match output {
+        Ok(_) => Ok(json!({ "available": true })),
+        Err(_) => Ok(json!({ "available": false }))
+    }
+}
+
+#[tauri::command]
+async fn llm_query_local(prompt: String, model: Option<String>, _temperature: Option<f64>, _max_tokens: Option<u32>) -> Result<serde_json::Value, String> {
+    // Query local Ollama instance
+    let model_name = model.unwrap_or_else(|| "phi3:mini".to_string());
+    
+    let output = Command::new("ollama")
+        .arg("run")
+        .arg(&model_name)
+        .arg(&prompt)
+        .output()
+        .map_err(|e| format!("Ollama not available: {}", e))?;
+    
+    let response = String::from_utf8_lossy(&output.stdout);
+    
+    Ok(json!({
+        "text": response.trim(),
+        "model": model_name,
+        "tokensUsed": None::<u32>
+    }))
+}
+
+#[tauri::command]
+async fn start_whisper_stream(window: WebviewWindow) -> Result<String, String> {
+    // Start Whisper transcription stream
+    // This will spawn whisper.cpp process and stream results
+    // For now, return session ID
+    let session_id = format!("whisper-{}", chrono::Utc::now().timestamp());
+    
+    // TODO: Spawn whisper.cpp subprocess and stream events
+    window.emit("whisper-started", json!({ "sessionId": session_id })).ok();
+    
+    Ok(session_id)
+}
+
+#[tauri::command]
+async fn stop_whisper_stream(_session_id: String) -> Result<(), String> {
+    // Stop Whisper transcription stream
+    // TODO: Kill whisper.cpp process for this session
+    Ok(())
+}
+
+#[tauri::command]
+async fn place_order_stub(symbol: String, quantity: f64, order_type: String, price: Option<f64>) -> Result<serde_json::Value, String> {
+    // Paper-trade stub - returns mock order confirmation
+    // In production, this would connect to actual exchange API
+    Ok(json!({
+        "orderId": format!("order-{}", chrono::Utc::now().timestamp()),
+        "symbol": symbol,
+        "quantity": quantity,
+        "orderType": order_type,
+        "price": price,
+        "status": "filled",
+        "paperTrade": true,
+        "timestamp": chrono::Utc::now().timestamp()
+    }))
+}
+
+#[tauri::command]
+async fn open_file(path: String) -> Result<serde_json::Value, String> {
+    use std::fs;
+    
+    // Read file and return content with metadata
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    let metadata = fs::metadata(&path)
+        .map_err(|e| format!("Failed to get metadata: {}", e))?;
+    
+    Ok(json!({
+        "content": content,
+        "path": path,
+        "size": metadata.len(),
+        "modified": metadata.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+    }))
+}
+
+#[tauri::command]
+async fn save_file(path: String, content: String) -> Result<(), String> {
+    use std::fs;
+    
+    fs::write(&path, content)
+        .map_err(|e| format!("Failed to save file: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn export_pdf(_html: String, _output_path: String) -> Result<(), String> {
+    // Export HTML to PDF
+    // TODO: Use headless browser or PDF library to convert HTML to PDF
+    // For now, return stub
     Ok(())
 }
