@@ -187,15 +187,12 @@ export function RealtimeSearchPreview({ query, onSelect, isVisible }: RealtimeSe
   );
 }
 
-// Telepathy Upgrade: Use Rust embed_text command for GPU-accelerated embeddings
+// Telepathy Upgrade Phase 3: Use cached embeddings with SHA256 + 4-bit quantized model
 async function generateQueryEmbedding(query: string): Promise<number[]> {
   try {
-    const { invoke } = await import('@tauri-apps/api/core');
-    const embedding = await invoke<number[]>('embed_text', {
-      text: query,
-      model: 'nomic-embed-text', // 4-bit quantized model
-    });
-    return embedding;
+    const { getOrGenerateEmbedding } = await import('../../services/embedding/embeddingCache');
+    // Use 4-bit quantized model (default) with cache
+    return await getOrGenerateEmbedding(query, 'nomic-embed-text:4bit');
   } catch (error) {
     console.warn('[RealtimeSearchPreview] Rust embedding failed, using fallback', error);
     // Fallback to simple hash-based vector

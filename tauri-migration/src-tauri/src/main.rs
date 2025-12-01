@@ -1965,11 +1965,12 @@ async fn export_pdf(_html: String, _output_path: String) -> Result<(), String> {
     Ok(())
 }
 
-// Telepathy Upgrade Phase 1: GPU-accelerated embedding command
+// Telepathy Upgrade Phase 3: GPU-accelerated embedding command with 4-bit quantized default
 // Calls Ollama directly with CUDA support for 6-10x faster embeddings
 #[tauri::command]
 async fn embed_text(text: String, model: Option<String>) -> Result<Vec<f32>, String> {
-    let model_name = model.unwrap_or_else(|| "nomic-embed-text".to_string());
+    // Phase 3: Default to 4-bit quantized model for reduced RAM usage
+    let model_name = model.unwrap_or_else(|| "nomic-embed-text:4bit".to_string());
     
     // Call Ollama embeddings API directly (supports CUDA if available)
     let client = Client::builder()
