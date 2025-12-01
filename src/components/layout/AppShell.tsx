@@ -938,9 +938,19 @@ export function AppShell() {
     return false;
   }, []);
   const activeTab = useMemo(() => {
-    // Defensive: Ensure tabs is an array and filter invalid entries
+    // PR: Fix tab switch - defensive null checks with logging
     const safeTabs = Array.isArray(tabsState.tabs) ? tabsState.tabs.filter(t => t && t.id) : [];
-    return safeTabs.find(tab => tab.id === tabsState.activeId) || undefined;
+    const found = safeTabs.find(tab => tab.id === tabsState.activeId);
+
+    if (tabsState.activeId && !found) {
+      console.warn('[AppShell] activeTab not found', {
+        activeId: tabsState.activeId,
+        availableIds: safeTabs.map(t => t.id),
+        totalTabs: safeTabs.length,
+      });
+    }
+
+    return found || undefined;
   }, [tabsState.tabs, tabsState.activeId]);
   const mode = useAppStore(state => state.mode);
   const currentMode = mode ?? 'Browse';

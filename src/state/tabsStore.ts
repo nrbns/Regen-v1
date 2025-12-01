@@ -146,7 +146,25 @@ export const useTabsStore = create<TabsState>()(
           });
           return newState;
         }),
-      setActive: id =>
+      setActive: id => {
+        // PR: Fix tab switch - add logging and null guards
+        console.log('[TABS] setActive', {
+          tabId: id,
+          currentActiveId: get().activeId,
+          totalTabs: get().tabs.length,
+          tabIds: get().tabs.map(t => t.id),
+        });
+
+        // Validate tab exists if id is provided
+        if (id !== null) {
+          const tabExists = get().tabs.find(t => t.id === id);
+          if (!tabExists) {
+            console.warn('[TABS] setActive: Tab not found', id);
+            // Don't set to null, keep current active tab
+            return;
+          }
+        }
+
         set(state => {
           const newState = {
             activeId: id,
@@ -164,8 +182,19 @@ export const useTabsStore = create<TabsState>()(
             mode: appMode,
             savedAt: Date.now(),
           });
+
+          // PR: Fix tab switch - update agent stream store
+          import('../state/agentStreamStore')
+            .then(({ useAgentStreamStore }) => {
+              useAgentStreamStore.getState().setActiveTabId(id);
+            })
+            .catch(() => {
+              // Silently fail if store not available
+            });
+
           return newState;
-        }),
+        });
+      },
       setAll: tabs =>
         set(() => {
           const previousTabs = get().tabs;
