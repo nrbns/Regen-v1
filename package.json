@@ -38,6 +38,7 @@
     "storybook": "npx storybook dev -p 6006",
     "storybook:build": "npx storybook build",
     "test:e2e": "playwright test --config=playwright.config.ts",
+    "test:runtime": "node scripts/runtime-test.js",
     "test:load": "k6 run load-test/k6-summarize.js",
     "test:load:sse": "k6 run load-test/k6-sse.js",
     "test:multilingual-offline": "playwright test tests/e2e/multilingual-offline.spec.ts --config=playwright.config.ts",
@@ -168,7 +169,7 @@
     "lint-staged": "^16.2.7",
     "postcss": "^8.4.47",
     "prettier": "^3.6.2",
-    "prettier-plugin-tailwindcss": "^0.6.9",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "semantic-release": "^25.0.2",
     "storybook": "^8.6.14",
     "ts-node": "^10.9.2",
@@ -177,7 +178,8 @@
     "typescript-eslint": "^8.7.0",
     "vite": "^7.2.2",
     "vitest": "^4.0.14",
-    "wait-on": "^7.2.0"
+    "wait-on": "^7.2.0",
+    "ws": "^8.18.3"
   },
   "build": {
     "appId": "com.example.regen",
