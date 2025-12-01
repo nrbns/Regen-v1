@@ -3,9 +3,11 @@
  * Tracks RAM usage and auto-unloads tabs when memory is low
  */
 
+// PR: Telepathy Upgrade - Aggressive lag fixes
 const MEMORY_THRESHOLD = 0.8; // 80% of available memory
 const MEMORY_CRITICAL = 0.9; // 90% - aggressive cleanup
-const MEMORY_MAX_GB = 3.0; // Max 3GB for 4GB devices
+const MEMORY_MAX_GB = 2.5; // Max 2.5GB (down from 3GB) - Telepathy upgrade
+const VISION_DISABLE_THRESHOLD_GB = 6.0; // Auto-disable vision mode under 6GB RAM
 const CHECK_INTERVAL = 5000; // Check every 5 seconds
 
 let memoryCheckInterval: ReturnType<typeof setInterval> | null = null;

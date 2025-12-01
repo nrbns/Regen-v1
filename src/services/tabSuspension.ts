@@ -18,10 +18,10 @@ interface TabSnapshot {
   timestamp: number;
 }
 
-// PR: Performance optimization - More aggressive hibernation to reduce lag
+// PR: Telepathy Upgrade - Aggressive lag fixes (8s blur, 1.5min suspend)
 const IDLE_THRESHOLD_MS = 30000; // 30 seconds of inactivity (unchanged)
-const SUSPEND_THRESHOLD_MS = 120000; // 2 minutes of inactivity (unchanged)
-const BLUR_SUSPEND_DELAY_MS = 5000; // 5 seconds after blur to suspend (new)
+const SUSPEND_THRESHOLD_MS = 90000; // 1.5 minutes (down from 2min) - Telepathy upgrade
+const BLUR_SUSPEND_DELAY_MS = 8000; // 8 seconds after blur (down from 5min) - Telepathy upgrade
 const DB_NAME = 'regen-tab-snapshots';
 const DB_VERSION = 1;
 const STORE_NAME = 'snapshots';
