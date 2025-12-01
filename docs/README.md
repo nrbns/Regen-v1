@@ -28,17 +28,9 @@ Welcome to the RegenBrowser documentation. This directory contains all project d
 
 ### Features & Plans
 
-- **[LAUNCH_READINESS_PLAN.md](./LAUNCH_READINESS_PLAN.md)** - Launch preparation checklist
 - **[DOCUMENT_AUTO_EDIT.md](./DOCUMENT_AUTO_EDIT.md)** - Document auto-edit feature
 - **[RESEARCH_FALLBACKS.md](./RESEARCH_FALLBACKS.md)** - Research mode fallback strategies
 - **[EXTENSION_POLICY.md](./EXTENSION_POLICY.md)** - Browser extension policy
-
-### Business & Partnerships
-
-- **[PARTNERSHIP_ROADMAP.md](./PARTNERSHIP_ROADMAP.md)** - Partnership strategy
-- **[PARTNERSHIP_PACKAGES.md](./PARTNERSHIP_PACKAGES.md)** - Partnership offerings
-- **[PARTNERSHIP_READINESS_CHECKLIST.md](./PARTNERSHIP_READINESS_CHECKLIST.md)** - Partnership readiness
-- **[COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md)** - Competitive landscape
 
 ### Technical Architecture
 
