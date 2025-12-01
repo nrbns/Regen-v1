@@ -1855,7 +1855,7 @@ async fn start_whisper_stream(window: WebviewWindow) -> Result<String, String> {
     let session_id = format!("whisper-{}", chrono::Utc::now().timestamp());
     
     // Check if whisper.cpp is available
-    let whisper_cmd = if cfg!(windows) {
+    let _whisper_cmd = if cfg!(windows) {
         "whisper.cpp.exe"
     } else {
         "whisper"
@@ -1955,6 +1955,13 @@ async fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
         .map_err(|e| format!("Failed to write file: {}", e))?;
     
     Ok(())
+}
+
+#[tauri::command]
+async fn read_file(path: String) -> Result<Vec<u8>, String> {
+    use std::fs;
+    fs::read(&path)
+        .map_err(|e| format!("Failed to read file: {}", e))
 }
 
 #[tauri::command]
