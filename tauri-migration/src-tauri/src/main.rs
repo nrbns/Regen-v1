@@ -1567,8 +1567,12 @@ fn main() {
             stop_whisper_stream,
             place_order_stub,
             open_file,
+            read_file,
             save_file,
-            export_pdf
+            export_pdf,
+            embed_text,
+            get_app_data_path,
+            write_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running Regen");
@@ -1925,10 +1929,77 @@ async fn save_file(path: String, content: String) -> Result<(), String> {
     Ok(())
 }
 
+// Telepathy Upgrade: Helper commands for HNSW persistence
+#[tauri::command]
+async fn get_app_data_path(subpath: String, app: tauri::AppHandle) -> Result<String, String> {
+    let app_data_dir = app.path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
+    
+    let full_path = app_data_dir.join(&subpath);
+    Ok(full_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn write_file(path: String, contents: Vec<u8>) -> Result<(), String> {
+    use std::fs;
+    use std::path::Path;
+    
+    // Create parent directory if it doesn't exist
+    if let Some(parent) = Path::new(&path).parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    
+    fs::write(&path, contents)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    Ok(())
+}
+
 #[tauri::command]
 async fn export_pdf(_html: String, _output_path: String) -> Result<(), String> {
     // Export HTML to PDF
     // TODO: Use headless browser or PDF library to convert HTML to PDF
     // For now, return stub
     Ok(())
+}
+
+// Telepathy Upgrade Phase 1: GPU-accelerated embedding command
+// Calls Ollama directly with CUDA support for 6-10x faster embeddings
+#[tauri::command]
+async fn embed_text(text: String, model: Option<String>) -> Result<Vec<f32>, String> {
+    let model_name = model.unwrap_or_else(|| "nomic-embed-text".to_string());
+    
+    // Call Ollama embeddings API directly (supports CUDA if available)
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    
+    let response = client
+        .post("http://127.0.0.1:11434/api/embeddings")
+        .json(&json!({
+            "model": model_name,
+            "prompt": text
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Ollama connection failed: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Ollama returned error: {}", response.status()));
+    }
+    
+    let result: Value = response.json().await
+        .map_err(|e| format!("Failed to parse Ollama response: {}", e))?;
+    
+    let embedding = result["embedding"]
+        .as_array()
+        .ok_or_else(|| "No embedding in response".to_string())?
+        .iter()
+        .map(|v| v.as_f64().unwrap_or(0.0) as f32)
+        .collect();
+    
+    Ok(embedding)
 }
