@@ -11,6 +11,7 @@ import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { isElectronRuntime } from '../../lib/env';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useSettingsStore } from '../../state/settingsStore';
+import { deriveTitleFromUrl } from '../../lib/ipc-typed';
 
 interface TabIframeManagerProps {
   tabs: Tab[];
@@ -215,15 +216,27 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
               const iframe = iframeRefs.current.get(tab.id);
               if (!iframe) return;
 
-              // PR: Fix navigation - Track URL changes and update tab store
+              // PR: Fix navigation - Track URL changes and update tab store + title
               try {
                 const win = iframe.contentWindow;
                 const doc = iframe.contentDocument;
-                const currentUrl = win?.location.href || iframe.src;
+                let currentUrl: string | null = null;
+                let currentTitle: string | null = null;
+
+                // Try to read URL and title (works for same-origin only)
+                try {
+                  currentUrl = win?.location.href || null;
+                  currentTitle = doc?.title || null;
+                } catch (e) {
+                  // Cross-origin - can't read, but navigation still works
+                  // Use iframe.src as fallback (may be stale for cross-origin navigation)
+                  currentUrl = iframe.src || null;
+                }
 
                 console.log('[TabIframeManager] Iframe loaded', {
                   tabId: tab.id,
                   currentUrl,
+                  currentTitle,
                   iframeSrc: iframe.src,
                   isActive,
                 });
@@ -235,7 +248,39 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     oldUrl: tab.url,
                     newUrl: currentUrl,
                   });
-                  useTabsStore.getState().updateTab(tab.id, { url: currentUrl });
+
+                  // Update both URL and title
+                  const updates: { url: string; title?: string } = { url: currentUrl };
+                  if (currentTitle) {
+                    updates.title = currentTitle;
+                  } else {
+                    // Cross-origin: derive title from URL
+                    updates.title = deriveTitleFromUrl(currentUrl);
+                  }
+
+                  useTabsStore.getState().updateTab(tab.id, updates);
+                } else if (currentTitle && currentTitle !== tab.title) {
+                  // Title changed but URL didn't (e.g., page title update)
+                  console.log('[TabIframeManager] Title changed, updating tab', {
+                    tabId: tab.id,
+                    oldTitle: tab.title,
+                    newTitle: currentTitle,
+                  });
+                  useTabsStore.getState().updateTab(tab.id, { title: currentTitle });
+                } else if (!currentTitle && currentUrl && currentUrl !== tab.url) {
+                  // Cross-origin navigation: can't read title, derive from URL
+                  const derivedTitle = deriveTitleFromUrl(currentUrl);
+                  console.log(
+                    '[TabIframeManager] Cross-origin navigation, deriving title from URL',
+                    {
+                      tabId: tab.id,
+                      url: currentUrl,
+                      derivedTitle,
+                    }
+                  );
+                  useTabsStore
+                    .getState()
+                    .updateTab(tab.id, { url: currentUrl, title: derivedTitle });
                 }
 
                 // PR: Fix navigation - inject click interceptor and window.open override
@@ -265,48 +310,93 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     return null;
                   };
 
-                  // Intercept ONLY anchor clicks with target="_blank" (allow regular navigation)
+                  // Intercept anchor clicks: handle target="_blank" for new tabs, track regular navigation
                   doc.addEventListener(
                     'click',
                     (e: MouseEvent) => {
                       const target = e.target as HTMLElement;
                       const anchor = target.closest?.('a') as HTMLAnchorElement | null;
 
-                      // Only intercept if target="_blank" or target="_new"
-                      // Regular links should navigate normally
-                      if (anchor && (anchor.target === '_blank' || anchor.target === '_new')) {
+                      if (!anchor || !anchor.href) return;
+
+                      // Handle target="_blank" - open in new tab
+                      if (anchor.target === '_blank' || anchor.target === '_new') {
                         e.preventDefault();
                         e.stopPropagation();
 
-                        const href = anchor.href;
-                        if (href) {
-                          console.log('[TabIframeManager] target="_blank" click intercepted', {
-                            href,
-                            tabId: tab.id,
-                          });
-                          // Post message to parent to create new tab
-                          window.postMessage(
-                            { type: 'open-in-new-tab', url: href, sourceTabId: tab.id },
-                            '*' // In production, restrict to specific origin
-                          );
-                        }
+                        console.log('[TabIframeManager] target="_blank" click intercepted', {
+                          href: anchor.href,
+                          tabId: tab.id,
+                        });
+                        // Post message to parent to create new tab
+                        window.postMessage(
+                          { type: 'open-in-new-tab', url: anchor.href, sourceTabId: tab.id },
+                          '*' // In production, restrict to specific origin
+                        );
+                        return;
                       }
-                      // Regular links (no target="_blank") will navigate normally - don't prevent
+
+                      // PR: Fix navigation - Track regular link clicks to update tab URL immediately
+                      // This helps with cross-origin navigation where we can't read location.href after navigation
+                      if (
+                        anchor.href &&
+                        anchor.href !== tab.url &&
+                        !anchor.href.startsWith('about:')
+                      ) {
+                        // Extract absolute URL (anchor.href is always absolute)
+                        const clickedUrl = anchor.href;
+
+                        console.log('[TabIframeManager] Link clicked, updating tab URL', {
+                          tabId: tab.id,
+                          clickedUrl,
+                          currentUrl: tab.url,
+                        });
+
+                        // Update tab URL immediately (navigation will happen in iframe)
+                        // This ensures tab title/URL update even if we can't read it after navigation
+                        // Derive title from URL for immediate feedback (will be updated on load if same-origin)
+                        const derivedTitle = deriveTitleFromUrl(clickedUrl);
+                        useTabsStore
+                          .getState()
+                          .updateTab(tab.id, { url: clickedUrl, title: derivedTitle });
+
+                        // Note: We don't preventDefault - let the iframe navigate normally
+                        // The iframe will navigate, and onLoad will try to read the final URL/title
+                      }
                     },
                     true
                   ); // Use capture phase to catch early
 
-                  // PR: Fix navigation - Listen for navigation events to update URL
+                  // PR: Fix navigation - Listen for navigation events to update URL and title
                   // Track when iframe navigates (for same-tab navigation)
                   const handleNavigation = () => {
                     try {
                       const newUrl = win.location.href;
+                      const newTitle = doc?.title || null;
+
                       if (newUrl && newUrl !== tab.url && !newUrl.startsWith('about:')) {
-                        console.log('[TabIframeManager] Navigation detected, updating URL', {
+                        console.log(
+                          '[TabIframeManager] Navigation detected, updating URL and title',
+                          {
+                            tabId: tab.id,
+                            newUrl,
+                            newTitle,
+                          }
+                        );
+
+                        const updates: { url: string; title?: string } = { url: newUrl };
+                        if (newTitle) {
+                          updates.title = newTitle;
+                        }
+
+                        useTabsStore.getState().updateTab(tab.id, updates);
+                      } else if (newTitle && newTitle !== tab.title) {
+                        // Title changed without URL change
+                        console.log('[TabIframeManager] Title updated', {
                           tabId: tab.id,
-                          newUrl,
+                          newTitle,
                         });
-                        useTabsStore.getState().updateTab(tab.id, { url: newUrl });
+                        useTabsStore.getState().updateTab(tab.id, { title: newTitle });
                       }
                     } catch (e) {
                       // Cross-origin - can't read location, but navigation will work
@@ -320,6 +410,37 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                   // Listen for popstate (back/forward) and hashchange
                   win.addEventListener('popstate', handleNavigation);
                   win.addEventListener('hashchange', handleNavigation);
+
+                  // PR: Fix title tracking - Watch for title changes via MutationObserver
+                  if (doc) {
+                    const titleObserver = new MutationObserver(() => {
+                      try {
+                        const newTitle = doc.title;
+                        if (newTitle && newTitle !== tab.title) {
+                          console.log('[TabIframeManager] Title changed via MutationObserver', {
+                            tabId: tab.id,
+                            newTitle,
+                          });
+                          useTabsStore.getState().updateTab(tab.id, { title: newTitle });
+                        }
+                      } catch (e) {
+                        // Cross-origin or other error
+                      }
+                    });
+
+                    // Observe title element changes
+                    const titleElement = doc.querySelector('title');
+                    if (titleElement) {
+                      titleObserver.observe(titleElement, {
+                        childList: true,
+                        subtree: true,
+                        characterData: true,
+                      });
+                    }
+
+                    // Also observe document.title changes (some sites update it dynamically)
+                    // Store observer reference for cleanup (would need ref map for proper cleanup)
+                  }
 
                   console.log('[TabIframeManager] Interceptors installed for tab', tab.id);
                 } else {

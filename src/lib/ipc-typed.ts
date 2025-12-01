@@ -324,7 +324,7 @@ function getTabsStore() {
   }
 }
 
-function deriveTitleFromUrl(url?: string) {
+export function deriveTitleFromUrl(url?: string) {
   if (!url || url === 'about:blank') {
     return 'New Tab';
   }
@@ -2550,10 +2550,10 @@ export const ipc = {
       ipcCall<{ query: string }, string>('execute_trade_command', { query }),
     // TradingView API Integration
     tradingviewAuthorize: (login: string, password: string) =>
-      ipcCall<{ login: string; password: string }, { s: string; d: { access_token: string; expiration: number } }>(
-        'tradingview_authorize',
-        { login, password }
-      ),
+      ipcCall<
+        { login: string; password: string },
+        { s: string; d: { access_token: string; expiration: number } }
+      >('tradingview_authorize', { login, password }),
     tradingviewQuotes: (accountId: string, symbols: string) =>
       ipcCall<{ accountId: string; symbols: string }, { s: string; d: Array<any> }>(
         'tradingview_quotes',
@@ -2577,15 +2577,14 @@ export const ipc = {
         params
       ),
     tradingviewGetPositions: (accountId: string) =>
-      ipcCall<{ accountId: string }, { s: string; d: Array<any> }>(
-        'tradingview_get_positions',
-        { accountId }
-      ),
+      ipcCall<{ accountId: string }, { s: string; d: Array<any> }>('tradingview_get_positions', {
+        accountId,
+      }),
     tradingviewGetAccountState: (accountId: string) =>
-      ipcCall<{ accountId: string }, { s: string; d: { balance: number; unrealizedPl: number; equity: number } }>(
-        'tradingview_get_account_state',
-        { accountId }
-      ),
+      ipcCall<
+        { accountId: string },
+        { s: string; d: { balance: number; unrealizedPl: number; equity: number } }
+      >('tradingview_get_account_state', { accountId }),
     placeOrder: (order: {
       symbol: string;
       side: 'buy' | 'sell';
