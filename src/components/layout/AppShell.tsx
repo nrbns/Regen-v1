@@ -8,7 +8,7 @@ import { AlertTriangle, PanelsTopLeft, PanelRightOpen } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
-import { useTabsStore } from '../../state/tabsStore';
+import { useTabsStore, type Tab } from '../../state/tabsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
@@ -419,11 +419,39 @@ export function AppShell() {
         }
       })();
 
+      // PR: Fix tab switch - Listen for postMessage from iframes to create new tabs
+      const handlePostMessage = (event: MessageEvent) => {
+        // In production, check event.origin for security
+        const { type, url, sourceTabId } = event.data || {};
+
+        if (type === 'open-in-new-tab' && url) {
+          console.log('[AppShell] Received open-in-new-tab message', {
+            url,
+            sourceTabId,
+            origin: event.origin,
+          });
+
+          // Create new tab with the URL
+          const tabsStore = useTabsStore.getState();
+          const newTab: Tab = {
+            id: `tab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            url,
+            title: 'New Tab',
+            active: false,
+            createdAt: Date.now(),
+          };
+          tabsStore.add(newTab);
+        }
+      };
+
+      window.addEventListener('message', handlePostMessage);
+
       return () => {
         cleanup();
         if (unlisten) {
           unlisten();
         }
+        window.removeEventListener('message', handlePostMessage);
       };
     }
   }, []);
@@ -1911,7 +1939,11 @@ export function AppShell() {
           {showWebContent ? (
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
               {/* Webview container - fills remaining space, only this scrolls */}
-              <div className="webview-container relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
+              {/* PR: Fix tab switch - Ensure frame area has proper z-index and pointer-events */}
+              <div
+                className="webview-container relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950"
+                style={{ zIndex: 0, position: 'relative' }}
+              >
                 {/* PR: Fix tab switch - use iframe-per-tab manager for Tauri, TabContentSurface for Electron */}
                 {isTauriRuntime() ? (
                   <TabIframeManager tabs={tabsState.tabs} activeTabId={tabsState.activeId} />

@@ -148,7 +148,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
             ref={setIframeRef(tab.id)}
             src={iframeUrl || 'about:blank'}
             title={tab.title ?? 'Tab content'}
-            sandbox={SAFE_IFRAME_SANDBOX}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture"
             allowFullScreen
             referrerPolicy="no-referrer-when-downgrade"
@@ -174,23 +174,97 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                 isActive,
               });
 
-              // Check if blocked after load
               const iframe = iframeRefs.current.get(tab.id);
-              if (iframe) {
-                try {
-                  // Try to access contentWindow - will be null if blocked
-                  if (!iframe.contentWindow && iframeUrl && !iframeUrl.startsWith('about:')) {
-                    console.warn('[TabIframeManager] X-Frame-Options detected on load', tab.id);
-                    blockedTabs.current.add(tab.id);
-                    window.dispatchEvent(
-                      new CustomEvent('iframe-blocked', {
-                        detail: { tabId: tab.id, url: tab.url },
-                      })
-                    );
-                  }
-                } catch (e) {
-                  // Cross-origin access denied is normal
+              if (!iframe) return;
+
+              // PR: Fix tab switch - inject click interceptor and window.open override
+              try {
+                const win = iframe.contentWindow;
+                const doc = iframe.contentDocument;
+
+                if (win && doc) {
+                  console.log('[TabIframeManager] Injecting interceptors for tab', tab.id);
+
+                  // Override window.open to intercept popups
+                  const originalOpen = win.open;
+                  win.open = (url?: string | URL, target?: string, features?: string) => {
+                    console.log('[TabIframeManager] window.open intercepted', {
+                      url,
+                      target,
+                      tabId: tab.id,
+                    });
+
+                    if (url) {
+                      const urlStr = typeof url === 'string' ? url : url.toString();
+                      // Post message to parent to create new tab
+                      window.postMessage(
+                        { type: 'open-in-new-tab', url: urlStr, sourceTabId: tab.id },
+                        '*' // In production, restrict to specific origin
+                      );
+                    }
+
+                    // Return null to prevent actual popup
+                    return null;
+                  };
+
+                  // Intercept anchor clicks with target="_blank"
+                  doc.addEventListener(
+                    'click',
+                    (e: MouseEvent) => {
+                      const target = e.target as HTMLElement;
+                      const anchor = target.closest?.('a') as HTMLAnchorElement | null;
+
+                      if (anchor && (anchor.target === '_blank' || anchor.target === '_new')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const href = anchor.href;
+                        if (href) {
+                          console.log('[TabIframeManager] target="_blank" click intercepted', {
+                            href,
+                            tabId: tab.id,
+                          });
+                          // Post message to parent to create new tab
+                          window.postMessage(
+                            { type: 'open-in-new-tab', url: href, sourceTabId: tab.id },
+                            '*' // In production, restrict to specific origin
+                          );
+                        }
+                      }
+                    },
+                    true
+                  ); // Use capture phase to catch early
+
+                  console.log('[TabIframeManager] Interceptors installed for tab', tab.id);
+                } else {
+                  console.warn(
+                    '[TabIframeManager] Cannot access iframe contentWindow/contentDocument (cross-origin)',
+                    tab.id
+                  );
                 }
+              } catch (e) {
+                // Cross-origin frames will throw - this is expected
+                console.warn(
+                  '[TabIframeManager] Could not inject interceptors (cross-origin expected)',
+                  tab.id,
+                  e
+                );
+              }
+
+              // Check if blocked after load
+              try {
+                // Try to access contentWindow - will be null if blocked
+                if (!iframe.contentWindow && iframeUrl && !iframeUrl.startsWith('about:')) {
+                  console.warn('[TabIframeManager] X-Frame-Options detected on load', tab.id);
+                  blockedTabs.current.add(tab.id);
+                  window.dispatchEvent(
+                    new CustomEvent('iframe-blocked', {
+                      detail: { tabId: tab.id, url: tab.url },
+                    })
+                  );
+                }
+              } catch (e) {
+                // Cross-origin access denied is normal
               }
             }}
             onError={e => {
