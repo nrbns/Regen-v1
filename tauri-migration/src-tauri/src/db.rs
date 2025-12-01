@@ -104,6 +104,127 @@ impl Database {
             [],
         )?;
 
+        // PR 004: Additional tables for tabs, bookmarks, trade_logs, agent_memory
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS tabs (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                title TEXT,
+                favicon TEXT,
+                group_id TEXT,
+                position INTEGER,
+                active INTEGER DEFAULT 0,
+                pinned INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS bookmarks (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                folder TEXT,
+                tags TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS trade_logs (
+                id TEXT PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                order_type TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                price REAL,
+                status TEXT NOT NULL,
+                paper_trade INTEGER DEFAULT 1,
+                exchange TEXT,
+                order_id TEXT,
+                executed_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT
+            )",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS agent_memory (
+                id TEXT PRIMARY KEY,
+                session_id TEXT,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                context TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        // Create indexes for new tables
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tabs_group_id ON tabs(group_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tabs_active ON tabs(active)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trade_logs_symbol ON trade_logs(symbol)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_trade_logs_executed_at ON trade_logs(executed_at)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_memory_session_id ON agent_memory(session_id)",
+            [],
+        )?;
+
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_agent_memory_key ON agent_memory(key)",
+            [],
+        )?;
+
+        // Migration: Add version tracking
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        // Check current version and apply migrations
+        let current_version: i32 = self.conn
+            .query_row("SELECT MAX(version) FROM schema_version", [], |row| row.get(0))
+            .unwrap_or(0);
+
+        if current_version < 1 {
+            // Migration 1: Add any new columns or tables
+            // Already created above, just mark as applied
+            self.conn.execute(
+                "INSERT INTO schema_version (version) VALUES (1)",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

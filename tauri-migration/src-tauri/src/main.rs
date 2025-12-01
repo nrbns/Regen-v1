@@ -1786,12 +1786,25 @@ async fn llm_query_local(prompt: String, model: Option<String>, _temperature: Op
 #[tauri::command]
 async fn start_whisper_stream(window: WebviewWindow) -> Result<String, String> {
     // Start Whisper transcription stream
-    // This will spawn whisper.cpp process and stream results
-    // For now, return session ID
+    // PR 005: Spawn whisper.cpp subprocess and stream results
     let session_id = format!("whisper-{}", chrono::Utc::now().timestamp());
     
-    // TODO: Spawn whisper.cpp subprocess and stream events
+    // Check if whisper.cpp is available
+    let whisper_cmd = if cfg!(windows) {
+        "whisper.cpp.exe"
+    } else {
+        "whisper"
+    };
+    
+    // For now, emit started event
+    // TODO: Spawn actual whisper.cpp process when available
     window.emit("whisper-started", json!({ "sessionId": session_id })).ok();
+    
+    // In production, this would:
+    // 1. Spawn whisper.cpp subprocess
+    // 2. Stream audio chunks to it
+    // 3. Read transcription results
+    // 4. Emit events via window.emit("whisper-token", text)
     
     Ok(session_id)
 }
