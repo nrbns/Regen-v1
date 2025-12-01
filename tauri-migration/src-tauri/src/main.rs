@@ -1548,6 +1548,8 @@ fn main() {
             agent::execute_agent,
             agent::research_agent_stream,
             extract_page_text,
+            // PR: Safe agent action execution
+            api::execute::execute_actions,
             tradingview_get_positions,
             save_session,
             load_session,
