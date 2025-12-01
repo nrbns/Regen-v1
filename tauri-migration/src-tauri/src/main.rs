@@ -727,13 +727,14 @@ async fn tradingview_get_account_state(account_id: String) -> Result<Value, Stri
 }
 
 // PR: Fix tab switch - Navigate main Tauri webview to URL (for X-Frame-Options fallback)
+// In Tauri v2, we emit an event to the frontend to handle navigation
 #[tauri::command]
-async fn navigate_main_webview(window: tauri::Window, url: String) -> Result<(), String> {
-    let script = format!("window.location.href = {}", serde_json::to_string(&url).unwrap());
+async fn navigate_main_webview(window: WebviewWindow, url: String) -> Result<(), String> {
+    // Emit event to frontend to navigate the main window
     window
-        .eval(&script)
-        .map_err(|e| format!("Failed to navigate webview: {}", e))?;
-    println!("[Tauri] Navigated main webview to: {}", url);
+        .emit("navigate-to-url", url.clone())
+        .map_err(|e| format!("Failed to emit navigation event: {}", e))?;
+    println!("[Tauri] Emitted navigation event to: {}", url);
     Ok(())
 }
 

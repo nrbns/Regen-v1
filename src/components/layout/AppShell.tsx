@@ -393,7 +393,38 @@ export function AppShell() {
   useEffect(() => {
     if (isTauriRuntime()) {
       const cleanup = setupIframeBlockedListener();
-      return cleanup;
+
+      // Listen for navigation events from Tauri backend
+      // Tauri v2 emits events that we can listen to
+      let unlisten: (() => void) | null = null;
+
+      (async () => {
+        try {
+          const { listen } = await import('@tauri-apps/api/event');
+          unlisten = await listen<string>('navigate-to-url', event => {
+            console.log('[AppShell] Received navigation event:', event.payload);
+            window.location.href = event.payload;
+          });
+        } catch (error) {
+          console.warn('[AppShell] Failed to setup Tauri navigation listener:', error);
+          // Fallback: listen to window events
+          const handleNavigate = (event: CustomEvent<string>) => {
+            console.log('[AppShell] Received navigation event (fallback):', event.detail);
+            window.location.href = event.detail;
+          };
+          window.addEventListener('navigate-to-url', handleNavigate as EventListener);
+          unlisten = () => {
+            window.removeEventListener('navigate-to-url', handleNavigate as EventListener);
+          };
+        }
+      })();
+
+      return () => {
+        cleanup();
+        if (unlisten) {
+          unlisten();
+        }
+      };
     }
   }, []);
 

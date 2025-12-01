@@ -14,10 +14,10 @@ export async function handleIframeBlocked(tabId: string, url: string): Promise<v
 
   if (isTauriRuntime()) {
     try {
-      // Option 1: Navigate main Tauri webview to the URL
-      // This requires a Tauri command to evaluate JS in the webview
+      // Option 1: Emit event to navigate main Tauri webview to the URL
+      // The Tauri backend will emit an event that we listen to
       await invoke('navigate_main_webview', { url });
-      console.log('[IframeBlockedFallback] Opened in main webview');
+      console.log('[IframeBlockedFallback] Emitted navigation event');
     } catch (error) {
       console.warn(
         '[IframeBlockedFallback] Failed to open in main webview, trying external browser',
