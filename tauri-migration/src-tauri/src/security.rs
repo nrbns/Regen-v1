@@ -19,6 +19,7 @@ lazy_static::lazy_static! {
 /**
  * Validate command name
  */
+#[allow(dead_code)]
 pub fn validate_command_name(command: &str) -> bool {
     // Check pattern
     if !COMMAND_PATTERN.is_match(command) {
@@ -41,6 +42,7 @@ pub fn validate_command_name(command: &str) -> bool {
 /**
  * Sanitize string input
  */
+#[allow(dead_code)]
 pub fn sanitize_string(input: &str) -> String {
     // Remove null bytes and control characters
     let sanitized = input
@@ -59,6 +61,7 @@ pub fn sanitize_string(input: &str) -> String {
 /**
  * Sanitize URL
  */
+#[allow(dead_code)]
 pub fn sanitize_url(input: &str) -> Option<String> {
     let sanitized = sanitize_string(input);
     
@@ -78,6 +81,7 @@ pub fn sanitize_url(input: &str) -> Option<String> {
 /**
  * Validate IPC request payload
  */
+#[allow(dead_code)]
 pub fn validate_ipc_payload(command: &str, payload: &Value) -> Result<Value, String> {
     // Validate command name
     if !validate_command_name(command) {
@@ -91,6 +95,7 @@ pub fn validate_ipc_payload(command: &str, payload: &Value) -> Result<Value, Str
 /**
  * Recursively sanitize JSON value
  */
+#[allow(dead_code)]
 fn sanitize_value(value: &Value) -> Result<Value, String> {
     match value {
         Value::String(s) => {
