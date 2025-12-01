@@ -23,6 +23,78 @@ One-click install → AI auto-sets (60s) → Offline forever.
 - ✅ **OS-Level Hotkeys** - `Ctrl+Shift+Space` wakes from anywhere
 - ✅ **4GB RAM Compatible** - Auto-unloads tabs, memory capped at 3GB
 
+## 🚀 Developer Quick Start (6 Steps)
+
+### Step 1: Prerequisites
+
+```bash
+# Install Node.js 20+ and Rust
+node --version  # Should be 20+
+rustc --version  # Should be 1.70+
+
+# Install Tauri CLI globally
+cargo install tauri-cli
+```
+
+### Step 2: Clone & Install
+
+```bash
+git clone https://github.com/nrbns/Omnibrowser.git
+cd Omnibrowser
+npm install
+cd tauri-migration && npm install && cd ..
+```
+
+### Step 3: Environment Setup (Optional)
+
+```bash
+# Copy example env (for online AI features)
+cp example.env .env
+# Edit .env to add API keys (or skip for offline mode)
+```
+
+### Step 4: Start Development
+
+```bash
+# Option A: Start all services at once (recommended)
+npm run dev
+
+# Option B: Start components separately
+npm run dev:mock-llm  # Terminal 1: Mock LLM server (port 4001)
+npm run dev:web       # Terminal 2: Vite dev server (port 5173)
+npm run dev:tauri     # Terminal 3: Tauri app
+```
+
+### Step 5: Verify Services
+
+```bash
+# Check all services are running
+npm run test:runtime
+
+# Should show:
+# ✅ Vite Dev Server (port 5173)
+# ✅ Mock LLM Server (port 4001)
+# ✅ Redix Server (port 4000)
+```
+
+### Step 6: Build & Test
+
+```bash
+# Type check
+npm run build:types
+
+# Lint
+npm run lint
+
+# Build production
+npm run build
+npm run build:app  # Tauri build
+```
+
+**That's it!** Open `http://localhost:5173` to see the app.
+
+---
+
 ## Build from Source
 
 ### Quick Start (Development Mode with Mock LLM)
@@ -246,11 +318,36 @@ npm run build:installer
 
 ### Architecture Overview
 
+**Folder Structure:**
+
+```
+Omnibrowser/
+├── src/                    # Frontend (React + TypeScript)
+│   ├── components/         # UI components
+│   ├── modes/             # Trade, Research, Docs modes
+│   ├── services/          # API clients, search, etc.
+│   ├── state/             # Zustand stores
+│   └── lib/               # Utilities, IPC, env
+├── tauri-migration/        # Tauri desktop shell
+│   └── src-tauri/         # Rust backend
+│       ├── src/main.rs    # IPC commands
+│       └── tauri.conf.json
+├── server/                 # Node.js backend services
+│   ├── doc-service/       # Document editing
+│   └── mock-llm.js        # Mock LLM server
+├── redix-core/            # Python Redix engine
+└── docs/                  # Documentation
+```
+
+**Tech Stack:**
+
 - **Frontend**: React + TypeScript + Vite (port 5173)
 - **Backend**: Fastify server (port 4000)
-- **Desktop**: Tauri shell (port 5183)
+- **Desktop**: Tauri shell (Rust + WebView)
 - **Queue**: BullMQ + Redis for scraping jobs
 - **State**: Zustand for centralized tab/session management
+- **Database**: SQLite (via Tauri plugin) for local storage
+- **Vector DB**: FAISS (local service) for embeddings
 
 ### Environment Variables
 
