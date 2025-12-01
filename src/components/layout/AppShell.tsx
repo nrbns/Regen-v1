@@ -98,6 +98,7 @@ import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
 import { useSessionStore } from '../../state/sessionStore';
 import { useHistoryStore } from '../../state/historyStore';
+import { initLayoutSync } from '../../utils/layoutSync';
 import { useSettingsStore } from '../../state/settingsStore';
 // import { ModeManager } from '../../core/modes/manager'; // Unused for now
 import { useTradeStore } from '../../state/tradeStore';
@@ -258,7 +259,7 @@ class ErrorBoundary extends React.Component<
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={this.handleReload}
-                className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors"
+                className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:border-blue-500/70"
               >
                 Reload app
               </button>
@@ -267,7 +268,7 @@ class ErrorBoundary extends React.Component<
                 disabled={this.state.copying}
                 className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                   this.state.copying
-                    ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-200/60 cursor-wait'
+                    ? 'cursor-wait border-indigo-500/30 bg-indigo-500/10 text-indigo-200/60'
                     : 'border-indigo-500/50 bg-indigo-500/10 text-indigo-100 hover:border-indigo-500/70'
                 }`}
               >
@@ -275,7 +276,7 @@ class ErrorBoundary extends React.Component<
               </button>
               <button
                 onClick={this.handleOpenLogs}
-                className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500/70 transition-colors"
+                className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition-colors hover:border-emerald-500/70"
               >
                 Open logs folder
               </button>
@@ -333,7 +334,7 @@ const RegenSidebar = React.lazy(() =>
 );
 
 const RegenSidebarWrapper = () => (
-  <div className="h-full min-h-0 w-[400px] overflow-hidden border-l border-slate-800/60 fixed right-0 top-0 bottom-0 z-50 bg-gray-900">
+  <div className="fixed bottom-0 right-0 top-0 z-50 h-full min-h-0 w-[400px] overflow-hidden border-l border-slate-800/60 bg-gray-900">
     <RegenSidebar />
   </div>
 );
@@ -379,6 +380,12 @@ export function AppShell() {
   const compactUI = useSettingsStore(state => state.appearance.compactUI);
   const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
+
+  // PR: Fix layout overlap - Initialize layout sync
+  useEffect(() => {
+    const cleanup = initLayoutSync();
+    return cleanup;
+  }, []);
 
   // Check for crashed loops on mount
   useEffect(() => {
@@ -1658,11 +1665,16 @@ export function AppShell() {
 
   return (
     <div
-      className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
+      className="flex w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
+      style={{ height: 'calc(100vh - var(--bottom-bar-height, 80px))' }}
       data-app-shell="true"
     >
       {/* Top Chrome Elements - Fixed header, never scrolls */}
-      <div ref={topChromeRef} className="flex-none shrink-0 border-b border-slate-800 bg-slate-950">
+      <div
+        ref={topChromeRef}
+        data-top-chrome
+        className="flex-none shrink-0 border-b border-slate-800 bg-slate-950"
+      >
         {/* Top Navigation - Hidden in fullscreen */}
         {!isFullscreen && (
           <Suspense fallback={<div style={{ height: '40px', backgroundColor: '#0f172a' }} />}>
@@ -1777,9 +1789,9 @@ export function AppShell() {
         )}
 
         {isOffline && (
-          <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs sm:text-sm text-amber-100">
+          <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs text-amber-100 sm:text-sm">
             <div className="flex items-center gap-2">
-              <AlertTriangle size={14} className="text-amber-300 flex-shrink-0" />
+              <AlertTriangle size={14} className="flex-shrink-0 text-amber-300" />
               <span>
                 Offline mode: remote AI and sync are paused. Local actions remain available.
               </span>
@@ -1841,25 +1853,25 @@ export function AppShell() {
       </div>
 
       {/* Main Layout - Content area that fills remaining space */}
-      <div className="flex flex-1 min-h-0 w-full overflow-hidden bg-slate-950">
+      <div className="flex min-h-0 w-full flex-1 overflow-hidden bg-slate-950">
         {/* Center Content - Full Width, only this area scrolls */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="content-wrapper flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Route/Web Content */}
           {showWebContent ? (
-            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden bg-slate-950">
+            <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
               {/* Webview container - fills remaining space, only this scrolls */}
-              <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
+              <div className="webview-container relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
                 <TabContentSurface tab={activeTab} overlayActive={overlayActive} />
               </div>
               {shouldShowInlineToolsPanel && (
                 <>
                   <div
                     onMouseDown={handleResizeStart}
-                    className="z-20 h-full w-[6px] cursor-col-resize items-center justify-center bg-slate-900/50 transition-colors hover:bg-slate-800 flex-shrink-0"
+                    className="z-20 h-full w-[6px] flex-shrink-0 cursor-col-resize items-center justify-center bg-slate-900/50 transition-colors hover:bg-slate-800"
                   >
                     <div className="h-24 w-[2px] rounded-full bg-slate-700/80" />
                   </div>
-                  <div className="relative min-w-[300px] w-[320px] max-w-sm flex-shrink-0 overflow-hidden border-l border-slate-800/60 bg-slate-950/40">
+                  <div className="relative w-[320px] min-w-[300px] max-w-sm flex-shrink-0 overflow-hidden border-l border-slate-800/60 bg-slate-950/40">
                     <div className="h-full min-h-0 overflow-y-auto">
                       <Outlet />
                     </div>
@@ -1869,7 +1881,7 @@ export function AppShell() {
             </div>
           ) : (
             <div
-              className={`flex-1 min-h-0 min-w-0 overflow-hidden bg-slate-950 ${isFullscreen ? 'absolute inset-0' : ''}`}
+              className={`min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950 ${isFullscreen ? 'absolute inset-0' : ''}`}
             >
               {/* Route content - fills remaining space, scrollable */}
               <div
@@ -1885,7 +1897,10 @@ export function AppShell() {
         {!isFullscreen && isDesktopLayout && rightPanelOpen && (
           <Suspense fallback={null}>
             <ErrorBoundary componentName="RightPanel">
-              <div className="h-full min-h-0 w-[340px] max-w-[380px] overflow-y-auto border-l border-slate-800/60">
+              <div
+                className="h-full min-h-0 w-[340px] max-w-[380px] overflow-y-auto border-l border-slate-800/60"
+                data-sidebar
+              >
                 <RightPanel open={rightPanelOpen} onClose={() => setRightPanelOpen(false)} />
               </div>
             </ErrorBoundary>
@@ -1896,7 +1911,12 @@ export function AppShell() {
       {/* Bottom Chrome - Fixed footer, never scrolls */}
       <div
         ref={bottomChromeRef}
-        className="flex-none shrink-0 border-t border-slate-800 bg-slate-950"
+        id="bottomBar"
+        className="fixed bottom-0 left-0 right-0 z-50 flex-none shrink-0 border-t border-slate-800 bg-slate-950"
+        style={{
+          boxShadow: '0 -6px 24px rgba(0,0,0,0.35)',
+          background: 'linear-gradient(180deg, rgba(15,23,42,0.96), rgba(10,12,16,0.96))',
+        }}
       >
         {!isFullscreen && currentMode === 'Browse' && (
           <Suspense fallback={null}>

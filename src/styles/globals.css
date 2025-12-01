@@ -14,6 +14,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Layout CSS Variables - PR: Fix layout overlap issues */
+:root {
+  --sidebar-width: 320px;
+  --topbar-height: 56px;
+  --bottom-bar-height: 80px;
+  --tabstrip-height: 40px;
+}
+
+/* App root layout - accounts for bottom bar */
+.app-root {
+  display: flex;
+  height: calc(100vh - var(--bottom-bar-height, 80px));
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Content wrapper - uses remaining space */
+.content-wrapper {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Critical: allows children to shrink */
+  min-height: 0; /* Critical: allows children to shrink */
+}
+
+/* Webview container - must account for topbar only; bottom handled globally */
+.webview-container {
+  flex: 1 1 auto;
+  min-height: 0; /* Critical for scrollable children inside flex */
+  position: relative;
+  overflow: hidden; /* Hide outer overflows, let webview scroll internally */
+}
+
+/* Sidebar - part of flex flow, not absolute positioned */
+[data-sidebar] {
+  flex: 0 0 var(--sidebar-width, 320px);
+  width: var(--sidebar-width, 320px);
+  box-sizing: border-box;
+}
+
+/* Ensure content doesn't get pointer-blocked unnecessarily */
+.content-wrapper,
+.webview-container {
+  pointer-events: auto;
+}
 
 /* Screen reader only - for accessible announcements */
 .sr-only {
