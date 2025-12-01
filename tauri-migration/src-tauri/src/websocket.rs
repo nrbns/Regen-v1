@@ -22,6 +22,8 @@ pub struct AgentContext {
     pub context: Option<String>,
     pub mode: Option<String>,
     pub session_id: Option<String>,
+    // PR: Fix tab switch - track which tab this agent operation belongs to
+    pub tab_id: Option<String>,
 }
 
 /// Start WebSocket server on port 18080
@@ -145,7 +147,14 @@ async fn handle_message(
                 context: msg["context"].as_str().map(|s| s.to_string()),
                 mode: msg["mode"].as_str().map(|s| s.to_string()),
                 session_id: msg["session_id"].as_str().map(|s| s.to_string()),
+                // PR: Fix tab switch - extract tabId from message
+                tab_id: msg["tabId"].as_str()
+                    .or_else(|| msg["tab_id"].as_str())
+                    .map(|s| s.to_string()),
             };
+            
+            println!("[WebSocket] Received start_agent request: tab_id={:?}, session_id={:?}, url={:?}", 
+                ctx.tab_id, ctx.session_id, ctx.url);
             
             // Get connection sender
             let conns = connections.lock().await;

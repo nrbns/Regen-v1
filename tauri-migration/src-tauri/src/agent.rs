@@ -117,14 +117,21 @@ pub async fn stream_agent_to_websocket(
     let streams_cleanup = ACTIVE_STREAMS.clone();
     let session_key_cleanup = session_key.clone();
     
+    // PR: Fix tab switch - include tabId and sessionId in all events
+    let tab_id = ctx.tab_id.clone();
+    let session_id = ctx.session_id.clone();
+    
     // Emit start event
     let start_event = json!({
         "type": "agent_start",
+        "tabId": tab_id,
+        "sessionId": session_id,
         "payload": {
             "query": ctx.query.clone(),
             "url": ctx.url.clone(),
         }
     });
+    println!("[AGENT WS] sending event stage=agent_start tab_id={:?} session_id={:?}", tab_id, session_id);
     tx.send(Message::Text(start_event.to_string())).await?;
     
     // Check cache first
@@ -136,19 +143,25 @@ pub async fn stream_agent_to_websocket(
                     let empty_bullets: Vec<String> = Vec::new();
                     let empty_keywords: Vec<String> = Vec::new();
                     
+                    // PR: Fix tab switch - include tabId in all events
                     // Emit cached partial
                     let partial_event = json!({
                         "type": "partial_summary",
+                        "tabId": tab_id,
+                        "sessionId": session_id,
                         "payload": {
                             "text": cached.clone(),
                             "cached": true,
                         }
                     });
+                    println!("[AGENT WS] sending event stage=partial_summary tab_id={:?}", tab_id);
                     tx.send(Message::Text(partial_event.to_string())).await?;
                     
                     // Emit final summary
                     let final_event = json!({
                         "type": "final_summary",
+                        "tabId": tab_id,
+                        "sessionId": session_id,
                         "payload": {
                             "summary": {
                                 "short": short_summary,
@@ -158,13 +171,17 @@ pub async fn stream_agent_to_websocket(
                             "cached": true,
                         }
                     });
+                    println!("[AGENT WS] sending event stage=final_summary tab_id={:?}", tab_id);
                     tx.send(Message::Text(final_event.to_string())).await?;
                     
                     // Emit end
                     let end_event = json!({
                         "type": "agent_end",
+                        "tabId": tab_id,
+                        "sessionId": session_id,
                         "payload": { "success": true, "cached": true }
                     });
+                    println!("[AGENT WS] sending event stage=agent_end tab_id={:?}", tab_id);
                     tx.send(Message::Text(end_event.to_string())).await?;
                     
                     // Release rate limit
@@ -188,14 +205,18 @@ pub async fn stream_agent_to_websocket(
         mode: ctx.mode.clone(),
     };
     
-    if let Err(e) = stream_llm_response_ws(&request, &tx, &app).await {
-        // Send error event
+    // PR: Fix tab switch - pass tabId and sessionId to streaming function
+    if let Err(e) = stream_llm_response_ws(&request, &tx, &app, tab_id.clone(), session_id.clone()).await {
+        // Send error event with tabId
         let error_event = json!({
             "type": "error",
+            "tabId": tab_id,
+            "sessionId": session_id,
             "payload": {
                 "message": e.to_string()
             }
         });
+        println!("[AGENT WS] sending event stage=error tab_id={:?}", tab_id);
         let _ = tx.send(Message::Text(error_event.to_string())).await;
     }
     
@@ -208,11 +229,14 @@ pub async fn stream_agent_to_websocket(
 
 /**
  * Stream LLM response to WebSocket
+ * PR: Fix tab switch - accepts tabId and sessionId to include in all events
  */
 async fn stream_llm_response_ws(
     request: &ResearchAgentRequest,
     tx: &mpsc::Sender<Message>,
     app: &AppHandle,
+    tab_id: Option<String>,
+    session_id: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Chunk context if it's large
     let context_text = request.context.as_deref().unwrap_or("");
@@ -248,15 +272,19 @@ async fn stream_llm_response_ws(
             )
         };
         
+        // PR: Fix tab switch - include tabId in progress events
         // Emit progress for multi-chunk processing
         if chunks.len() > 1 {
             let progress_event = json!({
                 "type": "partial_summary",
+                "tabId": tab_id,
+                "sessionId": session_id,
                 "payload": {
                     "text": format!("\n[Processing chunk {}/{}...]\n", chunk_idx + 1, chunks.len()),
                     "chunk_index": chunk_idx,
                 }
             });
+            println!("[AGENT WS] sending event stage=partial_summary (progress) tab_id={:?}", tab_id);
             tx.send(Message::Text(progress_event.to_string())).await?;
         }
         
@@ -362,14 +390,18 @@ async fn stream_llm_response_ws(
                                 chunk_response.push_str(generated_text);
                                 accumulated_summary.push_str(generated_text);
                                 
+                                // PR: Fix tab switch - include tabId in partial events
                                 // Emit as partial summary
                                 let partial_event = json!({
                                     "type": "partial_summary",
+                                    "tabId": tab_id,
+                                    "sessionId": session_id,
                                     "payload": {
                                         "text": generated_text,
                                         "chunk_index": chunk_idx,
                                     }
                                 });
+                                println!("[AGENT WS] sending event stage=partial_summary (HF) tab_id={:?}", tab_id);
                                 tx.send(Message::Text(partial_event.to_string())).await?;
                             }
                         }
@@ -422,6 +454,8 @@ async fn stream_llm_response_ws(
                                                 if token_count % 3 == 0 {
                                                     let partial_event = json!({
                                                         "type": "partial_summary",
+                                                        "tabId": tab_id,
+                                                        "sessionId": session_id,
                                                         "payload": {
                                                             "text": token,
                                                             "chunk_index": chunk_idx,
@@ -489,8 +523,11 @@ async fn stream_llm_response_ws(
             keywords: extract_keywords(&request.query, &accumulated_summary),
         };
         
+        // PR: Fix tab switch - include tabId in final events
         let final_event = json!({
             "type": "final_summary",
+            "tabId": tab_id,
+            "sessionId": session_id,
             "payload": {
                 "summary": summary,
                 "citations": 1,
@@ -498,6 +535,7 @@ async fn stream_llm_response_ws(
                 "confidence": 0.7,
             }
         });
+        println!("[AGENT WS] sending event stage=final_summary tab_id={:?}", tab_id);
         tx.send(Message::Text(final_event.to_string())).await?;
         
         // Cache result
@@ -509,8 +547,11 @@ async fn stream_llm_response_ws(
         
         let end_event = json!({
             "type": "agent_end",
+            "tabId": tab_id,
+            "sessionId": session_id,
             "payload": { "success": true }
         });
+        println!("[AGENT WS] sending event stage=agent_end tab_id={:?}", tab_id);
         tx.send(Message::Text(end_event.to_string())).await?;
         
         Ok(())

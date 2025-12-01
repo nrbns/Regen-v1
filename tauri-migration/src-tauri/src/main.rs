@@ -730,14 +730,31 @@ async fn tradingview_get_account_state(account_id: String) -> Result<Value, Stri
 async fn extract_page_text(url: String) -> Result<Value, String> {
     use page_extractor::extract_page_text as extract;
     
-    let extracted = extract(&url).await?;
+    // PR: Fix tab switch - add logging and proper error handling
+    println!("[EXTRACT] url={} starting extraction", url);
+    
+    let extracted = match extract(&url).await {
+        Ok(ext) => ext,
+        Err(e) => {
+            println!("[EXTRACT] url={} error: {}", url, e);
+            return Err(format!("Failed to extract page text: {}", e));
+        }
+    };
+    
+    let text_len = extracted.text.len();
+    println!("[EXTRACT] url={} len={} words={}", url, text_len, extracted.word_count);
+    
+    // PR: Fix tab switch - return error if text is empty (already handled in extract function)
+    if extracted.text.trim().is_empty() {
+        return Err("No text content found at URL".to_string());
+    }
     
     Ok(json!({
         "url": extracted.url,
         "title": extracted.title,
         "text": extracted.text,
         "html_hash": extracted.html_hash,
-        "word_count": extracted.text.split_whitespace().count(),
+        "word_count": extracted.word_count,
     }))
 }
 

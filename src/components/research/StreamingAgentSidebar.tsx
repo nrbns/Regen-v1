@@ -24,15 +24,30 @@ import { toast } from '../../utils/toast';
 // WebSocket client for real-time streaming
 const WS_URL = 'ws://127.0.0.1:18080/agent_ws';
 
-// AgentEvent types matching Tauri backend
+// PR: Fix tab switch - AgentEvent types with tabId tracking
 type AgentEvent =
-  | { type: 'agent_start'; payload: { query: string; url?: string } }
-  | { type: 'partial_summary'; payload: { text: string; chunk_index?: number; cached?: boolean } }
-  | { type: 'action_suggestion'; payload: Action }
-  | { type: 'final_summary'; payload: FinalSummary }
-  | { type: 'agent_end'; payload: { success: boolean; cached?: boolean } }
-  | { type: 'error'; payload: { message: string } }
-  | { type: 'agent_busy'; payload: { message: string } };
+  | {
+      type: 'agent_start';
+      tabId?: string;
+      sessionId?: string;
+      payload: { query: string; url?: string };
+    }
+  | {
+      type: 'partial_summary';
+      tabId?: string;
+      sessionId?: string;
+      payload: { text: string; chunk_index?: number; cached?: boolean };
+    }
+  | { type: 'action_suggestion'; tabId?: string; sessionId?: string; payload: Action }
+  | { type: 'final_summary'; tabId?: string; sessionId?: string; payload: FinalSummary }
+  | {
+      type: 'agent_end';
+      tabId?: string;
+      sessionId?: string;
+      payload: { success: boolean; cached?: boolean };
+    }
+  | { type: 'error'; tabId?: string; sessionId?: string; payload: { message: string } }
+  | { type: 'agent_busy'; tabId?: string; sessionId?: string; payload: { message: string } };
 
 interface Action {
   id: string;
@@ -98,6 +113,8 @@ export function StreamingAgentSidebar() {
         };
 
         ws.onmessage = event => {
+          // PR: Fix tab switch - filter events by tabId
+          const currentActiveId = useTabsStore.getState().activeId;
           try {
             const data = JSON.parse(event.data);
 
@@ -109,6 +126,17 @@ export function StreamingAgentSidebar() {
             // Handle connection confirmation
             if (data.type === 'connected') {
               console.log('[WebSocket] Connection confirmed:', data.connection_id);
+              return;
+            }
+
+            // PR: Fix tab switch - filter events by tabId
+            const eventTabId = data.tabId || data.tab_id;
+            if (eventTabId && eventTabId !== currentActiveId) {
+              console.log('[StreamingAgentSidebar] Ignoring event for inactive tab', {
+                eventTabId,
+                currentActiveId,
+                type: data.type,
+              });
               return;
             }
 
@@ -174,7 +202,7 @@ export function StreamingAgentSidebar() {
           console.error('[WebSocket] Error:', error);
         };
 
-        ws.onclose = (event) => {
+        ws.onclose = event => {
           console.log('[WebSocket] Connection closed', event.code, event.reason);
           wsRef.current = null;
 
@@ -272,19 +300,30 @@ export function StreamingAgentSidebar() {
         }
       }
 
+      // PR: Fix tab switch - include tabId in start_agent message
+      const activeTabId = useTabsStore.getState().activeId;
+      const activeTab = useTabsStore.getState().tabs.find(t => t.id === activeTabId);
+
       // Try WebSocket first, fallback to Tauri invoke
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        // Send start_agent message via WebSocket
+        // Send start_agent message via WebSocket with tabId
         wsRef.current.send(
           JSON.stringify({
             type: 'start_agent',
+            tabId: activeTabId,
+            tab_id: activeTabId, // Support both camelCase and snake_case
             query: query.trim(),
             url: currentUrl || undefined,
             context: pageText ? pageText.substring(0, 2000) : undefined,
             mode: 'local',
-            session_id: undefined,
+            session_id: activeTab?.sessionId || undefined,
+            sessionId: activeTab?.sessionId || undefined,
           })
         );
+        console.log('[StreamingAgentSidebar] Sent start_agent', {
+          tabId: activeTabId,
+          url: currentUrl,
+        });
       } else {
         // Fallback to Tauri invoke
         await invoke('research_agent_stream', {
@@ -350,9 +389,9 @@ export function StreamingAgentSidebar() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 font-semibold transition-all hover:scale-105"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 p-4 font-semibold text-white shadow-2xl transition-all hover:scale-105 hover:from-purple-700 hover:to-pink-700"
       >
-        <Bot className="w-5 h-5" />
+        <Bot className="h-5 w-5" />
         <span>AI Agent</span>
       </button>
     );
@@ -363,24 +402,24 @@ export function StreamingAgentSidebar() {
       initial={{ x: 400 }}
       animate={{ x: 0 }}
       exit={{ x: 400 }}
-      className="fixed right-0 top-0 bottom-0 w-96 bg-slate-900 border-l border-slate-700 z-50 flex flex-col shadow-2xl"
+      className="fixed bottom-0 right-0 top-0 z-50 flex w-96 flex-col border-l border-slate-700 bg-slate-900 shadow-2xl"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700 bg-slate-800">
+      <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800 p-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-purple-400" />
+          <Sparkles className="h-5 w-5 text-purple-400" />
           <h2 className="text-lg font-semibold text-white">AI Research Agent</h2>
         </div>
         <button
           onClick={() => setIsOpen(false)}
-          className="text-gray-400 hover:text-white transition-colors"
+          className="text-gray-400 transition-colors hover:text-white"
         >
-          <X className="w-5 h-5" />
+          <X className="h-5 w-5" />
         </button>
       </div>
 
       {/* Input */}
-      <div className="p-4 border-b border-slate-700">
+      <div className="border-b border-slate-700 p-4">
         <div className="flex gap-2">
           <input
             type="text"
@@ -393,41 +432,41 @@ export function StreamingAgentSidebar() {
             }}
             placeholder="Research query..."
             disabled={isStreaming}
-            className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
           />
           {isStreaming ? (
             <button
               onClick={stopAgent}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              className="rounded-lg bg-red-600 px-4 py-2 text-white transition-colors hover:bg-red-700"
             >
-              <Square className="w-4 h-4" />
+              <Square className="h-4 w-4" />
             </button>
           ) : (
             <button
               onClick={startAgent}
               disabled={!query.trim()}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Play className="w-4 h-4" />
+              <Play className="h-4 w-4" />
             </button>
           )}
         </div>
         {currentUrl && (
-          <p className="text-xs text-gray-400 mt-2 truncate" title={currentUrl}>
+          <p className="mt-2 truncate text-xs text-gray-400" title={currentUrl}>
             Analyzing: {new URL(currentUrl).hostname}
           </p>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Error */}
         {error && (
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-3 flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-lg border border-red-700 bg-red-900/20 p-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
             <div className="flex-1">
-              <p className="text-sm text-red-400 font-medium">Error</p>
-              <p className="text-xs text-red-300 mt-1">{error}</p>
+              <p className="text-sm font-medium text-red-400">Error</p>
+              <p className="mt-1 text-xs text-red-300">{error}</p>
             </div>
           </div>
         )}
@@ -435,25 +474,25 @@ export function StreamingAgentSidebar() {
         {/* Loading */}
         {isStreaming && !summaryText && (
           <div className="flex items-center gap-3 text-gray-400">
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-sm">Starting research...</span>
           </div>
         )}
 
         {/* Streaming Summary */}
         {summaryText && (
-          <div className="bg-slate-800 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Bot className="w-4 h-4 text-purple-400" />
+          <div className="rounded-lg bg-slate-800 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Bot className="h-4 w-4 text-purple-400" />
               <h3 className="text-sm font-semibold text-white">
                 {isStreaming ? 'Streaming...' : 'Summary'}
                 {isCached && <span className="ml-2 text-xs text-green-400">(Cached)</span>}
               </h3>
             </div>
-            <div className="text-sm text-gray-300 whitespace-pre-wrap">
+            <div className="whitespace-pre-wrap text-sm text-gray-300">
               {summaryText}
               {isStreaming && (
-                <span className="inline-block w-2 h-4 bg-purple-400 ml-1 animate-pulse" />
+                <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-purple-400" />
               )}
             </div>
           </div>
@@ -464,10 +503,10 @@ export function StreamingAgentSidebar() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-800 rounded-lg p-4"
+            className="rounded-lg bg-slate-800 p-4"
           >
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="w-4 h-4 text-green-400" />
+            <div className="mb-3 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-400" />
               <h3 className="text-sm font-semibold text-white">Final Summary</h3>
               {finalSummary.confidence && (
                 <span className="ml-auto text-xs text-gray-400">
@@ -475,10 +514,10 @@ export function StreamingAgentSidebar() {
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-300 mb-3">{finalSummary.summary.short}</p>
+            <p className="mb-3 text-sm text-gray-300">{finalSummary.summary.short}</p>
 
             {finalSummary.summary.bullets.length > 0 && (
-              <ul className="list-disc list-inside text-sm text-gray-300 space-y-1 mb-3">
+              <ul className="mb-3 list-inside list-disc space-y-1 text-sm text-gray-300">
                 {finalSummary.summary.bullets.map((bullet, i) => (
                   <li key={i}>{bullet}</li>
                 ))}
@@ -490,7 +529,7 @@ export function StreamingAgentSidebar() {
                 {finalSummary.summary.keywords.map((keyword, i) => (
                   <span
                     key={i}
-                    className="px-2 py-1 bg-purple-900/30 text-purple-300 text-xs rounded"
+                    className="rounded bg-purple-900/30 px-2 py-1 text-xs text-purple-300"
                   >
                     {keyword}
                   </span>
@@ -503,8 +542,8 @@ export function StreamingAgentSidebar() {
         {/* Action Suggestions */}
         {suggestedActions.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Sparkles className="h-4 w-4 text-purple-400" />
               Suggested Actions
             </h3>
             {suggestedActions.map(action => (
@@ -512,12 +551,12 @@ export function StreamingAgentSidebar() {
                 key={action.id}
                 initial={{ opacity: 0, x: 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="bg-slate-800 rounded-lg p-3 border border-slate-700"
+                className="rounded-lg border border-slate-700 bg-slate-800 p-3"
               >
-                <div className="flex items-start justify-between mb-2">
+                <div className="mb-2 flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-white">{action.label}</p>
-                    <p className="text-xs text-gray-400 mt-1">{action.action_type}</p>
+                    <p className="mt-1 text-xs text-gray-400">{action.action_type}</p>
                   </div>
                   {action.confidence && (
                     <span className="text-xs text-gray-400">
@@ -527,7 +566,7 @@ export function StreamingAgentSidebar() {
                 </div>
                 <button
                   onClick={() => confirmAndExecuteAction(action)}
-                  className="w-full mt-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors"
+                  className="mt-2 w-full rounded bg-purple-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-purple-700"
                 >
                   Execute
                 </button>
@@ -538,10 +577,10 @@ export function StreamingAgentSidebar() {
 
         {/* Empty State */}
         {!isStreaming && !summaryText && !finalSummary && !error && (
-          <div className="text-center text-gray-400 py-8">
-            <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <div className="py-8 text-center text-gray-400">
+            <Bot className="mx-auto mb-3 h-12 w-12 opacity-50" />
             <p className="text-sm">Enter a query to start research</p>
-            <p className="text-xs mt-2 text-gray-500">
+            <p className="mt-2 text-xs text-gray-500">
               The agent will analyze the current page and provide insights
             </p>
           </div>
@@ -550,10 +589,10 @@ export function StreamingAgentSidebar() {
 
       {/* Footer */}
       {(summaryText || finalSummary) && (
-        <div className="p-4 border-t border-slate-700 bg-slate-800">
+        <div className="border-t border-slate-700 bg-slate-800 p-4">
           <button
             onClick={clearResults}
-            className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-colors"
+            className="w-full rounded bg-slate-700 px-4 py-2 text-sm text-white transition-colors hover:bg-slate-600"
           >
             Clear Results
           </button>
@@ -570,7 +609,7 @@ export function StreamingAgentSidebar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={cancelAction}
-              className="fixed inset-0 bg-black/50 z-[60]"
+              className="fixed inset-0 z-[60] bg-black/50"
             />
 
             {/* Modal */}
@@ -581,19 +620,19 @@ export function StreamingAgentSidebar() {
               className="fixed inset-0 z-[70] flex items-center justify-center p-4"
               onClick={e => e.stopPropagation()}
             >
-              <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 max-w-md w-full shadow-2xl">
-                <div className="flex items-center gap-3 mb-4">
-                  <AlertTriangle className="w-6 h-6 text-yellow-400" />
+              <div className="w-full max-w-md rounded-lg border border-slate-600 bg-slate-800 p-6 shadow-2xl">
+                <div className="mb-4 flex items-center gap-3">
+                  <AlertTriangle className="h-6 w-6 text-yellow-400" />
                   <h3 className="text-lg font-semibold text-white">Confirm Action</h3>
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-sm text-gray-300 mb-2">The agent wants to execute:</p>
-                  <div className="bg-slate-900 rounded p-3 mb-2">
+                  <p className="mb-2 text-sm text-gray-300">The agent wants to execute:</p>
+                  <div className="mb-2 rounded bg-slate-900 p-3">
                     <p className="text-sm font-medium text-white">{pendingAction.label}</p>
-                    <p className="text-xs text-gray-400 mt-1">Type: {pendingAction.action_type}</p>
+                    <p className="mt-1 text-xs text-gray-400">Type: {pendingAction.action_type}</p>
                     {pendingAction.confidence && (
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="mt-1 text-xs text-gray-400">
                         Confidence: {Math.round(pendingAction.confidence * 100)}%
                       </p>
                     )}
@@ -606,13 +645,13 @@ export function StreamingAgentSidebar() {
                 <div className="flex gap-3">
                   <button
                     onClick={cancelAction}
-                    className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded transition-colors"
+                    className="flex-1 rounded bg-slate-700 px-4 py-2 text-sm text-white transition-colors hover:bg-slate-600"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => executeAction(pendingAction)}
-                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors"
+                    className="flex-1 rounded bg-purple-600 px-4 py-2 text-sm text-white transition-colors hover:bg-purple-700"
                   >
                     Confirm & Execute
                   </button>

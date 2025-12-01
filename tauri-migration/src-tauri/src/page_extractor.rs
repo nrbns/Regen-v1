@@ -51,13 +51,20 @@ pub async fn extract_page_text(url: &str) -> Result<ExtractedPage, String> {
 
     // Extract clean text (simple approach - in production use Readability or similar)
     let text = extract_clean_text(&html);
+    
+    // PR: Fix tab switch - return proper error if text is empty
+    if text.trim().is_empty() {
+        return Err(format!("No text content found at URL: {}", url));
+    }
+    
+    let word_count = text.split_whitespace().count();
 
     Ok(ExtractedPage {
         url: url.to_string(),
         title,
         text,
         html_hash,
-        word_count: 0, // Will be calculated
+        word_count,
     })
 }
 
