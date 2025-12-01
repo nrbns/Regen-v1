@@ -18,8 +18,10 @@ interface TabSnapshot {
   timestamp: number;
 }
 
-const IDLE_THRESHOLD_MS = 30000; // 30 seconds of inactivity
-const SUSPEND_THRESHOLD_MS = 120000; // 2 minutes of inactivity
+// PR: Performance optimization - More aggressive hibernation to reduce lag
+const IDLE_THRESHOLD_MS = 30000; // 30 seconds of inactivity (unchanged)
+const SUSPEND_THRESHOLD_MS = 120000; // 2 minutes of inactivity (unchanged)
+const BLUR_SUSPEND_DELAY_MS = 5000; // 5 seconds after blur to suspend (new)
 const DB_NAME = 'regen-tab-snapshots';
 const DB_VERSION = 1;
 const STORE_NAME = 'snapshots';
@@ -285,4 +287,65 @@ export function cleanupTabSuspension(tabId: string): void {
  */
 export function initTabSuspension(tabId: string): void {
   markTabActive(tabId);
+}
+
+/**
+ * PR: Performance optimization - Suspend inactive tabs on window blur
+ * Reduces memory usage when user switches away from the app
+ */
+export function setupBlurSuspension(): () => void {
+  let blurTimeout: NodeJS.Timeout | null = null;
+  let isBlurred = false;
+
+  const handleBlur = () => {
+    isBlurred = true;
+    // Clear existing timeout
+    if (blurTimeout) {
+      clearTimeout(blurTimeout);
+    }
+
+    // Schedule suspension of inactive tabs after blur delay
+    blurTimeout = setTimeout(async () => {
+      if (!isBlurred) return; // Window might have regained focus
+
+      const tabsState = useTabsStore.getState();
+      const activeId = tabsState.activeId;
+
+      // Suspend all inactive tabs
+      for (const tab of tabsState.tabs) {
+        if (tab.id !== activeId && !tab.pinned && tabStateMap.get(tab.id) === 'active') {
+          console.log(`[TabSuspension] Suspending inactive tab on blur: ${tab.id}`);
+          await suspendTab(tab.id);
+        }
+      }
+    }, BLUR_SUSPEND_DELAY_MS);
+  };
+
+  const handleFocus = () => {
+    isBlurred = false;
+    if (blurTimeout) {
+      clearTimeout(blurTimeout);
+      blurTimeout = null;
+    }
+
+    // Resume active tab if it was suspended
+    const tabsState = useTabsStore.getState();
+    const activeId = tabsState.activeId;
+    if (activeId && tabStateMap.get(activeId) === 'suspended') {
+      console.log(`[TabSuspension] Resuming active tab on focus: ${activeId}`);
+      resumeTab(activeId);
+    }
+  };
+
+  window.addEventListener('blur', handleBlur);
+  window.addEventListener('focus', handleFocus);
+
+  // Cleanup function
+  return () => {
+    window.removeEventListener('blur', handleBlur);
+    window.removeEventListener('focus', handleFocus);
+    if (blurTimeout) {
+      clearTimeout(blurTimeout);
+    }
+  };
 }
