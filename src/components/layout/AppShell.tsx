@@ -14,9 +14,11 @@ import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
-import { isDevEnv, isElectronRuntime } from '../../lib/env';
+import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
 import { TabContentSurface } from './TabContentSurface';
+import { TabIframeManager } from './TabIframeManager';
 import { GlobalSearch } from '../search/GlobalSearch';
+import { setupIframeBlockedListener } from '../../utils/iframeBlockedFallback';
 // Voice components removed by user request
 // Lazy load heavy Redix services - DEFER until after first render
 const initializeOptimizer = () =>
@@ -385,6 +387,14 @@ export function AppShell() {
   useEffect(() => {
     const cleanup = initLayoutSync();
     return cleanup;
+  }, []);
+
+  // PR: Fix tab switch - Setup iframe blocked fallback handler
+  useEffect(() => {
+    if (isTauriRuntime()) {
+      const cleanup = setupIframeBlockedListener();
+      return cleanup;
+    }
   }, []);
 
   // Check for crashed loops on mount
@@ -1871,7 +1881,12 @@ export function AppShell() {
             <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
               {/* Webview container - fills remaining space, only this scrolls */}
               <div className="webview-container relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950">
-                <TabContentSurface tab={activeTab} overlayActive={overlayActive} />
+                {/* PR: Fix tab switch - use iframe-per-tab manager for Tauri, TabContentSurface for Electron */}
+                {isTauriRuntime() ? (
+                  <TabIframeManager tabs={tabsState.tabs} activeTabId={tabsState.activeId} />
+                ) : (
+                  <TabContentSurface tab={activeTab} overlayActive={overlayActive} />
+                )}
               </div>
               {shouldShowInlineToolsPanel && (
                 <>

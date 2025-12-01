@@ -726,6 +726,46 @@ async fn tradingview_get_account_state(account_id: String) -> Result<Value, Stri
     }
 }
 
+// PR: Fix tab switch - Navigate main Tauri webview to URL (for X-Frame-Options fallback)
+#[tauri::command]
+async fn navigate_main_webview(window: tauri::Window, url: String) -> Result<(), String> {
+    let script = format!("window.location.href = {}", serde_json::to_string(&url).unwrap());
+    window
+        .eval(&script)
+        .map_err(|e| format!("Failed to navigate webview: {}", e))?;
+    println!("[Tauri] Navigated main webview to: {}", url);
+    Ok(())
+}
+
+// PR: Fix tab switch - Open URL in external browser (for X-Frame-Options fallback)
+#[tauri::command]
+async fn open_external(url: String) -> Result<(), String> {
+    // Use platform-specific command to open URL
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| format!("Failed to open external browser: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open external browser: {}", e))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| format!("Failed to open external browser: {}", e))?;
+    }
+    println!("[Tauri] Opened external browser: {}", url);
+    Ok(())
+}
+
 #[tauri::command]
 async fn extract_page_text(url: String) -> Result<Value, String> {
     use page_extractor::extract_page_text as extract;
@@ -1491,6 +1531,9 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // PR: Fix tab switch - Add commands for iframe blocked fallback
+            navigate_main_webview,
+            open_external,
             research_stream,
             research_api,
             trade_stream,
