@@ -3,9 +3,21 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { toast } from '../../utils/toast';
 import { motion } from 'framer-motion';
-import { Globe, TrendingUp, IndianRupee, Bitcoin, DollarSign, Sparkles, Loader2 } from 'lucide-react';
+import {
+  Globe,
+  TrendingUp,
+  IndianRupee,
+  Bitcoin,
+  DollarSign,
+  Sparkles,
+  Loader2,
+} from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
 import { getRealtimeMarketDataService, type PriceUpdate } from '../../services/realtimeMarketData';
+import {
+  getTradeSignalService,
+  type TradeSignal,
+} from '../../services/realtime/tradeSignalService';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -108,32 +120,22 @@ export default function TradePanel() {
     };
   }, [selected.symbol]);
 
-  // Auto-analyze chart with LLM signals (every 30 seconds)
+  // Telepathy Upgrade Phase 2: Real-time trade signals via WebSocket (replaces 30s polling)
   useEffect(() => {
-    const analyzeChart = async () => {
-      try {
-        const { ipc } = await import('../../lib/ipc-typed');
-        const signal = await (ipc as any).invoke('wispr_command', {
-          input: `Analyze current ${selected.name} chart for buy/sell signals. Return only: BUY/SELL/HOLD with confidence %`,
-          mode: 'trade',
-        });
-        if (signal && (signal.includes('BUY') || signal.includes('SELL'))) {
-          toast.success(`Trade Signal: ${signal.substring(0, 50)}`);
-        }
-      } catch (error) {
-        console.debug('[Trade] Signal analysis failed:', error);
+    const signalService = getTradeSignalService();
+
+    // Subscribe to real-time trade signals (instant push when detected)
+    const unsubscribe = signalService.subscribe(selected.symbol, (signal: TradeSignal) => {
+      if (signal.action === 'BUY' || signal.action === 'SELL') {
+        toast.success(
+          `Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`
+        );
       }
-    };
-
-    // Initial analysis after 5 seconds
-    const initialTimeout = setTimeout(analyzeChart, 5000);
-
-    // Periodic analysis every 30 seconds
-    const signalInterval = setInterval(analyzeChart, 30000);
+      console.log('[Trade] Received signal:', signal);
+    });
 
     return () => {
-      clearTimeout(initialTimeout);
-      clearInterval(signalInterval);
+      unsubscribe();
     };
   }, [selected]);
 
@@ -322,7 +324,7 @@ export default function TradePanel() {
 
   const executeTrade = async (orderType: 'buy' | 'sell') => {
     if (isPlacingOrder) return; // Prevent double submission
-    
+
     setIsPlacingOrder(true);
     try {
       const { tradeApi } = await import('../../lib/api-client');
@@ -347,20 +349,20 @@ export default function TradePanel() {
   };
 
   return (
-    <div className="h-full bg-black text-white flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-black text-white">
       {/* Mode Switcher Header */}
-      <div className="sticky top-0 z-30 bg-black/80 backdrop-blur border-b border-purple-800 px-4 py-2 flex items-center justify-between flex-shrink-0">
+      <div className="sticky top-0 z-30 flex flex-shrink-0 items-center justify-between border-b border-purple-800 bg-black/80 px-4 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-emerald-400" />
-          <h1 className="text-sm md:text-lg font-semibold text-white">Trade Mode</h1>
+          <TrendingUp className="h-5 w-5 text-emerald-400" />
+          <h1 className="text-sm font-semibold text-white md:text-lg">Trade Mode</h1>
         </div>
-        <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/50 rounded-lg p-1">
+        <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1">
           <button
             onClick={() => setMode('Browse')}
-            className={`px-2 md:px-3 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition-all flex items-center gap-1 ${
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${
               currentMode === 'Browse'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
             title="Switch to Browse Mode"
           >
@@ -369,10 +371,10 @@ export default function TradePanel() {
           </button>
           <button
             onClick={() => setMode('Research')}
-            className={`px-2 md:px-3 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition-all flex items-center gap-1 ${
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${
               currentMode === 'Research'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
             title="Switch to Research Mode"
           >
@@ -381,10 +383,10 @@ export default function TradePanel() {
           </button>
           <button
             onClick={() => setMode('Trade')}
-            className={`px-2 md:px-3 py-1 md:py-1.5 rounded-md text-xs md:text-sm font-medium transition-all flex items-center gap-1 ${
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${
               currentMode === 'Trade'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
-                : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
             title="Switch to Trade Mode"
           >
@@ -395,22 +397,22 @@ export default function TradePanel() {
       </div>
 
       {/* Market Selector */}
-      <div className="bg-gradient-to-r from-purple-800 to-pink-800 p-3 md:p-4 flex-shrink-0 z-20">
-        <div className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide">
+      <div className="z-20 flex-shrink-0 bg-gradient-to-r from-purple-800 to-pink-800 p-3 md:p-4">
+        <div className="scrollbar-hide flex gap-2 overflow-x-auto md:gap-3">
           {markets.map(m => (
             <button
               key={m.symbol}
               onClick={() => setSelected(m)}
-              className={`px-4 md:px-6 py-2 md:py-3 rounded-full font-bold whitespace-nowrap transition-all flex items-center gap-2 flex-shrink-0 ${
+              className={`flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 font-bold transition-all md:px-6 md:py-3 ${
                 selected.symbol === m.symbol
-                  ? 'bg-white/30 scale-110 shadow-2xl'
+                  ? 'scale-110 bg-white/30 shadow-2xl'
                   : 'bg-white/10 hover:bg-white/20'
               }`}
             >
-              {m.exchange === 'NSE' && <IndianRupee className="w-3 h-3 md:w-4 md:h-4" />}
-              {m.exchange === 'Crypto' && <Bitcoin className="w-3 h-3 md:w-4 md:h-4" />}
+              {m.exchange === 'NSE' && <IndianRupee className="h-3 w-3 md:h-4 md:w-4" />}
+              {m.exchange === 'Crypto' && <Bitcoin className="h-3 w-3 md:h-4 md:w-4" />}
               {(m.exchange === 'NYSE' || m.exchange === 'NASDAQ' || m.exchange === 'Forex') && (
-                <DollarSign className="w-3 h-3 md:w-4 md:h-4" />
+                <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
               )}
               <span className="text-xs md:text-sm">
                 {m.currency} {m.name}
@@ -421,22 +423,22 @@ export default function TradePanel() {
       </div>
 
       {/* Live Price */}
-      <div className="p-4 md:p-8 border-b border-gray-800 flex-shrink-0 z-10">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      <div className="z-10 flex-shrink-0 border-b border-gray-800 p-4 md:p-8">
+        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <h1 className="text-4xl md:text-7xl font-black">{selected.name}</h1>
+            <h1 className="text-4xl font-black md:text-7xl">{selected.name}</h1>
             <div
-              className={`text-3xl md:text-6xl font-bold mt-2 md:mt-4 ${isGreen ? 'text-green-400' : 'text-red-400'}`}
+              className={`mt-2 text-3xl font-bold md:mt-4 md:text-6xl ${isGreen ? 'text-green-400' : 'text-red-400'}`}
             >
               {selected.currency}
               {price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              <span className="text-xl md:text-4xl ml-3 md:ml-6">
+              <span className="ml-3 text-xl md:ml-6 md:text-4xl">
                 {isGreen ? '↑' : '↓'} {change.toFixed(1)} (
                 {((change / (price - change)) * 100).toFixed(2)}%)
               </span>
             </div>
           </div>
-          <div className="text-left md:text-right text-gray-400 text-sm md:text-base">
+          <div className="text-left text-sm text-gray-400 md:text-right md:text-base">
             <div>High: {selected.currency}25,120</div>
             <div>Low: {selected.currency}24,720</div>
           </div>
@@ -446,18 +448,18 @@ export default function TradePanel() {
       {/* FULL CANDLE CHART — NOW WORKING - Force 100% height to fix blank space */}
       <div
         ref={chartContainerRef}
-        className="flex-1 relative"
+        className="relative flex-1"
         style={{ minHeight: '100%', height: '100%' }}
       >
         {chartLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
             <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
               <span className="text-sm text-gray-400">Loading chart data...</span>
             </div>
           </div>
         )}
-        <div className="absolute top-4 left-4 z-10 bg-black/70 backdrop-blur px-4 py-2 rounded-lg text-xs md:text-sm border border-gray-700">
+        <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
           1D • EMA • RSI • Volume Profile
         </div>
       </div>
@@ -466,38 +468,38 @@ export default function TradePanel() {
       <motion.div
         initial={{ y: 200 }}
         animate={{ y: 0 }}
-        className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur border-t-4 border-purple-600 p-4 md:p-6 z-10 shadow-2xl"
+        className="fixed bottom-0 left-0 right-0 z-10 border-t-4 border-purple-600 bg-black/95 p-4 shadow-2xl backdrop-blur md:p-6"
       >
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
+        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
           <input
             type="number"
             value={qty}
             onChange={e => setQty(+e.target.value || 0)}
-            className="bg-gray-900 text-white rounded-xl px-3 md:px-6 py-3 md:py-5 text-xl md:text-3xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
             placeholder="Qty"
           />
           <input
             type="number"
             value={sl}
             onChange={e => setSl(+e.target.value || 0)}
-            className="bg-red-900/50 text-white border-2 border-red-600 rounded-xl px-3 md:px-6 py-3 md:py-5 text-xl md:text-3xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="rounded-xl border-2 border-red-600 bg-red-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500 md:px-6 md:py-5 md:text-3xl"
             placeholder="SL"
           />
           <input
             type="number"
             value={tp}
             onChange={e => setTp(+e.target.value || 0)}
-            className="bg-green-900/50 text-white border-2 border-green-600 rounded-xl px-3 md:px-6 py-3 md:py-5 text-xl md:text-3xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="rounded-xl border-2 border-green-600 bg-green-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500 md:px-6 md:py-5 md:text-3xl"
             placeholder="Target"
           />
           <button
             onClick={() => executeTrade('buy')}
             disabled={isPlacingOrder}
-            className="bg-green-600 hover:bg-green-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-green-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
           >
             {isPlacingOrder ? (
               <>
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin" />
                 <span>PLACING...</span>
               </>
             ) : (
@@ -507,11 +509,11 @@ export default function TradePanel() {
           <button
             onClick={() => executeTrade('sell')}
             disabled={isPlacingOrder}
-            className="bg-red-600 hover:bg-red-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-red-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
           >
             {isPlacingOrder ? (
               <>
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin" />
                 <span>PLACING...</span>
               </>
             ) : (

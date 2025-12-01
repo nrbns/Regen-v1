@@ -1,13 +1,22 @@
+/**
+ * useDebounce hook - Telepathy Upgrade Phase 1
+ * Debounce value changes for performance
+ */
+
 import { useEffect, useState } from 'react';
 
-export function useDebounce<T>(value: T, delay = 250): T {
-  const [debounced, setDebounced] = useState(value);
+export function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(timer);
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
   }, [value, delay]);
 
-  return debounced;
+  return debouncedValue;
 }
-
