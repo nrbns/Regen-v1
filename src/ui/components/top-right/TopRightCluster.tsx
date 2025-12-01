@@ -4,6 +4,7 @@ import { CircleHelp, MessageSquare, Workflow } from 'lucide-react';
 import { NotificationsMenu } from './NotificationsMenu';
 import { ProfileMenu } from './ProfileMenu';
 import { SettingsMenu } from './SettingsMenu';
+import { FeaturesMenu } from './FeaturesMenu';
 import { FeedbackModal } from '../../../components/FeedbackModal';
 import { SystemStatusPanel } from '../../../components/SystemStatusPanel';
 import { LanguageSwitcher } from '../../../components/layout/LanguageSwitcher';
@@ -19,6 +20,7 @@ export function TopRightCluster() {
         <LanguageSwitcher />
         <SystemStatusPanel />
         <NotificationsMenu />
+        <FeaturesMenu />
         <SettingsMenu />
         {/* Workflow Marketplace Button */}
         <button

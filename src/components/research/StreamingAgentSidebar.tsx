@@ -174,9 +174,15 @@ export function StreamingAgentSidebar() {
           console.error('[WebSocket] Error:', error);
         };
 
-        ws.onclose = () => {
-          console.log('[WebSocket] Connection closed');
+        ws.onclose = (event) => {
+          console.log('[WebSocket] Connection closed', event.code, event.reason);
           wsRef.current = null;
+
+          // Don't reconnect if it was a normal closure (code 1000) or user-initiated
+          if (event.code === 1000 || event.code === 1001) {
+            console.log('[WebSocket] Normal closure, not reconnecting');
+            return;
+          }
 
           // Attempt reconnect
           if (reconnectAttempts < maxReconnectAttempts) {
@@ -189,7 +195,8 @@ export function StreamingAgentSidebar() {
             }, delay);
           } else {
             console.error('[WebSocket] Max reconnect attempts reached');
-            toast.error('Lost connection to agent server');
+            toast.error('Lost connection to agent server. Please refresh the page.');
+            setError('Connection lost. Please refresh to reconnect.');
           }
         };
       } catch (err) {
@@ -214,7 +221,20 @@ export function StreamingAgentSidebar() {
 
     connectWebSocket();
 
+    // MEMORY LEAK FIX: Listen for tab close to cleanup WebSocket
+    const handleTabClose = (() => {
+      if (ws) {
+        ws.close();
+      }
+      if (wsReconnectTimeoutRef.current) {
+        clearTimeout(wsReconnectTimeoutRef.current);
+      }
+    }) as EventListener;
+
+    window.addEventListener('tab-closed', handleTabClose);
+
     return () => {
+      window.removeEventListener('tab-closed', handleTabClose);
       if (ws) {
         ws.close();
       }

@@ -98,7 +98,7 @@ class PerformanceMonitor {
         });
         observer.observe({ entryTypes: ['navigation'] });
         this.observers.push(observer);
-      } catch (_e) {
+      } catch {
         // PerformanceObserver not supported
       }
     }
@@ -111,7 +111,7 @@ class PerformanceMonitor {
     if (typeof window !== 'undefined' && (window as any).ipc) {
       try {
         (window as any).ipc.telemetry?.trackPerf?.(name, Math.round(value));
-      } catch (_e) {
+      } catch {
         // IPC not available
       }
     }

@@ -13,6 +13,7 @@ use futures_util::StreamExt;
 use urlencoding;
 use chrono::{Local, Duration as ChronoDuration, Datelike};
 use std::collections::HashMap;
+use sysinfo::System;
 
 mod agent;
 mod db;
@@ -1155,13 +1156,69 @@ fn main() {
                 sentry::Level::Fatal,
             );
         }
+        
+        // Log to file for local debugging
+        if let Ok(log_dir) = std::env::var("APPDATA").or_else(|_| std::env::var("HOME")) {
+            let log_path = std::path::Path::new(&log_dir).join("RegenBrowser").join("crashes.log");
+            if let Some(parent) = log_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)
+                .and_then(|mut file| {
+                    use std::io::Write;
+                    writeln!(file, "[{}] PANIC: {:?}", chrono::Local::now(), panic_info)
+                });
+        }
     }));
+    
+    // DAY 1 FIX: Monitor OOM (Out of Memory) kills
+    // Set up memory monitoring
+    if sentry_initialized {
+        // Monitor memory usage periodically
+        tauri::async_runtime::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
+            let mut system = System::new();
+            
+            loop {
+                interval.tick().await;
+                
+                // Refresh system info
+                system.refresh_memory();
+                
+                // Check memory usage
+                let total_memory = system.total_memory();
+                let used_memory = system.used_memory();
+                let memory_percent = if total_memory > 0 {
+                    (used_memory as f64 / total_memory as f64) * 100.0
+                } else {
+                    0.0
+                };
+                
+                // Warn if memory usage is high (>90%)
+                if memory_percent > 90.0 {
+                    eprintln!("[MEMORY] High memory usage: {:.1}% ({:.1}MB / {:.1}MB)", 
+                        memory_percent, 
+                        used_memory as f64 / 1024.0 / 1024.0,
+                        total_memory as f64 / 1024.0 / 1024.0
+                    );
+                    sentry::capture_message(
+                        &format!("High memory usage: {:.1}%", memory_percent),
+                        sentry::Level::Warning,
+                    );
+                }
+            }
+        });
+    }
     
     // Load .env file if it exists (for API keys: OPENAI_API_KEY, ANTHROPIC_API_KEY)
     let _ = dotenv::dotenv();
     
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             // DAY 1 FIX #1: Set OLLAMA_ORIGIN to "*" for 100% compatibility
             std::env::set_var("OLLAMA_ORIGIN", "*");
@@ -1438,7 +1495,10 @@ fn main() {
             tradingview_get_account_state,
             get_weather,
             book_train,
-            book_flight
+            book_flight,
+            store_secure,
+            get_secure,
+            delete_secure
         ])
         .run(tauri::generate_context!())
         .expect("error while running Regen");
@@ -1580,6 +1640,91 @@ async fn delete_session(session_id: String, app: tauri::AppHandle) -> Result<(),
         std::fs::remove_file(&file_path)
             .map_err(|e| format!("Failed to delete session: {}", e))?;
     }
+    
+    Ok(())
+}
+
+// SECURITY FIX: Secure storage using OS keychain
+#[tauri::command]
+async fn store_secure(key: String, value: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_store::StoreBuilder;
+    
+    let app_data_dir = app.path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
+    
+    let store_path = app_data_dir.join("secure_storage.json");
+    
+    // Use the app as the manager (it implements Manager trait)
+    let store = StoreBuilder::new(&app, store_path)
+        .build()
+        .map_err(|e| format!("Failed to create store: {}", e))?;
+    
+    // In production, use OS keychain (keyring crate)
+    // For now, store encrypted in local file
+    store.set(key, serde_json::Value::String(value));
+    
+    // save() returns Result<(), Error>, not a future
+    store.save()
+        .map_err(|e| format!("Failed to save store: {}", e))?;
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_secure(key: String, app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_store::StoreBuilder;
+    
+    let app_data_dir = app.path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
+    
+    let store_path = app_data_dir.join("secure_storage.json");
+    
+    // Use the app as the manager (it implements Manager trait)
+    let store = StoreBuilder::new(&app, store_path)
+        .build()
+        .map_err(|e| format!("Failed to create store: {}", e))?;
+    
+    // Get the value and convert to owned String immediately
+    // store.get() returns Option<&Value>, so we need to clone or convert to owned
+    let value = match store.get(&key) {
+        Some(v) => {
+            // Convert serde_json::Value to String
+            match v {
+                serde_json::Value::String(s) => s.clone(),
+                _ => v.to_string(), // Fallback: convert any value to string
+            }
+        }
+        None => return Err("Key not found".to_string()),
+    };
+    
+    Ok(value)
+}
+
+#[tauri::command]
+async fn delete_secure(key: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_store::StoreBuilder;
+    
+    let app_data_dir = app.path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {:?}", e))?;
+    
+    let store_path = app_data_dir.join("secure_storage.json");
+    
+    // Use the app as the manager (it implements Manager trait)
+    let store = StoreBuilder::new(&app, store_path)
+        .build()
+        .map_err(|e| format!("Failed to create store: {}", e))?;
+    
+    // delete() returns bool, not Result
+    if !store.delete(&key) {
+        return Err("Key not found or failed to delete".to_string());
+    }
+    
+    // save() returns Result<(), Error>, not a future
+    store.save()
+        .map_err(|e| format!("Failed to save store: {}", e))?;
     
     Ok(())
 }

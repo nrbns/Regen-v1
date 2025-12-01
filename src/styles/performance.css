@@ -1,0 +1,105 @@
+/**
+ * Performance Optimizations - Composited CSS, reduce layout thrashing
+ */
+
+/* Use composited properties (transform, opacity) for animations */
+.animate-slide-in {
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.animate-slide-out {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: transform 0.2s ease-in, opacity 0.2s ease-in;
+}
+
+/* Prefer CSS animations over JS */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* Use will-change sparingly - only for elements that will animate */
+.will-animate {
+  will-change: transform, opacity;
+}
+
+/* Remove will-change after animation completes */
+.will-animate.animation-complete {
+  will-change: auto;
+}
+
+/* Reduce layout thrashing - use transform instead of top/left */
+.position-absolute-transform {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  top: 50%;
+  left: 50%;
+}
+
+/* GPU acceleration for smooth scrolling */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize rendering for frequently updated elements */
+.tab-content {
+  contain: layout style paint;
+}
+
+/* Reduce repaints - use opacity for visibility */
+.hidden-opacity {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Optimize images */
+img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Reduce layout shifts */
+.aspect-ratio-container {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 */
+}
+
+.aspect-ratio-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+

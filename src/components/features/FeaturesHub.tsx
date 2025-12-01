@@ -43,7 +43,7 @@ export function FeaturesHub() {
     <>
       {/* Features Access Panel */}
       {!activeFeature && (
-        <div className="fixed bottom-20 left-4 z-50 bg-gray-900 border border-purple-500/50 rounded-2xl p-4 shadow-2xl max-w-xs">
+        <div className="fixed top-20 right-6 md:top-[72px] md:right-8 z-50 bg-gray-900 border border-purple-500/50 rounded-2xl p-4 shadow-2xl max-w-xs">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-purple-400" />

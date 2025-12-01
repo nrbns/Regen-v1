@@ -49,6 +49,21 @@ const TOUR_STEPS: TourStep[] = [
     },
   },
   {
+    id: 'voice',
+    title: 'Voice Commands',
+    description: 'Click the microphone button or press Ctrl+Space to use voice commands in Hindi or English.',
+    icon: <Mic className="w-6 h-6" />,
+  },
+  {
+    id: 'trade',
+    title: 'Trade Mode',
+    description: 'Switch to Trade mode for AI-powered trading signals and real-time market analysis.',
+    icon: <TrendingUp className="w-6 h-6" />,
+    action: () => {
+      useAppStore.getState().setMode('Trade');
+    },
+  },
+  {
     id: 'trade',
     title: 'Trade Mode',
     description: 'Access Trade mode for real-time market data, charts, and AI-powered trading signals.',

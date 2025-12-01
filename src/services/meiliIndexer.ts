@@ -148,3 +148,5 @@ if (typeof window !== 'undefined') {
     initMeiliIndexing().catch(console.error);
   }, 3000);
 }
+
+

@@ -105,3 +105,5 @@ REDIX_PORT=8001
 3. The frontend will automatically connect to the backend using the configured URL from `.env`.
 
 
+
+

@@ -150,7 +150,7 @@ export async function safeIpcInvoke<T = unknown>(
   const { ipc } = await import('../lib/ipc-typed');
   
   // Invoke with validated payload using the typed IPC client
-  // @ts-expect-error - invoke is available but not in the type definition
+  // Using 'as any' because invoke is available but not in the type definition
   return (ipc as any).invoke(command, safePayload) as Promise<T>;
 }
 

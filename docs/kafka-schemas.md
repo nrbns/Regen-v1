@@ -186,3 +186,5 @@ Used when batching chunks for embedding.
   - `source_id`, `license`, `crawl_batch`, `retry_count`, `hash`.
 - Schema registry: Confluent Schema Registry or equivalent (Redpanda, Karapace).
 
+
+

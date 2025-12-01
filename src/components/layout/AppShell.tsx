@@ -90,7 +90,6 @@ import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { OmniModeSwitcher } from '../omni-mode/OmniModeSwitcher';
-import { FeaturesHub } from '../features/FeaturesHub';
 import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
 // import { WorkspaceTabs } from '../tabs/WorkspaceTabs'; // Reserved for future use
 import { SessionRestorePrompt } from '../SessionRestorePrompt';
@@ -2187,7 +2186,6 @@ export function AppShell() {
       <GlobalSearch />
       <WisprOrb />
       <OmniModeSwitcher />
-      <FeaturesHub />
 
       {/* Mini Hover AI - Text selection assistant */}
       <MiniHoverAI enabled={!overlayActive && showWebContent} />

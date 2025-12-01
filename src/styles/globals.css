@@ -1,4 +1,7 @@
 /* Import Design System - must be before @tailwind */
+/* Performance optimizations - must be first */
+@import './performance.css';
+
 @import './design-system.css';
 
 /* Import Design Tokens - must be before @tailwind */
@@ -10,6 +13,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 
 /* Screen reader only - for accessible announcements */
 .sr-only {

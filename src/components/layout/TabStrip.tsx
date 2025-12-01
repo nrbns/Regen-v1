@@ -18,7 +18,6 @@ import {
   ChevronDown,
   ChevronRight,
   Palette,
-  Trash2,
   Edit3,
   FolderPlus,
 } from 'lucide-react';
@@ -39,6 +38,7 @@ import { usePeekPreviewStore } from '../../state/peekStore';
 import { Portal } from '../common/Portal';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
+import { TabGroupsOverlay } from '../tabs/TabGroupsOverlay';
 // HolographicPreviewOverlay removed - unused component
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
 import {
@@ -87,24 +87,92 @@ interface Tab {
   groupId?: string;
 }
 
-const mapTabsForStore = (list: Tab[]) =>
-  list.map(t => ({
-    id: t.id,
-    title: t.title,
-    active: t.active,
-    url: t.url,
-    mode: t.mode,
-    containerId: t.containerId,
-    containerColor: t.containerColor,
-    containerName: t.containerName,
-    createdAt: t.createdAt,
-    lastActiveAt: t.lastActiveAt,
-    sessionId: t.sessionId,
-    profileId: t.profileId,
-    sleeping: t.sleeping,
-    pinned: t.pinned,
-    groupId: t.groupId,
-  }));
+// Helper functions for safe property access
+const safeGet = (obj: any, key: string, defaultValue: any = undefined): any => {
+  try {
+    if (obj == null || typeof obj !== 'object') return defaultValue;
+    if (!(key in obj)) return defaultValue;
+    const value = obj[key];
+    return value !== null && value !== undefined ? value : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const safeGetString = (obj: any, key: string, defaultValue: string = ''): string => {
+  try {
+    const value = safeGet(obj, key);
+    return typeof value === 'string' ? value : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const safeGetNumber = (obj: any, key: string): number | undefined => {
+  try {
+    const value = safeGet(obj, key);
+    return typeof value === 'number' ? value : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const mapTabsForStore = (list: Tab[]): Tab[] => {
+  try {
+    if (!Array.isArray(list)) {
+      return [];
+    }
+    const validTabs: Tab[] = [];
+    for (const item of list) {
+      try {
+        // Skip null/undefined
+        if (item == null) {
+          continue;
+        }
+        // Skip non-objects
+        if (typeof item !== 'object') {
+          continue;
+        }
+        // Ensure id exists and is a string
+        const itemId = safeGetString(item, 'id');
+        if (!itemId || itemId.length === 0) {
+          continue;
+        }
+        // Safely extract all properties with defaults
+        const tab: Tab = {
+          id: itemId,
+          title: safeGetString(item, 'title', 'Untitled'),
+          active: Boolean(safeGet(item, 'active', false)),
+          url: safeGetString(item, 'url', 'about:blank'),
+          mode: (safeGet(item, 'mode') === 'ghost' || safeGet(item, 'mode') === 'private' ? safeGet(item, 'mode') : 'normal'),
+          containerId: safeGetString(item, 'containerId'),
+          containerColor: safeGetString(item, 'containerColor'),
+          containerName: safeGetString(item, 'containerName'),
+          createdAt: safeGetNumber(item, 'createdAt'),
+          lastActiveAt: safeGetNumber(item, 'lastActiveAt'),
+          sessionId: safeGetString(item, 'sessionId'),
+          profileId: safeGetString(item, 'profileId'),
+          sleeping: Boolean(safeGet(item, 'sleeping', false)),
+          pinned: Boolean(safeGet(item, 'pinned', false)),
+          groupId: safeGetString(item, 'groupId'),
+        };
+        validTabs.push(tab);
+      } catch (itemError) {
+        if (IS_DEV) {
+          console.warn('[TabStrip] Failed to map tab item:', item, itemError);
+        }
+        // Skip invalid items instead of creating error tabs
+        continue;
+      }
+    }
+    return validTabs;
+  } catch (error) {
+    if (IS_DEV) {
+      console.error('[TabStrip] mapTabsForStore error:', error, list);
+    }
+    return [];
+  }
+};
 
 export function TabStrip() {
   const { handleError: _handleError } = useAppError();
@@ -117,6 +185,7 @@ export function TabStrip() {
   const safeTabs = Array.isArray(storeTabs) ? storeTabs : [];
   const updateTab = useTabsStore(state => state.updateTab);
   const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
+  const openPeek = usePeekPreviewStore(state => state.open); // Must be defined before renderTabNode
   const recentlyClosed = useTabsStore(state => state.recentlyClosed);
   const togglePinTab = useTabsStore(state => state.togglePinTab);
   const tabGroups = useTabsStore(state => state.tabGroups);
@@ -142,6 +211,7 @@ export function TabStrip() {
     platform: string;
     lastSentAt: number | null;
   }>({ platform: 'desktop', lastSentAt: null });
+  const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     tabId: string;
     url: string;
@@ -159,6 +229,8 @@ export function TabStrip() {
   const previousTabIdsRef = useRef<string>(''); // Track tab IDs to prevent unnecessary updates
   const currentActiveIdRef = useRef<string | null>(null); // Track active ID without causing re-renders
   const activationInFlightRef = useRef<string | null>(null); // Track activations to avoid duplicate work
+  const tabsRef = useRef<Tab[]>(tabs); // Must be defined before refreshTabsFromMain and activateTab
+  const fetchPredictiveSuggestionsRef = useRef<(options?: { force?: boolean }) => Promise<void> | void>(); // Must be defined before refreshTabsFromMain
   const [groupDragTarget, setGroupDragTarget] = useState<string | null>(null);
   const groupMap = useMemo(() => {
     const map = new Map<string, TabGroup>();
@@ -188,7 +260,7 @@ export function TabStrip() {
     [setGroupColor]
   );
 
-  const handleDeleteGroup = useCallback(
+  const _handleDeleteGroup = useCallback(
     (group: TabGroup) => {
       if (window.confirm(`Remove group "${group.name}"? Tabs will remain open.`)) {
         deleteGroup(group.id);
@@ -219,7 +291,7 @@ export function TabStrip() {
     setGroupDragTarget(current => (current === groupId ? null : current));
   }, []);
 
-  const handleCreateGroupShortcut = useCallback(
+  const _handleCreateGroupShortcut = useCallback(
     (name?: string) => {
       const group = createGroup({ name });
       return group;
@@ -236,40 +308,76 @@ export function TabStrip() {
     setGroupDragTarget(null);
   }, [assignTabToGroup, createGroup]);
 
-  const renderGroupHeader = (group: TabGroup) => (
-    <div
-      key={`group-${group.id}`}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs text-gray-300 uppercase tracking-wide ${
-        groupDragTarget === group.id
-          ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
-          : 'border-gray-800/60 bg-gray-900/40'
-      }`}
-      onDragOver={e => handleGroupDragOver(e, group.id)}
-      onDragLeave={() => handleGroupDragLeave(group.id)}
-      onDrop={e => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleGroupDrop(group.id);
-      }}
-    >
-      <button
-        type="button"
-        onClick={e => {
-          stopEventPropagation(e);
-          toggleGroupCollapsed(group.id);
+  // Define filteredTabs BEFORE render functions that use it
+  const filteredTabs = useMemo(() => {
+    try {
+      // Defensive: Use safeTabs and filter invalid entries
+      if (!Array.isArray(safeTabs)) {
+        return [];
+      }
+      const validTabs = safeTabs.filter(tab => {
+        try {
+          return tab != null && typeof tab === 'object' && typeof tab.id === 'string' && tab.id.length > 0;
+        } catch {
+          return false;
+        }
+      });
+      if (validTabs.length === 0) {
+        return [];
+      }
+      return validTabs.filter(tab => {
+        try {
+          return !tab.appMode || tab.appMode === currentMode;
+        } catch {
+          return true; // Include tab if we can't check appMode
+        }
+      });
+    } catch (error) {
+      if (IS_DEV) {
+        console.error('[TabStrip] filteredTabs error:', error);
+      }
+      return [];
+    }
+  }, [safeTabs, currentMode]);
+
+  const renderGroupHeader = useCallback((group: TabGroup) => {
+    const groupTabs = filteredTabs.filter(t => t.groupId === group.id);
+    return (
+      <div
+        key={`group-${group.id}`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${
+          groupDragTarget === group.id
+            ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
+            : 'border-gray-700/60 bg-gray-800/80 text-gray-200'
+        }`}
+        style={{
+          borderLeft: `3px solid ${group.color}`,
         }}
-        onMouseDown={e => {
-          stopEventPropagation(e);
+        onDragOver={e => handleGroupDragOver(e, group.id)}
+        onDragLeave={() => handleGroupDragLeave(group.id)}
+        onDrop={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleGroupDrop(group.id);
         }}
-        className="p-1 rounded hover:bg-gray-800/60 transition-colors text-gray-300 hover:text-gray-100"
-        style={{ zIndex: 10011, isolation: 'isolate' }}
-        title={group.collapsed ? 'Expand group' : 'Collapse group'}
       >
-        {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-      </button>
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <span
-          className="w-2.5 h-2.5 rounded-full border border-white/20"
+        <button
+          type="button"
+          onClick={e => {
+            stopEventPropagation(e);
+            toggleGroupCollapsed(group.id);
+          }}
+          onMouseDown={e => {
+            stopEventPropagation(e);
+          }}
+          className="p-1 rounded hover:bg-gray-700/60 transition-colors text-gray-300 hover:text-white"
+          style={{ zIndex: 10011, isolation: 'isolate' }}
+          title={group.collapsed ? 'Expand group' : 'Collapse group'}
+        >
+          {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+        </button>
+        <div
+          className="w-3 h-3 rounded-full border border-white/30 flex-shrink-0"
           style={{ backgroundColor: group.color }}
           title={`Group color: ${group.color}`}
         />
@@ -282,64 +390,396 @@ export function TabStrip() {
           onMouseDown={e => {
             stopEventPropagation(e);
           }}
-          className="text-[11px] font-semibold text-gray-200 hover:text-white truncate"
+          className="text-[11px] font-semibold text-gray-100 hover:text-white truncate min-w-[60px]"
           style={{ zIndex: 10011, isolation: 'isolate' }}
           title="Rename group"
         >
           {group.name}
         </button>
+        <span className="text-[10px] text-gray-400 ml-1">
+          ({groupTabs.length})
+        </span>
+        <div className="flex items-center gap-0.5 ml-auto">
+          <button
+            type="button"
+            onClick={e => {
+              stopEventPropagation(e);
+              handleCycleGroupColor(group);
+            }}
+            onMouseDown={e => {
+              stopEventPropagation(e);
+            }}
+            className="p-1 rounded hover:bg-gray-700/60 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+            style={{ zIndex: 10011, isolation: 'isolate' }}
+            title="Change color"
+          >
+            <Palette size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={e => {
+              stopEventPropagation(e);
+              handleRenameGroup(group);
+            }}
+            onMouseDown={e => {
+              stopEventPropagation(e);
+            }}
+            className="p-1 rounded hover:bg-gray-700/60 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+            style={{ zIndex: 10011, isolation: 'isolate' }}
+            title="Rename group"
+          >
+            <Edit3 size={12} />
+          </button>
+        </div>
       </div>
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={e => {
-            stopEventPropagation(e);
-            handleCycleGroupColor(group);
-          }}
-          onMouseDown={e => {
-            stopEventPropagation(e);
-          }}
-          className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
-          style={{ zIndex: 10011, isolation: 'isolate' }}
-          title="Cycle group color"
-        >
-          <Palette size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={e => {
-            stopEventPropagation(e);
-            handleRenameGroup(group);
-          }}
-          onMouseDown={e => {
-            stopEventPropagation(e);
-          }}
-          className="p-1 rounded hover:bg-gray-800/60 text-gray-300 hover:text-white transition-colors"
-          style={{ zIndex: 10011, isolation: 'isolate' }}
-          title="Rename group"
-        >
-          <Edit3 size={14} />
-        </button>
-        <button
-          type="button"
-          onClick={e => {
-            stopEventPropagation(e);
-            handleDeleteGroup(group);
-          }}
-          onMouseDown={e => {
-            stopEventPropagation(e);
-          }}
-          className="p-1 rounded hover:bg-red-500/20 text-red-300 hover:text-red-200 transition-colors"
-          style={{ zIndex: 10011, isolation: 'isolate' }}
-          title="Remove group"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
+    );
+  }, [filteredTabs, groupDragTarget, handleGroupDragOver, handleGroupDragLeave, handleGroupDrop, toggleGroupCollapsed, handleRenameGroup, handleCycleGroupColor, setGroupsOverlayOpen]);
+
+  // Define refreshTabsFromMain and activateTab BEFORE renderTabNode that uses them
+  const refreshTabsFromMain = useCallback(async () => {
+    if (!IS_ELECTRON) {
+      return;
+    }
+    try {
+      const tabList = await ipc.tabs.list();
+      if (!Array.isArray(tabList)) {
+        if (IS_DEV) {
+          console.warn('[TabStrip] refreshTabsFromMain: Invalid tab list', tabList);
+        }
+        return;
+      }
+
+      if (IS_DEV) {
+        console.log('[TabStrip] refreshTabsFromMain: Got', tabList.length, 'tabs');
+      }
+
+      const mappedTabs = tabList.map((t: any) => {
+        // Get store metadata if available
+        const storeTab = storeTabs.find(st => st.id === t.id);
+        const appMode = storeTab?.appMode || currentMode;
+        const pinned = storeTab?.pinned ?? Boolean(t.pinned);
+        const groupId = storeTab?.groupId ?? t.groupId;
+
+        return {
+          id: t.id,
+          title: t.title || 'New Tab',
+          url: t.url || 'about:blank',
+          active: t.active || false,
+          mode: t.mode || 'normal',
+          appMode: appMode,
+          containerId: t.containerId,
+          containerName: t.containerName,
+          containerColor: t.containerColor,
+          createdAt: t.createdAt,
+          lastActiveAt: t.lastActiveAt,
+          sessionId: t.sessionId,
+          profileId: t.profileId,
+          sleeping: Boolean(t.sleeping),
+          pinned: pinned,
+          groupId,
+        };
+      });
+
+      const ids = mappedTabs
+        .map(t => t.id)
+        .sort()
+        .join(',');
+      previousTabIdsRef.current = ids;
+
+      // Force update - always set state even if IDs are the same
+      setTabs(mappedTabs);
+      tabsRef.current = mappedTabs;
+      setAllTabs(mapTabsForStore(mappedTabs));
+
+      const activeTab = mappedTabs.find(t => t.active);
+      if (activeTab) {
+        setActiveTab(activeTab.id);
+        currentActiveIdRef.current = activeTab.id;
+      } else if (mappedTabs.length > 0) {
+        // Tabs exist but none active - activate first one
+        const firstTab = mappedTabs[0];
+        if (firstTab) {
+          setActiveTab(firstTab.id);
+          currentActiveIdRef.current = firstTab.id;
+          // Also activate in main process
+          try {
+            await ipc.tabs.activate({ id: firstTab.id });
+          } catch {
+            // Silent fail
+          }
+        }
+      } else {
+        setActiveTab(null);
+        currentActiveIdRef.current = null;
+      }
+
+      fetchPredictiveSuggestionsRef.current?.();
+    } catch (error) {
+      if (IS_DEV) {
+        console.error('[TabStrip] Failed to refresh tabs from main process:', error);
+      }
+    }
+  }, [setActiveTab, setAllTabs, storeTabs, currentMode, setTabs]);
+
+  const activateTab = useCallback(
+    async (tabId: string) => {
+      if (!IS_ELECTRON) {
+        const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+        const tabToActivate = currentTabs.find(t => t.id === tabId);
+        if (!tabToActivate) {
+          return;
+        }
+        const updated = currentTabs.map(t => ({
+          ...t,
+          active: t.id === tabId,
+        }));
+        setTabs(updated);
+        tabsRef.current = updated;
+        previousTabIdsRef.current = updated
+          .map(t => t.id)
+          .sort()
+          .join(',');
+        setAllTabs(mapTabsForStore(updated));
+        setActiveTab(tabId);
+        currentActiveIdRef.current = tabId;
+        ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
+        return;
+      }
+
+      // Fast path: Skip if already active (check both ref and store for accuracy)
+      if (activationInFlightRef.current === tabId) {
+        return;
+      }
+      if (currentActiveIdRef.current === tabId && activeId === tabId) {
+        return;
+      }
+
+      // Get current tabs from ref (most up-to-date, avoids re-render)
+      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+      const tabToActivate = currentTabs.find(t => t.id === tabId);
+      if (!tabToActivate) {
+        if (IS_DEV) {
+          console.warn('[TabStrip] Tab not found for activation:', tabId);
+        }
+        return;
+      }
+
+      // Set flag immediately to prevent duplicate activations
+      activationInFlightRef.current = tabId;
+
+      // OPTIMIZED: Only update active state, not entire tabs array
+      // IPC event will update tabs array, so we just need to update activeId
+      setActiveTab(tabId);
+      currentActiveIdRef.current = tabId;
+
+      // Fire IPC call without waiting (non-blocking for better UX)
+      // IPC event handler will update tabs array when it receives confirmation
+      ipc.tabs
+        .activate({ id: tabId })
+        .then(result => {
+          if (!result || !result.success) {
+            // Only revert if activation failed
+            if (IS_DEV) {
+              console.warn('[TabStrip] Tab activation failed:', tabId, result?.error);
+            }
+            // Refresh from main process to get correct state
+            refreshTabsFromMain().catch(() => {});
+          }
+          activationInFlightRef.current = null;
+        })
+        .catch(error => {
+          if (IS_DEV) {
+            console.error('[TabStrip] Tab activation error:', error);
+          }
+          // Refresh from main process to get correct state
+          refreshTabsFromMain().catch(() => {});
+          activationInFlightRef.current = null;
+        });
+    },
+    [activeId, setActiveTab, setAllTabs, refreshTabsFromMain, tabs, setTabs]
   );
 
-  const renderTabNode = (tab: Tab) => {
+  const closeTab = async (tabId: string) => {
+    if (!IS_ELECTRON) {
+      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+      const idx = currentTabs.findIndex(t => t.id === tabId);
+      if (idx === -1) {
+        return;
+      }
+      const tabBeingClosed = currentTabs[idx];
+      if (tabBeingClosed) {
+        rememberClosedTab(tabBeingClosed);
+        // Save for resurrection (auto-reopen after 5 minutes)
+        saveTabForResurrection(tabBeingClosed);
+        // Schedule auto-resurrection after 5 minutes
+        scheduleAutoResurrection(RESURRECTION_DELAY_MS);
+      }
+      const wasActive = currentTabs[idx]?.active;
+      const remaining = currentTabs.filter(t => t.id !== tabId);
+      let updated = remaining;
+
+      if (remaining.length === 0) {
+        const fallbackTab: Tab = {
+          id: `local-${Date.now()}`,
+          title: 'New Tab',
+          url: 'about:blank',
+          active: true,
+          mode: 'normal',
+        };
+        updated = [fallbackTab];
+      } else if (wasActive) {
+        // After removing tab at idx, prefer the tab at the same position
+        // If that doesn't exist (we closed the last tab), use the previous one
+        let nextIndex = idx;
+        if (nextIndex >= remaining.length) {
+          nextIndex = remaining.length - 1;
+        }
+        updated = remaining.map((t, index) => ({
+          ...t,
+          active: index === nextIndex,
+        }));
+      }
+
+      const activeTab = updated.find(t => t.active) ?? updated[0];
+
+      setTabs(updated);
+      tabsRef.current = updated;
+      previousTabIdsRef.current = updated
+        .map(t => t.id)
+        .sort()
+        .join(',');
+      setAllTabs(mapTabsForStore(updated));
+      setActiveTab(activeTab ? activeTab.id : null);
+      currentActiveIdRef.current = activeTab ? activeTab.id : null;
+      ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
+      return;
+    }
+
+    // Prevent closing if already creating a tab
+    if (isCreatingTabRef.current) {
+      return;
+    }
+
+    // Get current tabs
+    const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
+    const tabToClose = currentTabs.find(t => t.id === tabId);
+    if (!tabToClose) {
+      return;
+    }
+    rememberClosedTab(tabToClose);
+    // Save for resurrection (auto-reopen after 5 minutes)
+    saveTabForResurrection(tabToClose);
+    // Schedule auto-resurrection after 5 minutes
+    scheduleAutoResurrection(RESURRECTION_DELAY_MS);
+
+    const wasActive = tabToClose.active;
+    const tabIndex = currentTabs.findIndex(t => t.id === tabId);
+    const remainingTabs = currentTabs.filter(t => t.id !== tabId);
+    const closingLastTab = remainingTabs.length === 0;
+    const snapshotTabs = currentTabs.map(t => ({ ...t }));
+    const previousActiveId = currentActiveIdRef.current;
+
+    // Update UI immediately (optimistic update)
+    setTabs(remainingTabs);
+    tabsRef.current = remainingTabs;
+    previousTabIdsRef.current = remainingTabs
+      .map(t => t.id)
+      .sort()
+      .join(',');
+    setAllTabs(mapTabsForStore(remainingTabs));
+
+    // If closing active tab, activate the next one
+    if (wasActive && remainingTabs.length > 0) {
+      // After removing tab at tabIndex, prefer the tab at the same position
+      // If that doesn't exist (we closed the last tab), use the previous one
+      let nextTabIndex = tabIndex;
+      if (nextTabIndex >= remainingTabs.length) {
+        nextTabIndex = remainingTabs.length - 1;
+      }
+      const nextTab = remainingTabs[nextTabIndex];
+      if (nextTab) {
+        setActiveTab(nextTab.id);
+        currentActiveIdRef.current = nextTab.id;
+      }
+    } else if (remainingTabs.length === 0) {
+      setActiveTab(null);
+      currentActiveIdRef.current = null;
+    }
+
+    if (IS_DEV) {
+      console.log(
+        '[TabStrip] Closing tab (optimistic):',
+        tabId,
+        'previous active:',
+        previousActiveId
+      );
+    }
+
+    try {
+      const result = await Promise.race([
+        ipc.tabs.close({ id: tabId }),
+        new Promise<{ success: boolean; error?: string }>(resolve =>
+          setTimeout(() => resolve({ success: false, error: 'Timeout' }), 2000)
+        ),
+      ]);
+
+      if (IS_DEV) {
+        console.log('[TabStrip] tabs.close result:', result);
+      }
+
+      if (!result || !result.success) {
+        if (IS_DEV) {
+          console.warn(
+            '[TabStrip] Tab close failed or timed out, reverting:',
+            tabId,
+            result?.error
+          );
+        }
+
+        setTabs(snapshotTabs);
+        tabsRef.current = snapshotTabs;
+        previousTabIdsRef.current = snapshotTabs
+          .map(t => t.id)
+          .sort()
+          .join(',');
+        setAllTabs(mapTabsForStore(snapshotTabs));
+
+        if (previousActiveId) {
+          setActiveTab(previousActiveId);
+          currentActiveIdRef.current = previousActiveId;
+        }
+
+        await refreshTabsFromMain();
+      } else if (closingLastTab) {
+        // Ensure there is always at least one tab per mode
+        setTimeout(() => {
+          void addTab();
+        }, 50);
+      }
+    } catch (error) {
+      if (IS_DEV) {
+        console.error('[TabStrip] Tab close error:', error);
+      }
+
+      // Revert on error
+      setTabs(snapshotTabs);
+      tabsRef.current = snapshotTabs;
+      previousTabIdsRef.current = snapshotTabs
+        .map(t => t.id)
+        .sort()
+        .join(',');
+      setAllTabs(mapTabsForStore(snapshotTabs));
+
+      if (previousActiveId) {
+        setActiveTab(previousActiveId);
+        currentActiveIdRef.current = previousActiveId;
+      }
+
+      await refreshTabsFromMain();
+    }
+  };
+
+  const renderTabNode = useCallback((tab: Tab) => {
     const group = tab.groupId ? groupMap.get(tab.groupId) : null;
     const groupRingStyle = group
       ? {
@@ -376,7 +816,13 @@ export function TabStrip() {
             ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
             ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''}
           `}
-          style={{ pointerEvents: 'auto', zIndex: 1, userSelect: 'none', ...groupRingStyle }}
+          style={{ 
+            pointerEvents: 'auto', 
+            zIndex: 1, 
+            userSelect: 'none', 
+            ...groupRingStyle,
+            ...(group ? { borderLeft: `2px solid ${group.color}` } : {})
+          }}
           draggable
           onDragStart={event => {
             try {
@@ -426,7 +872,10 @@ export function TabStrip() {
               e.preventDefault();
               e.stopPropagation();
 
-              // Defensive: Use filteredTabs for keyboard navigation
+              // Defensive: Use filteredTabs for keyboard navigation (with null check)
+              if (!filteredTabs || !Array.isArray(filteredTabs)) {
+                return;
+              }
               const validTabs = filteredTabs.filter(t => t && t.id);
               const currentIndex = validTabs.findIndex(t => t.id === tab.id);
               if (currentIndex === -1) {
@@ -478,10 +927,11 @@ export function TabStrip() {
             });
           }}
           onMouseEnter={() => {
-            // Defensive: Check if tab is last in filteredTabs
-            const validFilteredTabs = Array.isArray(filteredTabs)
-              ? filteredTabs.filter(t => t && t.id)
-              : [];
+            // Defensive: Check if tab is last in filteredTabs (with null check)
+            if (!filteredTabs || !Array.isArray(filteredTabs)) {
+              return;
+            }
+            const validFilteredTabs = filteredTabs.filter(t => t && t.id);
             if (
               validFilteredTabs.length > 0 &&
               tab === validFilteredTabs[validFilteredTabs.length - 1]
@@ -679,40 +1129,64 @@ export function TabStrip() {
         </motion.div>
       </TabHoverCard>
     );
-  };
-
-  const filteredTabs = useMemo(() => {
-    // Defensive: Use safeTabs and filter invalid entries
-    const validTabs = safeTabs.filter(tab => tab && tab.id);
-    if (validTabs.length === 0) {
-      return [];
-    }
-    return validTabs.filter(tab => !tab.appMode || tab.appMode === currentMode);
-  }, [safeTabs, currentMode]);
+  }, [groupMap, prefetchEntries, filteredTabs, holographicPreviewTabId, hologramSupported, activateTab, closeTab, togglePinTab, openPeek]);
 
   const tabElements = useMemo(() => {
+    // Defensive: Ensure functions are available
+    if (!renderGroupHeader || !renderTabNode) {
+      return [];
+    }
+
     const elements: React.ReactNode[] = [];
     const renderedGroupIds = new Set<string>();
+    
+    // Group tabs by groupId
+    const tabsByGroup = new Map<string | undefined, typeof filteredTabs>();
     filteredTabs.forEach(tab => {
-      const group = tab.groupId ? groupMap.get(tab.groupId) : null;
-      if (group && !renderedGroupIds.has(group.id)) {
-        renderedGroupIds.add(group.id);
-        elements.push(renderGroupHeader(group));
+      const groupId = tab.groupId || 'ungrouped';
+      if (!tabsByGroup.has(groupId)) {
+        tabsByGroup.set(groupId, []);
       }
-      if (group?.collapsed) {
-        return;
-      }
-      elements.push(renderTabNode(tab));
+      tabsByGroup.get(groupId)!.push(tab);
     });
+
+    // Render groups and their tabs
+    tabGroups.forEach(group => {
+      const groupTabs = tabsByGroup.get(group.id) || [];
+      if (groupTabs.length > 0 && !renderedGroupIds.has(group.id)) {
+        renderedGroupIds.add(group.id);
+        try {
+          elements.push(renderGroupHeader(group));
+          if (!group.collapsed) {
+            groupTabs.forEach(tab => {
+              try {
+                elements.push(renderTabNode(tab));
+              } catch (err) {
+                console.error('[TabStrip] Error rendering tab:', err, tab);
+              }
+            });
+          }
+        } catch (err) {
+          console.error('[TabStrip] Error rendering group:', err, group);
+        }
+      }
+    });
+
+    // Render ungrouped tabs
+    const ungroupedTabs = tabsByGroup.get('ungrouped') || [];
+    ungroupedTabs.forEach(tab => {
+      try {
+        elements.push(renderTabNode(tab));
+      } catch (err) {
+        console.error('[TabStrip] Error rendering ungrouped tab:', err, tab);
+      }
+    });
+
     return elements;
-  }, [filteredTabs, groupMap, renderGroupHeader, renderTabNode]);
+  }, [filteredTabs, tabGroups, groupMap, renderGroupHeader, renderTabNode]);
   const stripRef = useRef<HTMLDivElement>(null);
-  const tabsRef = useRef<Tab[]>(tabs);
-  const openPeek = usePeekPreviewStore(state => state.open);
   const predictiveRequestRef = useRef<Promise<void> | null>(null);
   const lastPredictionSignatureRef = useRef<string>('');
-  const fetchPredictiveSuggestionsRef =
-    useRef<(options?: { force?: boolean }) => Promise<void> | void>();
   const draggedTabIdRef = useRef<string | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
 
@@ -795,90 +1269,6 @@ export function TabStrip() {
     fetchPredictiveSuggestionsRef.current?.({ force: true });
   }, [hasInitialized]);
 
-  const refreshTabsFromMain = useCallback(async () => {
-    if (!IS_ELECTRON) {
-      return;
-    }
-    try {
-      const tabList = await ipc.tabs.list();
-      if (!Array.isArray(tabList)) {
-        if (IS_DEV) {
-          console.warn('[TabStrip] refreshTabsFromMain: Invalid tab list', tabList);
-        }
-        return;
-      }
-
-      if (IS_DEV) {
-        console.log('[TabStrip] refreshTabsFromMain: Got', tabList.length, 'tabs');
-      }
-
-      const mappedTabs = tabList.map((t: any) => {
-        // Get store metadata if available
-        const storeTab = storeTabs.find(st => st.id === t.id);
-        const appMode = storeTab?.appMode || currentMode;
-        const pinned = storeTab?.pinned ?? Boolean(t.pinned);
-        const groupId = storeTab?.groupId ?? t.groupId;
-
-        return {
-          id: t.id,
-          title: t.title || 'New Tab',
-          url: t.url || 'about:blank',
-          active: t.active || false,
-          mode: t.mode || 'normal',
-          appMode: appMode,
-          containerId: t.containerId,
-          containerName: t.containerName,
-          containerColor: t.containerColor,
-          createdAt: t.createdAt,
-          lastActiveAt: t.lastActiveAt,
-          sessionId: t.sessionId,
-          profileId: t.profileId,
-          sleeping: Boolean(t.sleeping),
-          pinned: pinned,
-          groupId,
-        };
-      });
-
-      const ids = mappedTabs
-        .map(t => t.id)
-        .sort()
-        .join(',');
-      previousTabIdsRef.current = ids;
-
-      // Force update - always set state even if IDs are the same
-      setTabs(mappedTabs);
-      tabsRef.current = mappedTabs;
-      setAllTabs(mapTabsForStore(mappedTabs));
-
-      const activeTab = mappedTabs.find(t => t.active);
-      if (activeTab) {
-        setActiveTab(activeTab.id);
-        currentActiveIdRef.current = activeTab.id;
-      } else if (mappedTabs.length > 0) {
-        // Tabs exist but none active - activate first one
-        const firstTab = mappedTabs[0];
-        if (firstTab) {
-          setActiveTab(firstTab.id);
-          currentActiveIdRef.current = firstTab.id;
-          // Also activate in main process
-          try {
-            await ipc.tabs.activate({ id: firstTab.id });
-          } catch {
-            // Silent fail
-          }
-        }
-      } else {
-        setActiveTab(null);
-        currentActiveIdRef.current = null;
-      }
-
-      fetchPredictiveSuggestionsRef.current?.();
-    } catch (error) {
-      if (IS_DEV) {
-        console.error('[TabStrip] Failed to refresh tabs from main process:', error);
-      }
-    }
-  }, [setActiveTab, setAllTabs]);
 
   useEffect(() => {
     const checkHologramSupport = () => {
@@ -1428,263 +1818,6 @@ export function TabStrip() {
     await reopenClosedTab(entry);
   }, []);
 
-  const closeTab = async (tabId: string) => {
-    if (!IS_ELECTRON) {
-      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-      const idx = currentTabs.findIndex(t => t.id === tabId);
-      if (idx === -1) {
-        return;
-      }
-      const tabBeingClosed = currentTabs[idx];
-      if (tabBeingClosed) {
-        rememberClosedTab(tabBeingClosed);
-        // Save for resurrection (auto-reopen after 5 minutes)
-        saveTabForResurrection(tabBeingClosed);
-        // Schedule auto-resurrection after 5 minutes
-        scheduleAutoResurrection(RESURRECTION_DELAY_MS);
-      }
-      const wasActive = currentTabs[idx]?.active;
-      const remaining = currentTabs.filter(t => t.id !== tabId);
-      let updated = remaining;
-
-      if (remaining.length === 0) {
-        const fallbackTab: Tab = {
-          id: `local-${Date.now()}`,
-          title: 'New Tab',
-          url: 'about:blank',
-          active: true,
-          mode: 'normal',
-        };
-        updated = [fallbackTab];
-      } else if (wasActive) {
-        // After removing tab at idx, prefer the tab at the same position
-        // If that doesn't exist (we closed the last tab), use the previous one
-        let nextIndex = idx;
-        if (nextIndex >= remaining.length) {
-          nextIndex = remaining.length - 1;
-        }
-        updated = remaining.map((t, index) => ({
-          ...t,
-          active: index === nextIndex,
-        }));
-      }
-
-      const activeTab = updated.find(t => t.active) ?? updated[0];
-
-      setTabs(updated);
-      tabsRef.current = updated;
-      previousTabIdsRef.current = updated
-        .map(t => t.id)
-        .sort()
-        .join(',');
-      setAllTabs(mapTabsForStore(updated));
-      setActiveTab(activeTab ? activeTab.id : null);
-      currentActiveIdRef.current = activeTab ? activeTab.id : null;
-      ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
-      return;
-    }
-
-    // Prevent closing if already creating a tab
-    if (isCreatingTabRef.current) {
-      return;
-    }
-
-    // Get current tabs
-    const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-    const tabToClose = currentTabs.find(t => t.id === tabId);
-    if (!tabToClose) {
-      return;
-    }
-    rememberClosedTab(tabToClose);
-    // Save for resurrection (auto-reopen after 5 minutes)
-    saveTabForResurrection(tabToClose);
-    // Schedule auto-resurrection after 5 minutes
-    scheduleAutoResurrection(RESURRECTION_DELAY_MS);
-
-    const wasActive = tabToClose.active;
-    const tabIndex = currentTabs.findIndex(t => t.id === tabId);
-    const remainingTabs = currentTabs.filter(t => t.id !== tabId);
-    const closingLastTab = remainingTabs.length === 0;
-    const snapshotTabs = currentTabs.map(t => ({ ...t }));
-    const previousActiveId = currentActiveIdRef.current;
-
-    // Update UI immediately (optimistic update)
-    setTabs(remainingTabs);
-    tabsRef.current = remainingTabs;
-    previousTabIdsRef.current = remainingTabs
-      .map(t => t.id)
-      .sort()
-      .join(',');
-    setAllTabs(mapTabsForStore(remainingTabs));
-
-    // If closing active tab, activate the next one
-    if (wasActive && remainingTabs.length > 0) {
-      // After removing tab at tabIndex, prefer the tab at the same position
-      // If that doesn't exist (we closed the last tab), use the previous one
-      let nextTabIndex = tabIndex;
-      if (nextTabIndex >= remainingTabs.length) {
-        nextTabIndex = remainingTabs.length - 1;
-      }
-      const nextTab = remainingTabs[nextTabIndex];
-      if (nextTab) {
-        setActiveTab(nextTab.id);
-        currentActiveIdRef.current = nextTab.id;
-      }
-    } else if (remainingTabs.length === 0) {
-      setActiveTab(null);
-      currentActiveIdRef.current = null;
-    }
-
-    if (IS_DEV) {
-      console.log(
-        '[TabStrip] Closing tab (optimistic):',
-        tabId,
-        'previous active:',
-        previousActiveId
-      );
-    }
-
-    try {
-      const result = await Promise.race([
-        ipc.tabs.close({ id: tabId }),
-        new Promise<{ success: boolean; error?: string }>(resolve =>
-          setTimeout(() => resolve({ success: false, error: 'Timeout' }), 2000)
-        ),
-      ]);
-
-      if (IS_DEV) {
-        console.log('[TabStrip] tabs.close result:', result);
-      }
-
-      if (!result || !result.success) {
-        if (IS_DEV) {
-          console.warn(
-            '[TabStrip] Tab close failed or timed out, reverting:',
-            tabId,
-            result?.error
-          );
-        }
-
-        setTabs(snapshotTabs);
-        tabsRef.current = snapshotTabs;
-        previousTabIdsRef.current = snapshotTabs
-          .map(t => t.id)
-          .sort()
-          .join(',');
-        setAllTabs(mapTabsForStore(snapshotTabs));
-
-        if (previousActiveId) {
-          setActiveTab(previousActiveId);
-          currentActiveIdRef.current = previousActiveId;
-        }
-
-        await refreshTabsFromMain();
-      } else if (closingLastTab) {
-        // Ensure there is always at least one tab per mode
-        setTimeout(() => {
-          void addTab();
-        }, 50);
-      }
-    } catch (error) {
-      if (IS_DEV) {
-        console.error('[TabStrip] Exception during tab close, reverting:', error);
-      }
-
-      setTabs(snapshotTabs);
-      tabsRef.current = snapshotTabs;
-      previousTabIdsRef.current = snapshotTabs
-        .map(t => t.id)
-        .sort()
-        .join(',');
-      setAllTabs(mapTabsForStore(snapshotTabs));
-
-      if (previousActiveId) {
-        setActiveTab(previousActiveId);
-        currentActiveIdRef.current = previousActiveId;
-      }
-
-      await refreshTabsFromMain();
-    }
-  };
-
-  const activateTab = useCallback(
-    async (tabId: string) => {
-      if (!IS_ELECTRON) {
-        const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-        const tabToActivate = currentTabs.find(t => t.id === tabId);
-        if (!tabToActivate) {
-          return;
-        }
-        const updated = currentTabs.map(t => ({
-          ...t,
-          active: t.id === tabId,
-        }));
-        setTabs(updated);
-        tabsRef.current = updated;
-        previousTabIdsRef.current = updated
-          .map(t => t.id)
-          .sort()
-          .join(',');
-        setAllTabs(mapTabsForStore(updated));
-        setActiveTab(tabId);
-        currentActiveIdRef.current = tabId;
-        ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
-        return;
-      }
-
-      // Fast path: Skip if already active (check both ref and store for accuracy)
-      if (activationInFlightRef.current === tabId) {
-        return;
-      }
-      if (currentActiveIdRef.current === tabId && activeId === tabId) {
-        return;
-      }
-
-      // Get current tabs from ref (most up-to-date, avoids re-render)
-      const currentTabs = tabsRef.current.length > 0 ? tabsRef.current : tabs;
-      const tabToActivate = currentTabs.find(t => t.id === tabId);
-      if (!tabToActivate) {
-        if (IS_DEV) {
-          console.warn('[TabStrip] Tab not found for activation:', tabId);
-        }
-        return;
-      }
-
-      // Set flag immediately to prevent duplicate activations
-      activationInFlightRef.current = tabId;
-
-      // OPTIMIZED: Only update active state, not entire tabs array
-      // IPC event will update tabs array, so we just need to update activeId
-      setActiveTab(tabId);
-      currentActiveIdRef.current = tabId;
-
-      // Fire IPC call without waiting (non-blocking for better UX)
-      // IPC event handler will update tabs array when it receives confirmation
-      ipc.tabs
-        .activate({ id: tabId })
-        .then(result => {
-          if (!result || !result.success) {
-            // Only revert if activation failed
-            if (IS_DEV) {
-              console.warn('[TabStrip] Tab activation failed:', tabId, result?.error);
-            }
-            // Refresh from main process to get correct state
-            refreshTabsFromMain().catch(() => {});
-          }
-          activationInFlightRef.current = null;
-        })
-        .catch(error => {
-          if (IS_DEV) {
-            console.error('[TabStrip] Tab activation error:', error);
-          }
-          // Refresh from main process to get correct state
-          refreshTabsFromMain().catch(() => {});
-          activationInFlightRef.current = null;
-        });
-    },
-    [activeId, setActiveTab, setAllTabs, refreshTabsFromMain]
-  );
-
   const handleApplyCluster = useCallback(
     (clusterId: string) => {
       const cluster = predictedClusters.find(c => c.id === clusterId);
@@ -1869,13 +2002,18 @@ export function TabStrip() {
     return () => window.removeEventListener('keydown', handleModifiedShortcuts);
   }, [activateTab]);
 
+  // Early return if critical data isn't ready
+  if (!Array.isArray(safeTabs)) {
+    return null;
+  }
+
   return (
     <>
       <div
         ref={stripRef}
         role="tablist"
         aria-label="Browser tabs"
-        className="no-drag flex items-center gap-1 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide relative"
+        className="no-drag flex items-center gap-2 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide relative"
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 9999 }}
         onKeyDown={handleKeyNavigation}
         data-onboarding="tabstrip"
@@ -1984,15 +2122,7 @@ export function TabStrip() {
               type="button"
               onClick={e => {
                 stopEventPropagation(e);
-                const namePrompt =
-                  window.prompt('New group name', `Group ${tabGroups.length + 1}`) ?? undefined;
-                const group = handleCreateGroupShortcut(
-                  namePrompt?.trim() ? namePrompt : undefined
-                );
-                if (draggedTabIdRef.current && group) {
-                  assignTabToGroup(draggedTabIdRef.current, group.id);
-                  draggedTabIdRef.current = null;
-                }
+                setGroupsOverlayOpen(true);
               }}
               onMouseDown={e => {
                 stopEventPropagation(e);
@@ -2140,6 +2270,9 @@ export function TabStrip() {
           </Portal>
         )}
       </div>
+
+      {/* Tab Groups Overlay */}
+      <TabGroupsOverlay open={groupsOverlayOpen} onClose={() => setGroupsOverlayOpen(false)} />
 
       {/* HolographicPreviewOverlay removed - unused component */}
     </>

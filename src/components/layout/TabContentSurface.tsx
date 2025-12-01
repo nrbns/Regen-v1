@@ -49,17 +49,19 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      // Convert to Google search in user's language
+      // Convert to search in user's language
+      // Use iframe-friendly search engine (Bing) to avoid X-Frame-Options blocking
       const searchUrl = normalizeInputToUrlOrSearch(
         url,
-        'google',
-        language !== 'auto' ? language : undefined
+        'bing', // Use Bing as default - it allows iframe embedding
+        language !== 'auto' ? language : undefined,
+        true // prefer iframe-friendly
       );
       if (searchUrl) {
         return searchUrl;
       }
-      // Fallback to Google search (shouldn't happen, but just in case)
-      return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+      // Fallback to Bing search (iframe-friendly)
+      return `https://www.bing.com/search?q=${encodeURIComponent(url)}`;
     }
 
     return url;
@@ -83,6 +85,143 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return () => {
       // Clear any pending timeouts or intervals
       // Reset state to prevent stale references
+      setLoading(false);
+      setFailedMessage(null);
+      setBlockedExternal(false);
+    };
+  }, [isElectron, isTauri, targetUrl]);
+
+  // WebView stability: Add error handling and lifecycle management for iframe
+  useEffect(() => {
+    if (isElectron || !targetUrl || !iframeRef.current) {
+      return;
+    }
+
+    const iframe = iframeRef.current;
+    let isMounted = true;
+    const LOADING_TIMEOUT_MS = 30000; // 30 seconds
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const handleLoad = () => {
+      if (!isMounted) return; // Don't update state if unmounted
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      setLoading(false);
+      setFailedMessage(null);
+      if (!iframeRef.current) return;
+
+      // Check if iframe loaded successfully
+      // Cross-origin frames will throw when accessing contentDocument, but that's OK
+      // Only set blockedExternal if we can't access the iframe at all
+      try {
+        const doc = iframeRef.current.contentDocument;
+        void doc?.title;
+        setBlockedExternal(false);
+      } catch (error) {
+        // Cross-origin is normal - don't block unless there's an actual error
+        // Only block if we can't even access the iframe element
+        if (import.meta.env.DEV) {
+          console.debug('[TabContentSurface] cross-origin frame (normal)', error);
+        }
+        // Don't set blockedExternal for cross-origin - many sites work fine
+        // Only block if there's an actual X-Frame-Options error (detected via error handler)
+        setBlockedExternal(false);
+      }
+    };
+
+    const handleError = (event: ErrorEvent | Event) => {
+      if (!isMounted) return; // Don't update state if unmounted
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      setLoading(false);
+
+      // Check if this is an X-Frame-Options blocking error
+      // Note: iframe error events don't always provide detailed error messages
+      // We'll check the iframe's state to determine if it's actually blocked
+      const errorMessage = event instanceof ErrorEvent ? event.message || '' : '';
+      const errorTarget = event.target;
+
+      // Check if the iframe itself failed to load (not just cross-origin)
+      // If iframe has no contentWindow, it might be blocked
+      const isFrameBlocked =
+        (errorMessage &&
+          (errorMessage.toLowerCase().includes('x-frame-options') ||
+            errorMessage.toLowerCase().includes('frame-ancestors') ||
+            errorMessage.toLowerCase().includes('refused to display') ||
+            errorMessage.toLowerCase().includes('denied') ||
+            (errorMessage.toLowerCase().includes('frame') &&
+              errorMessage.toLowerCase().includes('blocked')))) ||
+        (errorTarget === iframe &&
+          iframe.contentWindow === null &&
+          iframe.contentDocument === null);
+
+      // Additional check: If URL is a search engine that blocks iframes, try alternative
+      if (targetUrl && !isFrameBlocked) {
+        const urlLower = targetUrl.toLowerCase();
+        // DuckDuckGo and Google often block iframes
+        if (urlLower.includes('duckduckgo.com') || urlLower.includes('google.com/search')) {
+          // Try to convert to Bing search (iframe-friendly)
+          try {
+            const urlObj = new URL(targetUrl);
+            const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
+            if (query) {
+              // Convert to Bing search URL
+              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              setTimeout(() => {
+                if (iframeRef.current) {
+                  iframeRef.current.src = bingUrl;
+                  setLoading(true);
+                  setFailedMessage(null);
+                }
+              }, 100);
+              return; // Don't set error, we're retrying with Bing
+            }
+          } catch {
+            // URL parsing failed, continue with error handling
+          }
+        }
+      }
+
+      if (isFrameBlocked) {
+        setBlockedExternal(true);
+        setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+      } else {
+        // Generic error - don't assume it's blocking, might be network issue
+        setFailedMessage('Failed to load this page. Please check the URL or your connection.');
+        setBlockedExternal(false);
+      }
+    };
+
+    // Set loading timeout
+    timeoutId = setTimeout(() => {
+      if (!isMounted) return; // Don't update state if unmounted
+      setLoading(false);
+      setFailedMessage(
+        'This page is taking too long to load. Check your connection or try refreshing.'
+      );
+      timeoutId = null;
+    }, LOADING_TIMEOUT_MS);
+
+    iframe.addEventListener('load', handleLoad);
+    iframe.addEventListener('error', handleError as EventListener);
+
+    // Cleanup function to prevent memory leaks on tab hibernation/close
+    return () => {
+      isMounted = false; // Mark as unmounted to prevent state updates
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (iframe && iframeRef.current) {
+        iframe.removeEventListener('load', handleLoad);
+        iframe.removeEventListener('error', handleError);
+      }
+      // Clear state to prevent memory leaks
       setLoading(false);
       setFailedMessage(null);
       setBlockedExternal(false);
@@ -249,11 +388,40 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           (errorMessage.toLowerCase().includes('x-frame-options') ||
             errorMessage.toLowerCase().includes('frame-ancestors') ||
             errorMessage.toLowerCase().includes('refused to display') ||
+            errorMessage.toLowerCase().includes('denied') ||
             (errorMessage.toLowerCase().includes('frame') &&
               errorMessage.toLowerCase().includes('blocked')))) ||
         (errorTarget === iframe &&
           iframe.contentWindow === null &&
           iframe.contentDocument === null);
+
+      // Additional check: If URL is a search engine that blocks iframes, try alternative
+      if (targetUrl && !isFrameBlocked) {
+        const urlLower = targetUrl.toLowerCase();
+        // DuckDuckGo and Google often block iframes
+        if (urlLower.includes('duckduckgo.com') || urlLower.includes('google.com/search')) {
+          // Try to convert to Bing search (iframe-friendly)
+          try {
+            const urlObj = new URL(targetUrl);
+            const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
+            if (query) {
+              // Convert to Bing search URL
+              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
+              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              setTimeout(() => {
+                if (iframeRef.current) {
+                  iframeRef.current.src = bingUrl;
+                  setLoading(true);
+                  setFailedMessage(null);
+                }
+              }, 100);
+              return; // Don't set error, we're retrying with Bing
+            }
+          } catch {
+            // URL parsing failed, continue with error handling
+          }
+        }
+      }
 
       if (isFrameBlocked) {
         setBlockedExternal(true);
@@ -278,9 +446,29 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     iframe.addEventListener('load', handleLoad);
     iframe.addEventListener('error', handleError as EventListener);
 
+    // MEMORY LEAK FIX: Listen for tab close event to cleanup
+    const handleTabClose = ((e: CustomEvent) => {
+      if (e.detail?.tabId === tab?.id) {
+        isMounted = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (iframe && iframeRef.current) {
+          iframe.removeEventListener('load', handleLoad);
+          iframe.removeEventListener('error', handleError);
+          // Clear iframe src to release resources
+          iframe.src = 'about:blank';
+        }
+      }
+    }) as EventListener;
+
+    window.addEventListener('tab-closed', handleTabClose);
+
     // Cleanup function to prevent memory leaks on tab hibernation/close
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
+      window.removeEventListener('tab-closed', handleTabClose);
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
@@ -288,13 +476,15 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       if (iframe && iframeRef.current) {
         iframe.removeEventListener('load', handleLoad);
         iframe.removeEventListener('error', handleError);
+        // Clear iframe src to release resources
+        iframe.src = 'about:blank';
       }
       // Clear state to prevent memory leaks
       setLoading(false);
       setFailedMessage(null);
       setBlockedExternal(false);
     };
-  }, [isElectron, isTauri, targetUrl]);
+  }, [isElectron, isTauri, targetUrl, tab?.id]);
 
   const launchExternal = useCallback(() => {
     if (!targetUrl) return;
@@ -414,6 +604,16 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 : 'Tab content'
           }
           aria-live="off"
+          onError={(e) => {
+            // Additional error handling for iframe
+            console.warn('[TabContentSurface] Iframe error event:', e);
+            // Check if it's a blocked iframe
+            const iframe = e.currentTarget;
+            if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
+              setBlockedExternal(true);
+              setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+            }
+          }}
         />
       ) : null}
 

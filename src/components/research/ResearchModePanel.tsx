@@ -20,6 +20,7 @@ import { useSettingsStore } from '../../state/settingsStore';
 import { useAppStore } from '../../state/appStore';
 import { getLanguageMeta } from '../../constants/languageMeta';
 import type { ResearchResult } from '../../types/research';
+import { SearchStatusIndicator } from '../search/SearchStatusIndicator';
 
 interface ResearchModePanelProps {
   query?: string;
@@ -98,6 +99,8 @@ export default function ResearchModePanel({
       <div className="p-6 border-b border-purple-800/50 bg-black/20 backdrop-blur-xl flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
+            {/* Search Status Indicator */}
+            <SearchStatusIndicator />
             <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl">
               <Sparkles className="w-6 h-6 text-purple-400" />
             </div>

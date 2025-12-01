@@ -10,8 +10,9 @@ import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
-import { multiSourceSearch, type MultiSourceSearchResult } from '../../services/multiSourceSearch';
+import { type MultiSourceSearchResult } from '../../services/multiSourceSearch';
 import { performLiveWebSearch } from '../../services/liveWebSearch';
+import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
 import { aiEngine, type AITaskResult } from '../../core/ai';
@@ -45,6 +46,7 @@ import { OmniAgentInput } from '../../components/OmniAgentInput';
 import ResearchModePanel from '../../components/research/ResearchModePanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
+import { getSearchHealth } from '../../services/searchHealth';
 
 type UploadedDocument = {
   id: string;
@@ -774,6 +776,15 @@ export default function ResearchPanel() {
     const searchQuery = typeof input === 'string' ? input : query;
     if (!searchQuery.trim()) return;
 
+    // TELEMETRY FIX: Track search feature usage
+    import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
+      telemetryMetrics.trackFeature('search_executed', { mode: 'research' });
+    }).catch(() => {
+      // Telemetry not available
+    });
+
+    const searchStartTime = performance.now();
+
     // Auto-detect language if set to 'auto'
     if (language === 'auto' && searchQuery.trim().length > 2) {
       try {
@@ -805,6 +816,15 @@ export default function ResearchPanel() {
     setError(null);
     setResult(null);
     setActiveSourceId(null);
+
+    // SEARCH SYSTEM VERIFICATION: Check search health before proceeding
+    const searchHealth = getSearchHealth();
+    if (searchHealth && searchHealth.status === 'offline') {
+      setError('Search system is offline. Please check your connection.');
+      setLoading(false);
+      toast.error('Search system offline');
+      return;
+    }
 
     let aggregatedSources: ResearchSource[] = [];
     let aggregatedProviderNames: string[] = [];
@@ -918,7 +938,22 @@ export default function ResearchPanel() {
         // Fallback to multi-source search if backend API failed or returned no results
         if (aggregatedSources.length === 0) {
           try {
-            const multiSourceResults = await multiSourceSearch(searchQuery, { limit: 20 });
+            // OPTIMIZED SEARCH: Use optimized search service for better reliability
+            const optimizedResults = await optimizedSearch(searchQuery, {
+              count: 20,
+              language,
+              timeout: 10000,
+            });
+            
+            // Convert optimized results to multi-source format
+            const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+              source: r.provider,
+              score: r.score,
+              domain: r.domain,
+            }));
             if (multiSourceResults.length > 0) {
               aggregatedSources = multiSourceResults.map((hit, idx) =>
                 mapMultiSourceResultToSource(hit, idx)
@@ -1017,10 +1052,21 @@ export default function ResearchPanel() {
             100
           );
 
-          setResult({
-            query: searchQuery,
-            summary: backendResult.summary || backendResult.answer || '',
-            sources: dedupedSources.slice(0, 16),
+            // TELEMETRY FIX: Track successful search latency
+            const searchLatency = performance.now() - searchStartTime;
+            import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
+              telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
+                provider: 'backend',
+                resultCount: dedupedSources.length,
+              });
+            }).catch(() => {
+              // Telemetry not available
+            });
+
+            setResult({
+              query: searchQuery,
+              summary: backendResult.summary || backendResult.answer || '',
+              sources: dedupedSources.slice(0, 16),
             citations: backendResult.citations || [],
             inlineEvidence: [],
             contradictions: backendResult.contradictions || [],
@@ -1371,8 +1417,49 @@ export default function ResearchPanel() {
           return;
         }
 
-        // Fallback to DuckDuckGo Instant Answer API
-        const duckResult = await fetchDuckDuckGoInstant(searchQuery);
+        // OPTIMIZED SEARCH: Try optimized search as primary fallback
+        const optimizedResults = await optimizedSearch(searchQuery, {
+          count: 10,
+          language,
+          timeout: 6000,
+        });
+        
+        if (optimizedResults.length > 0) {
+          const sources: ResearchSource[] = optimizedResults.map((r, idx) => ({
+            id: `opt-fallback-${idx}`,
+            title: r.title,
+            url: r.url,
+            domain: r.domain,
+            snippet: r.snippet,
+            text: r.snippet,
+            type: inferSourceType(r.domain),
+            sourceType: inferSourceType(r.domain),
+            relevanceScore: r.score * 100,
+            timestamp: r.timestamp,
+            metadata: {
+              provider: r.provider,
+            },
+          }));
+          
+          setResult({
+            query: searchQuery,
+            summary: `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+            sources: dedupeResearchSources(sources).slice(0, 16),
+            citations: [],
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.65,
+              confidence: 'medium',
+              suggestions: [`Results from ${optimizedResults[0]?.provider || 'optimized'} search`],
+            },
+            confidence: 0.6,
+          });
+          return;
+        }
+        
+        // Final fallback to DuckDuckGo Instant Answer API
+        const duckResult = await fetchDuckDuckGoInstant(searchQuery, language);
         if (duckResult) {
           aiMetaRef.current = {
             provider: 'duckduckgo',
@@ -1504,11 +1591,62 @@ export default function ResearchPanel() {
       }
     } catch (err) {
       console.error('Research query failed:', err);
+      
+      // SEARCH SYSTEM VERIFICATION: Enhanced error handling with offline fallback
       const errorMessage =
         err instanceof Error
           ? err.message
           : 'Unable to complete the research request. Please try again.';
-      setError(errorMessage);
+      
+      // Try offline fallback if MeiliSearch is down
+      const searchHealth = getSearchHealth();
+      if (searchHealth && !searchHealth.meiliSearch && searchHealth.localSearch) {
+        try {
+          console.log('[Research] Attempting offline search fallback...');
+          const localResults = await searchLocal(searchQuery, { limit: 10 });
+          if (localResults && localResults.length > 0) {
+            // Convert local results to ResearchSource format
+            const localSources = localResults.map((result: any, idx: number) => ({
+              id: `local-${idx}`,
+              url: result.url || '',
+              title: result.title || 'Local Result',
+              snippet: result.snippet || '',
+              sourceType: 'local' as ResearchSourceType,
+              relevanceScore: result.score || 50,
+            }));
+            
+            // Create a basic result from local search
+            setResult({
+              query: searchQuery,
+              summary: `Found ${localResults.length} local result(s) for "${searchQuery}"`,
+              sources: localSources,
+              citations: localSources.length,
+              confidence: 0.6,
+              processingTimeMs: 100,
+            });
+            
+            toast.success(`Found ${localResults.length} local result(s)`);
+            setError(null);
+            return;
+          }
+        } catch (fallbackError) {
+          console.warn('[Research] Offline fallback also failed:', fallbackError);
+        }
+      }
+      
+      setError(`Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`);
+      toast.error(`Search failed: ${errorMessage}`);
+
+      // TELEMETRY FIX: Track failed search latency
+      const searchLatency = performance.now() - searchStartTime;
+      import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
+        telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
+          provider: 'failed',
+          error: errorMessage,
+        });
+      }).catch(() => {
+        // Telemetry not available
+      });
     } finally {
       setLoading(false);
       setLoadingMessage(null);

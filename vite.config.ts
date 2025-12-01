@@ -27,6 +27,7 @@ export default defineConfig({
       // DAY 10 FIX: Alias @tauri-apps/api to a stub to avoid resolution errors in dev
       '@tauri-apps/api/core': resolve(__dirname, './stubs/tauri-api-stub.js'),
       '@tauri-apps/api/event': resolve(__dirname, './stubs/tauri-api-stub.js'),
+      '@tauri-apps/api/updater': resolve(__dirname, './stubs/tauri-api-stub.js'), // Optional updater plugin
       '@tauri-apps/api': resolve(__dirname, './stubs/tauri-api-stub.js'),
     },
   },
@@ -42,6 +43,8 @@ export default defineConfig({
     emptyOutDir: true,
     minify: 'esbuild',
     chunkSizeWarningLimit: 1000, // Increased to reduce warnings for large chunks
+    // NETWORK FIX: Enable compression (brotli/gzip handled by server)
+    reportCompressedSize: true,
     rollupOptions: {
       external: [
         '@ghostery/adblocker-electron',

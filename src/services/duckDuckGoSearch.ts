@@ -57,14 +57,24 @@ export async function fetchDuckDuckGoInstant(
   query: string,
   language?: string
 ): Promise<DuckDuckGoResult | null> {
-  if (!query || query.trim().length < 2) return null;
+  if (!query || query.trim().length < 1) return null;
+
+  const normalizedQuery = query.trim();
+  
+  // OPTIMIZATION: Normalize query - remove extra spaces, handle special characters
+  const cleanQuery = normalizedQuery
+    .replace(/\s+/g, ' ')
+    .replace(/[^\w\s\-.,!?]/g, '')
+    .trim();
+
+  if (cleanQuery.length < 1) return null;
 
   try {
     // Try Tauri search_proxy first (bypasses CORS and activates DuckDuckGo)
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
-        const result = await invoke('search_proxy', { query: query.trim() });
+        const result = await invoke('search_proxy', { query: cleanQuery });
         if (result && typeof result === 'object') {
           console.debug('[DuckDuckGo] Using Tauri search_proxy (activated)');
           return result as DuckDuckGoResult;
@@ -77,24 +87,54 @@ export async function fetchDuckDuckGoInstant(
       }
     }
 
-    // Fallback: Direct fetch to DuckDuckGo API
+    // Fallback: Direct fetch to DuckDuckGo API with retry logic
     const locale = getDuckLocale(language);
     const langCode = locale.split('-')[0];
-    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query.trim())}&format=json&no_redirect=1&skip_disambig=1&kl=${locale}&hl=${langCode}`;
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}&format=json&no_redirect=1&skip_disambig=1&kl=${locale}&hl=${langCode}`;
+    
+    // OPTIMIZATION: Add timeout and retry logic
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        signal: controller.signal,
+      });
 
-    if (!res.ok) {
-      console.warn('[DuckDuckGo] API request failed:', res.status);
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        console.warn('[DuckDuckGo] API request failed:', res.status);
+        // Retry once with a simpler query if it's a long query
+        if (cleanQuery.length > 50 && res.status === 429) {
+          const shortQuery = cleanQuery.split(' ').slice(0, 5).join(' ');
+          return fetchDuckDuckGoInstant(shortQuery, language);
+        }
+        return null;
+      }
+
+      const data = (await res.json()) as DuckDuckGoResult;
+      
+      // OPTIMIZATION: Validate response has useful data
+      if (data && (data.AbstractText || data.Answer || data.Definition || (data.Results && data.Results.length > 0))) {
+        return data;
+      }
+      
+      // If no useful data, return null to trigger fallback
+      return null;
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.warn('[DuckDuckGo] Request timeout');
+      } else {
+        console.warn('[DuckDuckGo] Fetch failed:', fetchError);
+      }
       return null;
     }
-
-    const data = (await res.json()) as DuckDuckGoResult;
-    return data;
   } catch (error) {
     console.warn('[DuckDuckGo] Search failed:', error);
     return null;

@@ -6,7 +6,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './styles/mode-themes.css';
 import './lib/battery';
-import { isDevEnv, isElectronRuntime } from './lib/env';
+import { isDevEnv, isElectronRuntime, isTauriRuntime } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
 import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-client';
@@ -76,6 +76,7 @@ const PlaybookForge = lazyWithErrorHandling(
 );
 const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
+const DocumentEditorPage = lazyWithErrorHandling(() => import('./routes/DocumentEditor'), 'DocumentEditorPage');
 const WatchersPage = lazyWithErrorHandling(() => import('./routes/Watchers'), 'WatchersPage');
 const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPage');
 const ConsentTimelinePage = lazyWithErrorHandling(
@@ -236,6 +237,14 @@ const router = createBrowserRouter(
             </Suspense>
           ),
         },
+        {
+          path: 'doc-editor',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <DocumentEditorPage />
+            </Suspense>
+          ),
+        },
       ],
     },
   ],
@@ -336,13 +345,38 @@ try {
       }
       import('./utils/toast').then(({ toast }) => {
         toast.success('Backend ready! Ollama, MeiliSearch, and n8n are running.');
-        // Initialize MeiliSearch indexing and setup indexes
-        import('./services/meiliIndexer').then(({ initMeiliIndexing }) => {
-          initMeiliIndexing().catch(console.error);
+        // SEARCH SYSTEM VERIFICATION: Initialize and verify search system
+        Promise.all([
+          import('./services/meiliIndexer').then(({ initMeiliIndexing }) => {
+            return initMeiliIndexing().catch(console.error);
+          }),
+          import('./lib/meili-setup').then(({ setupMeiliIndexes }) => {
+            return setupMeiliIndexes().catch(console.error);
+          }),
+          import('./services/searchHealth').then(({ verifySearchSystem, startSearchHealthMonitoring }) => {
+            // Verify search system on startup
+            return verifySearchSystem().then(result => {
+              if (result.success) {
+                console.log(`[Search] ${result.message}`);
+                // Start health monitoring
+                startSearchHealthMonitoring(30000); // Check every 30 seconds
+              } else {
+                console.warn(`[Search] ${result.message}`);
+              }
+              return result;
+            });
+          }),
+        ]).then(() => {
+          console.log('[Search] Search system initialization complete');
         });
-        import('./lib/meili-setup').then(({ setupMeiliIndexes }) => {
-          setupMeiliIndexes().catch(console.error);
-        });
+
+        // Initialize search services
+        import('./services/multiSourceSearch').then(() => {
+          console.log('[Search] Search services initialized');
+        }).catch(console.error);
+        import('./services/liveWebSearch').then(() => {
+          console.log('[Search] Live web search initialized');
+        }).catch(console.error);
       });
     });
 
@@ -385,8 +419,8 @@ try {
             console.warn('[Iframe] Invoke failed:', err);
           });
         }
-      } catch (err) {
-        console.warn('[Iframe] Invalid iframe-call payload:', err);
+      } catch {
+        console.warn('[Iframe] Invalid iframe-call payload');
       }
     }) as EventListener);
 
@@ -431,6 +465,9 @@ try {
   };
 
   const initializeHeavyServices = async () => {
+    // DAY 2 FIX: Defer ALL non-critical services until after UI shows
+    // These services are loaded in background after first paint
+    
     try {
       // Initialize auth service (can be slow) - defer even more
       setTimeout(async () => {
@@ -451,7 +488,7 @@ try {
             console.warn('[Main] Failed to initialize auth service:', error);
           }
         }
-      }, 1000);
+      }, 2000); // Increased delay to 2s
     } catch (error) {
       if (isDevEnv()) {
         console.warn('[Main] Failed to initialize auth service:', error);
@@ -468,19 +505,169 @@ try {
             console.warn('[Main] Failed to restore plugin state:', error);
           }
         }
-      }, 2000);
+      }, 3000); // Increased delay to 3s
     } catch (error) {
       if (isDevEnv()) {
         console.warn('[Main] Failed to restore plugin state:', error);
       }
     }
+
+    // DAY 2 FIX: Move analytics/update checks to background
+    // These don't need to block startup
+    setTimeout(() => {
+      // Analytics check (non-blocking)
+      syncAnalyticsOptIn().catch(() => {
+        // Analytics initialization is not critical
+      });
+
+      // Update check (non-blocking) - Optional, only if updater plugin is available
+      // Note: @tauri-apps/api/updater is an optional plugin and may not be installed
+      if (isTauriRuntime()) {
+        // Use a more defensive approach - check if we're in a build environment
+        // where the stub might not handle this properly
+        try {
+          // Only attempt import if we're actually in Tauri runtime (not web build)
+          if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+            // Use dynamic import with proper error handling
+            Promise.resolve()
+              .then(() => {
+                // Only import if we're sure we're in Tauri
+                return import('@tauri-apps/api/updater');
+              })
+              .then((module) => {
+                if (module && typeof module.check === 'function') {
+                  module.check().catch(() => {
+                    // Update check failed, not critical
+                  });
+                }
+              })
+              .catch((err) => {
+                // Updater plugin not installed or not available - this is fine
+                // The updater is an optional Tauri plugin
+                if (import.meta.env.DEV) {
+                  console.debug('[Updater] Not available:', err.message);
+                }
+              });
+          }
+        } catch (err) {
+          // Silently ignore - updater is optional
+          if (import.meta.env.DEV) {
+            console.debug('[Updater] Import failed:', err);
+          }
+        }
+      }
+    }, 5000); // Wait 5 seconds before checking updates
   };
+
+  // DAY 2 FIX: Measure startup time (target: <3s to first paint)
+  const startTime = performance.now();
+  const metrics = {
+    domContentLoaded: 0,
+    load: 0,
+    firstPaint: 0,
+    firstContentfulPaint: 0,
+    timeToInteractive: 0,
+  };
+
+  // Measure DOMContentLoaded
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      metrics.domContentLoaded = performance.now() - startTime;
+      console.log(`[Perf] DOMContentLoaded: ${metrics.domContentLoaded.toFixed(2)}ms`);
+    });
+  } else {
+    metrics.domContentLoaded = performance.now() - startTime;
+  }
+
+  // Measure load event
+  window.addEventListener('load', () => {
+    metrics.load = performance.now() - startTime;
+    console.log(`[Perf] Load: ${metrics.load.toFixed(2)}ms`);
+    
+    // Measure First Paint and First Contentful Paint
+    if ('PerformanceObserver' in window) {
+      try {
+        const paintObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.name === 'first-paint') {
+              metrics.firstPaint = entry.startTime;
+              console.log(`[Perf] First Paint: ${metrics.firstPaint.toFixed(2)}ms`);
+            }
+            if (entry.name === 'first-contentful-paint') {
+              metrics.firstContentfulPaint = entry.startTime;
+              console.log(`[Perf] First Contentful Paint: ${metrics.firstContentfulPaint.toFixed(2)}ms`);
+            }
+          }
+        });
+        paintObserver.observe({ entryTypes: ['paint'] });
+      } catch {
+        console.warn('[Perf] Paint observer not supported');
+      }
+    }
+
+    // Measure Time to Interactive (simplified)
+    setTimeout(() => {
+      metrics.timeToInteractive = performance.now() - startTime;
+      console.log(`[Perf] Time to Interactive: ${metrics.timeToInteractive.toFixed(2)}ms`);
+      
+      // Send metrics to analytics (if enabled)
+      if (typeof window !== 'undefined' && (window as any).Sentry) {
+        (window as any).Sentry.setMeasurement('startup_time', metrics.load);
+        (window as any).Sentry.setMeasurement('first_paint', metrics.firstPaint);
+        (window as any).Sentry.setMeasurement('time_to_interactive', metrics.timeToInteractive);
+      }
+      
+      // Log warning if startup is slow
+      if (metrics.firstPaint > 3000) {
+        console.warn(`[Perf] Slow startup: First Paint took ${metrics.firstPaint.toFixed(2)}ms (target: <3000ms)`);
+      }
+    }, 100);
+  });
 
   // DAY 3-4 FIX: Initialize performance monitoring first
   import('./utils/performance').then(({ initPerformanceMonitoring }) => {
     initPerformanceMonitoring();
   }).catch(() => {
     // Performance monitoring not critical
+  });
+
+  // TELEMETRY FIX: Initialize telemetry metrics tracking
+  import('./services/telemetryMetrics').then(({ telemetryMetrics }) => {
+    // Track app startup
+    const startupTime = performance.now();
+    telemetryMetrics.trackPerformance('app_startup', startupTime, 'ms');
+    
+    // Track feature usage
+    telemetryMetrics.trackFeature('app_launched');
+    
+    console.log('[Telemetry] Metrics tracking initialized');
+  }).catch(() => {
+    // Telemetry not critical
+  });
+
+  // NETWORK FIX: Register service worker for caching
+  if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('[SW] Service Worker registered:', registration.scope);
+        })
+        .catch((error) => {
+          console.warn('[SW] Service Worker registration failed:', error);
+        });
+    });
+  }
+
+  // CPU/BATTERY FIX: Use visibilitychange to pause heavy tasks
+  import('./utils/visibilityManager').then(({ visibilityManager }) => {
+    // Register visibility manager for background tab optimization
+    visibilityManager.onHidden(() => {
+      // Pause heavy operations when tab is hidden
+      console.log('[Visibility] Tab hidden - pausing heavy tasks');
+    });
+  }).catch(() => {
+    // Visibility manager not critical
   });
 
   // DAY 1 FIX: Initialize Sentry early for crash reporting
@@ -491,6 +678,66 @@ try {
         console.warn('[Monitoring] Failed to initialize Sentry', error);
       }
     });
+  }
+
+  // DAY 1 FIX: Add unhandled exception handlers
+  // Global error handlers for unhandled errors
+  window.addEventListener('error', (event) => {
+    console.error('[Global Error]', event.error);
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      (window as any).Sentry.captureException(event.error, {
+        tags: { source: 'unhandled-error' },
+      });
+    }
+  });
+
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('[Unhandled Rejection]', event.reason);
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      (window as any).Sentry.captureException(event.reason, {
+        tags: { source: 'unhandled-rejection' },
+      });
+    }
+    // Prevent default browser behavior
+    event.preventDefault();
+  });
+
+  // DAY 1 FIX: Monitor OOM (Out of Memory) kills
+  // Monitor memory usage and detect potential OOM
+  if ('performance' in window && 'memory' in (performance as any)) {
+    const checkMemory = () => {
+        const memInfo = (performance as any).memory;
+        if (memInfo) {
+          const usedMB = memInfo.usedJSHeapSize / 1048576;
+          const limitMB = memInfo.jsHeapSizeLimit / 1048576;
+          const usagePercent = (usedMB / limitMB) * 100;
+
+        // Warn if memory usage is high (>85%)
+        if (usagePercent > 85) {
+          console.warn(`[Memory] High usage: ${usagePercent.toFixed(1)}% (${usedMB.toFixed(0)}MB / ${limitMB.toFixed(0)}MB)`);
+          if (typeof window !== 'undefined' && (window as any).Sentry) {
+            (window as any).Sentry.captureMessage(
+              `High memory usage: ${usagePercent.toFixed(1)}%`,
+              (window as any).Sentry.Severity.Warning
+            );
+          }
+        }
+
+        // Critical if >95%
+        if (usagePercent > 95) {
+          console.error(`[Memory] CRITICAL: ${usagePercent.toFixed(1)}% - OOM risk!`);
+          if (typeof window !== 'undefined' && (window as any).Sentry) {
+            (window as any).Sentry.captureMessage(
+              `Critical memory usage: ${usagePercent.toFixed(1)}% - OOM risk`,
+              (window as any).Sentry.Severity.Error
+            );
+          }
+        }
+      }
+    };
+
+    // Check memory every 30 seconds
+    setInterval(checkMemory, 30000);
   }
 
   // DAY 3-4 FIX: Defer ALL non-critical services until after first paint
@@ -585,6 +832,13 @@ try {
       } catch (sentryError) {
         console.warn('[Sentry] Failed to capture unhandled rejection:', sentryError);
       }
+
+      // TELEMETRY FIX: Track unhandled rejection
+      import('./services/telemetryMetrics').then(({ telemetryMetrics }) => {
+        telemetryMetrics.trackError(String(reason), { type: 'unhandled_rejection' });
+      }).catch(() => {
+        // Telemetry not available
+      });
     }
     
     // Prevent default browser error handling
@@ -621,6 +875,13 @@ try {
       } catch (sentryError) {
         console.warn('[Sentry] Failed to capture uncaught error:', sentryError);
       }
+
+      // TELEMETRY FIX: Track uncaught error
+      import('./services/telemetryMetrics').then(({ telemetryMetrics }) => {
+        telemetryMetrics.trackError(error.message, { type: 'uncaught_error', stack: error.stack });
+      }).catch(() => {
+        // Telemetry not available
+      });
     }
     
     // Log but don't crash - let error boundary handle it

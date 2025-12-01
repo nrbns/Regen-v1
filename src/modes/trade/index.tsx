@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { toast } from '../../utils/toast';
 import { motion } from 'framer-motion';
-import { Globe, TrendingUp, IndianRupee, Bitcoin, DollarSign, Sparkles } from 'lucide-react';
+import { Globe, TrendingUp, IndianRupee, Bitcoin, DollarSign, Sparkles, Loader2 } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
 import { getRealtimeMarketDataService, type PriceUpdate } from '../../services/realtimeMarketData';
 
@@ -32,6 +32,8 @@ export default function TradePanel() {
   const [qty, setQty] = useState(50);
   const [sl, setSl] = useState(24700);
   const [tp, setTp] = useState(24950);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [chartLoading, setChartLoading] = useState(true);
 
   // WISPR Trade Command Handler
   useEffect(() => {
@@ -196,6 +198,7 @@ export default function TradePanel() {
 
         // REAL CANDLE DATA from Finnhub
         const loadRealCandles = async () => {
+          setChartLoading(true);
           try {
             const realtimeService = getRealtimeMarketDataService();
             const symbol = selected.symbol.includes(':')
@@ -213,6 +216,7 @@ export default function TradePanel() {
                 close: c.close,
               }));
               candlestickSeries.setData(candleData);
+              setChartLoading(false);
             } else {
               // Fallback: Generate mock data if API fails
               console.warn('[Trade] Using fallback candle data');
@@ -233,9 +237,11 @@ export default function TradePanel() {
                 return { time, open, high, low, close };
               });
               candlestickSeries.setData(fallbackData);
+              setChartLoading(false);
             }
           } catch (error) {
             console.error('[Trade] Failed to load real candles:', error);
+            setChartLoading(false);
           }
         };
 
@@ -315,6 +321,9 @@ export default function TradePanel() {
   }, [selected]);
 
   const executeTrade = async (orderType: 'buy' | 'sell') => {
+    if (isPlacingOrder) return; // Prevent double submission
+    
+    setIsPlacingOrder(true);
     try {
       const { tradeApi } = await import('../../lib/api-client');
       const result = await tradeApi.placeOrder({
@@ -332,6 +341,8 @@ export default function TradePanel() {
     } catch (error) {
       console.error('[Trade] Order placement failed:', error);
       toast.error(`Failed to place ${orderType} order. Please try again.`);
+    } finally {
+      setIsPlacingOrder(false);
     }
   };
 
@@ -438,6 +449,14 @@ export default function TradePanel() {
         className="flex-1 relative"
         style={{ minHeight: '100%', height: '100%' }}
       >
+        {chartLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-20">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-emerald-400" />
+              <span className="text-sm text-gray-400">Loading chart data...</span>
+            </div>
+          </div>
+        )}
         <div className="absolute top-4 left-4 z-10 bg-black/70 backdrop-blur px-4 py-2 rounded-lg text-xs md:text-sm border border-gray-700">
           1D • EMA • RSI • Volume Profile
         </div>
@@ -473,15 +492,31 @@ export default function TradePanel() {
           />
           <button
             onClick={() => executeTrade('buy')}
-            className="bg-green-600 hover:bg-green-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all"
+            disabled={isPlacingOrder}
+            className="bg-green-600 hover:bg-green-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            BUY
+            {isPlacingOrder ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span>PLACING...</span>
+              </>
+            ) : (
+              'BUY'
+            )}
           </button>
           <button
             onClick={() => executeTrade('sell')}
-            className="bg-red-600 hover:bg-red-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all"
+            disabled={isPlacingOrder}
+            className="bg-red-600 hover:bg-red-500 active:scale-95 font-black text-xl md:text-4xl py-4 md:py-6 rounded-2xl shadow-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            SELL
+            {isPlacingOrder ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span>PLACING...</span>
+              </>
+            ) : (
+              'SELL'
+            )}
           </button>
         </div>
       </motion.div>

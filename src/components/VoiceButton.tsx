@@ -141,8 +141,22 @@ export default function VoiceButton({ onResult, small }: Props) {
       );
       return;
     }
+    
+    // Check if already active
+    if (active) {
+      try {
+        SR.stop();
+        setActive(false);
+        stopWaveformAnimation();
+      } catch (error) {
+        console.error('[VoiceButton] Failed to stop recognition:', error);
+      }
+      return;
+    }
+    
     try {
       setActive(true);
+      setIsProcessing(true);
       // Show loading toast with language info
       toast.info(`Listening in ${langLabel}... Speak now`);
       SR.start();
@@ -152,6 +166,7 @@ export default function VoiceButton({ onResult, small }: Props) {
     } catch (error: any) {
       console.error('[VoiceButton] Failed to start recognition:', error);
       setActive(false);
+      setIsProcessing(false);
       stopWaveformAnimation();
       toast.error('Failed to start voice recognition. Please try again.');
     }

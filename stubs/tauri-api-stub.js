@@ -21,6 +21,12 @@ export function emit(event, payload) {
   return Promise.resolve();
 }
 
+// Stub for @tauri-apps/api/updater (optional plugin)
+export function check() {
+  console.warn(`[Tauri Stub] updater.check() called but Tauri updater plugin is not available`);
+  return Promise.reject(new Error('Tauri updater plugin not available'));
+}
+
 // Default export for module compatibility
 export default {
   invoke,

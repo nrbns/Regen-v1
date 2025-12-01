@@ -111,11 +111,19 @@ export async function applyTelemetryOptIn(optIn: boolean) {
 }
 
 export async function syncRendererTelemetry() {
-  if (!isElectronRuntime()) return;
+  // Initialize Sentry for both Electron and Tauri
+  try {
   const status = await ipc.telemetry.getStatus();
   if (status.optIn) {
     await initRendererSentry();
   } else {
     await shutdownRendererSentry();
+    }
+  } catch {
+    // If IPC fails (e.g., in web mode), still try to initialize if DSN is available
+    if (SENTRY_DSN) {
+      console.warn('[Sentry] IPC unavailable, initializing with DSN only');
+      await initRendererSentry();
+    }
   }
 }

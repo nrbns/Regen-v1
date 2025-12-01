@@ -40,14 +40,26 @@ function getLocaleFromLanguage(lang?: string): string {
   return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 
+// Search engines that allow iframe embedding (no X-Frame-Options blocking)
+const IFRAME_FRIENDLY_PROVIDERS = ['bing', 'yahoo', 'startpage', 'ecosia'];
+
 export function buildSearchUrl(
-  provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo',
+  provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'startpage' | 'ecosia',
   q: string,
-  language?: string
+  language?: string,
+  preferIframeFriendly: boolean = true
 ) {
   const enc = encodeURIComponent(q);
   const locale = getLocaleFromLanguage(language);
   const langCode = locale.split('-')[0];
+
+  // If iframe-friendly is preferred and current provider blocks iframes, use fallback
+  if (preferIframeFriendly && !IFRAME_FRIENDLY_PROVIDERS.includes(provider)) {
+    // DuckDuckGo and Google block iframes - use Bing as fallback
+    if (provider === 'duckduckgo' || provider === 'google') {
+      return `https://www.bing.com/search?q=${enc}&setlang=${langCode}`;
+    }
+  }
 
   switch (provider) {
     case 'duckduckgo':
@@ -56,7 +68,15 @@ export function buildSearchUrl(
       return `https://www.bing.com/search?q=${enc}&setlang=${langCode}`;
     case 'yahoo':
       return `https://search.yahoo.com/search?p=${enc}&lang=${langCode}`;
+    case 'startpage':
+      return `https://www.startpage.com/sp/search?query=${enc}&language=${langCode}`;
+    case 'ecosia':
+      return `https://www.ecosia.org/search?q=${enc}&language=${langCode}`;
     default:
+      // Google blocks iframes - use Bing for iframe compatibility
+      if (preferIframeFriendly) {
+        return `https://www.bing.com/search?q=${enc}&setlang=${langCode}`;
+      }
       return `https://www.google.com/search?q=${enc}&hl=${langCode}&gl=${locale.split('-')[1] || 'US'}`;
   }
 }
@@ -116,7 +136,8 @@ function isLikelyUrl(input: string): boolean {
 export function normalizeInputToUrlOrSearch(
   input: string,
   provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'all' = 'google',
-  language?: string
+  language?: string,
+  preferIframeFriendly: boolean = true
 ): string {
   const trimmed = input.trim();
   if (!trimmed) {
@@ -145,7 +166,7 @@ export function normalizeInputToUrlOrSearch(
   }
 
   // Not a URL - convert to search
-  // Default to Google if provider is 'all'
-  const searchProvider = provider === 'all' ? 'google' : provider;
-  return buildSearchUrl(searchProvider, trimmed, language);
+  // Default to Bing if provider is 'all' and iframe-friendly is preferred (Bing allows iframes)
+  const searchProvider = provider === 'all' ? (preferIframeFriendly ? 'bing' : 'google') : provider;
+  return buildSearchUrl(searchProvider, trimmed, language, preferIframeFriendly);
 }

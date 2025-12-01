@@ -155,3 +155,5 @@ cargo tauri dev
 - ✅ Automatic key detection
 
 
+
+

@@ -233,6 +233,12 @@ export const useTabsStore = create<TabsState>()(
             activeId: finalActiveId,
           };
 
+          // MEMORY LEAK FIX: Clean up tab resources
+          // Emit cleanup event for tab content cleanup
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('tab-closed', { detail: { tabId: id } }));
+          }
+
           // Tier 1: Auto-save session
           const appMode = useAppStore.getState().mode;
           debouncedSaveSession({

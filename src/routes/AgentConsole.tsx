@@ -88,6 +88,44 @@ export default function AgentConsole() {
     latestOutputRef.current = streamingText || transcript || '';
   }, [streamingText, transcript]);
 
+  // AUTOMATION INTEGRATION: Listen for automation execution events from PlaybookForge
+  useEffect(() => {
+    const handleAutomationExecute = ((e: CustomEvent) => {
+      const { runId: execRunId, dsl } = e.detail;
+      if (dsl) {
+        // Set the DSL and trigger execution
+        dslRef.current = JSON.stringify(dsl, null, 2);
+        setQuery(dsl.goal || 'Execute automation');
+        
+        // Import and use automation bridge to track status
+        import('../services/automationBridge').then(({ updateAutomationStatus }) => {
+          updateAutomationStatus(execRunId, { progress: 10 });
+        });
+
+        // Start the agent execution
+        setTimeout(() => {
+          handleStartStream();
+        }, 100);
+      }
+    }) as EventListener;
+
+    const handleAutomationCancel = (() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        setIsStreaming(false);
+        setStatus('idle');
+      }
+    }) as EventListener;
+
+    window.addEventListener('agent:execute', handleAutomationExecute);
+    window.addEventListener('agent:cancel', handleAutomationCancel);
+
+    return () => {
+      window.removeEventListener('agent:execute', handleAutomationExecute);
+      window.removeEventListener('agent:cancel', handleAutomationCancel);
+    };
+  }, [handleStartStream, setStatus]);
+
   const finalizeTelemetry = useCallback(
     (
       status: 'success' | 'error' | 'cancelled',
@@ -373,6 +411,13 @@ export default function AgentConsole() {
         });
         stopAutoSave();
         finalizeTelemetry('error', { error: streamError });
+
+        // AUTOMATION INTEGRATION: Notify automation bridge of error
+        import('../services/automationBridge').then(({ completeAutomation }) => {
+          completeAutomation(runToken, undefined, streamError);
+        }).catch(() => {
+          // Automation bridge not available
+        });
         return;
       }
 
@@ -405,6 +450,13 @@ export default function AgentConsole() {
         promptTokens: finalResult?.usage?.prompt_tokens ?? null,
         completionTokens: finalResult?.usage?.completion_tokens ?? null,
         totalTokens: finalResult?.usage?.total_tokens ?? null,
+      });
+
+      // AUTOMATION INTEGRATION: Notify automation bridge of completion
+      import('../services/automationBridge').then(({ completeAutomation }) => {
+        completeAutomation(runToken, { output: finalOutput, result: finalResult });
+      }).catch(() => {
+        // Automation bridge not available
       });
     } catch (error) {
       abortControllerRef.current = null;

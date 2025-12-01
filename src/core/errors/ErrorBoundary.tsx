@@ -7,6 +7,9 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Copy, CheckCircle2 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 import { log } from '../../utils/logger';
+import { getUserFriendlyError } from '../../utils/userFriendlyErrors';
+import { recordCrash } from '../../services/errorRecovery';
+import { telemetryMetrics } from '../../services/telemetryMetrics';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -58,15 +61,22 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo.componentStack
     );
 
+    // STABILITY FIX: Record crash and attempt recovery
+    recordCrash(error, { componentName, level, componentStack: errorInfo.componentStack });
+
+    // TELEMETRY FIX: Track error
+    telemetryMetrics.trackError(error.message, { componentName, level });
+
     // Store error info
     this.setState({
       error,
       errorInfo,
     });
 
-    // Toast notification
+    // STABILITY FIX: User-friendly error message
+    const friendlyMessage = getUserFriendlyError(error);
     toast.error(
-      `Error in ${componentName || 'component'}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`
+      `${componentName || 'Component'} error: ${friendlyMessage}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`
     );
 
     // Call custom error handler
@@ -181,8 +191,8 @@ ${errorInfo?.componentStack || 'No component stack available'}
                 <h1 className="text-lg font-semibold text-red-200">
                   Something went wrong{componentName ? ` in ${componentName}` : ''}
                 </h1>
-                {error?.message && (
-                  <p className="mt-2 text-sm text-red-100/80 font-mono">{error.message}</p>
+                {error && (
+                  <p className="mt-2 text-sm text-red-100/80 font-mono">{getUserFriendlyError(error)}</p>
                 )}
                 <p className="mt-2 text-sm text-gray-400">
                   {canRetry

@@ -2,11 +2,13 @@
 // Full-text search across Tabs, Notes, Research, Charts
 // Supports Hindi + English
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, X, FileText, Globe, BookOpen, BarChart3, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useTabsStore } from '../../state/tabsStore';
 import { multiSearch } from '../../lib/meili';
+import { getDocumentCommands } from '../command-palette/DocumentCommands';
 
 interface SearchResult {
   id: string | number;
@@ -26,8 +28,12 @@ export function GlobalSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const { tabs, setActive } = useTabsStore();
+  const navigate = useNavigate();
 
-  // Multi-search across all indexes
+  // Get document commands
+  const docCommands = useMemo(() => getDocumentCommands(navigate), [navigate]);
+
+  // Multi-search across all indexes + document commands
   async function performSearch(searchQuery: string) {
     if (searchQuery.length < 2) {
       setResults([]);
@@ -36,35 +42,55 @@ export function GlobalSearch() {
 
     setLoading(true);
     try {
-      // Use MeiliSearch multi-search function
-      const data = await multiSearch([
-        { indexUid: 'tabs', q: searchQuery, limit: 5 },
-        { indexUid: 'notes', q: searchQuery, limit: 5 },
-        { indexUid: 'research', q: searchQuery, limit: 5 },
-        { indexUid: 'charts', q: searchQuery, limit: 5 },
-      ]);
-
-      // Flatten results from all indexes
       const allResults: SearchResult[] = [];
 
-      if (data.results && Array.isArray(data.results)) {
-        data.results.forEach((result: any) => {
-          if (result.hits && Array.isArray(result.hits)) {
-            result.hits.forEach((hit: any) => {
-              allResults.push({
-                ...hit,
-                _index: result.indexUid,
-              });
-            });
-          }
+      // 1. Search document commands (local, fast)
+      const queryLower = searchQuery.toLowerCase();
+      const matchingCommands = docCommands.filter(cmd => {
+        const searchable = `${cmd.title} ${cmd.description} ${cmd.keywords.join(' ')}`.toLowerCase();
+        return searchable.includes(queryLower);
+      });
+
+      matchingCommands.forEach(cmd => {
+        allResults.push({
+          id: cmd.id,
+          title: cmd.title,
+          content: cmd.description,
+          _index: 'commands',
+          command: cmd,
         });
+      });
+
+      // 2. Use MeiliSearch multi-search function for content
+      try {
+        const data = await multiSearch([
+          { indexUid: 'tabs', q: searchQuery, limit: 5 },
+          { indexUid: 'notes', q: searchQuery, limit: 5 },
+          { indexUid: 'research', q: searchQuery, limit: 5 },
+          { indexUid: 'charts', q: searchQuery, limit: 5 },
+        ]);
+
+        if (data.results && Array.isArray(data.results)) {
+          data.results.forEach((result: any) => {
+            if (result.hits && Array.isArray(result.hits)) {
+              result.hits.forEach((hit: any) => {
+                allResults.push({
+                  ...hit,
+                  _index: result.indexUid,
+                });
+              });
+            }
+          });
+        }
+      } catch {
+        // MeiliSearch not available, continue with commands only
+        console.debug('[GlobalSearch] MeiliSearch not available');
       }
 
       setResults(allResults);
       setSelectedIndex(0);
     } catch (error) {
       console.error('[GlobalSearch] Search error:', error);
-      // If MeiliSearch is not available or indexes don't exist, show empty results
       setResults([]);
     } finally {
       setLoading(false);
@@ -126,6 +152,16 @@ export function GlobalSearch() {
   }, [open]);
 
   const handleResultClick = (result: SearchResult) => {
+    // Handle document commands
+    if (result._index === 'commands' && (result as any).command) {
+      const cmd = (result as any).command;
+      cmd.action();
+      setOpen(false);
+      setQuery('');
+      setResults([]);
+      return;
+    }
+
     if (result._index === 'tabs' && result.url) {
       // Find or create tab
       const existingTab = tabs.find(t => t.url === result.url);
@@ -154,8 +190,14 @@ export function GlobalSearch() {
     setResults([]);
   };
 
-  const getResultIcon = (index: string) => {
-    switch (index) {
+  const getResultIcon = (result: SearchResult) => {
+    // Use command icon if available
+    if (result._index === 'commands' && (result as any).command) {
+      const Icon = (result as any).command.icon;
+      return <Icon size={16} className="text-cyan-400" />;
+    }
+
+    switch (result._index) {
       case 'tabs':
         return <Globe size={16} className="text-blue-400" />;
       case 'notes':
@@ -164,6 +206,8 @@ export function GlobalSearch() {
         return <BookOpen size={16} className="text-purple-400" />;
       case 'charts':
         return <BarChart3 size={16} className="text-yellow-400" />;
+      case 'commands':
+        return <FileText size={16} className="text-cyan-400" />;
       default:
         return <Search size={16} className="text-gray-400" />;
     }
@@ -258,7 +302,7 @@ export function GlobalSearch() {
                     onClick={() => handleResultClick(result)}
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
-                    {getResultIcon(result._index)}
+                    {getResultIcon(result)}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs text-purple-400 uppercase font-medium">

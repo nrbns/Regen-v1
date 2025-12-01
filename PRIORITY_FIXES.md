@@ -13,10 +13,10 @@
 
 **Actions:**
 
-- [ ] Add Sentry crash reporting (main + renderer)
-- [ ] Add unhandled exception handlers
-- [ ] Monitor OOM kills and renderer crashes
-- [ ] Fix any known crash bugs
+- [x] Add Sentry crash reporting (main + renderer)
+- [x] Add unhandled exception handlers
+- [x] Monitor OOM kills and renderer crashes
+- [x] Fix any known crash bugs
 
 **Quick test:**
 
@@ -43,10 +43,10 @@ npm run dev -- --enable-logging
 
 **Actions:**
 
-- [ ] Measure current startup time (target: <3s to first paint)
-- [ ] Defer non-critical modules (AI, extensions) until after UI shows
-- [ ] Lazy-load heavy features
-- [ ] Move analytics/update checks to background
+- [x] Measure current startup time (target: <3s to first paint)
+- [x] Defer non-critical modules (AI, extensions) until after UI shows
+- [x] Lazy-load heavy features
+- [x] Move analytics/update checks to background
 
 **Quick test:**
 
@@ -73,11 +73,11 @@ window.addEventListener('load', () => {
 
 **Actions:**
 
-- [ ] Take heap snapshots (DevTools → Memory)
-- [ ] Find detached DOM nodes, event listeners
-- [ ] Cap caches (LRU with max size)
-- [ ] Clean up timers/intervals on tab close
-- [ ] Use WeakRef for large objects
+- [x] Take heap snapshots (DevTools → Memory)
+- [x] Find detached DOM nodes, event listeners
+- [x] Cap caches (LRU with max size)
+- [x] Clean up timers/intervals on tab close
+- [x] Use WeakRef for large objects
 
 **Quick test:**
 
@@ -104,11 +104,11 @@ window.addEventListener('load', () => {
 
 **Actions:**
 
-- [ ] Profile CPU usage (DevTools → Performance)
-- [ ] Throttle background tabs
-- [ ] Use `visibilitychange` to pause heavy tasks
-- [ ] Debounce scroll/resize handlers
-- [ ] Offload heavy work to Rust backend
+- [x] Profile CPU usage (DevTools → Performance)
+- [x] Throttle background tabs
+- [x] Use `visibilitychange` to pause heavy tasks
+- [x] Debounce scroll/resize handlers
+- [x] Offload heavy work to Rust backend
 
 **Quick test:**
 
@@ -127,10 +127,10 @@ window.addEventListener('load', () => {
 
 **Actions:**
 
-- [ ] Reduce layout thrashing
-- [ ] Use composited CSS (transform, opacity)
-- [ ] Prefer CSS animations over JS
-- [ ] Use `will-change` sparingly
+- [x] Reduce layout thrashing
+- [x] Use composited CSS (transform, opacity)
+- [x] Prefer CSS animations over JS
+- [x] Use `will-change` sparingly
 
 **Quick test:**
 
@@ -148,10 +148,10 @@ window.addEventListener('load', () => {
 
 **Actions:**
 
-- [ ] Implement connection pooling
-- [ ] Add service worker caching
-- [ ] Preconnect to important domains
-- [ ] Compress assets (brotli/gzip)
+- [x] Implement connection pooling
+- [x] Add service worker caching
+- [x] Preconnect to important domains
+- [x] Compress assets (brotli/gzip)
 
 **Quick test:**
 
@@ -172,11 +172,11 @@ npx lighthouse http://localhost:1420 --view
 
 **Actions:**
 
-- [ ] Add CSP headers
-- [ ] Validate all IPC messages
-- [ ] Use secure storage for sensitive data
-- [ ] Disable Node integration in web views (Tauri handles this)
-- [ ] Regular dependency updates
+- [x] Add CSP headers
+- [x] Validate all IPC messages
+- [x] Use secure storage for sensitive data
+- [x] Disable Node integration in web views (Tauri handles this)
+- [x] Regular dependency updates
 
 **Checklist:**
 
@@ -193,10 +193,10 @@ npx lighthouse http://localhost:1420 --view
 
 **Actions:**
 
-- [ ] Add 1-minute guided tour (Omni AI demo)
-- [ ] "Try AI Omni Mode" CTA on first run
-- [ ] Simple sync/signup flow (skip option)
-- [ ] Fast install, small download size
+- [x] Add 1-minute guided tour (Omni AI demo)
+- [x] "Try AI Omni Mode" CTA on first run
+- [x] Simple sync/signup flow (skip option)
+- [x] Fast install, small download size
 
 **Quick win:**
 
@@ -211,11 +211,11 @@ npx lighthouse http://localhost:1420 --view
 
 **Actions:**
 
-- [ ] Set up GitHub Actions for PR lint/build/test
-- [ ] Add prettier, eslint, husky
-- [ ] Unit tests for critical utilities
-- [ ] Smoke e2e tests (tab open/close)
-- [ ] Feature flags for canary releases
+- [x] Set up GitHub Actions for PR lint/build/test
+- [x] Add prettier, eslint, husky
+- [x] Unit tests for critical utilities
+- [x] Smoke e2e tests (tab open/close)
+- [x] Feature flags for canary releases
 
 ---
 
@@ -290,27 +290,27 @@ ls -lh dist/
 
 ### Day 1-2: Crashes & Stability
 
-- [ ] Add Sentry
-- [ ] Fix known crashes
-- [ ] Add error boundaries
+- [x] Add Sentry
+- [x] Fix known crashes
+- [x] Add error boundaries
 
 ### Day 3-4: Startup Performance
 
-- [ ] Measure startup time
-- [ ] Defer non-critical modules
-- [ ] Lazy-load heavy features
+- [x] Measure startup time
+- [x] Defer non-critical modules
+- [x] Lazy-load heavy features
 
 ### Day 5-6: Memory Leaks
 
-- [ ] Heap snapshots
-- [ ] Fix leaks
-- [ ] Cap caches
+- [x] Heap snapshots
+- [x] Fix leaks
+- [x] Cap caches
 
 ### Day 7: Quick Wins
 
-- [ ] Onboarding tour
-- [ ] Bundle analysis
-- [ ] Network optimization
+- [x] Onboarding tour
+- [x] Bundle analysis
+- [x] Network optimization
 
 ---
 
