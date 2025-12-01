@@ -74,6 +74,34 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
     }
   };
 
+  // PR: Fix navigation - Update iframe src when tab URL changes programmatically
+  useEffect(() => {
+    if (isElectron) return;
+
+    tabs.forEach(tab => {
+      const iframe = iframeRefs.current.get(tab.id);
+      if (!iframe) return;
+
+      const iframeUrl = getTabIframeUrl(tab, language);
+      const currentSrc = iframe.src;
+
+      // Update iframe src if tab URL changed (e.g., from address bar)
+      if (iframeUrl && iframeUrl !== currentSrc && iframeUrl !== 'about:blank') {
+        // Only update if this is the active tab or if src is about:blank
+        const isActive = tab.id === activeTabId;
+        if (isActive || currentSrc === 'about:blank') {
+          console.log('[TabIframeManager] Updating iframe src from tab URL change', {
+            tabId: tab.id,
+            oldSrc: currentSrc,
+            newSrc: iframeUrl,
+            isActive,
+          });
+          iframe.src = iframeUrl;
+        }
+      }
+    });
+  }, [tabs, language, activeTabId, isElectron]);
+
   // PR: Fix tab switch - detect X-Frame-Options blocking
   useEffect(() => {
     if (isElectron) return; // Electron uses BrowserView, not iframes
@@ -142,13 +170,29 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
 
         // PR: Fix tab switch - always render iframe, toggle visibility
         // Use stable key based on tab.id (not URL) to prevent React from recreating
+        // PR: Fix navigation - Update iframe src only when URL actually changes
+        const currentIframeUrl = iframeUrl || 'about:blank';
+        const iframe = iframeRefs.current.get(tab.id);
+        const needsSrcUpdate =
+          iframe && iframe.src !== currentIframeUrl && currentIframeUrl !== 'about:blank';
+
+        // Update src if needed (for initial load or programmatic navigation)
+        if (needsSrcUpdate && isActive) {
+          console.log('[TabIframeManager] Updating iframe src', {
+            tabId: tab.id,
+            oldSrc: iframe.src,
+            newSrc: currentIframeUrl,
+          });
+          iframe.src = currentIframeUrl;
+        }
+
         return (
           <iframe
             key={tab.id} // PR: Fix - stable key based on tab.id, not URL
             ref={setIframeRef(tab.id)}
-            src={iframeUrl || 'about:blank'}
+            src={currentIframeUrl}
             title={tab.title ?? 'Tab content'}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation allow-top-navigation-by-user-activation"
             allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture"
             allowFullScreen
             referrerPolicy="no-referrer-when-downgrade"
@@ -168,24 +212,38 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
             }
             aria-live="off"
             onLoad={() => {
-              console.log('[TabIframeManager] Iframe loaded', {
-                tabId: tab.id,
-                url: iframeUrl,
-                isActive,
-              });
-
               const iframe = iframeRefs.current.get(tab.id);
               if (!iframe) return;
 
-              // PR: Fix tab switch - inject click interceptor and window.open override
+              // PR: Fix navigation - Track URL changes and update tab store
               try {
                 const win = iframe.contentWindow;
                 const doc = iframe.contentDocument;
+                const currentUrl = win?.location.href || iframe.src;
 
+                console.log('[TabIframeManager] Iframe loaded', {
+                  tabId: tab.id,
+                  currentUrl,
+                  iframeSrc: iframe.src,
+                  isActive,
+                });
+
+                // Update tab URL if it changed (navigation happened)
+                if (currentUrl && currentUrl !== tab.url && !currentUrl.startsWith('about:')) {
+                  console.log('[TabIframeManager] URL changed, updating tab', {
+                    tabId: tab.id,
+                    oldUrl: tab.url,
+                    newUrl: currentUrl,
+                  });
+                  useTabsStore.getState().updateTab(tab.id, { url: currentUrl });
+                }
+
+                // PR: Fix navigation - inject click interceptor and window.open override
+                // Only intercept popups, allow regular navigation
                 if (win && doc) {
                   console.log('[TabIframeManager] Injecting interceptors for tab', tab.id);
 
-                  // Override window.open to intercept popups
+                  // Override window.open to intercept popups (but allow regular navigation)
                   const originalOpen = win.open;
                   win.open = (url?: string | URL, target?: string, features?: string) => {
                     console.log('[TabIframeManager] window.open intercepted', {
@@ -207,13 +265,15 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     return null;
                   };
 
-                  // Intercept anchor clicks with target="_blank"
+                  // Intercept ONLY anchor clicks with target="_blank" (allow regular navigation)
                   doc.addEventListener(
                     'click',
                     (e: MouseEvent) => {
                       const target = e.target as HTMLElement;
                       const anchor = target.closest?.('a') as HTMLAnchorElement | null;
 
+                      // Only intercept if target="_blank" or target="_new"
+                      // Regular links should navigate normally
                       if (anchor && (anchor.target === '_blank' || anchor.target === '_new')) {
                         e.preventDefault();
                         e.stopPropagation();
@@ -231,9 +291,35 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                           );
                         }
                       }
+                      // Regular links (no target="_blank") will navigate normally - don't prevent
                     },
                     true
                   ); // Use capture phase to catch early
+
+                  // PR: Fix navigation - Listen for navigation events to update URL
+                  // Track when iframe navigates (for same-tab navigation)
+                  const handleNavigation = () => {
+                    try {
+                      const newUrl = win.location.href;
+                      if (newUrl && newUrl !== tab.url && !newUrl.startsWith('about:')) {
+                        console.log('[TabIframeManager] Navigation detected, updating URL', {
+                          tabId: tab.id,
+                          newUrl,
+                        });
+                        useTabsStore.getState().updateTab(tab.id, { url: newUrl });
+                      }
+                    } catch (e) {
+                      // Cross-origin - can't read location, but navigation will work
+                      console.log(
+                        '[TabIframeManager] Navigation detected (cross-origin, URL tracking limited)',
+                        tab.id
+                      );
+                    }
+                  };
+
+                  // Listen for popstate (back/forward) and hashchange
+                  win.addEventListener('popstate', handleNavigation);
+                  win.addEventListener('hashchange', handleNavigation);
 
                   console.log('[TabIframeManager] Interceptors installed for tab', tab.id);
                 } else {
@@ -241,6 +327,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     '[TabIframeManager] Cannot access iframe contentWindow/contentDocument (cross-origin)',
                     tab.id
                   );
+                  // Cross-origin: navigation will still work, just can't track URL changes
                 }
               } catch (e) {
                 // Cross-origin frames will throw - this is expected
@@ -249,6 +336,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                   tab.id,
                   e
                 );
+                // Navigation will still work in cross-origin iframes
               }
 
               // Check if blocked after load
