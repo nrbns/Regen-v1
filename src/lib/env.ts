@@ -57,3 +57,26 @@ export const isElectronRuntime = (): boolean => {
 
   return false;
 };
+
+/**
+ * Check if running in pure web mode (not Electron, not Tauri)
+ * This is the authoritative check for whether backend services are available
+ */
+export const isWebMode = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false; // SSR - assume not web mode
+  }
+
+  // Check for Electron runtime
+  if (isElectronRuntime()) {
+    return false;
+  }
+
+  // Check for Tauri runtime
+  if (isTauriRuntime()) {
+    return false;
+  }
+
+  // If neither Electron nor Tauri, we're in web mode
+  return true;
+};

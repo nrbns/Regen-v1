@@ -15,7 +15,3 @@ In dev mode, the app will look for binaries in this folder (`src-tauri/bin/`) an
 ## For Production Build
 
 The binaries will be included in the bundle resources and extracted to the app's local data directory on first launch.
-
-
-
-

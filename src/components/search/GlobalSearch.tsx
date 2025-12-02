@@ -47,7 +47,8 @@ export function GlobalSearch() {
       // 1. Search document commands (local, fast)
       const queryLower = searchQuery.toLowerCase();
       const matchingCommands = docCommands.filter(cmd => {
-        const searchable = `${cmd.title} ${cmd.description} ${cmd.keywords.join(' ')}`.toLowerCase();
+        const searchable =
+          `${cmd.title} ${cmd.description} ${cmd.keywords.join(' ')}`.toLowerCase();
         return searchable.includes(queryLower);
       });
 
@@ -224,7 +225,7 @@ export function GlobalSearch() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[99999] flex items-start justify-center pt-32"
+          className="fixed inset-0 z-[99999] flex items-start justify-center bg-black/70 pt-32 backdrop-blur-sm"
           onClick={() => {
             setOpen(false);
             setQuery('');
@@ -235,17 +236,19 @@ export function GlobalSearch() {
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="w-full max-w-3xl bg-gray-900 rounded-2xl shadow-2xl border border-purple-800 overflow-hidden"
+            className="w-full max-w-3xl overflow-hidden rounded-2xl border border-purple-800 bg-gray-900 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             {/* Search Input */}
-            <div className="flex items-center gap-4 px-6 py-4 border-b border-gray-800">
+            <div className="flex items-center gap-4 border-b border-gray-800 px-6 py-4">
               <Search size={20} className="text-purple-400" />
               <input
                 ref={inputRef}
+                id="global-search-input"
+                name="global-search-query"
                 type="text"
                 placeholder="Search tabs, notes, charts, research… (Hindi bhi chalega)"
-                className="flex-1 bg-transparent text-white placeholder-purple-400 outline-none text-lg"
+                className="flex-1 bg-transparent text-lg text-white placeholder-purple-400 outline-none"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => {
@@ -274,14 +277,14 @@ export function GlobalSearch() {
             <div className="max-h-96 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+                  <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-400"></div>
                 </div>
               ) : results.length === 0 && query.length >= 2 ? (
-                <div className="text-center text-gray-500 py-12">
+                <div className="py-12 text-center text-gray-500">
                   No results found for "{query}"
                 </div>
               ) : results.length === 0 ? (
-                <div className="text-center text-gray-500 py-12">
+                <div className="py-12 text-center text-gray-500">
                   <p className="mb-2">Type to search...</p>
                   <p className="text-sm text-gray-600">
                     Search across tabs, notes, research, and charts
@@ -294,38 +297,38 @@ export function GlobalSearch() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className={`px-6 py-4 cursor-pointer flex items-center gap-4 transition-colors ${
+                    className={`flex cursor-pointer items-center gap-4 px-6 py-4 transition-colors ${
                       index === selectedIndex
-                        ? 'bg-purple-900/50 border-l-2 border-purple-400'
+                        ? 'border-l-2 border-purple-400 bg-purple-900/50'
                         : 'hover:bg-purple-900/30'
                     }`}
                     onClick={() => handleResultClick(result)}
                     onMouseEnter={() => setSelectedIndex(index)}
                   >
                     {getResultIcon(result)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-purple-400 uppercase font-medium">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="text-xs font-medium uppercase text-purple-400">
                           {result._index}
                         </span>
                         {result.timestamp && (
                           <span className="text-xs text-gray-500">
-                            <Clock size={12} className="inline mr-1" />
+                            <Clock size={12} className="mr-1 inline" />
                             {new Date(result.timestamp).toLocaleDateString()}
                           </span>
                         )}
                       </div>
-                      <div className="text-white font-medium truncate">
+                      <div className="truncate font-medium text-white">
                         {getResultTitle(result)}
                       </div>
                       {result.content && result.content !== getResultTitle(result) && (
-                        <div className="text-sm text-gray-400 truncate mt-1">
+                        <div className="mt-1 truncate text-sm text-gray-400">
                           {result.content.slice(0, 100)}
                           {result.content.length > 100 ? '...' : ''}
                         </div>
                       )}
                       {result.url && (
-                        <div className="text-xs text-gray-500 truncate mt-1">{result.url}</div>
+                        <div className="mt-1 truncate text-xs text-gray-500">{result.url}</div>
                       )}
                     </div>
                   </motion.div>
@@ -335,7 +338,7 @@ export function GlobalSearch() {
 
             {/* Footer hint */}
             {results.length > 0 && (
-              <div className="px-6 py-3 border-t border-gray-800 text-xs text-gray-500 flex items-center justify-between">
+              <div className="flex items-center justify-between border-t border-gray-800 px-6 py-3 text-xs text-gray-500">
                 <span>↑↓ Navigate • Enter Select • Esc Close</span>
                 <span>
                   {results.length} result{results.length !== 1 ? 's' : ''}

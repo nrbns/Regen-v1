@@ -28,6 +28,3 @@ export const config = {
     maxChunksPerDoc: env.MAX_CHUNKS_PER_DOC,
   },
 } as const;
-
-
-

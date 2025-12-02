@@ -27,11 +27,13 @@ pub struct AgentContext {
 }
 
 /// Start WebSocket server on port 18080
+/// Supports both agent_ws (agent streaming) and yjs (Yjs sync) endpoints
 pub async fn start_websocket_server(app: tauri::AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = "127.0.0.1:18080";
     let listener = TcpListener::bind(addr).await?;
     
-    println!("[WebSocket] Server listening on ws://{}/agent_ws", addr);
+    println!("[WebSocket] Server listening on ws://{}", addr);
+    println!("[WebSocket] Endpoints: /agent_ws (agent streaming), /yjs (Yjs sync)");
     
     let connections: Connections = Arc::new(Mutex::new(HashMap::new()));
     
@@ -50,11 +52,16 @@ pub async fn start_websocket_server(app: tauri::AppHandle) -> Result<(), Box<dyn
 }
 
 /// Handle individual WebSocket connection
+/// Routes to agent_ws or yjs handler based on path
 async fn handle_connection(
     stream: TcpStream,
     connections: Connections,
     app: tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // For now, all connections go to agent handler
+    // Future: Parse HTTP upgrade request to route to /agent_ws or /yjs
+    // Yjs connections will use the same WebSocket but different protocol
+    
     let ws_stream = accept_async(stream).await?;
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     

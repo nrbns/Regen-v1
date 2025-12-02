@@ -14,17 +14,26 @@ export async function initMeiliIndexing(): Promise<void> {
   try {
     meiliAvailable = await checkMeiliSearch();
     if (meiliAvailable) {
-      console.log('[MeiliIndexer] MeiliSearch is available, indexing enabled');
-      // Ensure indexes exist
-      await ensureIndex('tabs', 'id');
-      await ensureIndex('research', 'id');
-      await ensureIndex('notes', 'id');
+      // Ensure indexes exist - suppress errors if MeiliSearch becomes unavailable
+      try {
+        await ensureIndex('tabs', 'id');
+        await ensureIndex('research', 'id');
+        await ensureIndex('notes', 'id');
+      } catch {
+        // MeiliSearch not available or unauthorized - silently disable
+        meiliAvailable = false;
+        indexingEnabled = false;
+        return;
+      }
     } else {
-      console.warn('[MeiliIndexer] MeiliSearch not available, indexing disabled');
+      // MeiliSearch not available - silently disable indexing
+      meiliAvailable = false;
+      indexingEnabled = false;
     }
-  } catch (error) {
-    console.error('[MeiliIndexer] Failed to initialize:', error);
+  } catch {
+    // Suppress MeiliSearch errors - it's optional and may not be running
     meiliAvailable = false;
+    indexingEnabled = false;
   }
 }
 
@@ -48,7 +57,11 @@ export async function indexTab(tab: Tab): Promise<void> {
 
     await indexDocuments('tabs', [doc]);
   } catch (error) {
-    console.error('[MeiliIndexer] Failed to index tab:', error);
+    // Suppress MeiliSearch errors - it's optional
+    const errorMsg = String(error);
+    if (!errorMsg.includes('401') && !errorMsg.includes('Unauthorized')) {
+      console.error('[MeiliIndexer] Failed to index tab:', error);
+    }
   }
 }
 
@@ -73,7 +86,11 @@ export async function indexTabs(tabs: Tab[]): Promise<void> {
     await indexDocuments('tabs', docs);
     console.log(`[MeiliIndexer] Indexed ${tabs.length} tabs`);
   } catch (error) {
-    console.error('[MeiliIndexer] Failed to index tabs:', error);
+    // Suppress MeiliSearch errors - it's optional
+    const errorMsg = String(error);
+    if (!errorMsg.includes('401') && !errorMsg.includes('Unauthorized')) {
+      console.error('[MeiliIndexer] Failed to index tabs:', error);
+    }
   }
 }
 
@@ -141,12 +158,12 @@ export function setIndexingEnabled(enabled: boolean): void {
   console.log(`[MeiliIndexer] Indexing ${enabled ? 'enabled' : 'disabled'}`);
 }
 
-// Auto-initialize when module loads
+// Auto-initialize when module loads - suppress all errors
 if (typeof window !== 'undefined') {
   // Wait a bit for MeiliSearch to start
   setTimeout(() => {
-    initMeiliIndexing().catch(console.error);
+    initMeiliIndexing().catch(() => {
+      // Suppress all MeiliSearch errors - it's optional
+    });
   }, 3000);
 }
-
-

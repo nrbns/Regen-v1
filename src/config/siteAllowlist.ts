@@ -77,6 +77,12 @@ export const TRUSTED_SITES: AllowedSite[] = [
     cspBypass: true,
     permissions: ['*'],
   },
+  {
+    domain: 'bing.com',
+    reason: 'Bing search engine - requires full functionality',
+    cspBypass: true,
+    permissions: ['*'],
+  },
 ];
 
 /**

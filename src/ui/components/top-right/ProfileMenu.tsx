@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, Loader2, LogOut, RefreshCw, User } from 'lucide-react';
 
 import type { UserProfile } from './types';
+import { isWebMode } from '../../../lib/env';
 
 const presenceColors: Record<string, string> = {
   online: 'bg-emerald-400',
@@ -25,9 +26,43 @@ export function ProfileMenu() {
 
   useEffect(() => {
     async function fetchProfile() {
+      // In web mode, use mock profile
+      if (isWebMode()) {
+        setProfile({
+          id: 'web-user',
+          name: 'Web User',
+          email: 'user@example.com',
+          avatarUrl: undefined,
+          presence: 'online',
+          syncStatus: 'ready',
+          orgs: [],
+          activeOrgId: undefined,
+        });
+        setSyncStatus('ready');
+        setLoading(false);
+        return;
+      }
+
       try {
         const res = await fetch('/api/profile');
         if (!res.ok) throw new Error('Failed to load profile');
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          // Got HTML instead of JSON - backend not available
+          setProfile({
+            id: 'local-user',
+            name: 'Local User',
+            email: 'local@example.com',
+            avatarUrl: undefined,
+            presence: 'offline',
+            syncStatus: 'error',
+            orgs: [],
+            activeOrgId: undefined,
+          });
+          setSyncStatus('error');
+          setLoading(false);
+          return;
+        }
         const data = (await res.json()) as {
           user: UserProfile;
           syncStatus?: UserProfile['syncStatus'];
@@ -35,8 +70,22 @@ export function ProfileMenu() {
         setProfile(data.user);
         if (data.syncStatus) setSyncStatus(data.syncStatus);
       } catch (error) {
-        console.error('[ProfileMenu] Failed to load profile', error);
+        // Suppress errors in web mode
+        if (!isWebMode()) {
+          console.error('[ProfileMenu] Failed to load profile', error);
+        }
         setSyncStatus('error');
+        // Set a fallback profile
+        setProfile({
+          id: 'local-user',
+          name: 'Local User',
+          email: 'local@example.com',
+          avatarUrl: undefined,
+          presence: 'offline',
+          syncStatus: 'error',
+          orgs: [],
+          activeOrgId: undefined,
+        });
       } finally {
         setLoading(false);
       }
@@ -115,7 +164,7 @@ export function ProfileMenu() {
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-2 py-1 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--surface-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+        className="flex items-center gap-2 rounded-full border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-2 py-1 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--surface-border-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
         onClick={e => {
           (e as any).stopImmediatePropagation();
           e.stopPropagation();
@@ -138,7 +187,7 @@ export function ProfileMenu() {
             className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-[var(--surface-elevated)] ${presenceClass}`}
           />
         </div>
-        <div className="hidden sm:flex flex-col text-left">
+        <div className="hidden flex-col text-left sm:flex">
           <span className="text-xs font-semibold">{profile?.name}</span>
           <span className="text-[0.65rem] text-[var(--text-muted)]">
             {profile?.activeOrgId
@@ -199,7 +248,7 @@ export function ProfileMenu() {
                     type="button"
                     className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm transition ${
                       active
-                        ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/10 text-[var(--text-primary)]'
+                        ? 'bg-[var(--color-primary-500)]/10 border-[var(--color-primary-500)] text-[var(--text-primary)]'
                         : 'border-[var(--surface-border)] text-[var(--text-secondary)] hover:border-[var(--surface-border-strong)]'
                     }`}
                     onClick={e => {

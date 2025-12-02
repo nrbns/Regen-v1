@@ -5,6 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { isTauriRuntime, isWebMode } from '../../lib/env';
 
 export interface Embedding {
   id: string;
@@ -53,25 +54,33 @@ class HNSWService {
         return;
       }
 
-      // Try to load existing index from Tauri fs
-      try {
-        const indexPath = await invoke<string>('get_app_data_path', {
-          subpath: 'vectors/hnsw_index.bin',
-        });
-
+      // Try to load existing index from Tauri fs (skip in web mode)
+      if (isTauriRuntime() && !isWebMode()) {
         try {
-          const indexData = await invoke<number[]>('read_file', { path: indexPath });
-          const uint8Array = new Uint8Array(indexData);
-          // Use library's loadIndex if available
-          if (hnswlib.loadIndex) {
-            this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
-            console.log('[HNSWService] Index loaded from disk');
+          const indexPath = await invoke<string>('get_app_data_path', {
+            subpath: 'vectors/hnsw_index.bin',
+          });
+
+          try {
+            const indexData = await invoke<number[]>('read_file', { path: indexPath });
+            const uint8Array = new Uint8Array(indexData);
+            // Use library's loadIndex if available
+            if (hnswlib.loadIndex) {
+              this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
+              console.log('[HNSWService] Index loaded from disk');
+            }
+          } catch (error) {
+            // Suppress errors in web mode
+            if (!isWebMode()) {
+              console.warn('[HNSWService] Failed to load index, creating new one', error);
+            }
           }
         } catch (error) {
-          console.warn('[HNSWService] Failed to load index, creating new one', error);
+          // Suppress errors in web mode
+          if (!isWebMode()) {
+            console.warn('[HNSWService] Could not check for existing index', error);
+          }
         }
-      } catch (error) {
-        console.warn('[HNSWService] Could not check for existing index', error);
       }
 
       // Create new index if not loaded
@@ -82,7 +91,10 @@ class HNSWService {
         } else if (hnswlib.init) {
           this.index = await hnswlib.init({ dim: this.dimension, maxElements: this.maxElements });
         } else {
-          console.warn('[HNSWService] HNSW library not properly initialized, using fallback');
+          // Suppress warning in web mode - fallback is expected
+          if (!isWebMode()) {
+            console.warn('[HNSWService] HNSW library not properly initialized, using fallback');
+          }
         }
       }
 

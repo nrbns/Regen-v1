@@ -68,7 +68,8 @@ function getApiKey(provider: LLMProvider): string | null {
   };
 
   for (const key of keys[provider] || []) {
-    const value = import.meta.env[key] || (typeof process !== 'undefined' ? process.env[key] : null);
+    const value =
+      import.meta.env[key] || (typeof process !== 'undefined' ? process.env[key] : null);
     if (value) return value;
   }
   return null;
@@ -79,10 +80,16 @@ function getApiKey(provider: LLMProvider): string | null {
  */
 function getBaseUrl(provider: LLMProvider): string {
   const baseUrls: Record<LLMProvider, string> = {
-    openai: import.meta.env.VITE_OPENAI_BASE_URL || import.meta.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    openai:
+      import.meta.env.VITE_OPENAI_BASE_URL ||
+      import.meta.env.OPENAI_BASE_URL ||
+      'https://api.openai.com/v1',
     anthropic: 'https://api.anthropic.com/v1',
     mistral: 'https://api.mistral.ai/v1',
-    ollama: import.meta.env.VITE_OLLAMA_BASE_URL || import.meta.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    ollama:
+      import.meta.env.VITE_OLLAMA_BASE_URL ||
+      import.meta.env.OLLAMA_BASE_URL ||
+      'http://localhost:11434',
   };
   return baseUrls[provider] || baseUrls.openai;
 }
@@ -106,8 +113,8 @@ function getDefaultModel(provider: LLMProvider): string {
 async function callOpenAI(
   prompt: string,
   options: LLMOptions,
-  apiKey: string,
-  baseUrl: string
+  _apiKey: string,
+  _baseUrl: string
 ): Promise<LLMResponse> {
   const model = options.model || getDefaultModel('openai');
   const startTime = Date.now();
@@ -129,11 +136,15 @@ async function callOpenAI(
   if (options.stopSequences) body.stop = options.stopSequences;
   if (options.stream) body.stream = true;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  // Use backend proxy instead of direct OpenAI API call
+  // This avoids Tracking Prevention and keeps API keys secure
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const proxyUrl = `${API_BASE}/api/proxy/openai`;
+
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -167,7 +178,7 @@ async function callOpenAI(
 async function callAnthropic(
   prompt: string,
   options: LLMOptions,
-  apiKey: string
+  _apiKey: string
 ): Promise<LLMResponse> {
   const model = options.model || getDefaultModel('anthropic');
   const startTime = Date.now();
@@ -185,12 +196,15 @@ async function callAnthropic(
   if (options.topP !== undefined) body.top_p = options.topP;
   if (options.stopSequences) body.stop_sequences = options.stopSequences;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Use backend proxy instead of direct Anthropic API call
+  // This avoids Tracking Prevention and keeps API keys secure
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const proxyUrl = `${API_BASE}/api/proxy/anthropic`;
+
+  const response = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),
   });
@@ -340,10 +354,7 @@ async function callOllama(
  * Send a prompt to an LLM provider
  * Automatically handles retries, fallbacks, and error recovery
  */
-export async function sendPrompt(
-  prompt: string,
-  options: LLMOptions = {}
-): Promise<LLMResponse> {
+export async function sendPrompt(prompt: string, options: LLMOptions = {}): Promise<LLMResponse> {
   const providers: LLMProvider[] = options.provider
     ? [options.provider]
     : (['openai', 'anthropic', 'mistral', 'ollama'] as LLMProvider[]);
@@ -353,7 +364,7 @@ export async function sendPrompt(
   for (const provider of providers) {
     try {
       const apiKey = provider !== 'ollama' ? getApiKey(provider) : null;
-      
+
       // Skip if API key is required but missing
       if (provider !== 'ollama' && !apiKey) {
         continue;
@@ -432,7 +443,7 @@ export async function streamPrompt(
   // For streaming, prefer OpenAI or Anthropic
   const provider = options.provider || detectProvider() || 'openai';
   const apiKey = getApiKey(provider);
-  
+
   if (!apiKey && provider !== 'ollama') {
     throw new Error(`API key required for ${provider}`);
   }
@@ -458,7 +469,7 @@ export async function streamPrompt(
  */
 export function getAvailableProviders(): LLMProvider[] {
   const providers: LLMProvider[] = [];
-  
+
   if (getApiKey('openai')) providers.push('openai');
   if (getApiKey('anthropic')) providers.push('anthropic');
   if (getApiKey('mistral')) providers.push('mistral');
@@ -466,4 +477,3 @@ export function getAvailableProviders(): LLMProvider[] {
 
   return providers;
 }
-

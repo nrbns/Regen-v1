@@ -48,6 +48,14 @@ export class EmbeddingService {
   }
 
   async getPreferredProvider(): Promise<EmbeddingProvider> {
+    // Skip backend checks in web mode - use local only
+    const isWebMode =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+
+    if (isWebMode) {
+      return 'local';
+    }
+
     for (const provider of this.preferredOrder) {
       const status = await this.checkProvider(provider);
       if (status.available) {
@@ -93,6 +101,18 @@ export class EmbeddingService {
   }
 
   private async checkOpenAI(): Promise<ProviderStatus> {
+    // Skip backend checks in web mode - no backend available
+    const isWebMode =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+
+    if (isWebMode) {
+      return {
+        provider: 'openai',
+        available: false,
+        lastChecked: Date.now(),
+      };
+    }
+
     const start = performance.now();
     try {
       const response = await fetch(`${API_BASE}/openai/status`, { method: 'GET' });
@@ -118,6 +138,18 @@ export class EmbeddingService {
   }
 
   private async checkHuggingFace(): Promise<ProviderStatus> {
+    // Skip backend checks in web mode - no backend available
+    const isWebMode =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+
+    if (isWebMode) {
+      return {
+        provider: 'huggingface',
+        available: false,
+        lastChecked: Date.now(),
+      };
+    }
+
     const start = performance.now();
     try {
       const response = await fetch(`${API_BASE}/huggingface/status`, { method: 'GET' });
@@ -170,9 +202,13 @@ export class EmbeddingService {
     }
   }
 
-  private async generateHuggingFaceEmbedding(text: string, _signal?: AbortSignal): Promise<number[]> {
+  private async generateHuggingFaceEmbedding(
+    text: string,
+    _signal?: AbortSignal
+  ): Promise<number[]> {
     try {
-      const { generateHuggingFaceEmbedding, checkHuggingFaceAvailable } = await import('./huggingface-embedding');
+      const { generateHuggingFaceEmbedding, checkHuggingFaceAvailable } =
+        await import('./huggingface-embedding');
       const available = await checkHuggingFaceAvailable();
       if (!available) {
         throw new Error('HuggingFace inference unavailable');
@@ -199,7 +235,7 @@ export class EmbeddingService {
       const word = words[i];
       let hash = 0;
       for (let j = 0; j < word.length; j++) {
-        hash = ((hash << 5) - hash) + word.charCodeAt(j);
+        hash = (hash << 5) - hash + word.charCodeAt(j);
         hash |= 0; // Convert to 32-bit int
       }
       const dim = Math.abs(hash) % DEFAULT_DIMENSIONS;
@@ -221,5 +257,3 @@ export const embeddingService = new EmbeddingService();
 
 export const generateEmbeddingVector = (text: string, options?: GenerateOptions) =>
   embeddingService.generateEmbedding(text, options);
-
-

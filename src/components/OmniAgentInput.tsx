@@ -103,14 +103,16 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
   };
 
   return (
-    <div className="border-t border-slate-800 p-4 bg-slate-900/50">
+    <div className="border-t border-slate-800 bg-slate-900/50 p-4">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
+        <div className="mb-2 flex items-center gap-2 text-sm text-gray-400">
           <Sparkles size={14} />
           <span>Ask OmniAgent</span>
         </div>
         <div className="flex gap-2">
           <input
+            id="omni-agent-query"
+            name="omni-agent-query"
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -120,12 +122,12 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
                 : 'Research a topic, compare URLs, or ask a question...'
             }
             disabled={loading}
-            className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
           />
           <button
             type="submit"
             disabled={!query.trim() || loading}
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? (
               <>

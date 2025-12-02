@@ -3,6 +3,15 @@
  * Handles research agent requests and execution with real data
  */
 
+// Load environment variables (if not already loaded by parent)
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+config({ path: resolve(__dirname, '../../.env') });
+
 import { aiProxy } from '../services/ai/realtime-ai-proxy.js';
 import { researchSearch } from '../services/research/search.js';
 
@@ -33,10 +42,11 @@ import { researchSearch } from '../services/research/search.js';
 /**
  * POST /api/agent/research
  * Real research agent with LLM integration
+ * Now uses job queue for non-blocking processing
  */
 export async function researchAgent(req, reply) {
   try {
-    const { query, url, context, mode = 'hybrid' } = req.body;
+    const { query, url, context, mode = 'hybrid', clientId, sessionId, useQueue = true } = req.body;
 
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
       return reply.code(400).send({
@@ -45,47 +55,45 @@ export async function researchAgent(req, reply) {
       });
     }
 
-    // DEV mode: return mock if DEV=true
-    if (
-      process.env.DEV === 'true' &&
-      !process.env.OPENAI_API_KEY &&
-      !process.env.ANTHROPIC_API_KEY
-    ) {
-      return reply.send({
-        agent_version: 'dev-v1',
-        summary: {
-          short: `Mock summary for: ${query}`,
-          bullets: [
-            'This is a mock response for development',
-            'Add OPENAI_API_KEY or ANTHROPIC_API_KEY to .env for real responses',
-            'Or use Ollama locally (no API key needed)',
-          ],
-          keywords: ['mock', 'development', 'test'],
-        },
-        actions: [
+    // Always use real APIs - no mock mode
+    // If no API keys are configured, will fallback to Ollama (local, no key needed)
+
+    // Check if we should use job queue (non-blocking) or direct call (blocking)
+    if (useQueue && (clientId || process.env.USE_LLM_QUEUE === 'true')) {
+      // Use job queue for non-blocking processing
+      const { enqueueLLMJob } = await import('../services/queue/llmQueue.js');
+
+      try {
+        const { jobId, status, estimatedWait } = await enqueueLLMJob(
           {
-            id: 'act_open_1',
-            type: 'open_tabs',
-            label: 'Open ArXiv',
-            payload: {
-              tabs: [{ title: 'ArXiv', url: 'https://arxiv.org' }],
-            },
+            query,
+            context,
+            url,
+            tabId: req.body.tabId,
+            sessionId: sessionId || req.body.sessionId,
+            clientId: clientId || req.body.clientId,
+            model: mode === 'local' ? 'phi3:mini' : 'gpt-4o-mini',
+            stream: true,
           },
           {
-            id: 'act_search_1',
-            type: 'search',
-            label: 'Search Google',
-            payload: { query: query },
-          },
-        ],
-        confidence: 0.9,
-        explainability: 'dev mock response',
-        citations: 0,
-        hallucination: 'low',
-      });
+            priority: 1,
+          }
+        );
+
+        // Return immediately with jobId
+        return reply.send({
+          jobId,
+          status,
+          estimatedWait,
+          message: 'Job queued, progress will be streamed via WebSocket',
+        });
+      } catch (queueError) {
+        console.warn('[Agent] Queue unavailable, falling back to direct call', queueError.message);
+        // Fall through to direct call
+      }
     }
 
-    // Real implementation: Search + LLM analysis
+    // Direct implementation (blocking, for backwards compatibility or when queue unavailable)
     const startTime = Date.now();
 
     // 1. Search for sources

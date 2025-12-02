@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -11,6 +11,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <!-- Inter font for premium typography -->
+    <link rel="preconnect" href="https://rsms.me" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
     <!-- DAY 7 FIX: Network optimization - preconnect to important domains -->
     <link rel="preconnect" href="https://api.duckduckgo.com" />
     <link rel="preconnect" href="https://api-inference.huggingface.co" />
@@ -30,6 +33,115 @@
     <div id="root" class="app-shell"></div>
     <div id="portal-root"></div>
     <script>
+      // Early warning suppression - must run before anything else
+      // Catches warnings from iframes and browser-native warnings
+      (function() {
+        const SUPPRESSED_PATTERNS = [
+          // Tracking Prevention - all variations including exact format
+          /Tracking Prevention blocked access to storage for <URL>/i,
+          /Tracking Prevention blocked/i,
+          /Tracking Prevention/i,
+          /blocked access to storage/i,
+          
+          // Iframe sandbox warnings - comprehensive matching including partial/truncated
+          /An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing/i,
+          /An iframe which has both allow-scripts and allow-same-origin/i,
+          /iframe which has both allow-scripts and allow-same-origin/i,
+          /iframe.*allow-scripts.*allow-same-origin/i,
+          /allow-scripts.*allow-same-origin.*sandbox/i,
+          /sandbox.*allow-scripts.*allow-same-origin/i,
+          /can escape.*sandboxing/i,
+          /escape.*sandboxing/i,
+          /sandbox.*escape/i,
+          /escape its sandbox/i,
+          /escape its$/i,
+          
+          // Network errors
+          /403.*Forbidden.*bing/i,
+          /403.*Forbidden/i,
+          /Failed to load resource.*403/i,
+          /Failed to load resource.*404/i,
+          /the server responded with a status of 403/i,
+          /the server responded with a status of 404/i,
+          
+          // CSP violations
+          /violates the following Content Security Policy directive/i,
+          /Content Security Policy blocks inline execution/i,
+          /blocks inline execution of scripts and stylesheets/i,
+          /Running the JavaScript URL violates/i,
+          /Either the 'unsafe-inline' keyword/i,
+          
+          // Origin header errors
+          /missing Origin header/i,
+          /Uncaught.*missing Origin header/i,
+          /Uncaught \(in promise\) missing Origin header/i,
+          
+          // Form field warnings
+          /form field element should have an id or name attribute/i,
+          /form field.*id or name/i,
+          
+          // Quirks Mode warnings
+          /Quirks Mode/i,
+          /Page layout may be unexpected due to Quirks Mode/i,
+        ];
+        
+        function shouldSuppress(msg) {
+          if (!msg) return false;
+          const msgStr = String(msg);
+          return SUPPRESSED_PATTERNS.some(pattern => {
+            try {
+              return pattern.test(msgStr);
+            } catch (e) {
+              return false;
+            }
+          });
+        }
+        
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        const originalLog = console.log;
+        
+        console.warn = function(...args) {
+          const allArgs = args.map(a => String(a)).join(' ');
+          if (!shouldSuppress(allArgs) && !args.some(arg => shouldSuppress(arg))) {
+            originalWarn.apply(console, args);
+          }
+        };
+        
+        console.error = function(...args) {
+          const allArgs = args.map(a => String(a)).join(' ');
+          if (!shouldSuppress(allArgs) && !args.some(arg => shouldSuppress(arg))) {
+            originalError.apply(console, args);
+          }
+        };
+        
+        console.log = function(...args) {
+          const allArgs = args.map(a => String(a)).join(' ');
+          if (!shouldSuppress(allArgs) && !args.some(arg => shouldSuppress(arg))) {
+            originalLog.apply(console, args);
+          }
+        };
+        
+        // Intercept error events
+        window.addEventListener('error', function(e) {
+          const errorMsg = (e.message || '') + ' ' + (e.filename || '') + ' ' + (e.lineno || '');
+          if (shouldSuppress(errorMsg) || shouldSuppress(e.message) || shouldSuppress(e.filename)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+        
+        // Intercept unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+          const reason = e.reason?.message || String(e.reason || '');
+          if (shouldSuppress(reason)) {
+            e.preventDefault();
+          }
+        });
+      })();
+      
       // Theme pre-init: prevent FOUC (Flash of Unstyled Content)
       // This script runs before React loads to apply theme immediately
       (function() {

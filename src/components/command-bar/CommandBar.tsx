@@ -258,7 +258,7 @@ export function CommandBar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1080]"
+            className="fixed inset-0 z-[1080] bg-black/60 backdrop-blur-sm"
           />
 
           {/* Command bar */}
@@ -266,25 +266,27 @@ export function CommandBar() {
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl mx-4 bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl z-[1080]"
+            className="fixed left-1/2 top-1/2 z-[1080] mx-4 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
           >
             {/* Search input */}
-            <div className="flex items-center gap-3 p-4 border-b border-slate-800">
+            <div className="flex items-center gap-3 border-b border-slate-800 p-4">
               <Search size={20} className="text-slate-400" />
               <input
+                id="command-bar-search"
+                name="command-bar-query"
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Type a command or search..."
-                className="flex-1 bg-transparent text-white placeholder-slate-500 focus:outline-none text-lg"
+                className="flex-1 bg-transparent text-lg text-white placeholder-slate-500 focus:outline-none"
                 autoFocus
               />
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <kbd className="px-2 py-1 rounded bg-slate-800 border border-slate-700">
+                <kbd className="rounded border border-slate-700 bg-slate-800 px-2 py-1">
                   {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}
                 </kbd>
                 <span>+</span>
-                <kbd className="px-2 py-1 rounded bg-slate-800 border border-slate-700">K</kbd>
+                <kbd className="rounded border border-slate-700 bg-slate-800 px-2 py-1">K</kbd>
               </div>
             </div>
 
@@ -293,12 +295,12 @@ export function CommandBar() {
               {filteredCommands.length === 0 ? (
                 <div className="p-8 text-center text-slate-400">
                   <p>No commands found</p>
-                  <p className="text-sm mt-2">Try a different search term</p>
+                  <p className="mt-2 text-sm">Try a different search term</p>
                 </div>
               ) : (
                 Object.entries(groupedCommands).map(([category, items]) => (
                   <div key={category} className="mb-4">
-                    <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                       {categoryLabels[category] || category}
                     </div>
                     {items.map((cmd, _idx) => {
@@ -309,9 +311,9 @@ export function CommandBar() {
                           key={cmd.id}
                           onClick={() => handleCommandClick(cmd)}
                           onMouseEnter={() => setSelectedIndex(globalIndex)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                             isSelected
-                              ? 'bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/40'
+                              ? 'border border-purple-500/40 bg-gradient-to-r from-purple-500/20 to-cyan-500/20'
                               : 'hover:bg-slate-800'
                           }`}
                         >
@@ -326,7 +328,7 @@ export function CommandBar() {
                               {cmd.label}
                             </div>
                             {cmd.description && (
-                              <div className="text-xs text-slate-500 mt-0.5">{cmd.description}</div>
+                              <div className="mt-0.5 text-xs text-slate-500">{cmd.description}</div>
                             )}
                           </div>
                           {isSelected && <ArrowRight size={16} className="text-purple-300" />}

@@ -66,30 +66,32 @@ class PerformanceMonitor {
     const memory = (performance as any).memory;
     if (memory) {
       this.metrics.memoryUsage = memory.usedJSHeapSize;
-      
-      // Log memory every 30 seconds
+
+      // Suppress routine memory logs entirely - they're too noisy
+      // Only warn if memory exceeds 500MB (reasonable threshold for modern browsers)
+      // Modern browsers can easily handle 500MB+ of JS heap memory
       setInterval(() => {
         const currentMemory = memory.usedJSHeapSize;
-        const memoryMB = (currentMemory / 1024 / 1024).toFixed(2);
-        console.log(`[Perf] Memory usage: ${memoryMB} MB`);
-        
-        // Warn if memory exceeds 100MB
-        if (currentMemory > 100 * 1024 * 1024) {
+        // Only warn at 500MB+ (suppress warnings below this threshold)
+        if (currentMemory > 500 * 1024 * 1024) {
+          const memoryMB = (currentMemory / 1024 / 1024).toFixed(2);
           console.warn(`[Perf] High memory usage: ${memoryMB} MB`);
         }
-      }, 30000);
+        // Suppress all routine memory logs - not useful for debugging
+      }, 60000);
     }
   }
 
   private trackNavigationTiming() {
     if ('PerformanceObserver' in window) {
       try {
-        const observer = new PerformanceObserver((list) => {
+        const observer = new PerformanceObserver(list => {
           for (const entry of list.getEntries()) {
             if (entry.entryType === 'navigation') {
               const navEntry = entry as PerformanceNavigationTiming;
               console.log('[Perf] Navigation timing:', {
-                domContentLoaded: navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
+                domContentLoaded:
+                  navEntry.domContentLoadedEventEnd - navEntry.domContentLoadedEventStart,
                 load: navEntry.loadEventEnd - navEntry.loadEventStart,
                 total: navEntry.loadEventEnd - navEntry.fetchStart,
               });
@@ -106,7 +108,7 @@ class PerformanceMonitor {
 
   private logMetric(name: string, value: number) {
     console.log(`[Perf] ${name}: ${value.toFixed(2)}ms`);
-    
+
     // Send to telemetry if available
     if (typeof window !== 'undefined' && (window as any).ipc) {
       try {
@@ -140,4 +142,3 @@ export function initPerformanceMonitoring(): PerformanceMonitor {
 export function getPerformanceMetrics(): PerformanceMetrics {
   return performanceMonitor?.getMetrics() || {};
 }
-

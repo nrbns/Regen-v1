@@ -10,7 +10,7 @@ The Trade Mode now supports TradingView's Broker REST API specification (v1.9.3)
 ✅ **Real-time Quotes** - Live market data via `/quotes` endpoint  
 ✅ **Order Management** - Place, modify, and cancel orders  
 ✅ **Position Tracking** - Get open positions and account state  
-✅ **Fallback Support** - Falls back to Yahoo Finance if TradingView API not configured  
+✅ **Fallback Support** - Falls back to Yahoo Finance if TradingView API not configured
 
 ## Configuration
 
@@ -34,11 +34,12 @@ TRADINGVIEW_CLIENT_SECRET=your-client-secret
 ```typescript
 await ipc.invoke('tradingview_authorize', {
   login: 'your-username',
-  password: 'your-password'
+  password: 'your-password',
 });
 ```
 
 **Response:**
+
 ```json
 {
   "s": "ok",
@@ -56,11 +57,12 @@ await ipc.invoke('tradingview_authorize', {
 ```typescript
 await ipc.invoke('tradingview_quotes', {
   accountId: 'your-account-id',
-  symbols: 'EURUSD,GBPUSD'
+  symbols: 'EURUSD,GBPUSD',
 });
 ```
 
 **Response:**
+
 ```json
 {
   "s": "ok",
@@ -88,15 +90,16 @@ await ipc.invoke('tradingview_place_order', {
   qty: 1,
   side: 'buy',
   orderType: 'limit',
-  limitPrice: 1.1350,
+  limitPrice: 1.135,
   currentAsk: 1.1349,
   currentBid: 1.1347,
-  stopLoss: 1.1300,
-  takeProfit: 1.1400
+  stopLoss: 1.13,
+  takeProfit: 1.14,
 });
 ```
 
 **Response:**
+
 ```json
 {
   "s": "ok",
@@ -113,11 +116,12 @@ await ipc.invoke('tradingview_place_order', {
 
 ```typescript
 await ipc.invoke('tradingview_get_positions', {
-  accountId: 'your-account-id'
+  accountId: 'your-account-id',
 });
 ```
 
 **Response:**
+
 ```json
 {
   "s": "ok",
@@ -140,11 +144,12 @@ await ipc.invoke('tradingview_get_positions', {
 
 ```typescript
 await ipc.invoke('tradingview_get_account_state', {
-  accountId: 'your-account-id'
+  accountId: 'your-account-id',
 });
 ```
 
 **Response:**
+
 ```json
 {
   "s": "ok",
@@ -179,7 +184,7 @@ import { ipc } from '../lib/ipc-typed';
 // Authenticate
 const authResult = await ipc.invoke('tradingview_authorize', {
   login: 'username',
-  password: 'password'
+  password: 'password',
 });
 
 // Store access token in .env or secure storage
@@ -188,7 +193,7 @@ const authResult = await ipc.invoke('tradingview_authorize', {
 // Get quotes
 const quotes = await ipc.invoke('tradingview_quotes', {
   accountId: 'account-123',
-  symbols: 'NIFTY,BANKNIFTY'
+  symbols: 'NIFTY,BANKNIFTY',
 });
 
 // Place order
@@ -199,7 +204,7 @@ const order = await ipc.invoke('tradingview_place_order', {
   side: 'buy',
   orderType: 'market',
   currentAsk: 25035.0,
-  currentBid: 25034.0
+  currentBid: 25034.0,
 });
 ```
 
@@ -217,7 +222,7 @@ const order = await ipc.invoke('tradingview_place_order', {
 ✅ Position management  
 ✅ Account balance and equity  
 ✅ Real-time quotes streaming  
-✅ OAuth2 and Password authentication  
+✅ OAuth2 and Password authentication
 
 ## Broker Compatibility
 
@@ -266,7 +271,3 @@ https://www.tradingview.com/rest-api-docs/
 - ✅ Automatic fallback to Yahoo Finance
 
 Ready for production use! 🚀
-
-
-
-

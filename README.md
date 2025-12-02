@@ -45,9 +45,15 @@ npm install
 cd tauri-migration && npm install && cd ..
 ```
 
-### Step 3: Environment Setup (Optional)
+### Step 3: Environment Setup (Required for Real-Time Features)
 
 ```bash
+# Copy example.env to .env
+cp example.env .env
+
+# Edit .env and add your API keys
+# Minimum: OLLAMA_BASE_URL (for offline AI)
+# Recommended: OPENAI_API_KEY (for best results)
 # Copy example env (for online AI features)
 cp example.env .env
 # Edit .env to add API keys (or skip for offline mode)

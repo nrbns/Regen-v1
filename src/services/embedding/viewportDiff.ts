@@ -73,7 +73,6 @@ class ViewportDiffEmbedder {
       }
     );
 
-    let node;
     let currentNode: Node | null;
     while ((currentNode = walker.nextNode())) {
       if (currentNode.nodeType === Node.ELEMENT_NODE) {

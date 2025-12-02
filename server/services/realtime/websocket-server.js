@@ -3,9 +3,9 @@
  * Handles browser connections and forwards Redis events
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-const WebSocket = require('ws');
-const { v4: uuidv4 } = require('uuid');
+import WebSocket from 'ws';
+import { v4 as uuidv4 } from 'uuid';
+import { subscribe as subscribePubSub } from '../../pubsub.js';
 // Redis client reserved for future use
 
 const log = {
@@ -15,6 +15,9 @@ const log = {
 
 // Map clientId -> WebSocket
 const wsClients = new Map();
+
+// Map jobId -> Set of WebSocket clients (for research events)
+const jobClients = new Map();
 
 // Redis subscriber for Pub/Sub
 let redisSub = null;
@@ -37,6 +40,66 @@ function initWebSocketServer(httpServer) {
 
   // Initialize Redis subscriber
   initRedisSubscriber();
+
+  // Subscribe to research events channel
+  subscribePubSub('research.event', event => {
+    const jobId = event.jobId;
+    if (!jobId) {
+      log.warn('[WS-FORWARDER] Event missing jobId', { event });
+      return;
+    }
+
+    log.info('[WS-FORWARDER] Got event', {
+      eventType: event.eventType || event.type,
+      jobId,
+      hasClients: jobClients.has(jobId),
+    });
+
+    const clients = jobClients.get(jobId);
+    if (!clients || clients.size === 0) {
+      log.warn('[WS-FORWARDER] No clients subscribed to job', {
+        jobId,
+        totalJobs: jobClients.size,
+      });
+      return;
+    }
+
+    // Ensure event has ID for deduplication
+    if (!event.id) {
+      event.id = uuidv4();
+    }
+
+    const payload = JSON.stringify(event);
+    let forwardedCount = 0;
+
+    // Forward to all subscribed clients
+    for (const ws of clients) {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(payload);
+          forwardedCount++;
+        } catch (error) {
+          log.warn('[WS-FORWARDER] Failed to send to client', {
+            jobId,
+            error: error.message,
+          });
+        }
+      } else {
+        log.debug('[WS-FORWARDER] Client not open', {
+          jobId,
+          readyState: ws.readyState,
+        });
+      }
+    }
+
+    if (forwardedCount > 0) {
+      log.info('[WS-FORWARDER] Forwarded event to clients', {
+        jobId,
+        eventType: event.eventType || event.type,
+        count: forwardedCount,
+      });
+    }
+  });
 
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -69,6 +132,29 @@ function initWebSocketServer(httpServer) {
     ws.on('message', raw => {
       try {
         const message = JSON.parse(raw.toString());
+
+        // Handle research job subscription
+        if (message.type === 'subscribe' && message.jobId) {
+          log.info('[WS] Client subscribed to job', { clientId, jobId: message.jobId });
+          const set = jobClients.get(message.jobId) || new Set();
+          set.add(ws);
+          jobClients.set(message.jobId, set);
+          ws.__sub_jobId = message.jobId;
+
+          log.info('[WS] Job clients count', { jobId: message.jobId, count: set.size });
+
+          // Send confirmation
+          ws.send(
+            JSON.stringify({
+              id: uuidv4(),
+              type: 'subscribed',
+              jobId: message.jobId,
+              timestamp: Date.now(),
+            })
+          );
+          return;
+        }
+
         handleClientMessage(clientId, sessionId, message);
       } catch (error) {
         log.error('Failed to parse client message', { clientId, error: error.message });
@@ -79,6 +165,18 @@ function initWebSocketServer(httpServer) {
     ws.on('close', () => {
       log.info('WebSocket disconnected', { clientId });
       wsClients.delete(clientId);
+
+      // Clean up job subscriptions
+      const jobId = ws.__sub_jobId;
+      if (jobId) {
+        const set = jobClients.get(jobId);
+        if (set) {
+          set.delete(ws);
+          if (set.size === 0) {
+            jobClients.delete(jobId);
+          }
+        }
+      }
     });
 
     // Handle errors
@@ -103,18 +201,19 @@ async function initRedisSubscriber() {
   }
 
   try {
-    const IORedis = require('ioredis');
+    const IORedis = (await import('ioredis')).default;
     const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
 
     redisSub = new IORedis(redisUrl, {
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: null, // BullMQ requirement
       enableOfflineQueue: false,
-      retryStrategy: times => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
+      retryStrategy: () => {
+        // Don't retry - Redis is optional
+        return null;
       },
       connectTimeout: 5000,
       lazyConnect: true, // Don't connect immediately - connect on first use
+      showFriendlyErrorStack: false,
     });
 
     // Handle connection events
@@ -122,61 +221,27 @@ async function initRedisSubscriber() {
       log.info('Redis subscriber connected');
     });
 
-    redisSub.on('error', error => {
-      // Completely suppress all Redis connection errors - Redis is optional
-      if (
-        error?.code === 'ECONNREFUSED' ||
-        error?.code === 'MaxRetriesPerRequestError' ||
-        error?.code === 'ENOTFOUND' ||
-        error?.code === 'ETIMEDOUT' ||
-        error?.message?.includes('Connection is closed')
-      ) {
-        // Silently ignore - Redis is optional
-        return;
-      }
-      // Only log non-connection errors in debug mode
-      if (log.level === 'debug') {
-        log.debug('Redis subscriber non-connection error', { error: error.message });
-      }
+    // Completely suppress all Redis errors - Redis is optional
+    redisSub.on('error', () => {
+      // Silently ignore all Redis errors - Redis is optional
+      // Do nothing - errors are expected when Redis is unavailable
     });
 
     // Try to connect, but don't fail if Redis is unavailable
     try {
-      await redisSub.connect();
+      await redisSub.connect().catch(() => {
+        // Silently ignore connection failures - Redis is optional
+      });
 
       // Subscribe to all client channels with pattern (only if connected)
       if (redisSub.status === 'ready') {
-        try {
-          await redisSub.psubscribe('regen:out:*');
-        } catch (error) {
-          if (
-            error?.code === 'ECONNREFUSED' ||
-            error?.code === 'ENOTFOUND' ||
-            error?.code === 'MaxRetriesPerRequestError' ||
-            error?.message?.includes("Stream isn't writeable")
-          ) {
-            // Silently ignore - Redis is optional
-            return;
-          }
-          if (log.level === 'debug') {
-            log.debug('Redis subscription failed (non-critical)', { error: error.message });
-          }
-        }
+        await redisSub.psubscribe('regen:out:*').catch(() => {
+          // Silently ignore subscription failures - Redis is optional
+        });
+        log.info('Redis subscriber subscribed to regen:out:*');
       }
-    } catch (error) {
-      if (
-        error?.code === 'ECONNREFUSED' ||
-        error?.code === 'ENOTFOUND' ||
-        error?.code === 'ETIMEDOUT' ||
-        error?.code === 'MaxRetriesPerRequestError'
-      ) {
-        // Silently ignore - Redis is optional
-        return;
-      }
-      // Only log non-connection errors
-      if (log.level === 'debug') {
-        log.debug('Redis connection failed (non-critical)', { error: error.message });
-      }
+    } catch {
+      // Silently ignore - Redis is optional
     }
 
     redisSub.on('pmessage', (pattern, channel, message) => {
@@ -197,9 +262,28 @@ async function initRedisSubscriber() {
           return;
         }
 
+        // Parse message to ensure it has an ID
+        let parsedMessage;
+        try {
+          parsedMessage = JSON.parse(message);
+          // Ensure message has unique ID for deduplication
+          if (!parsedMessage.id) {
+            parsedMessage.id = uuidv4();
+          }
+          message = JSON.stringify(parsedMessage);
+        } catch {
+          // If not JSON, wrap it
+          parsedMessage = { id: uuidv4(), data: message };
+          message = JSON.stringify(parsedMessage);
+        }
+
         // Forward event to WebSocket
         client.ws.send(message);
-        log.debug('Forwarded Redis event to WebSocket', { clientId, channel });
+        log.debug('Forwarded Redis event to WebSocket', {
+          clientId,
+          channel,
+          messageId: parsedMessage.id,
+        });
       } catch (error) {
         log.error('Failed to forward Redis event to WebSocket', { channel, error: error.message });
       }
@@ -283,7 +367,7 @@ async function sendToClient(event) {
   // Fallback: try Redis Pub/Sub if available
   if (redisSub && redisSub.status === 'ready') {
     try {
-      const { redisPub } = require('../../config/redis-client');
+      const { redisPub } = await import('../../config/redis-client.js');
       if (redisPub && redisPub.status === 'ready') {
         const channel = `regen:out:${event.clientId}`;
         await redisPub.publish(channel, JSON.stringify(event));
@@ -329,7 +413,7 @@ function closeClient(clientId) {
   }
 }
 
-module.exports = {
+export {
   initWebSocketServer,
   sendToClient,
   getConnectedClientsCount,

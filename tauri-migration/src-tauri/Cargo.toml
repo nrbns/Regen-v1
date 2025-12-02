@@ -34,8 +34,13 @@ lazy_static = "1.4"  # For static initialization
 regex = "1.10"  # For HTML cleaning in extract.rs
 sentry = { version = "0.33", features = ["panic", "tracing"] }  # Crash reporting
 tauri-plugin-store = "2.0"  # Secure storage
+# Document processing libraries
+pdf = "0.9"  # PDF parsing and text extraction
+calamine = "0.25"  # Excel file parsing (.xlsx, .xls, .ods)
+zip = "0.6"  # For DOCX file parsing (DOCX is a ZIP archive containing XML)
 # playwright = { version = "0.20", features = ["api"] }  # Commented out - requires Node.js runtime
 # base64 = "0.22"  # Not needed without Playwright screenshots
+# whisper-rs = "0.11"  # Whisper.cpp bindings (uncomment when needed)
 
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem

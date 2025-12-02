@@ -1,4 +1,5 @@
 import { isBackendAvailable, onBackendStatusChange } from '../lib/backend-status';
+import { isElectronRuntime, isTauriRuntime } from '../lib/env';
 
 const DEFAULT_WS_URL = import.meta.env.VITE_REDIX_WS_URL || 'ws://localhost:4000/ws';
 const DEFAULT_HTTP_URL = import.meta.env.VITE_REDIX_HTTP_URL || 'http://localhost:4000/api/query';
@@ -33,9 +34,15 @@ export class RedixWS {
       this.backendOnline = status;
       if (!status && this.ws) {
         try {
-          this.ws.close();
+          // Only close if WebSocket is in a valid state to prevent browser errors
+          if (
+            this.ws.readyState === WebSocket.OPEN ||
+            this.ws.readyState === WebSocket.CONNECTING
+          ) {
+            this.ws.close();
+          }
         } catch {
-          // ignore
+          // ignore - WebSocket errors are expected if server isn't running
         }
         this.ws = null;
       }
@@ -43,6 +50,13 @@ export class RedixWS {
         this.connect();
       }
     });
+
+    // Skip WebSocket connections in web mode - no backend available
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+    if (isWebMode) {
+      return; // Don't attempt connection in web mode
+    }
+
     // Defer connection attempt to avoid blocking initial render
     // Only connect if Redix is enabled
     if (
@@ -67,6 +81,12 @@ export class RedixWS {
   }
 
   connect(): void {
+    // Skip WebSocket connections in web mode - no backend available
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+    if (isWebMode) {
+      return; // Don't attempt connection in web mode
+    }
+
     if (this.isConnecting || !this.backendOnline) return;
 
     // Check if Redix is disabled via environment variable
@@ -118,6 +138,13 @@ export class RedixWS {
 
       this.ws.onclose = () => {
         this.isConnecting = false;
+
+        // Don't retry in web mode - no backend available
+        const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+        if (isWebMode) {
+          return; // Don't retry in web mode
+        }
+
         // Only retry if not explicitly disabled
         if (
           import.meta.env.VITE_DISABLE_REDIX !== 'true' &&
@@ -329,13 +356,20 @@ let _redixWSInstance: RedixWS | null = null;
 // Lazy initialization - only connect when actually needed
 export const getRedixWS = (): RedixWS => {
   if (!_redixWSInstance) {
-    // Check if Redix is disabled
-    if (import.meta.env.VITE_DISABLE_REDIX === 'true' || import.meta.env.DISABLE_REDIX === 'true') {
+    // Skip WebSocket connections in web mode - no backend available
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+
+    if (
+      isWebMode ||
+      import.meta.env.VITE_DISABLE_REDIX === 'true' ||
+      import.meta.env.DISABLE_REDIX === 'true'
+    ) {
       // Create a stub that falls back to HTTP
       _redixWSInstance = new RedixWS();
       // Don't attempt connection
       (_redixWSInstance as any).ws = null;
       (_redixWSInstance as any).connect = () => {}; // No-op
+      (_redixWSInstance as any).isConnecting = false;
     } else {
       _redixWSInstance = new RedixWS();
     }
@@ -343,5 +377,17 @@ export const getRedixWS = (): RedixWS => {
   return _redixWSInstance;
 };
 
-// Export singleton for backward compatibility
-export const redixWS = getRedixWS();
+// Export singleton for backward compatibility - lazy load to avoid immediate connection attempts
+export const redixWS = (() => {
+  // Don't create instance immediately in web mode
+  const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+  if (isWebMode) {
+    // Return a stub that never connects
+    const stub = new RedixWS();
+    (stub as any).ws = null;
+    (stub as any).connect = () => {}; // No-op
+    (stub as any).isConnecting = false;
+    return stub;
+  }
+  return getRedixWS();
+})();

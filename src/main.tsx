@@ -13,6 +13,8 @@ import { syncAnalyticsOptIn, trackPageView } from './lib/monitoring/analytics-cl
 import { ipc } from './lib/ipc-typed';
 import { ThemeProvider } from './ui/theme';
 import { CSP_DIRECTIVE } from './config/security';
+import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
+import { SettingsSync } from './components/SettingsSync';
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -30,6 +32,11 @@ import { QuickStartTour } from './components/Onboarding/QuickStartTour';
 
 // DAY 3-4 FIX: Defer non-critical services - lazy load after first paint
 // These are moved to lazy initialization to improve startup time
+
+// Future Enhancements: Initialize after first paint
+import { initializePrefetcher } from './services/prefetch/queryPrefetcher';
+import { getVectorWorkerService } from './services/vector/vectorWorkerService';
+import { getLRUCache } from './services/embedding/lruCache';
 
 // Lazy load components to avoid loading everything at once
 // Add error handling to prevent blank pages on import failures
@@ -87,24 +94,29 @@ const ConsentTimelinePage = lazyWithErrorHandling(
   'ConsentTimelinePage'
 );
 
+// USER REQUEST: No restrictions - completely open for all websites
+// CSP is now completely permissive to allow all websites
 const ensureCSPMeta = () => {
   if (typeof document === 'undefined') return;
   const existing = document.querySelector(
     'meta[http-equiv="Content-Security-Policy"]'
   ) as HTMLMetaElement | null;
   if (existing) {
-    if (!existing.content || existing.content.trim() !== CSP_DIRECTIVE) {
-      existing.content = CSP_DIRECTIVE;
-    }
-    return;
+    // Update to completely permissive CSP (allows everything)
+    existing.content = CSP_DIRECTIVE;
+  } else {
+    // Add permissive CSP that allows all websites
+    const meta = document.createElement('meta');
+    meta.httpEquiv = 'Content-Security-Policy';
+    meta.content = CSP_DIRECTIVE;
+    document.head.prepend(meta);
   }
-  const meta = document.createElement('meta');
-  meta.httpEquiv = 'Content-Security-Policy';
-  meta.content = CSP_DIRECTIVE;
-  document.head.prepend(meta);
 };
 
 ensureCSPMeta();
+
+// Suppress known browser-native console warnings (Tracking Prevention, CSP violations, etc.)
+suppressBrowserWarnings();
 
 // Ultra-lightweight loading component - minimal DOM for fast render
 function LoadingFallback() {
@@ -351,7 +363,9 @@ try {
         // SEARCH SYSTEM VERIFICATION: Initialize and verify search system
         Promise.all([
           import('./services/meiliIndexer').then(({ initMeiliIndexing }) => {
-            return initMeiliIndexing().catch(console.error);
+            return initMeiliIndexing().catch(() => {
+              // Suppress MeiliSearch errors - it's optional
+            });
           }),
           import('./lib/meili-setup').then(({ setupMeiliIndexes }) => {
             return setupMeiliIndexes().catch(console.error);
@@ -494,49 +508,42 @@ try {
     // DAY 2 FIX: Defer ALL non-critical services until after UI shows
     // These services are loaded in background after first paint
 
-    try {
-      // Initialize auth service (can be slow) - defer even more
-      setTimeout(async () => {
-        try {
-          await authService.initialize();
-          if (authService.getState().isAuthenticated) {
+    // Initialize auth service (can be slow) - defer even more
+    setTimeout(async () => {
+      try {
+        const authModule = await import('./services/auth').catch(() => null);
+        if (authModule?.authService) {
+          await authModule.authService.initialize();
+          if (authModule.authService.getState().isAuthenticated) {
             // Defer sync service start even further
-            setTimeout(() => {
-              syncService.startAutoSync().catch(err => {
-                if (isDevEnv()) {
-                  console.warn('[Main] Sync service failed to start:', err);
+            setTimeout(async () => {
+              try {
+                const syncModule = await import('./services/sync').catch(() => null);
+                if (syncModule?.syncService) {
+                  await syncModule.syncService.startAutoSync();
                 }
-              });
+              } catch {
+                // Silently fail - sync service is optional
+              }
             }, 1000);
           }
-        } catch (error) {
-          if (isDevEnv()) {
-            console.warn('[Main] Failed to initialize auth service:', error);
-          }
         }
-      }, 2000); // Increased delay to 2s
-    } catch (error) {
-      if (isDevEnv()) {
-        console.warn('[Main] Failed to initialize auth service:', error);
+      } catch {
+        // Silently fail - auth service is optional for development
       }
-    }
+    }, 2000); // Increased delay to 2s
 
-    try {
-      // Restore plugin state (can be slow) - defer significantly
-      setTimeout(() => {
-        try {
-          pluginRegistry.restorePluginState();
-        } catch (error) {
-          if (isDevEnv()) {
-            console.warn('[Main] Failed to restore plugin state:', error);
-          }
+    // Restore plugin state (can be slow) - defer significantly
+    setTimeout(async () => {
+      try {
+        const pluginModule = await import('./core/plugins/registry').catch(() => null);
+        if (pluginModule?.pluginRegistry) {
+          pluginModule.pluginRegistry.restorePluginState();
         }
-      }, 3000); // Increased delay to 3s
-    } catch (error) {
-      if (isDevEnv()) {
-        console.warn('[Main] Failed to restore plugin state:', error);
+      } catch {
+        // Silently fail - plugin registry is optional
       }
-    }
+    }, 3000); // Increased delay to 3s
 
     // DAY 2 FIX: Move analytics/update checks to background
     // These don't need to block startup
@@ -810,6 +817,36 @@ try {
         console.log('[Startup] Heavy services loaded (deferred)');
       }
     });
+
+    // Future Enhancements: Initialize after first paint
+    // 1. Initialize LRU cache for embeddings
+    getLRUCache(1000); // 1000 item capacity
+
+    // 2. Initialize vector worker service (offloads heavy computations)
+    getVectorWorkerService()
+      .initialize()
+      .catch(error => {
+        console.warn('[Startup] Vector worker initialization failed:', error);
+      });
+
+    // 3. Initialize query prefetcher (smart prefetching)
+    initializePrefetcher();
+
+    // 4. Initialize tab sync (Yjs) - deferred to avoid blocking
+    if (isTauriRuntime()) {
+      setTimeout(() => {
+        import('./services/sync/tabSyncService')
+          .then(({ initializeTabSync }) => {
+            const sessionId = `session-${Date.now()}`;
+            initializeTabSync(sessionId, 'ws://127.0.0.1:18080/yjs').catch(error => {
+              console.warn('[Startup] Tab sync initialization failed:', error);
+            });
+          })
+          .catch(() => {
+            // Tab sync not critical for startup
+          });
+      }, 2000); // Wait 2s after first paint
+    }
   };
 
   // Wait for first paint, then defer services
@@ -953,6 +990,7 @@ try {
     <React.StrictMode>
       <ThemeProvider>
         <GlobalErrorBoundary>
+          <SettingsSync />
           <Suspense fallback={<LoadingFallback />}>
             <RouterProvider
               router={router}

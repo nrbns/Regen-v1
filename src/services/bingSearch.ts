@@ -49,31 +49,55 @@ export async function fetchBingSearch(
     const offset = options?.offset || 0;
     const market = options?.market || options?.language || 'en-US';
 
-    const url = new URL('https://api.bing.microsoft.com/v7.0/search');
-    url.searchParams.set('q', query.trim());
-    url.searchParams.set('count', count.toString());
-    url.searchParams.set('offset', offset.toString());
-    url.searchParams.set('mkt', market);
-    url.searchParams.set('responseFilter', 'Webpages');
-    url.searchParams.set('textDecorations', 'false');
-    url.searchParams.set('textFormat', 'HTML');
+    // Use backend proxy instead of direct Bing API call
+    // This avoids Tracking Prevention and keeps API keys secure
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    const proxyUrl = `${API_BASE}/api/proxy/bing/search`;
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
       headers: {
-        'Ocp-Apim-Subscription-Key': apiKey,
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+      body: JSON.stringify({
+        q: query.trim(),
+        count,
+        offset,
+        mkt: market,
+      }),
     });
 
     if (!response.ok) {
-      console.warn('[BingSearch] API request failed:', response.status, response.statusText);
+      const errorData = await response.json().catch(() => ({}));
+      if (errorData.fallback) {
+        console.warn('[BingSearch] Bing API unavailable, using fallback:', errorData.message);
+      } else {
+        console.warn('[BingSearch] API request failed:', response.status, response.statusText);
+      }
       return [];
     }
 
-    const data = (await response.json()) as BingSearchResponse;
+    const data = await response.json();
 
-    if (data.webPages?.value) {
-      return data.webPages.value;
+    // Handle proxy response format
+    if (data.ok && data.results) {
+      // Proxy returns results directly
+      return data.results.map((item: any) => ({
+        id: item.id || item.url,
+        name: item.name || item.title || '',
+        url: item.url,
+        snippet: item.snippet || item.description || '',
+        displayUrl: item.displayUrl || item.url,
+        datePublished: item.datePublished,
+        dateLastCrawled: item.dateLastCrawled,
+      }));
+    }
+
+    // Fallback: try to parse as Bing response format
+    const bingData = data as BingSearchResponse;
+    if (bingData.webPages?.value) {
+      return bingData.webPages.value;
     }
 
     return [];

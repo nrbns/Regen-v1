@@ -57,8 +57,8 @@ export default function SessionRestoreModal() {
         for (const tab of currentTabs) {
           try {
             await ipc.tabs.close({ id: tab.id });
-          } catch (error) {
-            log.warn('Failed to close tab during restore', error);
+          } catch (err) {
+            log.warn('Failed to close tab during restore', err);
           }
         }
 
@@ -82,17 +82,23 @@ export default function SessionRestoreModal() {
                 url: tab.url,
               });
             }
-          } catch (error) {
-            log.warn('Failed to restore tab', error);
+          } catch (err) {
+            log.warn('Failed to restore tab', err);
           }
         }
 
-        // Set active tab
+        // Set active tab - handle gracefully if tab doesn't exist
         if (session.activeTabId) {
           const restoredTab = tabsStore.tabs.find(t => t.id === session.activeTabId);
           if (restoredTab) {
-            tabsStore.setActive(session.activeTabId);
-            await ipc.tabs.activate({ id: session.activeTabId });
+            try {
+              tabsStore.setActive(session.activeTabId);
+              await ipc.tabs.activate({ id: session.activeTabId }).catch(() => {
+                // Suppress errors for internal/system tabs or if IPC fails
+              });
+            } catch {
+              // Suppress errors - tab might not exist anymore
+            }
           }
         }
       }
@@ -146,13 +152,13 @@ export default function SessionRestoreModal() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-slate-900 rounded-xl border border-slate-700 shadow-2xl max-w-md w-full mx-4"
+            className="mx-4 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-100 mb-1">
+                  <h3 className="mb-1 text-lg font-semibold text-gray-100">
                     Restore your last browsing session?
                   </h3>
                   <p className="text-sm text-gray-400">
@@ -170,7 +176,7 @@ export default function SessionRestoreModal() {
                       handleDismiss();
                     }, 0);
                   }}
-                  className="text-gray-400 hover:text-gray-200 transition-colors"
+                  className="text-gray-400 transition-colors hover:text-gray-200"
                   aria-label="Dismiss"
                   style={{ pointerEvents: 'auto', zIndex: 10001 }}
                 >
@@ -178,7 +184,7 @@ export default function SessionRestoreModal() {
                 </button>
               </div>
 
-              <div className="flex gap-3 mt-6">
+              <div className="mt-6 flex gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -186,11 +192,11 @@ export default function SessionRestoreModal() {
                     handleRestore();
                   }}
                   disabled={isRestoring}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isRestoring ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
                       Restoring...
                     </>
                   ) : (

@@ -1,23 +1,16 @@
 {
-  "name": "regen-server",
-  "version": "0.1.0-alpha",
-  "type": "module",
-  "description": "Regen Fastify backend server",
+  "name": "regen-realtime-server",
+  "version": "1.0.0",
+  "description": "Mock realtime trading server for Trade Mode testing",
+  "main": "realtime-server.js",
+  "scripts": {
+    "start": "node realtime-server.js",
+    "dev": "node realtime-server.js"
+  },
   "dependencies": {
-    "@fastify/cors": "^10.0.1",
-    "@fastify/rate-limit": "^10.1.1",
-    "@fastify/websocket": "^11.2.0",
-    "axios": "^1.7.7",
-    "docx": "^8.5.0",
-    "express": "^4.19.2",
-    "fastify": "^5.6.2",
-    "ioredis": "^5.8.2",
-    "mammoth": "^1.6.0",
-    "multer": "^1.4.5-lts.1",
-    "pdf-lib": "^1.17.1",
-    "tesseract.js": "^5.0.4",
-    "uuid": "^13.0.0",
-    "ws": "^8.18.0",
-    "xlsx": "^0.18.5"
+    "express": "^4.18.2",
+    "ws": "^8.18.3",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2"
   }
 }

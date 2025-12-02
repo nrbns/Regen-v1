@@ -6,7 +6,8 @@
 
 // Stub for @tauri-apps/api/core
 export function invoke(cmd, args) {
-  console.warn(`[Tauri Stub] invoke('${cmd}', ...) called but Tauri is not available`);
+  // Silently fail - Tauri APIs are expected to be unavailable in web mode
+  // Callers should handle this gracefully with try/catch
   return Promise.reject(new Error('Tauri API not available'));
 }
 
@@ -33,4 +34,3 @@ export default {
   listen,
   emit,
 };
-

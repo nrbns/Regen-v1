@@ -15,14 +15,33 @@ export function validateCommandName(command: string): boolean {
     console.error(`[IPC Validator] Invalid command name: ${command}`);
     return false;
   }
-  
-  // Block dangerous commands
-  const dangerousCommands = ['eval', 'exec', 'system', 'shell', 'spawn', 'child_process'];
-  if (dangerousCommands.some(dangerous => command.toLowerCase().includes(dangerous))) {
+
+  // Block dangerous commands (exact match, starts with, or contains as a word)
+  const dangerousCommands = ['eval', 'exec', 'shell', 'spawn', 'child_process'];
+  const commandLower = command.toLowerCase();
+  if (
+    dangerousCommands.some(dangerous => {
+      // Block exact matches
+      if (commandLower === dangerous) return true;
+      // Block commands that start with dangerous word followed by : or _
+      if (commandLower.startsWith(dangerous + ':') || commandLower.startsWith(dangerous + '_'))
+        return true;
+      // Block commands that contain dangerous word as a separate word (e.g., "research_eval", "test_eval")
+      const wordBoundaryRegex = new RegExp(`[:_-]${dangerous}(?:[:_-]|$)|^${dangerous}[:_-]`);
+      if (wordBoundaryRegex.test(commandLower)) return true;
+      return false;
+    })
+  ) {
     console.error(`[IPC Validator] Blocked dangerous command: ${command}`);
     return false;
   }
-  
+
+  // Block standalone "system" but allow "system:" prefixed commands
+  if (commandLower === 'system') {
+    console.error(`[IPC Validator] Blocked dangerous command: ${command}`);
+    return false;
+  }
+
   return true;
 }
 
@@ -33,16 +52,16 @@ export function sanitizeString(input: unknown): string {
   if (typeof input !== 'string') {
     return '';
   }
-  
+
   // Remove null bytes and control characters
   // eslint-disable-next-line no-control-regex
   let sanitized = input.replace(/[\x00-\x1F\x7F]/g, '');
-  
+
   // Limit length
   if (sanitized.length > 10000) {
     sanitized = sanitized.substring(0, 10000);
   }
-  
+
   return sanitized;
 }
 
@@ -53,9 +72,9 @@ export function sanitizeUrl(input: unknown): string | null {
   if (typeof input !== 'string') {
     return null;
   }
-  
+
   const sanitized = sanitizeString(input);
-  
+
   // Validate URL format
   try {
     const url = new URL(sanitized);
@@ -73,7 +92,10 @@ export function sanitizeUrl(input: unknown): string | null {
 /**
  * Validate IPC request payload
  */
-export function validateIpcRequest(command: string, payload: unknown): {
+export function validateIpcRequest(
+  command: string,
+  payload: unknown
+): {
   valid: boolean;
   sanitized?: unknown;
   error?: string;
@@ -85,12 +107,12 @@ export function validateIpcRequest(command: string, payload: unknown): {
       error: 'Invalid command name',
     };
   }
-  
+
   // Basic payload validation
   if (payload === null || payload === undefined) {
     return { valid: true, sanitized: payload };
   }
-  
+
   // If payload is an object, sanitize string values
   if (typeof payload === 'object' && !Array.isArray(payload)) {
     const sanitized: Record<string, unknown> = {};
@@ -98,7 +120,7 @@ export function validateIpcRequest(command: string, payload: unknown): {
       // Sanitize key
       const safeKey = sanitizeString(key);
       if (!safeKey) continue;
-      
+
       // Sanitize value based on type
       if (typeof value === 'string') {
         // Special handling for URL fields
@@ -119,12 +141,12 @@ export function validateIpcRequest(command: string, payload: unknown): {
     }
     return { valid: true, sanitized };
   }
-  
+
   // If payload is a string, sanitize it
   if (typeof payload === 'string') {
     return { valid: true, sanitized: sanitizeString(payload) };
   }
-  
+
   // Other types (number, boolean, etc.) are safe
   return { valid: true, sanitized: payload };
 }
@@ -132,25 +154,21 @@ export function validateIpcRequest(command: string, payload: unknown): {
 /**
  * Safe IPC invoke wrapper
  */
-export async function safeIpcInvoke<T = unknown>(
-  command: string,
-  payload?: unknown
-): Promise<T> {
+export async function safeIpcInvoke<T = unknown>(command: string, payload?: unknown): Promise<T> {
   // Validate before invoking
   const validation = validateIpcRequest(command, payload);
-  
+
   if (!validation.valid) {
     throw new Error(`IPC validation failed: ${validation.error}`);
   }
-  
+
   // Use sanitized payload if available
   const safePayload = validation.sanitized ?? payload;
-  
+
   // Import IPC dynamically to avoid circular dependencies
   const { ipc } = await import('../lib/ipc-typed');
-  
+
   // Invoke with validated payload using the typed IPC client
   // Using 'as any' because invoke is available but not in the type definition
   return (ipc as any).invoke(command, safePayload) as Promise<T>;
 }
-

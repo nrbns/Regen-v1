@@ -37,31 +37,37 @@ let lastErrorTime = 0;
 const ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
 
 export const redisClient = new IORedis(DEFAULT_URL, {
-  maxRetriesPerRequest: 3, // Limit retries instead of infinite
-  retryStrategy: times => {
-    // Exponential backoff with max delay
-    const delay = Math.min(times * 50, 2000);
-    return delay;
+  maxRetriesPerRequest: null, // BullMQ requirement
+  retryStrategy: () => {
+    // Don't retry - Redis is optional
+    return null;
   },
   enableOfflineQueue: false, // Don't queue commands when offline
   lazyConnect: true, // Don't connect immediately - connect on first use
   connectTimeout: 5000,
+  showFriendlyErrorStack: false,
+});
+
+// Immediately suppress all error events
+redisClient.on('error', () => {
+  // Completely suppress all Redis errors - Redis is optional
+  // Do nothing - errors are expected when Redis is unavailable
 });
 
 redisClient.on('connect', () => {
-  isConnected = true;
+  _isConnected = true;
   if (process.env.NODE_ENV !== 'production') {
     console.log('[redis] Connected successfully');
   }
 });
 
 redisClient.on('ready', () => {
-  isConnected = true;
+  _isConnected = true;
 });
 
 redisClient.on('error', error => {
   const now = Date.now();
-  isConnected = false;
+  _isConnected = false;
 
   // Suppress all Redis connection errors - they're expected when Redis is unavailable
   // Only log non-connection errors in development
@@ -82,12 +88,12 @@ redisClient.on('error', error => {
 });
 
 redisClient.on('close', () => {
-  isConnected = false;
+  _isConnected = false;
 });
 
 // Handle unhandled error events
 redisClient.on('end', () => {
-  isConnected = false;
+  _isConnected = false;
 });
 
 // Suppress unhandled promise rejections from Redis

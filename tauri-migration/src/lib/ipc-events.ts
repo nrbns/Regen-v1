@@ -227,29 +227,6 @@ export interface GameSandboxWarning {
   };
 }
 
-export interface ShadowVisitedEntry {
-  url: string;
-  title: string;
-  firstSeen: number;
-}
-
-export interface ShadowSessionSummaryEvent {
-  sessionId: string;
-  persona?: string;
-  startedAt: number;
-  endedAt: number;
-  durationMs: number;
-  totalVisits: number;
-  uniqueHosts: number;
-  visited: ShadowVisitedEntry[];
-  recommendations: string[];
-}
-
-export interface ShadowSessionEndedEvent {
-  sessionId: string;
-  summary: ShadowSessionSummaryEvent | null;
-}
-
 export interface PrivacyAuditSummary {
   score: number;
   grade: 'low' | 'moderate' | 'high';

@@ -6,6 +6,7 @@
 import { Redix, dispatch } from './runtime';
 import { ipc } from '../../lib/ipc-typed';
 import { initializeMemoryPool } from './memory-pool';
+import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
 
 export interface ResourcePolicy {
   suspendBackgroundTabs: boolean;
@@ -178,6 +179,13 @@ export async function optimizePerformance(metrics?: {
   // Check if we should suspend background tabs
   if (policy.suspendBackgroundTabs) {
     try {
+      // Skip in web mode - no backend available
+      const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+
+      if (isWebMode) {
+        return; // Skip optimization in web mode
+      }
+
       // Check if IPC is available
       if (typeof ipc === 'undefined' || !ipc?.tabs?.list) {
         return; // IPC not available, skip optimization

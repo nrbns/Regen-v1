@@ -52,7 +52,16 @@ export async function ensureIndex(index: string, primaryKey: string = 'id'): Pro
 
     console.log(`[MeiliSearch] Created index "${index}"`);
   } catch (error) {
-    console.error(`[MeiliSearch] Error ensuring index "${index}":`, error);
+    // Suppress MeiliSearch errors - it's optional and may not be running
+    // Only log if it's not an auth/connection error
+    const errorMsg = String(error);
+    if (
+      !errorMsg.includes('401') &&
+      !errorMsg.includes('Unauthorized') &&
+      !errorMsg.includes('missing_authorization')
+    ) {
+      console.error(`[MeiliSearch] Error ensuring index "${index}":`, error);
+    }
     throw error;
   }
 }

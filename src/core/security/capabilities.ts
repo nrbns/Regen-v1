@@ -115,6 +115,3 @@ export function requireCapability(capability: AgentCapability): void {
     throw new Error(`Capability required: ${capability}. Enable it in Settings > Safety.`);
   }
 }
-
-
-

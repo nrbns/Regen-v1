@@ -4,9 +4,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Eye, Network, MoonStar } from 'lucide-react';
+import { Lock, Eye, Network } from 'lucide-react';
 import { useProfileStore } from '../state/profileStore';
-import { useShadowStore } from '../state/shadowStore';
 import { useTabsStore } from '../state/tabsStore';
 import { detectTorBrowser } from '../core/tor-detector';
 import { getGhostMode, isGhostModeEnabled } from '../core/ghost-mode';
@@ -17,19 +16,13 @@ export function PrivacySwitch() {
   const [mode, setMode] = useState<PrivacyMode>('Normal');
   const [torDetected, setTorDetected] = useState(false);
   const [ghostModeActive, setGhostModeActive] = useState(false);
-  const policy = useProfileStore((state) => state.policies[state.activeProfileId]);
-  const {
-    activeSessionId: shadowSessionId,
-    startShadowSession,
-    endShadowSession,
-    loading: shadowLoading,
-  } = useShadowStore();
+  const policy = useProfileStore(state => state.policies[state.activeProfileId]);
 
   // Detect Tor Browser on mount
   useEffect(() => {
     const torDetection = detectTorBrowser();
     setTorDetected(torDetection.isTorBrowser);
-    
+
     // Auto-enable Ghost Mode if Tor is detected
     if (torDetection.isTorBrowser && torDetection.confidence !== 'low') {
       const ghostMode = getGhostMode();
@@ -39,18 +32,30 @@ export function PrivacySwitch() {
         setGhostModeActive(true);
       }
     }
-    
+
     // Check if Ghost Mode is already enabled
     setGhostModeActive(isGhostModeEnabled());
   }, []);
 
   const privateDisabled = policy ? !policy.allowPrivateWindows : false;
   const ghostDisabled = policy ? !policy.allowGhostTabs : false;
-  const shadowDisabled = policy ? !policy.allowPrivateWindows : false;
 
-  const modes: Array<{ value: PrivacyMode; icon: typeof Lock; label: string; color: string; disabled?: boolean; badge?: React.ReactNode }> = [
+  const modes: Array<{
+    value: PrivacyMode;
+    icon: typeof Lock;
+    label: string;
+    color: string;
+    disabled?: boolean;
+    badge?: React.ReactNode;
+  }> = [
     { value: 'Normal', icon: Lock, label: 'Normal', color: 'text-gray-400' },
-    { value: 'Private', icon: Eye, label: 'Private', color: 'text-blue-400', disabled: privateDisabled },
+    {
+      value: 'Private',
+      icon: Eye,
+      label: 'Private',
+      color: 'text-blue-400',
+      disabled: privateDisabled,
+    },
     {
       value: 'Ghost',
       icon: Network,
@@ -64,7 +69,7 @@ export function PrivacySwitch() {
   const handleModeChange = async (newMode: PrivacyMode) => {
     if (newMode === mode) return;
 
-    const target = modes.find((m) => m.value === newMode);
+    const target = modes.find(m => m.value === newMode);
     if (target?.disabled) {
       return;
     }
@@ -81,32 +86,32 @@ export function PrivacySwitch() {
         if (!torDetection.isTorBrowser) {
           const confirmed = confirm(
             '⚠️ Ghost Mode is most secure when running inside Tor Browser.\n\n' +
-            'Without Tor Browser, some security features may be limited.\n\n' +
-            'Enable Ghost Mode anyway?'
+              'Without Tor Browser, some security features may be limited.\n\n' +
+              'Enable Ghost Mode anyway?'
           );
           if (!confirmed) {
             return;
           }
         }
-        
+
         ghostMode.enable();
         setGhostModeActive(true);
-        
+
         // Enable Tor proxy if available
         if (activeId) {
           try {
-            await ipc.proxy.set({ 
-              tabId: activeId, 
-              type: 'socks5', 
-              host: '127.0.0.1', 
-              port: 9050 // Default Tor port
+            await ipc.proxy.set({
+              tabId: activeId,
+              type: 'socks5',
+              host: '127.0.0.1',
+              port: 9050, // Default Tor port
             });
           } catch (error) {
             console.warn('Could not set Tor proxy:', error);
             // Continue anyway - Ghost Mode can work without Tor proxy
           }
         }
-        
+
         setMode('Ghost');
       } catch (error) {
         console.error('Failed to enable Ghost mode:', error);
@@ -120,7 +125,7 @@ export function PrivacySwitch() {
         ghostMode.disable();
         setGhostModeActive(false);
       }
-      
+
       // Normal mode: Clear any active proxy settings
       try {
         if (activeId) {
@@ -155,11 +160,11 @@ export function PrivacySwitch() {
 
   return (
     <div
-      className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1 border border-gray-700/50"
+      className="flex items-center gap-1 rounded-lg border border-gray-700/50 bg-gray-800/50 p-1"
       role="group"
       aria-label="Privacy mode selector"
     >
-      {modes.map((m) => {
+      {modes.map(m => {
         const Icon = m.icon;
         const isActive = mode === m.value;
         return (
@@ -167,7 +172,7 @@ export function PrivacySwitch() {
             key={m.value}
             type="button"
             onClick={() => handleModeChange(m.value)}
-            onKeyDown={(e) => {
+            onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 handleModeChange(m.value);
@@ -175,22 +180,18 @@ export function PrivacySwitch() {
             }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${
               isActive
                 ? `${m.color.replace('text-', 'bg-')} bg-opacity-20 text-white`
                 : m.disabled
-                ? 'text-gray-600 cursor-not-allowed'
-                : 'text-gray-400 hover:text-gray-300'
+                  ? 'cursor-not-allowed text-gray-600'
+                  : 'text-gray-400 hover:text-gray-300'
             }`}
             disabled={m.disabled}
             aria-label={`Switch to ${m.label} privacy mode`}
             aria-pressed={isActive}
             aria-disabled={m.disabled}
-            title={
-              m.disabled
-                ? `${m.label} disabled by profile policy`
-                : `Switch to ${m.label}`
-            }
+            title={m.disabled ? `${m.label} disabled by profile policy` : `Switch to ${m.label}`}
           >
             <Icon size={14} aria-hidden="true" />
             <span>{m.label}</span>
@@ -202,56 +203,6 @@ export function PrivacySwitch() {
           </motion.button>
         );
       })}
-      <motion.button
-        key="Shadow"
-        type="button"
-        whileHover={{ scale: shadowLoading || shadowDisabled ? 1 : 1.05 }}
-        whileTap={{ scale: shadowLoading || shadowDisabled ? 1 : 0.95 }}
-        disabled={shadowDisabled || shadowLoading}
-        onClick={async () => {
-          if (shadowDisabled || shadowLoading) return;
-          try {
-            if (shadowSessionId) {
-              await endShadowSession();
-            } else {
-              await startShadowSession({ summary: true });
-            }
-          } catch (error) {
-            console.error('Shadow session error:', error);
-          }
-        }}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !shadowDisabled && !shadowLoading) {
-            e.preventDefault();
-            if (shadowSessionId) {
-              void endShadowSession();
-            } else {
-              void startShadowSession({ summary: true });
-            }
-          }
-        }}
-        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/50 ${
-          shadowSessionId
-            ? 'bg-purple-500/20 text-purple-200 border border-purple-400/30'
-            : shadowDisabled
-            ? 'text-gray-600 cursor-not-allowed'
-            : 'text-gray-400 hover:text-gray-300'
-        }`}
-        aria-label={shadowSessionId ? 'End Shadow Mode session' : 'Start Shadow Mode'}
-        aria-pressed={!!shadowSessionId}
-        aria-disabled={shadowDisabled || shadowLoading}
-        title={
-          shadowDisabled
-            ? 'Shadow Mode disabled by profile policy'
-            : shadowSessionId
-            ? 'End Shadow Mode session'
-            : 'Start Shadow Mode (simulated private browsing)'
-        }
-      >
-        <MoonStar size={14} aria-hidden="true" />
-        <span>{shadowSessionId ? 'Shadow On' : 'Shadow'}</span>
-      </motion.button>
     </div>
   );
 }
-

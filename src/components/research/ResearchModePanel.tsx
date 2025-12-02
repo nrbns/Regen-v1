@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import {
   Search,
   Sparkles,
-  Languages,
   ArrowRight,
   ExternalLink,
   CheckCircle2,
@@ -21,6 +20,8 @@ import { useAppStore } from '../../state/appStore';
 import { getLanguageMeta } from '../../constants/languageMeta';
 import type { ResearchResult } from '../../types/research';
 import { SearchStatusIndicator } from '../search/SearchStatusIndicator';
+import { LanguageSelector } from '../integrations/LanguageSelector';
+import type { SupportedLanguage } from '../../core/language/multiLanguageAI';
 
 interface ResearchModePanelProps {
   query?: string;
@@ -40,15 +41,6 @@ const EXAMPLES = [
   'நிஃப்டி ஒப்பீடு',
 ];
 
-const LANGUAGE_OPTIONS = [
-  { code: 'en', label: 'English', native: 'English' },
-  { code: 'hi', label: 'हिंदी', native: 'Hindi' },
-  { code: 'ta', label: 'தமிழ்', native: 'Tamil' },
-  { code: 'bn', label: 'বাংলা', native: 'Bengali' },
-  { code: 'te', label: 'తెలుగు', native: 'Telugu' },
-  { code: 'mr', label: 'मराठी', native: 'Marathi' },
-];
-
 export default function ResearchModePanel({
   query: parentQuery = '',
   result: parentResult = null,
@@ -60,7 +52,9 @@ export default function ResearchModePanel({
   const [query, setQuery] = useState(parentQuery);
   const [followUp, setFollowUp] = useState('');
   const language = useSettingsStore(state => state.language || 'en');
-  const [selectedLang, setSelectedLang] = useState(language === 'auto' ? 'en' : language);
+  const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(
+    (language === 'auto' ? 'en' : language) as SupportedLanguage
+  );
   const langMeta = getLanguageMeta(selectedLang);
   const currentMode = useAppStore(state => state.mode);
   const setMode = useAppStore(state => state.setMode);
@@ -94,18 +88,18 @@ export default function ResearchModePanel({
   const error = parentError;
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 text-white">
       {/* Header */}
-      <div className="p-6 border-b border-purple-800/50 bg-black/20 backdrop-blur-xl flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
+      <div className="flex-shrink-0 border-b border-purple-800/50 bg-black/20 p-6 backdrop-blur-xl">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* Search Status Indicator */}
             <SearchStatusIndicator />
-            <div className="p-2 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl">
-              <Sparkles className="w-6 h-6 text-purple-400" />
+            <div className="rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 p-2">
+              <Sparkles className="h-6 w-6 text-purple-400" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <h1 className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-2xl font-bold text-transparent">
                 Research Mode
               </h1>
               <p className="text-sm text-gray-400">AI-powered research in any language</p>
@@ -113,13 +107,13 @@ export default function ResearchModePanel({
           </div>
           <div className="flex items-center gap-3">
             {/* Mode Switcher */}
-            <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/50 rounded-lg p-1">
+            <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1">
               <button
                 onClick={() => setMode('Browse')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                   currentMode === 'Browse'
                     ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                    : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
                 }`}
                 title="Switch to Browse Mode"
               >
@@ -128,10 +122,10 @@ export default function ResearchModePanel({
               </button>
               <button
                 onClick={() => setMode('Research')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                   currentMode === 'Research'
                     ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                    : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
                 }`}
                 title="Switch to Research Mode"
               >
@@ -140,10 +134,10 @@ export default function ResearchModePanel({
               </button>
               <button
                 onClick={() => setMode('Trade')}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                   currentMode === 'Trade'
                     ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-slate-700/50'
+                    : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
                 }`}
                 title="Switch to Trade Mode"
               >
@@ -152,30 +146,25 @@ export default function ResearchModePanel({
               </button>
             </div>
 
-            {/* Language Selector */}
-            <div className="flex items-center gap-2">
-              <Languages className="w-5 h-5 text-gray-400" />
-              <select
-                value={selectedLang}
-                onChange={e => {
-                  setSelectedLang(e.target.value);
-                  useSettingsStore.getState().setLanguage(e.target.value);
-                }}
-                className="bg-slate-800/80 border border-slate-700/50 px-3 py-1.5 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-              >
-                {LANGUAGE_OPTIONS.map(lang => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.label} ({lang.native})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Phase 2: Enhanced Language Selector */}
+            <LanguageSelector
+              defaultLanguage={selectedLang}
+              onLanguageChange={lang => {
+                setSelectedLang(lang);
+                useSettingsStore.getState().setLanguage(lang);
+              }}
+              onTranslate={async (text, targetLang) => {
+                // Use multi-language AI for translation
+                const { multiLanguageAI } = await import('../../core/language/multiLanguageAI');
+                return multiLanguageAI.translate(text, targetLang);
+              }}
+            />
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={query}
@@ -193,11 +182,11 @@ export default function ResearchModePanel({
                   : 'Ask in any language: Compare Nifty vs BankNifty...'
             }
             disabled={loading}
-            className="w-full pl-12 pr-4 py-4 bg-slate-800/60 border border-slate-700/50 rounded-2xl text-lg placeholder-gray-400 focus:outline-none focus:ring-4 focus:ring-purple-600/50 transition-all disabled:opacity-50"
+            className="w-full rounded-2xl border border-slate-700/50 bg-slate-800/60 py-4 pl-12 pr-4 text-lg placeholder-gray-400 transition-all focus:outline-none focus:ring-4 focus:ring-purple-600/50 disabled:opacity-50"
           />
           {loading && (
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
             </div>
           )}
         </div>
@@ -209,7 +198,7 @@ export default function ResearchModePanel({
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-900/20 border border-red-700/50 rounded-xl text-red-200"
+            className="mb-6 rounded-xl border border-red-700/50 bg-red-900/20 p-4 text-red-200"
           >
             {error}
           </motion.div>
@@ -219,29 +208,29 @@ export default function ResearchModePanel({
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto text-center mt-16"
+            className="mx-auto mt-16 max-w-4xl text-center"
           >
-            <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <h2 className="mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-5xl font-bold text-transparent">
               Ask Regen in Any Language
             </h2>
-            <p className="text-xl text-gray-300 mb-8">
+            <p className="mb-8 text-xl text-gray-300">
               Your best answers and agent handoffs land here automatically.
             </p>
 
             {/* Example Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+            <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-2">
               {EXAMPLES.map((ex, i) => (
                 <motion.button
                   key={i}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSubmit(ex)}
-                  className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl text-left hover:bg-slate-700/60 transition-all group"
+                  className="group rounded-xl border border-slate-700/50 bg-slate-800/60 p-4 text-left transition-all hover:bg-slate-700/60"
                 >
-                  <p className="font-medium text-gray-200 group-hover:text-white transition-colors">
+                  <p className="font-medium text-gray-200 transition-colors group-hover:text-white">
                     {ex}
                   </p>
-                  <ArrowRight className="w-5 h-5 mt-2 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ArrowRight className="mt-2 h-5 w-5 text-purple-400 opacity-0 transition-opacity group-hover:opacity-100" />
                 </motion.button>
               ))}
             </div>
@@ -249,9 +238,9 @@ export default function ResearchModePanel({
         )}
 
         {loading && (
-          <div className="max-w-4xl mx-auto mt-16">
+          <div className="mx-auto mt-16 max-w-4xl">
             <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-4 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-400 border-t-transparent" />
               <p className="text-gray-400">Researching in {langMeta.nativeName}...</p>
             </div>
           </div>
@@ -261,11 +250,11 @@ export default function ResearchModePanel({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="max-w-4xl mx-auto space-y-6"
+            className="mx-auto max-w-4xl space-y-6"
           >
             {/* Summary */}
-            <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="rounded-2xl border border-slate-700/50 bg-slate-800/50 p-6 backdrop-blur-xl">
+              <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-2xl font-bold text-white">Summary</h3>
                 {((result as any).languageLabel || (result as any).language) && (
                   <span className="text-sm text-gray-400">
@@ -279,29 +268,29 @@ export default function ResearchModePanel({
                 )}
               </div>
               <div className="prose prose-invert max-w-none">
-                <p className="text-lg leading-relaxed text-gray-200 whitespace-pre-wrap">
+                <p className="whitespace-pre-wrap text-lg leading-relaxed text-gray-200">
                   {result.summary}
                 </p>
               </div>
               {result.verification && (
                 <div
-                  className={`mt-4 p-4 rounded-xl border ${
+                  className={`mt-4 rounded-xl border p-4 ${
                     result.verification.verified
-                      ? 'bg-green-900/20 border-green-700/50'
-                      : 'bg-yellow-900/20 border-yellow-700/50'
+                      ? 'border-green-700/50 bg-green-900/20'
+                      : 'border-yellow-700/50 bg-yellow-900/20'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="mb-2 flex items-center gap-2">
                     {result.verification.verified ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      <CheckCircle2 className="h-5 w-5 text-green-400" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-yellow-400" />
+                      <XCircle className="h-5 w-5 text-yellow-400" />
                     )}
                     <span className="font-medium">
                       {result.verification.verified ? 'Verified' : 'Needs Review'}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-400 space-y-1">
+                  <div className="space-y-1 text-sm text-gray-400">
                     <div>
                       Citation Coverage:{' '}
                       {result.verification.citationCoverage != null
@@ -323,30 +312,30 @@ export default function ResearchModePanel({
             {(result as any).prosCons &&
               ((result as any).prosCons.pros?.length > 0 ||
                 (result as any).prosCons.cons?.length > 0) && (
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-green-900/20 border border-green-700/50 rounded-2xl p-6">
-                    <h4 className="text-xl font-bold text-green-400 mb-4 flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5" />
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="rounded-2xl border border-green-700/50 bg-green-900/20 p-6">
+                    <h4 className="mb-4 flex items-center gap-2 text-xl font-bold text-green-400">
+                      <CheckCircle2 className="h-5 w-5" />
                       Pros
                     </h4>
                     <ul className="space-y-3">
                       {((result as any).prosCons.pros || []).map((p: any, i: number) => (
                         <li key={i} className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-green-400 rounded-full mt-2 flex-shrink-0" />
+                          <div className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-green-400" />
                           <span className="text-gray-200">{p.text}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
-                  <div className="bg-red-900/20 border border-red-700/50 rounded-2xl p-6">
-                    <h4 className="text-xl font-bold text-red-400 mb-4 flex items-center gap-2">
-                      <XCircle className="w-5 h-5" />
+                  <div className="rounded-2xl border border-red-700/50 bg-red-900/20 p-6">
+                    <h4 className="mb-4 flex items-center gap-2 text-xl font-bold text-red-400">
+                      <XCircle className="h-5 w-5" />
                       Cons
                     </h4>
                     <ul className="space-y-3">
                       {((result as any).prosCons.cons || []).map((c: any, i: number) => (
                         <li key={i} className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-red-400 rounded-full mt-2 flex-shrink-0" />
+                          <div className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-red-400" />
                           <span className="text-gray-200">{c.text}</span>
                         </li>
                       ))}
@@ -357,8 +346,8 @@ export default function ResearchModePanel({
 
             {/* Sources */}
             {result.sources.length > 0 && (
-              <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6">
-                <h3 className="text-xl font-bold mb-4">Sources ({result.sources.length})</h3>
+              <div className="rounded-2xl border border-slate-700/50 bg-slate-800/50 p-6 backdrop-blur-xl">
+                <h3 className="mb-4 text-xl font-bold">Sources ({result.sources.length})</h3>
                 <div className="space-y-3">
                   {result.sources.map((source, i) => (
                     <motion.a
@@ -373,27 +362,27 @@ export default function ResearchModePanel({
                         e.preventDefault();
                         handleOpenSource(source.url);
                       }}
-                      className="block p-4 bg-slate-700/30 rounded-xl hover:bg-slate-700/50 transition-all group"
+                      className="group block rounded-xl bg-slate-700/30 p-4 transition-all hover:bg-slate-700/50"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-medium text-purple-400 uppercase">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="text-xs font-medium uppercase text-purple-400">
                               {source.sourceType || 'SOURCE'}
                             </span>
                             <span className="text-xs text-gray-500">
                               Score: {source.relevanceScore?.toFixed(1) || 'N/A'}
                             </span>
                           </div>
-                          <h4 className="font-medium text-gray-200 group-hover:text-white transition-colors line-clamp-1">
+                          <h4 className="line-clamp-1 font-medium text-gray-200 transition-colors group-hover:text-white">
                             {source.title}
                           </h4>
-                          <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                          <p className="mt-1 line-clamp-2 text-sm text-gray-400">
                             {source.snippet}
                           </p>
-                          <p className="text-xs text-gray-500 mt-2">{source.domain}</p>
+                          <p className="mt-2 text-xs text-gray-500">{source.domain}</p>
                         </div>
-                        <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-purple-400 transition-colors flex-shrink-0" />
+                        <ExternalLink className="h-5 w-5 flex-shrink-0 text-gray-400 transition-colors group-hover:text-purple-400" />
                       </div>
                     </motion.a>
                   ))}
@@ -414,12 +403,12 @@ export default function ResearchModePanel({
                 }}
                 placeholder="Ask a follow-up question..."
                 disabled={loading}
-                className="flex-1 px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
+                className="flex-1 rounded-xl border border-slate-700/50 bg-slate-800/60 px-4 py-3 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
               />
               <button
                 onClick={() => handleFollowUp(followUp)}
                 disabled={loading || !followUp.trim()}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-3 font-bold transition-all hover:from-purple-700 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Ask
               </button>

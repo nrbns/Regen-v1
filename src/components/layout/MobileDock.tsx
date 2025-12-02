@@ -46,7 +46,7 @@ export function MobileDock({
               onClick={() => onSelectMode(item.id)}
               className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-semibold transition ${
                 isActive
-                  ? 'text-emerald-300 bg-emerald-500/10'
+                  ? 'bg-emerald-500/10 text-emerald-300'
                   : 'text-slate-400 hover:text-slate-100'
               }`}
               aria-pressed={isActive}
@@ -78,6 +78,3 @@ export function MobileDock({
     </motion.nav>
   );
 }
-
-
-

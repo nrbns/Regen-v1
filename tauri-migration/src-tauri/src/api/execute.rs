@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter, Manager};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentAction {
@@ -49,6 +49,9 @@ pub async fn execute_actions(
     let mut succeeded = 0;
     let mut failed = 0;
 
+    // Store length before consuming the vector
+    let total = request.actions.len();
+
     for action in request.actions {
         match execute_single_action(&action, &request.tab_id, &request.session_id, &app).await {
             Ok(result) => {
@@ -73,7 +76,7 @@ pub async fn execute_actions(
 
     Ok(ExecuteActionsResponse {
         results,
-        total: request.actions.len(),
+        total,
         succeeded,
         failed,
     })

@@ -30,6 +30,3 @@ export function cleanHtml(html: string): CleanResult {
     language,
   };
 }
-
-
-

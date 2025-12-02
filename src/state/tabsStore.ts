@@ -148,31 +148,44 @@ export const useTabsStore = create<TabsState>()(
         }),
       setActive: id => {
         // PR: Fix tab switch - add logging and null guards
+        const currentState = get();
+
+        // Early return if already active (prevents unnecessary re-renders and race conditions)
+        if (id === currentState.activeId) {
+          return;
+        }
+
         console.log('[TABS] setActive', {
           tabId: id,
-          currentActiveId: get().activeId,
-          totalTabs: get().tabs.length,
-          tabIds: get().tabs.map(t => t.id),
+          currentActiveId: currentState.activeId,
+          totalTabs: currentState.tabs.length,
+          tabIds: currentState.tabs.map(t => t.id),
         });
 
         // Validate tab exists if id is provided
         if (id !== null) {
-          const tabExists = get().tabs.find(t => t.id === id);
+          const tabExists = currentState.tabs.find(t => t.id === id);
           if (!tabExists) {
-            console.warn('[TABS] setActive: Tab not found', id);
+            // Suppress warning for internal/system tabs (e.g., 'local-initial')
+            if (!id.includes('local-') && !id.includes('system-')) {
+              console.warn('[TABS] setActive: Tab not found', id);
+            }
             // Don't set to null, keep current active tab
             return;
           }
         }
 
         set(state => {
+          // PR: Fix tab switch - ensure atomic update
           const newState = {
             activeId: id,
-            tabs: state.tabs.map(tab =>
-              tab.id === id
-                ? { ...tab, active: true, lastActiveAt: Date.now() }
-                : { ...tab, active: false }
-            ),
+            tabs: state.tabs.map(tab => {
+              if (tab.id === id) {
+                return { ...tab, active: true, lastActiveAt: Date.now() };
+              } else {
+                return { ...tab, active: false };
+              }
+            }),
           };
           // Tier 1: Auto-save session
           const appMode = useAppStore.getState().mode;
@@ -441,7 +454,17 @@ export const useTabsStore = create<TabsState>()(
           const tab = state.tabs.find(t => t.id === tabId);
           if (!tab) return state;
 
-          const history = tab.history || [];
+          // Initialize history if it doesn't exist, starting with the current URL
+          let history = tab.history || [];
+          if (history.length === 0 && tab.url) {
+            history = [
+              {
+                url: tab.url,
+                title: tab.title,
+                timestamp: tab.createdAt || Date.now(),
+              },
+            ];
+          }
           const historyIndex = tab.historyIndex ?? history.length - 1;
 
           // If we're not at the end of history, truncate forward history
@@ -521,7 +544,9 @@ export const useTabsStore = create<TabsState>()(
         }),
       canGoBack: tabId => {
         const tab = get().tabs.find(t => t.id === tabId);
-        return tab?.historyIndex !== undefined && tab.historyIndex > 0;
+        if (!tab || !tab.history || tab.history.length === 0) return false;
+        const historyIndex = tab.historyIndex ?? tab.history.length - 1;
+        return historyIndex > 0;
       },
       canGoForward: tabId => {
         const tab = get().tabs.find(t => t.id === tabId);

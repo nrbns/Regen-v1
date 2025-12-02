@@ -1,3 +1,6 @@
+/* Inter font for premium typography - must be first */
+@import url('https://rsms.me/inter/inter.css');
+
 /* Import Design System - must be before @tailwind */
 /* Performance optimizations - must be first */
 @import './performance.css';
@@ -13,6 +16,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-feature-settings:
+    'calt' 1,
+    'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Trade Mode Controls */
+.trade-controls {
+  position: relative;
+  z-index: 40;
+}
+
+.floating-assistant {
+  z-index: 50;
+}
 
 /* Layout CSS Variables - PR: Fix layout overlap issues */
 :root {
@@ -308,4 +335,20 @@ iframe[role='tabpanel'] {
 .menu-item:hover svg,
 .menu-item:focus-visible svg {
   color: var(--text-primary);
+}
+
+/* Animation for fade-in effects */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }

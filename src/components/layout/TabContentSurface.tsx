@@ -579,7 +579,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       {!isElectron && targetUrl ? (
         <iframe
           ref={iframeRef}
-          className="w-full h-full border-0"
+          className="h-full w-full border-0"
           style={{
             position: 'absolute',
             top: 0,
@@ -592,9 +592,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           }}
           src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
           sandbox={SAFE_IFRAME_SANDBOX}
-          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
+          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access"
+          referrerPolicy="no-referrer"
           title={tab?.title ?? 'Tab content'}
           aria-label={
             tab?.title
@@ -604,7 +603,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 : 'Tab content'
           }
           aria-live="off"
-          onError={(e) => {
+          onError={e => {
             // Additional error handling for iframe
             console.warn('[TabContentSurface] Iframe error event:', e);
             // Check if it's a blocked iframe
@@ -641,9 +640,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               >
                 <Loader2 className="h-6 w-6 text-emerald-300" aria-hidden="true" />
               </motion.div>
-              <div className="text-center w-full max-w-xs">
-                <div className="font-medium mb-2">Loading {new URL(targetUrl).hostname}…</div>
-                <div className="mt-1 text-xs text-slate-400 mb-3">This may take a moment</div>
+              <div className="w-full max-w-xs text-center">
+                <div className="mb-2 font-medium">Loading {new URL(targetUrl).hostname}…</div>
+                <div className="mb-3 mt-1 text-xs text-slate-400">This may take a moment</div>
                 <div className="w-full">
                   <div className="h-1 w-full overflow-hidden rounded-full bg-slate-800/60">
                     <motion.div

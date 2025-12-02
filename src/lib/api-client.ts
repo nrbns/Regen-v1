@@ -29,7 +29,16 @@ interface RequestOptions {
   params?: Record<string, string>;
 }
 
+import { isWebMode } from './env';
+
 async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  // Skip all backend requests in web mode - no backend available
+  if (isWebMode()) {
+    // In web mode, return a rejected promise that won't log errors
+    // This prevents connection attempts and error spam in console
+    return Promise.reject(new Error('Backend not available in web mode'));
+  }
+
   const { method = 'GET', body, headers = {}, params } = options;
 
   let url = `${API_BASE_URL}${endpoint}`;
@@ -76,7 +85,14 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
     markBackendAvailable();
     return textResult;
   } catch (error) {
-    console.error(`[API Client] Request failed for ${endpoint}:`, error);
+    // Only log errors if backend is expected (not in pure web mode)
+    // In web mode, backend connection failures are expected
+    const isWebMode =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+
+    if (!isWebMode) {
+      console.error(`[API Client] Request failed for ${endpoint}:`, error);
+    }
     markBackendUnavailable(error);
     throw error;
   }
@@ -203,6 +219,30 @@ export const researchApi = {
     authorityWeight?: number;
     language?: string;
   }) => apiRequest<any>('/api/research/enhanced', { method: 'POST', body: payload }),
+  run: (payload: {
+    query: string;
+    lang?: string;
+    mode?: 'fast' | 'deep' | 'crawl';
+    maxSources?: number;
+    clientId?: string;
+    sessionId?: string;
+    options?: {
+      maxChunks?: number;
+      model?: string;
+    };
+  }) =>
+    apiRequest<{ jobId: string; status: string; estimatedWait?: number }>('/api/research/run', {
+      method: 'POST',
+      body: payload,
+    }),
+  getStatus: (jobId: string) =>
+    apiRequest<{
+      id: string;
+      state: string;
+      progress: number;
+      result: any;
+      error: string | null;
+    }>(`/api/research/status/${jobId}`),
 };
 
 // Graph API

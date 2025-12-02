@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { ipc } from '../lib/ipc-typed';
+import { isElectronRuntime, isTauriRuntime } from '../lib/env';
 
 export interface SystemStatus {
   redisConnected: boolean;
@@ -49,6 +50,13 @@ export function useSystemStatus() {
   };
 
   useEffect(() => {
+    // Skip backend status checks in web mode - backend is optional
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+    if (isWebMode) {
+      setIsLoading(false);
+      return;
+    }
+
     // Fetch immediately
     fetchStatus();
 

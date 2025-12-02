@@ -226,6 +226,3 @@ async function handleExplainPage(task: {
     content: `Explanation of ${result.sources?.[0]?.title || task.url}:\n\n${result.content}`,
   };
 }
-
-
-

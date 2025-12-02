@@ -32,6 +32,3 @@ export interface OBPlugin {
   init(host: OBHost): Promise<void>;
   dispose?(): Promise<void>;
 }
-
-
-

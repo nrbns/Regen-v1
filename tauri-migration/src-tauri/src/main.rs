@@ -21,6 +21,7 @@ mod page_extractor;
 mod chunker;
 mod websocket;
 mod security;
+mod phase2_commands;
 
 // Production-ready API modules
 pub mod api;
@@ -1574,7 +1575,22 @@ fn main() {
             export_pdf,
             embed_text,
             get_app_data_path,
-            write_file
+            write_file,
+            // Phase 2: Language commands
+            phase2_commands::detect_language,
+            phase2_commands::translate_text,
+            phase2_commands::summarize_text,
+            // Phase 2: Privacy commands
+            phase2_commands::privacy_audit,
+            // Phase 2: Document processing
+            phase2_commands::process_pdf,
+            phase2_commands::process_excel,
+            phase2_commands::process_doc,
+            // Phase 2: Voice commands
+            phase2_commands::transcribe_voice,
+            // Phase 2: Insight extraction
+            phase2_commands::extract_key_points,
+            phase2_commands::extract_action_items
         ])
         .run(tauri::generate_context!())
         .expect("error while running Regen");

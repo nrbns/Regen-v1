@@ -37,6 +37,3 @@ npm run dev
 ```
 
 With `EMBEDDING_PROVIDER=mock` everything runs locally without external calls. Switch to `openai` + `INDEX_WRITER=qdrant` for full pipeline integration.
-
-
-

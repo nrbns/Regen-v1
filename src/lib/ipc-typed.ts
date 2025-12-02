@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import type { PrivacyAuditSummary } from './ipc-events';
-import { isDevEnv, isElectronRuntime } from './env';
+import { isDevEnv, isElectronRuntime, isTauriRuntime } from './env';
 import apiClient from './api-client';
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
@@ -345,6 +345,13 @@ function getFallback<T>(channel: string, request?: unknown): T | undefined {
 function noteFallback(channel: string, reason: string) {
   if (!IS_DEV) return;
   if (reportedMissingChannels.has(channel)) return;
+
+  // Don't warn about missing channels in web mode - they're expected
+  // Only warn if we're in a runtime that should have IPC (Electron/Tauri)
+  const expectsIPC = isElectronRuntime() || isTauriRuntime();
+
+  if (!expectsIPC) return; // Silent in web mode
+
   reportedMissingChannels.add(channel);
   console.warn(`[IPC] Channel ${channel} unavailable (${reason}); using renderer fallback.`);
 }
@@ -388,10 +395,35 @@ async function mapIpcToHttp<TRequest, TResponse = unknown>(
     'agent:ask': (req: any) => apiClient.agent.ask(req),
     'telemetry:getStatus': () => apiClient.system.getStatus(),
     'research:queryEnhanced': (req: any) => apiClient.research.queryEnhanced(req),
+    'search:hybrid': async (req: any) => {
+      const response = await fetch(
+        `${apiClient.API_BASE_URL || 'http://localhost:3000'}/api/search/hybrid`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: req.query,
+            lang: req.language || 'auto',
+            maxResults: req.maxResults || 6,
+          }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status}`);
+      }
+      return response.json();
+    },
   };
 
   const handler = handlers[normalized];
   if (!handler) {
+    // In web mode, suppress errors for missing mappings - they're expected
+    const isWeb =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+    if (isWeb) {
+      // Return a rejected promise that won't be logged
+      return Promise.reject(new Error(`No HTTP endpoint mapping for channel: ${normalized}`));
+    }
     throw new Error(`No HTTP endpoint mapping for channel: ${normalized}`);
   }
 
@@ -471,7 +503,9 @@ if (typeof window !== 'undefined') {
       }
     } else if (pollCount >= maxPolls) {
       clearInterval(pollInterval);
-      if (IS_DEV) {
+      // Only warn in Electron/Tauri mode - silent in web mode
+      const expectsIPC = isElectronRuntime() || isTauriRuntime();
+      if (IS_DEV && expectsIPC) {
         console.warn('[IPC] window.ipc never appeared after polling');
         console.warn(
           '[IPC] Available window properties:',
@@ -495,6 +529,12 @@ if (typeof window !== 'undefined') {
 
 // Wait for IPC to be ready (with timeout)
 async function waitForIPC(timeout = 10000): Promise<boolean> {
+  // In web mode, skip IPC wait entirely - resolve immediately with false
+  // This prevents timeout warnings in web mode where IPC is not available
+  if (!isElectronRuntime() && !isTauriRuntime()) {
+    return Promise.resolve(false);
+  }
+
   // If already ready, return immediately
   if (
     ipcReady &&
@@ -569,7 +609,10 @@ async function waitForIPC(timeout = 10000): Promise<boolean> {
         clearInterval(checkInterval);
         clearTimeout(timeoutId);
         ipcReadyResolvers = ipcReadyResolvers.filter(r => r !== resolver);
-        if (IS_DEV) {
+        // Don't log IPC timeout warnings in web mode - they're expected
+        // Only log if we're actually expecting IPC (Electron/Tauri runtime)
+        const expectsIPC = isElectronRuntime() || isTauriRuntime();
+        if (IS_DEV && expectsIPC) {
           console.warn(`[IPC] Timeout waiting for IPC bridge (${timeout}ms)`);
         }
         resolve(false);
@@ -2365,16 +2408,6 @@ export const ipc = {
       >('private:createWindow', options || {}),
     createGhostTab: (options?: { url?: string }) =>
       ipcCall<{ url?: string }, { tabId: string }>('private:createGhostTab', options || {}),
-    createShadowSession: (options?: { url?: string; persona?: string; summary?: boolean }) =>
-      ipcCall<{ url?: string; persona?: string; summary?: boolean }, { sessionId: string }>(
-        'private:shadow:start',
-        options || {}
-      ),
-    endShadowSession: (sessionId: string, options?: { forensic?: boolean }) =>
-      ipcCall<{ sessionId: string; forensic?: boolean }, { success: boolean }>(
-        'private:shadow:end',
-        { sessionId, forensic: options?.forensic ?? false }
-      ),
     closeAll: () => ipcCall<unknown, { count: number }>('private:closeAll', {}),
     panicWipe: (options?: { forensic?: boolean }) =>
       ipcCall<{ forensic?: boolean }, { success: boolean }>('private:panicWipe', options || {}),

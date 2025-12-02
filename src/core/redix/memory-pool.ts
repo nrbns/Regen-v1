@@ -2,6 +2,7 @@
 
 import { ipc } from '../../lib/ipc-typed';
 import { dispatch } from './runtime';
+import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
 
 type MemorySample = {
   tabId: string;
@@ -82,7 +83,13 @@ class MemoryPool {
   }
 
   private async rebalance() {
-    if (!ipc?.tabs?.list) return;
+    // Skip in web mode - no backend available
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+
+    if (isWebMode || !ipc?.tabs?.list) {
+      return; // Skip rebalancing in web mode
+    }
+
     try {
       const tabs = await ipc.tabs.list();
       const now = Date.now();

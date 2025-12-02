@@ -23,7 +23,7 @@ import { AgentPlan, AgentStep, ConsentRequest } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { AgentPlanner } from '../AgentPlanner';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
-import { PrivacyDashboard } from '../privacy/PrivacyDashboard';
+import { PrivacyDashboard } from '../integrations/PrivacyDashboard';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
 import { AIDockPanel } from '../ai/AIDockPanel';
@@ -147,17 +147,17 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 400, opacity: 0 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
-          className="w-96 flex flex-col bg-gray-900/95 backdrop-blur-xl border-l border-gray-800/50 shadow-2xl"
+          className="flex w-96 flex-col border-l border-gray-800/50 bg-gray-900/95 shadow-2xl backdrop-blur-xl"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800/50">
-            <h2 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+          <div className="flex items-center justify-between border-b border-gray-800/50 p-4">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-200">
               <Brain size={20} className="text-blue-400" />
               Agent Console
             </h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-gray-800/60 text-gray-400 hover:text-gray-200 transition-colors"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-200"
             >
               <X size={18} />
             </button>
@@ -178,18 +178,14 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
           )}
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-800/50 overflow-x-auto">
+          <div className="flex overflow-x-auto border-b border-gray-800/50">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex-shrink-0 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium
-                    transition-colors relative min-w-[80px]
-                    ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}
-                  `}
+                  className={`relative flex min-w-[80px] flex-shrink-0 items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'} `}
                 >
                   <Icon size={16} />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -212,18 +208,18 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
               <div className="space-y-4">
                 {plan ? (
                   <>
-                    <div className="bg-gray-800/40 rounded-lg p-4 border border-gray-700/30">
-                      <div className="text-xs text-gray-400 mb-2">Task: {plan.taskId}</div>
+                    <div className="rounded-lg border border-gray-700/30 bg-gray-800/40 p-4">
+                      <div className="mb-2 text-xs text-gray-400">Task: {plan.taskId}</div>
                       <div className="space-y-2">
                         {plan.steps.map((step, idx) => (
                           <div key={step.id} className="flex items-start gap-2 text-sm">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600/20 flex items-center justify-center text-xs text-blue-400 font-medium">
+                            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-xs font-medium text-blue-400">
                               {idx + 1}
                             </div>
                             <div className="flex-1">
                               <div className="text-gray-200">{step.description}</div>
                               {step.tool && (
-                                <div className="text-xs text-gray-500 mt-0.5">
+                                <div className="mt-0.5 text-xs text-gray-500">
                                   Tool: {step.tool}
                                 </div>
                               )}
@@ -246,7 +242,7 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                     </div>
                   </>
                 ) : (
-                  <div className="text-xs text-gray-500 text-center py-8">
+                  <div className="py-8 text-center text-xs text-gray-500">
                     No active plan. Create a task to see the agent's reasoning.
                   </div>
                 )}
@@ -255,7 +251,7 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
 
             {activeTab === 'actions' && (
               <div className="space-y-2">
-                <div className="text-sm text-gray-400 mb-3">Tool Calls & Actions</div>
+                <div className="mb-3 text-sm text-gray-400">Tool Calls & Actions</div>
                 {steps.length > 0 ? (
                   <div className="space-y-2">
                     {steps.map((step, idx) => (
@@ -263,41 +259,41 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                         key={idx}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="bg-gray-800/40 rounded p-3 border border-gray-700/30"
+                        className="rounded border border-gray-700/30 bg-gray-800/40 p-3"
                       >
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="mb-1 flex items-center justify-between">
                           <span className="text-xs font-medium text-gray-300">{step.type}</span>
                           <span className="text-xs text-gray-500">
                             {new Date(step.timestamp).toLocaleTimeString()}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1 whitespace-pre-wrap">
+                        <div className="mt-1 whitespace-pre-wrap text-xs text-gray-400">
                           {step.content}
                         </div>
                       </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 text-center py-8">No actions yet</div>
+                  <div className="py-8 text-center text-xs text-gray-500">No actions yet</div>
                 )}
               </div>
             )}
 
             {activeTab === 'logs' && (
               <div className="space-y-1 font-mono text-xs">
-                <div className="text-sm text-gray-400 mb-2">Live Log Stream</div>
-                <div className="bg-gray-950 rounded p-3 max-h-96 overflow-y-auto">
+                <div className="mb-2 text-sm text-gray-400">Live Log Stream</div>
+                <div className="max-h-96 overflow-y-auto rounded bg-gray-950 p-3">
                   {logs.length > 0 ? (
                     <>
                       {logs.map((log, idx) => (
-                        <div key={idx} className="text-gray-400 py-0.5">
+                        <div key={idx} className="py-0.5 text-gray-400">
                           {log}
                         </div>
                       ))}
                       <div ref={logsEndRef} />
                     </>
                   ) : (
-                    <div className="text-gray-600 text-center py-8">No logs yet</div>
+                    <div className="py-8 text-center text-gray-600">No logs yet</div>
                   )}
                 </div>
               </div>
@@ -305,8 +301,8 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
 
             {activeTab === 'memory' && (
               <div className="space-y-2">
-                <div className="text-sm text-gray-400 mb-3">Session Notes & Data</div>
-                <div className="text-xs text-gray-500 text-center py-8">No session data</div>
+                <div className="mb-3 text-sm text-gray-400">Session Notes & Data</div>
+                <div className="py-8 text-center text-xs text-gray-500">No session data</div>
               </div>
             )}
 
@@ -328,10 +324,10 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                       return (
                         <div
                           key={record.id}
-                          className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-3 space-y-2"
+                          className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/60 p-3"
                         >
                           <div className="flex items-center justify-between text-xs text-gray-400">
-                            <span className="text-gray-300 font-medium">
+                            <span className="font-medium text-gray-300">
                               {ACTION_LABELS[record.action.type]}
                             </span>
                             <span className={`rounded-full border px-2 py-0.5 ${status.tone}`}>
@@ -352,7 +348,7 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
                     })}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500 text-center py-8">
+                  <div className="py-8 text-center text-xs text-gray-500">
                     No consent records yet
                   </div>
                 )}
@@ -362,32 +358,32 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
             {activeTab === 'privacy' && <PrivacyDashboard />}
 
             {activeTab === 'trust' && (
-              <div className="text-xs text-gray-500 text-center py-8">
+              <div className="py-8 text-center text-xs text-gray-500">
                 Trust panel is not available in this build
               </div>
             )}
 
             {activeTab === 'eco' && (
-              <div className="text-xs text-gray-500 text-center py-8">
+              <div className="py-8 text-center text-xs text-gray-500">
                 Eco impact panel is not available in this build
               </div>
             )}
 
             {activeTab === 'identity' && (
-              <div className="text-xs text-gray-500 text-center py-8">
+              <div className="py-8 text-center text-xs text-gray-500">
                 Identity vault panel is not available in this build
               </div>
             )}
 
             {activeTab === 'nexus' && (
-              <div className="text-xs text-gray-500 text-center py-8">
+              <div className="py-8 text-center text-xs text-gray-500">
                 Extension nexus panel is not available in this build
               </div>
             )}
           </div>
 
           {/* Footer: Controls */}
-          <div className="p-4 border-t border-gray-800/50 space-y-2">
+          <div className="space-y-2 border-t border-gray-800/50 p-4">
             <div className="flex items-center gap-2 text-xs text-gray-500">
               <input
                 type="checkbox"
@@ -401,14 +397,14 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
               </label>
             </div>
             {plan && (
-              <div className="flex items-center gap-2 flex-wrap text-xs">
-                <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded bg-blue-500/20 px-2 py-1 text-blue-400">
                   {plan.remaining.tokens} tokens
                 </span>
-                <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded">
+                <span className="rounded bg-green-500/20 px-2 py-1 text-green-400">
                   {plan.remaining.seconds}s
                 </span>
-                <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded">
+                <span className="rounded bg-purple-500/20 px-2 py-1 text-purple-400">
                   {plan.remaining.requests} requests
                 </span>
               </div>

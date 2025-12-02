@@ -4,12 +4,14 @@
  * Feels exactly like Perplexity Pro on steroids
  */
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Search, Globe, FileText, Clock, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Globe, FileText, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTabsStore } from '../../state/tabsStore';
 import { hnswService } from '../../services/vector/hnswService';
 import { useDebounce } from '../../utils/useDebounce';
+import { getQueryPrefetcher } from '../../services/prefetch/queryPrefetcher';
+import { isWebMode } from '../../lib/env';
 
 interface SearchPreviewResult {
   id: string;
@@ -44,6 +46,10 @@ export function RealtimeSearchPreview({ query, onSelect, isVisible }: RealtimeSe
 
     const performRealtimeSearch = async () => {
       setLoading(true);
+
+      // Future Enhancement #5: Record query for prefetching
+      getQueryPrefetcher().recordQuery(debouncedQuery);
+
       try {
         // 1. Search tabs (instant, local)
         const tabResults: SearchPreviewResult[] = tabs
@@ -194,7 +200,10 @@ async function generateQueryEmbedding(query: string): Promise<number[]> {
     // Use 4-bit quantized model (default) with cache
     return await getOrGenerateEmbedding(query, 'nomic-embed-text:4bit');
   } catch (error) {
-    console.warn('[RealtimeSearchPreview] Rust embedding failed, using fallback', error);
+    // Suppress errors in web mode - fallback is expected
+    if (!isWebMode()) {
+      console.warn('[RealtimeSearchPreview] Rust embedding failed, using fallback', error);
+    }
     // Fallback to simple hash-based vector
     const hash = query.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return new Array(384).fill(0).map((_, i) => Math.sin(hash + i) * 0.1);

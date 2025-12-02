@@ -33,6 +33,7 @@ import {
 import { ContainerInfo } from '../../lib/ipc-events';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
+import { isWebMode } from '../../lib/env';
 import { SourceCard } from '../../components/research/SourceCard';
 import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
@@ -43,10 +44,12 @@ import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
-import ResearchModePanel from '../../components/research/ResearchModePanel';
+// import ResearchModePanel from '../../components/research/ResearchModePanel'; // Reserved for future use
+import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
 import { getSearchHealth } from '../../services/searchHealth';
+import { multiLanguageAI, type SupportedLanguage } from '../../core/language/multiLanguageAI';
 
 type UploadedDocument = {
   id: string;
@@ -777,36 +780,61 @@ export default function ResearchPanel() {
     if (!searchQuery.trim()) return;
 
     // TELEMETRY FIX: Track search feature usage
-    import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
-      telemetryMetrics.trackFeature('search_executed', { mode: 'research' });
-    }).catch(() => {
-      // Telemetry not available
-    });
+    import('../../services/telemetryMetrics')
+      .then(({ telemetryMetrics }) => {
+        telemetryMetrics.trackFeature('search_executed', { mode: 'research' });
+      })
+      .catch(() => {
+        // Telemetry not available
+      });
 
     const searchStartTime = performance.now();
 
-    // Auto-detect language if set to 'auto'
+    // Phase 2: Auto-detect language using multi-language AI
     if (language === 'auto' && searchQuery.trim().length > 2) {
       try {
-        const detection = await detectLanguage(searchQuery, {
-          preferIndic: true,
-          useBackend: true,
-        });
-        if (detection.confidence > 0.7) {
-          const detectedLang = detection.language;
-          if (detectedLang !== 'en' || detection.isIndic) {
-            useSettingsStore.getState().setLanguage(detectedLang);
-            setSelectedLanguage(detectedLang);
-            console.log(
-              '[Research] Auto-detected language:',
-              detectedLang,
-              'confidence:',
-              detection.confidence
-            );
-          }
+        // Use new multi-language AI for detection
+        const detectedLang = await multiLanguageAI.detectLanguage(searchQuery);
+        setDetectedLang(detectedLang);
+
+        if (detectedLang !== 'en') {
+          useSettingsStore.getState().setLanguage(detectedLang);
+          console.log('[Research] Auto-detected language:', detectedLang);
         }
+      } catch {
+        // Fallback to old detection
+        try {
+          const detection = await detectLanguage(searchQuery, {
+            preferIndic: true,
+            useBackend: true,
+          });
+          if (detection.confidence > 0.7) {
+            const detectedLang = detection.language;
+            if (detectedLang !== 'en' || detection.isIndic) {
+              useSettingsStore.getState().setLanguage(detectedLang);
+              setDetectedLang(detectedLang);
+            }
+          }
+        } catch (fallbackError) {
+          console.warn('[Research] Language auto-detection failed:', fallbackError);
+        }
+      }
+    }
+
+    // Phase 2: Translate query if needed (for multi-language search)
+    const currentLang = language !== 'auto' ? language : detectedLang;
+    if (currentLang && currentLang !== 'en') {
+      try {
+        // Search in original language, but also prepare English version for backend
+        const englishQuery = await multiLanguageAI.translate(
+          searchQuery,
+          'en',
+          currentLang as SupportedLanguage
+        );
+        // Use both queries for better results
+        console.log('[Research] Original query:', searchQuery, 'English:', englishQuery);
       } catch (error) {
-        console.warn('[Research] Language auto-detection failed:', error);
+        console.warn('[Research] Query translation failed:', error);
       }
     }
 
@@ -881,18 +909,26 @@ export default function ResearchPanel() {
         }
 
         // Fallback to HTTP API if Tauri IPC not available or failed
+        // Skip in web mode - no backend available
         if (!backendResult) {
-          try {
-            backendResult = await researchApi.queryEnhanced({
-              query: searchQuery,
-              maxSources: 12,
-              includeCounterpoints,
-              recencyWeight,
-              authorityWeight,
-              language: language !== 'auto' ? language : undefined,
-            });
-          } catch (httpError) {
-            console.warn('[Research] HTTP API failed:', httpError);
+          // Check web mode before attempting API call
+          if (!isWebMode()) {
+            try {
+              backendResult = await researchApi.queryEnhanced({
+                query: searchQuery,
+                maxSources: 12,
+                includeCounterpoints,
+                recencyWeight,
+                authorityWeight,
+                language: language !== 'auto' ? language : undefined,
+              });
+            } catch {
+              // Silently fail - backend is optional
+              // Don't log connection errors - they're expected if backend is unavailable
+            }
+          } else {
+            // In web mode, backendResult remains null and code continues with fallback
+            backendResult = null;
           }
         }
 
@@ -944,7 +980,7 @@ export default function ResearchPanel() {
               language,
               timeout: 10000,
             });
-            
+
             // Convert optimized results to multi-source format
             const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
               title: r.title,
@@ -1052,21 +1088,23 @@ export default function ResearchPanel() {
             100
           );
 
-            // TELEMETRY FIX: Track successful search latency
-            const searchLatency = performance.now() - searchStartTime;
-            import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
+          // TELEMETRY FIX: Track successful search latency
+          const searchLatency = performance.now() - searchStartTime;
+          import('../../services/telemetryMetrics')
+            .then(({ telemetryMetrics }) => {
               telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
                 provider: 'backend',
                 resultCount: dedupedSources.length,
               });
-            }).catch(() => {
+            })
+            .catch(() => {
               // Telemetry not available
             });
 
-            setResult({
-              query: searchQuery,
-              summary: backendResult.summary || backendResult.answer || '',
-              sources: dedupedSources.slice(0, 16),
+          setResult({
+            query: searchQuery,
+            summary: backendResult.summary || backendResult.answer || '',
+            sources: dedupedSources.slice(0, 16),
             citations: backendResult.citations || [],
             inlineEvidence: [],
             contradictions: backendResult.contradictions || [],
@@ -1423,7 +1461,7 @@ export default function ResearchPanel() {
           language,
           timeout: 6000,
         });
-        
+
         if (optimizedResults.length > 0) {
           const sources: ResearchSource[] = optimizedResults.map((r, idx) => ({
             id: `opt-fallback-${idx}`,
@@ -1440,7 +1478,7 @@ export default function ResearchPanel() {
               provider: r.provider,
             },
           }));
-          
+
           setResult({
             query: searchQuery,
             summary: `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
@@ -1457,7 +1495,7 @@ export default function ResearchPanel() {
           });
           return;
         }
-        
+
         // Final fallback to DuckDuckGo Instant Answer API
         const duckResult = await fetchDuckDuckGoInstant(searchQuery, language);
         if (duckResult) {
@@ -1591,13 +1629,13 @@ export default function ResearchPanel() {
       }
     } catch (err) {
       console.error('Research query failed:', err);
-      
+
       // SEARCH SYSTEM VERIFICATION: Enhanced error handling with offline fallback
       const errorMessage =
         err instanceof Error
           ? err.message
           : 'Unable to complete the research request. Please try again.';
-      
+
       // Try offline fallback if MeiliSearch is down
       const searchHealth = getSearchHealth();
       if (searchHealth && !searchHealth.meiliSearch && searchHealth.localSearch) {
@@ -1614,7 +1652,7 @@ export default function ResearchPanel() {
               sourceType: 'local' as ResearchSourceType,
               relevanceScore: result.score || 50,
             }));
-            
+
             // Create a basic result from local search
             setResult({
               query: searchQuery,
@@ -1624,7 +1662,7 @@ export default function ResearchPanel() {
               confidence: 0.6,
               processingTimeMs: 100,
             });
-            
+
             toast.success(`Found ${localResults.length} local result(s)`);
             setError(null);
             return;
@@ -1633,20 +1671,24 @@ export default function ResearchPanel() {
           console.warn('[Research] Offline fallback also failed:', fallbackError);
         }
       }
-      
-      setError(`Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`);
+
+      setError(
+        `Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`
+      );
       toast.error(`Search failed: ${errorMessage}`);
 
       // TELEMETRY FIX: Track failed search latency
       const searchLatency = performance.now() - searchStartTime;
-      import('../../services/telemetryMetrics').then(({ telemetryMetrics }) => {
-        telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
-          provider: 'failed',
-          error: errorMessage,
+      import('../../services/telemetryMetrics')
+        .then(({ telemetryMetrics }) => {
+          telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
+            provider: 'failed',
+            error: errorMessage,
+          });
+        })
+        .catch(() => {
+          // Telemetry not available
         });
-      }).catch(() => {
-        // Telemetry not available
-      });
     } finally {
       setLoading(false);
       setLoadingMessage(null);
@@ -1931,19 +1973,19 @@ export default function ResearchPanel() {
       className="mode-theme mode-theme--research bg-[#0f111a] text-gray-100"
     >
       <LayoutHeader sticky={false} className="border-b border-white/5 bg-black/20 backdrop-blur">
-        <div className="flex items-center justify-between px-6 pt-6 pb-3">
-          <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between px-6 pb-3 pt-6">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold text-white">Research Mode</h1>
             <p className="text-sm text-gray-400">
               Aggregate evidence, generate traceable answers, and surface counterpoints without
               leaving the browser.
             </p>
           </div>
-          <div className="flex-shrink-0 ml-4 flex items-center gap-2">
+          <div className="ml-4 flex flex-shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setUseEnhancedView(prev => !prev)}
-              className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 useEnhancedView
                   ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
                   : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1960,7 +2002,7 @@ export default function ResearchPanel() {
             <button
               type="button"
               onClick={() => setCursorPanelOpen(prev => !prev)}
-              className={`px-3 py-1.5 rounded-lg border text-sm transition ${
+              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
                 cursorPanelOpen
                   ? 'border-blue-500/60 bg-blue-500/10 text-blue-200'
                   : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1976,7 +2018,7 @@ export default function ResearchPanel() {
           </div>
         </div>
 
-        <div className="px-6 pb-5 flex-shrink-0">
+        <div className="flex-shrink-0 px-6 pb-5">
           <div className="relative max-w-4xl" ref={autocompleteRef}>
             <form
               onSubmit={async e => {
@@ -1984,10 +2026,12 @@ export default function ResearchPanel() {
                 setShowAutocomplete(false);
                 await handleSearch();
               }}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all w-full"
+              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20"
             >
-              <Search size={18} className="text-gray-500 flex-shrink-0" />
+              <Search size={18} className="flex-shrink-0 text-gray-500" />
               <input
+                id="research-query-input"
+                name="research-query"
                 className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
                 value={query}
                 onChange={e => {
@@ -2022,6 +2066,8 @@ export default function ResearchPanel() {
                   <Skeleton variant="text" width={80} height={16} className="text-xs" />
                 )}
                 <input
+                  id="research-file-input"
+                  name="research-file"
                   ref={fileInputRef}
                   type="file"
                   multiple
@@ -2033,7 +2079,7 @@ export default function ResearchPanel() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40 flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
                   title="Upload documents (PDF, DOCX, TXT, MD)"
                 >
                   <Upload size={14} />
@@ -2075,8 +2121,8 @@ export default function ResearchPanel() {
               </div>
             </form>
             {showAutocomplete && autocompleteSuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50 max-h-[400px] min-h-[120px] overflow-y-auto z-[100]">
-                <div className="p-2 space-y-1">
+              <div className="absolute left-0 right-0 top-full z-[100] mt-2 max-h-[400px] min-h-[120px] overflow-y-auto rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50">
+                <div className="space-y-1 p-2">
                   {autocompleteSuggestions.map((suggestion, idx) => (
                     <button
                       key={idx}
@@ -2084,13 +2130,13 @@ export default function ResearchPanel() {
                       onClick={() => {
                         suggestion.action?.();
                       }}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
-                      <div className="text-sm text-white font-medium line-clamp-1">
+                      <div className="line-clamp-1 text-sm font-medium text-white">
                         {suggestion.title}
                       </div>
                       {suggestion.subtitle && (
-                        <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                        <div className="mt-0.5 line-clamp-1 text-xs text-gray-400">
                           {suggestion.subtitle}
                         </div>
                       )}
@@ -2104,13 +2150,13 @@ export default function ResearchPanel() {
 
         {/* Uploaded documents display */}
         {uploadedDocuments.length > 0 && (
-          <div className="px-6 pb-3 flex-shrink-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-400 font-medium">Uploaded documents:</span>
+          <div className="flex-shrink-0 px-6 pb-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-gray-400">Uploaded documents:</span>
               {uploadedDocuments.map(doc => (
                 <div
                   key={doc.id}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-300 group"
+                  className="group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300"
                 >
                   <FileText size={12} className="text-gray-400" />
                   <span className="max-w-[200px] truncate">{doc.name}</span>
@@ -2118,7 +2164,7 @@ export default function ResearchPanel() {
                   <button
                     type="button"
                     onClick={() => handleRemoveDocument(doc.id)}
-                    className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-white/10 rounded"
+                    className="ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
                     title="Remove document"
                   >
                     <X size={12} className="text-gray-400 hover:text-gray-200" />
@@ -2130,17 +2176,11 @@ export default function ResearchPanel() {
         )}
       </LayoutHeader>
 
-      <LayoutBody className="flex flex-1 min-h-0 gap-6 overflow-hidden px-6 pb-6">
+      <LayoutBody className="flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pb-6">
         {useEnhancedView ? (
           <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-            <ResearchModePanel
-              query={query}
-              result={result}
-              loading={loading}
-              error={error}
-              onSearch={handleSearch}
-              onFollowUp={handleSearch}
-            />
+            {/* Use new streaming Perplexity-style UI */}
+            <RegenResearchPanel />
           </div>
         ) : (
           <>
@@ -2192,7 +2232,7 @@ export default function ResearchPanel() {
                 )}
 
                 {!loading && result && (
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+                  <div className="flex-1 space-y-4 overflow-y-auto pr-1">
                     <EvidenceOverlay
                       evidence={result.evidence || []}
                       sources={result.sources}
@@ -2244,7 +2284,7 @@ export default function ResearchPanel() {
         onRemove={handleRemoveCompare}
       />
       {cursorPanelOpen && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-slate-900/95 backdrop-blur-xl border-l border-slate-700/70 shadow-2xl z-50 flex flex-col">
+        <div className="fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-slate-700/70 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
           <CursorChat
             pageSnapshot={
               activeId && tabs.find(t => t.id === activeId)
@@ -2715,7 +2755,7 @@ function InsightsSidebar({
                     <span>{importanceLabel[item.importance]}</span>
                     <span>{source.domain}</span>
                   </div>
-                  <p className="mt-1 text-[11px] text-blue-50/90 line-clamp-3">{item.quote}</p>
+                  <p className="mt-1 line-clamp-3 text-[11px] text-blue-50/90">{item.quote}</p>
                 </button>
               );
             })}
@@ -2961,13 +3001,13 @@ function EmptyState({
         className="space-y-3"
       >
         <h1 className="text-3xl font-bold text-white">{welcomeText.title}</h1>
-        <p className="text-base text-gray-300 max-w-md">{welcomeText.subtitle}</p>
+        <p className="max-w-md text-base text-gray-300">{welcomeText.subtitle}</p>
       </motion.div>
       <motion.div
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.3 }}
-        className="flex flex-col gap-3 w-full max-w-md"
+        className="flex w-full max-w-md flex-col gap-3"
       >
         {examples.map((example, idx) => (
           <button
@@ -3350,11 +3390,11 @@ interface VerificationSummaryProps {
 function VerificationSummary({ verification }: VerificationSummaryProps) {
   if (!verification) return null;
   return (
-    <section className="rounded border border-neutral-800 bg-neutral-900/40 p-4 space-y-3">
+    <section className="space-y-3 rounded border border-neutral-800 bg-neutral-900/40 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-gray-200">Verification summary</h3>
         <span
-          className={`text-xs font-medium px-2 py-1 rounded border ${
+          className={`rounded border px-2 py-1 text-xs font-medium ${
             verification.verified
               ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
               : 'border-amber-500/40 bg-amber-500/10 text-amber-200'
@@ -3395,7 +3435,7 @@ function VerificationSummary({ verification }: VerificationSummaryProps) {
       {verification.suggestions.length > 0 && (
         <div className="space-y-1 text-xs text-gray-300">
           <h4 className="font-semibold text-gray-200">Suggestions</h4>
-          <ul className="list-disc list-inside space-y-1 text-gray-400">
+          <ul className="list-inside list-disc space-y-1 text-gray-400">
             {verification.suggestions.map((suggestion, idx) => (
               <li key={`${suggestion}-${idx}`}>{suggestion}</li>
             ))}

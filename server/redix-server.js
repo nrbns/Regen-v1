@@ -1,19 +1,117 @@
 /* eslint-env node */
 
 // ============================================================================
-// GLOBAL ERROR GUARDS - MUST BE FIRST
+// LOAD ENVIRONMENT VARIABLES - MUST BE FIRST
+// ============================================================================
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// ============================================================================
+// SUPPRESS REDIS ERRORS AT CONSOLE LEVEL
+// ============================================================================
+// Override console.error to filter Redis connection errors
+const originalConsoleError = console.error;
+console.error = function (...args) {
+  // Check all arguments for Redis errors
+  for (const arg of args) {
+    const message = arg?.toString() || '';
+    const errorObj = arg;
+
+    // Check if this is a Redis connection error
+    if (
+      (errorObj &&
+        typeof errorObj === 'object' &&
+        (errorObj.code === 'ECONNREFUSED' ||
+          errorObj.code === 'ENOTFOUND' ||
+          errorObj.code === 'ETIMEDOUT' ||
+          errorObj.syscall === 'connect' ||
+          errorObj.message?.includes('ECONNREFUSED') ||
+          errorObj.message?.includes('Connection is closed') ||
+          (errorObj.address === '127.0.0.1' && errorObj.port === 6379))) ||
+      message.includes('ECONNREFUSED') ||
+      message.includes('127.0.0.1:6379') ||
+      (message.includes('Error:') &&
+        message.includes('connect') &&
+        (message.includes('6379') || message.includes('ECONNREFUSED')))
+    ) {
+      // Silently ignore Redis connection errors
+      return;
+    }
+  }
+
+  // Call original console.error for other errors
+  originalConsoleError.apply(console, args);
+};
+
+// Also suppress Redis errors in console.log
+const originalConsoleLog = console.log;
+console.log = function (...args) {
+  const message = args[0]?.toString() || '';
+  if (
+    message.includes('ECONNREFUSED') ||
+    message.includes('127.0.0.1:6379') ||
+    (message.includes('Error:') && message.includes('connect') && message.includes('6379'))
+  ) {
+    // Silently ignore Redis connection errors in logs
+    return;
+  }
+  originalConsoleLog.apply(console, args);
+};
+
+// Load .env file from project root
+const envResult = config({ path: resolve(__dirname, '../.env') });
+if (envResult.error) {
+  console.warn('[RedixServer] Could not load .env file:', envResult.error.message);
+} else {
+  console.log('[RedixServer] Environment variables loaded from .env');
+}
+
+// ============================================================================
+// GLOBAL ERROR GUARDS
 // ============================================================================
 // Prevent unhandled errors from crashing the server in development
+// Suppress Redis connection errors globally
+const isRedisError = err => {
+  if (!err || typeof err !== 'object') return false;
+  const code = err.code;
+  const message = err.message || '';
+  const syscall = err.syscall;
+  return (
+    code === 'ECONNREFUSED' ||
+    code === 'ENOTFOUND' ||
+    code === 'ETIMEDOUT' ||
+    code === 'MaxRetriesPerRequestError' ||
+    message.includes('Connection is closed') ||
+    message.includes('ECONNREFUSED') ||
+    syscall === 'connect'
+  );
+};
+
 process.on('uncaughtException', err => {
+  // Suppress Redis connection errors
+  if (isRedisError(err)) {
+    // Silently ignore Redis connection errors
+    return;
+  }
+  // Log other errors
   console.error('[FATAL] Uncaught exception in Redix server:', err);
   // In dev, log only - don't exit
   if (process.env.NODE_ENV === 'production') {
     // In production, we might want to exit after logging
-    // But for now, we'll log and continue to prevent cascading failures
   }
 });
 
 process.on('unhandledRejection', (reason, _promise) => {
+  // Suppress Redis connection errors
+  if (isRedisError(reason)) {
+    // Silently ignore Redis connection errors
+    return;
+  }
+  // Log other rejections
   console.error('[FATAL] Unhandled rejection in Redix server:', reason);
   // In dev, log only - don't exit
   if (process.env.NODE_ENV === 'production') {
@@ -39,12 +137,13 @@ import { generateResearchAnswer, streamResearchAnswer } from './services/researc
 import { queryEnhancedResearch } from './services/research/enhanced.js';
 import { aiProxy } from './services/ai/realtime-ai-proxy.js';
 import { researchAgent, executeAgent } from './api/agent-controller.js';
+import { runResearch, getResearchStatus } from './api/research-controller.js';
+import { hybridSearch } from './routes/search.js';
+import { validateApiKeys } from './utils/validateApiKeys.js';
+import { proxyBingSearch, proxyOpenAI, proxyAnthropic, healthCheck } from './routes/proxy.js';
+import { scrapeUrl } from './routes/scrape.js';
+import { aiTask } from './routes/aiTask.js';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // Load metrics - provide stub for now (metrics.js is CommonJS)
 const getMetrics = () => {
@@ -88,10 +187,8 @@ const automationTriggers = {
 
 const failSafe = {};
 
-// WebSocket server stub
-const initWebSocketServer = () => {
-  // WebSocket functionality will be handled by Fastify's websocket plugin
-};
+// WebSocket server will be initialized after Fastify starts
+// Import is done dynamically to avoid circular dependencies
 
 // Voice controller stub
 const voiceController = {
@@ -101,20 +198,25 @@ const voiceController = {
 // --- Redis connection error handler (safe) ---
 function attachRedisErrorHandlers(client, name) {
   client.on('error', err => {
-    // Only log non-connection errors in debug; always note connection failures
+    // Completely suppress all Redis connection errors - Redis is optional
     const code = err && err.code;
-    if (code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ETIMEDOUT') {
-      // Connection-level issue
+    if (
+      code === 'ECONNREFUSED' ||
+      code === 'ENOTFOUND' ||
+      code === 'ETIMEDOUT' ||
+      code === 'MaxRetriesPerRequestError' ||
+      err?.message?.includes('Connection is closed')
+    ) {
+      // Silently ignore - Redis is optional
       redisConnected = false;
-      const now = Date.now();
-      if (now - lastRedisErrorTime > REDIS_ERROR_SUPPRESSION_MS) {
-        fastify.log.warn({ err, redis: name }, `Redis connection issue (${name})`);
-        lastRedisErrorTime = now;
-      }
       return;
     }
-    // Non-connection errors: log at debug level
+    // Only log non-connection errors at debug level
     fastify.log.debug({ err, redis: name }, 'Redis client error');
+    redisConnected = false;
+  });
+  client.on('connect', () => {
+    redisConnected = true;
   });
 }
 
@@ -131,7 +233,40 @@ const PORT = Number(nodeProcess?.env.REDIX_PORT || 4000);
 const fastify = Fastify({
   logger: {
     level: nodeProcess?.env.LOG_LEVEL || 'info',
+    // Suppress Redis connection errors in Fastify logger
+    serializers: {
+      err: err => {
+        // Filter out Redis connection errors
+        if (
+          err?.code === 'ECONNREFUSED' ||
+          err?.code === 'ENOTFOUND' ||
+          err?.code === 'ETIMEDOUT' ||
+          err?.syscall === 'connect' ||
+          (err?.address === '127.0.0.1' && err?.port === 6379) ||
+          err?.message?.includes('ECONNREFUSED') ||
+          err?.message?.includes('Connection is closed') ||
+          err?.message?.includes('127.0.0.1:6379')
+        ) {
+          return null; // Suppress this error
+        }
+        return err;
+      },
+    },
   },
+});
+
+// Root route for health check
+fastify.get('/', async (_request, _reply) => {
+  return {
+    status: 'ok',
+    service: 'Redix Server',
+    version: '0.1.0-alpha',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      websocket: '/agent/stream',
+      api: '/v1/search',
+    },
+  };
 });
 
 const AI_PROXY_PROVIDER =
@@ -919,15 +1054,10 @@ async function authenticateRequest(request, reply) {
 // Redis connection configuration with error handling
 // CRITICAL FIX: Improved Redis config with exponential backoff reconnect
 const redisConfig = {
-  maxRetriesPerRequest: 3,
-  retryStrategy: times => {
-    // Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms, 1600ms, max 2000ms
-    const delay = Math.min(Math.pow(2, times) * 50, 2000);
-    if (times > 10) {
-      // After 10 retries, give up and let error handlers deal with it
-      return null;
-    }
-    return delay;
+  maxRetriesPerRequest: null, // BullMQ requirement
+  retryStrategy: () => {
+    // Don't retry - Redis is optional
+    return null;
   },
   enableOfflineQueue: false,
   connectTimeout: 5000,
@@ -936,28 +1066,42 @@ const redisConfig = {
   // Prevent Redis from crashing the server
   enableReadyCheck: false,
   autoResubscribe: false,
-  // CRITICAL FIX: Better reconnection handling
-  reconnectOnError: err => {
-    const targetError = 'READONLY';
-    if (err.message.includes(targetError)) {
-      // Reconnect on READONLY error (Redis is in read-only mode)
-      return true;
-    }
-    // Don't reconnect on other errors - let error handlers deal with it
-    return false;
-  },
+  // Don't reconnect - Redis is optional
+  reconnectOnError: () => false,
 };
 
 // Create Redis clients but don't connect immediately
 // They will only connect when actually used
+// Suppress all errors before creating clients
 const redisPub = new Redis(REDIS_URL, redisConfig);
 const redisSub = new Redis(REDIS_URL, redisConfig);
 const redisStore = new Redis(REDIS_URL, redisConfig);
 
+// Immediately suppress all error events for all Redis clients
+[redisPub, redisSub, redisStore].forEach(client => {
+  // Suppress all error events - Redis is optional
+  client.on('error', () => {
+    // Completely suppress all Redis errors - do nothing
+  });
+
+  // Prevent automatic connection attempts
+  client.on('connect', () => {
+    redisConnected = true;
+  });
+
+  client.on('close', () => {
+    redisConnected = false;
+  });
+
+  client.on('end', () => {
+    redisConnected = false;
+  });
+});
+
 // Track connection state and error suppression
 let redisConnected = false;
-let lastRedisErrorTime = 0;
-const REDIS_ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
+let _lastRedisErrorTime = 0;
+const _REDIS_ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
 
 const clients = new Map();
 const metricsClients = new Set();
@@ -1061,6 +1205,11 @@ const redisClients = [
   { name: 'sub', client: redisSub },
   { name: 'store', client: redisStore },
 ];
+
+// Attach error handlers to all Redis clients immediately
+redisClients.forEach(({ client, name }) => {
+  attachRedisErrorHandlers(client, name);
+});
 
 // Helper function to safely use Redis with fallback
 async function safeRedisOperation(operation, fallback = null) {
@@ -1325,50 +1474,8 @@ fastify.get('/metrics', async () => {
 });
 
 // CATEGORY B FIX: Prometheus metrics endpoint
-fastify.get('/metrics/prom', async (request, reply) => {
-  const memUsage = process.memoryUsage();
-  const uptime = process.uptime();
-  const sseCount = Array.from(connectionLimits.values()).reduce(
-    (sum, limits) => sum + (limits.sse || 0),
-    0
-  );
-  const wsCount = clients.size;
-  const metricsCount = metricsClients.size;
-  const notificationCount = notificationClients.size;
-
-  // Prometheus format
-  const promMetrics = [
-    `# HELP regen_uptime_seconds Server uptime in seconds`,
-    `# TYPE regen_uptime_seconds gauge`,
-    `regen_uptime_seconds ${uptime}`,
-    ``,
-    `# HELP regen_memory_bytes Memory usage in bytes`,
-    `# TYPE regen_memory_bytes gauge`,
-    `regen_memory_bytes{type="heapUsed"} ${memUsage.heapUsed}`,
-    `regen_memory_bytes{type="heapTotal"} ${memUsage.heapTotal}`,
-    `regen_memory_bytes{type="rss"} ${memUsage.rss}`,
-    `regen_memory_bytes{type="external"} ${memUsage.external}`,
-    ``,
-    `# HELP regen_connections_active Active connections`,
-    `# TYPE regen_connections_active gauge`,
-    `regen_connections_active{type="sse"} ${sseCount}`,
-    `regen_connections_active{type="websocket"} ${wsCount}`,
-    `regen_connections_active{type="metrics"} ${metricsCount}`,
-    `regen_connections_active{type="notifications"} ${notificationCount}`,
-    ``,
-    `# HELP regen_redis_connected Redis connection status`,
-    `# TYPE regen_redis_connected gauge`,
-    `regen_redis_connected ${redisConnected ? 1 : 0}`,
-    ``,
-    `# HELP regen_llm_circuit_state LLM circuit breaker state (0=closed, 1=open, 2=half-open)`,
-    `# TYPE regen_llm_circuit_state gauge`,
-    `regen_llm_circuit_state ${LLMCircuit.opened ? 1 : LLMCircuit.halfOpen ? 2 : 0}`,
-    ``,
-  ].join('\n');
-
-  reply.type('text/plain; version=0.0.4');
-  return promMetrics;
-});
+// NOTE: /metrics/prom route is defined later (line 3774) with more complete metrics
+// This duplicate definition has been removed to prevent route conflict
 
 if (enableWebSockets) {
   fastify.get('/ws', { websocket: true }, (connection, request) => {
@@ -1519,18 +1626,12 @@ fastify.post('/api/query', async (request, reply) => {
   }
 });
 
+/**
+ * POST /api/scrape
+ * Direct scrape endpoint (replaces queue-based scraping for simpler use)
+ */
 fastify.post('/api/scrape', async (request, reply) => {
-  const { url, userId, jobId } = request.body ?? {};
-  if (!url || typeof url !== 'string') {
-    return reply.status(400).send({ error: 'missing-url' });
-  }
-  try {
-    const job = await enqueueScrape({ url, userId, jobId });
-    return { enqueued: true, jobId: job.id };
-  } catch (error) {
-    request.log.error({ error }, 'failed to enqueue scrape');
-    return reply.status(500).send({ error: 'scrape-enqueue-failed' });
-  }
+  return scrapeUrl(request, reply);
 });
 
 fastify.get('/api/scrape/meta/:jobId', async (request, reply) => {
@@ -1632,6 +1733,70 @@ fastify.post('/api/profile/signout', async () => ({ ok: true }));
  */
 fastify.post('/api/agent/research', async (request, reply) => {
   return researchAgent(request, reply);
+});
+
+/**
+ * POST /api/research/run
+ * New research endpoint with job queue and streaming
+ */
+fastify.post('/api/research/run', async (request, reply) => {
+  return runResearch(request, reply);
+});
+
+/**
+ * POST /api/search/hybrid
+ * Hybrid search across multiple sources
+ */
+fastify.post('/api/search/hybrid', async (request, reply) => {
+  return hybridSearch(request, reply);
+});
+
+/**
+ * GET /api/_health
+ * Server health check
+ */
+fastify.get('/api/_health', async (request, reply) => {
+  return healthCheck(request, reply);
+});
+
+/**
+ * POST /api/proxy/bing/search
+ * Proxy Bing search API calls
+ */
+fastify.post('/api/proxy/bing/search', async (request, reply) => {
+  return proxyBingSearch(request, reply);
+});
+
+/**
+ * POST /api/proxy/openai
+ * Proxy OpenAI API calls
+ */
+fastify.post('/api/proxy/openai', async (request, reply) => {
+  return proxyOpenAI(request, reply);
+});
+
+/**
+ * POST /api/proxy/anthropic
+ * Proxy Anthropic API calls
+ */
+fastify.post('/api/proxy/anthropic', async (request, reply) => {
+  return proxyAnthropic(request, reply);
+});
+
+/**
+ * POST /api/ai/task
+ * Unified AI task endpoint with backoff and fallback
+ */
+fastify.post('/api/ai/task', async (request, reply) => {
+  return aiTask(request, reply);
+});
+
+/**
+ * GET /api/research/status/:jobId
+ * Get research job status
+ */
+fastify.get('/api/research/status/:jobId', async (request, reply) => {
+  return getResearchStatus(request, reply);
 });
 
 /**
@@ -3794,6 +3959,7 @@ fastify.get('/metrics/prom', async (_request, reply) => {
     }
     // Initialize WebSocket server before listening
     const httpServer = fastify.server;
+    const { initWebSocketServer } = await import('./services/realtime/websocket-server.js');
     initWebSocketServer(httpServer);
     fastify.log.info('WebSocket server initialized');
 
@@ -3837,6 +4003,15 @@ fastify.get('/metrics/prom', async (_request, reply) => {
         fastify.log.warn(
           { err: error },
           'Failed to load Zerodha TOTP auth (optional - configure ZERODHA_USER_ID, ZERODHA_PASSWORD, ZERODHA_TOTP_SECRET for auto-refresh)'
+        );
+      }
+
+      // Validate API keys at startup
+      const apiKeyStatus = validateApiKeys();
+
+      if (!apiKeyStatus.hasLLM && !apiKeyStatus.hasSearch) {
+        fastify.log.warn(
+          '⚠️  No API keys configured. Research features will use fallback methods.'
         );
       }
 

@@ -6,7 +6,7 @@
  */
 
 import { ipc } from '../ipc-typed';
-import { isElectronRuntime } from '../env';
+import { isElectronRuntime, isTauriRuntime } from '../env';
 
 // Sentry is optional - use any to avoid build-time resolution
 let rendererSentry: any = null;
@@ -17,10 +17,22 @@ const SENTRY_ENV = import.meta.env.MODE || process.env.NODE_ENV || 'development'
 const SENTRY_SAMPLE_RATE = Number(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? '0');
 const RELEASE = import.meta.env.VITE_APP_VERSION || '0.0.0';
 
+// Validate DSN format (basic check)
+function isValidSentryDSN(dsn: string): boolean {
+  if (!dsn || dsn.trim().length === 0) return false;
+  // Reject placeholder values
+  if (dsn.includes('your-sentry-dsn') || dsn.includes('your_sentry_dsn')) return false;
+  // Basic format check: should start with https://
+  return dsn.startsWith('https://') && dsn.includes('@');
+}
+
 async function initRendererSentry() {
   if (sentryInitialized) return;
-  if (!SENTRY_DSN) {
-    console.warn('[Sentry] DSN not configured - skipping initialization');
+  if (!SENTRY_DSN || !isValidSentryDSN(SENTRY_DSN)) {
+    // Only log in dev mode to avoid console spam
+    if (SENTRY_ENV === 'development') {
+      console.log('[Sentry] DSN not configured or invalid - skipping initialization');
+    }
     return;
   }
 
@@ -74,12 +86,12 @@ async function initRendererSentry() {
         return event;
       },
     });
-    
+
     // Make Sentry available globally for ErrorBoundary
     if (typeof window !== 'undefined') {
       (window as any).Sentry = rendererSentry;
     }
-    
+
     sentryInitialized = true;
     console.info('[Sentry] Renderer crash reporting enabled');
   } catch (error) {
@@ -111,17 +123,28 @@ export async function applyTelemetryOptIn(optIn: boolean) {
 }
 
 export async function syncRendererTelemetry() {
+  // Skip backend checks in web mode
+  const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+
+  if (isWebMode) {
+    // In web mode, initialize Sentry directly if DSN is available and valid
+    if (SENTRY_DSN && isValidSentryDSN(SENTRY_DSN)) {
+      await initRendererSentry();
+    }
+    return;
+  }
+
   // Initialize Sentry for both Electron and Tauri
   try {
-  const status = await ipc.telemetry.getStatus();
-  if (status.optIn) {
-    await initRendererSentry();
-  } else {
-    await shutdownRendererSentry();
+    const status = await ipc.telemetry.getStatus();
+    if (status.optIn) {
+      await initRendererSentry();
+    } else {
+      await shutdownRendererSentry();
     }
   } catch {
-    // If IPC fails (e.g., in web mode), still try to initialize if DSN is available
-    if (SENTRY_DSN) {
+    // If IPC fails (e.g., in web mode), still try to initialize if DSN is available and valid
+    if (SENTRY_DSN && isValidSentryDSN(SENTRY_DSN)) {
       console.warn('[Sentry] IPC unavailable, initializing with DSN only');
       await initRendererSentry();
     }

@@ -36,8 +36,16 @@ export function markBackendUnavailable(reason?: unknown) {
     backendAvailable = false;
   }
   offlineSince = Date.now();
+
+  // Only warn if backend is expected (Electron/Tauri mode)
+  // In web mode, backend offline is expected and shouldn't spam console
   if (reason && process.env.NODE_ENV !== 'production') {
-    console.warn('[BackendStatus] Backend marked offline:', reason);
+    const isWebMode =
+      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
+
+    if (!isWebMode) {
+      console.warn('[BackendStatus] Backend marked offline:', reason);
+    }
   }
   listeners.forEach(listener => {
     try {

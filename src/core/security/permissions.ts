@@ -159,6 +159,3 @@ class PermissionManager {
 
 // Singleton instance
 export const permissionManager = new PermissionManager();
-
-
-

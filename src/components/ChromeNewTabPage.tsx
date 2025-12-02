@@ -24,6 +24,7 @@ import { ipc } from '../lib/ipc-typed';
 import { useTabsStore } from '../state/tabsStore';
 import { useAppStore } from '../state/appStore';
 import { motion } from 'framer-motion';
+import { isWebMode } from '../lib/env';
 
 interface MarketData {
   symbol: string;
@@ -73,23 +74,40 @@ export function ChromeNewTabPage() {
 
       const marketPromises = symbols.map(async ({ symbol, yahooSymbol }) => {
         try {
+          // Skip backend calls in web mode
+          if (isWebMode()) {
+            // Return fallback data immediately in web mode
+            const fallbacks: Record<string, MarketData> = {
+              NIFTY: { symbol: 'NIFTY', value: 26202.95, change: -13.1, changePercent: -0.05 },
+              SENSEX: { symbol: 'SENSEX', value: 85706.67, change: -17.14, changePercent: -0.02 },
+              Gold: { symbol: 'Gold', value: 4254.9, change: 52.5, changePercent: 1.25 },
+              Silver: { symbol: 'Silver', value: 57.16, change: 3.55, changePercent: 6.63 },
+              'USD/INR': { symbol: 'USD/INR', value: 89.352, change: 0.009, changePercent: 0.01 },
+            };
+            return fallbacks[symbol] || null;
+          }
+
           // Try Tauri IPC first
           if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
-            const result = await ipc.trade.getQuote(yahooSymbol);
-            if (result && result.last) {
-              // Use last price, calculate change from bid/ask if available
-              const price = result.last;
-              const change = result.ask && result.bid ? (result.ask - result.bid) / 2 : 0;
-              const changePercent =
-                result.ask && result.bid && result.last
-                  ? ((result.ask - result.bid) / result.last) * 100
-                  : 0;
-              return {
-                symbol,
-                value: price,
-                change,
-                changePercent,
-              };
+            try {
+              const result = await ipc.trade.getQuote(yahooSymbol);
+              if (result && result.last) {
+                // Use last price, calculate change from bid/ask if available
+                const price = result.last;
+                const change = result.ask && result.bid ? (result.ask - result.bid) / 2 : 0;
+                const changePercent =
+                  result.ask && result.bid && result.last
+                    ? ((result.ask - result.bid) / result.last) * 100
+                    : 0;
+                return {
+                  symbol,
+                  value: price,
+                  change,
+                  changePercent,
+                };
+              }
+            } catch {
+              // IPC failed, try HTTP fallback
             }
           }
 
@@ -118,7 +136,10 @@ export function ChromeNewTabPage() {
             }
           }
         } catch (error) {
-          console.error(`[NewTab] Failed to fetch ${symbol}:`, error);
+          // Suppress errors in web mode - they're expected
+          if (!isWebMode()) {
+            console.error(`[NewTab] Failed to fetch ${symbol}:`, error);
+          }
         }
 
         // Fallback to mock data if API fails
@@ -154,30 +175,33 @@ export function ChromeNewTabPage() {
   const fetchNews = useCallback(async () => {
     try {
       setIsLoadingNews(true);
-      // Try research API for news
-      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
-        try {
-          // Use research queryEnhanced if available, otherwise skip
-          const result = await ipc.research
-            .queryEnhanced({
-              query: 'trending news India',
-              maxSources: 5,
-            })
-            .catch(() => null);
-          if (result && result.sources && result.sources.length > 0) {
-            const news = result.sources.slice(0, 5).map((item: any, index: number) => ({
-              id: `news-${index}`,
-              title: item.title || 'News article',
-              source: item.url ? new URL(item.url).hostname : 'News',
-              time: `${Math.floor(Math.random() * 24)}h`,
-              trending: index < 2,
-            }));
-            setNewsItems(news);
-            setIsLoadingNews(false);
-            return;
+      // Skip backend calls in web mode
+      if (!isWebMode()) {
+        // Try research API for news
+        if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+          try {
+            // Use research queryEnhanced if available, otherwise skip
+            const result = await ipc.research
+              .queryEnhanced({
+                query: 'trending news India',
+                maxSources: 5,
+              })
+              .catch(() => null);
+            if (result && result.sources && result.sources.length > 0) {
+              const news = result.sources.slice(0, 5).map((item: any, index: number) => ({
+                id: `news-${index}`,
+                title: item.title || 'News article',
+                source: item.url ? new URL(item.url).hostname : 'News',
+                time: `${Math.floor(Math.random() * 24)}h`,
+                trending: index < 2,
+              }));
+              setNewsItems(news);
+              setIsLoadingNews(false);
+              return;
+            }
+          } catch {
+            // Suppress errors - fallback to mock data
           }
-        } catch (error) {
-          console.error('[NewTab] News fetch via IPC failed:', error);
         }
       }
 
@@ -309,6 +333,7 @@ export function ChromeNewTabPage() {
       icon: Sparkles,
       color: 'from-purple-500 to-pink-500',
       action: () => setMode('Research'),
+      description: 'AI-powered research with citations',
     },
     {
       id: 'trade',
@@ -316,6 +341,7 @@ export function ChromeNewTabPage() {
       icon: TrendingUp,
       color: 'from-green-500 to-emerald-500',
       action: () => setMode('Trade'),
+      description: 'Real-time market analysis',
     },
     {
       id: 'browse',
@@ -323,58 +349,66 @@ export function ChromeNewTabPage() {
       icon: Globe,
       color: 'from-blue-500 to-cyan-500',
       action: () => setMode('Browse'),
+      description: 'Standard web browsing',
     },
     {
       id: 'docs',
       label: 'Docs',
       icon: BookOpen,
       color: 'from-orange-500 to-red-500',
-      action: () => {},
+      action: () => setMode('Docs'),
+      description: 'Open document processing mode',
     },
     {
       id: 'work',
       label: 'Work',
       icon: Briefcase,
       color: 'from-indigo-500 to-purple-500',
-      action: () => {},
+      action: async () => {
+        await ipc.tabs.create('about:blank');
+      },
+      description: 'Start a new work session',
     },
     {
       id: 'games',
       label: 'Games',
       icon: Gamepad2,
       color: 'from-pink-500 to-rose-500',
-      action: () => {},
+      action: async () => {
+        await ipc.tabs.create('https://www.google.com/search?q=online+games');
+      },
+      description: 'Browse online games',
     },
   ];
 
   const categories = ['Discover', 'News', 'Markets', 'Research', 'Trade'];
 
   return (
-    <div className="absolute inset-0 flex flex-col min-h-screen w-full overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="absolute inset-0 flex min-h-screen w-full flex-col overflow-hidden bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Top Navigation Bar */}
-      <div className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-lg">
                 <Zap size={20} className="text-white" />
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-xl font-bold text-transparent">
                 Regen
               </span>
             </div>
 
             {/* Category Tabs */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden items-center gap-1 md:flex">
               {categories.map(category => (
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
                     activeCategory === category
                       ? 'bg-blue-500 text-white shadow-md'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                   }`}
                 >
                   {category}
@@ -384,7 +418,7 @@ export function ChromeNewTabPage() {
 
             {/* Right Actions */}
             <div className="flex items-center gap-3">
-              <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
+              <button className="rounded-lg p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
                 <span className="text-sm text-slate-600 dark:text-slate-400">Personalize</span>
               </button>
             </div>
@@ -394,7 +428,7 @@ export function ChromeNewTabPage() {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="mx-auto max-w-7xl px-6 py-8">
           {/* Search Bar Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -402,27 +436,44 @@ export function ChromeNewTabPage() {
             transition={{ duration: 0.5 }}
             className="mb-12"
           >
-            <div className="max-w-3xl mx-auto">
+            <div className="mx-auto max-w-3xl">
               <form onSubmit={handleSubmit} className="relative">
-                <div className="relative group">
+                <div className="group relative">
                   <Search
                     size={24}
-                    className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 z-10"
+                    className="absolute left-6 top-1/2 z-10 -translate-y-1/2 text-slate-400 dark:text-slate-500"
                   />
                   <input
+                    id="newtab-search-input"
+                    name="newtab-search-query"
                     ref={inputRef}
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleSearch(searchQuery);
+                      } else if (e.key === 'Escape') {
+                        setSearchQuery('');
+                        inputRef.current?.blur();
+                      }
+                    }}
                     placeholder="Search the web or type a URL"
-                    className="w-full pl-16 pr-32 py-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 dark:focus:ring-blue-400/10 transition-all text-lg shadow-lg"
+                    className="w-full rounded-2xl border-2 border-slate-200 bg-white py-5 pl-16 pr-32 text-lg text-slate-900 shadow-lg transition-all placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-400/10"
                     autoFocus
+                    aria-label="Search the web or type a URL"
+                    aria-describedby="search-hint"
+                    role="searchbox"
                   />
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                  <span id="search-hint" className="sr-only">
+                    Press Enter to search, Escape to clear
+                  </span>
+                  <div className="absolute right-4 top-1/2 flex -translate-y-1/2 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setMode('Research')}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+                      className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white transition-all hover:shadow-lg"
                     >
                       <Sparkles size={16} />
                       AI Mode
@@ -434,19 +485,19 @@ export function ChromeNewTabPage() {
           </motion.div>
 
           {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             {/* Left Column - Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className="space-y-6 lg:col-span-2">
               {/* Quick Access Shortcuts */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wide">
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                   Quick Access
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
                   {quickAccess.map((item, index) => {
                     const Icon = item.icon;
                     return (
@@ -458,10 +509,14 @@ export function ChromeNewTabPage() {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={item.action}
-                        className="group flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg transition-all"
+                        className="group relative flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 transition-all hover:border-blue-500 hover:shadow-lg dark:border-slate-700 dark:bg-slate-800 dark:hover:border-blue-400"
+                        title={item.description || item.label}
+                        aria-label={
+                          item.description ? `${item.label}: ${item.description}` : item.label
+                        }
                       >
                         <div
-                          className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow`}
+                          className={`h-12 w-12 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center shadow-md transition-shadow group-hover:shadow-lg`}
                         >
                           <Icon size={24} className="text-white" />
                         </div>
@@ -480,11 +535,11 @@ export function ChromeNewTabPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                     Trending News
                   </h2>
-                  <button className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                  <button className="text-xs text-blue-600 hover:underline dark:text-blue-400">
                     See all
                   </button>
                 </div>
@@ -496,13 +551,36 @@ export function ChromeNewTabPage() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
-                        className="group relative p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-xl transition-all cursor-pointer"
+                        onClick={async () => {
+                          // Open article in new tab
+                          try {
+                            const articleUrl = `https://www.google.com/search?q=${encodeURIComponent(item.title)}`;
+                            await ipc.tabs.create(articleUrl);
+                          } catch (error) {
+                            console.error('[NewTab] Failed to open article:', error);
+                          }
+                        }}
+                        onKeyDown={async e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            try {
+                              const articleUrl = `https://www.google.com/search?q=${encodeURIComponent(item.title)}`;
+                              await ipc.tabs.create(articleUrl);
+                            } catch (error) {
+                              console.error('[NewTab] Failed to open article:', error);
+                            }
+                          }
+                        }}
+                        className="group relative cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 transition-all hover:border-blue-500 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-blue-400"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Open article: ${item.title}`}
                       >
                         <div className="flex items-start gap-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="mb-2 flex items-center gap-2">
                               {item.trending && (
-                                <span className="px-2 py-1 bg-red-500 text-white text-xs font-semibold rounded-full">
+                                <span className="rounded-full bg-red-500 px-2 py-1 text-xs font-semibold text-white">
                                   Trending
                                 </span>
                               )}
@@ -510,7 +588,7 @@ export function ChromeNewTabPage() {
                                 {item.source} · {item.time}
                               </span>
                             </div>
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-2">
+                            <h3 className="mb-2 text-lg font-semibold text-slate-900 transition-colors group-hover:text-blue-600 dark:text-slate-100 dark:group-hover:text-blue-400">
                               {item.title}
                             </h3>
                             <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
@@ -529,9 +607,25 @@ export function ChromeNewTabPage() {
                         </div>
                       </motion.article>
                     ))
+                  ) : isLoadingNews ? (
+                    // Skeleton loaders for news
+                    Array.from({ length: 3 }).map((_, idx) => (
+                      <div
+                        key={`news-skeleton-${idx}`}
+                        className="animate-pulse rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800"
+                      >
+                        <div className="flex items-start gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div className="h-4 w-1/4 rounded bg-slate-200 dark:bg-slate-700" />
+                            <div className="h-5 w-3/4 rounded bg-slate-200 dark:bg-slate-700" />
+                            <div className="h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700" />
+                          </div>
+                        </div>
+                      </div>
+                    ))
                   ) : (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
-                      {isLoadingNews ? 'Loading news...' : 'No news available'}
+                    <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                      No news available
                     </div>
                   )}
                 </div>
@@ -545,21 +639,21 @@ export function ChromeNewTabPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg"
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800"
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                     Markets
                   </h3>
                   <div className="flex items-center gap-2">
                     {isLoadingMarkets && (
-                      <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                     )}
                     <button
                       onClick={() => {
                         setMode('Trade');
                       }}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400"
                     >
                       See market
                       <ExternalLink size={12} />
@@ -573,7 +667,7 @@ export function ChromeNewTabPage() {
                       return (
                         <div
                           key={market.symbol}
-                          className="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-700 last:border-0"
+                          className="flex items-center justify-between border-b border-slate-100 py-2 last:border-0 dark:border-slate-700"
                         >
                           <div className="flex-1">
                             <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -588,7 +682,7 @@ export function ChromeNewTabPage() {
                               })}
                             </div>
                             <div
-                              className={`text-xs flex items-center gap-1 justify-end ${
+                              className={`flex items-center justify-end gap-1 text-xs ${
                                 isPositive
                                   ? 'text-green-600 dark:text-green-400'
                                   : 'text-red-600 dark:text-red-400'
@@ -605,9 +699,20 @@ export function ChromeNewTabPage() {
                         </div>
                       );
                     })
+                  ) : isLoadingMarkets ? (
+                    // Skeleton loaders for markets
+                    Array.from({ length: 5 }).map((_, idx) => (
+                      <div
+                        key={`market-skeleton-${idx}`}
+                        className="flex animate-pulse items-center justify-between border-b border-slate-100 py-2 last:border-0 dark:border-slate-700"
+                      >
+                        <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700" />
+                        <div className="h-4 w-24 rounded bg-slate-200 dark:bg-slate-700" />
+                      </div>
+                    ))
                   ) : (
-                    <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
-                      {isLoadingMarkets ? 'Loading market data...' : 'No market data available'}
+                    <div className="py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                      No market data available
                     </div>
                   )}
                 </div>
@@ -619,11 +724,11 @@ export function ChromeNewTabPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.3 }}
-                  className="p-6 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-xl"
+                  className="rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 p-6 text-white shadow-xl"
                 >
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold mb-1">{weatherData.location}</h3>
+                      <h3 className="mb-1 text-lg font-semibold">{weatherData.location}</h3>
                       <div className="flex items-center gap-2">
                         <Cloud size={20} />
                         <span className="text-3xl font-bold">{weatherData.temp}°C</span>
@@ -631,18 +736,18 @@ export function ChromeNewTabPage() {
                     </div>
                     <Sun size={32} className="text-yellow-200" />
                   </div>
-                  <div className="pt-4 border-t border-white/20">
-                    <p className="text-sm text-white/90 mb-3">
+                  <div className="border-t border-white/20 pt-4">
+                    <p className="mb-3 text-sm text-white/90">
                       {weatherData.airQuality} air quality tomorrow
                     </p>
                     <div className="flex gap-2">
                       {['Hourly', 'Daily', 'Air quality'].map((tab, index) => (
                         <button
                           key={tab}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                          className={`rounded-lg px-3 py-1 text-xs font-medium transition-all ${
                             index === 1
                               ? 'bg-white/20 text-white'
-                              : 'text-white/70 hover:text-white hover:bg-white/10'
+                              : 'text-white/70 hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           {tab}
@@ -659,9 +764,9 @@ export function ChromeNewTabPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.4 }}
-                  className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg"
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800"
                 >
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="mb-4 flex items-center gap-2">
                     <Clock size={16} className="text-slate-500 dark:text-slate-400" />
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                       Recent
@@ -674,12 +779,12 @@ export function ChromeNewTabPage() {
                         onClick={async () => {
                           await ipc.tabs.activate({ id: tab.id });
                         }}
-                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors group"
+                        className="group w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
                       >
-                        <div className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                        <div className="truncate text-sm font-medium text-slate-900 group-hover:text-blue-600 dark:text-slate-100 dark:group-hover:text-blue-400">
                           {tab.title || new URL(tab.url || '').hostname}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
                           {new URL(tab.url || '').hostname}
                         </div>
                       </button>
@@ -698,7 +803,7 @@ export function ChromeNewTabPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+          className="flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all hover:bg-blue-600 hover:shadow-xl"
         >
           <span>Customize Chrome</span>
         </motion.button>

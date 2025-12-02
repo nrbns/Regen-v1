@@ -17,6 +17,9 @@ import {
   checkForCrashedLoops,
 } from '../core/agents/loopResume';
 import { useSettingsStore } from '../state/settingsStore';
+import { AgentModeSelector } from '../components/integrations/AgentModeSelector';
+import { multiAgentSystem, type AgentMode } from '../core/agents/multiAgentSystem';
+import { useTabsStore } from '../state/tabsStore';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -60,6 +63,9 @@ export default function AgentConsole() {
   const agentConsoleHistory = useAgentMemoryStore(state =>
     state.entries.filter(entry => entry.agentId === 'agent.console').slice(0, 5)
   );
+  const [selectedAgentMode, setSelectedAgentMode] = useState<AgentMode>('research');
+  const { activeId, tabs } = useTabsStore();
+  const activeTab = tabs.find(t => t.id === activeId);
 
   // Check for crashed loops on mount
   useEffect(() => {
@@ -96,7 +102,7 @@ export default function AgentConsole() {
         // Set the DSL and trigger execution
         dslRef.current = JSON.stringify(dsl, null, 2);
         setQuery(dsl.goal || 'Execute automation');
-        
+
         // Import and use automation bridge to track status
         import('../services/automationBridge').then(({ updateAutomationStatus }) => {
           updateAutomationStatus(execRunId, { progress: 10 });
@@ -286,7 +292,26 @@ export default function AgentConsole() {
     streamMetaRef.current = { startedAt: performance.now(), query: trimmedQuery };
 
     const runToken = `agent-stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setRun(runToken, trimmedQuery);
+    setRun(runToken, trimmedQuery, activeId);
+
+    // Phase 2: Use multi-agent system
+    try {
+      const agentResult = await multiAgentSystem.execute(selectedAgentMode, trimmedQuery, {
+        mode: selectedAgentMode,
+        tabId: activeId,
+        url: activeTab?.url,
+        sessionId: activeTab?.sessionId,
+      });
+
+      // Execute actions if any
+      if (agentResult.actions && agentResult.actions.length > 0) {
+        // Actions will be executed by safe executor
+        console.log('[AgentConsole] Agent generated actions:', agentResult.actions);
+      }
+    } catch (error) {
+      console.error('[AgentConsole] Multi-agent execution failed:', error);
+      // Continue with existing flow as fallback
+    }
 
     // Start auto-save for loop resume
     startAutoSave({
@@ -413,11 +438,13 @@ export default function AgentConsole() {
         finalizeTelemetry('error', { error: streamError });
 
         // AUTOMATION INTEGRATION: Notify automation bridge of error
-        import('../services/automationBridge').then(({ completeAutomation }) => {
-          completeAutomation(runToken, undefined, streamError);
-        }).catch(() => {
-          // Automation bridge not available
-        });
+        import('../services/automationBridge')
+          .then(({ completeAutomation }) => {
+            completeAutomation(runToken, undefined, streamError);
+          })
+          .catch(() => {
+            // Automation bridge not available
+          });
         return;
       }
 
@@ -453,11 +480,13 @@ export default function AgentConsole() {
       });
 
       // AUTOMATION INTEGRATION: Notify automation bridge of completion
-      import('../services/automationBridge').then(({ completeAutomation }) => {
-        completeAutomation(runToken, { output: finalOutput, result: finalResult });
-      }).catch(() => {
-        // Automation bridge not available
-      });
+      import('../services/automationBridge')
+        .then(({ completeAutomation }) => {
+          completeAutomation(runToken, { output: finalOutput, result: finalResult });
+        })
+        .catch(() => {
+          // Automation bridge not available
+        });
     } catch (error) {
       abortControllerRef.current = null;
       if (controller.signal.aborted) {
@@ -552,11 +581,25 @@ export default function AgentConsole() {
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Left: Input & Controls */}
         <div className="flex flex-col gap-4">
+          {/* Phase 2: Agent Mode Selector */}
+          <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 p-4">
+            <label className="mb-2 block text-sm font-medium text-gray-300">Agent Mode</label>
+            <AgentModeSelector
+              defaultMode={selectedAgentMode}
+              onAgentSelect={(mode, capabilities) => {
+                setSelectedAgentMode(mode);
+                console.log('[AgentConsole] Selected agent:', mode, 'Capabilities:', capabilities);
+              }}
+            />
+          </div>
+
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-gray-300">Ask Redix</label>
             <div className="flex gap-2">
-              <div className="flex-1 relative">
+              <div className="relative flex-1">
                 <input
+                  id="agent-console-query"
+                  name="agent-console-query"
                   type="text"
                   value={query}
                   onChange={e => setQuery(e.target.value)}
@@ -596,7 +639,7 @@ export default function AgentConsole() {
                   disabled={!query.trim()}
                   whileHover={{ scale: query.trim() ? 1.05 : 1 }}
                   whileTap={{ scale: query.trim() ? 0.95 : 1 }}
-                  className="inline-flex items-center gap-2 rounded-xl border border-blue-500/60 bg-blue-500/20 px-4 py-3 text-sm font-medium text-blue-100 transition hover:bg-blue-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 rounded-xl border border-blue-500/60 bg-blue-500/20 px-4 py-3 text-sm font-medium text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Send size={16} />
                   Send
@@ -612,7 +655,9 @@ export default function AgentConsole() {
             </summary>
             <div className="border-t border-slate-700/60 p-4">
               <textarea
-                className="h-48 w-full rounded-lg border border-slate-700/60 bg-slate-800/70 p-3 text-xs font-mono text-gray-200 focus:border-blue-500/60 focus:outline-none"
+                id="agent-dsl-editor"
+                name="agent-dsl"
+                className="h-48 w-full rounded-lg border border-slate-700/60 bg-slate-800/70 p-3 font-mono text-xs text-gray-200 focus:border-blue-500/60 focus:outline-none"
                 defaultValue={dslRef.current}
                 onChange={e => (dslRef.current = e.target.value)}
               />
@@ -739,9 +784,9 @@ export default function AgentConsole() {
                         {entry.success ? 'Succeeded' : 'Error'}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-200 line-clamp-1">{entry.prompt}</p>
+                    <p className="mt-1 line-clamp-1 text-sm text-gray-200">{entry.prompt}</p>
                     {(entry.response || entry.error) && (
-                      <p className="mt-1 text-xs text-gray-400 line-clamp-2">
+                      <p className="mt-1 line-clamp-2 text-xs text-gray-400">
                         {(entry.response || entry.error || '').trim()}
                       </p>
                     )}
@@ -807,9 +852,9 @@ export default function AgentConsole() {
                 >
                   <AIThinkingSkeleton message="AI is processing your request..." />
                   <div className="space-y-2">
-                    <div className="h-3 w-full rounded bg-gray-800/50 animate-pulse" />
-                    <div className="h-3 w-5/6 rounded bg-gray-800/50 animate-pulse" />
-                    <div className="h-3 w-4/6 rounded bg-gray-800/50 animate-pulse" />
+                    <div className="h-3 w-full animate-pulse rounded bg-gray-800/50" />
+                    <div className="h-3 w-5/6 animate-pulse rounded bg-gray-800/50" />
+                    <div className="h-3 w-4/6 animate-pulse rounded bg-gray-800/50" />
                   </div>
                 </motion.div>
               ) : (

@@ -1,5 +1,5 @@
 // God Tier Trade Mode - Real TradingView Candles + Realtime NSE/US/Crypto
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { toast } from '../../utils/toast';
 import { motion } from 'framer-motion';
@@ -18,6 +18,10 @@ import {
   getTradeSignalService,
   type TradeSignal,
 } from '../../services/realtime/tradeSignalService';
+import OrderConfirmModal, { type OrderDetails } from '../../components/trade/OrderConfirmModal';
+import OrderBook, { type OrderBookEntry } from '../../components/trade/OrderBook';
+import TradesTape, { type Trade } from '../../components/trade/TradesTape';
+import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -46,6 +50,13 @@ export default function TradePanel() {
   const [tp, setTp] = useState(24950);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [chartLoading, setChartLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<OrderDetails | null>(null);
+  const [orderBookBids, setOrderBookBids] = useState<OrderBookEntry[]>([]);
+  const [orderBookAsks, setOrderBookAsks] = useState<OrderBookEntry[]>([]);
+  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('limit');
+  const [limitPrice, setLimitPrice] = useState(price);
 
   // WISPR Trade Command Handler
   useEffect(() => {
@@ -75,8 +86,108 @@ export default function TradePanel() {
     return () => window.removeEventListener('wispr:trade', handleWisprTrade as EventListener);
   }, [selected]);
 
-  // REAL-TIME PRICE UPDATES (Sub-second latency via SSE)
+  // Real-time WebSocket updates
+  const [candleHistory, setCandleHistory] = useState<any[]>([]);
+  const {
+    tick: _tick,
+    connected: wsConnected,
+    orderbook: wsOrderbook,
+  } = useRealtimeTrade({
+    symbol: selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol,
+    enabled: true,
+    onTick: tickData => {
+      const delta = tickData.price - price;
+      setPrice(tickData.price);
+      setChange(Math.abs(delta));
+      setIsGreen(delta >= 0);
+      setLimitPrice(tickData.price); // Update limit price to current price
+
+      // Update last candle with tick price
+      if (seriesRef.current && candleHistory.length > 0) {
+        const lastCandle = candleHistory[candleHistory.length - 1];
+        const time = Math.floor(Date.now() / 60000) * 60000;
+        const timeSeconds = Math.floor(time / 1000);
+
+        // Use updateData for real-time updates (type-safe approach)
+        try {
+          (seriesRef.current as any).updateData({
+            time: timeSeconds as any,
+            open: lastCandle.close,
+            high: Math.max(lastCandle.close, tickData.price),
+            low: Math.min(lastCandle.close, tickData.price),
+            close: tickData.price,
+          });
+        } catch {
+          // Fallback: update the last candle in history and reset data
+          const updatedHistory = [...candleHistory];
+          const lastIdx = updatedHistory.length - 1;
+          if (updatedHistory[lastIdx]) {
+            updatedHistory[lastIdx] = {
+              ...updatedHistory[lastIdx],
+              high: Math.max(updatedHistory[lastIdx].high, tickData.price),
+              low: Math.min(updatedHistory[lastIdx].low, tickData.price),
+              close: tickData.price,
+            };
+            setCandleHistory(updatedHistory);
+            const chartData = updatedHistory.map(c => ({
+              time: Math.floor(c.time / 1000) as any,
+              open: c.open,
+              high: c.high,
+              low: c.low,
+              close: c.close,
+            }));
+            seriesRef.current.setData(chartData);
+          }
+        }
+      }
+    },
+    onCandle: candle => {
+      // Add or update candle in history
+      setCandleHistory(prev => {
+        const existing = prev.findIndex(c => c.time === candle.time);
+        if (existing >= 0) {
+          const updated = [...prev];
+          updated[existing] = candle;
+          return updated;
+        }
+        return [...prev, candle].slice(-200); // Keep last 200 candles
+      });
+
+      // Update chart with new candle
+      if (seriesRef.current) {
+        const timeSeconds = Math.floor(candle.time / 1000);
+        const candleData = {
+          time: timeSeconds as any,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+        };
+
+        // Try updateData first (for real-time updates)
+        try {
+          (seriesRef.current as any).updateData?.(candleData);
+        } catch {
+          // Fallback: if updateData doesn't work, append to history and setData
+          const updatedHistory = [...candleHistory, candle].slice(-200);
+          setCandleHistory(updatedHistory);
+          const chartData = updatedHistory.map(c => ({
+            time: Math.floor(c.time / 1000) as any,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }));
+          seriesRef.current.setData(chartData);
+        }
+      }
+    },
+  });
+
+  // REAL-TIME PRICE UPDATES (Sub-second latency via SSE) - Fallback
   useEffect(() => {
+    if (wsConnected) return; // Use WebSocket if connected
+
     const realtimeService = getRealtimeMarketDataService();
     let previousPrice = price;
     let high = price;
@@ -95,6 +206,7 @@ export default function TradePanel() {
       setPrice(newPrice);
       setChange(Math.abs(delta));
       setIsGreen(delta >= 0);
+      setLimitPrice(newPrice);
     });
 
     // Fallback: Try HTTP API for initial price if SSE hasn't connected yet
@@ -107,6 +219,7 @@ export default function TradePanel() {
           high = quote.price;
           low = quote.price;
           setPrice(quote.price);
+          setLimitPrice(quote.price);
         }
       } catch (error) {
         console.debug('[Trade] Initial quote fetch failed, waiting for SSE:', error);
@@ -118,7 +231,7 @@ export default function TradePanel() {
     return () => {
       unsubscribe();
     };
-  }, [selected.symbol]);
+  }, [selected.symbol, wsConnected, price]);
 
   // Telepathy Upgrade Phase 2: Real-time trade signals via WebSocket (replaces 30s polling)
   useEffect(() => {
@@ -198,20 +311,45 @@ export default function TradePanel() {
           wickDownColor: '#ef4444',
         });
 
-        // REAL CANDLE DATA from Finnhub
+        // Load initial candle data from mock server or fallback
         const loadRealCandles = async () => {
           setChartLoading(true);
           try {
-            const realtimeService = getRealtimeMarketDataService();
-            const symbol = selected.symbol.includes(':')
+            // Try mock server first
+            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
+            const symbolKey = selected.symbol.includes(':')
               ? selected.symbol.split(':')[1]
               : selected.symbol;
-            const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
+
+            try {
+              const response = await fetch(`${API_BASE}/api/candles/${symbolKey}`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.candles && data.candles.length > 0) {
+                  const candleData = data.candles.map((c: any) => ({
+                    time: Math.floor(c.time / 1000) as any,
+                    open: c.open,
+                    high: c.high,
+                    low: c.low,
+                    close: c.close,
+                  }));
+                  candlestickSeries.setData(candleData);
+                  setCandleHistory(data.candles);
+                  setChartLoading(false);
+                  return;
+                }
+              }
+            } catch {
+              console.debug('[Trade] Mock server not available, using fallback');
+            }
+
+            // Fallback: Try real service
+            const realtimeService = getRealtimeMarketDataService();
+            const candles = await realtimeService.getHistoricalCandles(symbolKey, 'D');
 
             if (candles.length > 0) {
-              // Convert to lightweight-charts format
               const candleData = candles.map(c => ({
-                time: (c.time / 1000) as any, // lightweight-charts expects Unix timestamp in seconds
+                time: (c.time / 1000) as any,
                 open: c.open,
                 high: c.high,
                 low: c.low,
@@ -220,10 +358,10 @@ export default function TradePanel() {
               candlestickSeries.setData(candleData);
               setChartLoading(false);
             } else {
-              // Fallback: Generate mock data if API fails
+              // Final fallback: Generate mock data
               console.warn('[Trade] Using fallback candle data');
               const fallbackData: Array<{
-                time: string;
+                time: number;
                 open: number;
                 high: number;
                 low: number;
@@ -231,7 +369,7 @@ export default function TradePanel() {
               }> = Array.from({ length: 50 }, (_, i) => {
                 const baseDate = new Date();
                 baseDate.setDate(baseDate.getDate() - (50 - i));
-                const time = baseDate.toISOString().split('T')[0] as any;
+                const time = Math.floor(baseDate.getTime() / 1000);
                 const open = 24800 + Math.random() * 300;
                 const close = open + (Math.random() - 0.5) * 400;
                 const high = Math.max(open, close) + Math.random() * 100;
@@ -242,7 +380,7 @@ export default function TradePanel() {
               setChartLoading(false);
             }
           } catch (error) {
-            console.error('[Trade] Failed to load real candles:', error);
+            console.error('[Trade] Failed to load candles:', error);
             setChartLoading(false);
           }
         };
@@ -322,31 +460,184 @@ export default function TradePanel() {
     }
   }, [selected]);
 
-  const executeTrade = async (orderType: 'buy' | 'sell') => {
-    if (isPlacingOrder) return; // Prevent double submission
+  // Update orderbook from WebSocket
+  useEffect(() => {
+    if (wsOrderbook && wsConnected) {
+      setOrderBookBids(
+        wsOrderbook.bids
+          .map((b: any) => ({
+            price: b.price,
+            quantity: b.size || b.quantity,
+          }))
+          .sort((a, b) => b.price - a.price)
+      );
+      setOrderBookAsks(
+        wsOrderbook.asks
+          .map((a: any) => ({
+            price: a.price,
+            quantity: a.size || a.quantity,
+          }))
+          .sort((a, b) => a.price - b.price)
+      );
+    } else if (!wsConnected) {
+      // Fallback: Generate mock order book if WS not connected
+      const generateOrderBook = () => {
+        const basePrice = price;
+        const bids: OrderBookEntry[] = [];
+        const asks: OrderBookEntry[] = [];
+
+        for (let i = 0; i < 10; i++) {
+          bids.push({
+            price: basePrice - (i + 1) * (basePrice * 0.001),
+            quantity: Math.floor(Math.random() * 1000) + 100,
+          });
+          asks.push({
+            price: basePrice + (i + 1) * (basePrice * 0.001),
+            quantity: Math.floor(Math.random() * 1000) + 100,
+          });
+        }
+
+        setOrderBookBids(bids.sort((a, b) => b.price - a.price));
+        setOrderBookAsks(asks.sort((a, b) => a.price - b.price));
+      };
+
+      generateOrderBook();
+      const interval = setInterval(generateOrderBook, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [wsOrderbook, wsConnected, price]);
+
+  // Mock trades tape (replace with real WebSocket feed)
+  useEffect(() => {
+    const generateTrade = () => {
+      const newTrade: Trade = {
+        id: `trade-${Date.now()}`,
+        price: price + (Math.random() - 0.5) * (price * 0.002),
+        quantity: Math.floor(Math.random() * 500) + 10,
+        side: Math.random() > 0.5 ? 'buy' : 'sell',
+        timestamp: Date.now(),
+      };
+      setRecentTrades(prev => [...prev.slice(-19), newTrade]);
+    };
+
+    const interval = setInterval(generateTrade, 3000); // New trade every 3s
+    return () => clearInterval(interval);
+  }, [price]);
+
+  const handleOrderClick = useCallback(
+    (side: 'buy' | 'sell') => {
+      const orderPrice = orderType === 'market' ? price : limitPrice;
+      const estimatedCost = orderPrice * qty;
+      const fees = estimatedCost * 0.001; // 0.1% fee
+      const marginRequired = orderType === 'market' ? estimatedCost * 0.1 : undefined; // 10% margin for market orders
+
+      const order: OrderDetails = {
+        side,
+        symbol: selected.name,
+        quantity: qty,
+        price: orderPrice,
+        orderType: orderType as 'market' | 'limit',
+        stopLoss: sl > 0 ? sl : undefined,
+        takeProfit: tp > 0 ? tp : undefined,
+        estimatedCost,
+        fees,
+        marginRequired,
+      };
+
+      setPendingOrder(order);
+      setShowConfirmModal(true);
+    },
+    [qty, price, limitPrice, orderType, sl, tp, selected.name]
+  );
+
+  const handleConfirmOrder = useCallback(async () => {
+    if (!pendingOrder || isPlacingOrder) return;
 
     setIsPlacingOrder(true);
     try {
+      // Try mock server first, then fallback to tradeApi
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
+      const symbolKey = selected.symbol.includes(':')
+        ? selected.symbol.split(':')[1]
+        : selected.symbol;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: symbolKey,
+            side: pendingOrder.side,
+            qty: pendingOrder.quantity,
+            price: pendingOrder.orderType === 'limit' ? pendingOrder.price : undefined,
+            type: pendingOrder.orderType,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          toast.success(
+            `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId} | Filled: ${result.filled}`
+          );
+          setShowConfirmModal(false);
+          setPendingOrder(null);
+          setIsPlacingOrder(false);
+          return;
+        }
+      } catch {
+        console.debug('[Trade] Mock server not available, trying tradeApi');
+      }
+
+      // Fallback to tradeApi
       const { tradeApi } = await import('../../lib/api-client');
       const result = await tradeApi.placeOrder({
         symbol: selected.symbol,
-        quantity: qty,
-        orderType,
-        stopLoss: sl,
-        takeProfit: tp,
+        quantity: pendingOrder.quantity,
+        orderType: pendingOrder.side,
+        stopLoss: pendingOrder.stopLoss,
+        takeProfit: pendingOrder.takeProfit,
       });
       if (result.success) {
         toast.success(
-          `${orderType.toUpperCase()} order placed: ${qty} × ${selected.name} @ ${selected.currency}${price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId}\nSL: ${selected.currency}${sl.toLocaleString()} | TP: ${selected.currency}${tp.toLocaleString()}`
+          `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId}`
         );
+        setShowConfirmModal(false);
+        setPendingOrder(null);
       }
     } catch (error) {
       console.error('[Trade] Order placement failed:', error);
-      toast.error(`Failed to place ${orderType} order. Please try again.`);
+      toast.error(`Failed to place ${pendingOrder.side} order. Please try again.`);
     } finally {
       setIsPlacingOrder(false);
     }
-  };
+  }, [pendingOrder, isPlacingOrder, selected.symbol, selected.currency]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (showConfirmModal) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirmOrder();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setShowConfirmModal(false);
+          setPendingOrder(null);
+        }
+      } else {
+        if (e.key === 'b' || e.key === 'B') {
+          e.preventDefault();
+          handleOrderClick('buy');
+        } else if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          handleOrderClick('sell');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showConfirmModal, handleOrderClick, handleConfirmOrder]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-black text-white">
@@ -445,22 +736,57 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* FULL CANDLE CHART — NOW WORKING - Force 100% height to fix blank space */}
-      <div
-        ref={chartContainerRef}
-        className="relative flex-1"
-        style={{ minHeight: '100%', height: '100%' }}
-      >
-        {chartLoading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-              <span className="text-sm text-gray-400">Loading chart data...</span>
+      {/* Main Content Grid */}
+      <div className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
+        {/* Chart Area */}
+        <div className="col-span-12 flex flex-col lg:col-span-8">
+          <div
+            ref={chartContainerRef}
+            className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
+          >
+            {chartLoading && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+                  <span className="text-sm text-gray-400">Loading chart data...</span>
+                </div>
+              </div>
+            )}
+            <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
+              1D • EMA • RSI • Volume Profile
+              {wsConnected && <span className="ml-2 text-green-400">● Live</span>}
             </div>
           </div>
-        )}
-        <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
-          1D • EMA • RSI • Volume Profile
+
+          {/* Trades Tape below chart */}
+          <div className="mt-4">
+            <TradesTape trades={recentTrades} symbol={selected.name} />
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="col-span-12 flex flex-col gap-4 lg:col-span-4">
+          {/* Order Book */}
+          <OrderBook
+            bids={orderBookBids}
+            asks={orderBookAsks}
+            onPriceClick={(price, _side) => {
+              setLimitPrice(price);
+              setOrderType('limit');
+            }}
+          />
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <div className="mb-1 text-xs text-gray-400">High</div>
+              <div className="text-sm font-semibold text-white">{selected.currency}25,120</div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <div className="mb-1 text-xs text-gray-400">Low</div>
+              <div className="text-sm font-semibold text-white">{selected.currency}24,720</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -468,60 +794,105 @@ export default function TradePanel() {
       <motion.div
         initial={{ y: 200 }}
         animate={{ y: 0 }}
-        className="fixed bottom-0 left-0 right-0 z-10 border-t-4 border-purple-600 bg-black/95 p-4 shadow-2xl backdrop-blur md:p-6"
+        className="trade-controls fixed bottom-0 left-0 right-0 z-40 border-t-4 border-purple-600 bg-black/95 p-4 shadow-2xl backdrop-blur md:p-6"
       >
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
-          <input
-            type="number"
-            value={qty}
-            onChange={e => setQty(+e.target.value || 0)}
-            className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
-            placeholder="Qty"
-          />
-          <input
-            type="number"
-            value={sl}
-            onChange={e => setSl(+e.target.value || 0)}
-            className="rounded-xl border-2 border-red-600 bg-red-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500 md:px-6 md:py-5 md:text-3xl"
-            placeholder="SL"
-          />
-          <input
-            type="number"
-            value={tp}
-            onChange={e => setTp(+e.target.value || 0)}
-            className="rounded-xl border-2 border-green-600 bg-green-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500 md:px-6 md:py-5 md:text-3xl"
-            placeholder="Target"
-          />
-          <button
-            onClick={() => executeTrade('buy')}
-            disabled={isPlacingOrder}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-green-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
-          >
-            {isPlacingOrder ? (
-              <>
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span>PLACING...</span>
-              </>
-            ) : (
-              'BUY'
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
+            <input
+              type="number"
+              value={qty}
+              onChange={e => setQty(+e.target.value || 0)}
+              className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
+              placeholder="Qty"
+              aria-label="Quantity"
+            />
+            <select
+              value={orderType}
+              onChange={e => setOrderType(e.target.value as 'market' | 'limit')}
+              className="rounded-xl bg-gray-900 px-3 py-3 text-center text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-2xl"
+              aria-label="Order Type"
+            >
+              <option value="market">Market</option>
+              <option value="limit">Limit</option>
+            </select>
+            {orderType === 'limit' && (
+              <input
+                type="number"
+                value={limitPrice}
+                onChange={e => setLimitPrice(+e.target.value || price)}
+                className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
+                placeholder="Price"
+                aria-label="Limit Price"
+              />
             )}
-          </button>
-          <button
-            onClick={() => executeTrade('sell')}
-            disabled={isPlacingOrder}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-red-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
-          >
-            {isPlacingOrder ? (
-              <>
-                <Loader2 className="h-6 w-6 animate-spin" />
-                <span>PLACING...</span>
-              </>
-            ) : (
-              'SELL'
-            )}
-          </button>
+            <input
+              type="number"
+              value={sl}
+              onChange={e => setSl(+e.target.value || 0)}
+              className="rounded-xl border-2 border-red-600 bg-red-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500 md:px-6 md:py-5 md:text-3xl"
+              placeholder="SL"
+              aria-label="Stop Loss"
+            />
+            <input
+              type="number"
+              value={tp}
+              onChange={e => setTp(+e.target.value || 0)}
+              className="rounded-xl border-2 border-green-600 bg-green-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500 md:px-6 md:py-5 md:text-3xl"
+              placeholder="Target"
+              aria-label="Take Profit"
+            />
+            <button
+              onClick={() => handleOrderClick('buy')}
+              disabled={isPlacingOrder}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-green-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
+              title="Buy (Press B)"
+            >
+              {isPlacingOrder ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>PLACING...</span>
+                </>
+              ) : (
+                'BUY'
+              )}
+            </button>
+            <button
+              onClick={() => handleOrderClick('sell')}
+              disabled={isPlacingOrder}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-red-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
+              title="Sell (Press S)"
+            >
+              {isPlacingOrder ? (
+                <>
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span>PLACING...</span>
+                </>
+              ) : (
+                'SELL'
+              )}
+            </button>
+          </div>
         </div>
       </motion.div>
+
+      {/* Order Confirmation Modal */}
+      <OrderConfirmModal
+        isOpen={showConfirmModal}
+        order={pendingOrder}
+        onConfirm={handleConfirmOrder}
+        onCancel={() => {
+          setShowConfirmModal(false);
+          setPendingOrder(null);
+        }}
+        warnings={
+          pendingOrder && pendingOrder.quantity * pendingOrder.price > 100000
+            ? ['Large order size - ensure sufficient margin']
+            : []
+        }
+        errors={
+          pendingOrder && pendingOrder.quantity <= 0 ? ['Quantity must be greater than 0'] : []
+        }
+      />
     </div>
   );
 }

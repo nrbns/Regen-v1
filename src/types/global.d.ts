@@ -10,7 +10,7 @@ declare global {
       on?: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
       removeListener?: (channel: string, callback: (event: any, ...args: any[]) => void) => void;
     };
-    
+
     // Legacy API (preload.cjs exposes this)
     api?: {
       ping: () => Promise<string>;
@@ -40,7 +40,7 @@ declare global {
       };
       [key: string]: any;
     };
-    
+
     // Agent API (preload.cjs exposes this)
     agent?: {
       start: (dsl: any) => Promise<unknown>;
@@ -51,14 +51,14 @@ declare global {
       runs: () => Promise<unknown>;
       getRun: (id: string) => Promise<unknown>;
     };
-    
+
     // Recorder API (preload.cjs exposes this)
     recorder?: {
       start: () => Promise<unknown>;
       stop: () => Promise<unknown>;
       getDsl: () => Promise<unknown>;
     };
-    
+
     // Other APIs
     searchapi?: any;
     graph?: any;
@@ -79,8 +79,19 @@ declare global {
       list?: () => Array<{ id: string; name?: string; version?: string }>;
     };
     __OB_API_BASE__?: string;
+
+    // Tauri API
+    __TAURI__?: {
+      invoke: <T = unknown>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+      event: {
+        listen: <T = unknown>(
+          event: string,
+          handler: (event: { payload: T }) => void
+        ) => Promise<() => void>;
+        emit: (event: string, payload?: unknown) => Promise<void>;
+      };
+    };
   }
 }
 
 export {};
-

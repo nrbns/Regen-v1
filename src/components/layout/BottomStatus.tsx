@@ -16,8 +16,6 @@ import {
   X,
   RefreshCw,
   Wifi,
-  MoonStar,
-  FileText,
   Loader2,
   MoreHorizontal,
 } from 'lucide-react';
@@ -30,17 +28,15 @@ import {
   NetworkStatus,
   EfficiencyAlert,
   EfficiencyAlertAction,
-  ShadowSessionEndedEvent,
 } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { PrivacySwitch } from '../PrivacySwitch';
 import { useEfficiencyStore } from '../../state/efficiencyStore';
 import { usePrivacyStore } from '../../state/privacyStore';
-import { useShadowStore } from '../../state/shadowStore';
 // Voice components disabled by user request
 // Voice components removed by user request
 import { useMetricsStore, type MetricSample } from '../../state/metricsStore';
-import { getEnvVar, isElectronRuntime } from '../../lib/env';
+import { getEnvVar, isElectronRuntime, isWebMode } from '../../lib/env';
 import { isBackendAvailable, onBackendStatusChange } from '../../lib/backend-status';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 import { useSettingsStore } from '../../state/settingsStore';
@@ -120,11 +116,6 @@ export function BottomStatus() {
   const efficiencyBadge = useEfficiencyStore(state => state.badge);
   const efficiencySnapshot = useEfficiencyStore(state => state.snapshot);
   const setEfficiencyEvent = useEfficiencyStore(state => state.setEvent);
-  const shadowSessionId = useShadowStore(state => state.activeSessionId);
-  const shadowLoading = useShadowStore(state => state.loading);
-  const shadowSummary = useShadowStore(state => state.summary);
-  const handleShadowEnded = useShadowStore(state => state.handleSessionEnded);
-  const clearShadowSummary = useShadowStore(state => state.clearSummary);
   const carbonIntensity = efficiencySnapshot.carbonIntensity ?? null;
   const torStatus = usePrivacyStore(state => state.tor);
   const vpnStatus = usePrivacyStore(state => state.vpn);
@@ -285,14 +276,6 @@ export function BottomStatus() {
     []
   );
 
-  useIPCEvent<ShadowSessionEndedEvent>(
-    'private:shadow:ended',
-    payload => {
-      handleShadowEnded(payload);
-    },
-    [handleShadowEnded]
-  );
-
   useEffect(() => {
     void refreshTor();
     void refreshVpn();
@@ -445,6 +428,17 @@ export function BottomStatus() {
         }
       };
     } else {
+      // Skip WebSocket connections in web mode - no backend available
+      if (isWebMode()) {
+        // In web mode, use dummy metrics (no backend)
+        pushMetricSample({
+          timestamp: Date.now(),
+          cpu: 0,
+          memory: 0,
+        });
+        return;
+      }
+
       if (!backendOnline) {
         if (metricsSocketRef.current) {
           try {
@@ -469,6 +463,12 @@ export function BottomStatus() {
       const reconnectDelay = 3000; // Start with 3 seconds
 
       const connectWebSocket = () => {
+        // Skip WebSocket connections in web mode - no backend available
+        if (isWebMode()) {
+          // In web mode, never attempt WebSocket connection
+          return;
+        }
+
         if (socket?.readyState === WebSocket.OPEN) return;
 
         try {
@@ -495,50 +495,37 @@ export function BottomStatus() {
           };
 
           socket.onopen = () => {
-            console.info('[metrics] Connected to metrics websocket');
             reconnectAttempts = 0;
+            // Don't log - WebSocket connection is expected in Electron/Tauri
           };
 
           socket.onerror = event => {
-            console.warn('[metrics] Metrics websocket error', event);
+            // Suppress error logging completely - metrics WebSocket is optional
+            event.stopPropagation();
+            event.preventDefault();
+            // Don't log - backend is optional in web mode
           };
 
           socket.onclose = () => {
-            console.info('[metrics] Metrics websocket closed');
             socket = null;
             metricsSocketRef.current = null;
 
-            // Auto-reconnect with exponential backoff
-            if (reconnectAttempts < maxReconnectAttempts) {
+            // Auto-reconnect with exponential backoff (skip in web mode)
+            if (!isWebMode() && reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
               const delay = reconnectDelay * Math.min(reconnectAttempts, 5); // Cap at 5x delay
               reconnectTimeout = setTimeout(() => {
                 connectWebSocket();
               }, delay);
-            } else {
-              console.warn('[metrics] Max reconnect attempts reached, falling back to polling');
-              // Fallback to HTTP polling
-              const pollInterval = setInterval(async () => {
-                try {
-                  const response = await fetch(`${apiBaseUrl}/metrics`);
-                  if (response.ok) {
-                    const data = await response.json();
-                    pushMetricSample({
-                      timestamp: Date.now(),
-                      cpu: data.cpu || 0,
-                      memory: data.memory || 0,
-                      carbonIntensity: data.carbon_intensity,
-                    });
-                  }
-                } catch (error) {
-                  console.debug('[metrics] Polling fallback failed:', error);
-                }
-              }, 2000);
-              return () => clearInterval(pollInterval);
             }
+            // Don't log warnings or attempt fallback polling in web mode
           };
         } catch (error) {
-          console.error('[metrics] Failed to create websocket:', error);
+          // Suppress all WebSocket creation errors - backend is optional
+          // Only log if we're in Electron/Tauri (backend expected)
+          if (!isWebMode()) {
+            console.error('[metrics] Failed to create websocket:', error);
+          }
         }
       };
 
@@ -549,7 +536,17 @@ export function BottomStatus() {
           clearTimeout(reconnectTimeout);
         }
         if (socket) {
-          socket.close();
+          try {
+            // Only close if WebSocket is in a valid state to prevent browser errors
+            if (
+              socket.readyState === WebSocket.OPEN ||
+              socket.readyState === WebSocket.CONNECTING
+            ) {
+              socket.close();
+            }
+          } catch {
+            // ignore - WebSocket errors are expected if server isn't running
+          }
           socket = null;
         }
         metricsSocketRef.current = null;
@@ -1194,10 +1191,10 @@ export function BottomStatus() {
         )}
       </AnimatePresence>
       <div
-        className="hidden md:flex flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300"
+        className="hidden flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300 md:flex"
         data-onboarding="status-bar"
       >
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 md:gap-3 text-xs sm:text-sm text-gray-300">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-300 sm:gap-2 sm:text-sm md:gap-3">
           <PrivacySwitch />
 
           <StatusMeter
@@ -1225,15 +1222,6 @@ export function BottomStatus() {
             description={efficiencyDetails || undefined}
             variant={efficiencyVariant}
             title={efficiencyBadge ?? efficiencyLabel}
-          />
-
-          <StatusBadge
-            icon={MoonStar}
-            label="Shadow"
-            description={shadowSessionId ? 'Active' : 'Idle'}
-            variant={shadowSessionId ? 'info' : 'default'}
-            pulse={shadowLoading}
-            title={shadowSessionId ? 'Shadow Mode active' : 'Shadow Mode inactive'}
           />
 
           <StatusBadge
@@ -1290,7 +1278,7 @@ export function BottomStatus() {
             }
           />
 
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
             <StatusBadge
               icon={Brain}
               label="Model"
@@ -1303,7 +1291,7 @@ export function BottomStatus() {
 
             <button
               type="button"
-              className="hidden md:flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
+              className="hidden items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-2 py-1 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white sm:px-3 sm:py-1.5 md:flex"
               onClick={() => setTrendOpen(prev => !prev)}
               title="View detailed performance trends"
             >
@@ -1311,7 +1299,7 @@ export function BottomStatus() {
               <span className="hidden lg:inline">Trends</span>
             </button>
 
-            <div className="relative w-32 sm:w-48 md:w-60 hidden sm:block">
+            <div className="relative hidden w-32 sm:block sm:w-48 md:w-60">
               <input
                 type="text"
                 value={prompt}
@@ -1324,12 +1312,12 @@ export function BottomStatus() {
                 placeholder="Prompt agent (e.g., 'summarize this page')..."
                 disabled={promptLoading || isOffline}
                 className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${
-                  promptLoading || isOffline ? 'opacity-70 cursor-not-allowed' : ''
+                  promptLoading || isOffline ? 'cursor-not-allowed opacity-70' : ''
                 }`}
               />
               {promptLoading ? (
                 <Loader2
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-blue-300"
+                  className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-blue-300"
                   aria-label="Sending prompt"
                 />
               ) : (
@@ -1346,8 +1334,8 @@ export function BottomStatus() {
             </div>
 
             {(promptResponse || promptError || promptLoading) && (
-              <div className="hidden sm:block w-full space-y-2">
-                <div className="text-xs text-left text-gray-200 bg-gray-900/70 border border-gray-800 rounded-xl p-3">
+              <div className="hidden w-full space-y-2 sm:block">
+                <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-3 text-left text-xs text-gray-200">
                   {promptError ? (
                     <span className="text-red-400">{promptError}</span>
                   ) : (
@@ -1448,7 +1436,7 @@ export function BottomStatus() {
                         }
                         loading={torStatus.loading}
                         title={torTooltip}
-                        className={`justify-start ${torStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        className={`justify-start ${torStatus.loading ? 'cursor-not-allowed opacity-60' : ''}`}
                       />
                       {torStatus.running && !torStatus.stub && (
                         <button
@@ -1492,7 +1480,7 @@ export function BottomStatus() {
                         onClick={!vpnStatus.loading ? () => void checkVpn() : undefined}
                         loading={vpnStatus.loading}
                         title={vpnTooltip}
-                        className={`justify-start ${vpnStatus.loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        className={`justify-start ${vpnStatus.loading ? 'cursor-not-allowed opacity-60' : ''}`}
                       />
                       {vpnProfiles.length > 0 && (
                         <div className="space-y-2 rounded-md border border-gray-800/60 bg-gray-900/40 p-2">
@@ -1508,9 +1496,9 @@ export function BottomStatus() {
                                   disabled={vpnBusy}
                                   className={`w-full rounded-md px-2 py-1 text-left text-[11px] transition-colors ${
                                     isActive
-                                      ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/40'
+                                      ? 'border border-emerald-400/40 bg-emerald-500/20 text-emerald-100'
                                       : 'border border-transparent text-gray-300 hover:border-gray-700'
-                                  } ${vpnBusy ? 'opacity-70 cursor-wait' : ''}`}
+                                  } ${vpnBusy ? 'cursor-wait opacity-70' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <span>{profile.name}</span>
@@ -1740,75 +1728,9 @@ export function BottomStatus() {
               </motion.div>
             )}
           </AnimatePresence>
-
-          <AnimatePresence>
-            {shadowSummary && (
-              <motion.div
-                key="shadow-summary"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className="flex w-full max-w-xl items-start gap-3 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-2 text-xs text-purple-100 shadow-inner"
-              >
-                <FileText size={14} className="mt-0.5 flex-shrink-0" />
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide">
-                      Shadow Summary
-                    </span>
-                    <button
-                      onClick={clearShadowSummary}
-                      className="p-1 text-[10px] text-purple-200/80 transition-colors hover:text-purple-50"
-                      aria-label="Dismiss shadow summary"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <div className="text-[11px] opacity-90">
-                    {shadowSummary.recommendations?.[0] ?? 'Review your shadow session.'}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-[10px] opacity-80">
-                    <span>{Math.round(shadowSummary.durationMs / 1000)}s</span>
-                    <span>Visits: {shadowSummary.totalVisits}</span>
-                    <span>Domains: {shadowSummary.uniqueHosts}</span>
-                  </div>
-                  {shadowSummary.visited?.length > 0 && (
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase opacity-70">Recent</span>
-                      <ul className="space-y-0.5">
-                        {shadowSummary.visited.slice(0, 3).map(entry => (
-                          <li key={`${entry.url}-${entry.firstSeen}`} className="truncate">
-                            <a
-                              href={entry.url}
-                              className="text-[11px] text-purple-200 transition-colors hover:text-purple-50"
-                              title={entry.url}
-                            >
-                              {entry.title || entry.url}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {shadowSummary.recommendations?.length > 1 && (
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase opacity-70">Recommendations</span>
-                      <ul className="space-y-0.5">
-                        {shadowSummary.recommendations.slice(1).map((rec, idx) => (
-                          <li key={idx} className="text-[11px] opacity-80">
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
-      <div className="flex md:hidden items-center justify-between border-t border-slate-900/70 bg-slate-950/95 px-4 py-3 text-xs text-gray-200">
+      <div className="flex items-center justify-between border-t border-slate-900/70 bg-slate-950/95 px-4 py-3 text-xs text-gray-200 md:hidden">
         <div className="flex flex-col">
           <span className="text-[11px] text-gray-400">
             CPU {cpuUsage}% · RAM {memoryUsage}%

@@ -56,7 +56,7 @@ interface BackendScrapeResponse {
 
 export async function scrapeResearchSources(
   urls: string[],
-  options: Omit<ScrapeSourcePayload, 'urls'> = {}
+  _options: Omit<ScrapeSourcePayload, 'urls'> = {}
 ): Promise<ScrapedSourceResult[]> {
   if (!API_BASE || urls.length === 0) {
     return [];
@@ -96,44 +96,80 @@ export async function scrapeResearchSources(
   }
 
   try {
-    const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/scrape`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        urls: safeUrls, // Only send safe URLs to backend
-        allow_render: options.allow_render ?? true,
-        use_cache: options.use_cache ?? true,
-        selectors: options.selectors,
-        max_chars: options.max_chars ?? 12000,
-      }),
-    });
+    // Scrape each URL individually (new route format expects single URL)
+    const results: ScrapedSourceResult[] = [];
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => response.statusText);
-      console.warn('[Scraper] Backend returned error', response.status, errorText);
-      return [];
+    for (const url of safeUrls) {
+      try {
+        const response = await fetch(`${API_BASE.replace(/\/$/, '')}/api/scrape`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url }), // Send single URL
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'unknown' }));
+          console.warn('[Scraper] Backend returned error for', url, response.status, errorData);
+          results.push({
+            url,
+            error: errorData.error || errorData.message || 'Scrape failed',
+          });
+          continue;
+        }
+
+        const payload = await response.json();
+
+        // Handle new route format: { ok: true, page: {...} }
+        if (payload.ok && payload.page) {
+          results.push({
+            url: payload.page.url || url,
+            title: payload.page.title,
+            excerpt: payload.page.excerpt,
+            content: payload.page.text,
+            wordCount: payload.page.text?.split(/\s+/).length || 0,
+            lang: 'auto', // Language detection can be added later
+          });
+        } else {
+          // Fallback: try to parse as old format
+          const oldFormat = payload as BackendScrapeResponse;
+          if (oldFormat.results && oldFormat.results.length > 0) {
+            const result = oldFormat.results[0];
+            results.push({
+              url: result.url,
+              finalUrl: result.final_url,
+              status: result.status,
+              title: result.title,
+              description: result.description,
+              image: result.image,
+              excerpt: result.excerpt,
+              content: result.content,
+              wordCount: result.word_count,
+              lang: result.lang,
+              contentHash: result.content_hash,
+              rendered: result.rendered,
+              fromCache: result.from_cache,
+              fetchedAt: result.fetched_at,
+              metadata: result.metadata,
+            });
+          } else {
+            results.push({
+              url,
+              error: 'Unexpected response format',
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('[Scraper] Failed to scrape', url, error);
+        results.push({
+          url,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
 
-    const payload = (await response.json()) as BackendScrapeResponse;
-    return (payload.results ?? []).map(result => ({
-      url: result.url,
-      finalUrl: result.final_url,
-      status: result.status,
-      title: result.title,
-      description: result.description,
-      image: result.image,
-      excerpt: result.excerpt,
-      content: result.content,
-      wordCount: result.word_count,
-      lang: result.lang,
-      contentHash: result.content_hash,
-      rendered: result.rendered,
-      fromCache: result.from_cache,
-      fetchedAt: result.fetched_at,
-      metadata: result.metadata,
-    }));
+    return results;
   } catch (error) {
     console.warn('[Scraper] Failed to fetch sources', error);
     return [];

@@ -349,20 +349,31 @@ async function bootstrap() {
     }
   }
 
-  if (redisEnabled) {
-    setTimeout(() => {
-      spawnCommand('redix-server', nodeExe, [path.resolve('server/redix-server.js')], {
-        REDIS_URL: redisUrl,
-      });
-    }, 100);
+  // Always start real server (works with or without Redis)
+  setTimeout(() => {
+    spawnCommand('redix-server', nodeExe, [path.resolve('server/redix-server.js')], {
+      REDIS_URL: redisUrl,
+      NODE_ENV: process.env.NODE_ENV || 'development',
+    });
+  }, 100);
 
-    setTimeout(() => {
-      spawnCommand('redix-worker', nodeExe, [path.resolve('server/redix-worker.js')], {
-        REDIS_URL: redisUrl,
-      });
-    }, 200);
-  } else if (IS_DEV) {
-    console.log('[dev] Redix services disabled (Redis unavailable or DISABLE_REDIS=1)');
+  // Start LLM worker for real-time processing
+  setTimeout(() => {
+    spawnCommand('llm-worker', nodeExe, [path.resolve('server/services/queue/llmWorker.js')], {
+      REDIS_URL: redisUrl,
+    });
+  }, 200);
+
+  // Start scraper worker
+  setTimeout(() => {
+    spawnCommand('scraper-worker', nodeExe, [path.resolve('server/services/queue/worker.js')], {
+      REDIS_URL: redisUrl,
+    });
+  }, 300);
+
+  if (!redisEnabled && IS_DEV) {
+    console.log('[dev] ⚠️  Redis unavailable - some features may be limited (job queue, caching)');
+    console.log('[dev] 💡 Install Redis for full functionality, or set DISABLE_REDIS=1 to hide this message');
   }
 
   startRenderer();

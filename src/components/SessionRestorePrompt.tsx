@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { ipc } from '../lib/ipc-typed';
 import { useTabsStore } from '../state/tabsStore';
 import { useAppStore } from '../state/appStore';
+import { isElectronRuntime, isTauriRuntime } from '../lib/env';
 import { X, RotateCcw, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -32,6 +33,13 @@ export function SessionRestorePrompt() {
   const { setMode } = useAppStore();
 
   useEffect(() => {
+    // Skip session restore in web mode - no backend available
+    const isWebMode = !isElectronRuntime() && !isTauriRuntime();
+
+    if (isWebMode) {
+      return; // Skip session restore in web mode
+    }
+
     // Check for restore availability
     const checkRestore = async () => {
       try {
@@ -126,7 +134,7 @@ export function SessionRestorePrompt() {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={e => {
         // Don't interfere with button clicks
         const target = e.target as HTMLElement;
@@ -136,7 +144,7 @@ export function SessionRestorePrompt() {
       }}
     >
       <div
-        className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700 shadow-xl"
+        className="mx-4 w-full max-w-md rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-xl"
         onClick={e => {
           // Don't interfere with button clicks
           const target = e.target as HTMLElement;
@@ -147,9 +155,9 @@ export function SessionRestorePrompt() {
           e.stopPropagation();
         }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <RotateCcw className="w-5 h-5 text-blue-500" />
+            <RotateCcw className="h-5 w-5 text-blue-500" />
             <h2 className="text-xl font-bold text-gray-200">Restore Previous Session?</h2>
           </div>
           <button
@@ -162,30 +170,30 @@ export function SessionRestorePrompt() {
                 handleDismiss();
               }, 0);
             }}
-            className="text-gray-400 hover:text-gray-300 transition-colors"
+            className="text-gray-400 transition-colors hover:text-gray-300"
             aria-label="Close"
             style={{ pointerEvents: 'auto', zIndex: 10001 }}
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="text-gray-400 mb-4 text-sm">
+        <p className="mb-4 text-sm text-gray-400">
           We found a session snapshot from your last session. Would you like to restore it?
         </p>
 
-        <div className="bg-gray-800 rounded p-3 mb-4 space-y-2 text-sm">
+        <div className="mb-4 space-y-2 rounded bg-gray-800 p-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-gray-400">Tabs</span>
-            <span className="text-gray-200 font-medium">{tabCount}</span>
+            <span className="font-medium text-gray-200">{tabCount}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-400">Mode</span>
-            <span className="text-gray-200 font-medium capitalize">{snapshot.mode}</span>
+            <span className="font-medium capitalize text-gray-200">{snapshot.mode}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-gray-400">Last saved</span>
-            <span className="text-gray-200 font-medium">
+            <span className="font-medium text-gray-200">
               {formatDistanceToNow(lastSaved, { addSuffix: true })}
             </span>
           </div>
@@ -203,17 +211,17 @@ export function SessionRestorePrompt() {
               }, 0);
             }}
             disabled={isRestoring}
-            className="flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex flex-1 items-center justify-center gap-2 rounded bg-blue-500 px-4 py-2 transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
             style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
           >
             {isRestoring ? (
               <>
-                <Sparkles className="w-4 h-4 animate-spin" />
+                <Sparkles className="h-4 w-4 animate-spin" />
                 Restoring...
               </>
             ) : (
               <>
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="h-4 w-4" />
                 Restore
               </>
             )}
@@ -229,7 +237,7 @@ export function SessionRestorePrompt() {
               }, 0);
             }}
             disabled={isRestoring}
-            className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded transition-colors disabled:opacity-50"
+            className="flex-1 rounded bg-gray-700 px-4 py-2 transition-colors hover:bg-gray-600 disabled:opacity-50"
             style={{ pointerEvents: isRestoring ? 'none' : 'auto', zIndex: 10001 }}
           >
             Start Fresh

@@ -7,10 +7,13 @@
 import { getLanguageLabel, normalizeLanguage } from '../lang/detect.js';
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.2';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1'; // Default to Llama 3.1 for research
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const LLM_PROVIDER = process.env.LLM_PROVIDER || (OPENAI_API_KEY ? 'openai' : 'ollama');
+// PRIORITIZE OLLAMA (FREE) - only use OpenAI if explicitly set or Ollama unavailable
+const LLM_PROVIDER =
+  process.env.LLM_PROVIDER ||
+  (process.env.FORCE_OPENAI === 'true' && OPENAI_API_KEY ? 'openai' : 'ollama');
 
 /**
  * Extract plain text from HTML
@@ -58,7 +61,7 @@ function chunkText(text, maxChunkSize = 4000) {
 /**
  * Call Ollama API
  */
-async function callOllama(messages, options = {}) {
+export async function callOllama(messages, options = {}) {
   const model = options.model || OLLAMA_MODEL;
   const temperature = options.temperature ?? 0.0;
   const maxTokens = options.maxTokens ?? 4096;
@@ -95,7 +98,7 @@ async function callOllama(messages, options = {}) {
 /**
  * Call OpenAI API
  */
-async function callOpenAI(messages, options = {}) {
+export async function callOpenAI(messages, options = {}) {
   const model = options.model || OPENAI_MODEL;
   const temperature = options.temperature ?? 0.0;
   const maxTokens = options.maxTokens ?? 2000;
@@ -132,7 +135,7 @@ async function callOpenAI(messages, options = {}) {
 }
 
 // CATEGORY B FIX: Add backpressure to LLM streaming
-async function callOpenAIStream(
+export async function callOpenAIStream(
   messages,
   options = {},
   { onToken, maxTokensPerSecond = 50, maxBurstSize = 200 } = {}
@@ -237,7 +240,7 @@ async function callOpenAIStream(
 }
 
 // CATEGORY B FIX: Add backpressure to LLM streaming
-async function callOllamaStream(
+export async function callOllamaStream(
   messages,
   options = {},
   { onToken, maxTokensPerSecond = 50, maxBurstSize = 200 } = {}

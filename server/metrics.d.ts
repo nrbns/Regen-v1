@@ -22,6 +22,3 @@ export function getMetrics(): {
 export function updateCounts(
   counts: Partial<{ tabs: number; agents: number; workers: number }>
 ): void;
-
-
-

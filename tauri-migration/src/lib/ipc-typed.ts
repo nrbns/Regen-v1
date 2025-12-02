@@ -2179,16 +2179,6 @@ export const ipc = {
       >('private:createWindow', options || {}),
     createGhostTab: (options?: { url?: string }) =>
       ipcCall<{ url?: string }, { tabId: string }>('private:createGhostTab', options || {}),
-    createShadowSession: (options?: { url?: string; persona?: string; summary?: boolean }) =>
-      ipcCall<{ url?: string; persona?: string; summary?: boolean }, { sessionId: string }>(
-        'private:shadow:start',
-        options || {}
-      ),
-    endShadowSession: (sessionId: string, options?: { forensic?: boolean }) =>
-      ipcCall<{ sessionId: string; forensic?: boolean }, { success: boolean }>(
-        'private:shadow:end',
-        { sessionId, forensic: options?.forensic ?? false }
-      ),
     closeAll: () => ipcCall<unknown, { count: number }>('private:closeAll', {}),
     panicWipe: (options?: { forensic?: boolean }) =>
       ipcCall<{ forensic?: boolean }, { success: boolean }>('private:panicWipe', options || {}),

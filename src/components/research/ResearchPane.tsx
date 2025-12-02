@@ -337,7 +337,7 @@ export function ResearchPane() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed right-4 top-20 z-50 rounded-full bg-blue-600 p-3 text-white shadow-lg hover:bg-blue-700 transition-colors"
+        className="fixed right-4 top-20 z-50 rounded-full bg-blue-600 p-3 text-white shadow-lg transition-colors hover:bg-blue-700"
         title="Open Research Pane"
         aria-label="Open Research Pane"
       >
@@ -351,12 +351,12 @@ export function ResearchPane() {
       initial={{ x: 400 }}
       animate={{ x: 0 }}
       exit={{ x: 400 }}
-      className="fixed right-0 top-0 h-full w-96 bg-slate-950 border-l border-slate-800 shadow-2xl z-50 flex flex-col"
+      className="fixed right-0 top-0 z-50 flex h-full w-96 flex-col border-l border-slate-800 bg-slate-950 shadow-2xl"
       role="complementary"
       aria-label="Research Mode panel"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900">
+      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 p-4">
         <div className="flex items-center gap-2">
           <Sparkles size={18} className="text-blue-400" />
           <h2 className="text-sm font-semibold text-gray-100">Research Mode</h2>
@@ -365,12 +365,12 @@ export function ResearchPane() {
           <button
             onClick={handleSaveTabSnapshot}
             disabled={!activeTab}
-            className="p-1.5 rounded hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
             title="Save current tab snapshot"
           >
             <Camera size={16} />
           </button>
-          <label className="p-1.5 rounded hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
+          <label className="cursor-pointer rounded p-1.5 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200">
             <Upload size={16} />
             <input
               type="file"
@@ -381,7 +381,7 @@ export function ResearchPane() {
           </label>
           <button
             onClick={() => setIsOpen(false)}
-            className="p-1.5 rounded hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors"
+            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200"
           >
             <X size={16} />
           </button>
@@ -389,7 +389,7 @@ export function ResearchPane() {
       </div>
 
       {/* Query Bar */}
-      <div className="p-4 border-b border-slate-800 bg-slate-900/50">
+      <div className="border-b border-slate-800 bg-slate-900/50 p-4">
         <form
           aria-label="Research query form"
           onSubmit={e => {
@@ -398,14 +398,14 @@ export function ResearchPane() {
           }}
           className="flex items-center gap-2"
         >
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Ask a research question..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-10 pr-4 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               disabled={isLoading}
               aria-label="Research question"
             />
@@ -413,7 +413,7 @@ export function ResearchPane() {
           <button
             type="submit"
             disabled={isLoading || !query.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
           >
             {isLoading ? (
               <>
@@ -431,7 +431,7 @@ export function ResearchPane() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Research Agent */}
         <div
           className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4"
@@ -450,6 +450,8 @@ export function ResearchPane() {
             )}
           </div>
           <textarea
+            id="research-pane-agent-prompt"
+            name="research-agent-prompt"
             ref={agentPromptRef}
             value={agentPrompt}
             onChange={e => setAgentPrompt(e.target.value)}
@@ -480,7 +482,7 @@ export function ResearchPane() {
                   setAgentResponse(null);
                   setAgentError(null);
                 }}
-                className="rounded-lg border border-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:border-slate-600 hover:text-slate-100 transition"
+                className="rounded-lg border border-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-slate-600 hover:text-slate-100"
               >
                 Clear
               </button>
@@ -503,7 +505,7 @@ export function ResearchPane() {
                         href={citation.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/40 px-2 py-0.5 text-[11px] text-blue-200 hover:border-blue-400 hover:text-white transition"
+                        className="inline-flex items-center gap-1 rounded-full border border-blue-500/40 px-2 py-0.5 text-[11px] text-blue-200 transition hover:border-blue-400 hover:text-white"
                       >
                         <ExternalLink size={12} />
                         {citation.label}
@@ -556,10 +558,10 @@ export function ResearchPane() {
         {/* Streaming Answer */}
         {answerChunks.length > 0 && (
           <div className="space-y-3" aria-live="polite">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Answer</h3>
-            <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Answer</h3>
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
               {answerChunks.map((chunk, idx) => (
-                <div key={idx} className="text-sm text-gray-200 leading-relaxed">
+                <div key={idx} className="text-sm leading-relaxed text-gray-200">
                   {chunk.content.split(/(\[(\d+)\])/g).map((part, i) => {
                     const citationMatch = part.match(/^\[(\d+)\]$/);
                     if (citationMatch) {
@@ -573,7 +575,7 @@ export function ResearchPane() {
                               handleViewDocument(citedSource);
                             }
                           }}
-                          className="ml-1 inline-flex items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-200 hover:bg-blue-500/25 hover:border-blue-400/60 transition-colors cursor-pointer"
+                          className="ml-1 inline-flex cursor-pointer items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-200 transition-colors hover:border-blue-400/60 hover:bg-blue-500/25"
                           title={
                             citedSource
                               ? `View source: ${citedSource.title}`
@@ -601,7 +603,7 @@ export function ResearchPane() {
         {/* Sources */}
         {sources.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
               Sources ({sources.length})
             </h3>
             <div className="space-y-2">
@@ -612,7 +614,7 @@ export function ResearchPane() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className={`rounded-lg border p-3 space-y-2 transition-colors cursor-pointer ${
+                    className={`cursor-pointer space-y-2 rounded-lg border p-3 transition-colors ${
                       activeSourceId === source.id
                         ? 'border-blue-500/60 bg-blue-500/10'
                         : 'border-slate-800 bg-slate-900/50 hover:border-slate-700'
@@ -631,9 +633,9 @@ export function ResearchPane() {
                     }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-gray-400 uppercase">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase text-gray-400">
                             {source.type}
                           </span>
                           {source.confidence && (
@@ -642,15 +644,15 @@ export function ResearchPane() {
                             </span>
                           )}
                         </div>
-                        <h4 className="text-sm font-medium text-gray-200 truncate">
+                        <h4 className="truncate text-sm font-medium text-gray-200">
                           {source.title}
                         </h4>
                         {source.snippet && (
-                          <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                          <p className="mt-1 line-clamp-2 text-xs text-gray-400">
                             {source.snippet}
                           </p>
                         )}
-                        <p className="text-[10px] text-gray-500 truncate mt-1">{source.url}</p>
+                        <p className="mt-1 truncate text-[10px] text-gray-500">{source.url}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
@@ -658,7 +660,7 @@ export function ResearchPane() {
                             e.stopPropagation();
                             handleViewDocument(source, source.snippet);
                           }}
-                          className="p-1.5 rounded hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors"
+                          className="rounded p-1.5 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200"
                           title="View document"
                         >
                           <FileText size={14} />
@@ -669,7 +671,7 @@ export function ResearchPane() {
                               e.stopPropagation();
                               handleOpenSource(source.url);
                             }}
-                            className="p-1.5 rounded hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors"
+                            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200"
                             title="Open in tab"
                           >
                             <ExternalLink size={14} />
@@ -686,11 +688,11 @@ export function ResearchPane() {
 
         {/* Empty State */}
         {!isLoading && answerChunks.length === 0 && sources.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 space-y-3">
+          <div className="flex h-full flex-col items-center justify-center space-y-3 text-center text-gray-500">
             <BookOpen size={48} className="opacity-50" />
             <div>
               <p className="text-sm font-medium text-gray-400">Start researching</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="mt-1 text-xs text-gray-500">
                 Ask a question or save a tab snapshot to begin
               </p>
             </div>

@@ -1,71 +1,39 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Settings2, Moon, SunMedium, MonitorCog, Zap } from 'lucide-react';
+import { Settings2, Moon, SunMedium, MonitorCog, Keyboard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import { useTheme } from '../../theme';
 import { useTokens } from '../../useTokens';
+import { useSettingsStore } from '../../../state/settingsStore';
+import { applyPerformanceMode } from '../../../utils/performanceMode';
 
 type ThemePreference = 'system' | 'light' | 'dark';
-
-interface SettingsState {
-  theme: ThemePreference;
-  privacyMode: boolean;
-  performanceMode: boolean;
-}
-
-const DEFAULT_SETTINGS: SettingsState = {
-  theme: 'system',
-  privacyMode: false,
-  performanceMode: false,
-};
-
-const normalizeTheme = (value: unknown): ThemePreference => {
-  if (value === 'light' || value === 'dark') return value;
-  return 'system';
-};
-
-const serializeThemePreference = (value: ThemePreference): 'auto' | 'light' | 'dark' =>
-  value === 'system' ? 'auto' : value;
 
 export function SettingsMenu() {
   const tokens = useTokens();
   const { setPreference } = useTheme();
+  const navigate = useNavigate();
+  const settingsStore = useSettingsStore();
   const [open, setOpen] = useState(false);
-  const [settings, setSettings] = useState<SettingsState>(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+
+  // Get current settings from centralized store
+  const currentTheme =
+    settingsStore.appearance.theme === 'system'
+      ? 'system'
+      : settingsStore.appearance.theme === 'light'
+        ? 'light'
+        : 'dark';
+  const privacyMode =
+    settingsStore.privacy.trackerProtection && settingsStore.privacy.adBlockEnabled;
+  const performanceMode = settingsStore.appearance.compactUI; // Using compactUI as a proxy for performance mode
 
   const closeMenu = useCallback(() => {
     setOpen(false);
     triggerRef.current?.focus();
   }, []);
-
-  const syncSettings = useCallback(async () => {
-    try {
-      const res = await fetch('/api/settings');
-      if (!res.ok) throw new Error('Failed to load settings');
-      const data = (await res.json()) as Partial<SettingsState> & { theme?: string };
-      const nextTheme = normalizeTheme(data.theme);
-      setPreference(nextTheme);
-      setSettings({
-        theme: nextTheme,
-        privacyMode:
-          typeof data.privacyMode === 'boolean' ? data.privacyMode : DEFAULT_SETTINGS.privacyMode,
-        performanceMode:
-          typeof data.performanceMode === 'boolean'
-            ? data.performanceMode
-            : DEFAULT_SETTINGS.performanceMode,
-      });
-    } catch (error) {
-      console.error('[SettingsMenu] Failed to load settings', error);
-    } finally {
-      // no-op
-    }
-  }, [setPreference]);
-
-  useEffect(() => {
-    void syncSettings();
-  }, [syncSettings]);
 
   useEffect(() => {
     if (!open) return;
@@ -91,41 +59,49 @@ export function SettingsMenu() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [closeMenu, open]);
 
-  const persistSettings = useCallback(
-    async (next: Partial<SettingsState>) => {
+  const handleThemeChange = useCallback(
+    (theme: ThemePreference) => {
       setSaving(true);
-      try {
-        const payload: SettingsState = { ...settings, ...next };
-        const serverPayload = {
-          ...payload,
-          theme: serializeThemePreference(payload.theme),
-        };
-        const res = await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(serverPayload),
-        });
-        if (!res.ok) throw new Error('Failed to save settings');
-        setSettings(payload);
-        if (next.theme) {
-          setPreference(payload.theme);
-        }
-      } catch (error) {
-        console.error('[SettingsMenu] Failed to persist settings', error);
-      } finally {
-        setSaving(false);
-      }
+      const themeValue = theme === 'system' ? 'system' : theme;
+      settingsStore.updateAppearance({ theme: themeValue });
+      setPreference(theme);
+      setSaving(false);
     },
-    [setPreference, settings]
+    [setPreference, settingsStore]
   );
 
-  const handleThemeChange = (theme: ThemePreference) => {
-    void persistSettings({ theme });
-  };
+  const handlePrivacyModeToggle = useCallback(() => {
+    setSaving(true);
+    const newValue = !privacyMode;
+    settingsStore.updatePrivacy({
+      trackerProtection: newValue,
+      adBlockEnabled: newValue,
+      blockThirdPartyCookies: newValue,
+      doNotTrack: newValue,
+    });
+    // Small delay to show saving state
+    setTimeout(() => setSaving(false), 200);
+  }, [privacyMode, settingsStore]);
 
-  const handleToggleChange = (key: 'privacyMode' | 'performanceMode') => {
-    void persistSettings({ [key]: !settings[key] } as Partial<SettingsState>);
-  };
+  const handlePerformanceModeToggle = useCallback(() => {
+    setSaving(true);
+    const newValue = !performanceMode;
+    settingsStore.updateAppearance({ compactUI: newValue });
+    // Apply performance optimizations (SettingsSync will handle this, but apply immediately for responsiveness)
+    applyPerformanceMode(newValue);
+    // Small delay to show saving state
+    setTimeout(() => setSaving(false), 200);
+  }, [performanceMode, settingsStore]);
+
+  const handleKeyboardShortcuts = useCallback(() => {
+    closeMenu();
+    navigate('/settings?tab=shortcuts');
+  }, [closeMenu, navigate]);
+
+  const handleOpenFullSettings = useCallback(() => {
+    closeMenu();
+    navigate('/settings');
+  }, [closeMenu, navigate]);
 
   return (
     <div className="relative">
@@ -135,7 +111,7 @@ export function SettingsMenu() {
         aria-label="Settings menu"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+        className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
         onClick={e => {
           e.stopPropagation();
           if ((e.nativeEvent as any)?.stopImmediatePropagation) {
@@ -194,8 +170,8 @@ export function SettingsMenu() {
                       e.stopPropagation();
                     }}
                     className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-2 text-xs transition ${
-                      settings.theme === key
-                        ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-500)]/10 text-[var(--text-primary)]'
+                      currentTheme === key
+                        ? 'bg-[var(--color-primary-500)]/10 border-[var(--color-primary-500)] text-[var(--text-primary)]'
                         : 'border-[var(--surface-border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:border-[var(--surface-border-strong)]'
                     }`}
                     style={{ zIndex: 10011, isolation: 'isolate' }}
@@ -211,29 +187,27 @@ export function SettingsMenu() {
               <label className="flex items-center justify-between rounded-xl border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm">
                 <div>
                   <p className="font-medium text-[var(--text-primary)]">Privacy mode</p>
-                  <p className="text-xs text-[var(--text-muted)]">Hide sensitive info in sharing</p>
+                  <p className="text-xs text-[var(--text-muted)]">Block trackers & ads</p>
                 </div>
                 <button
                   type="button"
                   onClick={e => {
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
-                    handleToggleChange('privacyMode');
+                    handlePrivacyModeToggle();
                   }}
                   onMouseDown={e => {
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                    settings.privacyMode
-                      ? 'bg-[var(--color-primary-500)]'
-                      : 'bg-[var(--surface-border)]'
+                    privacyMode ? 'bg-[var(--color-primary-500)]' : 'bg-[var(--surface-border)]'
                   }`}
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                      settings.privacyMode ? 'translate-x-5' : 'translate-x-1'
+                      privacyMode ? 'translate-x-5' : 'translate-x-1'
                     }`}
                   />
                 </button>
@@ -251,22 +225,20 @@ export function SettingsMenu() {
                   onClick={e => {
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
-                    handleToggleChange('performanceMode');
+                    handlePerformanceModeToggle();
                   }}
                   onMouseDown={e => {
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                    settings.performanceMode
-                      ? 'bg-[var(--color-primary-500)]'
-                      : 'bg-[var(--surface-border)]'
+                    performanceMode ? 'bg-[var(--color-primary-500)]' : 'bg-[var(--surface-border)]'
                   }`}
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
-                      settings.performanceMode ? 'translate-x-5' : 'translate-x-1'
+                      performanceMode ? 'translate-x-5' : 'translate-x-1'
                     }`}
                   />
                 </button>
@@ -276,9 +248,19 @@ export function SettingsMenu() {
             <section className="space-y-2 border-t border-[var(--surface-border)] pt-3">
               <button
                 type="button"
+                onClick={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                  handleKeyboardShortcuts();
+                }}
+                onMouseDown={e => {
+                  (e as any).stopImmediatePropagation();
+                  e.stopPropagation();
+                }}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+                style={{ zIndex: 10011, isolation: 'isolate' }}
               >
-                <Zap className="h-4 w-4 text-[var(--color-primary-400)]" />
+                <Keyboard className="h-4 w-4 text-[var(--color-primary-400)]" />
                 Keyboard shortcuts
               </button>
               <button
@@ -287,8 +269,7 @@ export function SettingsMenu() {
                 onClick={e => {
                   (e as any).stopImmediatePropagation();
                   e.stopPropagation();
-                  closeMenu();
-                  window.dispatchEvent(new CustomEvent('app:open-settings'));
+                  handleOpenFullSettings();
                 }}
                 onMouseDown={e => {
                   (e as any).stopImmediatePropagation();

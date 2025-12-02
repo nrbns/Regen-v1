@@ -1172,10 +1172,10 @@ export const Omnibox = forwardRef<
   }, [activeTab, focused]);
 
   return (
-    <div className="relative flex-1 max-w-2xl">
+    <div className="relative max-w-2xl flex-1">
       <motion.div
         className={`relative rounded-2xl transition-shadow duration-200 ${
-          shortcutPulse ? 'ring-2 ring-blue-500/40 shadow-[0_0_0_3px_rgba(59,130,246,0.18)]' : ''
+          shortcutPulse ? 'shadow-[0_0_0_3px_rgba(59,130,246,0.18)] ring-2 ring-blue-500/40' : ''
         }`}
         animate={{ scale: focused ? 1.02 : 1 }}
         transition={{ duration: 0.2 }}
@@ -1184,7 +1184,7 @@ export const Omnibox = forwardRef<
           {/* Site Info Icons */}
           {siteInfo && url && !focused && (
             <div
-              className="absolute left-3 flex items-center gap-2 z-10 pointer-events-none"
+              className="pointer-events-none absolute left-3 z-10 flex items-center gap-2"
               aria-hidden="true"
             >
               {siteInfo.secure ? (
@@ -1212,6 +1212,8 @@ export const Omnibox = forwardRef<
 
           <input
             ref={inputRef}
+            id="omnibox-input"
+            name="omnibox-url"
             type="text"
             value={url}
             onChange={e => setUrl(e.target.value)}
@@ -1224,20 +1226,14 @@ export const Omnibox = forwardRef<
             placeholder="Search or enter URL"
             autoComplete="off"
             data-omnibox-input
-            className={`
-              w-full h-10 px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} pr-14
-              bg-white/12 backdrop-blur-md border border-white/12 rounded-2xl
-              text-sm text-white font-medium placeholder-white/50
-              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40
-              hover:bg-white/16 transition-all
-            `}
+            className={`h-10 w-full px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} bg-white/12 border-white/12 hover:bg-white/16 rounded-2xl border pr-14 text-sm font-medium text-white placeholder-white/50 backdrop-blur-md transition-all focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/40`}
             style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}
           />
 
           {/* Progress Bar */}
           {isLoading && progress > 0 && (
             <motion.div
-              className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 rounded-b-xl"
+              className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl bg-blue-500"
               initial={{ scaleX: 0 }}
               animate={{ scaleX: progress / 100 }}
               transition={{ duration: 0.1 }}
@@ -1245,7 +1241,7 @@ export const Omnibox = forwardRef<
           )}
 
           {/* Search Icon */}
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40">
+          <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40">
             <span className="hidden sm:inline">
               {typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC')
                 ? '⌘ K'
@@ -1263,7 +1259,7 @@ export const Omnibox = forwardRef<
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl overflow-hidden z-50 max-h-[500px] overflow-y-auto"
+            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[500px] overflow-hidden overflow-y-auto rounded-lg border border-gray-700/50 bg-gray-900/95 shadow-2xl backdrop-blur-xl"
           >
             {suggestions.map((suggestion, index) => (
               <motion.button
@@ -1290,18 +1286,13 @@ export const Omnibox = forwardRef<
                 role="option"
                 aria-selected={selectedIndex === index}
                 aria-label={`${suggestion.type} suggestion: ${suggestion.title}`}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-2.5 text-left
-                  transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset
-                  ${
-                    selectedIndex === index
-                      ? 'bg-gray-800/60 text-gray-100'
-                      : 'text-gray-300 hover:bg-gray-800/40'
-                  }
-                  ${suggestion.interactive === false ? 'cursor-default opacity-80' : ''}
-                `}
+                className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
+                  selectedIndex === index
+                    ? 'bg-gray-800/60 text-gray-100'
+                    : 'text-gray-300 hover:bg-gray-800/40'
+                } ${suggestion.interactive === false ? 'cursor-default opacity-80' : ''} `}
               >
-                <div className="flex-shrink-0 w-5 h-5 flex items-center justify-center">
+                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center">
                   {suggestion.icon === 'sparkles' && (
                     <Sparkles size={14} className="text-emerald-400" />
                   )}
@@ -1320,7 +1311,7 @@ export const Omnibox = forwardRef<
                     <Search size={14} className="text-purple-400" />
                   )}
                   {!suggestion.icon && suggestion.type === 'tab' && (
-                    <div className="w-3 h-3 bg-blue-500 rounded-full" />
+                    <div className="h-3 w-3 rounded-full bg-blue-500" />
                   )}
                   {!suggestion.icon && suggestion.type === 'history' && (
                     <Clock size={13} className="text-gray-400" />
@@ -1332,10 +1323,10 @@ export const Omnibox = forwardRef<
                     <Search size={14} className="text-purple-400" />
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{suggestion.title}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{suggestion.title}</div>
                   {(suggestion.subtitle || suggestion.url) && (
-                    <div className="text-xs text-gray-500 truncate">
+                    <div className="truncate text-xs text-gray-500">
                       {suggestion.subtitle || suggestion.url}
                     </div>
                   )}

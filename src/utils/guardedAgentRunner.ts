@@ -3,7 +3,7 @@
  * Prevents agent operations from affecting wrong tabs when user switches quickly
  */
 
-import { ipc } from '../lib/ipc-typed';
+// import { ipc } from '../lib/ipc-typed'; // Reserved for future use
 import { useTabsStore } from '../state/tabsStore';
 import { useAgentStreamStore } from '../state/agentStreamStore';
 
@@ -251,7 +251,7 @@ export function cancelAgentRun(tabId: string): void {
  * Cancel all active runs
  */
 export function cancelAllAgentRuns(): void {
-  activeRuns.forEach((run, tabId) => {
+  activeRuns.forEach((run, _tabId) => {
     if (run.abortController) {
       run.abortController.abort();
     }
