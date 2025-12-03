@@ -37,6 +37,9 @@ import { QuickStartTour } from './components/Onboarding/QuickStartTour';
 import { initializePrefetcher } from './services/prefetch/queryPrefetcher';
 import { getVectorWorkerService } from './services/vector/vectorWorkerService';
 import { getLRUCache } from './services/embedding/lruCache';
+import { migrateLocalStorageHistory } from './services/history';
+import { migrateLocalStorageBookmarks } from './services/bookmarks';
+import { initializeCriticalPath } from './core/initialization/criticalPathInit';
 
 // Lazy load components to avoid loading everything at once
 // Add error handling to prevent blank pages on import failures
@@ -75,6 +78,8 @@ const Home = lazyWithErrorHandling(() => import('./routes/Home'), 'Home');
 const Settings = lazyWithErrorHandling(() => import('./routes/Settings'), 'Settings');
 const Workspace = lazyWithErrorHandling(() => import('./routes/Workspace'), 'Workspace');
 const AgentConsole = lazyWithErrorHandling(() => import('./routes/AgentConsole'), 'AgentConsole');
+const Agent = lazyWithErrorHandling(() => import('./routes/Agent'), 'Agent');
+const AgentDemo = lazyWithErrorHandling(() => import('./routes/AgentDemo'), 'AgentDemo');
 const Runs = lazyWithErrorHandling(() => import('./routes/Runs'), 'Runs');
 const Replay = lazyWithErrorHandling(() => import('./routes/Replay'), 'Replay');
 const PlaybookForge = lazyWithErrorHandling(
@@ -92,6 +97,15 @@ const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPa
 const ConsentTimelinePage = lazyWithErrorHandling(
   () => import('./routes/ConsentTimeline'),
   'ConsentTimelinePage'
+);
+const PluginMarketplace = lazyWithErrorHandling(
+  () =>
+    import('./components/plugins/PluginMarketplace').then(m => ({ default: m.PluginMarketplace })),
+  'PluginMarketplace'
+);
+const AnalyticsDashboard = lazyWithErrorHandling(
+  () => import('./routes/AnalyticsDashboard'),
+  'AnalyticsDashboard'
 );
 
 // USER REQUEST: No restrictions - completely open for all websites
@@ -189,6 +203,22 @@ const router = createBrowserRouter(
           ),
         },
         {
+          path: 'agent-new',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <Agent />
+            </Suspense>
+          ),
+        },
+        {
+          path: 'agent-demo',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <AgentDemo />
+            </Suspense>
+          ),
+        },
+        {
           path: 'runs',
           element: (
             <Suspense fallback={<LoadingFallback />}>
@@ -225,6 +255,22 @@ const router = createBrowserRouter(
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <DownloadsPage />
+            </Suspense>
+          ),
+        },
+        {
+          path: 'plugins',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <PluginMarketplace />
+            </Suspense>
+          ),
+        },
+        {
+          path: 'analytics',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <AnalyticsDashboard />
             </Suspense>
           ),
         },
@@ -488,6 +534,14 @@ try {
         // Pre-connect service not available
       });
   }
+
+  // CRITICAL PATH: Initialize critical path items (SQLite, Tab Suspension, Whisper, Trade, Testing)
+  // Initialize these early but after first paint to ensure they're ready
+  setTimeout(() => {
+    initializeCriticalPath().catch(error => {
+      console.error('[Main] Critical path initialization failed:', error);
+    });
+  }, 500); // Initialize after 500ms (after first paint)
 
   // Defer ALL heavy service initialization until after first paint
   // Use requestIdleCallback with longer delay for better performance

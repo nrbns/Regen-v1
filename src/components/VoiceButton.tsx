@@ -141,7 +141,7 @@ export default function VoiceButton({ onResult, small }: Props) {
       );
       return;
     }
-    
+
     // Check if already active
     if (active) {
       try {
@@ -153,7 +153,7 @@ export default function VoiceButton({ onResult, small }: Props) {
       }
       return;
     }
-    
+
     try {
       setActive(true);
       setIsProcessing(true);
@@ -201,8 +201,8 @@ export default function VoiceButton({ onResult, small }: Props) {
   return (
     <button
       type="button"
-      className={`${small ? 'text-[11px] px-2 py-1' : 'text-xs px-3 py-2'} ml-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all ${
-        active ? 'text-white shadow-lg' : 'bg-neutral-800 hover:bg-neutral-700 text-gray-300'
+      className={`${small ? 'px-2 py-1 text-[11px]' : 'px-3 py-2 text-xs'} ml-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${
+        active ? 'text-white shadow-lg' : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
       } ${isProcessing ? 'animate-pulse' : ''}`}
       onClick={start}
       onKeyDown={e => {
@@ -229,11 +229,11 @@ export default function VoiceButton({ onResult, small }: Props) {
       <div className="flex items-center gap-2">
         {active ? (
           <>
-            <Mic className="w-4 h-4 animate-pulse" />
+            <Mic className="h-4 w-4 animate-pulse" />
             {!small && (
               <div className="flex items-center gap-1">
                 {/* Waveform visualization - animated bars */}
-                <div className="flex items-end gap-0.5 h-4">
+                <div className="flex h-4 items-end gap-0.5">
                   <div
                     className="w-0.5 rounded-full"
                     style={{
@@ -286,13 +286,13 @@ export default function VoiceButton({ onResult, small }: Props) {
                     50% { transform: scaleY(1); opacity: 1; }
                   }
                 `}</style>
-                <span className="text-xs ml-1">{langLabel}</span>
+                <span className="ml-1 text-xs">{langLabel}</span>
               </div>
             )}
           </>
         ) : (
           <>
-            <MicOff className="w-4 h-4" />
+            <MicOff className="h-4 w-4" />
             {!small && <span className="text-xs">{langLabel}</span>}
           </>
         )}

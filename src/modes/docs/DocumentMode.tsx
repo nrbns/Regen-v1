@@ -55,10 +55,10 @@ export function DocumentMode() {
     <div className="flex h-full w-full bg-slate-950">
       {/* Document List */}
       <div className="w-80 border-r border-slate-800 p-4">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">Documents</h2>
-          <label className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm cursor-pointer transition-colors">
-            <Upload size={16} className="inline mr-1" />
+          <label className="cursor-pointer rounded-lg bg-purple-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-purple-700">
+            <Upload size={16} className="mr-1 inline" />
             Upload
             <input
               type="file"
@@ -74,12 +74,12 @@ export function DocumentMode() {
           {documents.map(doc => (
             <div
               key={doc.id}
-              className="p-3 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-900 transition-colors cursor-pointer"
+              className="cursor-pointer rounded-lg border border-slate-800 bg-slate-900/50 p-3 transition-colors hover:bg-slate-900"
             >
               <div className="flex items-center gap-2">
                 <FileText size={16} className="text-purple-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white truncate">{doc.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-white">{doc.name}</p>
                   <p className="text-xs text-slate-400">{(doc.size / 1024).toFixed(1)} KB</p>
                 </div>
                 {doc.processed && <FileCheck size={14} className="text-green-400" />}
@@ -92,7 +92,7 @@ export function DocumentMode() {
       {/* Document View */}
       <div className="flex-1 p-4">
         <div className="h-full rounded-lg border border-slate-800 bg-slate-900/50 p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="mb-4 flex items-center gap-3">
             <Sparkles size={20} className="text-purple-400" />
             <h3 className="text-lg font-semibold text-white">AI Analysis</h3>
           </div>
@@ -107,16 +107,16 @@ export function DocumentMode() {
 
 // Add to EmptyStates
 export const NoDocuments = ({ onUpload }: { onUpload: (files: FileList | null) => void }) => (
-  <div className="flex flex-col items-center justify-center h-full">
-    <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 mb-6">
+  <div className="flex h-full flex-col items-center justify-center">
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-4">
       <FileText size={48} className="text-purple-300" />
     </div>
-    <h3 className="text-xl font-semibold text-white mb-2">No documents yet</h3>
-    <p className="text-slate-400 max-w-md mb-6 text-center">
+    <h3 className="mb-2 text-xl font-semibold text-white">No documents yet</h3>
+    <p className="mb-6 max-w-md text-center text-slate-400">
       Upload PDFs, documents, or text files to get AI-powered summaries and analysis.
     </p>
-    <label className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-medium hover:from-purple-600 hover:to-cyan-600 transition-all shadow-lg shadow-purple-500/30 cursor-pointer">
-      <Upload size={18} className="inline mr-2" />
+    <label className="cursor-pointer rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 px-6 py-3 font-medium text-white shadow-lg shadow-purple-500/30 transition-all hover:from-purple-600 hover:to-cyan-600">
+      <Upload size={18} className="mr-2 inline" />
       Upload Documents
       <input
         type="file"

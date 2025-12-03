@@ -95,32 +95,25 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
       className="group relative"
     >
       <div
-        className={`
-          rounded-lg border transition-all duration-200
-          ${
-            isPinned
-              ? 'bg-[var(--surface-elevated)] border-[var(--color-primary-500)]/40 shadow-md'
-              : 'bg-[var(--surface-panel)] border-[var(--surface-border)] hover:border-[var(--color-primary-500)]/30'
-          }
-          hover:shadow-md
-        `}
+        className={`rounded-lg border transition-all duration-200 ${
+          isPinned
+            ? 'border-[var(--color-primary-500)]/40 bg-[var(--surface-elevated)] shadow-md'
+            : 'hover:border-[var(--color-primary-500)]/30 border-[var(--surface-border)] bg-[var(--surface-panel)]'
+        } hover:shadow-md`}
         style={{ padding: tokens.spacing(3) }}
       >
         <div className="flex items-start gap-3">
           {/* Type indicator */}
           <div
-            className="flex-shrink-0 flex flex-col items-center"
+            className="flex flex-shrink-0 flex-col items-center"
             style={{ width: tokens.spacing(10) }}
           >
             <div
-              className={`
-                rounded-full flex items-center justify-center font-semibold text-xs
-                ${
-                  isPinned
-                    ? 'bg-[var(--color-primary-500)]/20 text-[var(--color-primary-400)]'
-                    : 'bg-[var(--surface-elevated)] text-[var(--text-muted)]'
-                }
-              `}
+              className={`flex items-center justify-center rounded-full text-xs font-semibold ${
+                isPinned
+                  ? 'bg-[var(--color-primary-500)]/20 text-[var(--color-primary-400)]'
+                  : 'bg-[var(--surface-elevated)] text-[var(--text-muted)]'
+              } `}
               style={{
                 width: tokens.spacing(8),
                 height: tokens.spacing(8),
@@ -131,7 +124,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
             </div>
             {!compact && (
               <div
-                className="text-[var(--text-muted)] text-xs mt-1"
+                className="mt-1 text-xs text-[var(--text-muted)]"
                 style={{ fontSize: tokens.fontSize.xs }}
               >
                 {dateStr}
@@ -140,9 +133,9 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <span
                   className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]"
                   style={{ fontSize: tokens.fontSize.xs }}
@@ -152,13 +145,13 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
                 {isPinned && (
                   <Pin
                     size={12}
-                    className="text-[var(--color-primary-400)] flex-shrink-0"
+                    className="flex-shrink-0 text-[var(--color-primary-400)]"
                     aria-label="Pinned"
                   />
                 )}
               </div>
               <div
-                className="text-[var(--text-muted)] text-xs flex-shrink-0"
+                className="flex-shrink-0 text-xs text-[var(--text-muted)]"
                 style={{ fontSize: tokens.fontSize.xs }}
               >
                 {timeStr}
@@ -166,7 +159,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
             </div>
 
             <h4
-              className="font-semibold text-[var(--text-primary)] mb-1 line-clamp-2"
+              className="mb-1 line-clamp-2 font-semibold text-[var(--text-primary)]"
               style={{ fontSize: tokens.fontSize.sm }}
             >
               {memory.metadata?.title || memory.value}
@@ -174,7 +167,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
 
             {!compact && memory.metadata?.url && (
               <div
-                className="text-[var(--text-muted)] text-xs truncate mb-2"
+                className="mb-2 truncate text-xs text-[var(--text-muted)]"
                 style={{ fontSize: tokens.fontSize.xs }}
               >
                 {memory.metadata.url}
@@ -183,7 +176,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
 
             {!compact && memory.value && memory.value !== memory.metadata?.title && (
               <p
-                className="text-[var(--text-secondary)] text-sm line-clamp-2 mb-2"
+                className="mb-2 line-clamp-2 text-sm text-[var(--text-secondary)]"
                 style={{ fontSize: tokens.fontSize.sm }}
               >
                 {memory.value}
@@ -192,11 +185,11 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
 
             {/* Tags */}
             {memory.metadata?.tags && memory.metadata.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {memory.metadata.tags.map((tag: string) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--surface-elevated)] text-[var(--color-primary-300)] text-xs"
+                    className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 text-xs text-[var(--color-primary-300)]"
                     style={{ fontSize: tokens.fontSize.xs }}
                   >
                     <TagIcon size={10} />
@@ -209,21 +202,17 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
 
           {/* Quick actions - always visible but subtle */}
           <div
-            className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ml-2"
+            className="ml-2 flex flex-col gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
             role="group"
             aria-label="Memory actions"
           >
             <button
               onClick={() => onPin(memory.id, !isPinned)}
-              className={`
-                p-1.5 rounded-md transition-colors
-                ${
-                  isPinned
-                    ? 'text-[var(--color-primary-400)] bg-[var(--color-primary-500)]/10'
-                    : 'text-[var(--text-muted)] hover:text-[var(--color-primary-400)] hover:bg-[var(--surface-hover)]'
-                }
-                focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-              `}
+              className={`rounded-md p-1.5 transition-colors ${
+                isPinned
+                  ? 'bg-[var(--color-primary-500)]/10 text-[var(--color-primary-400)]'
+                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--color-primary-400)]'
+              } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
               aria-label={isPinned ? 'Unpin memory' : 'Pin memory'}
               title={isPinned ? 'Unpin' : 'Pin'}
             >
@@ -232,7 +221,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
             {memory.metadata?.url && (
               <button
                 onClick={handleOpen}
-                className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--color-primary-400)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1"
+                className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--color-primary-400)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1"
                 aria-label="Open in new tab"
                 title="Open"
               >
@@ -241,7 +230,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
             )}
             <button
               onClick={handleCopy}
-              className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--color-primary-400)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1"
+              className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--color-primary-400)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1"
               aria-label="Copy to clipboard"
               title="Copy"
             >
@@ -250,7 +239,7 @@ function MemoryCard({ memory, compact, onPin, onCopy, onOpen, onDelete }: Memory
             {onDelete && (
               <button
                 onClick={() => onDelete(memory.id)}
-                className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+                className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
                 aria-label="Delete memory"
                 title="Delete"
               >
@@ -532,7 +521,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             aria-hidden="true"
           />
 
@@ -542,7 +531,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 md:w-[420px] w-0 overflow-hidden md:overflow-visible max-w-[90vw] sm:max-w-full bg-[var(--surface-root)] backdrop-blur-xl border-l border-[var(--surface-border)] z-50 flex flex-col shadow-2xl"
+            className="fixed bottom-0 right-0 top-0 z-50 flex w-0 max-w-[90vw] flex-col overflow-hidden border-l border-[var(--surface-border)] bg-[var(--surface-root)] shadow-2xl backdrop-blur-xl sm:max-w-full md:w-[420px] md:overflow-visible"
             role="dialog"
             aria-modal="true"
             aria-label="Research Memory Panel"
@@ -564,7 +553,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
               </div>
               <button
                 onClick={onClose}
-                className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 aria-label="Close panel"
               >
                 <X size={18} />
@@ -576,7 +565,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
               <div className="relative">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
                 />
                 <input
                   ref={searchInputRef}
@@ -584,7 +573,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                   placeholder="Search memories... (Press / to focus)"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--surface-panel)] border border-[var(--surface-border)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-transparent transition-all"
+                  className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface-panel)] py-2 pl-10 pr-4 text-[var(--text-primary)] transition-all placeholder:text-[var(--text-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                   style={{ fontSize: tokens.fontSize.sm }}
                   aria-label="Search memories"
                 />
@@ -593,7 +582,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
 
             {/* Primary Filters */}
             <div
-              className="flex items-center gap-2 flex-wrap border-b border-[var(--surface-border)]"
+              className="flex flex-wrap items-center gap-2 border-b border-[var(--surface-border)]"
               style={{
                 padding: tokens.spacing(4),
                 paddingTop: tokens.spacing(2),
@@ -604,15 +593,11 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                 <button
                   key={m}
                   onClick={() => setMode(m)}
-                  className={`
-                    px-3 py-1.5 rounded-full text-sm font-medium transition-colors
-                    ${
-                      mode === m
-                        ? 'bg-[var(--color-primary-600)] text-white'
-                        : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-                  `}
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                    mode === m
+                      ? 'bg-[var(--color-primary-600)] text-white'
+                      : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                  } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
                   style={{ fontSize: tokens.fontSize.sm }}
                   aria-pressed={mode === m}
                 >
@@ -623,7 +608,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
               <div className="ml-auto flex items-center gap-2">
                 <button
                   onClick={() => setDisplayMode(displayMode === 'compact' ? 'expanded' : 'compact')}
-                  className="p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  className="rounded-md p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                   aria-label={`Switch to ${displayMode === 'compact' ? 'expanded' : 'compact'} view`}
                   title={displayMode === 'compact' ? 'Expanded view' : 'Compact view'}
                 >
@@ -640,7 +625,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
 
             {/* Secondary Controls */}
             <div
-              className="flex items-center gap-2 flex-wrap border-b border-[var(--surface-border)]"
+              className="flex flex-wrap items-center gap-2 border-b border-[var(--surface-border)]"
               style={{
                 padding: tokens.spacing(3),
                 paddingTop: tokens.spacing(2),
@@ -658,7 +643,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                 <select
                   value={sortMode}
                   onChange={e => setSortMode(e.target.value as SortMode)}
-                  className="px-2 py-1 rounded-md bg-[var(--surface-elevated)] border border-[var(--surface-border)] text-[var(--text-primary)] text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                  className="rounded-md border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                   style={{ fontSize: tokens.fontSize.xs }}
                   aria-label="Sort mode"
                 >
@@ -673,15 +658,11 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                 <button
                   key={tag}
                   onClick={() => handleToggleTag(tag)}
-                  className={`
-                    px-2 py-1 rounded-full text-xs font-medium transition-colors
-                    ${
-                      selectedTags.includes(tag)
-                        ? 'bg-[var(--color-primary-600)] text-white'
-                        : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-                  `}
+                  className={`rounded-full px-2 py-1 text-xs font-medium transition-colors ${
+                    selectedTags.includes(tag)
+                      ? 'bg-[var(--color-primary-600)] text-white'
+                      : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                  } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
                   style={{ fontSize: tokens.fontSize.xs }}
                   aria-pressed={selectedTags.includes(tag)}
                 >
@@ -691,7 +672,7 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
               {selectedTags.length > 0 && (
                 <button
                   onClick={() => setSelectedTags([])}
-                  className="px-2 py-1 rounded-full text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+                  className="rounded-full px-2 py-1 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                   style={{ fontSize: tokens.fontSize.xs }}
                 >
                   Clear
@@ -707,12 +688,12 @@ export function ResearchMemoryPanel({ open, onClose, onCreateMemory }: ResearchM
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div
-                  className="flex flex-col items-center justify-center text-center rounded-2xl border border-[var(--surface-border)] bg-gradient-to-br from-[#281b5f] via-[#152038] to-[#0f172a] text-white shadow-inner shadow-black/30"
+                  className="flex flex-col items-center justify-center rounded-2xl border border-[var(--surface-border)] bg-gradient-to-br from-[#281b5f] via-[#152038] to-[#0f172a] text-center text-white shadow-inner shadow-black/30"
                   style={{ padding: tokens.spacing(8), minHeight: '300px' }}
                 >
                   <FileText size={48} className="mb-4 text-purple-200" />
-                  <p className="text-2xl font-semibold mb-2">Welcome to Research Mode</p>
-                  <p className="text-sm text-purple-100/80 max-w-md mb-4">
+                  <p className="mb-2 text-2xl font-semibold">Welcome to Research Mode</p>
+                  <p className="mb-4 max-w-md text-sm text-purple-100/80">
                     Ask Regen in Hindi, Tamil, Bengali, or English. Your best answers and agent
                     handoffs land here automatically.
                   </p>

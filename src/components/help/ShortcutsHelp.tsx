@@ -71,7 +71,7 @@ export function ShortcutsHelp() {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold text-white">
           <Command size={18} className="text-purple-300" />
           Keyboard reference
         </h1>
@@ -84,7 +84,7 @@ export function ShortcutsHelp() {
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder="Filter shortcuts by key, action, or context"
-            className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 pl-9 pr-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/60"
+            className="w-full rounded-2xl border border-slate-800 bg-slate-950/70 py-2 pl-9 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/60"
           />
         </div>
       </header>
@@ -95,9 +95,9 @@ export function ShortcutsHelp() {
             key={group.id}
             className="rounded-3xl border border-slate-900/70 bg-slate-950/60 p-4 shadow-inner shadow-black/30"
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-white uppercase tracking-[0.25em]">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.25em] text-white">
                   {group.title}
                 </h2>
               </div>
@@ -112,7 +112,7 @@ export function ShortcutsHelp() {
               {group.shortcuts.map(shortcut => (
                 <div
                   key={`${group.id}-${shortcut.combo}`}
-                  className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-slate-200"
+                  className="border-white/8 flex items-center justify-between rounded-2xl border bg-white/5 px-3 py-2 text-sm text-slate-200"
                 >
                   <div className="flex items-center gap-3">
                     <kbd className="rounded-xl border border-white/20 bg-black/30 px-3 py-1 text-xs font-semibold tracking-wide text-white">
@@ -140,7 +140,7 @@ export function ShortcutsHelp() {
         )}
       </div>
 
-      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-xs text-slate-400 flex items-start gap-3">
+      <div className="flex items-start gap-3 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-xs text-slate-400">
         <MousePointerClick size={14} className="mt-0.5 text-purple-300" />
         <span>
           Tip: Hold <strong>Ctrl/Cmd</strong> while hovering UI buttons to see contextual shortcuts

@@ -788,13 +788,13 @@ export function OmniDesk({
             transition={{ duration: 0.4 }}
             className="rounded-3xl border border-slate-800/70 bg-slate-900/70 px-6 py-7 shadow-2xl shadow-black/30"
           >
-            <p className="text-xs uppercase tracking-[0.32em] text-slate-400 font-medium">
+            <p className="text-xs font-medium uppercase tracking-[0.32em] text-slate-400">
               Regenerative Command Center
             </p>
-            <h1 className="mt-3 text-3xl font-bold text-slate-50 sm:text-4xl lg:text-5xl leading-tight">
+            <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-50 sm:text-4xl lg:text-5xl">
               Guide your next deep work session with Regen & Redix
             </h1>
-            <p className="mt-3 max-w-2xl text-base text-slate-300 leading-relaxed">
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-300">
               Spin up an agent, resume an exploration, or launch a new search. Your flow state
               starts here.
             </p>
@@ -842,7 +842,7 @@ export function OmniDesk({
                     void handleSearchLaunch(searchQuery);
                   }}
                   disabled={searchLoading || !searchQuery.trim()}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-500/60 bg-blue-500/20 px-5 py-3 text-sm font-semibold text-blue-100 shadow-[0_10px_40px_-20px_rgba(59,130,246,0.8)] transition hover:border-blue-400 hover:bg-blue-500/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-blue-500/60 bg-blue-500/20 px-5 py-3 text-sm font-semibold text-blue-100 shadow-[0_10px_40px_-20px_rgba(59,130,246,0.8)] transition hover:border-blue-400 hover:bg-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-60"
                   style={{ pointerEvents: 'auto', zIndex: 10 }}
                   aria-label={searchLoading ? 'Launching search' : 'Launch search flow'}
                   aria-busy={searchLoading}
@@ -878,7 +878,7 @@ export function OmniDesk({
                         void handleSearchLaunch(prompt);
                       }
                     }}
-                    className="rounded-full border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 transition hover:border-blue-500/50 hover:bg-slate-800/80 hover:text-blue-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="cursor-pointer rounded-full border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 transition hover:border-blue-500/50 hover:bg-slate-800/80 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ pointerEvents: 'auto', zIndex: 10 }}
                     aria-label={`Suggested search: ${prompt}`}
                     tabIndex={0}
@@ -919,7 +919,7 @@ export function OmniDesk({
                   whileHover={searchLoading ? {} : { y: -4, scale: 1.02 }}
                   whileTap={searchLoading ? {} : { scale: 0.96 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                  className={`group flex h-full flex-col justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-6 text-left shadow-[0_12px_40px_-24px_rgba(15,23,42,0.9)] transition hover:border-slate-700/70 hover:bg-slate-900/80 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${searchLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  className={`group flex h-full cursor-pointer flex-col justify-between gap-4 rounded-2xl border border-slate-800/70 bg-slate-900/60 px-5 py-6 text-left shadow-[0_12px_40px_-24px_rgba(15,23,42,0.9)] transition hover:border-slate-700/70 hover:bg-slate-900/80 focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${searchLoading ? 'cursor-not-allowed opacity-60' : ''}`}
                   style={{ pointerEvents: 'auto', zIndex: 10 }}
                   aria-label={
                     action.description ? `${action.label}: ${action.description}` : action.label
@@ -1140,11 +1140,11 @@ export function OmniDesk({
                     transition={{ delay: idx * 0.1, duration: 0.3 }}
                     className="h-[86px] w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-4"
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="h-5 w-16 rounded-full bg-slate-800/60 animate-pulse" />
-                      <div className="h-4 w-20 rounded-full bg-slate-800/60 animate-pulse" />
+                    <div className="mb-2 flex items-center gap-2">
+                      <div className="h-5 w-16 animate-pulse rounded-full bg-slate-800/60" />
+                      <div className="h-4 w-20 animate-pulse rounded-full bg-slate-800/60" />
                     </div>
-                    <div className="h-5 w-3/4 rounded bg-slate-800/60 animate-pulse" />
+                    <div className="h-5 w-3/4 animate-pulse rounded bg-slate-800/60" />
                   </motion.div>
                 ))
               ) : continueSessions.length > 0 ? (
@@ -1163,7 +1163,7 @@ export function OmniDesk({
                         void handleContinueSession(session);
                       }
                     }}
-                    className="group w-full rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left transition hover:border-slate-600/60 hover:bg-slate-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="group w-full cursor-pointer rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left transition hover:border-slate-600/60 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     style={{ pointerEvents: 'auto', zIndex: 10 }}
                   >
                     <div className="flex items-center gap-2 text-xs text-slate-400">
@@ -1211,9 +1211,9 @@ export function OmniDesk({
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.08, duration: 0.3 }}
-                    className="h-14 w-full rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 flex items-center"
+                    className="flex h-14 w-full items-center rounded-xl border border-slate-800/60 bg-slate-900/40 p-3"
                   >
-                    <div className="h-4 w-2/3 rounded bg-slate-800/60 animate-pulse" />
+                    <div className="h-4 w-2/3 animate-pulse rounded bg-slate-800/60" />
                   </motion.div>
                 ))
               ) : recentWorkspaces.length > 0 ? (
@@ -1232,7 +1232,7 @@ export function OmniDesk({
                         navigate(`/w/${workspace.id}`);
                       }
                     }}
-                    className="flex w-full items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-slate-600/70 hover:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-slate-800/60 bg-slate-900/60 px-4 py-3 text-left text-sm text-slate-200 transition hover:border-slate-600/70 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     style={{ pointerEvents: 'auto', zIndex: 10 }}
                   >
                     <span className="truncate">{workspace.name}</span>
@@ -1332,7 +1332,7 @@ export function OmniDesk({
                     <p className="text-[11px] uppercase tracking-[0.28em] text-emerald-200/70">
                       Carbon
                     </p>
-                    <p className="mt-2 text-sm font-semibold text-emerald-50 leading-tight">
+                    <p className="mt-2 text-sm font-semibold leading-tight text-emerald-50">
                       {ecoStats.carbonIntensity}
                     </p>
                   </div>

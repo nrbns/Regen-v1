@@ -44,7 +44,12 @@ export default function HistoryPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'search' | 'secure' | 'insecure'>('all');
   const [searchResults, setSearchResults] = useState<HistoryEntry[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [storageInfo, setStorageInfo] = useState<{ usage: number; quota: number; percent: number; updatedAt: number } | null>(null);
+  const [storageInfo, setStorageInfo] = useState<{
+    usage: number;
+    quota: number;
+    percent: number;
+    updatedAt: number;
+  } | null>(null);
   const [storageStatus, setStorageStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const mountedRef = useRef(true);
 
@@ -58,7 +63,7 @@ export default function HistoryPage() {
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const list = await ipc.history.list() as HistoryEntry[];
+        const list = (await ipc.history.list()) as HistoryEntry[];
         // Ensure we have an array
         if (Array.isArray(list)) {
           setItems(list);
@@ -76,9 +81,16 @@ export default function HistoryPage() {
   }, []);
 
   // Listen for history updates
-  useIPCEvent('history:updated', () => {
-    ipc.history.list().then((list: any) => setItems(list || [])).catch(console.error);
-  }, []);
+  useIPCEvent(
+    'history:updated',
+    () => {
+      ipc.history
+        .list()
+        .then((list: any) => setItems(list || []))
+        .catch(console.error);
+    },
+    []
+  );
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -97,7 +109,7 @@ export default function HistoryPage() {
         if (cancelled) return;
         setSearchResults(Array.isArray(results) ? results : []);
       })
-      .catch((error) => {
+      .catch(error => {
         if (cancelled) return;
         console.error('History search failed:', error);
         setSearchResults([]);
@@ -155,7 +167,7 @@ export default function HistoryPage() {
     let insecureCount = 0;
     let searchCount = 0;
 
-    items.forEach((entry) => {
+    items.forEach(entry => {
       try {
         const urlObj = new URL(entry.url);
         uniqueDomains.add(urlObj.hostname);
@@ -191,13 +203,12 @@ export default function HistoryPage() {
       const query = searchQuery.toLowerCase();
       filtered = sourceItems.filter(
         entry =>
-          entry.title.toLowerCase().includes(query) ||
-          entry.url.toLowerCase().includes(query)
+          entry.title.toLowerCase().includes(query) || entry.url.toLowerCase().includes(query)
       );
     }
 
     if (activeFilter !== 'all') {
-      filtered = filtered.filter((entry) => {
+      filtered = filtered.filter(entry => {
         switch (activeFilter) {
           case 'search':
             return Boolean(detectSearchQuery(entry.url));
@@ -254,7 +265,7 @@ export default function HistoryPage() {
       .map(([date, entries]) => ({
         date,
         entries: entries.sort(
-          (a, b) => (b.lastVisitTime ?? b.timestamp) - (a.lastVisitTime ?? a.timestamp),
+          (a, b) => (b.lastVisitTime ?? b.timestamp) - (a.lastVisitTime ?? a.timestamp)
         ),
       }))
       .sort((a, b) => {
@@ -265,7 +276,7 @@ export default function HistoryPage() {
 
   const totalResultCount = useMemo(
     () => groupedHistory.reduce((sum, group) => sum + group.entries.length, 0),
-    [groupedHistory],
+    [groupedHistory]
   );
 
   const handleClearHistory = async () => {
@@ -278,7 +289,7 @@ export default function HistoryPage() {
   const handleDeleteEntry = async (url: string) => {
     await ipc.history.deleteUrl?.(url);
     setItems(items.filter(e => e.url !== url));
-    setSelectedEntry((prev) => (prev?.url === url ? null : prev));
+    setSelectedEntry(prev => (prev?.url === url ? null : prev));
   };
 
   const handleNavigate = async (url: string) => {
@@ -359,12 +370,12 @@ export default function HistoryPage() {
     const regex = new RegExp(`(${escapeRegExp(query)})`, 'ig');
     return text.split(regex).map((part, index) =>
       regex.test(part) ? (
-        <mark key={index} className="bg-blue-500/30 text-blue-100 rounded-sm px-0.5">
+        <mark key={index} className="rounded-sm bg-blue-500/30 px-0.5 text-blue-100">
           {part}
         </mark>
       ) : (
         <span key={index}>{part}</span>
-      ),
+      )
     );
   };
 
@@ -372,20 +383,20 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-[#1A1D28]">
-        <Clock size={24} className="text-blue-400 animate-spin" />
+      <div className="flex h-full w-full items-center justify-center bg-[#1A1D28]">
+        <Clock size={24} className="animate-spin text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full bg-[#1A1D28] text-gray-100 flex flex-col">
+    <div className="flex h-full w-full flex-col bg-[#1A1D28] text-gray-100">
       {/* Header */}
-      <div className="p-6 border-b border-gray-800/50">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="border-b border-gray-800/50 p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-bold">History</h2>
-            <span className="text-xs uppercase tracking-[0.28em] text-gray-500 flex items-center gap-2">
+            <span className="flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-gray-500">
               <BarChart2 size={14} />
               {derivedStats.total} visits · {derivedStats.uniqueDomains} domains
             </span>
@@ -394,14 +405,14 @@ export default function HistoryPage() {
             onClick={handleClearHistory}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900/60 hover:bg-red-600/20 border border-gray-700/50 text-gray-300 hover:text-red-400 transition-colors"
+            className="flex items-center gap-2 rounded-lg border border-gray-700/50 bg-gray-900/60 px-4 py-2 text-gray-300 transition-colors hover:bg-red-600/20 hover:text-red-400"
           >
             <Trash2 size={18} />
             <span>Clear browsing data</span>
           </motion.button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <HistoryStatCard
             label="Secure"
             value={derivedStats.secureCount}
@@ -439,14 +450,14 @@ export default function HistoryPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search history"
-            className="w-full h-10 pl-10 pr-4 bg-gray-900/60 border border-gray-700/50 rounded-lg text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50"
+            className="h-10 w-full rounded-lg border border-gray-700/50 bg-gray-900/60 pl-10 pr-4 text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           />
           {searching && (
             <Loader2
               size={16}
-              className={`absolute top-1/2 -translate-y-1/2 text-blue-400 animate-spin ${
+              className={`absolute top-1/2 -translate-y-1/2 animate-spin text-blue-400 ${
                 searchQuery ? 'right-9' : 'right-3'
               }`}
             />
@@ -460,7 +471,7 @@ export default function HistoryPage() {
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 mt-3 text-xs text-gray-400">
+        <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
           <Filter size={14} />
           <FilterChip
             active={activeFilter === 'all'}
@@ -486,128 +497,132 @@ export default function HistoryPage() {
       </div>
 
       {/* History list */}
-      <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 xl:grid-cols-[2fr_minmax(280px,1fr)] gap-4">
+      <div className="grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-6 xl:grid-cols-[2fr_minmax(280px,1fr)]">
         <div>
-        {searchResults && (
-          <div className="flex items-center gap-2 mb-4 text-xs text-blue-300">
-            <Search size={14} />
-            <span>
-              Showing {totalResultCount} high-relevance result{totalResultCount === 1 ? '' : 's'} for “
-              {searchQuery.trim()}”
-            </span>
-          </div>
-        )}
-        {groupedHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <Globe size={48} className="text-gray-600 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">
-              {searchQuery ? 'No results found' : 'No history yet'}
-            </h3>
-            <p className="text-sm text-gray-500">
-              {searchQuery ? 'Try a different search term' : 'Pages you visit will appear here'}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {groupedHistory.map((group) => (
-              <div key={group.date}>
-                <h3 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">
-                  {group.date}
-                </h3>
-                <div className="space-y-1">
-                  {group.entries.map((entry) => (
-                    <motion.div
-                      key={entry.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`group flex items-center gap-3 p-3 rounded-lg bg-gray-900/60 hover:bg-gray-900/80 border transition-all cursor-pointer ${
-                        selectedEntry?.id === entry.id ? 'border-blue-500/40 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]' : 'border-gray-800/50 hover:border-gray-700/50'
-                      }`}
-                      onClick={() => setSelectedEntry(entry)}
-                    >
-                      {/* Favicon */}
-                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-gray-800/50 rounded border border-gray-700/50">
-                        {entry.favicon || getFaviconUrl(entry.url) ? (
-                          <img
-                            src={entry.favicon || getFaviconUrl(entry.url)}
-                            alt=""
-                            className="w-6 h-6"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <Globe size={16} className="text-gray-500" />
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="font-medium text-gray-200 truncate">
-                            {searchQuery ? highlightQuery(entry.title || entry.url, searchQuery) : (entry.title || entry.url)}
-                          </span>
-                          <span className="text-xs text-gray-500 flex-shrink-0">
-                            {formatTime(entry.lastVisitTime ?? entry.timestamp)}
-                          </span>
+          {searchResults && (
+            <div className="mb-4 flex items-center gap-2 text-xs text-blue-300">
+              <Search size={14} />
+              <span>
+                Showing {totalResultCount} high-relevance result{totalResultCount === 1 ? '' : 's'}{' '}
+                for “{searchQuery.trim()}”
+              </span>
+            </div>
+          )}
+          {groupedHistory.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center">
+              <Globe size={48} className="mb-4 text-gray-600" />
+              <h3 className="mb-2 text-lg font-semibold text-gray-300">
+                {searchQuery ? 'No results found' : 'No history yet'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {searchQuery ? 'Try a different search term' : 'Pages you visit will appear here'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groupedHistory.map(group => (
+                <div key={group.date}>
+                  <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
+                    {group.date}
+                  </h3>
+                  <div className="space-y-1">
+                    {group.entries.map(entry => (
+                      <motion.div
+                        key={entry.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`group flex cursor-pointer items-center gap-3 rounded-lg border bg-gray-900/60 p-3 transition-all hover:bg-gray-900/80 ${
+                          selectedEntry?.id === entry.id
+                            ? 'border-blue-500/40 shadow-[0_0_0_1px_rgba(59,130,246,0.35)]'
+                            : 'border-gray-800/50 hover:border-gray-700/50'
+                        }`}
+                        onClick={() => setSelectedEntry(entry)}
+                      >
+                        {/* Favicon */}
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded border border-gray-700/50 bg-gray-800/50">
+                          {entry.favicon || getFaviconUrl(entry.url) ? (
+                            <img
+                              src={entry.favicon || getFaviconUrl(entry.url)}
+                              alt=""
+                              className="h-6 w-6"
+                              onError={e => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <Globe size={16} className="text-gray-500" />
+                          )}
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-gray-400 truncate">
-                            {searchQuery ? highlightQuery(entry.url, searchQuery) : entry.url}
-                          </span>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {entry.visitCount && entry.visitCount > 1 && (
-                              <span className="text-xs text-gray-500">
-                                {entry.visitCount} visits
-                              </span>
-                            )}
-                            {detectSearchQuery(entry.url) && (
-                              <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
-                                Search
-                              </span>
-                            )}
-                            {(() => {
-                              try {
-                                const protocol = new URL(entry.url).protocol;
-                                return (
-                                  <span
-                                    className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${
-                                      protocol === 'https:'
-                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                                        : 'bg-amber-500/15 text-amber-200 border-amber-500/30'
-                                    }`}
-                                  >
-                                    {protocol === 'https:' ? 'Secure' : 'Insecure'}
-                                  </span>
-                                );
-                              } catch {
-                                return null;
-                              }
-                            })()}
+
+                        {/* Content */}
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center justify-between gap-2">
+                            <span className="truncate font-medium text-gray-200">
+                              {searchQuery
+                                ? highlightQuery(entry.title || entry.url, searchQuery)
+                                : entry.title || entry.url}
+                            </span>
+                            <span className="flex-shrink-0 text-xs text-gray-500">
+                              {formatTime(entry.lastVisitTime ?? entry.timestamp)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-xs text-gray-400">
+                              {searchQuery ? highlightQuery(entry.url, searchQuery) : entry.url}
+                            </span>
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              {entry.visitCount && entry.visitCount > 1 && (
+                                <span className="text-xs text-gray-500">
+                                  {entry.visitCount} visits
+                                </span>
+                              )}
+                              {detectSearchQuery(entry.url) && (
+                                <span className="rounded-full border border-blue-500/30 bg-blue-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wide text-blue-300">
+                                  Search
+                                </span>
+                              )}
+                              {(() => {
+                                try {
+                                  const protocol = new URL(entry.url).protocol;
+                                  return (
+                                    <span
+                                      className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                                        protocol === 'https:'
+                                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+                                          : 'border-amber-500/30 bg-amber-500/15 text-amber-200'
+                                      }`}
+                                    >
+                                      {protocol === 'https:' ? 'Secure' : 'Insecure'}
+                                    </span>
+                                  );
+                                } catch {
+                                  return null;
+                                }
+                              })()}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Delete button */}
-                      <motion.button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteEntry(entry.url);
-                        }}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        className="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1.5 rounded-lg hover:bg-red-600/20 text-gray-500 hover:text-red-400 transition-all"
-                        title="Remove from history"
-                      >
-                        <X size={16} />
-                      </motion.button>
-                    </motion.div>
-                  ))}
+                        {/* Delete button */}
+                        <motion.button
+                          onClick={e => {
+                            e.stopPropagation();
+                            handleDeleteEntry(entry.url);
+                          }}
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="flex-shrink-0 rounded-lg p-1.5 text-gray-500 opacity-0 transition-all hover:bg-red-600/20 hover:text-red-400 group-hover:opacity-100"
+                          title="Remove from history"
+                        >
+                          <X size={16} />
+                        </motion.button>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
         </div>
         <aside className="hidden xl:block">
           {selectedEntry ? (
@@ -624,8 +639,8 @@ export default function HistoryPage() {
               onRemove={() => handleDeleteEntry(selectedEntry.url)}
             />
           ) : (
-            <div className="sticky top-6 rounded-xl border border-gray-800/60 bg-gray-900/40 p-4 text-sm text-gray-500 flex flex-col items-center justify-center min-h-[240px]">
-              <Globe size={28} className="text-gray-600 mb-3" />
+            <div className="sticky top-6 flex min-h-[240px] flex-col items-center justify-center rounded-xl border border-gray-800/60 bg-gray-900/40 p-4 text-sm text-gray-500">
+              <Globe size={28} className="mb-3 text-gray-600" />
               <p>Select a history item to see details, cached parameters, and quick actions.</p>
             </div>
           )}
@@ -635,12 +650,20 @@ export default function HistoryPage() {
   );
 }
 
-function FilterChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function FilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs transition-colors ${
+      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${
         active
           ? 'border-blue-500/40 bg-blue-500/15 text-blue-200'
           : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:border-gray-600 hover:text-gray-200'
@@ -666,11 +689,11 @@ function HistoryStatCard({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-gray-800/60 bg-gray-900/40 px-3 py-2 text-xs text-gray-400">
-      <div className="flex items-center justify-center h-8 w-8 rounded-md bg-gray-800/60 border border-gray-700/50">
+      <div className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-700/50 bg-gray-800/60">
         {icon}
       </div>
       <div className="flex flex-col">
-        <span className="uppercase tracking-[0.24em] text-[10px] text-gray-500">{label}</span>
+        <span className="text-[10px] uppercase tracking-[0.24em] text-gray-500">{label}</span>
         <span className={`text-base font-semibold ${accent}`}>{value}</span>
         <span className="text-[10px] text-gray-500">{helper}</span>
       </div>
@@ -700,14 +723,16 @@ function StorageUsageCard({
   const updatedLabel = updatedAt ? formatRelativeTimeFromNow(updatedAt) : 'moments ago';
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-gray-800/60 bg-gray-900/40 px-3 py-2 text-xs text-gray-400 min-w-[200px]">
+    <div className="flex min-w-[200px] flex-col gap-2 rounded-lg border border-gray-800/60 bg-gray-900/40 px-3 py-2 text-xs text-gray-400">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-md bg-gray-800/60 border border-gray-700/50">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-700/50 bg-gray-800/60">
             <HardDrive size={16} className="text-indigo-300" />
           </div>
           <div className="flex flex-col">
-            <span className="uppercase tracking-[0.24em] text-[10px] text-gray-500">Cache usage</span>
+            <span className="text-[10px] uppercase tracking-[0.24em] text-gray-500">
+              Cache usage
+            </span>
             <span className="text-base font-semibold text-indigo-200">{usageLabel}</span>
             <span className="text-[10px] text-gray-500">
               of {quotaLabel} ({percentLabel})
@@ -718,7 +743,7 @@ function StorageUsageCard({
           type="button"
           onClick={onRefresh}
           disabled={status === 'loading'}
-          className="p-1.5 rounded-md border border-gray-700/60 text-gray-400 hover:text-indigo-200 hover:border-indigo-400/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          className="rounded-md border border-gray-700/60 p-1.5 text-gray-400 transition-colors hover:border-indigo-400/40 hover:text-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
           title="Refresh storage estimate"
         >
           <RefreshCw
@@ -727,7 +752,7 @@ function StorageUsageCard({
           />
         </button>
       </div>
-      <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-800">
         <div
           className="h-full bg-gradient-to-r from-indigo-400 to-blue-500 transition-[width] duration-300"
           style={{ width: `${percentClamped}%` }}
@@ -778,17 +803,19 @@ function HistoryDetailsPanel({
       : 0;
 
   return (
-    <div className="sticky top-6 rounded-xl border border-gray-800/60 bg-gray-900/50 p-4 shadow-[0_18px_45px_rgba(15,23,42,0.35)] text-sm text-gray-300 space-y-4">
+    <div className="sticky top-6 space-y-4 rounded-xl border border-gray-800/60 bg-gray-900/50 p-4 text-sm text-gray-300 shadow-[0_18px_45px_rgba(15,23,42,0.35)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="text-base font-semibold text-gray-100">{entry.title || 'Untitled page'}</h4>
-          <p className="text-xs text-gray-500 break-all">{entry.url}</p>
+          <h4 className="text-base font-semibold text-gray-100">
+            {entry.title || 'Untitled page'}
+          </h4>
+          <p className="break-all text-xs text-gray-500">{entry.url}</p>
         </div>
         <div className="flex gap-1.5">
           <button
             type="button"
             onClick={onOpen}
-            className="p-1.5 rounded-md bg-blue-500/15 border border-blue-500/30 text-blue-200 hover:bg-blue-500/25 transition-colors"
+            className="rounded-md border border-blue-500/30 bg-blue-500/15 p-1.5 text-blue-200 transition-colors hover:bg-blue-500/25"
             title="Open in a new tab"
           >
             <ExternalLink size={14} />
@@ -796,7 +823,7 @@ function HistoryDetailsPanel({
           <button
             type="button"
             onClick={onCopy}
-            className="p-1.5 rounded-md bg-gray-800/60 border border-gray-700/60 text-gray-400 hover:text-gray-100 hover:bg-gray-800 transition-colors"
+            className="rounded-md border border-gray-700/60 bg-gray-800/60 p-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
             title="Copy URL"
           >
             <Copy size={14} />
@@ -804,7 +831,7 @@ function HistoryDetailsPanel({
           <button
             type="button"
             onClick={onRemove}
-            className="p-1.5 rounded-md bg-red-500/15 border border-red-500/40 text-red-200 hover:bg-red-500/25 transition-colors"
+            className="rounded-md border border-red-500/40 bg-red-500/15 p-1.5 text-red-200 transition-colors hover:bg-red-500/25"
             title="Remove from history"
           >
             <Trash2 size={14} />
@@ -814,42 +841,42 @@ function HistoryDetailsPanel({
 
       <div className="space-y-2 text-xs text-gray-400">
         <div className="flex items-center gap-2">
-          <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">First visit</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">First visit</span>
           <span className="text-gray-300">{new Date(entry.timestamp).toLocaleString()}</span>
           <span className="text-gray-500">{formatRelative(entry.timestamp)}</span>
         </div>
         {entry.lastVisitTime && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">Last visit</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Last visit</span>
             <span className="text-gray-300">{new Date(entry.lastVisitTime).toLocaleString()}</span>
             <span className="text-gray-500">{formatRelative(entry.lastVisitTime)}</span>
           </div>
         )}
         {entry.visitCount && (
           <div className="flex items-center gap-2">
-            <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">Visits</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Visits</span>
             <span className="text-gray-300">{entry.visitCount}</span>
           </div>
         )}
         {cacheWindowMs > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">Cache span</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Cache span</span>
             <span className="text-gray-300">{formatDurationFromMs(cacheWindowMs)}</span>
           </div>
         )}
         {parsed && (
           <>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">Domain</span>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Domain</span>
               <span className="text-gray-300">{parsed.hostname}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-500 uppercase tracking-[0.2em] text-[10px]">Protocol</span>
+              <span className="text-[10px] uppercase tracking-[0.2em] text-gray-500">Protocol</span>
               <span
-                className={`px-2 py-0.5 rounded-full border ${
+                className={`rounded-full border px-2 py-0.5 ${
                   parsed.protocol === 'https:'
-                    ? 'border-emerald-500/30 text-emerald-200 bg-emerald-500/15'
-                    : 'border-amber-500/30 text-amber-200 bg-amber-500/15'
+                    ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-200'
+                    : 'border-amber-500/30 bg-amber-500/15 text-amber-200'
                 }`}
               >
                 {parsed.protocol.replace(':', '').toUpperCase()}
@@ -860,7 +887,7 @@ function HistoryDetailsPanel({
       </div>
 
       {query && (
-        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-100 space-y-1">
+        <div className="space-y-1 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 text-xs text-blue-100">
           <div className="flex items-center gap-2 font-semibold text-blue-200">
             <Search size={14} />
             Recognised search query
@@ -871,16 +898,14 @@ function HistoryDetailsPanel({
 
       {params.length > 0 && (
         <div className="space-y-2">
-          <h5 className="text-xs uppercase tracking-[0.24em] text-gray-500">
-            Query Parameters
-          </h5>
+          <h5 className="text-xs uppercase tracking-[0.24em] text-gray-500">Query Parameters</h5>
           <div className="space-y-1">
             {params.map(([key, value]) => (
               <div
                 key={key}
                 className="flex items-start gap-2 rounded-md border border-gray-800/50 bg-gray-900/50 px-2 py-1 text-xs text-gray-400"
               >
-                <span className="text-gray-300 font-medium min-w-[80px]">{key}</span>
+                <span className="min-w-[80px] font-medium text-gray-300">{key}</span>
                 <span className="break-all text-gray-400">{value || '—'}</span>
               </div>
             ))}
@@ -949,5 +974,3 @@ function formatDurationFromMs(ms: number): string {
 
   return parts.join(' ');
 }
-
-
