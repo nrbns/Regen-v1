@@ -16,6 +16,7 @@ export default tseslint.config(
       '.github/**',
       '**/*.cjs',
       'scripts/**',
+      'tools/**',
       'src/plugins/examples/**',
       'tests/**',
       'tauri-migration/src-tauri/target/**',
@@ -88,7 +89,7 @@ export default tseslint.config(
   },
   {
     // Node.js files (CommonJS and ESM)
-    files: ['**/*.js', '**/*.mjs', 'server/**/*', 'scripts/**/*', '.eslintrc*.js', 'lint-staged.config.js'],
+    files: ['**/*.js', '**/*.mjs', 'server/**/*', 'scripts/**/*', '.eslintrc*.js', 'lint-staged.config.js', 'tools/**/*.js'],
     languageOptions: {
       globals: {
         module: 'readonly',
@@ -110,6 +111,7 @@ export default tseslint.config(
     },
     rules: {
       'no-undef': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
