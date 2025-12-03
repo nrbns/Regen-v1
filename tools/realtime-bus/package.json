@@ -1,0 +1,13 @@
+{
+  "name": "regen-realtime-bus",
+  "version": "1.0.0",
+  "description": "Realtime message bus for Regen browser",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
+

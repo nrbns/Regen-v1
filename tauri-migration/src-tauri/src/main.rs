@@ -22,6 +22,9 @@ mod chunker;
 mod websocket;
 mod security;
 mod phase2_commands;
+mod cef_host;
+mod adblock;
+mod bus_bridge;
 
 // Production-ready API modules
 pub mod api;
