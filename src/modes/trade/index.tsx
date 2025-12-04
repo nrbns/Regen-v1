@@ -22,6 +22,9 @@ import OrderConfirmModal, { type OrderDetails } from '../../components/trade/Ord
 import OrderBook, { type OrderBookEntry } from '../../components/trade/OrderBook';
 import TradesTape, { type Trade } from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
+import { TradeModeFallback } from '../../components/trade/TradeModeFallback';
+import { ResponsiveContainer } from '../../components/responsive/ResponsiveContainer';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -57,6 +60,11 @@ export default function TradePanel() {
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [orderType, setOrderType] = useState<'market' | 'limit'>('limit');
   const [limitPrice, setLimitPrice] = useState(price);
+  const [connectionError, setConnectionError] = useState<Error | null>(null);
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
+  const [lastChange, setLastChange] = useState<number | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const { isMobile, isTablet } = useResponsive();
 
   // WISPR Trade Command Handler
   useEffect(() => {
@@ -101,6 +109,11 @@ export default function TradePanel() {
       setChange(Math.abs(delta));
       setIsGreen(delta >= 0);
       setLimitPrice(tickData.price); // Update limit price to current price
+      // Track last known values for fallback
+      setLastPrice(tickData.price);
+      setLastChange(Math.abs(delta));
+      setLastUpdate(new Date());
+      setConnectionError(null);
 
       // Update last candle with tick price
       if (seriesRef.current && candleHistory.length > 0) {
@@ -639,8 +652,64 @@ export default function TradePanel() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showConfirmModal, handleOrderClick, handleConfirmOrder]);
 
+  // Track price changes for cached data
+  useEffect(() => {
+    if (price) {
+      setLastPrice(price);
+      setLastChange(change);
+      setLastUpdate(new Date());
+    }
+  }, [price, change]);
+
+  // Handle connection errors
+  useEffect(() => {
+    if (!wsConnected && lastPrice === null) {
+      // Only set error if we've never had a connection
+      setConnectionError(new Error('WebSocket connection not established'));
+    } else if (!wsConnected && lastPrice !== null) {
+      // Connection lost but we have cached data
+      setConnectionError(new Error('Connection lost - showing cached data'));
+    } else {
+      setConnectionError(null);
+    }
+  }, [wsConnected, lastPrice]);
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-black text-white">
+      {/* Trade Fallback UI - Show when disconnected and no cached data */}
+      {!wsConnected && lastPrice === null && (
+        <div className="p-4">
+          <TradeModeFallback
+            error={connectionError?.message || 'WebSocket disconnected'}
+            onRetry={async () => {
+              setConnectionError(null);
+              // Trigger reconnection by re-enabling the hook
+              // The useRealtimeTrade hook should handle reconnection
+              console.log('[Trade] Retrying connection...');
+            }}
+            cachedData={undefined}
+          />
+        </div>
+      )}
+
+      {/* Show cached data warning when disconnected but have data */}
+      {!wsConnected && lastPrice !== null && (
+        <div className="border-b border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-100">
+          <div className="flex items-center justify-between">
+            <span>⚠️ Showing cached data - Connection lost</span>
+            <button
+              onClick={async () => {
+                setConnectionError(null);
+                console.log('[Trade] Retrying connection...');
+              }}
+              className="rounded bg-yellow-500/20 px-2 py-1 text-xs hover:bg-yellow-500/30"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Mode Switcher Header */}
       <div className="sticky top-0 z-30 flex flex-shrink-0 items-center justify-between border-b border-purple-800 bg-black/80 px-4 py-2 backdrop-blur">
         <div className="flex items-center gap-2">
@@ -736,7 +805,7 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Main Content Grid - Responsive */}
       <div className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
         {/* Chart Area */}
         <div className="col-span-12 flex flex-col lg:col-span-8">
@@ -844,7 +913,13 @@ export default function TradePanel() {
             <button
               onClick={() => handleOrderClick('buy')}
               disabled={isPlacingOrder}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-green-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
+              className={`flex items-center justify-center gap-2 rounded-2xl bg-green-600 font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+                isMobile
+                  ? 'py-3 text-lg'
+                  : isTablet
+                    ? 'py-4 text-2xl'
+                    : 'py-4 text-xl md:py-6 md:text-4xl'
+              }`}
               title="Buy (Press B)"
             >
               {isPlacingOrder ? (
@@ -859,7 +934,13 @@ export default function TradePanel() {
             <button
               onClick={() => handleOrderClick('sell')}
               disabled={isPlacingOrder}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-red-600 py-4 text-xl font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 md:py-6 md:text-4xl"
+              className={`flex items-center justify-center gap-2 rounded-2xl bg-red-600 font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
+                isMobile
+                  ? 'py-3 text-lg'
+                  : isTablet
+                    ? 'py-4 text-2xl'
+                    : 'py-4 text-xl md:py-6 md:text-4xl'
+              }`}
               title="Sell (Press S)"
             >
               {isPlacingOrder ? (

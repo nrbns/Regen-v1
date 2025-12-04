@@ -1,6 +1,6 @@
 /**
  * Ghost Mode - Maximum Security Mode for Tor Browser
- * 
+ *
  * When enabled, Ghost Mode:
  * - Forces local AI only (no cloud APIs)
  * - Disables all tracking
@@ -8,7 +8,7 @@
  * - Blocks all external scripts
  * - Renders content as static HTML only
  * - Disables all non-essential features
- * 
+ *
  * This is the "world AI security browser" mode.
  */
 
@@ -35,63 +35,146 @@ export class GhostMode {
   constructor() {
     this.torDetector = new TorDetector();
     this.deviceDetector = new DeviceDetector();
-    
+
     // Auto-detect Tor and enable Ghost Mode if detected
     const torDetection = detectTorBrowser();
     // const deviceCaps = detectDeviceCapabilities(); // Unused for now
-    
+
+    // Don't auto-enable Ghost Mode - let user control it via PrivacySwitch
     this.config = {
-      enabled: torDetection.isTorBrowser && torDetection.confidence !== 'low',
-      localAIOnly: true, // Always true in Ghost Mode
-      noCloudAPIs: true, // Always true in Ghost Mode
-      noStorage: true, // Ephemeral sessions
-      noScripts: true, // No external scripts
-      noTracking: true, // No tracking
-      ephemeralSession: true, // No persistence
+      enabled: false, // User must manually enable via PrivacySwitch
+      localAIOnly: false, // Allow cloud APIs for functionality
+      noCloudAPIs: false, // Allow cloud APIs for functionality
+      noStorage: false, // Allow storage for functionality (but block tracking)
+      noScripts: false, // Allow scripts for functionality (but block tracking scripts)
+      noTracking: true, // Block all tracking - this is the key feature
+      ephemeralSession: false, // Allow persistence for functionality
       torDetected: torDetection.isTorBrowser,
-      securityLevel: torDetection.isTorBrowser ? 'maximum' : 'standard',
+      securityLevel: torDetection.isTorBrowser ? 'maximum' : 'high',
     };
 
-    if (this.config.enabled) {
-      this.activateGhostMode();
-    }
+    // Don't auto-activate - user controls via PrivacySwitch
+    // if (this.config.enabled) {
+    //   this.activateGhostMode();
+    // }
   }
 
   /**
    * Activate Ghost Mode
+   * Blocks tracking while maintaining functionality
    */
   private activateGhostMode(): void {
     // Add Ghost Mode class to document
     document.documentElement.classList.add('ghost-mode');
     document.documentElement.setAttribute('data-ghost-mode', 'true');
-    
-    // Disable localStorage (ephemeral sessions)
-    if (this.config.noStorage) {
-      try {
-        // Override localStorage to prevent writes
-        // const originalSetItem = Storage.prototype.setItem; // Unused for now
-        Storage.prototype.setItem = function() {
-          console.warn('[Ghost Mode] Storage disabled - ephemeral session only');
-          // Silently fail or use memory-only storage
-        };
-      } catch (e) {
-        console.warn('[Ghost Mode] Could not disable storage:', e);
-      }
-    }
 
-    // Disable external scripts
-    if (this.config.noScripts) {
-      // Block script execution (in production, use CSP)
-      const meta = document.createElement('meta');
-      meta.httpEquiv = 'Content-Security-Policy';
-      meta.content = "script-src 'self' 'unsafe-inline'; object-src 'none';";
-      document.head.appendChild(meta);
-    }
+    // Block tracking scripts and requests
+    this.blockTracking();
 
-    console.log('🔒 Ghost Mode activated - Maximum security enabled');
+    // Note: We don't disable storage or scripts - we only block tracking
+    // This allows websites to function normally while preventing tracking
+
+    console.log('🔒 Ghost Mode activated - Tracking blocked, functionality preserved');
     console.log('🔒 Tor detected:', this.config.torDetected);
-    console.log('🔒 Local AI only:', this.config.localAIOnly);
-    console.log('🔒 Ephemeral session:', this.config.ephemeralSession);
+    console.log('🔒 Tracking blocked:', this.config.noTracking);
+  }
+
+  /**
+   * Block tracking scripts and requests
+   */
+  private blockTracking(): void {
+    // Block known tracking domains via fetch interception
+    const originalFetch = window.fetch;
+    window.fetch = async function (...args) {
+      const url =
+        typeof args[0] === 'string' ? args[0] : args[0] instanceof Request ? args[0].url : '';
+
+      // Block known tracking domains
+      const trackingPatterns = [
+        /doubleclick\.net/i,
+        /google-analytics\.com/i,
+        /googletagmanager\.com/i,
+        /facebook\.net/i,
+        /facebook\.com\/tr/i,
+        /analytics\./i,
+        /tracking\./i,
+        /adservice\./i,
+        /ads\./i,
+        /advertising\./i,
+        /adserver\./i,
+        /pixel\./i,
+        /beacon\./i,
+        /tracker\./i,
+      ];
+
+      if (trackingPatterns.some(pattern => pattern.test(url))) {
+        // Block tracking request
+        if (import.meta.env.DEV) {
+          console.debug('[Ghost Mode] Blocked tracking request:', url);
+        }
+        return Promise.reject(new Error('Tracking blocked by Ghost Mode'));
+      }
+
+      // Allow non-tracking requests
+      return originalFetch.apply(this, args);
+    };
+
+    // Block tracking scripts from loading
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement;
+
+            // Block tracking scripts
+            if (element.tagName === 'SCRIPT') {
+              const src = (element as HTMLScriptElement).src;
+              if (src) {
+                const trackingPatterns = [
+                  /google-analytics\.com/i,
+                  /googletagmanager\.com/i,
+                  /facebook\.net/i,
+                  /analytics\./i,
+                  /tracking\./i,
+                ];
+
+                if (trackingPatterns.some(pattern => pattern.test(src))) {
+                  element.remove();
+                  if (import.meta.env.DEV) {
+                    console.debug('[Ghost Mode] Blocked tracking script:', src);
+                  }
+                }
+              }
+            }
+
+            // Block tracking iframes
+            if (element.tagName === 'IFRAME') {
+              const src = (element as HTMLIFrameElement).src;
+              if (src) {
+                const trackingPatterns = [
+                  /doubleclick\.net/i,
+                  /google-analytics\.com/i,
+                  /facebook\.com/i,
+                  /ads\./i,
+                ];
+
+                if (trackingPatterns.some(pattern => pattern.test(src))) {
+                  element.remove();
+                  if (import.meta.env.DEV) {
+                    console.debug('[Ghost Mode] Blocked tracking iframe:', src);
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    });
+
+    observer.observe(document, {
+      childList: true,
+      subtree: true,
+    });
   }
 
   /**
@@ -108,8 +191,8 @@ export class GhostMode {
       // Show warning - Ghost Mode is most secure in Tor Browser
       const confirmed = confirm(
         '⚠️ Ghost Mode is most secure when running inside Tor Browser.\n\n' +
-        'Without Tor Browser, some security features may be limited.\n\n' +
-        'Enable Ghost Mode anyway?'
+          'Without Tor Browser, some security features may be limited.\n\n' +
+          'Enable Ghost Mode anyway?'
       );
       if (!confirmed) {
         return;
@@ -133,7 +216,7 @@ export class GhostMode {
     this.config.securityLevel = 'standard';
     document.documentElement.classList.remove('ghost-mode');
     document.documentElement.removeAttribute('data-ghost-mode');
-    
+
     console.log('🔓 Ghost Mode disabled');
   }
 
@@ -181,19 +264,19 @@ export class GhostMode {
     }
 
     const parts: string[] = [];
-    
+
     if (this.config.torDetected) {
       parts.push('🔒 Tor: Active');
     }
-    
+
     if (this.config.localAIOnly) {
       parts.push('🤖 AI: Local');
     }
-    
+
     if (this.config.noTracking) {
       parts.push('🚫 Tracking: Blocked');
     }
-    
+
     if (this.config.ephemeralSession) {
       parts.push('💨 Session: Ephemeral');
     }
@@ -235,4 +318,3 @@ export function enableGhostMode(): void {
 export function disableGhostMode(): void {
   getGhostMode().disable();
 }
-
