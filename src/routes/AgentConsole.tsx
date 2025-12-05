@@ -21,6 +21,7 @@ import { AgentModeSelector } from '../components/integrations/AgentModeSelector'
 import { multiAgentSystem, type AgentMode } from '../core/agents/multiAgentSystem';
 import { useTabsStore } from '../state/tabsStore';
 import { AgentStagehandIntegration } from './AgentConsole/stagehand-integration';
+import { toast } from '../utils/toast';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -667,7 +668,22 @@ export default function AgentConsole() {
                   className="rounded-lg border border-indigo-500/60 bg-indigo-500/20 px-3 py-1.5 text-xs font-medium text-indigo-100 transition hover:bg-indigo-500/30"
                   onClick={async () => {
                     if (typeof window === 'undefined' || !window.agent) {
-                      alert('Agent API not available. Please ensure you are running in Electron.');
+                      // Fallback to multi-agent system
+                      try {
+                        const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
+                          mode: selectedAgentMode,
+                          tabId: activeId,
+                          url: activeTab?.url,
+                          sessionId: activeTab?.sessionId,
+                        });
+                        if (agentResult.runId) {
+                          setRunId(agentResult.runId);
+                          toast.success('Agent run started');
+                        }
+                      } catch (error: any) {
+                        console.error('[AgentConsole] Fallback execution failed:', error);
+                        alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                      }
                       return;
                     }
                     try {
@@ -701,17 +717,35 @@ export default function AgentConsole() {
                   className="rounded-lg border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:bg-slate-800/80"
                   onClick={async () => {
                     if (typeof window === 'undefined' || !window.agent) {
-                      alert('Agent API not available. Please ensure you are running in Electron.');
+                      // Fallback to multi-agent system
+                      try {
+                        const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
+                          mode: selectedAgentMode,
+                          tabId: activeId,
+                          url: activeTab?.url,
+                          sessionId: activeTab?.sessionId,
+                        });
+                        if (agentResult.runId) {
+                          setRunId(agentResult.runId);
+                          toast.success('Agent run started');
+                        }
+                      } catch (error: any) {
+                        console.error('[AgentConsole] Fallback execution failed:', error);
+                        alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                      }
                       return;
                     }
                     if (runId) {
                       try {
-                        await window.agent.stop(runId);
+                        if (typeof window !== 'undefined' && window.agent) {
+                          await window.agent.stop(runId);
+                        }
+                        setRunId(null);
+                        setIsStreaming(false);
+                        toast.success('Agent run stopped');
                       } catch (error) {
                         console.error('Failed to stop agent run:', error);
-                        alert(
-                          `Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`
-                        );
+                        toast.error(`Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`);
                       }
                     }
                   }}

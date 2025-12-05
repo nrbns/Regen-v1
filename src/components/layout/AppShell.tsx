@@ -130,6 +130,7 @@ import { checkForCrashedLoops } from '../../core/agents/loopResume';
 import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
 import { MobileDock } from './MobileDock';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
+import { ConnectionStatus } from '../common/ConnectionStatus';
 
 declare global {
   interface Window {
@@ -2336,6 +2337,9 @@ export function AppShell() {
           }}
         />
       )}
+
+      {/* Connection Status Indicator */}
+      <ConnectionStatus />
     </div>
   );
 }

@@ -55,6 +55,13 @@
     "start:production": "node scripts/start-production.cjs",
     "test:integration": "node tests/integration-test.cjs",
     "init": "node scripts/init-project.cjs",
+    "arch:init": "node architecture/setup/init-architecture.js",
+    "arch:analyze": "node architecture/analysis/analyze-structure.js",
+    "arch:deploy-check": "node architecture/deployment/deploy-check.js",
+    "arch:health": "node architecture/monitoring/health-check.js",
+    "arch:fix": "node architecture/fix-services.js",
+    "arch:verify": "node architecture/verify-integration.js",
+    "arch": "node architecture/index.js",
     "check-services": "node scripts/check-services.cjs",
     "backup": "node scripts/backup-data.cjs",
     "docs": "echo 'API docs available at http://localhost:4000/api/docs'",
@@ -121,6 +128,7 @@
     "precommit": "lint-staged"
   },
   "dependencies": {
+    "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.2.0",
     "@langchain/anthropic": "^1.0.1",

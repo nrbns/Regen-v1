@@ -16,6 +16,12 @@ import { CSP_DIRECTIVE } from './config/security';
 import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
 import { SettingsSync } from './components/SettingsSync';
 
+// Initialize agent client early
+import './lib/agent-client';
+
+// Initialize app connections
+import { initializeApp } from './lib/initialize-app';
+
 // Import test utility in dev mode
 if (isDevEnv()) {
   import('./utils/testOmniDesk').catch(() => {
@@ -376,6 +382,15 @@ try {
   }
 
   const root = existingRoot || ReactDOM.createRoot(rootElement);
+
+  // Initialize app connections (AI, API, Browser)
+  initializeApp().then(status => {
+    if (isDevEnv()) {
+      console.log('[Main] App initialization status:', status);
+    }
+  }).catch(error => {
+    console.warn('[Main] App initialization warning:', error);
+  });
 
   // Setup research clipper handlers
   setupClipperHandlers();
