@@ -267,3 +267,6 @@ export function getImageAdapter(): ImageModeAdapter {
   }
   return imageAdapterInstance;
 }
+
+
+

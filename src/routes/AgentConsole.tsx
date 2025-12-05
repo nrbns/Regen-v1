@@ -20,6 +20,7 @@ import { useSettingsStore } from '../state/settingsStore';
 import { AgentModeSelector } from '../components/integrations/AgentModeSelector';
 import { multiAgentSystem, type AgentMode } from '../core/agents/multiAgentSystem';
 import { useTabsStore } from '../state/tabsStore';
+import { AgentStagehandIntegration } from './AgentConsole/stagehand-integration';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -879,6 +880,7 @@ export default function AgentConsole() {
           </div>
         </div>
       </div>
+      <AgentStagehandIntegration />
     </div>
   );
 }

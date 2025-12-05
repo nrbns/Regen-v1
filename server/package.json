@@ -1,6 +1,7 @@
 {
   "name": "regen-realtime-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Mock realtime trading server for Trade Mode testing",
   "main": "realtime-server.js",
   "scripts": {

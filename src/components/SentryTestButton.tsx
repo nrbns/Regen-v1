@@ -4,15 +4,16 @@
  */
 
 import * as Sentry from '@sentry/react';
-import { testSentry } from '../lib/sentry';
+// testSentry function not available - using direct Sentry calls instead
 
 export function SentryTestButton() {
   const handleTestError = () => {
     try {
       // This will throw an error that should be captured by Sentry
-      testSentry();
+      throw new Error('Test error from Sentry test button');
     } catch (error) {
       // Error is automatically captured by Sentry
+      Sentry.captureException(error);
       console.error('Test error thrown:', error);
     }
   };

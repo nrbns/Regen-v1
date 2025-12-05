@@ -55,3 +55,6 @@ export function initPerformanceMode(): void {
   // This will be called on app startup to sync with settings
   // The actual state is managed by the settings store
 }
+
+
+

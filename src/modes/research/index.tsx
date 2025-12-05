@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ResearchStagehandIntegration } from './stagehand-integration';
 import { Sparkles, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
@@ -914,6 +915,7 @@ export default function ResearchPanel() {
           // Check web mode before attempting API call
           if (!isWebMode()) {
             try {
+              console.log('[Research] Attempting HTTP API call to backend...');
               backendResult = await researchApi.queryEnhanced({
                 query: searchQuery,
                 maxSources: 12,
@@ -922,12 +924,19 @@ export default function ResearchPanel() {
                 authorityWeight,
                 language: language !== 'auto' ? language : undefined,
               });
-            } catch {
-              // Silently fail - backend is optional
-              // Don't log connection errors - they're expected if backend is unavailable
+              console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
+            } catch (apiError) {
+              // Log the error for debugging
+              console.error('[Research] Backend API call failed:', apiError);
+              console.error('[Research] Error details:', {
+                message: apiError instanceof Error ? apiError.message : String(apiError),
+                stack: apiError instanceof Error ? apiError.stack : undefined,
+              });
+              // Continue with fallback - backend is optional
             }
           } else {
             // In web mode, backendResult remains null and code continues with fallback
+            console.log('[Research] Web mode detected - skipping backend API call');
             backendResult = null;
           }
         }
@@ -1967,11 +1976,13 @@ export default function ResearchPanel() {
   }, []);
 
   return (
-    <LayoutEngine
-      sidebarWidth={0}
-      navHeight={0}
-      className="mode-theme mode-theme--research bg-[#0f111a] text-gray-100"
-    >
+    <>
+      <ResearchStagehandIntegration />
+      <LayoutEngine
+        sidebarWidth={0}
+        navHeight={0}
+        className="mode-theme mode-theme--research bg-[#0f111a] text-gray-100"
+      >
       <LayoutHeader sticky={false} className="border-b border-white/5 bg-black/20 backdrop-blur">
         <div className="flex items-center justify-between px-6 pb-3 pt-6">
           <div className="min-w-0 flex-1">
@@ -2300,6 +2311,7 @@ export default function ResearchPanel() {
         </div>
       )}
     </LayoutEngine>
+    </>
   );
 }
 

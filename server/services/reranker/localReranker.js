@@ -124,3 +124,6 @@ export async function rerankResults(query, results, topK = 5) {
   // Return top K results
   return reranked.slice(0, topK);
 }
+
+
+

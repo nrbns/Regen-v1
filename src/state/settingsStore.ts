@@ -30,6 +30,9 @@ type AppearanceSettings = {
   showTabNumbers: boolean;
   accent: 'blue' | 'purple' | 'emerald';
   chromeNewTabPage?: boolean; // Enable Chrome-style new tab page
+  fontSize?: 'small' | 'medium' | 'large';
+  smoothScrolling?: boolean;
+  reducedMotion?: boolean;
 };
 
 type AccountSettings = {
@@ -87,6 +90,9 @@ const createDefaults = (): SettingsData => ({
     showTabNumbers: true,
     accent: 'purple',
     chromeNewTabPage: true, // Chrome-style new tab page is now the default UI
+    fontSize: 'medium',
+    smoothScrolling: true,
+    reducedMotion: false,
   },
   account: {
     displayName: 'Explorer',

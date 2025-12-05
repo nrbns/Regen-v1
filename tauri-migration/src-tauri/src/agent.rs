@@ -241,7 +241,7 @@ async fn stream_llm_response_ws(
     // Chunk context if it's large
     let context_text = request.context.as_deref().unwrap_or("");
     let chunks = if context_text.len() > 4000 {
-        chunker::chunk_by_sentences(context_text)
+        chunker::chunk_by_sentences(context_text, 4000)
     } else {
         vec![chunker::Chunk {
             text: context_text.to_string(),
@@ -579,7 +579,7 @@ async fn stream_llm_to_window(
     // Similar logic to stream_llm_response_ws but emit to window
     let context_text = request.context.as_deref().unwrap_or("");
     let chunks = if context_text.len() > 4000 {
-        chunker::chunk_by_sentences(context_text)
+        chunker::chunk_by_sentences(context_text, 4000)
     } else {
         vec![chunker::Chunk {
             text: context_text.to_string(),

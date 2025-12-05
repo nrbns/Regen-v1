@@ -32,11 +32,21 @@ interface RequestOptions {
 import { isWebMode } from './env';
 
 async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-  // Skip all backend requests in web mode - no backend available
-  if (isWebMode()) {
-    // In web mode, return a rejected promise that won't log errors
-    // This prevents connection attempts and error spam in console
-    return Promise.reject(new Error('Backend not available in web mode'));
+  // FIX: Allow backend requests in web mode - server may be running
+  // Don't block requests based on mode alone, let the actual connection attempt determine availability
+  const webMode = isWebMode();
+  
+  // In web mode, we should still try to connect to the backend server
+  // The backend-status system will handle connection failures gracefully
+  // Only block if backend is confirmed offline AND we're in web mode
+  if (webMode) {
+    // Check if we can attempt a request (backend might be available)
+    if (!canAttemptBackendRequest()) {
+      // Backend is confirmed offline, but in web mode this is expected
+      // Still allow the attempt - it will fail gracefully and update status
+      // This allows the backend to come online and be detected
+    }
+    // Continue with request attempt - let the fetch handle the connection
   }
 
   const { method = 'GET', body, headers = {}, params } = options;
@@ -61,7 +71,9 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
     requestOptions.body = JSON.stringify(body);
   }
 
-  if (!canAttemptBackendRequest()) {
+  // FIX: In web mode, always attempt the request to check if backend is available
+  // The backend-status system will update based on the actual response
+  if (!webMode && !canAttemptBackendRequest()) {
     throw new Error('Backend offline');
   }
 
@@ -85,15 +97,45 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
     markBackendAvailable();
     return textResult;
   } catch (error) {
-    // Only log errors if backend is expected (not in pure web mode)
-    // In web mode, backend connection failures are expected
-    const isWebMode =
-      typeof window !== 'undefined' && !(window as any).__ELECTRON__ && !(window as any).__TAURI__;
-
-    if (!isWebMode) {
-      console.error(`[API Client] Request failed for ${endpoint}:`, error);
-    }
+    // Mark backend as unavailable if request fails
     markBackendUnavailable(error);
+    
+    // Provide better error messages for connection errors
+    const isConnectionError = 
+      error instanceof TypeError || 
+      (error instanceof Error && (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError') ||
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('connection refused')
+      ));
+    
+    if (isConnectionError) {
+      // Create a more helpful error message
+      const connectionError = new Error(
+        `Backend server is not running. Please start the server with: npm run dev:server\n\n` +
+        `Attempted to connect to: ${url}`
+      );
+      connectionError.name = 'ConnectionError';
+      throw connectionError;
+    }
+    
+    // In web mode, backend failures are expected initially, but log once we know it's down
+    if (webMode) {
+      if (!isConnectionError) {
+        // Server responded but with error - log it
+        console.error(`[API Client] Request failed for ${endpoint}:`, error);
+      }
+      // Connection errors in web mode are expected - don't spam console
+    } else {
+      // In Electron/Tauri mode, always log errors
+      console.error(`[API Client] Request failed for ${endpoint}:`, error);
+      console.error(`[API Client] Error details:`, {
+        message: error instanceof Error ? error.message : String(error),
+        url,
+        method,
+      });
+    }
     throw error;
   }
 }

@@ -5,8 +5,8 @@
  */
 
 use std::sync::Arc;
-use tauri::Window;
-use serde_json::{json, Value};
+use tauri::{Window, Emitter};
+use serde_json::Value;
 
 // CEF Request Handler
 pub struct CefRequestHandler {
@@ -38,9 +38,9 @@ impl CefRequestHandler {
     }
 
     /// Called when context is created - inject content scripts
-    pub fn on_context_created(&self, frame: &str, context: &str) {
+    pub fn on_context_created(&self, _frame: &str, _context: &str) {
         // Inject extractor.js at document_start
-        let inject_script = include_str!("../../../src/content-scripts/extractor.js");
+        let _inject_script = include_str!("../../../src/content-scripts/extractor.js");
         
         // In real CEF, this would be:
         // frame.execute_javascript(&format!(
@@ -48,7 +48,7 @@ impl CefRequestHandler {
         //     inject_script
         // ));
         
-        eprintln!("[CEF] Injected extractor.js into frame: {}", frame);
+        eprintln!("[CEF] Injected extractor.js into frame: {}", _frame);
     }
 }
 

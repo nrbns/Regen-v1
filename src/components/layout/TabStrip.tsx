@@ -797,10 +797,15 @@ export function TabStrip() {
           aria-controls={`tabpanel-${tab.id}`}
           aria-label={`Tab: ${tab.title || 'Untitled'}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
           tabIndex={tab.active ? 0 : -1}
-          layout={false}
-          initial={false}
-          animate={false}
-          exit={false}
+          layout
+          initial={{ opacity: 0, scale: 0.9, x: -20 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          exit={{ opacity: 0, scale: 0.9, x: 20 }}
+          transition={{ 
+            duration: 0.2, 
+            ease: [0.4, 0, 0.2, 1],
+            layout: { duration: 0.3 }
+          }}
           className={`
             relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg
             ${tab.pinned ? 'min-w-[40px] max-w-[40px]' : 'min-w-[100px] max-w-[220px]'} cursor-pointer group

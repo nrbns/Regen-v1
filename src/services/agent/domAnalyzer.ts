@@ -106,11 +106,11 @@ function isInteractive(element: Element): boolean {
   }
 
   // Check for event handlers (simplified)
-  const hasClick = element.getAttribute('onclick') || 
+  const hasClick = !!(element.getAttribute('onclick') || 
                    element.getAttribute('data-action') ||
-                   window.getComputedStyle(element).cursor === 'pointer';
+                   (element instanceof HTMLElement && window.getComputedStyle(element).cursor === 'pointer'));
 
-  return hasClick || false;
+  return hasClick;
 }
 
 /**

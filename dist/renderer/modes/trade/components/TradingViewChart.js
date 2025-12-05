@@ -1,0 +1,463 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ColorType, LineStyle, createChart, } from 'lightweight-charts';
+const DEFAULT_HEIGHT = 560;
+export default function TradingViewChart({ symbol, timeframe, data = [], height = DEFAULT_HEIGHT, indicatorConfig = [], }) {
+    const containerRef = useRef(null);
+    const chartRef = useRef(null);
+    const candleSeriesRef = useRef(null);
+    const indicatorSeriesRef = useRef({});
+    const [isLoading, setIsLoading] = useState(true);
+    const overlayIndicators = useMemo(() => indicatorConfig.filter((indicator) => indicator.enabled && isOverlay(indicator)), [indicatorConfig]);
+    const oscillatorIndicators = useMemo(() => indicatorConfig.filter((indicator) => indicator.enabled && !isOverlay(indicator)), [indicatorConfig]);
+    const overlaySeriesData = useMemo(() => overlayIndicators.map(indicator => ({
+        indicator,
+        values: indicator.type === 'sma'
+            ? calculateSMA(data, indicator.period)
+            : calculateEMA(data, indicator.period),
+    })), [overlayIndicators, data]);
+    const oscillatorSeriesData = useMemo(() => {
+        return oscillatorIndicators
+            .map(indicator => {
+            if (indicator.type === 'rsi') {
+                return { variant: 'rsi', indicator, values: calculateRSI(data, indicator.period) };
+            }
+            if (indicator.type === 'macd') {
+                const macdResult = calculateMACD(data, indicator.fastPeriod, indicator.slowPeriod, indicator.signalPeriod);
+                return { variant: 'macd', indicator, ...macdResult };
+            }
+            return null;
+        })
+            .filter(Boolean);
+    }, [oscillatorIndicators, data]);
+    useEffect(() => {
+        if (!containerRef.current)
+            return;
+        const chart = createChart(containerRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: '#1a1a1a' },
+                textColor: '#d1d5db',
+            },
+            grid: {
+                vertLines: { color: '#2a2a2a', style: 1 },
+                horzLines: { color: '#2a2a2a', style: 1 },
+            },
+            width: containerRef.current.clientWidth,
+            height,
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+                borderColor: '#3a3a3a',
+            },
+            rightPriceScale: {
+                borderColor: '#3a3a3a',
+            },
+            crosshair: {
+                mode: 0,
+                vertLine: {
+                    color: '#818cf8',
+                    width: 1,
+                    style: 2,
+                    labelBackgroundColor: '#4c1d95',
+                },
+                horzLine: {
+                    color: '#818cf8',
+                    width: 1,
+                    style: 2,
+                    labelBackgroundColor: '#4c1d95',
+                },
+            },
+        });
+        const addCandles = chart.addCandlestickSeries ?? chart.addCandlestickSeries;
+        if (typeof addCandles !== 'function') {
+            console.error('[TradingViewChart] addCandlestickSeries is unavailable on chart instance', chart);
+            chartRef.current = chart;
+            return () => {
+                chart.remove();
+                chartRef.current = null;
+            };
+        }
+        chartRef.current = chart;
+        const series = addCandles({
+            upColor: '#26a69a',
+            downColor: '#ef5350',
+            borderUpColor: '#26a69a',
+            borderDownColor: '#ef5350',
+            wickUpColor: '#26a69a',
+            wickDownColor: '#ef5350',
+            priceFormat: {
+                type: 'price',
+                precision: 2,
+                minMove: 0.01,
+            },
+        });
+        candleSeriesRef.current = series;
+        const handleResize = () => {
+            if (containerRef.current) {
+                chart.applyOptions({ width: containerRef.current.clientWidth });
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+            chartRef.current = null;
+            candleSeriesRef.current = null;
+            indicatorSeriesRef.current = {};
+        };
+    }, [height]);
+    useEffect(() => {
+        if (!candleSeriesRef.current || data.length === 0)
+            return;
+        setIsLoading(false);
+        const chartData = data.map(candle => ({
+            time: candle.time,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+        }));
+        candleSeriesRef.current.setData(chartData);
+    }, [data]);
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (!chart)
+            return;
+        const activeIds = new Set(overlaySeriesData.map(entry => entry.indicator.id));
+        Object.entries(indicatorSeriesRef.current).forEach(([id, series]) => {
+            if (!activeIds.has(id)) {
+                chart.removeSeries(series);
+                delete indicatorSeriesRef.current[id];
+            }
+        });
+        overlaySeriesData.forEach(({ indicator, values }) => {
+            if (values.length === 0)
+                return;
+            let series = indicatorSeriesRef.current[indicator.id];
+            if (!series) {
+                // Guard: Check if addLineSeries exists
+                const addLine = chart.addLineSeries ?? chart.addLineSeries;
+                if (typeof addLine !== 'function') {
+                    console.error('[TradingViewChart] addLineSeries is unavailable on chart instance', chart);
+                    return;
+                }
+                series = addLine({
+                    color: indicator.color,
+                    lineWidth: 2,
+                });
+                indicatorSeriesRef.current[indicator.id] = series;
+            }
+            series.applyOptions({
+                color: indicator.color,
+                lineWidth: 2,
+                lineStyle: indicator.type === 'ema' ? LineStyle.Solid : LineStyle.Solid,
+            });
+            series.setData(values);
+        });
+    }, [overlaySeriesData]);
+    return (_jsxs("div", { className: "rounded-lg border border-gray-800 bg-[#1a1a1a] text-white shadow-2xl", children: [_jsxs("div", { className: "flex items-center justify-between border-b border-gray-800 px-4 py-2.5 bg-[#131722]", children: [_jsxs("div", { className: "flex items-center gap-4", children: [_jsxs("div", { children: [_jsx("p", { className: "text-lg font-bold text-white", children: symbol }), _jsxs("p", { className: "text-xs text-gray-400", children: ["Timeframe: ", timeframe, "m"] })] }), _jsxs("div", { className: "hidden md:flex items-center gap-2", children: [_jsx("button", { className: "px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition", title: "Add Indicator", children: "Indicators" }), _jsx("button", { className: "px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition", title: "Drawing Tools", children: "Draw" })] })] }), _jsx("div", { className: "flex items-center gap-3", children: _jsx("span", { className: "text-xs text-gray-500", children: isLoading ? 'Loading…' : `${data.length} candles` }) })] }), _jsx("div", { ref: containerRef, style: { height }, className: "relative" }), oscillatorSeriesData.length > 0 && (_jsx("div", { className: "space-y-3 border-t border-white/5 bg-black/20 px-4 py-4", children: oscillatorSeriesData.map(entry => (_jsx(IndicatorPane, { ...entry }, entry.indicator.id))) }))] }));
+}
+function IndicatorPane(props) {
+    const containerRef = useRef(null);
+    const chartRef = useRef(null);
+    const lineSeriesRef = useRef([]);
+    const histogramRef = useRef(null);
+    const priceLinesRef = useRef({});
+    const height = props.variant === 'rsi' ? 160 : 200;
+    const macdIndicator = props.variant === 'macd' ? props.indicator : null;
+    const macdSignalColor = macdIndicator?.signalColor;
+    const macdHistogramColor = macdIndicator?.histogramColor;
+    const rsiIndicator = props.variant === 'rsi' ? props.indicator : null;
+    const macdData = props.variant === 'macd' ? props.macd : null;
+    const macdSignalData = props.variant === 'macd' ? props.signal : null;
+    const macdHistogramData = props.variant === 'macd' ? props.histogram : null;
+    useEffect(() => {
+        if (!containerRef.current)
+            return;
+        const chart = createChart(containerRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: '#04050a' },
+                textColor: '#d1d5db',
+            },
+            grid: {
+                vertLines: { color: '#0f172a' },
+                horzLines: { color: '#0f172a' },
+            },
+            width: containerRef.current.clientWidth,
+            height,
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+                borderColor: '#1f2937',
+            },
+            rightPriceScale: {
+                borderColor: '#1f2937',
+            },
+        });
+        chartRef.current = chart;
+        // Define handleResize before using it
+        function handleResize() {
+            if (containerRef.current && chart) {
+                chart.applyOptions({ width: containerRef.current.clientWidth });
+            }
+        }
+        // Guard: Check if chart methods exist
+        const addLine = chart.addLineSeries ?? chart.addLineSeries;
+        const addHistogram = chart.addHistogramSeries ?? chart.addHistogramSeries;
+        if (typeof addLine !== 'function') {
+            console.error('[TradingViewChart] addLineSeries is unavailable on chart instance', chart);
+            return () => {
+                window.removeEventListener('resize', handleResize);
+                chart.remove();
+                chartRef.current = null;
+                lineSeriesRef.current = [];
+                histogramRef.current = null;
+                priceLinesRef.current = {};
+            };
+        }
+        if (props.variant === 'rsi') {
+            const rsiSeries = addLine({
+                color: props.indicator.color,
+                lineWidth: 2,
+            });
+            lineSeriesRef.current = [rsiSeries];
+            if (props.values.length > 0) {
+                rsiSeries.setData(props.values);
+            }
+        }
+        else {
+            const macdSeries = addLine({
+                color: props.indicator.color,
+                lineWidth: 2,
+            });
+            const signalSeries = addLine({
+                color: macdIndicator?.signalColor ?? props.indicator.color,
+                lineWidth: 2,
+            });
+            // Guard: Check if addHistogramSeries exists
+            if (typeof addHistogram !== 'function') {
+                console.error('[TradingViewChart] addHistogramSeries is unavailable on chart instance', chart);
+                lineSeriesRef.current = [macdSeries, signalSeries];
+                if (props.macd.length > 0) {
+                    macdSeries.setData(props.macd);
+                }
+                if (props.signal.length > 0) {
+                    signalSeries.setData(props.signal);
+                }
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    chart.remove();
+                    chartRef.current = null;
+                    lineSeriesRef.current = [];
+                    histogramRef.current = null;
+                    priceLinesRef.current = {};
+                };
+            }
+            const histogramSeries = addHistogram({
+                color: macdIndicator?.histogramColor ?? props.indicator.color,
+                base: 0,
+            });
+            lineSeriesRef.current = [macdSeries, signalSeries];
+            histogramRef.current = histogramSeries;
+            if (props.macd.length > 0) {
+                macdSeries.setData(props.macd);
+            }
+            if (props.signal.length > 0) {
+                signalSeries.setData(props.signal);
+            }
+            if (props.histogram.length > 0) {
+                histogramSeries.setData(props.histogram);
+            }
+        }
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+            chartRef.current = null;
+            lineSeriesRef.current = [];
+            histogramRef.current = null;
+            priceLinesRef.current = {};
+        };
+    }, [
+        props.indicator.id,
+        props.variant,
+        props.indicator.color,
+        macdSignalColor,
+        macdHistogramColor,
+        height,
+    ]);
+    useEffect(() => {
+        if (props.variant === 'rsi' && rsiIndicator) {
+            const [series] = lineSeriesRef.current;
+            if (!series)
+                return;
+            if (props.values.length > 0) {
+                series.setData(props.values);
+            }
+            if (priceLinesRef.current.upper && typeof series.removePriceLine === 'function') {
+                series.removePriceLine(priceLinesRef.current.upper);
+            }
+            if (priceLinesRef.current.lower && typeof series.removePriceLine === 'function') {
+                series.removePriceLine(priceLinesRef.current.lower);
+            }
+            if (rsiIndicator.upperBand && typeof series.createPriceLine === 'function') {
+                priceLinesRef.current.upper = series.createPriceLine({
+                    price: rsiIndicator.upperBand,
+                    color: '#fda4af',
+                    lineWidth: 1,
+                    lineStyle: LineStyle.Dashed,
+                    axisLabelVisible: true,
+                });
+            }
+            if (rsiIndicator.lowerBand && typeof series.createPriceLine === 'function') {
+                priceLinesRef.current.lower = series.createPriceLine({
+                    price: rsiIndicator.lowerBand,
+                    color: '#bfdbfe',
+                    lineWidth: 1,
+                    lineStyle: LineStyle.Dashed,
+                    axisLabelVisible: true,
+                });
+            }
+        }
+        else {
+            const [macdSeries, signalSeries] = lineSeriesRef.current;
+            if (macdSeries && macdData && macdData.length > 0) {
+                macdSeries.setData(macdData);
+            }
+            if (signalSeries && macdSignalData && macdSignalData.length > 0) {
+                signalSeries.setData(macdSignalData);
+            }
+            if (histogramRef.current && macdHistogramData && macdHistogramData.length > 0) {
+                histogramRef.current.setData(macdHistogramData);
+            }
+        }
+    }, [props, macdData, macdSignalData, macdHistogramData]);
+    return (_jsxs("div", { className: "rounded-2xl border border-white/10 bg-black/30 p-3 text-xs text-gray-300 shadow-inner shadow-black/30", children: [_jsxs("div", { className: "mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-gray-400", children: [_jsx("span", { className: "text-sm font-semibold text-white", children: props.indicator.label }), props.variant === 'rsi' ? (_jsxs("span", { children: ["Period ", props.indicator.period, " \u2022 Bands ", props.indicator.lowerBand ?? 30, "/", props.indicator.upperBand ?? 70] })) : (_jsxs("span", { children: ["Fast ", props.indicator.fastPeriod, " / Slow ", props.indicator.slowPeriod, " / Signal", ' ', props.indicator.signalPeriod] }))] }), _jsx("div", { ref: containerRef, style: { height } })] }));
+}
+function isOverlay(indicator) {
+    return indicator.type === 'sma' || indicator.type === 'ema';
+}
+function calculateSMA(data, period) {
+    if (!data.length || period <= 1)
+        return [];
+    const values = [];
+    for (let i = period - 1; i < data.length; i += 1) {
+        const window = data.slice(i - period + 1, i + 1);
+        const avg = window.reduce((sum, candle) => sum + candle.close, 0) / period;
+        values.push({
+            time: data[i].time,
+            value: Number(avg.toFixed(4)),
+        });
+    }
+    return values;
+}
+function calculateEMA(data, period) {
+    if (!data.length || period <= 1)
+        return [];
+    const closes = data.map(candle => candle.close ?? null);
+    const emaValues = computeEMA(closes, period);
+    const values = [];
+    emaValues.forEach((value, idx) => {
+        if (value === null)
+            return;
+        values.push({
+            time: data[idx].time,
+            value: Number(value.toFixed(4)),
+        });
+    });
+    return values;
+}
+function calculateRSI(data, period) {
+    if (data.length <= period)
+        return [];
+    const values = [];
+    let gains = 0;
+    let losses = 0;
+    for (let i = 1; i <= period; i += 1) {
+        const change = data[i].close - data[i - 1].close;
+        if (change >= 0)
+            gains += change;
+        else
+            losses -= change;
+    }
+    let avgGain = gains / period;
+    let avgLoss = losses / period;
+    for (let i = period + 1; i < data.length; i += 1) {
+        const change = data[i].close - data[i - 1].close;
+        if (change >= 0) {
+            avgGain = (avgGain * (period - 1) + change) / period;
+            avgLoss = (avgLoss * (period - 1)) / period;
+        }
+        else {
+            avgGain = (avgGain * (period - 1)) / period;
+            avgLoss = (avgLoss * (period - 1) - change) / period;
+        }
+        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        const rsi = 100 - 100 / (1 + rs);
+        values.push({
+            time: data[i].time,
+            value: Number(rsi.toFixed(2)),
+        });
+    }
+    return values;
+}
+function calculateMACD(data, fastPeriod, slowPeriod, signalPeriod) {
+    if (data.length < slowPeriod) {
+        return { macd: [], signal: [], histogram: [] };
+    }
+    const closes = data.map(candle => candle.close ?? null);
+    const fastEma = computeEMA(closes, fastPeriod);
+    const slowEma = computeEMA(closes, slowPeriod);
+    const macdRaw = [];
+    for (let i = 0; i < data.length; i += 1) {
+        const fast = fastEma[i];
+        const slow = slowEma[i];
+        if (fast === null || slow === null) {
+            macdRaw.push(null);
+            continue;
+        }
+        macdRaw.push(fast - slow);
+    }
+    const signalEma = computeEMA(macdRaw, signalPeriod);
+    const macd = [];
+    const signal = [];
+    const histogram = [];
+    for (let i = 0; i < data.length; i += 1) {
+        const macdValue = macdRaw[i];
+        const signalValue = signalEma[i];
+        if (macdValue === null || signalValue === null)
+            continue;
+        const time = data[i].time;
+        macd.push({ time, value: Number(macdValue.toFixed(4)) });
+        signal.push({ time, value: Number(signalValue.toFixed(4)) });
+        histogram.push({
+            time,
+            value: Number((macdValue - signalValue).toFixed(4)),
+            color: macdValue - signalValue >= 0 ? '#34d399' : '#f87171',
+        });
+    }
+    return { macd, signal, histogram };
+}
+function computeEMA(values, period) {
+    const result = Array(values.length).fill(null);
+    const multiplier = 2 / (period + 1);
+    let ema = null;
+    for (let i = 0; i < values.length; i += 1) {
+        const value = values[i];
+        if (value === null)
+            continue;
+        if (ema === null) {
+            const window = values.slice(i - period + 1, i + 1);
+            if (window.length < period || window.some(item => item === null)) {
+                continue;
+            }
+            const sum = window.reduce((acc, item) => acc + (item ?? 0), 0);
+            ema = sum / period;
+        }
+        else {
+            ema = value * multiplier + ema * (1 - multiplier);
+        }
+        result[i] = ema;
+    }
+    return result;
+}

@@ -139,4 +139,8 @@ export default defineConfig({
       host: 'localhost',
     },
   },
+  define: {
+    // Ensure process.env is available for compatibility
+    'process.env': {},
+  },
 });

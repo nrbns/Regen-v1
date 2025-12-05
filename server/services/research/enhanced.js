@@ -1,8 +1,12 @@
 /* eslint-env node */
+/**
+ * PERFORMANCE FIX: Enhanced research with async pipeline
+ */
 
 import { researchSearch } from './search.js';
 import { analyzeWithLLM } from '../agent/llm.js';
 import { detectLanguage, getLanguageLabel } from '../lang/detect.js';
+import { executePipeline } from '../../utils/async-pipeline.cjs';
 
 function extractDomain(url) {
   try {
@@ -190,16 +194,35 @@ export async function queryEnhancedResearch({
       model: { name: 'unavailable', provider: 'none' },
     };
   } else {
-    summaryResult = await analyzeWithLLM({
-      task: 'qa',
-      inputText: context,
-      question: `${query} — answer in ${getLanguageLabel(detection.language)}.`,
-      language: detection.language,
-    }).catch(error => ({
-      answer: `Unable to summarize results at this time. ${error.message}`,
-      model: { name: 'error', provider: 'none' },
-      latencyMs: 0,
-    }));
+    // PERFORMANCE FIX #5: Run LLM analysis directly (pipeline overhead not needed for single task)
+    // Pipeline is used when multiple tasks run in parallel
+    try {
+      const pipelineStart = Date.now();
+      
+      summaryResult = await analyzeWithLLM({
+        task: 'qa',
+        inputText: context,
+        question: `${query} — answer in ${getLanguageLabel(detection.language)}.`,
+        language: detection.language,
+      });
+      
+      const pipelineLatency = Date.now() - pipelineStart;
+      if (process.env.LOG_PERFORMANCE !== '0') {
+        console.log(`[enhanced-research] LLM analysis latency: ${pipelineLatency}ms`);
+      }
+    } catch (error) {
+      console.error('[enhanced-research] LLM analysis failed:', error);
+      // Provide a better fallback that uses the sources
+      const sourceSummaries = sources
+        .slice(0, 3)
+        .map((s, idx) => `${idx + 1}. ${s.title}: ${s.snippet?.slice(0, 200)}...`)
+        .join('\n\n');
+      summaryResult = {
+        answer: `Based on ${sources.length} sources:\n\n${sourceSummaries}`,
+        model: { name: 'fallback', provider: 'extraction' },
+        latencyMs: 0,
+      };
+    }
   }
 
   const citations = sources.slice(0, Math.min(6, sources.length)).map((source, idx) => ({

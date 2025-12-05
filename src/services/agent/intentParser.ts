@@ -124,7 +124,7 @@ function parseLLMResponse(response: string, originalCommand: string): ParsedInte
     }
   } catch (e) {
     console.warn('[IntentParser] Failed to parse JSON, using fallback:', e);
-    return fallbackParse(originalCommand, { elements: [] } as PageSnapshot);
+    return fallbackParse(originalCommand, { elements: [] } as unknown as PageSnapshot);
   }
 
   // Calculate overall confidence

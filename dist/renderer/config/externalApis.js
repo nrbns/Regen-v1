@@ -1,0 +1,103 @@
+/**
+ * External APIs Configuration
+ * Defines available external APIs for different modes
+ */
+export const EXTERNAL_APIS = [
+    // Research mode APIs
+    {
+        id: 'openai',
+        name: 'OpenAI',
+        description: 'GPT models for research and analysis',
+        mode: 'research',
+        authType: 'apiKey',
+        authEnvKey: 'OPENAI_API_KEY',
+        docsUrl: 'https://platform.openai.com/docs',
+        rateLimitPerMin: 60,
+    },
+    {
+        id: 'anthropic',
+        name: 'Anthropic',
+        description: 'Claude models for research',
+        mode: 'research',
+        authType: 'apiKey',
+        authEnvKey: 'ANTHROPIC_API_KEY',
+        docsUrl: 'https://docs.anthropic.com',
+        rateLimitPerMin: 50,
+    },
+    // Trade mode APIs
+    {
+        id: 'finnhub',
+        name: 'Finnhub',
+        description: 'Real-time market data for NSE/BSE, US markets, and crypto',
+        mode: 'trade',
+        authType: 'apiKey',
+        authEnvKey: 'FINNHUB_API_KEY',
+        baseUrl: 'https://finnhub.io/api/v1',
+        docsUrl: 'https://finnhub.io/docs/api',
+        rateLimitPerMin: 60, // Free tier: 60 calls/min
+    },
+    {
+        id: 'zerodha',
+        name: 'Zerodha Kite',
+        description: 'Real-time order execution for NSE/BSE (India)',
+        mode: 'trade',
+        authType: 'apiKey',
+        authEnvKey: 'ZERODHA_API_KEY',
+        docsUrl: 'https://kite.trade/docs/connect/v3',
+        rateLimitPerMin: 300, // Kite Connect rate limits
+    },
+    {
+        id: 'binance',
+        name: 'Binance',
+        description: 'Real-time crypto prices via WebSocket',
+        mode: 'trade',
+        authType: 'none',
+        baseUrl: 'https://api.binance.com',
+        docsUrl: 'https://binance-docs.github.io/apidocs/spot/en',
+        rateLimitPerMin: 1200, // Binance allows high rate limits
+    },
+    {
+        id: 'alpaca',
+        name: 'Alpaca',
+        description: 'Stock trading API (US markets)',
+        mode: 'trade',
+        authType: 'apiKey',
+        authEnvKey: 'ALPACA_API_KEY',
+        docsUrl: 'https://alpaca.markets/docs',
+    },
+    // Threat mode APIs
+    {
+        id: 'virustotal',
+        name: 'VirusTotal',
+        description: 'Threat intelligence API',
+        mode: 'threat',
+        authType: 'apiKey',
+        authEnvKey: 'VIRUSTOTAL_API_KEY',
+        docsUrl: 'https://developers.virustotal.com',
+        rateLimitPerMin: 4,
+    },
+    // Image mode APIs
+    {
+        id: 'stability',
+        name: 'Stability AI',
+        description: 'Image generation API',
+        mode: 'image',
+        authType: 'apiKey',
+        authEnvKey: 'STABILITY_API_KEY',
+        docsUrl: 'https://platform.stability.ai/docs',
+    },
+];
+export function getDefaultEnabledApis() {
+    return {
+        research: [],
+        trade: ['finnhub', 'binance'], // Enable Finnhub and Binance by default (free tiers)
+        threat: [],
+        image: [],
+    };
+}
+export function getApiById(apiId) {
+    return EXTERNAL_APIS.find(api => api.id === apiId);
+}
+export function getApisForMode(mode) {
+    return EXTERNAL_APIS.filter(api => api.mode === mode || (Array.isArray(api.mode) && api.mode.includes(mode)));
+}

@@ -13,6 +13,9 @@ import { useSettingsStore } from '../../state/settingsStore';
 import { useAppStore } from '../../state/appStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
+import { useOptimizedView } from '../../hooks/useOptimizedView';
+import { getIframeManager, throttleViewUpdate } from '../../utils/gve-optimizer';
+import { BrowserAutomationBridge } from '../browser/BrowserAutomationBridge';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
@@ -36,6 +39,19 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const [loading, setLoading] = useState(false);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
+  
+  // GVE Optimization: Use optimized view hook
+  const { queueUpdate: _queueUpdate } = useOptimizedView({
+    iframeId: tab?.id,
+    lazy: !tab?.active,
+    sandbox: SAFE_IFRAME_SANDBOX.split(' '),
+    onResize: (_rect) => {
+      // Handle resize with throttled updates
+      throttleViewUpdate(() => {
+        // Update view if needed
+      });
+    },
+  });
   // const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Not used - BrowserView managed by main process
   // const retryCountRef = useRef(0); // Not used - BrowserView managed by main process
 
@@ -578,7 +594,22 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       {/* For Tauri and web builds, use iframe (Tauri v2 doesn't support webview tag) */}
       {!isElectron && targetUrl ? (
         <iframe
-          ref={iframeRef}
+          ref={el => {
+            if (el) {
+              iframeRef.current = el;
+              // GVE Optimization: Register iframe with optimizations
+              if (tab?.id) {
+                const iframeManager = getIframeManager();
+                throttleViewUpdate(() => {
+                  iframeManager.registerIframe(tab.id, el, {
+                    lazy: !tab.active,
+                    sandbox: SAFE_IFRAME_SANDBOX.split(' '),
+                    allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access',
+                  });
+                });
+              }
+            }
+          }}
           className="h-full w-full border-0"
           style={{
             position: 'absolute',
@@ -589,11 +620,16 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             width: '100%',
             height: '100%',
             border: 'none',
+            // GVE Optimization: Performance improvements
+            contentVisibility: tab?.active ? 'auto' : 'hidden',
+            contain: 'layout style paint',
           }}
           src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
           sandbox={SAFE_IFRAME_SANDBOX}
           allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access"
           referrerPolicy="no-referrer"
+          loading={tab?.active ? 'eager' : 'lazy'}
+          fetchPriority={tab?.active ? 'high' : 'low'}
           title={tab?.title ?? 'Tab content'}
           aria-label={
             tab?.title
@@ -747,6 +783,15 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Browser Automation Bridge - connects automation API with iframe */}
+      {tab && !isElectron && iframeRef.current && (
+        <BrowserAutomationBridge
+          tabId={tab.id}
+          iframeId={tab.id}
+          sessionId={`tab-${tab.id}`}
+        />
+      )}
     </motion.div>
   );
 }

@@ -68,7 +68,7 @@ export function useSessionSync(): SessionSyncState {
   };
 }
 
-function formatRelativeTime(date: Date): string {
+function _formatRelativeTime(date: Date): string {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const seconds = Math.floor(diff / 1000);

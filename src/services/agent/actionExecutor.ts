@@ -233,7 +233,7 @@ async function executeExtract(action: ParsedAction, snapshot?: PageSnapshot): Pr
 
   return {
     selector: action.selector,
-    text: element.textContent || element.innerText,
+    text: element.textContent || (element instanceof HTMLElement ? element.innerText : ''),
     html: element.innerHTML,
     extracted: true,
   };

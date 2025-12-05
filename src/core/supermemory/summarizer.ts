@@ -55,7 +55,7 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
     // Call AI backend for summarization
     try {
       // Try OpenAI/Hugging Face/Ollama endpoint
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:8000';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
       
       // First try the /redix/ask endpoint
       const response = await fetch(`${apiUrl}/redix/ask`, {

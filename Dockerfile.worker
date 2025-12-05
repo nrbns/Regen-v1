@@ -1,0 +1,24 @@
+# Dockerfile for Frontier Worker (Python)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements-worker.txt /app/
+RUN pip install --no-cache-dir -r requirements-worker.txt
+
+# Copy worker code
+COPY workers/pg_worker.py /app/workers/
+COPY scripts/migrate-cursor-to-frontier.py /app/scripts/
+
+# Run worker
+CMD ["python", "workers/pg_worker.py"]
+
+
+
+

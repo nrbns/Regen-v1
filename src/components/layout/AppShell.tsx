@@ -173,7 +173,7 @@ class ErrorBoundary extends React.Component<
     this.setState({ error, errorInfo: errorInfo.componentStack ?? undefined });
 
     // Optional: Send to error tracking service (e.g., Sentry)
-    if (process.env.NODE_ENV === 'production') {
+    if (import.meta.env.PROD) {
       // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
     }
   }
@@ -654,7 +654,7 @@ export function AppShell() {
           try {
             (window as any).__omnix_apply_topbar();
           } catch (error) {
-            if (process.env.NODE_ENV === 'development') {
+            if (import.meta.env.DEV) {
               console.warn('[AppShell] Failed to notify injected topbar script', error);
             }
           }
@@ -727,11 +727,11 @@ export function AppShell() {
 
     try {
       (window as any).ui.setRightDock(panelWidth);
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         // Debug logging removed for production
       }
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn('[AppShell] Failed to update right panel width:', error);
       }
     }

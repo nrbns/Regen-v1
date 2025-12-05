@@ -65,3 +65,6 @@ export function getLanguageMeta(code?: string): LanguageMeta {
   const normalized = code.toLowerCase();
   return META_MAP[normalized] || DEFAULT_META;
 }
+
+
+

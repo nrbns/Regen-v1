@@ -13,6 +13,7 @@ import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useSettingsStore } from '../../state/settingsStore';
 import { deriveTitleFromUrl } from '../../lib/ipc-typed';
 import { applyPrivacyModeToIframe } from '../../utils/privacyMode';
+import { getIframeManager, getViewRenderer, throttleViewUpdate } from '../../utils/gve-optimizer';
 
 interface TabIframeManagerProps {
   tabs: Tab[];
@@ -65,6 +66,10 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
 
   // PR: Fix tab switch - use useRef map to store iframe refs (stable, doesn't cause re-renders)
   const iframeRefs = useRef<Map<string, HTMLIFrameElement>>(new Map());
+  
+  // GVE Optimization: Initialize iframe manager and renderer
+  const iframeManager = useRef(getIframeManager());
+  const _renderer = useRef(getViewRenderer());
 
   // PR: Fix tab switch - track which tabs have X-Frame-Options blocking
   const blockedTabs = useRef<Set<string>>(new Set());
@@ -78,8 +83,24 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
   const setIframeRef = (tabId: string) => (el: HTMLIFrameElement | null) => {
     if (el) {
       iframeRefs.current.set(tabId, el);
+      // GVE Optimization: Register iframe with optimizations
+      if (!isElectron) {
+        throttleViewUpdate(() => {
+          iframeManager.current.registerIframe(tabId, el, {
+            lazy: true,
+            sandbox: privacyMode 
+              ? ['allow-scripts', 'allow-forms', 'allow-popups'] 
+              : SAFE_IFRAME_SANDBOX.split(' '),
+            allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access',
+          });
+        });
+      }
     } else {
       iframeRefs.current.delete(tabId);
+      // GVE Optimization: Unregister iframe
+      if (!isElectron) {
+        iframeManager.current.unregisterIframe(tabId);
+      }
     }
   };
 
@@ -169,6 +190,12 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
     // Cleanup function
     return () => {
       clearInterval(interval);
+      // GVE Optimization: Cleanup iframe manager
+      if (!isElectron) {
+        iframeRefs.current.forEach((_iframe, tabId) => {
+          iframeManager.current.unregisterIframe(tabId);
+        });
+      }
       // Cleanup all iframe event listeners and observers
       iframeRefs.current.forEach((iframe, tabId) => {
         // Cleanup stored cleanup function
@@ -254,12 +281,19 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
               if (el && privacyMode) {
                 applyPrivacyModeToIframe(el, privacyMode);
               }
+              // GVE Optimization: Apply performance optimizations
+              if (el && !isElectron) {
+                el.style.contentVisibility = isActive ? 'auto' : 'hidden';
+                el.style.contain = 'layout style paint';
+                el.setAttribute('fetchpriority', isActive ? 'high' : 'low');
+              }
             }}
             src={currentIframeUrl}
             title={tab.title ?? 'Tab content'}
             sandbox={privacyMode ? 'allow-scripts allow-forms allow-popups' : SAFE_IFRAME_SANDBOX}
             allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access"
             referrerPolicy={privacyMode ? 'no-referrer' : 'no-referrer-when-downgrade'}
+            loading={isActive ? 'eager' : 'lazy'}
             className="absolute inset-0 h-full w-full border-0"
             style={{
               // PR: Fix tab switch - toggle visibility with CSS, never unmount
@@ -268,6 +302,9 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
               pointerEvents: isActive ? 'auto' : 'none',
               zIndex: isActive ? 1 : 0,
               visibility: isActive ? 'visible' : 'hidden',
+              // GVE Optimization: Performance improvements
+              contentVisibility: isActive ? 'auto' : 'hidden',
+              contain: 'layout style paint',
             }}
             aria-label={
               tab.title

@@ -27,6 +27,7 @@ import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
 import { EXTERNAL_APIS, getApisForMode, type ExternalAPI } from '../config/externalApis';
 import { formatDistanceToNow } from 'date-fns';
 import { PrivacyDashboard } from '../components/integrations/PrivacyDashboard';
+import { useTheme } from '../ui/theme';
 
 // Helper Components
 function SectionCard({
@@ -219,23 +220,25 @@ function AccountsPanel() {
 function AppearancePanel() {
   const settings = useSettingsStore();
   const appearance = settings.appearance;
+  const { preference, setPreference } = useTheme();
 
   return (
     <div className="space-y-6">
       <SectionCard title="Theme" icon={Palette}>
         <LabeledField label="Color Scheme">
           <select
-            value={appearance.theme || 'dark'}
-            onChange={e =>
-              settings.updateAppearance({ theme: e.target.value as 'light' | 'dark' | 'system' })
-            }
+            value={preference || 'system'}
+            onChange={e => setPreference(e.target.value as 'light' | 'dark' | 'system')}
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
+            <option value="system">System (Auto)</option>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
-            <option value="system">System</option>
           </select>
         </LabeledField>
+        <p className="text-xs text-slate-400">
+          System mode automatically switches between light and dark based on your OS preference
+        </p>
         <ToggleRow
           label="Compact UI"
           checked={appearance.compactUI || false}
@@ -247,6 +250,34 @@ function AppearancePanel() {
           checked={appearance.chromeNewTabPage ?? true}
           onChange={checked => settings.updateAppearance({ chromeNewTabPage: checked })}
           description="Use Google Chrome-style new tab page"
+        />
+      </SectionCard>
+
+      <SectionCard title="Display" icon={Palette}>
+        <LabeledField label="Font Size">
+          <select
+            value={appearance.fontSize || 'medium'}
+            onChange={e =>
+              settings.updateAppearance({ fontSize: e.target.value as 'small' | 'medium' | 'large' })
+            }
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          >
+            <option value="small">Small</option>
+            <option value="medium">Medium</option>
+            <option value="large">Large</option>
+          </select>
+        </LabeledField>
+        <ToggleRow
+          label="Smooth Scrolling"
+          checked={appearance.smoothScrolling ?? true}
+          onChange={checked => settings.updateAppearance({ smoothScrolling: checked })}
+          description="Enable smooth scrolling animations"
+        />
+        <ToggleRow
+          label="Reduced Motion"
+          checked={appearance.reducedMotion || false}
+          onChange={checked => settings.updateAppearance({ reducedMotion: checked })}
+          description="Reduce animations for better performance"
         />
       </SectionCard>
     </div>

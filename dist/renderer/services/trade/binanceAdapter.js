@@ -1,0 +1,183 @@
+/**
+ * Binance Trade Adapter - PR 006
+ * WebSocket subscription and mock placeOrder for paper trading
+ */
+class BinanceAdapter {
+    ws = null;
+    reconnectAttempts = 0;
+    maxReconnectAttempts = 5;
+    reconnectDelay = 1000;
+    subscribers = new Set();
+    isPaperTrade = true;
+    /**
+     * Connect to Binance WebSocket (mock for paper trading)
+     */
+    connect(symbols = ['BTCUSDT', 'ETHUSDT']) {
+        return new Promise((resolve, reject) => {
+            try {
+                // For paper trading, use mock WebSocket
+                if (this.isPaperTrade) {
+                    this.startMockWebSocket(symbols);
+                    resolve();
+                    return;
+                }
+                // Real Binance WebSocket (for future implementation)
+                const streamNames = symbols.map(s => `${s.toLowerCase()}@ticker`).join('/');
+                const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streamNames}`;
+                this.ws = new WebSocket(wsUrl);
+                this.ws.onopen = () => {
+                    console.log('[BinanceAdapter] WebSocket connected');
+                    this.reconnectAttempts = 0;
+                    resolve();
+                };
+                this.ws.onmessage = event => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.stream && data.data) {
+                            const marketData = {
+                                symbol: data.data.s,
+                                price: parseFloat(data.data.c),
+                                volume: parseFloat(data.data.v),
+                                timestamp: Date.now(),
+                            };
+                            this.notifySubscribers(marketData);
+                        }
+                    }
+                    catch (error) {
+                        console.error('[BinanceAdapter] Error parsing message:', error);
+                    }
+                };
+                this.ws.onerror = error => {
+                    console.error('[BinanceAdapter] WebSocket error:', error);
+                    reject(error);
+                };
+                this.ws.onclose = () => {
+                    console.log('[BinanceAdapter] WebSocket closed');
+                    this.attemptReconnect(symbols);
+                };
+            }
+            catch (error) {
+                reject(error);
+            }
+        });
+    }
+    /**
+     * Mock WebSocket for paper trading
+     */
+    startMockWebSocket(symbols) {
+        console.log('[BinanceAdapter] Starting mock WebSocket for paper trading');
+        // Simulate market data updates
+        const interval = setInterval(() => {
+            if (this.ws?.readyState === WebSocket.CLOSED) {
+                clearInterval(interval);
+                return;
+            }
+            symbols.forEach(symbol => {
+                const basePrice = this.getMockBasePrice(symbol);
+                const price = basePrice + (Math.random() - 0.5) * basePrice * 0.02; // ±1% variation
+                const volume = Math.random() * 1000000;
+                const marketData = {
+                    symbol,
+                    price,
+                    volume,
+                    timestamp: Date.now(),
+                };
+                this.notifySubscribers(marketData);
+            });
+        }, 1000); // Update every second
+    }
+    /**
+     * Get mock base price for symbol
+     */
+    getMockBasePrice(symbol) {
+        const prices = {
+            BTCUSDT: 45000,
+            ETHUSDT: 2500,
+            BNBUSDT: 300,
+            ADAUSDT: 0.5,
+            SOLUSDT: 100,
+        };
+        return prices[symbol] || 100;
+    }
+    /**
+     * Attempt to reconnect WebSocket
+     */
+    attemptReconnect(symbols) {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            console.error('[BinanceAdapter] Max reconnect attempts reached');
+            return;
+        }
+        this.reconnectAttempts++;
+        setTimeout(() => {
+            console.log(`[BinanceAdapter] Reconnecting (attempt ${this.reconnectAttempts})...`);
+            this.connect(symbols).catch(console.error);
+        }, this.reconnectDelay * this.reconnectAttempts);
+    }
+    /**
+     * Subscribe to market data updates
+     */
+    subscribe(callback) {
+        this.subscribers.add(callback);
+        return () => {
+            this.subscribers.delete(callback);
+        };
+    }
+    /**
+     * Notify all subscribers
+     */
+    notifySubscribers(data) {
+        this.subscribers.forEach(callback => {
+            try {
+                callback(data);
+            }
+            catch (error) {
+                console.error('[BinanceAdapter] Error in subscriber callback:', error);
+            }
+        });
+    }
+    /**
+     * Place order (paper trade stub)
+     */
+    async placeOrder(order) {
+        if (this.isPaperTrade) {
+            // Mock order execution
+            const orderId = `paper-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            console.log('[BinanceAdapter] Paper trade order placed:', orderId, order);
+            // Simulate execution delay
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return {
+                orderId,
+                status: 'filled',
+            };
+        }
+        // Real order execution (for future implementation)
+        throw new Error('Real trading not implemented yet');
+    }
+    /**
+     * Get positions (paper trade stub)
+     */
+    async getPositions() {
+        if (this.isPaperTrade) {
+            // Return mock positions
+            return [];
+        }
+        // Real positions (for future implementation)
+        throw new Error('Real trading not implemented yet');
+    }
+    /**
+     * Disconnect WebSocket
+     */
+    disconnect() {
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+    }
+    /**
+     * Set paper trade mode
+     */
+    setPaperTradeMode(enabled) {
+        this.isPaperTrade = enabled;
+    }
+}
+export const binanceAdapter = new BinanceAdapter();

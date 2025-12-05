@@ -68,7 +68,7 @@ export async function checkRouterHealth(): Promise<RouterHealth> {
  * Check Ollama health
  */
 async function checkOllamaHealth(): Promise<{ available: boolean; avgLatencyMs: number | null }> {
-  const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const OLLAMA_BASE_URL = import.meta.env.VITE_OLLAMA_BASE_URL || 'http://localhost:11434';
 
   try {
     const startTime = Date.now();

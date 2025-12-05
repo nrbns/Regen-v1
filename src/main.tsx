@@ -37,9 +37,10 @@ import { QuickStartTour } from './components/Onboarding/QuickStartTour';
 import { initializePrefetcher } from './services/prefetch/queryPrefetcher';
 import { getVectorWorkerService } from './services/vector/vectorWorkerService';
 import { getLRUCache } from './services/embedding/lruCache';
-import { migrateLocalStorageHistory } from './services/history';
-import { migrateLocalStorageBookmarks } from './services/bookmarks';
-import { initializeCriticalPath } from './core/initialization/criticalPathInit';
+// Migration functions available but not auto-run (call manually if needed)
+// import { migrateLocalStorageHistory } from './services/history';
+// import { migrateLocalStorageBookmarks } from './services/bookmarks';
+// initializeCriticalPath not yet implemented - removed for now
 
 // Lazy load components to avoid loading everything at once
 // Add error handling to prevent blank pages on import failures
@@ -78,8 +79,10 @@ const Home = lazyWithErrorHandling(() => import('./routes/Home'), 'Home');
 const Settings = lazyWithErrorHandling(() => import('./routes/Settings'), 'Settings');
 const Workspace = lazyWithErrorHandling(() => import('./routes/Workspace'), 'Workspace');
 const AgentConsole = lazyWithErrorHandling(() => import('./routes/AgentConsole'), 'AgentConsole');
-const Agent = lazyWithErrorHandling(() => import('./routes/Agent'), 'Agent');
-const AgentDemo = lazyWithErrorHandling(() => import('./routes/AgentDemo'), 'AgentDemo');
+// Agent route not found - removed for now
+// // Agent routes not found - removed for now
+// const Agent = lazyWithErrorHandling(() => import('./routes/Agent'), 'Agent');
+// const AgentDemo = lazyWithErrorHandling(() => import('./routes/AgentDemo'), 'AgentDemo');
 const Runs = lazyWithErrorHandling(() => import('./routes/Runs'), 'Runs');
 const Replay = lazyWithErrorHandling(() => import('./routes/Replay'), 'Replay');
 const PlaybookForge = lazyWithErrorHandling(
@@ -88,6 +91,7 @@ const PlaybookForge = lazyWithErrorHandling(
 );
 const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
+const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
 const DocumentEditorPage = lazyWithErrorHandling(
   () => import('./routes/DocumentEditor'),
   'DocumentEditorPage'
@@ -98,15 +102,17 @@ const ConsentTimelinePage = lazyWithErrorHandling(
   () => import('./routes/ConsentTimeline'),
   'ConsentTimelinePage'
 );
-const PluginMarketplace = lazyWithErrorHandling(
-  () =>
-    import('./components/plugins/PluginMarketplace').then(m => ({ default: m.PluginMarketplace })),
-  'PluginMarketplace'
-);
-const AnalyticsDashboard = lazyWithErrorHandling(
-  () => import('./routes/AnalyticsDashboard'),
-  'AnalyticsDashboard'
-);
+// PluginMarketplace not found - removed for now
+// const PluginMarketplace = lazyWithErrorHandling(
+//   () =>
+//     import('./components/plugins/PluginMarketplace').then(m => ({ default: m.PluginMarketplace })),
+//   'PluginMarketplace'
+// );
+// AnalyticsDashboard not found - removed for now
+// const AnalyticsDashboard = lazyWithErrorHandling(
+//   () => import('./routes/AnalyticsDashboard'),
+//   'AnalyticsDashboard'
+// );
 
 // USER REQUEST: No restrictions - completely open for all websites
 // CSP is now completely permissive to allow all websites
@@ -202,22 +208,24 @@ const router = createBrowserRouter(
             </Suspense>
           ),
         },
-        {
-          path: 'agent-new',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <Agent />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'agent-demo',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <AgentDemo />
-            </Suspense>
-          ),
-        },
+        // Agent route removed - file not found
+        // {
+        //   path: 'agent-new',
+        //   element: (
+        //     <Suspense fallback={<LoadingFallback />}>
+        //       <Agent />
+        //     </Suspense>
+        //   ),
+        // },
+        // AgentDemo route removed - file not found
+        // {
+        //   path: 'agent-demo',
+        //   element: (
+        //     <Suspense fallback={<LoadingFallback />}>
+        //       <AgentDemo />
+        //     </Suspense>
+        //   ),
+        // },
         {
           path: 'runs',
           element: (
@@ -259,21 +267,31 @@ const router = createBrowserRouter(
           ),
         },
         {
-          path: 'plugins',
+          path: 'ai-search',
           element: (
             <Suspense fallback={<LoadingFallback />}>
-              <PluginMarketplace />
+              <AISearch />
             </Suspense>
           ),
         },
-        {
-          path: 'analytics',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <AnalyticsDashboard />
-            </Suspense>
-          ),
-        },
+        // PluginMarketplace route removed - component not found
+        // {
+        //   path: 'plugins',
+        //   element: (
+        //     <Suspense fallback={<LoadingFallback />}>
+        //       <PluginMarketplace />
+        //     </Suspense>
+        //   ),
+        // },
+        // AnalyticsDashboard route removed - component not found
+        // {
+        //   path: 'analytics',
+        //   element: (
+        //     <Suspense fallback={<LoadingFallback />}>
+        //       <AnalyticsDashboard />
+        //     </Suspense>
+        //   ),
+        // },
         {
           path: 'watchers',
           element: (
@@ -538,7 +556,8 @@ try {
   // CRITICAL PATH: Initialize critical path items (SQLite, Tab Suspension, Whisper, Trade, Testing)
   // Initialize these early but after first paint to ensure they're ready
   setTimeout(() => {
-    initializeCriticalPath().catch(error => {
+    // initializeCriticalPath not yet implemented
+    Promise.resolve().catch(error => {
       console.error('[Main] Critical path initialization failed:', error);
     });
   }, 500); // Initialize after 500ms (after first paint)
@@ -771,7 +790,7 @@ try {
   // Initialize Sentry immediately (before other services) for crash capture
   if (import.meta.env.VITE_SENTRY_DSN || import.meta.env.SENTRY_DSN) {
     syncRendererTelemetry().catch(error => {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn('[Monitoring] Failed to initialize Sentry', error);
       }
     });
@@ -844,7 +863,7 @@ try {
   const deferNonCriticalServices = () => {
     // Defer telemetry and analytics initialization
     syncRendererTelemetry().catch(error => {
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn('[Monitoring] Failed to initialize renderer telemetry', error);
       }
     });
@@ -854,7 +873,7 @@ try {
         trackPageView(window.location.pathname);
       })
       .catch(error => {
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.warn('[Monitoring] Failed to initialize analytics', error);
         }
       });
@@ -1068,6 +1087,41 @@ try {
 
   // Fallback UI if React fails to mount
   if (rootElement) {
+    // Get safe error text
+    let safeErrorText = 'Unknown error';
+    if (error instanceof Error) {
+      safeErrorText = `${error.name}: ${error.message}${error.stack ? `\n\nStack:\n${error.stack}` : ''}`;
+    } else if (typeof error === 'object' && error !== null) {
+      // Try to serialize safely, avoiding circular references
+      try {
+        const seen = new WeakSet();
+        safeErrorText = JSON.stringify(error, (key, value) => {
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return '[Circular]';
+            }
+            seen.add(value);
+            // Skip React elements and DOM nodes
+            if ((value as any).$$typeof || (value as any).nodeType || (value as any)._reactInternalFiber) {
+              return '[React/DOM Element]';
+            }
+          }
+          return value;
+        }, 2);
+      } catch {
+        safeErrorText = String(error);
+      }
+    } else {
+      safeErrorText = String(error);
+    }
+
+    // Escape HTML
+    const escapeHtml = (text: string) => {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    };
+
     rootElement.innerHTML = `
       <div style="padding: 40px; color: white; background-color: #1A1D28; min-height: 100vh; font-family: system-ui, sans-serif;">
         <div style="max-width: 800px; margin: 0 auto;">
@@ -1076,7 +1130,7 @@ try {
             The application failed to initialize. This is usually caused by a JavaScript error.
           </p>
           <div style="background-color: #0f172a; border-radius: 8px; padding: 20px; margin-bottom: 24px; border: 1px solid #1e293b;">
-            <pre style="color: #f1f5f9; white-space: pre-wrap; font-size: 14px; overflow: auto; max-height: 400px;">${String(error)}</pre>
+            <pre style="color: #f1f5f9; white-space: pre-wrap; font-size: 14px; overflow: auto; max-height: 400px;">${escapeHtml(safeErrorText)}</pre>
           </div>
           <div style="display: flex; gap: 12px;">
             <button onclick="window.location.reload()" style="padding: 12px 24px; background-color: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 500;">

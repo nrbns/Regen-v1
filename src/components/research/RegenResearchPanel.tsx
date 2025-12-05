@@ -251,16 +251,59 @@ export function RegenResearchPanel() {
         },
       });
 
-      if (response.jobId) {
+      // FIX: Handle direct answers (when queue unavailable)
+      if ((response as any).direct && (response as any).answer) {
+        // Direct answer - no WebSocket needed
+        console.log('[RegenResearch] Received direct answer (queue unavailable)');
+        const responseAny = response as any;
+        setState(prev => ({
+          ...prev,
+          jobId: response.jobId,
+          answer: responseAny.answer,
+          sources: (responseAny.citations || []).map((c: any, idx: number) => ({
+            id: c.id || c.url || `source-${idx}`,
+            url: c.url,
+            title: c.title || 'Untitled',
+            snippet: c.snippet || '',
+            score: c.score || 0.5,
+            source: c.source_type || 'unknown',
+          })),
+          citations: (responseAny.citations || []).map((c: any, idx: number) => ({
+            id: String(c.id || idx + 1),
+            url: c.url,
+            title: c.title || 'Untitled',
+          })),
+          done: true,
+          isStreaming: false,
+        }));
+        setIsInitialLoad(false);
+        
+        // Generate follow-up suggestions
+        if (responseAny.answer) {
+          setFollowUpSuggestions(generateFollowUpSuggestions(query, responseAny.answer));
+        }
+      } else if (response.jobId) {
+        // Queue-based answer - use WebSocket streaming
         setState(prev => ({ ...prev, jobId: response.jobId }));
       } else {
-        throw new Error('No jobId returned');
+        throw new Error('No jobId or direct answer returned');
       }
     } catch (error: any) {
       console.error('[RegenResearch] Failed to start research:', error);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to start research';
+      if (error?.message?.includes('Backend server is not running')) {
+        errorMessage = 'Backend server is not running. Please start it with: npm run dev:server';
+      } else if (error?.message?.includes('ConnectionError') || error?.message?.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to backend server. Make sure the server is running on port 4000.';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
       setState(prev => ({
         ...prev,
-        error: error.message || 'Failed to start research',
+        error: errorMessage,
         isStreaming: false,
       }));
       setIsInitialLoad(false);
@@ -357,10 +400,11 @@ export function RegenResearchPanel() {
             >
               <input
                 type="text"
+                id="research-query-input"
                 name="query"
                 defaultValue={state.query}
                 placeholder="Ask anything…"
-                className="w-full rounded-lg border border-gray-300 bg-gray-50/80 px-4 py-3 text-[15px] placeholder-gray-500 transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-gray-300 bg-gray-50/80 px-4 py-3 text-[15px] text-gray-900 placeholder-gray-500 transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
                 disabled={state.isStreaming}
               />
               <button
@@ -429,9 +473,10 @@ export function RegenResearchPanel() {
                 >
                   <input
                     type="text"
+                    id="research-followup-input"
                     name="followUp"
                     placeholder="Refine: Why is BankNifty more volatile?"
-                    className="flex-1 rounded-lg border border-gray-300 bg-gray-50/80 px-3 py-2 text-[14px] placeholder-gray-500 transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 rounded-lg border border-gray-300 bg-gray-50/80 px-3 py-2 text-[14px] text-gray-900 placeholder-gray-500 transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500"
                     disabled={state.isStreaming}
                   />
                   <button
@@ -479,7 +524,14 @@ export function RegenResearchPanel() {
                 )}
                 {state.done && <div className="font-medium text-green-600">Research complete</div>}
                 {state.error && (
-                  <div className="font-medium text-red-600">Error: {state.error}</div>
+                  <div className="mt-2 rounded-lg bg-red-50 p-3">
+                    <div className="font-medium text-red-800">Error: {state.error}</div>
+                    {state.error.includes('Backend server is not running') && (
+                      <div className="mt-2 text-xs text-red-600">
+                        💡 Tip: Open a terminal and run: <code className="bg-red-100 px-1 py-0.5 rounded">npm run dev:server</code>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

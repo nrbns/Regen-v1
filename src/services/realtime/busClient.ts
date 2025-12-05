@@ -4,7 +4,7 @@
  * PR: Frontend-bus integration
  */
 
-const BUS_URL = process.env.VITE_BUS_URL || 'ws://localhost:4002';
+const BUS_URL = import.meta.env.VITE_BUS_URL || 'ws://localhost:4002';
 
 export interface BusMessage {
   type: 'message' | 'connected' | 'subscribed' | 'published' | 'error' | 'history';
@@ -44,8 +44,11 @@ class BusClient {
         console.log('[BusClient] Connected to bus');
 
         // Resubscribe to all channels
-        this.subscribers.forEach((_, channel) => {
-          this.subscribe(channel);
+        this.subscribers.forEach((handlers, channel) => {
+          // Re-add all handlers for this channel
+          handlers.forEach(handler => {
+            this.subscribe(channel, handler);
+          });
         });
 
         resolve();
@@ -167,7 +170,7 @@ class BusClient {
             this.ws!.onmessage = originalOnMessage;
             resolve((message.data as any)?.delivered || 0);
           }
-        } catch (error) {
+        } catch {
           // Continue listening
         }
       };

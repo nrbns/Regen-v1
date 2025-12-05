@@ -123,6 +123,7 @@ import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
@@ -269,7 +270,9 @@ fastify.get('/', async (_request, _reply) => {
   };
 });
 
-const AI_PROXY_PROVIDER =
+// AI_PROXY_PROVIDER is currently unused (commented out route handler)
+// Kept for potential future use or reference
+const _AI_PROXY_PROVIDER =
   nodeProcess?.env.AI_PROXY_PROVIDER || (nodeProcess?.env.OPENAI_API_KEY ? 'openai' : 'disabled');
 
 const openAIConfig = {
@@ -1601,6 +1604,133 @@ fastify.get('/ws/notifications', async (request, reply) => {
   });
 });
 
+// Register sync service routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const syncApi = require('./services/sync/api.cjs');
+  const sessionCursorApi = require('./services/sync/session-cursor-api.cjs');
+  const syncPlugin = expressToFastify(syncApi);
+  const sessionPlugin = expressToFastify(sessionCursorApi);
+  fastify.register(syncPlugin, { prefix: '/api/sync' });
+  fastify.register(sessionPlugin, { prefix: '/api/session' });
+  fastify.log.info('Sync service routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register sync service routes (optional)');
+}
+
+// Register enhanced search/RAG API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const searchApiEnhanced = require('./search-engine/api-enhanced.cjs');
+  const searchPlugin = expressToFastify(searchApiEnhanced);
+  fastify.register(searchPlugin, { prefix: '/api/search' });
+  fastify.log.info('Enhanced search API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register enhanced search API routes (optional)');
+}
+
+// Register enhanced agent API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const agentApiEnhanced = require('./agent-engine/agent-api-enhanced.cjs');
+  const agentPlugin = expressToFastify(agentApiEnhanced);
+  fastify.register(agentPlugin, { prefix: '/api/agent' });
+  fastify.log.info('Enhanced agent API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register enhanced agent API routes (optional)');
+}
+
+// Register agent WebSocket server
+try {
+  const { createAgentWebSocket } = require('./agent-engine/agent-websocket.cjs');
+  createAgentWebSocket(fastify.server);
+  fastify.log.info('Agent WebSocket server registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register agent WebSocket server (optional)');
+}
+
+// Register browser automation API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const browserAutomationApi = require('./agent-engine/browser-automation-api.cjs');
+  const browserAutomationPlugin = expressToFastify(browserAutomationApi.router);
+  fastify.register(browserAutomationPlugin, { prefix: '/api/browser-automation' });
+  fastify.log.info('Browser automation API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register browser automation API routes (optional)');
+}
+
+// Register browser automation WebSocket server
+try {
+  const { createBrowserAutomationWebSocket } = require('./agent-engine/browser-automation-api.cjs');
+  createBrowserAutomationWebSocket(fastify.server);
+  fastify.log.info('Browser automation WebSocket server registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register browser automation WebSocket server (optional)');
+}
+
+// Register scraper API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const scraperApi = require('./services/scraper/scraper-api.cjs');
+  const scraperPlugin = expressToFastify(scraperApi);
+  fastify.register(scraperPlugin, { prefix: '/api/scraper' });
+  fastify.log.info('Scraper API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register scraper API routes (optional)');
+}
+
+// Register adblock API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const adblockApi = require('./services/adblock/adblock-api.cjs');
+  const adblockPlugin = expressToFastify(adblockApi);
+  fastify.register(adblockPlugin, { prefix: '/api/adblock' });
+  fastify.log.info('Adblock API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register adblock API routes (optional)');
+}
+
+// Register download API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const downloadApi = require('./services/download/download-api.cjs');
+  const downloadPlugin = expressToFastify(downloadApi);
+  fastify.register(downloadPlugin, { prefix: '/api/download' });
+  fastify.log.info('Download API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register download API routes (optional)');
+}
+
+// Register voice WebSocket server
+try {
+  const { createVoiceWebSocket } = require('./services/voice/voice-websocket.cjs');
+  createVoiceWebSocket(fastify.server);
+  fastify.log.info('Voice WebSocket server registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register voice WebSocket server (optional)');
+}
+
+// Register enhanced trade API routes
+try {
+  const { expressToFastify } = require('./utils/express-to-fastify.cjs');
+  const tradeApiEnhanced = require('./services/trade/trade-api-enhanced.cjs');
+  const tradePlugin = expressToFastify(tradeApiEnhanced);
+  fastify.register(tradePlugin, { prefix: '/api/trade' });
+  fastify.log.info('Enhanced trade API routes registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register enhanced trade API routes (optional)');
+}
+
+// Register trade WebSocket server
+try {
+  const { createTradeWebSocket } = require('./services/trade/trade-websocket.cjs');
+  createTradeWebSocket(fastify.server);
+  fastify.log.info('Trade WebSocket server registered');
+} catch (error) {
+  fastify.log.warn({ err: error }, 'Failed to register trade WebSocket server (optional)');
+}
+
 fastify.post('/api/query', async (request, reply) => {
   const body = request.body ?? {};
   const query = typeof body.query === 'string' ? body.query.trim() : '';
@@ -1797,6 +1927,252 @@ fastify.post('/api/ai/task', async (request, reply) => {
  */
 fastify.get('/api/research/status/:jobId', async (request, reply) => {
   return getResearchStatus(request, reply);
+});
+
+/**
+ * GET /api/research/scrape
+ * Production parallel scraper (X + arXiv + GitHub)
+ */
+fastify.get('/api/research/scrape', async (request, reply) => {
+  const { q } = request.query;
+  if (!q) {
+    return reply.code(400).send({ error: 'Query parameter "q" is required' });
+  }
+  
+  try {
+    const { parallelSearch } = await import('./services/research/scraper-parallel-production.js');
+    const result = await parallelSearch(q);
+    return result;
+  } catch (error) {
+    console.error('[ResearchScraper] Error:', error);
+    return reply.code(500).send({
+      error: 'Scraping failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/research/langgraph
+ * LangGraph-style workflow with 5 golden agents
+ */
+fastify.post('/api/research/langgraph', async (request, reply) => {
+  const { topic } = request.body;
+  if (!topic) {
+    return reply.code(400).send({ error: 'Topic is required' });
+  }
+  
+  try {
+    const { executeLangGraphWorkflow } = await import('./services/research/langgraph-workflow.js');
+    const result = await executeLangGraphWorkflow(topic);
+    return result;
+  } catch (error) {
+    console.error('[LangGraphWorkflow] Error:', error);
+    return reply.code(500).send({
+      error: 'Workflow failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/pdf/upload
+ * PDF Upload + Smart Extraction + Auto-Research
+ */
+fastify.post('/api/pdf/upload', async (request, reply) => {
+  const data = await request.file();
+  
+  if (!data) {
+    return reply.code(400).send({ error: 'PDF file is required' });
+  }
+  
+  if (!data.mimetype || !data.mimetype.includes('pdf')) {
+    return reply.code(400).send({ error: 'File must be a PDF' });
+  }
+  
+  try {
+    const { processPDFUpload } = await import('./services/pdf/pdf-extractor.js');
+    
+    const file = {
+      filename: data.filename,
+      buffer: await data.toBuffer(),
+      mimetype: data.mimetype,
+    };
+    
+    const result = await processPDFUpload(file, {
+      autoResearch: request.body?.autoResearch !== false,
+      customQuery: request.body?.customQuery,
+    });
+    
+    return result;
+  } catch (error) {
+    console.error('[PDFUpload] Error:', error);
+    return reply.code(500).send({
+      error: 'PDF processing failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/collab/room/:roomId
+ * Get collaborative room content
+ */
+fastify.get('/api/collab/room/:roomId', async (request, reply) => {
+  const { roomId } = request.params;
+  
+  try {
+    const { getRoomContent } = await import('./services/collab/collab-server.js');
+    const content = getRoomContent(roomId);
+    
+    if (content === null) {
+      return reply.code(404).send({ error: 'Room not found' });
+    }
+    
+    return {
+      roomId,
+      content,
+    };
+  } catch (error) {
+    console.error('[CollabAPI] Error:', error);
+    return reply.code(500).send({
+      error: 'Failed to get room content',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/export
+ * Export research to Notion/Obsidian/Roam
+ */
+fastify.post('/api/export', async (request, reply) => {
+  const { content_md, tool, parent_id, graph_name } = request.body;
+
+  if (!content_md || !tool) {
+    return reply.code(400).send({
+      error: 'content_md and tool are required',
+    });
+  }
+
+  try {
+    const { exportToTool } = await import('./services/export/export-service.js');
+    const result = await exportToTool(content_md, tool, {
+      parentId: parent_id,
+      graphName: graph_name,
+    });
+
+    // For Obsidian, return file for download
+    if (tool === 'obsidian' && result.content) {
+      return reply
+        .type('text/markdown')
+        .header('Content-Disposition', `attachment; filename="${result.filename}"`)
+        .send(result.content);
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[ExportAPI] Error:', error);
+    return reply.code(500).send({
+      error: 'Export failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/video/summary
+ * Generate 60-second video summary
+ */
+fastify.post('/api/video/summary', async (request, reply) => {
+  const { text, voice_id } = request.body;
+
+  if (!text) {
+    return reply.code(400).send({
+      error: 'text is required',
+    });
+  }
+
+  try {
+    const { generateVideoSummary } = await import('./services/video/video-summary.js');
+    const result = await generateVideoSummary(text, voice_id);
+    return result;
+  } catch (error) {
+    console.error('[VideoAPI] Error:', error);
+    return reply.code(500).send({
+      error: 'Video generation failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ollama/health
+ * Check Ollama availability
+ */
+fastify.get('/api/ollama/health', async (request, reply) => {
+  try {
+    const { checkOllamaHealth } = await import('./services/ollama/local-llm.js');
+    const health = await checkOllamaHealth();
+    return health;
+  } catch (error) {
+    return reply.code(500).send({
+      available: false,
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/youtube/analyze
+ * Analyze YouTube video → deep research report
+ */
+fastify.post('/api/youtube/analyze', async (request, reply) => {
+  const { url } = request.body;
+
+  if (!url) {
+    return reply.code(400).send({
+      error: 'YouTube URL is required',
+    });
+  }
+
+  try {
+    const { analyzeYouTube } = await import('./services/youtube/youtube-analyzer.js');
+    const result = await analyzeYouTube(url);
+    return result;
+  } catch (error) {
+    console.error('[YouTubeAPI] Analysis error:', error);
+    return reply.code(500).send({
+      error: 'YouTube analysis failed',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/youtube/to-video
+ * YouTube → 60-second response video
+ */
+fastify.post('/api/youtube/to-video', async (request, reply) => {
+  const { youtube_url, voice_id } = request.body;
+
+  if (!youtube_url) {
+    return reply.code(400).send({
+      error: 'YouTube URL is required',
+    });
+  }
+
+  try {
+    const { youtubeToResponseVideo } = await import('./services/youtube/youtube-to-video.js');
+    const result = await youtubeToResponseVideo(youtube_url, voice_id);
+    return result;
+  } catch (error) {
+    console.error('[YouTubeAPI] Video generation error:', error);
+    return reply.code(500).send({
+      error: 'Response video generation failed',
+      message: error.message,
+    });
+  }
 });
 
 /**
@@ -2734,7 +3110,9 @@ function buildContextBlock(context) {
   return `\nContext:\n${serialized.join('\n')}`;
 }
 
-async function callOpenAI(payload) {
+// callOpenAI is currently unused (commented out route handler)
+// Kept for potential future use or reference
+async function _callOpenAI(payload) {
   const { prompt, kind, context, temperature = 0.2, max_tokens = 800 } = payload;
   if (!openAIConfig.apiKey) {
     return {
@@ -2776,6 +3154,9 @@ async function callOpenAI(payload) {
   };
 }
 
+// Duplicate route removed - using the one at line 1864 instead
+// This entire route handler is commented out to avoid duplicate route error
+/*
 fastify.post('/api/ai/task', async (request, reply) => {
   const { prompt, kind = 'agent', context, temperature, max_tokens } = request.body || {};
   if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -2783,17 +3164,17 @@ fastify.post('/api/ai/task', async (request, reply) => {
     return { error: 'Prompt is required' };
   }
 
-  if (AI_PROXY_PROVIDER === 'disabled') {
+  if (_AI_PROXY_PROVIDER === 'disabled') {
     reply.code(503);
     return { error: 'AI proxy is disabled on this server' };
   }
 
   try {
     let proxyResult;
-    switch (AI_PROXY_PROVIDER) {
+    switch (_AI_PROXY_PROVIDER) {
       case 'openai':
       default:
-        proxyResult = await callOpenAI({
+        proxyResult = await _callOpenAI({
           prompt: prompt.trim(),
           kind,
           context,
@@ -2817,7 +3198,7 @@ fastify.post('/api/ai/task', async (request, reply) => {
     const choice = proxyResult.body?.choices?.[0]?.message?.content || '';
     return {
       text: choice?.trim() || '',
-      provider: AI_PROXY_PROVIDER,
+      provider: _AI_PROXY_PROVIDER,
       model: proxyResult.body?.model || openAIConfig.model,
       usage: proxyResult.body?.usage,
       citations: [],
@@ -2828,6 +3209,7 @@ fastify.post('/api/ai/task', async (request, reply) => {
     return { error: 'AI provider request failed' };
   }
 });
+*/
 
 // ============================================================================
 // RESEARCH API - For Tauri migration
@@ -3962,6 +4344,61 @@ fastify.get('/metrics/prom', async (_request, reply) => {
     const { initWebSocketServer } = await import('./services/realtime/websocket-server.js');
     initWebSocketServer(httpServer);
     fastify.log.info('WebSocket server initialized');
+
+    // Initialize Voice WebSocket server
+    try {
+      const { createVoiceWebSocketServer } = await import('./services/voice/voice-production.js');
+      createVoiceWebSocketServer(httpServer);
+      fastify.log.info('Voice WebSocket server initialized');
+    } catch (error) {
+      fastify.log.warn('Voice WebSocket server failed to initialize:', error.message);
+    }
+
+    // Initialize Collaborative WebSocket server
+    try {
+      const { createCollabWebSocketServer } = await import('./services/collab/collab-server.js');
+      createCollabWebSocketServer(httpServer);
+      fastify.log.info('Collaborative WebSocket server initialized');
+    } catch (error) {
+      fastify.log.warn('Collaborative WebSocket server failed to initialize:', error.message);
+    }
+
+    // PERFORMANCE FIX #2: Initialize realtime sync service
+    try {
+      const { getRealtimeSyncService } = require('./services/sync/realtime-sync.cjs');
+      const realtimeSync = getRealtimeSyncService();
+      realtimeSync.initialize(httpServer);
+      fastify.log.info('Realtime sync service initialized');
+
+      // Add stats endpoint for realtime sync
+      fastify.get('/api/sync/stats', async (request, reply) => {
+        try {
+          const stats = realtimeSync.getStats();
+          return { success: true, stats };
+        } catch (error) {
+          fastify.log.error({ err: error }, 'Failed to get sync stats');
+          reply.code(500);
+          return { error: 'Failed to get sync stats', message: error.message };
+        }
+      });
+
+      // PERFORMANCE FIX #4: Add GVE pruning endpoint
+      fastify.post('/api/gve/prune', async (request, reply) => {
+        try {
+          const { daysOld = 7 } = request.body || {};
+          const { getQdrantStore } = require('./search-engine/qdrant-store.cjs');
+          const qdrant = getQdrantStore();
+          const result = await qdrant.pruneOldEmbeddings(daysOld);
+          return { success: true, ...result };
+        } catch (error) {
+          fastify.log.error({ err: error }, 'Failed to prune embeddings');
+          reply.code(500);
+          return { error: 'Failed to prune embeddings', message: error.message };
+        }
+      });
+    } catch (error) {
+      fastify.log.warn({ err: error }, 'Failed to initialize realtime sync service (optional)');
+    }
 
     try {
       // Register admin routes

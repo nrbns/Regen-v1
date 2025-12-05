@@ -1,20 +1,107 @@
-# CATEGORY C FIX: Docker Compose for local dev environment
+# Production-Grade Docker Compose for Regen Browser
+# Includes: Postgres (frontier), Redis (cache/sync), MinIO (snapshots), Qdrant (vector DB)
 version: '3.8'
 
 services:
+  # Postgres - Frontier queue (replaces .cursor files)
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: regen
+      POSTGRES_PASSWORD: regen
+      POSTGRES_DB: regen
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U regen']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: postgres -c max_connections=200
+
+  # Redis - Cache, sync, and session state
   redis:
     image: redis:7-alpine
     ports:
       - '6379:6379'
     volumes:
       - redis-data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # MinIO - Object storage for HTML snapshots
+  minio:
+    image: minio/minio:latest
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Qdrant - Vector database for embeddings
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - '6333:6333'
+      - '6334:6334'
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:6333/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontier Worker (Postgres-based)
+  frontier-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - REGEN_PG_DSN=postgresql://regen:regen@postgres:5432/regen
+      - REDIS_URL=redis://redis:6379
+      - WORKER_ID=worker-1
+      - FRONTIER_BATCH_SIZE=5
+      - FRONTIER_MAX_ATTEMPTS=3
+      - FRONTIER_STALE_THRESHOLD=10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: python workers/pg_worker.py
+
+  # Frontier Watchdog (requeue stale items)
+  frontier-watchdog:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - REGEN_PG_DSN=postgresql://regen:regen@postgres:5432/regen
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    command: python workers/pg_worker.py watchdog
+
+  # Main server
   server:
     build:
       context: .
@@ -23,10 +110,21 @@ services:
       - '4000:4000'
     environment:
       - REDIS_URL=redis://redis:6379
+      - REGEN_PG_DSN=postgresql://regen:regen@postgres:5432/regen
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - QDRANT_URL=http://qdrant:6333
       - NODE_ENV=development
       - LOG_LEVEL=info
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     volumes:
       - ./server:/app/server
@@ -34,4 +132,7 @@ services:
     command: node server/redix-server.js
 
 volumes:
+  postgres-data:
   redis-data:
+  minio-data:
+  qdrant-data:

@@ -4,7 +4,7 @@
  * PR: Tauri-bus integration
  */
 
-use tauri::{Window, Manager};
+use tauri::{Window, Emitter, Listener};
 use serde_json::{json, Value};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -78,11 +78,14 @@ pub async fn handle_content_extraction(
 /// Listen for content script messages
 pub fn setup_content_listener(window: Window) {
     // Listen for postMessage from content scripts
+    let window_clone = window.clone();
     window.listen("regen:extract", move |event| {
-        if let Some(payload) = event.payload() {
+        // Get payload - event.payload() returns &str in Tauri 2.x, parse to Value
+        if let Ok(payload) = serde_json::from_str::<Value>(event.payload()) {
             // Forward to bus
             let mut bridge = BusBridge::new("ws://localhost:4002".to_string());
-            bridge.set_window(window.clone());
+            let window_for_task = window_clone.clone();
+            bridge.set_window(window_for_task);
             
             // Spawn async task
             tauri::async_runtime::spawn(async move {
@@ -90,6 +93,8 @@ pub fn setup_content_listener(window: Window) {
                     eprintln!("[BusBridge] Failed to publish extraction: {}", e);
                 }
             });
+        } else {
+            eprintln!("[BusBridge] Failed to parse event payload as JSON");
         }
     });
 }

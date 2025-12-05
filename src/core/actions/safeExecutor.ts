@@ -292,3 +292,6 @@ if (typeof window !== 'undefined') {
     safeActionExecutor.rejectConsent(event.detail.actionId);
   }) as EventListener);
 }
+
+
+

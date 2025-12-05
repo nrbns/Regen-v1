@@ -38,3 +38,6 @@ The dev command uses `ts-node` to run `src/index.ts`.
 - Add dynamic backoff and error classification.
 - Emit metrics (Prometheus) for fetch latency, success/failure counts.
 - Extend snapshot metadata to include checksum / diff indicators.
+
+
+

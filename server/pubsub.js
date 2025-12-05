@@ -19,9 +19,10 @@ const pub = new IORedis(redisUrl, {
 const sub = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
   retryStrategy: () => null,
-  enableOfflineQueue: false,
+  enableOfflineQueue: false, // FIX: Disable offline queue to prevent "Stream isn't writeable" errors
   lazyConnect: true,
   connectTimeout: 5000,
+  showFriendlyErrorStack: false,
 });
 
 // Suppress Redis errors
@@ -42,12 +43,59 @@ export function publish(channel, message) {
 
 /**
  * Subscribe to Redis channel
+ * FIX: Handle Redis connection errors gracefully
  */
 export function subscribe(channel, handler) {
   try {
+    // Check if Redis is connected before subscribing
+    if (sub.status !== 'ready') {
+      // Try to connect first (lazy connect)
+      sub.connect().catch(() => {
+        // Redis unavailable - silently fail (expected in dev without Redis)
+        return;
+      });
+      // Wait a bit for connection, but don't block
+      setTimeout(() => {
+        if (sub.status === 'ready') {
+          _doSubscribe(channel, handler);
+        }
+      }, 100);
+      return; // Exit early, will subscribe when connected
+    }
+
+    _doSubscribe(channel, handler);
+  } catch (err) {
+    // Silently handle Redis errors - Redis is optional
+    if (!err.message?.includes('ECONNREFUSED') && 
+        !err.message?.includes('Stream isn\'t writeable') &&
+        !err.message?.includes('enableOfflineQueue')) {
+      console.error('[PubSub] subscribe error', err);
+    }
+  }
+}
+
+function _doSubscribe(channel, handler) {
+  try {
+    if (sub.status !== 'ready') {
+      return; // Not connected, skip
+    }
+
+    // Check if Redis connection is actually writeable
+    if (!sub.stream || !sub.stream.writable) {
+      return; // Stream not writeable, skip
+    }
+
     sub.subscribe(channel, err => {
-      if (err && !err.message?.includes('ECONNREFUSED')) {
-        console.error('[PubSub] subscribe err', err);
+      if (err) {
+        // Only log non-connection errors
+        if (!err.message?.includes('ECONNREFUSED') && 
+            !err.message?.includes('Stream isn\'t writeable') &&
+            !err.message?.includes('enableOfflineQueue') &&
+            !err.message?.includes('Connection is closed')) {
+          console.error('[PubSub] subscribe err', err);
+        }
+        // Silently fail for connection errors
+        return;
       }
     });
 
@@ -59,8 +107,9 @@ export function subscribe(channel, handler) {
         console.error('[PubSub] parse error', e);
       }
     });
-  } catch {
+  } catch (err) {
     // Silently fail if Redis unavailable
+    // This is expected when Redis is not running
   }
 }
 

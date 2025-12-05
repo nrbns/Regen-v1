@@ -99,3 +99,6 @@ function normalizeVector(vector: number[]): number[] {
   if (norm === 0) return vector;
   return vector.map(v => v / norm);
 }
+
+
+

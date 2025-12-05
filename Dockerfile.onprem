@@ -1,0 +1,53 @@
+# Private On-Prem Version with Local LLMs
+# Docker + Ollama for fully air-gapped deployment
+
+FROM node:20-alpine AS base
+
+# Install Python and dependencies for Ollama
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    curl \
+    bash
+
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Install app dependencies
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy app code
+COPY . .
+
+# Install YouTube analysis dependencies
+RUN apk add --no-cache \
+    ffmpeg \
+    python3 \
+    py3-pip
+
+# Install Python dependencies for YouTube analysis
+RUN pip3 install --no-cache-dir \
+    yt-dlp \
+    youtube-transcript-api \
+    pillow
+
+# Pull local LLMs (for YouTube analysis)
+# Note: This happens at runtime, not build time, to allow model selection
+# Models needed:
+# - llama3.1 (or llama3.1:70b) for text analysis
+# - llava for vision analysis
+# - whisper for audio transcription
+# RUN ollama pull llama3.1 && ollama pull llava && ollama pull whisper
+
+# Expose ports
+# 8000: App server
+# 11434: Ollama API
+EXPOSE 8000 11434
+
+# Start Ollama in background, then start app
+CMD ["sh", "-c", "ollama serve & sleep 5 && node server/redix-server.js"]
+

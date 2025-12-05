@@ -4,7 +4,7 @@
  * Fixes multi-tab cursor UI bug
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, AlertCircle, RefreshCw, Clock } from 'lucide-react';
 import { useSessionSync } from '../../hooks/useSessionSync';
 import { formatDistanceToNow } from 'date-fns';

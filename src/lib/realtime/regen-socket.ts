@@ -99,7 +99,7 @@ class RegenSocketClient {
       }
 
       // Use window.location for WebSocket URL in Electron
-      const wsUrl = process.env.VITE_REDIX_URL || 'ws://localhost:4000';
+      const wsUrl = import.meta.env.VITE_REDIX_URL || 'ws://localhost:4000';
       const url = `${wsUrl}/agent/stream?clientId=${this.clientId}${sessionId ? `&sessionId=${sessionId}` : ''}`;
 
       try {

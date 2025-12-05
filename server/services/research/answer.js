@@ -3,6 +3,8 @@
 import { researchSearch } from './search.js';
 import { analyzeWithLLM, streamLLMAnswer } from '../agent/llm.js';
 import { detectLanguage } from '../lang/detect.js';
+import { executeParallelAgents, synthesizeAgentResults } from './parallel-agents.js';
+import { searchViralDevTweets } from './twitter-search.js';
 
 function buildContext(results, maxCharacters = 8000) {
   if (!results?.length) return '';
@@ -14,6 +16,17 @@ function buildContext(results, maxCharacters = 8000) {
   return joined.slice(0, maxCharacters);
 }
 
+/**
+ * Generate research answer from query
+ * @param {Object} options - Research options
+ * @param {string} options.query - Research query
+ * @param {number} [options.max_context_tokens=1500] - Max context tokens
+ * @param {Array} [options.source_filters] - Source filters
+ * @param {string} [options.freshness='auto'] - Freshness filter
+ * @param {boolean} [options.return_documents=true] - Return documents
+ * @param {string} [options.language] - Language code
+ * @returns {Promise<Object>} Research answer with citations
+ */
 export async function generateResearchAnswer({
   query,
   max_context_tokens = 1500,

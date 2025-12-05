@@ -13,7 +13,7 @@ let rendererSentry: any = null;
 let sentryInitialized = false;
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN || import.meta.env.SENTRY_DSN || '';
-const SENTRY_ENV = import.meta.env.MODE || process.env.NODE_ENV || 'development';
+const SENTRY_ENV = import.meta.env.MODE || import.meta.env.DEV ? 'development' : 'production';
 const SENTRY_SAMPLE_RATE = Number(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? '0');
 const RELEASE = import.meta.env.VITE_APP_VERSION || '0.0.0';
 

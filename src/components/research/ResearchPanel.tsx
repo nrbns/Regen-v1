@@ -6,10 +6,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Loader2, Sparkles, X, Copy, CheckCircle2 } from 'lucide-react';
+import { Search, Loader2, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
 import { toast } from '../../utils/toast';
 
-const BUS_URL = process.env.VITE_BUS_URL || 'ws://localhost:4002';
+const BUS_URL = import.meta.env.VITE_BUS_URL || 'ws://localhost:4002';
 const REQUEST_CHANNEL = 'agent.requests';
 const SUMMARY_CHANNEL_PREFIX = 'agent.summaries';
 
@@ -29,6 +29,8 @@ interface SummaryChunk {
   total?: number;
   isFinal?: boolean;
   timestamp: number;
+  query?: string;
+  url?: string;
 }
 
 interface ResearchResult {
@@ -46,7 +48,7 @@ export function ResearchPanel() {
   const [query, setQuery] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [results, setResults] = useState<Map<string, ResearchResult>>(new Map());
-  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [_activeRequestId, setActiveRequestId] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const requestCounterRef = useRef(0);
@@ -215,7 +217,7 @@ export function ResearchPanel() {
     try {
       await navigator.clipboard.writeText(text);
       toast.success('Copied to clipboard!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to copy');
     }
   }, []);

@@ -149,3 +149,6 @@ export class TabFetchManager {
 
 // Global instance (can be used per-component or globally)
 export const globalTabFetchManager = new TabFetchManager();
+
+
+

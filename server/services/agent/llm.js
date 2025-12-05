@@ -2,18 +2,62 @@
 /**
  * LLM Analysis Service
  * Supports Ollama (local) and OpenAI for content analysis
+ * PERFORMANCE FIX: GPU fallback + parallel inference
  */
 
 import { getLanguageLabel, normalizeLanguage } from '../lang/detect.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { getPerformanceLogger } from '../../utils/performance-logger.cjs';
+
+const execAsync = promisify(exec);
+const perfLogger = getPerformanceLogger();
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'llama3.1'; // Default to Llama 3.1 for research
+// Default to phi3:mini as it's commonly available, fallback to llama3.2:3b
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'phi3:mini';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 // PRIORITIZE OLLAMA (FREE) - only use OpenAI if explicitly set or Ollama unavailable
 const LLM_PROVIDER =
   process.env.LLM_PROVIDER ||
   (process.env.FORCE_OPENAI === 'true' && OPENAI_API_KEY ? 'openai' : 'ollama');
+
+// PERFORMANCE FIX #1: GPU detection and optimization
+let gpuAvailable = null;
+let gpuUtilization = 0;
+
+/**
+ * Check if GPU is available and not overloaded
+ */
+async function checkGPU() {
+  if (gpuAvailable !== null) {
+    return gpuAvailable && gpuUtilization < 80;
+  }
+
+  try {
+    const { stdout } = await execAsync('nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits');
+    gpuUtilization = parseInt(stdout.trim()) || 0;
+    gpuAvailable = gpuUtilization >= 0 && gpuUtilization < 100;
+    return gpuAvailable && gpuUtilization < 80;
+  } catch {
+    gpuAvailable = false;
+    return false;
+  }
+}
+
+// Cache GPU check for 30 seconds
+let lastGPUCheck = 0;
+const GPU_CHECK_INTERVAL = 30000;
+
+async function getGPUStatus() {
+  const now = Date.now();
+  if (now - lastGPUCheck > GPU_CHECK_INTERVAL) {
+    await checkGPU();
+    lastGPUCheck = now;
+  }
+  return { available: gpuAvailable, utilization: gpuUtilization };
+}
 
 /**
  * Extract plain text from HTML
@@ -59,13 +103,87 @@ function chunkText(text, maxChunkSize = 4000) {
 }
 
 /**
- * Call Ollama API
+ * Get available Ollama models
+ */
+async function getAvailableOllamaModels() {
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
+    if (response.ok) {
+      const data = await response.json();
+      return (data.models || []).map(m => m.name);
+    }
+  } catch {
+    // Ignore errors
+  }
+  return [];
+}
+
+/**
+ * Find a working Ollama model (fallback chain)
+ */
+async function findWorkingOllamaModel(preferredModel = OLLAMA_MODEL) {
+  const available = await getAvailableOllamaModels();
+  if (available.length === 0) {
+    throw new Error('No Ollama models available');
+  }
+
+  // Try preferred model first
+  if (available.includes(preferredModel)) {
+    return preferredModel;
+  }
+
+  // Fallback to common models
+  const fallbacks = ['phi3:mini', 'llama3.2:3b', 'llama3.1', 'llama3', 'mistral', 'gemma'];
+  for (const fallback of fallbacks) {
+    if (available.includes(fallback)) {
+      console.log(`[llm] Using fallback model: ${fallback} (preferred: ${preferredModel} not available)`);
+      return fallback;
+    }
+  }
+
+  // Use first available model
+  console.log(`[llm] Using first available model: ${available[0]} (preferred: ${preferredModel} not available)`);
+  return available[0];
+}
+
+/**
+ * Call Ollama API with GPU optimization
+ * PERFORMANCE FIX #1: GPU fallback + optimized options
  */
 export async function callOllama(messages, options = {}) {
-  const model = options.model || OLLAMA_MODEL;
+  const preferredModel = options.model || OLLAMA_MODEL;
   const temperature = options.temperature ?? 0.0;
   const maxTokens = options.maxTokens ?? 4096;
 
+  // Find a working model
+  let model;
+  try {
+    model = await findWorkingOllamaModel(preferredModel);
+  } catch (error) {
+    throw new Error(`No Ollama models available: ${error.message}`);
+  }
+
+  // PERFORMANCE FIX: Check GPU and optimize options
+  const gpuStatus = await getGPUStatus();
+  const useGPU = gpuStatus.available;
+
+  // Optimize Ollama options based on GPU availability
+  const ollamaOptions = useGPU
+    ? {
+        gpu_layers: 35, // Use GPU layers
+        num_thread: 4, // Parallel CPU threads
+        temperature,
+        num_predict: maxTokens,
+      }
+    : {
+        num_thread: Math.min(8, require('os').cpus().length), // Use all CPU cores
+        temperature,
+        num_predict: maxTokens,
+      };
+
+  const startTime = Date.now();
+  const perfKey = perfLogger.start('ollama-inference', { model, useGPU });
+  
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -75,23 +193,32 @@ export async function callOllama(messages, options = {}) {
         role: m.role,
         content: m.content,
       })),
-      options: {
-        temperature,
-        num_predict: maxTokens,
-      },
+      options: ollamaOptions,
       stream: false,
     }),
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Ollama API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   const data = await response.json();
+  const latency = Date.now() - startTime;
+
+  // PERFORMANCE FIX #6: Log performance metrics
+  perfLogger.end(perfKey, true);
+  
+  if (process.env.LOG_PERFORMANCE !== '0') {
+    console.log(`[llm] Ollama inference: ${latency}ms, GPU: ${useGPU}, Model: ${model}`);
+  }
+
   return {
     answer: data.response || '',
     model: data.model || model,
     tokensUsed: data.eval_count || 0,
+    latency,
+    gpuUsed: useGPU,
   };
 }
 
@@ -409,11 +536,25 @@ export async function analyzeWithLLM({
     if (LLM_PROVIDER === 'openai' && OPENAI_API_KEY) {
       llmResult = await callOpenAI(messages, { temperature: 0.0 });
     } else {
-      llmResult = await callOllama(messages, { temperature: 0.0 });
+      try {
+        llmResult = await callOllama(messages, { temperature: 0.0 });
+      } catch (ollamaError) {
+        console.error('[llm] Ollama call failed:', ollamaError.message);
+        // Try with explicit fallback model
+        if (ollamaError.message.includes('model')) {
+          console.log('[llm] Attempting with fallback model...');
+          llmResult = await callOllama(messages, { 
+            temperature: 0.0,
+            model: 'phi3:mini' // Explicit fallback
+          });
+        } else {
+          throw ollamaError;
+        }
+      }
     }
   } catch (error) {
     // Fallback to simple extraction if LLM fails
-    console.warn('[llm] LLM call failed, using fallback', error);
+    console.warn('[llm] LLM call failed, using fallback:', error.message);
     const fallbackAnswer =
       task === 'summarize'
         ? `Summary: ${text.slice(0, 500)}...`

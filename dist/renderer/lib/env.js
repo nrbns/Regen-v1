@@ -1,0 +1,68 @@
+export const getEnvVar = (key) => {
+    if (typeof process !== 'undefined' && process?.env && process.env[key] !== undefined) {
+        return process.env[key];
+    }
+    if (typeof import.meta !== 'undefined' &&
+        import.meta.env &&
+        import.meta.env[key] !== undefined) {
+        return import.meta.env[key];
+    }
+    return undefined;
+};
+export const isDevEnv = () => {
+    const nodeMode = getEnvVar('NODE_ENV');
+    if (nodeMode) {
+        return nodeMode === 'development';
+    }
+    const viteMode = getEnvVar('MODE');
+    return viteMode === 'development';
+};
+export const isTauriRuntime = () => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    // Check for Tauri runtime
+    return !!window.__TAURI__;
+};
+export const isElectronRuntime = () => {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    // Check for Tauri first (Tauri also has IPC)
+    if (isTauriRuntime()) {
+        return false; // Tauri is not Electron
+    }
+    // Check for IPC bridge (most reliable indicator)
+    const maybeIpc = window.ipc;
+    if (maybeIpc && typeof maybeIpc.invoke === 'function') {
+        return true;
+    }
+    // Check for legacy electron API
+    if (window.electron) {
+        return true;
+    }
+    // Check for user agent (fallback)
+    if (typeof navigator !== 'undefined' && navigator.userAgent) {
+        return navigator.userAgent.includes('Electron');
+    }
+    return false;
+};
+/**
+ * Check if running in pure web mode (not Electron, not Tauri)
+ * This is the authoritative check for whether backend services are available
+ */
+export const isWebMode = () => {
+    if (typeof window === 'undefined') {
+        return false; // SSR - assume not web mode
+    }
+    // Check for Electron runtime
+    if (isElectronRuntime()) {
+        return false;
+    }
+    // Check for Tauri runtime
+    if (isTauriRuntime()) {
+        return false;
+    }
+    // If neither Electron nor Tauri, we're in web mode
+    return true;
+};

@@ -22,9 +22,8 @@ import OrderConfirmModal, { type OrderDetails } from '../../components/trade/Ord
 import OrderBook, { type OrderBookEntry } from '../../components/trade/OrderBook';
 import TradesTape, { type Trade } from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
-import { TradeModeFallback } from '../../components/trade/TradeModeFallback';
-import { ResponsiveContainer } from '../../components/responsive/ResponsiveContainer';
-import { useResponsive } from '../../hooks/useResponsive';
+// TradeModeFallback and useResponsive not yet implemented - removed for now
+import { TradeStagehandIntegration } from './stagehand-integration';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -62,9 +61,11 @@ export default function TradePanel() {
   const [limitPrice, setLimitPrice] = useState(price);
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const [lastPrice, setLastPrice] = useState<number | null>(null);
-  const [lastChange, setLastChange] = useState<number | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const { isMobile, isTablet } = useResponsive();
+  const [_lastChange, setLastChange] = useState<number | null>(null);
+  const [_lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  // Responsive hooks not yet implemented - using fallback values
+  const isMobile = false;
+  const isTablet = false;
 
   // WISPR Trade Command Handler
   useEffect(() => {
@@ -679,16 +680,21 @@ export default function TradePanel() {
       {/* Trade Fallback UI - Show when disconnected and no cached data */}
       {!wsConnected && lastPrice === null && (
         <div className="p-4">
-          <TradeModeFallback
-            error={connectionError?.message || 'WebSocket disconnected'}
-            onRetry={async () => {
-              setConnectionError(null);
-              // Trigger reconnection by re-enabling the hook
-              // The useRealtimeTrade hook should handle reconnection
-              console.log('[Trade] Retrying connection...');
-            }}
-            cachedData={undefined}
-          />
+          <div className="text-center p-8 text-gray-400">
+            <p>Trade mode fallback - service unavailable</p>
+            <p className="text-sm mt-2">{connectionError?.message || 'WebSocket disconnected'}</p>
+            <button
+              onClick={async () => {
+                setConnectionError(null);
+                // Trigger reconnection by re-enabling the hook
+                // The useRealtimeTrade hook should handle reconnection
+                console.log('[Trade] Retrying connection...');
+              }}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Retry Connection
+            </button>
+          </div>
         </div>
       )}
 
@@ -974,6 +980,7 @@ export default function TradePanel() {
           pendingOrder && pendingOrder.quantity <= 0 ? ['Quantity must be greater than 0'] : []
         }
       />
+      <TradeStagehandIntegration />
     </div>
   );
 }

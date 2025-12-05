@@ -38,12 +38,17 @@ function initWebSocketServer(httpServer) {
     clientTracking: true,
   });
 
-  // Initialize Redis subscriber
-  initRedisSubscriber();
+  // Initialize Redis subscriber (optional - fails gracefully if Redis unavailable)
+  try {
+    initRedisSubscriber();
+  } catch (error) {
+    log.warn('[WS] Redis subscriber init failed (optional)', { error: error.message });
+  }
 
-  // Subscribe to research events channel
-  subscribePubSub('research.event', event => {
-    const jobId = event.jobId;
+  // Subscribe to research events channel (fails gracefully if Redis unavailable)
+  try {
+    subscribePubSub('research.event', event => {
+      const jobId = event.jobId;
     if (!jobId) {
       log.warn('[WS-FORWARDER] Event missing jobId', { event });
       return;
@@ -99,7 +104,10 @@ function initWebSocketServer(httpServer) {
         count: forwardedCount,
       });
     }
-  });
+    });
+  } catch (error) {
+    log.warn('[WS] Redis subscription failed (optional)', { error: error.message });
+  }
 
   wss.on('connection', (ws, req) => {
     const url = new URL(req.url, `http://${req.headers.host}`);

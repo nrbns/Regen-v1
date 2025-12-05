@@ -12,7 +12,7 @@ interface TestWrapperProps {
   theme?: 'light' | 'dark';
 }
 
-export function TestWrapper({ children, theme = 'dark' }: TestWrapperProps) {
+export function TestWrapper({ children, theme: _theme = 'dark' }: TestWrapperProps) {
   // ThemeProvider doesn't accept defaultTheme prop - theme is managed by themeStore
   return (
     <ErrorBoundary>
