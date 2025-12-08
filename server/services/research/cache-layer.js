@@ -5,7 +5,7 @@
  */
 
 import { searchViralDevTweets } from './twitter-search.js';
-import { parallelSearch } from './scraper-parallel-production.js';
+// import { parallelSearch } from './scraper-parallel-production.js'; // Unused
 
 const CACHE = new Map();
 const DEFAULT_TTL = 30 * 60 * 1000; // 30 minutes (1800 seconds)
@@ -229,7 +229,7 @@ export function getCacheStats() {
 /**
  * Warm cache for common queries
  */
-export async function warmCache(queries) {
+export async function warmCache(_queries) {
   // This would pre-fetch results for common queries
   // Implementation depends on your needs
   console.log('[CacheLayer] Cache warming not implemented yet');

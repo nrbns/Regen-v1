@@ -68,7 +68,7 @@ export default function HistoryPage() {
                 return;
             setSearchResults(Array.isArray(results) ? results : []);
         })
-            .catch(error => {
+            .catch((error) => {
             if (cancelled)
                 return;
             console.error('History search failed:', error);

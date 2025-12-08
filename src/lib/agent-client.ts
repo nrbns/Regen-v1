@@ -3,7 +3,7 @@
  * Initializes window.agent for AgentConsole and other components
  */
 
-import { researchApi, agentApi } from './api-client';
+import { agentApi } from './api-client';
 
 const API_BASE_URL =
   typeof window !== 'undefined'

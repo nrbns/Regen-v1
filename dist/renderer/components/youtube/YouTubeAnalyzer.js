@@ -61,7 +61,7 @@ export function YouTubeAnalyzer() {
                 throw new Error(errorData.message || `Video generation failed: ${response.statusText}`);
             }
             const data = await response.json();
-            setResult(prev => ({
+            setResult((prev) => ({
                 ...prev,
                 response_video_url: data.response_video_url,
                 script: data.script,

@@ -3,7 +3,6 @@
  * SuperStore for sessions, memory, and state
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const redis = require('../../config/redis-client');
 
 const log = {

@@ -156,7 +156,7 @@ export const useTabsStore = create()(persist((set, get) => ({
                 {
                     id: `tab-${Date.now()}`,
                     title: 'New Tab',
-                    url: 'about:blank',
+                    url: 'https://www.google.com', // Real homepage instead of blank
                     appMode: useAppStore.getState().mode,
                     createdAt: Date.now(),
                     lastActiveAt: Date.now(),
@@ -334,6 +334,7 @@ export const useTabsStore = create()(persist((set, get) => ({
         const tab = state.tabs.find(t => t.id === tabId);
         if (!tab)
             return state;
+        // Phase 1, Day 1: Improved navigation history tracking
         // Initialize history if it doesn't exist, starting with the current URL
         let history = tab.history || [];
         if (history.length === 0 && tab.url) {
@@ -354,16 +355,23 @@ export const useTabsStore = create()(persist((set, get) => ({
             title: tab.title,
             timestamp: Date.now(),
         };
-        return {
-            tabs: state.tabs.map(t => t.id === tabId
-                ? {
-                    ...t,
-                    url: newUrl,
-                    history: [...newHistory, newEntry],
-                    historyIndex: newHistory.length, // Points to the new entry
-                }
-                : t),
-        };
+        const updatedTabs = state.tabs.map(t => t.id === tabId
+            ? {
+                ...t,
+                url: newUrl,
+                history: [...newHistory, newEntry],
+                historyIndex: newHistory.length, // Points to the new entry
+            }
+            : t);
+        // Auto-save session after navigation
+        const appMode = useAppStore.getState().mode;
+        debouncedSaveSession({
+            tabs: updatedTabs,
+            activeTabId: state.activeId,
+            mode: appMode,
+            savedAt: Date.now(),
+        });
+        return { tabs: updatedTabs };
     }),
     goBack: tabId => set(state => {
         const tab = state.tabs.find(t => t.id === tabId);
@@ -372,16 +380,23 @@ export const useTabsStore = create()(persist((set, get) => ({
         }
         const newIndex = tab.historyIndex - 1;
         const entry = tab.history[newIndex];
-        return {
-            tabs: state.tabs.map(t => t.id === tabId
-                ? {
-                    ...t,
-                    url: entry.url,
-                    title: entry.title || t.title,
-                    historyIndex: newIndex,
-                }
-                : t),
-        };
+        const updatedTabs = state.tabs.map(t => t.id === tabId
+            ? {
+                ...t,
+                url: entry.url,
+                title: entry.title || t.title,
+                historyIndex: newIndex,
+            }
+            : t);
+        // Phase 1, Day 1: Auto-save session after navigation
+        const appMode = useAppStore.getState().mode;
+        debouncedSaveSession({
+            tabs: updatedTabs,
+            activeTabId: state.activeId,
+            mode: appMode,
+            savedAt: Date.now(),
+        });
+        return { tabs: updatedTabs };
     }),
     goForward: tabId => set(state => {
         const tab = state.tabs.find(t => t.id === tabId);
@@ -393,16 +408,23 @@ export const useTabsStore = create()(persist((set, get) => ({
         }
         const newIndex = tab.historyIndex + 1;
         const entry = tab.history[newIndex];
-        return {
-            tabs: state.tabs.map(t => t.id === tabId
-                ? {
-                    ...t,
-                    url: entry.url,
-                    title: entry.title || t.title,
-                    historyIndex: newIndex,
-                }
-                : t),
-        };
+        const updatedTabs = state.tabs.map(t => t.id === tabId
+            ? {
+                ...t,
+                url: entry.url,
+                title: entry.title || t.title,
+                historyIndex: newIndex,
+            }
+            : t);
+        // Phase 1, Day 1: Auto-save session after navigation
+        const appMode = useAppStore.getState().mode;
+        debouncedSaveSession({
+            tabs: updatedTabs,
+            activeTabId: state.activeId,
+            mode: appMode,
+            savedAt: Date.now(),
+        });
+        return { tabs: updatedTabs };
     }),
     canGoBack: tabId => {
         const tab = get().tabs.find(t => t.id === tabId);

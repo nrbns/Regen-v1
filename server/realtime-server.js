@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 // server/realtime-server.js
 // Mock realtime trading server for Trade Mode testing
 const express = require('express');

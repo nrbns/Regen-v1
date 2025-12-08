@@ -283,7 +283,8 @@ export function BottomStatus() {
                 message: 'Tor binary not found – running in stub mode',
             });
         }
-        if (torStatus.error && torStatus.error !== previous.error) {
+        // Only show Tor warning if Tor is enabled but not available (not just stub mode)
+        if (torStatus.error && torStatus.error !== previous.error && !torStatus.stub) {
             addPrivacyEvent({
                 kind: 'tor',
                 status: 'warning',
@@ -549,10 +550,10 @@ export function BottomStatus() {
                 ? 'Tor: On'
                 : `Tor: ${Math.round(torStatus.progress)}%`
             : 'Tor: Off';
-    const torTooltip = torStatus.error
-        ? `Tor warning: ${torStatus.error}`
-        : torStatus.stub
-            ? 'Tor binary not found; using stub mode for UI only.'
+    const torTooltip = torStatus.stub
+        ? 'Tor is optional and not installed. Privacy features work without it.'
+        : torStatus.error && !torStatus.stub
+            ? `Tor warning: ${torStatus.error}`
             : torStatus.running
                 ? torStatus.circuitEstablished
                     ? 'Tor circuit established. Click to stop.'
@@ -865,8 +866,9 @@ export function BottomStatus() {
             ? 'info'
             : 'default';
     const torBadgeDescription = torStatusLabel.replace(/^Tor:?\s*/i, '');
+    // Don't show warning badge for stub mode (Tor not installed is fine)
     const torBadgeVariant = torStatus.stub
-        ? 'warning'
+        ? 'default' // Changed from 'warning' - stub mode is normal, not an error
         : torStatus.running
             ? 'info'
             : 'default';

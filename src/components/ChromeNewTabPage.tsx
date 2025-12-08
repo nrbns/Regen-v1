@@ -298,7 +298,7 @@ export function ChromeNewTabPage() {
           : `https://www.google.com/search?q=${encodeURIComponent(trimmedQuery)}`;
 
         const activeTab = activeId
-          ? (await ipc.tabs.list().catch(() => [])).find(t => t.id === activeId) || null
+          ? (await ipc.tabs.list().catch(() => [])).find((t: any) => t.id === activeId) || null
           : null;
 
         if (activeTab && (activeTab.url === 'about:blank' || !activeTab.url)) {

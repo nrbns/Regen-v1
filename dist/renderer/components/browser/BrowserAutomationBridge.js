@@ -6,11 +6,11 @@ import { useEffect, useRef } from 'react';
 import { useBrowserAutomation } from '../../hooks/useBrowserAutomation';
 import { useTabsStore } from '../../state/tabsStore';
 export function BrowserAutomationBridge({ tabId, iframeId, sessionId }) {
-    const activeTabId = useTabsStore(state => state.activeTabId);
+    const activeTabId = useTabsStore(state => state.activeId);
     const tabs = useTabsStore(state => state.tabs);
     const iframeRef = useRef(null);
     // Get current tab
-    const currentTab = tabs.find(t => t.id === (tabId || activeTabId));
+    const _currentTab = tabs.find(t => t.id === (tabId || activeTabId));
     const currentTabId = tabId || activeTabId;
     // Connect to browser automation WebSocket
     const { isConnected, execute } = useBrowserAutomation({
@@ -184,14 +184,14 @@ export function BrowserAutomationBridge({ tabId, iframeId, sessionId }) {
                     iframeDoc.head.appendChild(scriptEl);
                 }
             }
-            catch (error) {
+            catch {
                 // CORS restriction - script injection not possible
                 // Automation will work via postMessage only
                 console.warn('[BrowserAutomationBridge] Cannot inject script due to CORS, using postMessage only');
             }
         }
-        catch (error) {
-            console.error('[BrowserAutomationBridge] Error setting up automation:', error);
+        catch (setupError) {
+            console.error('[BrowserAutomationBridge] Error setting up automation:', setupError);
         }
     }, [currentTabId, isConnected]);
     return null; // This component doesn't render anything

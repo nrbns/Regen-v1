@@ -24,7 +24,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
  * Extract video ID from YouTube URL
  */
 function extractVideoId(url) {
-  const regex = /(?:\/\/(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11}))/;
+  const regex = /(?:\/\/(?:www\.)?(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11}))/;
   const match = url.match(regex);
   return match ? match[1] : null;
 }
@@ -63,7 +63,7 @@ async function downloadVideoAndExtractFrames(url, videoId) {
 
   try {
     // Download video with yt-dlp
-    const ydlOpts = {
+    const _ydlOpts = {
       format: 'best[ext=webm]/best',
       output: videoPath,
       quiet: true,

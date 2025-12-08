@@ -1,4 +1,4 @@
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
 // @ts-nocheck
 import { useEffect, useMemo, useState } from 'react';
 import { FilePlus, Globe, Loader2, Shield, UploadCloud, X, Highlighter, AlertTriangle, GitBranch, Clock3, BookOpenCheck, } from 'lucide-react';
@@ -7,6 +7,8 @@ import { PDFViewer } from '../../components/DocumentViewer/PDFViewer';
 import { CommentsPanel } from '../../components/DocumentViewer/CommentsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
+import { DocumentEditor } from '../../components/docs/DocumentEditor';
+import { OCRProcessor } from '../../components/docs/OCRProcessor';
 export default function DocsPanel() {
     const [viewMode, setViewMode] = useState('list');
     const [reviews, setReviews] = useState([]);
@@ -17,6 +19,10 @@ export default function DocsPanel() {
     const [ingestUrl, setIngestUrl] = useState('');
     const [fileToIngest, setFileToIngest] = useState(null);
     const [uploadProgress, setUploadProgress] = useState(null);
+    const [showEditor, setShowEditor] = useState(false);
+    const [editorFile, setEditorFile] = useState(null);
+    const [showOCR, setShowOCR] = useState(false);
+    const [ocrFile, setOcrFile] = useState(null);
     useEffect(() => {
         const loadReviews = async () => {
             try {
@@ -110,37 +116,70 @@ export default function DocsPanel() {
             console.error('Failed to delete review', err);
         }
     };
-    return (_jsxs("div", { className: "flex h-full bg-[#1A1D28] text-gray-100 overflow-hidden", children: [_jsx(Sidebar, { reviews: reviews, activeReview: activeReview, onSelectReview: handleSelectReview, onCreate: handleStartIngest }), _jsxs("main", { className: "flex-1 overflow-y-auto", children: [viewMode === 'list' && _jsx(EmptyState, { onCreate: handleStartIngest }), viewMode === 'ingest' && (_jsx(IngestForm, { ingestType: ingestType, ingestUrl: ingestUrl, loading: loading, uploadProgress: uploadProgress, error: error, fileToIngest: fileToIngest, onTypeChange: setIngestType, onUrlChange: setIngestUrl, onFileSelect: handleFileSelect, onSubmit: handleIngest, onCancel: handleIngestCancel })), viewMode === 'review' && activeReview && (_jsx(DocumentReviewView, { review: activeReview, onReverify: async () => {
-                            try {
-                                setLoading(true);
-                                const updated = await ipc.document.reverify({ id: activeReview.id });
-                                const newReview = updated;
-                                setActiveReview(newReview);
-                                setReviews(prev => prev.map(r => (r.id === newReview.id ? newReview : r)));
-                            }
-                            catch (err) {
-                                console.error('Reverify failed', err);
-                            }
-                            finally {
-                                setLoading(false);
-                            }
-                        }, onExport: async (format, style) => {
-                            try {
-                                setLoading(true);
-                                const outputPath = window.prompt('Save to path', `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`);
-                                if (!outputPath)
-                                    return;
-                                await ipc.document.export(activeReview.id, format, outputPath, style);
-                                alert('Export completed successfully');
-                            }
-                            catch (err) {
-                                console.error('Export failed', err);
-                                alert('Export failed. Check console for details.');
-                            }
-                            finally {
-                                setLoading(false);
-                            }
-                        }, onDelete: () => activeReview && handleDeleteReview(activeReview) }))] })] }));
+    return (_jsxs("div", { className: "flex h-full bg-[#1A1D28] text-gray-100 overflow-hidden", children: [_jsx(Sidebar, { reviews: reviews, activeReview: activeReview, onSelectReview: handleSelectReview, onCreate: handleStartIngest }), _jsx("main", { className: "flex-1 overflow-y-auto", children: showOCR && ocrFile ? (_jsx(OCRProcessor, { file: ocrFile, onComplete: (result) => {
+                        // Phase 2, Day 2: OCR completed
+                        console.log('[Docs] OCR completed:', result);
+                    }, onCancel: () => {
+                        setShowOCR(false);
+                        setOcrFile(null);
+                    } })) : showEditor && editorFile ? (_jsx(DocumentEditor, { file: editorFile, onSave: async (editedContent) => {
+                        // Phase 2, Day 1: Save edited content
+                        try {
+                            const blob = new Blob([editedContent], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = editorFile.name.replace(/\.(pdf|docx|xlsx)$/, '_edited.txt');
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            setShowEditor(false);
+                            setEditorFile(null);
+                        }
+                        catch (error) {
+                            console.error('Failed to save edited document:', error);
+                        }
+                    }, onClose: () => {
+                        setShowEditor(false);
+                        setEditorFile(null);
+                    } })) : (_jsxs(_Fragment, { children: [viewMode === 'list' && _jsx(EmptyState, { onCreate: handleStartIngest }), viewMode === 'ingest' && (_jsx(IngestForm, { ingestType: ingestType, ingestUrl: ingestUrl, loading: loading, uploadProgress: uploadProgress, error: error, fileToIngest: fileToIngest, onTypeChange: setIngestType, onUrlChange: setIngestUrl, onFileSelect: handleFileSelect, onSubmit: handleIngest, onCancel: handleIngestCancel, onEdit: (file) => {
+                                // Phase 2, Day 1: Open editor for file
+                                setEditorFile(file);
+                                setShowEditor(true);
+                            }, onOCR: (file) => {
+                                // Phase 2, Day 2: Open OCR processor for file
+                                setOcrFile(file);
+                                setShowOCR(true);
+                            } })), viewMode === 'review' && activeReview && (_jsx(DocumentReviewView, { review: activeReview, onReverify: async () => {
+                                try {
+                                    setLoading(true);
+                                    const updated = await ipc.document.reverify({ id: activeReview.id });
+                                    const newReview = updated;
+                                    setActiveReview(newReview);
+                                    setReviews(prev => prev.map(r => (r.id === newReview.id ? newReview : r)));
+                                }
+                                catch (err) {
+                                    console.error('Reverify failed', err);
+                                }
+                                finally {
+                                    setLoading(false);
+                                }
+                            }, onExport: async (format, style) => {
+                                try {
+                                    setLoading(true);
+                                    const outputPath = window.prompt('Save to path', `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`);
+                                    if (!outputPath)
+                                        return;
+                                    await ipc.document.export(activeReview.id, format, outputPath, style);
+                                    alert('Export completed successfully');
+                                }
+                                catch (err) {
+                                    console.error('Export failed', err);
+                                    alert('Export failed. Check console for details.');
+                                }
+                                finally {
+                                    setLoading(false);
+                                }
+                            }, onDelete: () => activeReview && handleDeleteReview(activeReview) }))] })) })] }));
 }
 function Sidebar({ reviews, activeReview, onSelectReview, onCreate }) {
     return (_jsxs("aside", { className: "w-80 border-r border-gray-800/40 bg-[#161924] flex flex-col", children: [_jsxs("div", { className: "p-4 border-b border-gray-800/40", children: [_jsx("h1", { className: "text-lg font-semibold", children: "Document Review" }), _jsx("p", { className: "text-xs text-gray-500", children: "Ingest, analyze, and verify documents" }), _jsxs("div", { className: "mt-3 grid grid-cols-3 gap-2 text-xs", children: [_jsxs("button", { onClick: () => onCreate('pdf'), className: "flex items-center justify-center gap-1 rounded border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-indigo-200 hover:bg-indigo-500/20", children: [_jsx(FilePlus, { size: 12 }), "PDF"] }), _jsxs("button", { onClick: () => onCreate('docx'), className: "flex items-center justify-center gap-1 rounded border border-purple-500/40 bg-purple-500/10 px-2 py-1 text-purple-200 hover:bg-purple-500/20", children: [_jsx(UploadCloud, { size: 12 }), "DOCX"] }), _jsxs("button", { onClick: () => onCreate('web'), className: "flex items-center justify-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-emerald-200 hover:bg-emerald-500/20", children: [_jsx(Globe, { size: 12 }), "Web"] })] })] }), _jsx("div", { className: "flex-1 overflow-y-auto", children: reviews.length === 0 ? (_jsx("div", { className: "p-4 text-xs text-gray-500", children: "No documents yet. Ingest a PDF, DOCX, or web article to begin." })) : (_jsx("ul", { children: reviews.map(review => (_jsx("li", { children: _jsxs("button", { onClick: () => onSelectReview(review), className: `w-full text-left px-4 py-3 border-b border-gray-800/40 hover:bg-gray-800/30 transition-colors ${activeReview?.id === review.id ? 'bg-gray-800/50' : ''}`, children: [_jsxs("div", { className: "flex items-center justify-between text-xs text-gray-400", children: [_jsx("span", { className: "uppercase tracking-wide text-[10px] text-gray-500", children: review.type }), _jsx("span", { children: formatDistanceToNow(review.updatedAt, { addSuffix: true }) })] }), _jsx("div", { className: "mt-1 font-medium text-sm text-gray-100 line-clamp-2", children: review.title }), _jsxs("div", { className: "mt-2 text-[11px] text-gray-500", children: [review.sections.length, " sections \u2022 ", review.claims.length, " claims"] })] }) }, review.id))) })) })] }));
@@ -148,10 +187,10 @@ function Sidebar({ reviews, activeReview, onSelectReview, onCreate }) {
 function EmptyState({ onCreate }) {
     return (_jsxs("div", { className: "flex h-full flex-col items-center justify-center gap-4 text-center text-sm text-gray-400", children: [_jsx("div", { className: "rounded-full border border-dashed border-gray-700/60 bg-gray-800/30 p-6", children: _jsx(Shield, { size: 48, className: "text-purple-400" }) }), _jsxs("div", { className: "space-y-2", children: [_jsx("h2", { className: "text-xl font-semibold text-gray-100", children: "Start your first review" }), _jsx("p", { children: "Upload a PDF/DOCX or ingest a web article to analyze claims, entities, and timelines." })] }), _jsxs("div", { className: "flex gap-3", children: [_jsx("button", { onClick: () => onCreate('pdf'), className: "rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-500 transition-colors", children: "Upload document" }), _jsx("button", { onClick: () => onCreate('web'), className: "rounded border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:border-gray-600", children: "Ingest web page" })] })] }));
 }
-function IngestForm({ ingestType, ingestUrl, loading, uploadProgress, error, fileToIngest, onTypeChange, onUrlChange, onFileSelect, onSubmit, onCancel, }) {
+function IngestForm({ ingestType, ingestUrl, loading, uploadProgress, error, fileToIngest, onTypeChange, onUrlChange, onFileSelect, onSubmit, onCancel, onEdit, onOCR, }) {
     return (_jsxs("div", { className: "flex max-w-3xl flex-col gap-6 px-10 py-12", children: [_jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("div", { children: [_jsx("h2", { className: "text-2xl font-semibold text-gray-100", children: "Ingest document" }), _jsx("p", { className: "text-sm text-gray-400", children: "Ingest a file or web article to analyze claims and generate verification reports." })] }), _jsx("button", { onClick: onCancel, className: "rounded-full border border-gray-700 bg-gray-800/40 p-2 text-gray-400 hover:bg-gray-800/60", children: _jsx(X, { size: 16 }) })] }), _jsxs("div", { className: "rounded border border-gray-800/60 bg-gray-900/40 p-6", children: [_jsx("label", { className: "mb-3 block text-xs font-semibold uppercase tracking-wide text-gray-500", children: "Source type" }), _jsx("div", { className: "flex gap-3", children: ['pdf', 'docx', 'web'].map(type => (_jsx("button", { onClick: () => onTypeChange(type), className: `rounded-lg border px-3 py-2 text-sm capitalize transition-colors ${ingestType === type
                                 ? 'border-purple-500/50 bg-purple-500/10 text-purple-200'
-                                : 'border-gray-700/50 bg-gray-800/40 text-gray-300 hover:border-gray-600'}`, children: type }, type))) })] }), ingestType === 'web' ? (_jsxs("div", { className: "rounded border border-gray-800/60 bg-gray-900/40 p-6", children: [_jsx("label", { className: "block text-sm font-medium text-gray-300", children: "Web URL" }), _jsx("input", { type: "url", value: ingestUrl, onChange: e => onUrlChange(e.target.value), placeholder: "https://example.com/article", className: "mt-2 w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" }), _jsx("p", { className: "mt-2 text-xs text-gray-500", children: "Regen will fetch the article, strip boilerplate, and analyze claims." })] })) : (_jsxs("div", { className: "rounded border border-dashed border-gray-700 bg-gray-900/30 p-6 text-center", children: [_jsxs("label", { className: "block text-sm font-medium text-gray-300 mb-3", children: ["Upload ", ingestType.toUpperCase(), " file"] }), _jsx("input", { type: "file", accept: ".pdf,.docx", onChange: onFileSelect, className: "mx-auto block text-sm text-gray-300" }), fileToIngest && (_jsxs("p", { className: "mt-3 text-xs text-gray-400", children: ["Selected: ", fileToIngest.name, " (", Math.round(fileToIngest.size / 1024), " KB)"] }))] })), error && (_jsx("div", { className: "rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs text-red-200", children: error })), _jsxs("div", { className: "flex items-center gap-3", children: [_jsx("button", { onClick: onSubmit, disabled: loading, className: "rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-purple-500 disabled:opacity-50", children: loading ? 'Processing…' : 'Ingest' }), _jsx("button", { onClick: onCancel, className: "rounded border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:border-gray-600", children: "Cancel" }), uploadProgress !== null && (_jsxs("div", { className: "flex items-center gap-2 text-xs text-gray-400", children: [_jsx(Loader2, { size: 14, className: "animate-spin text-purple-400" }), _jsxs("span", { children: ["Progress ", uploadProgress, "%"] })] }))] })] }));
+                                : 'border-gray-700/50 bg-gray-800/40 text-gray-300 hover:border-gray-600'}`, children: type }, type))) })] }), ingestType === 'web' ? (_jsxs("div", { className: "rounded border border-gray-800/60 bg-gray-900/40 p-6", children: [_jsx("label", { className: "block text-sm font-medium text-gray-300", children: "Web URL" }), _jsx("input", { type: "url", value: ingestUrl, onChange: e => onUrlChange(e.target.value), placeholder: "https://example.com/article", className: "mt-2 w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500" }), _jsx("p", { className: "mt-2 text-xs text-gray-500", children: "Regen will fetch the article, strip boilerplate, and analyze claims." })] })) : (_jsxs("div", { className: "rounded border border-dashed border-gray-700 bg-gray-900/30 p-6 text-center", children: [_jsxs("label", { className: "block text-sm font-medium text-gray-300 mb-3", children: ["Upload ", ingestType.toUpperCase(), " file"] }), _jsx("input", { type: "file", accept: ".pdf,.docx", onChange: onFileSelect, className: "mx-auto block text-sm text-gray-300" }), fileToIngest && (_jsxs("div", { className: "mt-3 flex items-center justify-between rounded border border-slate-700 bg-slate-800/50 p-3", children: [_jsxs("div", { children: [_jsx("p", { className: "text-xs text-gray-300", children: fileToIngest.name }), _jsxs("p", { className: "text-xs text-gray-500", children: [Math.round(fileToIngest.size / 1024), " KB"] })] }), onEdit && (_jsx("button", { onClick: () => onEdit(fileToIngest), className: "rounded border border-purple-500/50 bg-purple-500/10 px-3 py-1.5 text-xs text-purple-200 hover:bg-purple-500/20", children: "Edit with AI" }))] }))] })), error && (_jsx("div", { className: "rounded border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs text-red-200", children: error })), _jsxs("div", { className: "flex items-center gap-3", children: [_jsx("button", { onClick: onSubmit, disabled: loading, className: "rounded bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-purple-500 disabled:opacity-50", children: loading ? 'Processing…' : 'Ingest' }), _jsx("button", { onClick: onCancel, className: "rounded border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:border-gray-600", children: "Cancel" }), uploadProgress !== null && (_jsxs("div", { className: "flex items-center gap-2 text-xs text-gray-400", children: [_jsx(Loader2, { size: 14, className: "animate-spin text-purple-400" }), _jsxs("span", { children: ["Progress ", uploadProgress, "%"] })] }))] })] }));
 }
 function DocumentReviewView({ review, onReverify, onExport, onDelete }) {
     const [selectedClaimId, setSelectedClaimId] = useState(null);

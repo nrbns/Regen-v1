@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Search, TrendingUp, Mic, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, Search, TrendingUp, Mic, ArrowRight, CheckCircle2, Keyboard } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
 
 interface TourStep {
@@ -17,6 +17,7 @@ interface TourStep {
   action?: () => void;
 }
 
+// Phase 1, Day 5: Enhanced onboarding tour with feature highlights
 const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
@@ -25,63 +26,39 @@ const TOUR_STEPS: TourStep[] = [
     icon: <Sparkles className="w-6 h-6" />,
   },
   {
-    id: 'omni-ai',
-    title: 'AI Omni Mode',
-    description: 'Press Ctrl+Shift+O or click the AI button to access 6 AI modes: Search, Code, Research, Writing, Translate, and Image.',
-    icon: <Sparkles className="w-6 h-6" />,
-    action: () => {
-      // Trigger Omni AI mode
-      const event = new KeyboardEvent('keydown', {
-        key: 'o',
-        ctrlKey: true,
-        shiftKey: true,
-      });
-      window.dispatchEvent(event);
-    },
+    id: 'voice',
+    title: 'WISPR Voice Assistant',
+    description: 'Press Ctrl+Space to activate WISPR. Speak in Hindi or English: "Research BTC" or "Nifty kharido 50". You can edit commands before executing.',
+    icon: <Mic className="w-6 h-6" />,
   },
   {
     id: 'research',
     title: 'Research Mode',
-    description: 'Switch to Research mode for AI-powered web research with real-time citations and summaries.',
+    description: 'Switch to Research mode for AI-powered web research with real-time citations, summaries, and document analysis.',
     icon: <Search className="w-6 h-6" />,
     action: () => {
       useAppStore.getState().setMode('Research');
     },
   },
   {
-    id: 'voice',
-    title: 'Voice Commands',
-    description: 'Click the microphone button or press Ctrl+Space to use voice commands in Hindi or English.',
-    icon: <Mic className="w-6 h-6" />,
-  },
-  {
     id: 'trade',
     title: 'Trade Mode',
-    description: 'Switch to Trade mode for AI-powered trading signals and real-time market analysis.',
+    description: 'Switch to Trade mode for AI-powered trading signals, real-time market analysis, and position sizing.',
     icon: <TrendingUp className="w-6 h-6" />,
     action: () => {
       useAppStore.getState().setMode('Trade');
     },
   },
   {
-    id: 'trade',
-    title: 'Trade Mode',
-    description: 'Access Trade mode for real-time market data, charts, and AI-powered trading signals.',
-    icon: <TrendingUp className="w-6 h-6" />,
-    action: () => {
-      useAppStore.getState().setMode('Trade');
-    },
-  },
-  {
-    id: 'voice',
-    title: 'Voice Commands',
-    description: 'Press Ctrl+Space to activate WISPR voice assistant. Say "Hey WISPR, research BTC" to get started!',
-    icon: <Mic className="w-6 h-6" />,
+    id: 'shortcuts',
+    title: 'Keyboard Shortcuts',
+    description: 'Press Ctrl+K for command palette, Ctrl+L for address bar, Ctrl+T for new tab. See all shortcuts in Settings → Shortcuts.',
+    icon: <Keyboard className="w-6 h-6" />,
   },
   {
     id: 'complete',
     title: 'You\'re all set!',
-    description: 'Start exploring RegenBrowser. You can always access this tour from Settings.',
+    description: 'Start exploring RegenBrowser. You can always access this tour and shortcuts guide from Settings.',
     icon: <CheckCircle2 className="w-6 h-6" />,
   },
 ];

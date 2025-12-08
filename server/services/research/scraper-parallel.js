@@ -46,7 +46,7 @@ async function scrapeArxiv(arxivId) {
  */
 async function scrapeGitHub(repoUrl) {
   try {
-    const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+    const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
     if (!match) return null;
 
     const [, owner, repo] = match;
@@ -181,7 +181,7 @@ export async function parallelScrape(urls) {
   const arxivUrls = urls.filter(u => u.includes('arxiv.org'));
   const githubUrls = urls.filter(u => u.includes('github.com'));
   const twitterUrls = urls.filter(u => u.includes('twitter.com') || u.includes('x.com'));
-  const otherUrls = urls.filter(u => 
+  const _otherUrls = urls.filter(u => 
     !u.includes('arxiv.org') && 
     !u.includes('github.com') && 
     !u.includes('twitter.com') && 

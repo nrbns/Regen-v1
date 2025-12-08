@@ -5,13 +5,14 @@
  * Node.js implementation of the Python LangGraph workflow
  */
 
-import { executeParallelAgents, synthesizeAgentResults } from './parallel-agents.js';
-import { analyzeWithLLM } from '../agent/llm.js';
+import { executeParallelAgents } from './parallel-agents.js';
+// import { synthesizeAgentResults } from './parallel-agents.js'; // Unused
+// import { analyzeWithLLM } from '../agent/llm.js'; // Unused
 
 /**
  * The 5 Golden Prompts (exact from production code)
  */
-const GOLDEN_PROMPTS = [
+const _GOLDEN_PROMPTS = [
   `Act as a world-class intelligence analyst with access to real-time web + X data. Use a multi-hop reasoning chain. First, list 8–12 highly specific, non-obvious search queries that would reveal hidden truths or cutting-edge developments on this topic (include arXiv, GitHub, patents, obscure forums, and deep X threads). Then execute the top 5 in parallel. Finally, synthesize into a surprising, defensible answer with live citations.`,
   
   `Search X for the last 72 hours using 6 different advanced operators (from:, since:, filter:links, min_retweets:50, etc.). Look for takes from verified engineers, founders, or researchers with >10k followers. Extract signal vs noise. Quote the 4 most important tweets verbatim with links.`,
@@ -119,7 +120,7 @@ function parseStructuredAnswer(text) {
   }
 
   // Extract key insights (numbered or bulleted)
-  const insightsRegex = /(?:^|\n)(?:\d+\.|\*|\-)\s*\*\*([^*]+)\*\*|(?:^|\n)(?:\d+\.|\*|\-)\s*([^\n]+)/gm;
+  const insightsRegex = /(?:^|\n)(?:\d+\.|\*|-)\s*\*\*([^*]+)\*\*|(?:^|\n)(?:\d+\.|\*|-)\s*([^\n]+)/gm;
   let match;
   while ((match = insightsRegex.exec(text)) !== null && result.insights.length < 5) {
     const insight = (match[1] || match[2] || '').trim();
@@ -127,19 +128,19 @@ function parseStructuredAnswer(text) {
   }
 
   // Extract hidden gem
-  const hiddenGemMatch = text.match(/Hidden Gem[:\-]?\s*([^\n]+(?:\n[^\n]+){0,2})/i);
+  const hiddenGemMatch = text.match(/Hidden Gem[:-]?\s*([^\n]+(?:\n[^\n]+){0,2})/i);
   if (hiddenGemMatch) {
     result.hiddenGem = hiddenGemMatch[1].trim();
   }
 
   // Extract counter argument
-  const counterMatch = text.match(/(?:Strongest\s+)?Counter[-\s]?Argument[:\-]?\s*([^\n]+(?:\n[^\n]+){0,3})/i);
+  const counterMatch = text.match(/(?:Strongest\s+)?Counter[-\s]?Argument[:-]?\s*([^\n]+(?:\n[^\n]+){0,3})/i);
   if (counterMatch) {
     result.counterArgument = counterMatch[1].trim();
   }
 
   // Extract sources (markdown links)
-  const sourceRegex = /\[([^\]]+)\]\(([^\)]+)\)/g;
+  const sourceRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
   while ((match = sourceRegex.exec(text)) !== null) {
     result.sources.push({
       title: match[1],

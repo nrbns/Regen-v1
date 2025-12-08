@@ -1,0 +1,43 @@
+{
+  "site": {
+    "name": "RegenBrowser",
+    "url": "https://regenbrowser.com",
+    "description": "The #1 AI Browser in the World - Tauri-powered with WISPR (Voice + Vision + Action)",
+    "version": "1.1"
+  },
+  "social": {
+    "github": "https://github.com/nrbns/Regenbrowser",
+    "twitter": "",
+    "discord": "",
+    "productHunt": ""
+  },
+  "downloads": {
+    "windows": "https://github.com/nrbns/Regenbrowser/releases/latest/download/RegenBrowser-Setup.exe",
+    "linux": "https://github.com/nrbns/Regenbrowser/releases/latest/download/RegenBrowser.AppImage",
+    "macos": "https://github.com/nrbns/Regenbrowser/releases/latest/download/RegenBrowser.dmg"
+  },
+  "features": {
+    "voice": true,
+    "research": true,
+    "trade": true,
+    "documents": true,
+    "offline": true,
+    "privacy": true
+  },
+  "seo": {
+    "keywords": [
+      "AI browser",
+      "voice browser",
+      "offline AI",
+      "Tauri browser",
+      "WISPR",
+      "Hindi voice",
+      "research browser",
+      "trade browser",
+      "privacy browser"
+    ],
+    "ogImage": "/images/og-image.png",
+    "twitterImage": "/images/twitter-card.png"
+  }
+}
+

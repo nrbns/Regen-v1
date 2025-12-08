@@ -159,7 +159,8 @@ export function setIndexingEnabled(enabled: boolean): void {
 }
 
 // Auto-initialize when module loads - suppress all errors
-if (typeof window !== 'undefined') {
+// Skip in test environments to avoid unhandled promise rejections
+if (typeof window !== 'undefined' && !process.env.VITEST && !process.env.NODE_ENV?.includes('test')) {
   // Wait a bit for MeiliSearch to start
   setTimeout(() => {
     initMeiliIndexing().catch(() => {

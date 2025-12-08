@@ -3,7 +3,6 @@
  * Handles /api/agent/query and /api/agent/stream endpoints
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { handleMessage } = require('../../electron/services/regen/core');
 const { runResearchWorkflow } = require('../../electron/services/regen/tools/n8nTools');
 const {

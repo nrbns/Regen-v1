@@ -34,6 +34,8 @@ lazy_static = "1.4"  # For static initialization
 regex = "1.10"  # For HTML cleaning in extract.rs
 sentry = { version = "0.33", features = ["panic", "tracing"] }  # Crash reporting
 tauri-plugin-store = "2.0"  # Secure storage
+num_cpus = "1.0"  # For CPU core detection
+# llama-cpp-rs = { version = "0.1", features = ["metal", "cuda"] }  # Uncomment when ready for actual llama.cpp integration
 # Document processing libraries
 pdf = "0.9"  # PDF parsing and text extraction
 calamine = "0.25"  # Excel file parsing (.xlsx, .xls, .ods)

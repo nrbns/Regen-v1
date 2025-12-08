@@ -7,7 +7,18 @@ type ShortcutEntry = {
   context: string;
 };
 
+// Phase 1, Day 5: Enhanced shortcuts with voice commands
 const SHORTCUT_GROUPS: Array<{ id: string; title: string; shortcuts: ShortcutEntry[] }> = [
+  {
+    id: 'voice',
+    title: 'Voice Commands (WISPR)',
+    shortcuts: [
+      { combo: 'Ctrl/Cmd + Space', action: 'Activate WISPR voice assistant', context: 'Global' },
+      { combo: 'Ctrl/Cmd + Shift + Space', action: 'Wake WISPR from anywhere', context: 'Global' },
+      { combo: 'Voice: "Research [topic]"', action: 'Start research in current mode', context: 'Voice' },
+      { combo: 'Voice: "Nifty kharido 50"', action: 'Place trade order (Hindi/English)', context: 'Voice' },
+    ],
+  },
   {
     id: 'navigation',
     title: 'Global navigation',

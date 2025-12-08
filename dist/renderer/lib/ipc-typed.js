@@ -2,6 +2,7 @@
  * Typed IPC Client for Renderer
  * Provides type-safe IPC calls with automatic error handling
  */
+import { ipcEvents } from './ipc-events';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './env';
 import apiClient from './api-client';
 import { useTabsStore } from '../state/tabsStore';
@@ -1525,4 +1526,6 @@ export const ipc = {
         readPage: (payload) => ipcCall('regen:readPage', payload),
         tradeConfirm: (payload) => ipcCall('regen:trade:confirm', payload),
     },
+    // Event system for real-time updates
+    events: ipcEvents,
 };

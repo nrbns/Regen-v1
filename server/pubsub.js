@@ -107,7 +107,7 @@ function _doSubscribe(channel, handler) {
         console.error('[PubSub] parse error', e);
       }
     });
-  } catch (err) {
+  } catch {
     // Silently fail if Redis unavailable
     // This is expected when Redis is not running
   }

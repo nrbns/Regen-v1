@@ -1,0 +1,19 @@
+# Launch page assets
+*.log
+.DS_Store
+Thumbs.db
+
+# Large video files (track separately)
+videos/*.mp4
+videos/*.mov
+videos/*.avi
+
+# Optimized images (track source, not optimized)
+images/*-optimized.*
+images/*-thumb.*
+
+# Temporary files
+*.tmp
+*.bak
+*~
+

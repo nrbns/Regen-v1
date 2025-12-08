@@ -44,11 +44,21 @@ async function initRendererSentry() {
             }
             else {
                 // Fallback to Electron if available
-                const importSentry = new Function('return import("@sentry/electron/renderer")');
-                const sentryModule = await importSentry().catch(() => null);
-                if (sentryModule) {
-                    rendererSentry = sentryModule;
-                    console.info('[Sentry] Using @sentry/electron/renderer');
+                // SECURITY: Dynamic import for Sentry - safe as it's a static string
+                // Use string concatenation to prevent Vite from statically analyzing the import
+                const sentryPath = '@sentry/electron' + '/renderer';
+                try {
+                    // @vite-ignore tells Vite to skip analyzing this import at build time
+                    // @ts-ignore - @sentry/electron/renderer is optional
+                    const sentryModule = await import(/* @vite-ignore */ sentryPath).catch(() => null);
+                    if (sentryModule) {
+                        rendererSentry = sentryModule;
+                        console.info('[Sentry] Using @sentry/electron/renderer');
+                    }
+                }
+                catch (_error) {
+                    // Silently fail - Electron Sentry is optional
+                    console.debug('[Sentry] @sentry/electron/renderer not available');
                 }
             }
         }

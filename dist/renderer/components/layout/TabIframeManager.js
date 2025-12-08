@@ -13,6 +13,8 @@ import { useSettingsStore } from '../../state/settingsStore';
 import { deriveTitleFromUrl } from '../../lib/ipc-typed';
 import { applyPrivacyModeToIframe } from '../../utils/privacyMode';
 import { getIframeManager, getViewRenderer, throttleViewUpdate } from '../../utils/gve-optimizer';
+import { saveScrollPosition, restoreScrollPosition } from '../../core/tabs/hibernation';
+import { ipcEvents } from '../../lib/ipc-events';
 const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'regen://'];
 function isInternalUrl(url) {
     if (!url)
@@ -31,15 +33,15 @@ function getTabIframeUrl(tab, language) {
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
         // Convert to search in user's language
-        // Use iframe-friendly search engine (Bing) to avoid X-Frame-Options blocking
-        const searchUrl = normalizeInputToUrlOrSearch(url, 'bing', // Use Bing as default - it allows iframe embedding
-        language !== 'auto' ? language : undefined, true // prefer iframe-friendly
+        // Use DuckDuckGo (privacy-friendly) instead of Bing
+        const searchUrl = normalizeInputToUrlOrSearch(url, 'duckduckgo', // Use DuckDuckGo - privacy-friendly and works well
+        language !== 'auto' ? language : undefined, false // Don't force iframe-friendly - let real sites load
         );
         if (searchUrl) {
             return searchUrl;
         }
-        // Fallback to Bing search (iframe-friendly)
-        return `https://www.bing.com/search?q=${encodeURIComponent(url)}`;
+        // Fallback to DuckDuckGo search
+        return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
     }
     return url;
 }
@@ -99,12 +101,7 @@ export function TabIframeManager({ tabs, activeTabId }) {
                 // Only update if this is the active tab or if src is about:blank
                 const isActive = tab.id === activeTabId;
                 if (isActive || currentSrc === 'about:blank') {
-                    console.log('[TabIframeManager] Updating iframe src from tab URL change', {
-                        tabId: tab.id,
-                        oldSrc: currentSrc,
-                        newSrc: iframeUrl,
-                        isActive,
-                    });
+                    // Updating iframe src from tab URL change - no logging needed for performance
                     iframe.src = iframeUrl;
                 }
             }
@@ -169,6 +166,11 @@ export function TabIframeManager({ tabs, activeTabId }) {
             }
             // Cleanup all iframe event listeners and observers
             iframeRefs.current.forEach((iframe, tabId) => {
+                // Phase 1, Day 2: Save scroll position before cleanup (if tab is being hibernated)
+                const tab = tabs.find(t => t.id === tabId);
+                if (tab?.sleeping) {
+                    saveScrollPosition(tabId, iframe);
+                }
                 // Cleanup stored cleanup function
                 if (iframe._cleanup) {
                     iframe._cleanup();
@@ -247,7 +249,7 @@ export function TabIframeManager({ tabs, activeTabId }) {
                         el.style.contain = 'layout style paint';
                         el.setAttribute('fetchpriority', isActive ? 'high' : 'low');
                     }
-                }, src: currentIframeUrl, title: tab.title ?? 'Tab content', sandbox: privacyMode ? 'allow-scripts allow-forms allow-popups' : SAFE_IFRAME_SANDBOX, allow: "fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access", referrerPolicy: privacyMode ? 'no-referrer' : 'no-referrer-when-downgrade', loading: isActive ? 'eager' : 'lazy', className: "absolute inset-0 h-full w-full border-0", style: {
+                }, src: currentIframeUrl, title: tab.title ?? 'Tab content', "data-tab-id": tab.id, sandbox: privacyMode ? 'allow-scripts allow-forms allow-popups' : SAFE_IFRAME_SANDBOX, allow: "fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access", referrerPolicy: privacyMode ? 'no-referrer' : 'no-referrer-when-downgrade', loading: isActive ? 'eager' : 'lazy', className: "absolute inset-0 h-full w-full border-0", style: {
                     // PR: Fix tab switch - toggle visibility with CSS, never unmount
                     // Show iframe if it's the active tab (regardless of iframeUrl to prevent flicker)
                     display: isActive ? 'block' : 'none',
@@ -265,6 +267,11 @@ export function TabIframeManager({ tabs, activeTabId }) {
                     const iframe = iframeRefs.current.get(tab.id);
                     if (!iframe)
                         return;
+                    // Phase 1, Day 2: Restore scroll position after reload (hibernation recovery)
+                    if (tab.sleeping === false) {
+                        // Tab was just woken up, restore scroll position
+                        restoreScrollPosition(tab.id, iframe);
+                    }
                     // PR: Fix navigation - Track URL changes and update tab store + title
                     try {
                         const win = iframe.contentWindow;
@@ -287,14 +294,11 @@ export function TabIframeManager({ tabs, activeTabId }) {
                             currentTitle,
                             iframeSrc: iframe.src,
                             isActive,
+                            wasSleeping: tab.sleeping,
                         });
                         // Update tab URL if it changed (navigation happened)
                         if (currentUrl && currentUrl !== tab.url && !currentUrl.startsWith('about:')) {
-                            console.log('[TabIframeManager] URL changed, updating tab', {
-                                tabId: tab.id,
-                                oldUrl: tab.url,
-                                newUrl: currentUrl,
-                            });
+                            // URL changed, updating tab - no logging needed
                             // Update both URL and title
                             const updates = { url: currentUrl };
                             if (currentTitle) {
@@ -308,21 +312,13 @@ export function TabIframeManager({ tabs, activeTabId }) {
                         }
                         else if (currentTitle && currentTitle !== tab.title) {
                             // Title changed but URL didn't (e.g., page title update)
-                            console.log('[TabIframeManager] Title changed, updating tab', {
-                                tabId: tab.id,
-                                oldTitle: tab.title,
-                                newTitle: currentTitle,
-                            });
+                            // Title changed, updating tab - no logging needed
                             useTabsStore.getState().updateTab(tab.id, { title: currentTitle });
                         }
                         else if (!currentTitle && currentUrl && currentUrl !== tab.url) {
                             // Cross-origin navigation: can't read title, derive from URL
                             const derivedTitle = deriveTitleFromUrl(currentUrl);
-                            console.log('[TabIframeManager] Cross-origin navigation, deriving title from URL', {
-                                tabId: tab.id,
-                                url: currentUrl,
-                                derivedTitle,
-                            });
+                            // Cross-origin navigation, deriving title from URL - no logging needed
                             useTabsStore
                                 .getState()
                                 .updateTab(tab.id, { url: currentUrl, title: derivedTitle });
@@ -330,7 +326,7 @@ export function TabIframeManager({ tabs, activeTabId }) {
                         // PR: Fix navigation - inject click interceptor and window.open override
                         // Only intercept popups, allow regular navigation
                         if (win && doc) {
-                            console.log('[TabIframeManager] Injecting interceptors for tab', tab.id);
+                            // Injecting interceptors for tab - no logging needed
                             // Override window.open to intercept popups (but allow regular navigation)
                             const _originalOpen = win.open;
                             win.open = (url, target, _features) => {
@@ -358,10 +354,7 @@ export function TabIframeManager({ tabs, activeTabId }) {
                                 if (anchor.target === '_blank' || anchor.target === '_new') {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('[TabIframeManager] target="_blank" click intercepted', {
-                                        href: anchor.href,
-                                        tabId: tab.id,
-                                    });
+                                    // target="_blank" click intercepted - no logging needed
                                     // Post message to parent to create new tab
                                     window.postMessage({ type: 'open-in-new-tab', url: anchor.href, sourceTabId: tab.id }, '*' // In production, restrict to specific origin
                                     );
@@ -413,16 +406,13 @@ export function TabIframeManager({ tabs, activeTabId }) {
                                     }
                                     else if (newTitle && newTitle !== tab.title) {
                                         // Title changed without URL change
-                                        console.log('[TabIframeManager] Title updated', {
-                                            tabId: tab.id,
-                                            newTitle,
-                                        });
+                                        // Title updated - no logging needed
                                         useTabsStore.getState().updateTab(tab.id, { title: newTitle });
                                     }
                                 }
                                 catch {
                                     // Cross-origin - can't read location, but navigation will work
-                                    console.log('[TabIframeManager] Navigation detected (cross-origin, URL tracking limited)', tab.id);
+                                    // Navigation detected (cross-origin, URL tracking limited) - no logging needed
                                 }
                             };
                             // Listen for popstate (back/forward) and hashchange
@@ -445,17 +435,17 @@ export function TabIframeManager({ tabs, activeTabId }) {
                             };
                             // Store cleanup for iframe unload
                             iframe._cleanup = cleanup;
-                            // PR: Fix title tracking - Watch for title changes via MutationObserver
+                            // Phase 1, Day 1: Enhanced title tracking - Watch for title changes via MutationObserver
                             if (doc) {
                                 const titleObserver = new MutationObserver(() => {
                                     try {
                                         const newTitle = doc.title;
-                                        if (newTitle && newTitle !== tab.title) {
-                                            console.log('[TabIframeManager] Title changed via MutationObserver', {
-                                                tabId: tab.id,
-                                                newTitle,
-                                            });
+                                        const currentTab = useTabsStore.getState().tabs.find(t => t.id === tab.id);
+                                        if (newTitle && newTitle !== currentTab?.title) {
+                                            // Title changed via MutationObserver - no logging needed
                                             useTabsStore.getState().updateTab(tab.id, { title: newTitle });
+                                            // Emit event for URL bar sync
+                                            ipcEvents.emit('tab-title-updated', { tabId: tab.id, title: newTitle });
                                         }
                                     }
                                     catch {
@@ -473,24 +463,66 @@ export function TabIframeManager({ tabs, activeTabId }) {
                                     // Store observer for cleanup
                                     observerRefs.current.set(tab.id, titleObserver);
                                 }
+                                // Phase 1, Day 1: Also watch for URL changes in history API
+                                // This catches pushState/replaceState navigation
+                                const originalPushState = win.history.pushState;
+                                const originalReplaceState = win.history.replaceState;
+                                win.history.pushState = function (...args) {
+                                    originalPushState.apply(win.history, args);
+                                    setTimeout(() => {
+                                        try {
+                                            const newUrl = win.location.href;
+                                            const newTitle = doc.title || '';
+                                            if (newUrl !== tab.url || newTitle !== tab.title) {
+                                                useTabsStore.getState().updateTab(tab.id, {
+                                                    url: newUrl,
+                                                    title: newTitle || tab.title
+                                                });
+                                                ipcEvents.emit('tab-navigated', { tabId: tab.id, url: newUrl });
+                                            }
+                                        }
+                                        catch {
+                                            // Cross-origin
+                                        }
+                                    }, 0);
+                                };
+                                win.history.replaceState = function (...args) {
+                                    originalReplaceState.apply(win.history, args);
+                                    setTimeout(() => {
+                                        try {
+                                            const newUrl = win.location.href;
+                                            const newTitle = doc.title || '';
+                                            if (newUrl !== tab.url || newTitle !== tab.title) {
+                                                useTabsStore.getState().updateTab(tab.id, {
+                                                    url: newUrl,
+                                                    title: newTitle || tab.title
+                                                });
+                                                ipcEvents.emit('tab-navigated', { tabId: tab.id, url: newUrl });
+                                            }
+                                        }
+                                        catch {
+                                            // Cross-origin
+                                        }
+                                    }, 0);
+                                };
                             }
-                            console.log('[TabIframeManager] Interceptors installed for tab', tab.id);
+                            // Interceptors installed for tab - no logging needed
                         }
                         else {
-                            console.warn('[TabIframeManager] Cannot access iframe contentWindow/contentDocument (cross-origin)', tab.id);
+                            // Cannot access iframe contentWindow/contentDocument (cross-origin) - expected
                             // Cross-origin: navigation will still work, just can't track URL changes
                         }
                     }
                     catch {
                         // Cross-origin frames will throw - this is expected
-                        console.warn('[TabIframeManager] Could not inject interceptors (cross-origin expected)', tab.id);
+                        // Could not inject interceptors (cross-origin expected) - no logging needed
                         // Navigation will still work in cross-origin iframes
                     }
                     // Check if blocked after load
                     try {
                         // Try to access contentWindow - will be null if blocked
                         if (!iframe.contentWindow && iframeUrl && !iframeUrl.startsWith('about:')) {
-                            console.warn('[TabIframeManager] X-Frame-Options detected on load', tab.id);
+                            // X-Frame-Options detected on load - no logging needed
                             blockedTabs.current.add(tab.id);
                             window.dispatchEvent(new CustomEvent('iframe-blocked', {
                                 detail: { tabId: tab.id, url: tab.url },

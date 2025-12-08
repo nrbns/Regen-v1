@@ -3,7 +3,6 @@
  * All operations return fallback values instead of throwing
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { redisClient } = require('./redis.js');
 
 let redisAvailable = false;

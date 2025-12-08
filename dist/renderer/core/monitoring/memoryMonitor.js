@@ -2,10 +2,11 @@
  * Memory Monitor
  * Tracks RAM usage and auto-unloads tabs when memory is low
  */
-// PR: Telepathy Upgrade - Aggressive lag fixes
-const MEMORY_THRESHOLD = 0.8; // 80% of available memory
+// Phase 1, Day 2: Improved memory thresholds for 4GB devices
+const MEMORY_THRESHOLD = 0.75; // 75% of available memory (was 80%)
 const MEMORY_CRITICAL = 0.9; // 90% - aggressive cleanup
-const MEMORY_MAX_GB = 2.5; // Max 2.5GB (down from 3GB) - Telepathy upgrade
+const MEMORY_MAX_GB = 3.0; // Max 3GB (4GB devices: 75% of 4GB = 3GB)
+const MEMORY_THRESHOLD_4GB = 3.0 * 1024 * 1024 * 1024; // 3GB in bytes (75% of 4GB)
 const _VISION_DISABLE_THRESHOLD_GB = 6.0; // Auto-disable vision mode under 6GB RAM
 const CHECK_INTERVAL = 5000; // Check every 5 seconds
 let memoryCheckInterval = null;
@@ -41,13 +42,26 @@ export function getMemoryUsage() {
     };
 }
 /**
- * Check if memory is low
+ * Phase 1, Day 2: Check if memory is low (improved for 4GB devices)
  */
 export function isMemoryLow() {
     const stats = getMemoryUsage();
     if (!stats)
         return false;
-    return stats.percentage >= MEMORY_THRESHOLD;
+    // Check percentage threshold
+    if (stats.percentage >= MEMORY_THRESHOLD) {
+        return true;
+    }
+    // Check absolute memory for 4GB devices (3GB = 75% of 4GB)
+    const rssGB = stats.rss / (1024 * 1024 * 1024);
+    if (rssGB >= MEMORY_MAX_GB) {
+        return true;
+    }
+    // Check heap size for 4GB devices
+    if (stats.heapUsed >= MEMORY_THRESHOLD_4GB) {
+        return true;
+    }
+    return false;
 }
 /**
  * Start memory monitoring

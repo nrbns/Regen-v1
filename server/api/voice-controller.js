@@ -3,7 +3,6 @@
  * Handles /api/voice/recognize endpoint for STT
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { handleMessage } = require('../../electron/services/regen/core');
 
 /**

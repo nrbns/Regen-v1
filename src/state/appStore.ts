@@ -26,6 +26,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const currentMode = get().mode;
     if (mode === currentMode) return;
 
+    // Notify mode sync hub of mode switch
+    if (typeof window !== 'undefined') {
+      try {
+        const { getModeSyncHub } = await import('../services/realtime/modeSyncHub');
+        getModeSyncHub().sendModeSwitch(currentMode, mode);
+      } catch (error) {
+        // Silently fail if hub not available
+        console.debug('[AppStore] Mode sync hub not available:', error);
+      }
+    }
+
     // Tier 1: Check if mode is enabled
     if (!isModeEnabled(mode as ModeId)) {
       const modeConfig = MODES[mode as ModeId];

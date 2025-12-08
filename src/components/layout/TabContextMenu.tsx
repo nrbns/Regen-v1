@@ -80,12 +80,12 @@ export function TabContextMenu({
     if (containers.length === 0) {
       ipc.containers
         .list()
-        .then(list => {
+        .then((list: any) => {
           if (Array.isArray(list)) {
             setContainers(list as ContainerInfo[]);
           }
         })
-        .catch(error => {
+        .catch((error: any) => {
           console.error('Failed to load containers for context menu:', error);
         });
     }

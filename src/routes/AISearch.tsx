@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Search,
   Sparkles,
@@ -13,16 +13,12 @@ import {
   CheckCircle2,
   Loader2,
   ArrowUp,
-  BookOpen,
   Globe,
-  FileText,
-  Image as ImageIcon,
-  Video,
   Link2,
 } from 'lucide-react';
-import { useDebounce } from '../utils/useDebounce';
+// import { useDebounce } from '../utils/useDebounce'; // Unused
 
-interface SearchResult {
+interface _SearchResult {
   id: string;
   type: 'answer' | 'source' | 'citation';
   content: string;
@@ -344,6 +340,9 @@ export default function AISearch() {
     </div>
   );
 }
+
+
+
 
 
 

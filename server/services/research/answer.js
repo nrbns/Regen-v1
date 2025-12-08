@@ -3,8 +3,8 @@
 import { researchSearch } from './search.js';
 import { analyzeWithLLM, streamLLMAnswer } from '../agent/llm.js';
 import { detectLanguage } from '../lang/detect.js';
-import { executeParallelAgents, synthesizeAgentResults } from './parallel-agents.js';
-import { searchViralDevTweets } from './twitter-search.js';
+// import { executeParallelAgents, synthesizeAgentResults } from './parallel-agents.js'; // Unused
+// import { searchViralDevTweets } from './twitter-search.js'; // Unused
 
 function buildContext(results, maxCharacters = 8000) {
   if (!results?.length) return '';

@@ -140,8 +140,20 @@ export class StagehandAPI {
     }
     /**
      * Evaluate JavaScript in page context
+     * SECURITY: This is inherently unsafe but required for browser automation.
+     * Only use with trusted scripts from the automation system.
      */
     async evaluate(script) {
+        // SECURITY WARNING: Function constructor can execute arbitrary code
+        // This is only safe when script comes from trusted automation system
+        // In production, add additional validation/sandboxing
+        if (typeof script !== 'string' || script.length > 10000) {
+            throw new Error('Invalid script: too long or not a string');
+        }
+        // Basic validation - reject dangerous patterns
+        if (script.includes('eval') || script.includes('Function') || script.includes('import')) {
+            throw new Error('Invalid script: contains dangerous patterns');
+        }
         return new Function(script)();
     }
     /**

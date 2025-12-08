@@ -23,7 +23,7 @@ export function BrowserAutomationBridge({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   
   // Get current tab
-  const currentTab = tabs.find(t => t.id === (tabId || activeTabId));
+  const _currentTab = tabs.find(t => t.id === (tabId || activeTabId));
   const currentTabId = tabId || activeTabId;
   
   // Connect to browser automation WebSocket
@@ -206,13 +206,13 @@ export function BrowserAutomationBridge({
           scriptEl.textContent = script;
           iframeDoc.head.appendChild(scriptEl);
         }
-      } catch (error) {
+      } catch {
         // CORS restriction - script injection not possible
         // Automation will work via postMessage only
         console.warn('[BrowserAutomationBridge] Cannot inject script due to CORS, using postMessage only');
       }
-    } catch (error) {
-      console.error('[BrowserAutomationBridge] Error setting up automation:', error);
+    } catch (setupError) {
+      console.error('[BrowserAutomationBridge] Error setting up automation:', setupError);
     }
   }, [currentTabId, isConnected]);
 

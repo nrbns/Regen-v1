@@ -15,6 +15,26 @@ import { ThemeProvider } from './ui/theme';
 import { CSP_DIRECTIVE } from './config/security';
 import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
 import { SettingsSync } from './components/SettingsSync';
+// Disable console logs in production for better performance
+import './utils/console';
+// DAY 6: Register service worker for caching and offline support
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    import('./lib/service-worker').then(({ registerServiceWorker }) => {
+        registerServiceWorker().catch((error) => {
+            console.warn('[ServiceWorker] Registration failed:', error);
+        });
+    });
+}
+// DAY 6: Preload critical resources
+if (typeof window !== 'undefined') {
+    import('./lib/performance/preload').then(({ preloadCriticalResources }) => {
+        preloadCriticalResources();
+    });
+}
+// Initialize agent client early
+import './lib/agent-client';
+// Initialize app connections
+import { initializeApp } from './lib/initialize-app';
 // Import test utility in dev mode
 if (isDevEnv()) {
     import('./utils/testOmniDesk').catch(() => {
@@ -26,12 +46,36 @@ import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
 import { startSnapshotting } from './core/recovery';
 // DAY 9 FIX: Onboarding tour for first-time users
 import { QuickStartTour } from './components/Onboarding/QuickStartTour';
+import { getRedixConfig } from './lib/redix-mode';
+// i18n: Initialize internationalization
+import './lib/i18n/config';
 // DAY 3-4 FIX: Defer non-critical services - lazy load after first paint
 // These are moved to lazy initialization to improve startup time
-// Future Enhancements: Initialize after first paint
-import { initializePrefetcher } from './services/prefetch/queryPrefetcher';
-import { getVectorWorkerService } from './services/vector/vectorWorkerService';
-import { getLRUCache } from './services/embedding/lruCache';
+// REDIX MODE: Conditionally load heavy services only if not in Redix mode
+const redixConfig = getRedixConfig();
+// Lazy load heavy services based on Redix mode
+let initializePrefetcher = () => Promise.resolve();
+let getVectorWorkerService = () => ({ initialize: () => Promise.resolve() });
+let getLRUCache = () => new Map();
+// Only load heavy services if not in Redix mode or if enabled in config
+if (!redixConfig.enabled || redixConfig.enableHeavyLibs) {
+    // Dynamically import heavy services (ESM-compatible)
+    import('./services/prefetch/queryPrefetcher').then(module => {
+        initializePrefetcher = module.initializePrefetcher;
+    }).catch(() => {
+        // Silently fail if module not available
+    });
+    import('./services/vector/vectorWorkerService').then(module => {
+        getVectorWorkerService = module.getVectorWorkerService;
+    }).catch(() => {
+        // Silently fail if module not available
+    });
+    import('./services/embedding/lruCache').then(module => {
+        getLRUCache = module.getLRUCache;
+    }).catch(() => {
+        // Silently fail if module not available
+    });
+}
 // Migration functions available but not auto-run (call manually if needed)
 // import { migrateLocalStorageHistory } from './services/history';
 // import { migrateLocalStorageBookmarks } from './services/bookmarks';
@@ -62,6 +106,8 @@ const PlaybookForge = lazyWithErrorHandling(() => import('./routes/PlaybookForge
 const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
 const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
+const AIPanelRoute = lazyWithErrorHandling(() => import('./routes/AIPanelRoute'), 'AIPanelRoute');
+const OfflineDocuments = lazyWithErrorHandling(() => import('./routes/OfflineDocuments'), 'OfflineDocuments');
 const DocumentEditorPage = lazyWithErrorHandling(() => import('./routes/DocumentEditor'), 'DocumentEditorPage');
 const WatchersPage = lazyWithErrorHandling(() => import('./routes/Watchers'), 'WatchersPage');
 const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPage');
@@ -172,12 +218,20 @@ const router = createBrowserRouter([
                 element: (_jsx(Suspense, { fallback: _jsx(LoadingFallback, {}), children: _jsx(HistoryPage, {}) })),
             },
             {
+                path: 'offline',
+                element: (_jsx(Suspense, { fallback: _jsx(LoadingFallback, {}), children: _jsx(OfflineDocuments, {}) })),
+            },
+            {
                 path: 'downloads',
                 element: (_jsx(Suspense, { fallback: _jsx(LoadingFallback, {}), children: _jsx(DownloadsPage, {}) })),
             },
             {
                 path: 'ai-search',
                 element: (_jsx(Suspense, { fallback: _jsx(LoadingFallback, {}), children: _jsx(AISearch, {}) })),
+            },
+            {
+                path: 'ai-panel',
+                element: (_jsx(Suspense, { fallback: _jsx(LoadingFallback, {}), children: _jsx(AIPanelRoute, {}) })),
             },
             // PluginMarketplace route removed - component not found
             // {
@@ -257,6 +311,14 @@ try {
         }
     }
     const root = existingRoot || ReactDOM.createRoot(rootElement);
+    // Initialize app connections (AI, API, Browser)
+    initializeApp().then(status => {
+        if (isDevEnv()) {
+            console.log('[Main] App initialization status:', status);
+        }
+    }).catch(error => {
+        console.warn('[Main] App initialization warning:', error);
+    });
     // Setup research clipper handlers
     setupClipperHandlers();
     // Tier 2: Track app open
@@ -352,7 +414,7 @@ try {
         // Listen for research metrics events (citations, hallucination risk)
         window.addEventListener('research-metrics', ((e) => {
             console.log('[Research] Metrics updated:', e.detail);
-            // Metrics are handled by ResearchModePanel component
+            // Metrics are handled by RegenResearchPanel component
         }));
         // Listen for research start/end events
         window.addEventListener('research-start', ((e) => {
@@ -863,6 +925,20 @@ try {
     });
     if (isDevEnv()) {
         console.log('[Main] Rendering React app...');
+    }
+    // Enable HMR for React Fast Refresh
+    if (import.meta.hot) {
+        import.meta.hot.accept();
+        import.meta.hot.on('vite:beforeUpdate', () => {
+            if (import.meta.env.DEV) {
+                console.log('[HMR] Update available, applying changes...');
+            }
+        });
+        import.meta.hot.on('vite:afterUpdate', () => {
+            if (import.meta.env.DEV) {
+                console.log('[HMR] Update applied successfully');
+            }
+        });
     }
     root.render(_jsx(React.StrictMode, { children: _jsx(ThemeProvider, { children: _jsxs(GlobalErrorBoundary, { children: [_jsx(SettingsSync, {}), _jsxs(Suspense, { fallback: _jsx(LoadingFallback, {}), children: [_jsx(RouterProvider, { router: router, future: {
                                     v7_startTransition: true,

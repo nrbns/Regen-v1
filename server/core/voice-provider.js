@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import { isOffline } from './mode-manager.js';
-import { transcribeAudio } from '../services/voice/whisper-service.js';
+// import { transcribeAudio } from '../services/voice/whisper-service.js'; // Unused
 import axios from 'axios';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -58,7 +58,7 @@ async function transcribeWithLocalWhisper(audioBytes) {
     );
 
     return response.data.response;
-  } catch (error) {
+  } catch {
     // Fallback to faster-whisper or whisper.cpp
     console.warn('[VoiceProvider] Ollama whisper failed, trying faster-whisper...');
     return await transcribeWithFasterWhisper(audioBytes);
@@ -109,7 +109,7 @@ async function transcribeWithCloudWhisper(audioBytes) {
     );
 
     return response.data.text;
-  } catch (error) {
+  } catch {
     // Fallback to OpenAI via Poe or local
     console.warn('[VoiceProvider] Groq whisper failed, using local fallback');
     return await transcribeWithLocalWhisper(audioBytes);
@@ -186,7 +186,7 @@ async function synthesizeWithElevenLabs(text, voiceId = null) {
     );
 
     return Buffer.from(response.data);
-  } catch (error) {
+  } catch {
     // Fallback to local
     console.warn('[VoiceProvider] ElevenLabs failed, using local fallback');
     return await synthesizeWithPiper(text);

@@ -15,6 +15,24 @@ import { ThemeProvider } from './ui/theme';
 import { CSP_DIRECTIVE } from './config/security';
 import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
 import { SettingsSync } from './components/SettingsSync';
+// Disable console logs in production for better performance
+import './utils/console';
+
+// DAY 6: Register service worker for caching and offline support
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  import('./lib/service-worker').then(({ registerServiceWorker }) => {
+    registerServiceWorker().catch((error) => {
+      console.warn('[ServiceWorker] Registration failed:', error);
+    });
+  });
+}
+
+// DAY 6: Preload critical resources
+if (typeof window !== 'undefined') {
+  import('./lib/performance/preload').then(({ preloadCriticalResources }) => {
+    preloadCriticalResources();
+  });
+}
 
 // Initialize agent client early
 import './lib/agent-client';
@@ -36,13 +54,45 @@ import { startSnapshotting } from './core/recovery';
 // DAY 9 FIX: Onboarding tour for first-time users
 import { QuickStartTour } from './components/Onboarding/QuickStartTour';
 
+// REDIX MODE: Runtime enforcement - check mode early
+// import { initializeRedixMode } from './lib/redix-mode/integration'; // Unused
+import { getRedixConfig } from './lib/redix-mode';
+
+// i18n: Initialize internationalization
+import './lib/i18n/config';
+
 // DAY 3-4 FIX: Defer non-critical services - lazy load after first paint
 // These are moved to lazy initialization to improve startup time
 
-// Future Enhancements: Initialize after first paint
-import { initializePrefetcher } from './services/prefetch/queryPrefetcher';
-import { getVectorWorkerService } from './services/vector/vectorWorkerService';
-import { getLRUCache } from './services/embedding/lruCache';
+// REDIX MODE: Conditionally load heavy services only if not in Redix mode
+const redixConfig = getRedixConfig();
+
+// Lazy load heavy services based on Redix mode
+let initializePrefetcher: any = () => Promise.resolve();
+let getVectorWorkerService: any = () => ({ initialize: () => Promise.resolve() });
+let getLRUCache: any = () => new Map();
+
+// Only load heavy services if not in Redix mode or if enabled in config
+if (!redixConfig.enabled || redixConfig.enableHeavyLibs) {
+  // Dynamically import heavy services (ESM-compatible)
+  import('./services/prefetch/queryPrefetcher').then(module => {
+    initializePrefetcher = module.initializePrefetcher;
+  }).catch(() => {
+    // Silently fail if module not available
+  });
+
+  import('./services/vector/vectorWorkerService').then(module => {
+    getVectorWorkerService = module.getVectorWorkerService;
+  }).catch(() => {
+    // Silently fail if module not available
+  });
+
+  import('./services/embedding/lruCache').then(module => {
+    getLRUCache = module.getLRUCache;
+  }).catch(() => {
+    // Silently fail if module not available
+  });
+}
 // Migration functions available but not auto-run (call manually if needed)
 // import { migrateLocalStorageHistory } from './services/history';
 // import { migrateLocalStorageBookmarks } from './services/bookmarks';
@@ -98,6 +148,8 @@ const PlaybookForge = lazyWithErrorHandling(
 const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
 const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
+const AIPanelRoute = lazyWithErrorHandling(() => import('./routes/AIPanelRoute'), 'AIPanelRoute');
+const OfflineDocuments = lazyWithErrorHandling(() => import('./routes/OfflineDocuments'), 'OfflineDocuments');
 const DocumentEditorPage = lazyWithErrorHandling(
   () => import('./routes/DocumentEditor'),
   'DocumentEditorPage'
@@ -265,6 +317,14 @@ const router = createBrowserRouter(
           ),
         },
         {
+          path: 'offline',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <OfflineDocuments />
+            </Suspense>
+          ),
+        },
+        {
           path: 'downloads',
           element: (
             <Suspense fallback={<LoadingFallback />}>
@@ -277,6 +337,14 @@ const router = createBrowserRouter(
           element: (
             <Suspense fallback={<LoadingFallback />}>
               <AISearch />
+            </Suspense>
+          ),
+        },
+        {
+          path: 'ai-panel',
+          element: (
+            <Suspense fallback={<LoadingFallback />}>
+              <AIPanelRoute />
             </Suspense>
           ),
         },
@@ -497,7 +565,7 @@ try {
     // Listen for research metrics events (citations, hallucination risk)
     window.addEventListener('research-metrics', ((e: CustomEvent) => {
       console.log('[Research] Metrics updated:', e.detail);
-      // Metrics are handled by ResearchModePanel component
+      // Metrics are handled by RegenResearchPanel component
     }) as EventListener);
 
     // Listen for research start/end events
@@ -1072,6 +1140,21 @@ try {
 
   if (isDevEnv()) {
     console.log('[Main] Rendering React app...');
+  }
+
+  // Enable HMR for React Fast Refresh
+  if (import.meta.hot) {
+    import.meta.hot.accept();
+    import.meta.hot.on('vite:beforeUpdate', () => {
+      if (import.meta.env.DEV) {
+        console.log('[HMR] Update available, applying changes...');
+      }
+    });
+    import.meta.hot.on('vite:afterUpdate', () => {
+      if (import.meta.env.DEV) {
+        console.log('[HMR] Update applied successfully');
+      }
+    });
   }
 
   root.render(

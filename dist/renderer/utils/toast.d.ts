@@ -25,6 +25,9 @@ export declare const toast: typeof toastFn & {
         loading: string;
         success: string | ((data: T) => string);
         error: string | ((error: Error) => string);
+    }, options?: {
+        retry?: boolean;
+        maxRetries?: number;
     }) => Promise<T>;
 };
 export { toastLib };

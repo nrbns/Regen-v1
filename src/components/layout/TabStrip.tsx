@@ -12,7 +12,6 @@ import {
   Plus,
   Eye,
   Sparkles,
-  RotateCcw,
   Pin,
   PinOff,
   ChevronDown,
@@ -24,7 +23,7 @@ import {
 import { ipc } from '../../lib/ipc-typed';
 import {
   useTabsStore,
-  type ClosedTab,
+  // type ClosedTab, // Unused
   type TabGroup,
   TAB_GROUP_COLORS,
 } from '../../state/tabsStore';
@@ -41,15 +40,8 @@ import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClust
 import { TabGroupsOverlay } from '../tabs/TabGroupsOverlay';
 // HolographicPreviewOverlay removed - unused component
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-} from '../ui/dropdown-menu';
-import { reopenClosedTab } from '../../lib/tabLifecycle';
+// DropdownMenu components removed - no longer used
+// Tab reopening still works via Ctrl+Shift+T keyboard shortcut
 import {
   saveTabForResurrection,
   scheduleAutoResurrection,
@@ -186,7 +178,7 @@ export function TabStrip() {
   const updateTab = useTabsStore(state => state.updateTab);
   const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
   const openPeek = usePeekPreviewStore(state => state.open); // Must be defined before renderTabNode
-  const recentlyClosed = useTabsStore(state => state.recentlyClosed);
+  const _recentlyClosed = useTabsStore(state => state.recentlyClosed);
   const togglePinTab = useTabsStore(state => state.togglePinTab);
   const tabGroups = useTabsStore(state => state.tabGroups);
   const createGroup = useTabsStore(state => state.createGroup);
@@ -1036,13 +1028,17 @@ export function TabStrip() {
             />
           )}
 
+          {/* Phase 1, Day 2: Enhanced hibernation indicator */}
           {tab.sleeping && (
-            <span className="flex items-center" title="Tab is hibernating">
+            <span className="flex items-center gap-1" title="Tab is hibernating (click to wake)">
               <motion.span
                 className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
                 animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
                 transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
               />
+              <span className="text-[10px] text-amber-400/70 font-medium hidden group-hover:inline">
+                Zzz
+              </span>
             </span>
           )}
 
@@ -1819,9 +1815,7 @@ export function TabStrip() {
     }
   };
 
-  const handleReopenClosedTab = useCallback(async (entry?: ClosedTab) => {
-    await reopenClosedTab(entry);
-  }, []);
+  // Tab reopening handled via keyboard shortcut (Ctrl+Shift+T) - no UI button needed
 
   const handleApplyCluster = useCallback(
     (clusterId: string) => {
@@ -2160,68 +2154,6 @@ export function TabStrip() {
             <div className="hidden lg:block">
               <ContainerQuickSelector compact showLabel={false} />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <motion.button
-                  type="button"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={recentlyClosed.length === 0}
-                  className={`
-                    p-2 rounded-lg border transition
-                    ${recentlyClosed.length === 0 ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-gray-700/40 hover:bg-gray-800/50 text-gray-300 hover:text-gray-100'}
-                  `}
-                  title={
-                    recentlyClosed.length === 0
-                      ? 'No recently closed tabs'
-                      : 'Reopen closed tab (Ctrl+Shift+T / ⌘⇧T)'
-                  }
-                >
-                  <RotateCcw size={16} />
-                </motion.button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                <DropdownMenuLabel>Recently closed</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {recentlyClosed.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-slate-500">No tabs to reopen</div>
-                ) : (
-                  recentlyClosed.map(entry => {
-                    let hostname = 'about:blank';
-                    if (entry.url) {
-                      try {
-                        hostname = new URL(entry.url).hostname;
-                      } catch {
-                        hostname = entry.url;
-                      }
-                    }
-                    return (
-                      <DropdownMenuItem
-                        key={entry.closedId}
-                        className="flex flex-col items-start gap-1 py-2"
-                        onClick={() => handleReopenClosedTab(entry)}
-                      >
-                        <span className="text-sm text-slate-100">
-                          {entry.title || entry.url || 'Untitled tab'}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {hostname} • {new Date(entry.closedAt).toLocaleTimeString()}
-                        </span>
-                      </DropdownMenuItem>
-                    );
-                  })
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={recentlyClosed.length === 0}
-                  onClick={() => handleReopenClosedTab()}
-                  className="gap-2"
-                >
-                  <RotateCcw size={14} />
-                  Reopen last tab
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <motion.button
               onClick={e => {
                 stopEventPropagation(e);

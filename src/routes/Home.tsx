@@ -1,6 +1,6 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { useAppStore } from '../state/appStore';
-import { ipcEvents } from '../lib/ipc-events';
+import { ipc } from '../lib/ipc-typed';
 import { OmniDesk } from '../components/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
 import { Loader2 } from 'lucide-react';
@@ -8,13 +8,31 @@ import { ErrorBoundary } from '../core/errors/ErrorBoundary';
 import { WeatherCard } from '../components/WeatherCard';
 import { FlightCard } from '../components/FlightCard';
 
+// REDIX MODE: Conditionally load modes based on Redix mode
+import { getRedixConfig } from '../lib/redix-mode';
+
 // Tier 3: Load all enabled modes with error handling
+// REDIX MODE: Lazy load modes (already lazy, but ensure Redix-compatible)
 const ResearchPanel = lazy(() => import('../modes/research'));
 const TradePanel = lazy(() => import('../modes/trade'));
 const DocumentMode = lazy(() =>
   import('../modes/docs/DocumentMode').then(m => ({ default: m.DocumentMode }))
 );
-const ThreatsPanel = lazy(() => import('../modes/threats'));
+// REDIX MODE: Only load ThreatsPanel if not in strict Redix mode
+const ThreatsPanel = lazy(() => {
+  const config = getRedixConfig();
+  if (config.enabled && !config.enableHeavyLibs) {
+    // Return minimal stub in Redix mode
+    return Promise.resolve({
+      default: () => (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          <p>Threats mode disabled in Redix mode</p>
+        </div>
+      ),
+    });
+  }
+  return import('../modes/threats');
+});
 
 // Enhanced loading fallback with skeleton loader
 const ModeLoadingFallback = () => (
@@ -63,10 +81,7 @@ export default function Home() {
     };
 
     // Use the IPC event bus
-    const unsubscribe = ipcEvents.on<{ fullscreen: boolean }>(
-      'app:fullscreen-changed',
-      handleFullscreen
-    );
+    const unsubscribe = ipc.events.on('app:fullscreen-changed', handleFullscreen);
 
     // Also listen for browser fullscreen changes
     document.addEventListener('fullscreenchange', checkFullscreen);
@@ -155,4 +170,9 @@ export default function Home() {
       <FlightCard />
     </div>
   );
+}
+
+// Enable HMR for this component (must be after export)
+if (import.meta.hot) {
+  import.meta.hot.accept();
 }

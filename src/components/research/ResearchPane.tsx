@@ -25,7 +25,7 @@ import { useAppStore } from '../../state/appStore';
 import { searchChunks, syncDocumentsFromBackend } from '../../lib/research/cache';
 import { DocumentViewer } from './DocumentViewer';
 import { ipcEvents } from '../../lib/ipc-events';
-import { runResearchAgent, executeResearchAgentAction } from '../../services/researchAgent';
+import { runResearchAgent } from '../../services/researchAgent';
 import type { ResearchAgentResponse, ResearchAgentAction } from '../../types/researchAgent';
 import { showToast } from '../../state/toastStore';
 
@@ -257,13 +257,22 @@ export function ResearchPane() {
     setAgentLoading(true);
     setAgentError(null);
     try {
-      const context = buildAgentContext();
-      const response = await runResearchAgent({
-        prompt: agentPrompt.trim(),
-        context,
-        allowActions: true,
+      const response = await runResearchAgent(agentPrompt.trim(), {
+        maxResults: 10,
+        includeCitations: true,
       });
-      setAgentResponse(response);
+      // Convert ResearchAgentResult to ResearchAgentResponse
+      const agentResponse: ResearchAgentResponse = {
+        summary: response.summary,
+        confidence: response.confidence,
+        actions: [], // ResearchAgentResult doesn't have actions
+        citations: (response.citations || []).map((c: any) => ({
+          label: c.label || c.text || '',
+          url: c.url || '',
+        })),
+        model: response.method,
+      };
+      setAgentResponse(agentResponse);
       showToast('success', 'Research Agent ready');
       if (ipc.telemetry?.trackFeature) {
         ipc.telemetry.trackFeature('research_agent', 'run').catch(() => {});
@@ -275,13 +284,16 @@ export function ResearchPane() {
     } finally {
       setAgentLoading(false);
     }
-  }, [agentPrompt, agentLoading, buildAgentContext]);
+  }, [agentPrompt, agentLoading]);
 
   const handleAgentAction = useCallback(
     async (action: ResearchAgentAction) => {
       setPendingActionId(action.id);
       try {
-        const followUpPrompt = await executeResearchAgentAction(action, buildAgentContext());
+        // Create a follow-up prompt based on the action
+        const followUpPrompt = action.type === 'follow_up' && action.payload?.query 
+          ? action.payload.query 
+          : action.description || action.label;
         if (followUpPrompt) {
           setAgentPrompt(followUpPrompt);
           requestAnimationFrame(() => agentPromptRef.current?.focus());

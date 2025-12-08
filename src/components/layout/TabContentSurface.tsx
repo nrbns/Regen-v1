@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Tab } from '../../state/tabsStore';
@@ -16,6 +16,8 @@ import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useOptimizedView } from '../../hooks/useOptimizedView';
 import { getIframeManager, throttleViewUpdate } from '../../utils/gve-optimizer';
 import { BrowserAutomationBridge } from '../browser/BrowserAutomationBridge';
+import { ErrorPage } from '../browser/ErrorPage';
+import { LoadingIndicator } from '../browser/LoadingIndicator';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
@@ -37,6 +39,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(false);
+  const [_loadProgress, _setLoadProgress] = useState(0);
+  const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(null);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
   
@@ -66,18 +70,18 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       // Convert to search in user's language
-      // Use iframe-friendly search engine (Bing) to avoid X-Frame-Options blocking
+      // Use DuckDuckGo (privacy-friendly) instead of Bing
       const searchUrl = normalizeInputToUrlOrSearch(
         url,
-        'bing', // Use Bing as default - it allows iframe embedding
+        'duckduckgo', // Use DuckDuckGo - privacy-friendly and works well
         language !== 'auto' ? language : undefined,
-        true // prefer iframe-friendly
+        false // Don't force iframe-friendly - let real sites load
       );
       if (searchUrl) {
         return searchUrl;
       }
-      // Fallback to Bing search (iframe-friendly)
-      return `https://www.bing.com/search?q=${encodeURIComponent(url)}`;
+      // Fallback to DuckDuckGo search
+      return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
     }
 
     return url;
@@ -593,7 +597,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       {/* In Electron, BrowserView is managed by main process */}
       {/* For Tauri and web builds, use iframe (Tauri v2 doesn't support webview tag) */}
       {!isElectron && targetUrl ? (
-        <iframe
+        <Suspense
+          fallback={
+            <div className="flex h-full w-full items-center justify-center bg-slate-950">
+              <div className="text-center">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-emerald-400" />
+                <p className="mt-4 text-sm text-slate-400">Loading page...</p>
+              </div>
+            </div>
+          }
+        >
+          <iframe
           ref={el => {
             if (el) {
               iframeRef.current = el;
@@ -650,6 +664,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             }
           }}
         />
+        </Suspense>
       ) : null}
 
       <AnimatePresence>
@@ -747,8 +762,44 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         )}
       </AnimatePresence>
 
+      {/* DAY 4: Error Page */}
+      {error && (
+        <ErrorPage
+          error={error}
+          onRetry={async () => {
+            setError(null);
+            setLoading(true);
+            if (tab?.id && targetUrl) {
+              try {
+                await ipc.tabs.navigate(tab.id, targetUrl);
+              } catch {
+                setError({
+                  code: 'RETRY_FAILED',
+                  message: 'Failed to reload page',
+                  url: targetUrl,
+                });
+              }
+            }
+          }}
+          onGoHome={() => {
+            if (tab?.id) {
+              ipc.tabs.navigate(tab.id, 'about:blank').catch(console.error);
+            }
+          }}
+        />
+      )}
+
+      {/* DAY 4: Loading Indicator */}
+      {loading && !error && (
+        <LoadingIndicator
+          progress={loadProgress}
+          message="Loading page..."
+          fullPage={false}
+        />
+      )}
+
       <AnimatePresence>
-        {!isElectron && blockedExternal && (
+        {!isElectron && blockedExternal && !error && (
           <motion.div
             className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 px-6"
             initial={{ opacity: 0 }}

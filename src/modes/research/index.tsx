@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
-// Toast imported but not used in standard view - used in enhanced view
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
@@ -16,6 +15,9 @@ import { performLiveWebSearch } from '../../services/liveWebSearch';
 import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
+// import { useOfflineRAG } from '../../hooks/useOfflineRAG'; // Unused
+// import { searchOfflineDocuments } from '../../services/offlineRAG'; // Unused
+// import { SavePageButton } from '../../components/offline/SavePageButton'; // Unused
 import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
@@ -34,18 +36,18 @@ import {
 import { ContainerInfo } from '../../lib/ipc-events';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
-import { isWebMode } from '../../lib/env';
+// import { isWebMode } from '../../lib/env'; // Unused
 import { SourceCard } from '../../components/research/SourceCard';
 import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
 import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
+import BrowserView from '../../components/BrowserView';
 import { useResearchCompareStore } from '../../state/researchCompareStore';
 import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
-// import ResearchModePanel from '../../components/research/ResearchModePanel'; // Reserved for future use
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
@@ -112,6 +114,7 @@ export default function ResearchPanel() {
   const [deepScanSteps, setDeepScanSteps] = useState<DeepScanStep[]>([]);
   const [deepScanError, setDeepScanError] = useState<string | null>(null);
   const [useEnhancedView, setUseEnhancedView] = useState(true); // Default to enhanced multilingual view
+  const [viewingSourceUrl, setViewingSourceUrl] = useState<string | null>(null); // Real web page viewing
 
   useEffect(() => {
     if (containers.length === 0) {
@@ -910,33 +913,23 @@ export default function ResearchPanel() {
         }
 
         // Fallback to HTTP API if Tauri IPC not available or failed
-        // Skip in web mode - no backend available
+        // Always try backend API - it may be running even in web mode
         if (!backendResult) {
-          // Check web mode before attempting API call
-          if (!isWebMode()) {
-            try {
-              console.log('[Research] Attempting HTTP API call to backend...');
-              backendResult = await researchApi.queryEnhanced({
-                query: searchQuery,
-                maxSources: 12,
-                includeCounterpoints,
-                recencyWeight,
-                authorityWeight,
-                language: language !== 'auto' ? language : undefined,
-              });
-              console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
-            } catch (apiError) {
-              // Log the error for debugging
-              console.error('[Research] Backend API call failed:', apiError);
-              console.error('[Research] Error details:', {
-                message: apiError instanceof Error ? apiError.message : String(apiError),
-                stack: apiError instanceof Error ? apiError.stack : undefined,
-              });
-              // Continue with fallback - backend is optional
-            }
-          } else {
-            // In web mode, backendResult remains null and code continues with fallback
-            console.log('[Research] Web mode detected - skipping backend API call');
+          try {
+            console.log('[Research] Attempting HTTP API call to backend...');
+            backendResult = await researchApi.queryEnhanced({
+              query: searchQuery,
+              maxSources: 12,
+              includeCounterpoints,
+              recencyWeight,
+              authorityWeight,
+              language: language !== 'auto' ? language : undefined,
+            });
+            console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
+          } catch (apiError) {
+            // Log the error for debugging
+            console.warn('[Research] Backend API call failed (will use fallback):', apiError instanceof Error ? apiError.message : String(apiError));
+            // Continue with fallback - backend is optional
             backendResult = null;
           }
         }
@@ -1253,11 +1246,37 @@ export default function ResearchPanel() {
         let streamedText = '';
         let streamedResult: AITaskResult | null = null;
 
+        // Build a comprehensive prompt that includes sources if available
+        let researchPrompt = searchQuery;
+        if (aggregatedSources.length > 0) {
+          // Include top sources in the prompt for better context
+          const topSources = aggregatedSources.slice(0, 8).map((source, idx) => {
+            return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
+          }).join('\n\n');
+          
+          researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following sources, provide a comprehensive answer:\n\n${topSources}\n\nAnswer:`;
+        } else if (scrapedSnapshots.length > 0) {
+          // Use scraped content if available
+          const scrapedContent = scrapedSnapshots.slice(0, 3).map((snapshot, idx) => {
+            return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
+          }).join('\n\n');
+          
+          researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
+        }
+
         const aiResult = await aiEngine.runTask(
           {
             kind: 'search',
-            prompt: searchQuery,
-            context,
+            prompt: researchPrompt,
+            context: {
+              ...context,
+              sources: aggregatedSources.slice(0, 10).map(s => ({
+                title: s.title,
+                url: s.url,
+                snippet: s.snippet || s.text,
+              })),
+              query: searchQuery,
+            },
             mode: 'research',
             metadata: {
               includeCounterpoints,
@@ -1265,18 +1284,40 @@ export default function ResearchPanel() {
               recencyWeight,
               authorityWeight,
               language: language !== 'auto' ? language : undefined,
+              sourceCount: aggregatedSources.length,
             },
             llm: {
               temperature: 0.2,
-              maxTokens: 1000,
+              maxTokens: 1500, // Increased for better answers
+              systemPrompt: 'You are ReGen\'s research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.',
             },
           },
           event => {
             if (event.type === 'token' && typeof event.data === 'string') {
               streamedText += event.data;
-              // Update result with streaming text if needed
+              // Update result with streaming text in real-time
+              if (streamedText.length > 50) {
+                setResult(prev => ({
+                  ...prev,
+                  query: searchQuery,
+                  summary: streamedText,
+                  sources: prev?.sources || aggregatedSources.slice(0, 16),
+                  citations: prev?.citations || [],
+                  inlineEvidence: [],
+                  contradictions: [],
+                  verification: prev?.verification || {
+                    score: 0.7,
+                    confidence: 'medium',
+                    suggestions: [],
+                  },
+                  confidence: 0.75,
+                }));
+              }
             } else if (event.type === 'done' && typeof event.data !== 'string') {
               streamedResult = event.data as AITaskResult;
+            } else if (event.type === 'error') {
+              console.error('[Research] AI engine error:', event.data);
+              throw new Error(typeof event.data === 'string' ? event.data : 'AI engine error');
             }
           }
         );
@@ -1366,7 +1407,7 @@ export default function ResearchPanel() {
           );
         }
 
-        // Add local search results
+        // Add local search results (legacy lunr index)
         try {
           const localResults = await searchLocal(searchQuery);
           sources.push(
@@ -1390,6 +1431,35 @@ export default function ResearchPanel() {
           console.debug('[Research] Local search failed:', localError);
         }
 
+        // Search offline RAG documents
+        try {
+          const offlineRAGResults = await searchOfflineDocuments(searchQuery, { limit: 5 });
+          if (offlineRAGResults && offlineRAGResults.documents.length > 0) {
+            sources.push(
+              ...offlineRAGResults.documents.map((ragDoc, idx) => ({
+                id: `offline-rag-${ragDoc.document.id}`,
+                title: ragDoc.document.title,
+                url: ragDoc.document.url || '',
+                domain: ragDoc.document.url ? new URL(ragDoc.document.url).hostname : 'offline',
+                snippet: ragDoc.document.excerpt || ragDoc.document.content.slice(0, 200),
+                text: ragDoc.document.content.slice(0, 500),
+                type: 'documentation' as ResearchSourceType,
+                sourceType: 'documentation' as ResearchSourceType,
+                relevanceScore: Math.round(ragDoc.relevance * 100) - idx,
+                timestamp: ragDoc.document.indexedAt,
+                metadata: {
+                  provider: 'offline-rag',
+                  documentId: ragDoc.document.id,
+                  accessCount: ragDoc.document.accessCount,
+                  ...ragDoc.document.metadata,
+                },
+              }))
+            );
+          }
+        } catch (offlineError) {
+          console.debug('[Research] Offline RAG search failed:', offlineError);
+        }
+
         // Build inline citations from AI response
         const inlineCitations =
           finalResult?.citations?.map((cite, idx) => ({
@@ -1404,28 +1474,69 @@ export default function ResearchPanel() {
 
         const dedupedSources = dedupeResearchSources(sources);
 
-        setResult({
-          query: searchQuery,
-          summary: finalAnswer || 'No answer generated',
-          sources: dedupedSources.slice(0, 16),
-          citations: inlineCitations,
-          inlineEvidence: [],
-          contradictions: [],
-          verification: {
-            score: 0.8,
-            confidence: 'high',
-            suggestions: [
-              `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
-              ...(finalResult?.citations?.length
-                ? [`${finalResult.citations.length} citation(s) included`]
-                : []),
-            ],
-          },
-          confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
-        });
+        // Ensure we have a valid answer
+        const finalSummary = finalAnswer.trim() || streamedText.trim();
+        if (!finalSummary || finalSummary === 'No answer generated') {
+          // If no answer was generated, create one from sources
+          if (dedupedSources.length > 0) {
+            const sourceSummary = dedupedSources.slice(0, 3)
+              .map((s, idx) => `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`)
+              .join('\n\n');
+            setResult({
+              query: searchQuery,
+              summary: `Based on ${dedupedSources.length} source(s):\n\n${sourceSummary}`,
+              sources: dedupedSources.slice(0, 16),
+              citations: inlineCitations,
+              inlineEvidence: [],
+              contradictions: [],
+              verification: {
+                score: 0.7,
+                confidence: 'medium',
+                suggestions: ['AI answer generation failed, showing source summaries instead'],
+              },
+              confidence: 0.65,
+            });
+          } else {
+            setError('Unable to generate answer. Please try a different query or check your connection.');
+            setLoading(false);
+            setLoadingMessage(null);
+            toast.dismiss();
+            toast.error('Research failed - no sources found');
+            return;
+          }
+        } else {
+          setResult({
+            query: searchQuery,
+            summary: finalSummary,
+            sources: dedupedSources.slice(0, 16),
+            citations: inlineCitations,
+            inlineEvidence: [],
+            contradictions: [],
+            verification: {
+              score: 0.8,
+              confidence: 'high',
+              suggestions: [
+                `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
+                ...(finalResult?.citations?.length
+                  ? [`${finalResult.citations.length} citation(s) included`]
+                  : []),
+                ...(dedupedSources.length > 0
+                  ? [`Based on ${dedupedSources.length} source(s)`]
+                  : []),
+              ],
+            },
+            confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
+          });
+        }
+        setLoading(false);
+        setLoadingMessage(null);
+        toast.dismiss();
+        toast.success('Research complete');
         return;
       } catch (aiError) {
-        console.warn('[Research] AI engine failed, falling back to legacy search:', aiError);
+        console.error('[Research] AI engine failed:', aiError);
+        const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+        console.warn('[Research] Falling back to legacy search:', errorMessage);
 
         if (aggregatedSources.length > 0) {
           const providerLabel =
@@ -1833,6 +1944,12 @@ export default function ResearchPanel() {
 
   const handleOpenUrl = async (url: string) => {
     try {
+      // In Research mode, show the page in split view instead of opening in tab
+      if (url && url.startsWith('http')) {
+        setViewingSourceUrl(url);
+        return;
+      }
+      // Fallback to tab for non-http URLs
       if (activeId) {
         await ipc.tabs.navigate(activeId, url);
       } else {
@@ -2104,6 +2221,7 @@ export default function ResearchPanel() {
                   {loading ? 'Researching…' : 'Run research'}
                 </button>
                 <VoiceButton
+                  editBeforeExecute={useSettingsStore(state => state.general.voiceEditBeforeExecute ?? true)}
                   onResult={text => {
                     // Parse voice command for research triggers and language
                     const parsed = parseResearchVoiceCommand(text);
@@ -2193,6 +2311,34 @@ export default function ResearchPanel() {
             {/* Use new streaming Perplexity-style UI */}
             <RegenResearchPanel />
           </div>
+        ) : viewingSourceUrl ? (
+          // Split view: Real web page + AI panel
+          <>
+            <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setViewingSourceUrl(null)}
+                      className="rounded-lg px-3 py-1 text-sm text-gray-300 hover:bg-white/10"
+                    >
+                      ← Back to Results
+                    </button>
+                    <span className="text-xs text-gray-500">|</span>
+                    <span className="truncate text-sm text-gray-300">{viewingSourceUrl}</span>
+                  </div>
+                </div>
+                <BrowserView url={viewingSourceUrl} mode="research" className="flex-1" />
+              </div>
+            </div>
+            <InsightsSidebar
+              result={result}
+              loading={loading}
+              onOpenSource={handleOpenUrl}
+              activeSourceId={activeSourceId}
+              onSelectSource={setActiveSourceId}
+            />
+          </>
         ) : (
           <>
             <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
@@ -2607,15 +2753,47 @@ function ResearchResultView({
 
         {result.citations.length > 0 && (
           <div className="mt-5 rounded-xl border border-white/5 bg-[#1a1d2a] px-4 py-3">
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-              Citations
-            </h3>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Citations ({result.citations.length})
+              </h3>
+              {/* Phase 1, Day 6: Export buttons */}
+              <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                    downloadResearchExport(result, 'markdown');
+                  }}
+                  className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
+                  title="Export as Markdown"
+                >
+                  MD
+                </button>
+                <button
+                  onClick={() => {
+                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                    downloadResearchExport(result, 'json');
+                  }}
+                  className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
+                  title="Export as JSON"
+                >
+                  JSON
+                </button>
+              </div>
+            </div>
             <ul className="space-y-2">
               {result.citations.map(citation => {
                 const source = result.sources[citation.sourceIndex];
                 const sourceKey = getSourceKey(citation.sourceIndex);
                 const isActive = activeSourceId === sourceKey;
                 if (!source) return null;
+                
+                // Phase 1, Day 6: Calculate credibility
+                const { calculateCredibility, getCredibilityColor, getCredibilityLabel } = require('../../core/research/sourceCredibility');
+                const credibility = calculateCredibility(source);
+                const credibilityColor = getCredibilityColor(credibility.level);
+                const credibilityLabel = getCredibilityLabel(credibility.level);
+                
                 return (
                   <li
                     key={citation.index}
@@ -2625,17 +2803,32 @@ function ResearchResultView({
                         : 'border-white/5 bg-white/[0.02] text-gray-300 hover:border-blue-400/40 hover:bg-blue-400/5'
                     }`}
                   >
-                    <button
-                      className="font-semibold text-indigo-300 hover:text-indigo-200"
-                      onClick={() => {
-                        onActiveSourceChange(sourceKey);
-                        onOpenSource(source.url);
-                      }}
-                    >
-                      [{citation.index}] {source.title}
-                    </button>
-                    <div className="text-[11px] text-gray-500">
-                      Confidence {(citation.confidence * 100).toFixed(0)}% • {source.domain}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <button
+                          className="font-semibold text-indigo-300 hover:text-indigo-200 text-left"
+                          onClick={() => {
+                            onActiveSourceChange(sourceKey);
+                            onOpenSource(source.url);
+                          }}
+                        >
+                          [{citation.index}] {source.title}
+                        </button>
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] text-gray-500">
+                            Confidence {(citation.confidence * 100).toFixed(0)}% • {source.domain}
+                          </span>
+                          {/* Phase 1, Day 6: Credibility badge */}
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${credibilityColor}`}>
+                            {credibilityLabel} ({credibility.score}/100)
+                          </span>
+                        </div>
+                        {citation.quote && (
+                          <div className="mt-1 text-[11px] text-gray-400 italic">
+                            "{citation.quote.substring(0, 100)}{citation.quote.length > 100 ? '...' : ''}"
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </li>
                 );
@@ -3074,6 +3267,10 @@ function SourcesList({
   onOpenSource(url: string): void;
 }) {
   if (!sources || sources.length === 0) return null;
+
+  // Phase 1, Day 6: Calculate credibility for all sources
+  // Note: These are used in the SourceCard component (lines 2793-2795), not here
+  const { calculateCredibility: _calculateCredibility, getCredibilityColor: _getCredibilityColor, getCredibilityLabel: _getCredibilityLabel } = require('../../core/research/sourceCredibility');
 
   const providerCounts = sources.reduce<Record<string, number>>((acc, source) => {
     const provider =

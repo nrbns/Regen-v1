@@ -1,6 +1,8 @@
 /**
- * Utility helpers shared across UI layers.
+ * Utility functions
  */
-type ClassValue = string | number | null | undefined | false | ClassValue[];
+import { type ClassValue } from 'clsx';
+/**
+ * Merge Tailwind classes
+ */
 export declare function cn(...inputs: ClassValue[]): string;
-export {};

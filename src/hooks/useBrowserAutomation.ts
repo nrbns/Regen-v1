@@ -170,7 +170,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
             } else if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
-          } catch (err) {
+          } catch {
             if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
@@ -199,7 +199,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
             } else if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
-          } catch (err) {
+          } catch {
             if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
@@ -228,7 +228,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
             } else if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
-          } catch (err) {
+          } catch {
             if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
@@ -257,7 +257,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
             } else if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }
-          } catch (err) {
+          } catch {
             if (originalOnMessage && wsRef.current) {
               originalOnMessage.call(wsRef.current, event);
             }

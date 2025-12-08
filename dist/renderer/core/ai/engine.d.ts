@@ -37,6 +37,11 @@ export declare class AIEngine {
     private readonly providerChain;
     private readonly STATE_KEY;
     runTask(request: AITaskRequest, onStream?: StreamHandler): Promise<AITaskResult>;
+    /**
+     * Run multiple AI tasks in parallel (e.g., reasoning + summarization)
+     * This allows independent tasks to execute simultaneously for faster responses
+     */
+    runParallelTasks(requests: AITaskRequest[], onStream?: (index: number, event: Parameters<StreamHandler>[0]) => void): Promise<AITaskResult[]>;
     private callBackendTask;
     /**
      * Run local LLM with provider chaining (OpenAI → Anthropic → Ollama)

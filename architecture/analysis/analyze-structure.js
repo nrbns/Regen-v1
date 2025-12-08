@@ -60,7 +60,7 @@ function getFileStats(dir, depth = 0, maxDepth = 3) {
         stats.extensions[ext] = (stats.extensions[ext] || 0) + 1;
       }
     }
-  } catch (error) {
+  } catch {
     // Skip directories we can't read
   }
 

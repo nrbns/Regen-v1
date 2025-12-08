@@ -5,10 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, StopCircle, Copy, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { AIThinkingSkeleton } from '../components/common/LoadingSkeleton';
 import { aiEngine, type AITaskResult } from '../core/ai';
+import { createFastCharStream } from '../core/ai/streamEnhancer';
 import { MemoryStoreInstance } from '../core/supermemory/store';
 import { semanticSearchMemories } from '../core/supermemory/search';
 import { useAgentStreamStore } from '../state/agentStreamStore';
 import { useAgentMemoryStore } from '../state/agentMemoryStore';
+// import { getLast5Turns, buildContextualPrompt, getConversationContext } from '../core/agents/contextMemory'; // Unused
 import { trackAgent, trackAction } from '../core/supermemory/tracker';
 import {
   startAutoSave,
@@ -384,28 +386,26 @@ export default function AgentConsole() {
           llm: { temperature: 0.2, maxTokens: 900 },
           signal: controller.signal,
         },
-        event => {
-          if (event.type === 'token' && typeof event.data === 'string') {
+        createFastCharStream(
+          (char, accumulated) => {
             if (!sawFirstToken) {
               sawFirstToken = true;
               setStatus('live');
             }
-            setStreamingText(prev => `${prev}${event.data}`);
-            appendTranscript(event.data);
-          } else if (event.type === 'done') {
-            if (event.data && typeof event.data !== 'string') {
-              finalResult = event.data as AITaskResult;
-            } else if (typeof event.data === 'string') {
-              finalResult = {
-                text: event.data,
-                provider: 'unknown',
-                model: 'unknown',
-              };
+            setStreamingText(accumulated);
+            // Append to transcript character by character for smoother updates
+            if (char) {
+              appendTranscript(char);
             }
-          } else if (event.type === 'error') {
-            streamError = typeof event.data === 'string' ? event.data : 'AI stream failed';
+          },
+          (fullText) => {
+            finalResult = { text: fullText, provider: 'openai', model: 'unknown' };
+            setStreamingText(fullText);
+          },
+          (error) => {
+            streamError = error;
           }
-        }
+        )
       );
 
       abortControllerRef.current = null;

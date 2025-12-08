@@ -3,7 +3,6 @@
  * Retry logic, timeouts, deduplication, crash-proof recovery
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const redis = require('../../config/redis-client');
 
 const log = {

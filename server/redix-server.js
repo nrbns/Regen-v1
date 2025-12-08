@@ -123,7 +123,8 @@ import Fastify from 'fastify';
 import websocketPlugin from '@fastify/websocket';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
-import multipart from '@fastify/multipart';
+// Rate limiting middleware - will use @fastify/rate-limit directly for now
+// import multipart from '@fastify/multipart'; // Not currently used
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import os from 'os';
@@ -138,12 +139,47 @@ import { generateResearchAnswer, streamResearchAnswer } from './services/researc
 import { queryEnhancedResearch } from './services/research/enhanced.js';
 import { aiProxy } from './services/ai/realtime-ai-proxy.js';
 import { researchAgent, executeAgent } from './api/agent-controller.js';
+// import { executeResearchAgent } from './agents/researchAgent.js'; // Unused
 import { runResearch, getResearchStatus } from './api/research-controller.js';
 import { hybridSearch } from './routes/search.js';
 import { validateApiKeys } from './utils/validateApiKeys.js';
 import { proxyBingSearch, proxyOpenAI, proxyAnthropic, healthCheck } from './routes/proxy.js';
 import { scrapeUrl } from './routes/scrape.js';
 import { aiTask } from './routes/aiTask.js';
+// Production-grade search and summarize APIs
+// Note: Files are TypeScript but will be loaded dynamically to handle compilation
+let searchHandler, searchGetHandler, summarizeHandler, searchRateLimiter, summarizeRateLimiter;
+
+// Lazy load handlers (will be initialized when routes are registered)
+async function loadProductionSearchAPIs() {
+  try {
+    // Use dynamic import with .js extension (TypeScript convention for ES modules)
+    const searchModule = await import('./api/search.js');
+    const summarizeModule = await import('./api/summarize.js');
+    const rateLimiterModule = await import('./middleware/rateLimiter.js');
+    
+    searchHandler = searchModule.searchHandler;
+    searchGetHandler = searchModule.searchGetHandler;
+    summarizeHandler = summarizeModule.summarizeHandler;
+    searchRateLimiter = rateLimiterModule.searchRateLimiter;
+    summarizeRateLimiter = rateLimiterModule.summarizeRateLimiter;
+    
+    return true;
+  } catch (error) {
+    console.warn('[RedixServer] Could not load production search/summarize APIs:', error.message);
+    console.warn('[RedixServer] Make sure TypeScript files are compiled or use tsx to run server');
+    // Provide fallback handlers
+    searchHandler = async (req, reply) => reply.code(503).send({ error: 'search_api_not_available', message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.' });
+    searchGetHandler = async (req, reply) => reply.code(503).send({ error: 'search_api_not_available', message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.' });
+    summarizeHandler = async (req, reply) => reply.code(503).send({ error: 'summarize_api_not_available', message: 'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.' });
+    searchRateLimiter = async () => {}; // No-op
+    summarizeRateLimiter = async () => {}; // No-op
+    return false;
+  }
+}
+
+// Load APIs immediately (but async, so routes will wait)
+const loadAPIsPromise = loadProductionSearchAPIs();
 import crypto from 'crypto';
 
 // Load metrics - provide stub for now (metrics.js is CommonJS)
@@ -295,6 +331,9 @@ let _ZERODHA_TOKEN_EXPIRES_AT = nodeProcess?.env.ZERODHA_TOKEN_EXPIRES_AT
 // WebSocket connection pools for market data
 const finnhubConnections = new Map();
 const binanceConnections = new Map();
+
+// Mode synchronization clients (for /ws/sync endpoint)
+const modeSyncClients = new Map();
 
 // Helper to detect if symbol is crypto
 function isCryptoSymbol(symbol) {
@@ -1574,6 +1613,118 @@ if (enableWebSockets) {
     });
   });
 
+  // Mode synchronization WebSocket endpoint
+  fastify.get('/ws/sync', { websocket: true }, (connection, request) => {
+    const ws = connection.socket;
+    const clientId = uuidv4();
+    const clientIP = getClientIP(request);
+
+    // Check connection limit
+    if (!checkConnectionLimit(clientIP, 'ws')) {
+      try {
+        ws.close(1008, `Maximum ${MAX_WS_PER_IP} WebSocket connections per IP`);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    // Store client state in module-level map
+    modeSyncClients.set(ws, { clientId, connectedAt: Date.now(), mode: null, ip: clientIP });
+
+    fastify.log.info({ clientId }, 'mode sync ws connected');
+
+    // Send welcome message
+    safeWsSend(
+      ws,
+      JSON.stringify({
+        type: 'connected',
+        clientId,
+        timestamp: Date.now(),
+      })
+    );
+
+    // Handle incoming messages
+    ws.on('message', raw => {
+      let message;
+      try {
+        message = JSON.parse(raw.toString());
+      } catch (error) {
+        fastify.log.warn({ error }, 'invalid json from mode sync client');
+        return;
+      }
+
+      const client = modeSyncClients.get(ws);
+      if (!client) return;
+
+      switch (message.type) {
+        case 'mode-switch': {
+          // Broadcast mode switch to all other clients
+          const { mode, data } = message;
+          client.mode = mode;
+          
+          // Broadcast to all other mode sync clients
+          modeSyncClients.forEach((otherClient, otherWs) => {
+            if (otherWs !== ws && otherWs.readyState === WebSocket.OPEN) {
+              safeWsSend(
+                otherWs,
+                JSON.stringify({
+                  type: 'mode-switch',
+                  mode,
+                  data,
+                  timestamp: Date.now(),
+                })
+              );
+            }
+          });
+          break;
+        }
+
+        case 'state-sync':
+          // Broadcast state sync to all other clients
+          modeSyncClients.forEach((otherClient, otherWs) => {
+            if (otherWs !== ws && otherWs.readyState === WebSocket.OPEN) {
+              safeWsSend(
+                otherWs,
+                JSON.stringify({
+                  type: 'state-sync',
+                  mode: message.mode,
+                  data: message.data,
+                  timestamp: Date.now(),
+                })
+              );
+            }
+          });
+          break;
+
+        case 'heartbeat':
+          // Respond to heartbeat
+          safeWsSend(
+            ws,
+            JSON.stringify({
+              type: 'heartbeat',
+              timestamp: Date.now(),
+            })
+          );
+          break;
+
+        default:
+          fastify.log.warn({ clientId, type: message.type }, 'unknown mode sync message type');
+      }
+    });
+
+    ws.on('close', () => {
+      modeSyncClients.delete(ws);
+      decrementConnectionLimit(clientIP, 'ws');
+      fastify.log.info({ clientId }, 'mode sync ws disconnected');
+    });
+
+    ws.on('error', err => {
+      fastify.log.warn({ err, clientId }, 'mode sync ws error');
+      modeSyncClients.delete(ws);
+    });
+  });
+
   fastify.get('/ws/metrics', { websocket: true }, connection => {
     const ws = connection.socket;
     metricsClients.add(ws);
@@ -1859,10 +2010,19 @@ fastify.post('/api/profile/signout', async () => ({ ok: true }));
 
 /**
  * POST /api/agent/research
- * Real research agent with LLM integration
+ * Real research agent with LLM integration (legacy)
  */
 fastify.post('/api/agent/research', async (request, reply) => {
   return researchAgent(request, reply);
+});
+
+/**
+ * POST /api/agent/research/v2
+ * Production research agent pipeline (Search → Fetch → Summarize → Report)
+ */
+fastify.post('/api/agent/research/v2', async (request, reply) => {
+  const { executeResearchAgent } = await import('./agents/researchAgent.js');
+  return executeResearchAgent(request, reply);
 });
 
 /**
@@ -1879,6 +2039,58 @@ fastify.post('/api/research/run', async (request, reply) => {
  */
 fastify.post('/api/search/hybrid', async (request, reply) => {
   return hybridSearch(request, reply);
+});
+
+/**
+ * POST /api/search
+ * Production-grade search API with caching, ranking, and content extraction
+ */
+fastify.post('/api/search', async (request, reply) => {
+  // Ensure APIs are loaded
+  await loadAPIsPromise;
+  
+  // Apply rate limiting
+  if (searchRateLimiter) {
+    await searchRateLimiter(request, reply);
+    if (reply.sent) return; // Rate limit exceeded
+  }
+  
+  return searchHandler(request, reply);
+});
+
+/**
+ * GET /api/search?q=...
+ * Alternative GET endpoint for search
+ */
+fastify.get('/api/search', async (request, reply) => {
+  // Ensure APIs are loaded
+  await loadAPIsPromise;
+  
+  // Apply rate limiting
+  if (searchRateLimiter) {
+    await searchRateLimiter(request, reply);
+    if (reply.sent) return; // Rate limit exceeded
+  }
+  
+  return searchGetHandler(request, reply);
+});
+
+/**
+ * POST /api/summarize
+ * Production-grade summarization API with LLM integration and caching
+ * Note: This is a new endpoint. The existing /api/summarize endpoint remains at line 4122
+ */
+fastify.post('/api/summarize/v2', async (request, reply) => {
+  // Ensure APIs are loaded
+  await loadAPIsPromise;
+  
+  // Apply rate limiting
+  if (summarizeRateLimiter) {
+    await summarizeRateLimiter(request, reply);
+    if (reply.sent) return; // Rate limit exceeded
+  }
+  
+  return summarizeHandler(request, reply);
 });
 
 /**

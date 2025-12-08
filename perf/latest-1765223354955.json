@@ -1,0 +1,44 @@
+{
+  "timestamp": "2025-12-08T19:49:29.658Z",
+  "results": [
+    {
+      "scenario": "news-lite",
+      "url": "https://lite.cnn.com/",
+      "durationMs": 3272,
+      "metrics": {
+        "heapUsedMB": 9.5367431640625,
+        "heapTotalMB": 9.5367431640625,
+        "domContentLoaded": 743.2000000178814,
+        "loadTime": 774.5,
+        "firstContentfulPaint": 784,
+        "cpuTime": 3265.300000011921
+      }
+    },
+    {
+      "scenario": "reference-wiki",
+      "url": "https://en.wikipedia.org/wiki/Energy_efficiency",
+      "durationMs": 5495,
+      "metrics": {
+        "heapUsedMB": 10.10894775390625,
+        "heapTotalMB": 14.495849609375,
+        "domContentLoaded": 1421.4000000059605,
+        "loadTime": 2367.9000000059605,
+        "firstContentfulPaint": 1428,
+        "cpuTime": 5486.4000000059605
+      }
+    },
+    {
+      "scenario": "research-hacker-news",
+      "url": "https://news.ycombinator.com/",
+      "durationMs": 5299,
+      "metrics": {
+        "heapUsedMB": 9.5367431640625,
+        "heapTotalMB": 9.5367431640625,
+        "domContentLoaded": 2260.7999999821186,
+        "loadTime": 2764.4000000059605,
+        "firstContentfulPaint": 2272,
+        "cpuTime": 5292.0999999940395
+      }
+    }
+  ]
+}

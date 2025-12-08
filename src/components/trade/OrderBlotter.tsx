@@ -41,9 +41,9 @@ export default function OrderBlotter({ onOrderClick, showPaperOnly = true }: Ord
     try {
       const status = filter === 'all' ? undefined : filter;
       const { orders: allOrders } = await ipc.trade.getOrders(status);
-      const filtered = showPaperOnly ? allOrders.filter((o) => o.paper) : allOrders;
+      const filtered = showPaperOnly ? allOrders.filter((o: any) => o.paper) : allOrders;
       // Sort by creation time (newest first)
-      filtered.sort((a, b) => b.createdAt - a.createdAt);
+      filtered.sort((a: any, b: any) => b.createdAt - a.createdAt);
       setOrders(filtered);
     } catch (error) {
       console.error('Failed to load orders:', error);

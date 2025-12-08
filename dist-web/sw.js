@@ -1,23 +1,30 @@
 /**
- * Service Worker for Caching and Performance
- * Implements connection pooling and asset caching
+ * Service Worker for Regen Browser
+ * Handles caching, offline support, and performance optimization
  */
 
-const STATIC_CACHE_NAME = 'regenbrowser-static-v1';
-const API_CACHE_NAME = 'regenbrowser-api-v1';
+const CACHE_NAME = 'regen-v1';
+const RUNTIME_CACHE = 'regen-runtime-v1';
+const STATIC_CACHE = 'regen-static-v1';
 
-// Assets to cache on install
+// Assets to cache immediately
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/logo.png',
   '/manifest.json',
+];
+
+// API endpoints to cache
+const API_CACHE_PATTERNS = [
+  /\/api\/search/,
+  /\/api\/summarize/,
+  /\/api\/agent/,
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME).then((cache) => {
+    caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -30,12 +37,14 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((name) => name !== STATIC_CACHE_NAME && name !== API_CACHE_NAME)
+          .filter((name) => {
+            return name !== CACHE_NAME && name !== RUNTIME_CACHE && name !== STATIC_CACHE;
+          })
           .map((name) => caches.delete(name))
       );
     })
   );
-  self.clients.claim();
+  return self.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network
@@ -48,53 +57,109 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip chrome-extension and other protocols
-  if (!url.protocol.startsWith('http')) {
+  // Skip cross-origin requests (except same-origin)
+  if (url.origin !== location.origin && !url.pathname.startsWith('/api/')) {
     return;
   }
 
-  // Cache strategy: Cache First for static assets, Network First for API
-  if (url.pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot)$/)) {
-    // Static assets - Cache First
+  // Handle API requests with cache-first strategy
+  if (API_CACHE_PATTERNS.some((pattern) => pattern.test(url.pathname))) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).then((response) => {
-          if (response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(STATIC_CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
+      caches.open(RUNTIME_CACHE).then((cache) => {
+        return cache.match(request).then((cachedResponse) => {
+          if (cachedResponse) {
+            // Serve from cache, but fetch in background to update
+            fetch(request).then((response) => {
+              if (response.ok) {
+                cache.put(request, response.clone());
+              }
             });
+            return cachedResponse;
           }
-          return response;
+          // Fetch from network
+          return fetch(request).then((response) => {
+            if (response.ok) {
+              cache.put(request, response.clone());
+            }
+            return response;
+          });
         });
       })
     );
-  } else if (url.pathname.startsWith('/api/')) {
-    // API requests - Network First with cache fallback
+    return;
+  }
+
+  // Handle static assets with cache-first strategy
+  if (
+    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|gif|woff|woff2|ttf|eot)$/) ||
+    STATIC_ASSETS.includes(url.pathname)
+  ) {
+    event.respondWith(
+      caches.open(STATIC_CACHE).then((cache) => {
+        return cache.match(request).then((cachedResponse) => {
+          return (
+            cachedResponse ||
+            fetch(request).then((response) => {
+              if (response.ok) {
+                cache.put(request, response.clone());
+              }
+              return response;
+            })
+          );
+        });
+      })
+    );
+    return;
+  }
+
+  // Handle navigation requests with network-first strategy
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(API_CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+              cache.put(request, responseClone);
             });
           }
           return response;
         })
         .catch(() => {
-          return caches.match(request);
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/index.html');
+          });
         })
     );
-  } else {
-    // Other requests - Network First
-    event.respondWith(
-      fetch(request).catch(() => {
+    return;
+  }
+
+  // Default: network-first for other requests
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const responseClone = response.clone();
+          caches.open(RUNTIME_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
         return caches.match(request);
       })
-    );
+  );
+});
+
+// Background sync for offline actions (optional)
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-research-results') {
+    event.waitUntil(syncResearchResults());
   }
 });
+
+async function syncResearchResults() {
+  // Sync offline research results when online
+  // Implementation depends on your offline storage strategy
+}

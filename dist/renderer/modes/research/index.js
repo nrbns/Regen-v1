@@ -7,7 +7,6 @@ import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
 import VoiceButton from '../../components/VoiceButton';
 import { ipc } from '../../lib/ipc-typed';
-// Toast imported but not used in standard view - used in enhanced view
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
 import { fetchDuckDuckGoInstant, formatDuckDuckGoResults } from '../../services/duckDuckGoSearch';
@@ -15,6 +14,7 @@ import { performLiveWebSearch } from '../../services/liveWebSearch';
 import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
+import { searchOfflineDocuments } from '../../services/offlineRAG';
 import { aiEngine } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
@@ -25,18 +25,17 @@ import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
-import { isWebMode } from '../../lib/env';
 import { SourceCard } from '../../components/research/SourceCard';
 import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
 import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
+import BrowserView from '../../components/BrowserView';
 import { useResearchCompareStore } from '../../state/researchCompareStore';
 import { toast } from '../../utils/toast';
 import { runDeepScan } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
-// import ResearchModePanel from '../../components/research/ResearchModePanel'; // Reserved for future use
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
@@ -79,6 +78,7 @@ export default function ResearchPanel() {
     const [deepScanSteps, setDeepScanSteps] = useState([]);
     const [deepScanError, setDeepScanError] = useState(null);
     const [useEnhancedView, setUseEnhancedView] = useState(true); // Default to enhanced multilingual view
+    const [viewingSourceUrl, setViewingSourceUrl] = useState(null); // Real web page viewing
     useEffect(() => {
         if (containers.length === 0) {
             ipc.containers
@@ -802,35 +802,24 @@ export default function ResearchPanel() {
                     }
                 }
                 // Fallback to HTTP API if Tauri IPC not available or failed
-                // Skip in web mode - no backend available
+                // Always try backend API - it may be running even in web mode
                 if (!backendResult) {
-                    // Check web mode before attempting API call
-                    if (!isWebMode()) {
-                        try {
-                            console.log('[Research] Attempting HTTP API call to backend...');
-                            backendResult = await researchApi.queryEnhanced({
-                                query: searchQuery,
-                                maxSources: 12,
-                                includeCounterpoints,
-                                recencyWeight,
-                                authorityWeight,
-                                language: language !== 'auto' ? language : undefined,
-                            });
-                            console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
-                        }
-                        catch (apiError) {
-                            // Log the error for debugging
-                            console.error('[Research] Backend API call failed:', apiError);
-                            console.error('[Research] Error details:', {
-                                message: apiError instanceof Error ? apiError.message : String(apiError),
-                                stack: apiError instanceof Error ? apiError.stack : undefined,
-                            });
-                            // Continue with fallback - backend is optional
-                        }
+                    try {
+                        console.log('[Research] Attempting HTTP API call to backend...');
+                        backendResult = await researchApi.queryEnhanced({
+                            query: searchQuery,
+                            maxSources: 12,
+                            includeCounterpoints,
+                            recencyWeight,
+                            authorityWeight,
+                            language: language !== 'auto' ? language : undefined,
+                        });
+                        console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
                     }
-                    else {
-                        // In web mode, backendResult remains null and code continues with fallback
-                        console.log('[Research] Web mode detected - skipping backend API call');
+                    catch (apiError) {
+                        // Log the error for debugging
+                        console.warn('[Research] Backend API call failed (will use fallback):', apiError instanceof Error ? apiError.message : String(apiError));
+                        // Continue with fallback - backend is optional
                         backendResult = null;
                     }
                 }
@@ -1101,10 +1090,34 @@ export default function ResearchPanel() {
             try {
                 let streamedText = '';
                 let streamedResult = null;
+                // Build a comprehensive prompt that includes sources if available
+                let researchPrompt = searchQuery;
+                if (aggregatedSources.length > 0) {
+                    // Include top sources in the prompt for better context
+                    const topSources = aggregatedSources.slice(0, 8).map((source, idx) => {
+                        return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
+                    }).join('\n\n');
+                    researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following sources, provide a comprehensive answer:\n\n${topSources}\n\nAnswer:`;
+                }
+                else if (scrapedSnapshots.length > 0) {
+                    // Use scraped content if available
+                    const scrapedContent = scrapedSnapshots.slice(0, 3).map((snapshot, idx) => {
+                        return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
+                    }).join('\n\n');
+                    researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
+                }
                 const aiResult = await aiEngine.runTask({
                     kind: 'search',
-                    prompt: searchQuery,
-                    context,
+                    prompt: researchPrompt,
+                    context: {
+                        ...context,
+                        sources: aggregatedSources.slice(0, 10).map(s => ({
+                            title: s.title,
+                            url: s.url,
+                            snippet: s.snippet || s.text,
+                        })),
+                        query: searchQuery,
+                    },
                     mode: 'research',
                     metadata: {
                         includeCounterpoints,
@@ -1112,18 +1125,41 @@ export default function ResearchPanel() {
                         recencyWeight,
                         authorityWeight,
                         language: language !== 'auto' ? language : undefined,
+                        sourceCount: aggregatedSources.length,
                     },
                     llm: {
                         temperature: 0.2,
-                        maxTokens: 1000,
+                        maxTokens: 1500, // Increased for better answers
+                        systemPrompt: 'You are ReGen\'s research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.',
                     },
                 }, event => {
                     if (event.type === 'token' && typeof event.data === 'string') {
                         streamedText += event.data;
-                        // Update result with streaming text if needed
+                        // Update result with streaming text in real-time
+                        if (streamedText.length > 50) {
+                            setResult(prev => ({
+                                ...prev,
+                                query: searchQuery,
+                                summary: streamedText,
+                                sources: prev?.sources || aggregatedSources.slice(0, 16),
+                                citations: prev?.citations || [],
+                                inlineEvidence: [],
+                                contradictions: [],
+                                verification: prev?.verification || {
+                                    score: 0.7,
+                                    confidence: 'medium',
+                                    suggestions: [],
+                                },
+                                confidence: 0.75,
+                            }));
+                        }
                     }
                     else if (event.type === 'done' && typeof event.data !== 'string') {
                         streamedResult = event.data;
+                    }
+                    else if (event.type === 'error') {
+                        console.error('[Research] AI engine error:', event.data);
+                        throw new Error(typeof event.data === 'string' ? event.data : 'AI engine error');
                     }
                 });
                 const finalResult = streamedResult ?? aiResult;
@@ -1204,7 +1240,7 @@ export default function ResearchPanel() {
                         },
                     })));
                 }
-                // Add local search results
+                // Add local search results (legacy lunr index)
                 try {
                     const localResults = await searchLocal(searchQuery);
                     sources.push(...localResults.map((lr, idx) => ({
@@ -1226,6 +1262,33 @@ export default function ResearchPanel() {
                 catch (localError) {
                     console.debug('[Research] Local search failed:', localError);
                 }
+                // Search offline RAG documents
+                try {
+                    const offlineRAGResults = await searchOfflineDocuments(searchQuery, { limit: 5 });
+                    if (offlineRAGResults && offlineRAGResults.documents.length > 0) {
+                        sources.push(...offlineRAGResults.documents.map((ragDoc, idx) => ({
+                            id: `offline-rag-${ragDoc.document.id}`,
+                            title: ragDoc.document.title,
+                            url: ragDoc.document.url || '',
+                            domain: ragDoc.document.url ? new URL(ragDoc.document.url).hostname : 'offline',
+                            snippet: ragDoc.document.excerpt || ragDoc.document.content.slice(0, 200),
+                            text: ragDoc.document.content.slice(0, 500),
+                            type: 'documentation',
+                            sourceType: 'documentation',
+                            relevanceScore: Math.round(ragDoc.relevance * 100) - idx,
+                            timestamp: ragDoc.document.indexedAt,
+                            metadata: {
+                                provider: 'offline-rag',
+                                documentId: ragDoc.document.id,
+                                accessCount: ragDoc.document.accessCount,
+                                ...ragDoc.document.metadata,
+                            },
+                        })));
+                    }
+                }
+                catch (offlineError) {
+                    console.debug('[Research] Offline RAG search failed:', offlineError);
+                }
                 // Build inline citations from AI response
                 const inlineCitations = finalResult?.citations?.map((cite, idx) => ({
                     id: `citation-${idx}`,
@@ -1236,29 +1299,72 @@ export default function ResearchPanel() {
                         : idx * 50, // Approximate position
                 })) || [];
                 const dedupedSources = dedupeResearchSources(sources);
-                setResult({
-                    query: searchQuery,
-                    summary: finalAnswer || 'No answer generated',
-                    sources: dedupedSources.slice(0, 16),
-                    citations: inlineCitations,
-                    inlineEvidence: [],
-                    contradictions: [],
-                    verification: {
-                        score: 0.8,
-                        confidence: 'high',
-                        suggestions: [
-                            `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
-                            ...(finalResult?.citations?.length
-                                ? [`${finalResult.citations.length} citation(s) included`]
-                                : []),
-                        ],
-                    },
-                    confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
-                });
+                // Ensure we have a valid answer
+                const finalSummary = finalAnswer.trim() || streamedText.trim();
+                if (!finalSummary || finalSummary === 'No answer generated') {
+                    // If no answer was generated, create one from sources
+                    if (dedupedSources.length > 0) {
+                        const sourceSummary = dedupedSources.slice(0, 3)
+                            .map((s, idx) => `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`)
+                            .join('\n\n');
+                        setResult({
+                            query: searchQuery,
+                            summary: `Based on ${dedupedSources.length} source(s):\n\n${sourceSummary}`,
+                            sources: dedupedSources.slice(0, 16),
+                            citations: inlineCitations,
+                            inlineEvidence: [],
+                            contradictions: [],
+                            verification: {
+                                score: 0.7,
+                                confidence: 'medium',
+                                suggestions: ['AI answer generation failed, showing source summaries instead'],
+                            },
+                            confidence: 0.65,
+                        });
+                    }
+                    else {
+                        setError('Unable to generate answer. Please try a different query or check your connection.');
+                        setLoading(false);
+                        setLoadingMessage(null);
+                        toast.dismiss();
+                        toast.error('Research failed - no sources found');
+                        return;
+                    }
+                }
+                else {
+                    setResult({
+                        query: searchQuery,
+                        summary: finalSummary,
+                        sources: dedupedSources.slice(0, 16),
+                        citations: inlineCitations,
+                        inlineEvidence: [],
+                        contradictions: [],
+                        verification: {
+                            score: 0.8,
+                            confidence: 'high',
+                            suggestions: [
+                                `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
+                                ...(finalResult?.citations?.length
+                                    ? [`${finalResult.citations.length} citation(s) included`]
+                                    : []),
+                                ...(dedupedSources.length > 0
+                                    ? [`Based on ${dedupedSources.length} source(s)`]
+                                    : []),
+                            ],
+                        },
+                        confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
+                    });
+                }
+                setLoading(false);
+                setLoadingMessage(null);
+                toast.dismiss();
+                toast.success('Research complete');
                 return;
             }
             catch (aiError) {
-                console.warn('[Research] AI engine failed, falling back to legacy search:', aiError);
+                console.error('[Research] AI engine failed:', aiError);
+                const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+                console.warn('[Research] Falling back to legacy search:', errorMessage);
                 if (aggregatedSources.length > 0) {
                     const providerLabel = aggregatedProviderNames.length > 0
                         ? aggregatedProviderNames.map(provider => formatProviderName(provider)).join(', ')
@@ -1632,6 +1738,12 @@ export default function ResearchPanel() {
     }, [result, refreshGraph]);
     const handleOpenUrl = async (url) => {
         try {
+            // In Research mode, show the page in split view instead of opening in tab
+            if (url && url.startsWith('http')) {
+                setViewingSourceUrl(url);
+                return;
+            }
+            // Fallback to tab for non-http URLs
             if (activeId) {
                 await ipc.tabs.navigate(activeId, url);
             }
@@ -1795,7 +1907,7 @@ export default function ResearchPanel() {
                                                         if (effectiveLang === 'ta')
                                                             return 'தமிழில் கேளுங்கள்: iPhone vs Samsung ஒப்பிடுக';
                                                         return 'Ask in Hindi: Compare iPhone vs Samsung';
-                                                    })(), disabled: loading }), _jsxs("div", { className: "flex items-center gap-2", children: [autocompleteLoading && (_jsx(Skeleton, { variant: "text", width: 80, height: 16, className: "text-xs" })), _jsx("input", { id: "research-file-input", name: "research-file", ref: fileInputRef, type: "file", multiple: true, accept: ".pdf,.docx,.txt,.md", onChange: e => handleFileUpload(e.target.files), className: "hidden" }), _jsxs("button", { type: "button", onClick: () => fileInputRef.current?.click(), disabled: uploading, className: "flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40", title: "Upload documents (PDF, DOCX, TXT, MD)", children: [_jsx(Upload, { size: 14 }), uploading ? 'Processing…' : 'Upload'] }), _jsx("button", { type: "submit", disabled: loading || !query.trim(), className: "rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40", children: loading ? 'Researching…' : 'Run research' }), _jsx(VoiceButton, { onResult: text => {
+                                                    })(), disabled: loading }), _jsxs("div", { className: "flex items-center gap-2", children: [autocompleteLoading && (_jsx(Skeleton, { variant: "text", width: 80, height: 16, className: "text-xs" })), _jsx("input", { id: "research-file-input", name: "research-file", ref: fileInputRef, type: "file", multiple: true, accept: ".pdf,.docx,.txt,.md", onChange: e => handleFileUpload(e.target.files), className: "hidden" }), _jsxs("button", { type: "button", onClick: () => fileInputRef.current?.click(), disabled: uploading, className: "flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40", title: "Upload documents (PDF, DOCX, TXT, MD)", children: [_jsx(Upload, { size: 14 }), uploading ? 'Processing…' : 'Upload'] }), _jsx("button", { type: "submit", disabled: loading || !query.trim(), className: "rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40", children: loading ? 'Researching…' : 'Run research' }), _jsx(VoiceButton, { editBeforeExecute: useSettingsStore(state => state.general.voiceEditBeforeExecute ?? true), onResult: text => {
                                                                 // Parse voice command for research triggers and language
                                                                 const parsed = parseResearchVoiceCommand(text);
                                                                 if (parsed.isResearchCommand) {
@@ -1818,7 +1930,9 @@ export default function ResearchPanel() {
                                                                 }
                                                             }, small: true })] })] }), showAutocomplete && autocompleteSuggestions.length > 0 && (_jsx("div", { className: "absolute left-0 right-0 top-full z-[100] mt-2 max-h-[400px] min-h-[120px] overflow-y-auto rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50", children: _jsx("div", { className: "space-y-1 p-2", children: autocompleteSuggestions.map((suggestion, idx) => (_jsxs("button", { type: "button", onClick: () => {
                                                         suggestion.action?.();
-                                                    }, className: "w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500/50", children: [_jsx("div", { className: "line-clamp-1 text-sm font-medium text-white", children: suggestion.title }), suggestion.subtitle && (_jsx("div", { className: "mt-0.5 line-clamp-1 text-xs text-gray-400", children: suggestion.subtitle }))] }, idx))) }) }))] }) }), uploadedDocuments.length > 0 && (_jsx("div", { className: "flex-shrink-0 px-6 pb-3", children: _jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [_jsx("span", { className: "text-xs font-medium text-gray-400", children: "Uploaded documents:" }), uploadedDocuments.map(doc => (_jsxs("div", { className: "group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300", children: [_jsx(FileText, { size: 12, className: "text-gray-400" }), _jsx("span", { className: "max-w-[200px] truncate", children: doc.name }), _jsxs("span", { className: "text-gray-500", children: ["(", (doc.size / 1024).toFixed(1), " KB)"] }), _jsx("button", { type: "button", onClick: () => handleRemoveDocument(doc.id), className: "ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100", title: "Remove document", children: _jsx(X, { size: 12, className: "text-gray-400 hover:text-gray-200" }) })] }, doc.id)))] }) }))] }), _jsx(LayoutBody, { className: "flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pb-6", children: useEnhancedView ? (_jsx("div", { className: "flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30", children: _jsx(RegenResearchPanel, {}) })) : (_jsxs(_Fragment, { children: [_jsxs("section", { className: "relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30", children: [_jsx("div", { className: "absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" }), _jsxs("div", { className: "flex h-full flex-col space-y-4 p-5", children: [_jsx(ResearchControls, { authorityBias: authorityBias, includeCounterpoints: includeCounterpoints, region: region, loading: loading, onAuthorityBiasChange: setAuthorityBias, onIncludeCounterpointsChange: setIncludeCounterpoints, onRegionChange: value => setRegion(value), deepScanEnabled: deepScanEnabled, onDeepScanToggle: value => setDeepScanEnabled(value) }), deepScanEnabled && (_jsx(DeepScanStatus, { loading: deepScanLoading, steps: deepScanSteps, error: deepScanError })), error && (_jsx("div", { className: "rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur", children: error })), loading && (_jsxs("div", { className: "flex flex-1 flex-col items-center justify-center gap-4", children: [_jsxs("div", { className: "inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200", children: [_jsx(Sparkles, { size: 14, className: "animate-pulse" }), "Gathering sources and evaluating evidence\u2026"] }), _jsxs("div", { className: "w-full max-w-2xl space-y-4", children: [_jsx(LoadingSkeleton, { variant: "card" }), _jsx(LoadingSkeleton, { variant: "list", lines: 3 }), _jsx(LoadingSkeleton, { variant: "text", lines: 4 })] }), _jsx("p", { className: "text-xs text-gray-500", children: "Cross-checking accuracy, bias, and contradictions before presenting the answer." })] })), !loading && result && (_jsxs("div", { className: "flex-1 space-y-4 overflow-y-auto pr-1", children: [_jsx(EvidenceOverlay, { evidence: result.evidence || [], sources: result.sources, activeEvidenceId: activeEvidenceId, onEvidenceClick: setActiveEvidenceId }), _jsx(ResearchResultView, { result: result, onOpenSource: handleOpenUrl, activeSourceId: activeSourceId, onActiveSourceChange: setActiveSourceId, onSaveForCompare: handleSaveForCompare, onShowCompare: () => setComparePanelOpen(true), compareCount: compareEntries.length }), _jsx(ResearchGraphSection, { showGraph: showGraph, onToggleGraph: () => setShowGraph(prev => !prev), query: result.query, queryKey: queryKey, graphData: graphData, activeSourceId: activeSourceId, onSelectSource: setActiveSourceId, onOpenSource: handleOpenUrl })] })), !loading && !result && !error && _jsx(EmptyState, { onRunExample: handleRunExample })] })] }), _jsx(InsightsSidebar, { result: result, loading: loading, onOpenSource: handleOpenUrl, activeSourceId: activeSourceId, onSelectSource: setActiveSourceId })] })) }), _jsx(CompareAnswersPanel, { open: comparePanelOpen, answers: compareEntries, selectedIds: compareSelection, onToggleSelect: handleToggleCompareSelection, onClose: () => setComparePanelOpen(false), onRemove: handleRemoveCompare }), cursorPanelOpen && (_jsx("div", { className: "fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-slate-700/70 bg-slate-900/95 shadow-2xl backdrop-blur-xl", children: _jsx(CursorChat, { pageSnapshot: activeId && tabs.find(t => t.id === activeId)
+                                                    }, className: "w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500/50", children: [_jsx("div", { className: "line-clamp-1 text-sm font-medium text-white", children: suggestion.title }), suggestion.subtitle && (_jsx("div", { className: "mt-0.5 line-clamp-1 text-xs text-gray-400", children: suggestion.subtitle }))] }, idx))) }) }))] }) }), uploadedDocuments.length > 0 && (_jsx("div", { className: "flex-shrink-0 px-6 pb-3", children: _jsxs("div", { className: "flex flex-wrap items-center gap-2", children: [_jsx("span", { className: "text-xs font-medium text-gray-400", children: "Uploaded documents:" }), uploadedDocuments.map(doc => (_jsxs("div", { className: "group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300", children: [_jsx(FileText, { size: 12, className: "text-gray-400" }), _jsx("span", { className: "max-w-[200px] truncate", children: doc.name }), _jsxs("span", { className: "text-gray-500", children: ["(", (doc.size / 1024).toFixed(1), " KB)"] }), _jsx("button", { type: "button", onClick: () => handleRemoveDocument(doc.id), className: "ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100", title: "Remove document", children: _jsx(X, { size: 12, className: "text-gray-400 hover:text-gray-200" }) })] }, doc.id)))] }) }))] }), _jsx(LayoutBody, { className: "flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pb-6", children: useEnhancedView ? (_jsx("div", { className: "flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30", children: _jsx(RegenResearchPanel, {}) })) : viewingSourceUrl ? (
+                        // Split view: Real web page + AI panel
+                        _jsxs(_Fragment, { children: [_jsx("div", { className: "flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30", children: _jsxs("div", { className: "flex h-full flex-col", children: [_jsx("div", { className: "flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-2", children: _jsxs("div", { className: "flex items-center gap-2", children: [_jsx("button", { onClick: () => setViewingSourceUrl(null), className: "rounded-lg px-3 py-1 text-sm text-gray-300 hover:bg-white/10", children: "\u2190 Back to Results" }), _jsx("span", { className: "text-xs text-gray-500", children: "|" }), _jsx("span", { className: "truncate text-sm text-gray-300", children: viewingSourceUrl })] }) }), _jsx(BrowserView, { url: viewingSourceUrl, mode: "research", className: "flex-1" })] }) }), _jsx(InsightsSidebar, { result: result, loading: loading, onOpenSource: handleOpenUrl, activeSourceId: activeSourceId, onSelectSource: setActiveSourceId })] })) : (_jsxs(_Fragment, { children: [_jsxs("section", { className: "relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30", children: [_jsx("div", { className: "absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" }), _jsxs("div", { className: "flex h-full flex-col space-y-4 p-5", children: [_jsx(ResearchControls, { authorityBias: authorityBias, includeCounterpoints: includeCounterpoints, region: region, loading: loading, onAuthorityBiasChange: setAuthorityBias, onIncludeCounterpointsChange: setIncludeCounterpoints, onRegionChange: value => setRegion(value), deepScanEnabled: deepScanEnabled, onDeepScanToggle: value => setDeepScanEnabled(value) }), deepScanEnabled && (_jsx(DeepScanStatus, { loading: deepScanLoading, steps: deepScanSteps, error: deepScanError })), error && (_jsx("div", { className: "rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur", children: error })), loading && (_jsxs("div", { className: "flex flex-1 flex-col items-center justify-center gap-4", children: [_jsxs("div", { className: "inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200", children: [_jsx(Sparkles, { size: 14, className: "animate-pulse" }), "Gathering sources and evaluating evidence\u2026"] }), _jsxs("div", { className: "w-full max-w-2xl space-y-4", children: [_jsx(LoadingSkeleton, { variant: "card" }), _jsx(LoadingSkeleton, { variant: "list", lines: 3 }), _jsx(LoadingSkeleton, { variant: "text", lines: 4 })] }), _jsx("p", { className: "text-xs text-gray-500", children: "Cross-checking accuracy, bias, and contradictions before presenting the answer." })] })), !loading && result && (_jsxs("div", { className: "flex-1 space-y-4 overflow-y-auto pr-1", children: [_jsx(EvidenceOverlay, { evidence: result.evidence || [], sources: result.sources, activeEvidenceId: activeEvidenceId, onEvidenceClick: setActiveEvidenceId }), _jsx(ResearchResultView, { result: result, onOpenSource: handleOpenUrl, activeSourceId: activeSourceId, onActiveSourceChange: setActiveSourceId, onSaveForCompare: handleSaveForCompare, onShowCompare: () => setComparePanelOpen(true), compareCount: compareEntries.length }), _jsx(ResearchGraphSection, { showGraph: showGraph, onToggleGraph: () => setShowGraph(prev => !prev), query: result.query, queryKey: queryKey, graphData: graphData, activeSourceId: activeSourceId, onSelectSource: setActiveSourceId, onOpenSource: handleOpenUrl })] })), !loading && !result && !error && _jsx(EmptyState, { onRunExample: handleRunExample })] })] }), _jsx(InsightsSidebar, { result: result, loading: loading, onOpenSource: handleOpenUrl, activeSourceId: activeSourceId, onSelectSource: setActiveSourceId })] })) }), _jsx(CompareAnswersPanel, { open: comparePanelOpen, answers: compareEntries, selectedIds: compareSelection, onToggleSelect: handleToggleCompareSelection, onClose: () => setComparePanelOpen(false), onRemove: handleRemoveCompare }), cursorPanelOpen && (_jsx("div", { className: "fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-slate-700/70 bg-slate-900/95 shadow-2xl backdrop-blur-xl", children: _jsx(CursorChat, { pageSnapshot: activeId && tabs.find(t => t.id === activeId)
                                 ? {
                                     url: tabs.find(t => t.id === activeId)?.url || '',
                                     title: tabs.find(t => t.id === activeId)?.title || '',
@@ -1914,18 +2028,29 @@ function ResearchResultView({ result, activeSourceId, onActiveSourceChange, onOp
                             catch (error) {
                                 console.error('Export failed:', error);
                             }
-                        } }), result.citations.length > 0 && (_jsxs("div", { className: "mt-5 rounded-xl border border-white/5 bg-[#1a1d2a] px-4 py-3", children: [_jsx("h3", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400", children: "Citations" }), _jsx("ul", { className: "space-y-2", children: result.citations.map(citation => {
+                        } }), result.citations.length > 0 && (_jsxs("div", { className: "mt-5 rounded-xl border border-white/5 bg-[#1a1d2a] px-4 py-3", children: [_jsxs("div", { className: "mb-2 flex items-center justify-between", children: [_jsxs("h3", { className: "text-[11px] font-semibold uppercase tracking-wide text-gray-400", children: ["Citations (", result.citations.length, ")"] }), _jsxs("div", { className: "flex gap-1", children: [_jsx("button", { onClick: () => {
+                                                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                                                    downloadResearchExport(result, 'markdown');
+                                                }, className: "rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors", title: "Export as Markdown", children: "MD" }), _jsx("button", { onClick: () => {
+                                                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                                                    downloadResearchExport(result, 'json');
+                                                }, className: "rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors", title: "Export as JSON", children: "JSON" })] })] }), _jsx("ul", { className: "space-y-2", children: result.citations.map(citation => {
                                     const source = result.sources[citation.sourceIndex];
                                     const sourceKey = getSourceKey(citation.sourceIndex);
                                     const isActive = activeSourceId === sourceKey;
                                     if (!source)
                                         return null;
-                                    return (_jsxs("li", { className: `rounded-lg border px-3 py-2 text-xs transition-colors ${isActive
+                                    // Phase 1, Day 6: Calculate credibility
+                                    const { calculateCredibility, getCredibilityColor, getCredibilityLabel } = require('../../core/research/sourceCredibility');
+                                    const credibility = calculateCredibility(source);
+                                    const credibilityColor = getCredibilityColor(credibility.level);
+                                    const credibilityLabel = getCredibilityLabel(credibility.level);
+                                    return (_jsx("li", { className: `rounded-lg border px-3 py-2 text-xs transition-colors ${isActive
                                             ? 'border-blue-500/40 bg-blue-500/10 text-blue-100'
-                                            : 'border-white/5 bg-white/[0.02] text-gray-300 hover:border-blue-400/40 hover:bg-blue-400/5'}`, children: [_jsxs("button", { className: "font-semibold text-indigo-300 hover:text-indigo-200", onClick: () => {
-                                                    onActiveSourceChange(sourceKey);
-                                                    onOpenSource(source.url);
-                                                }, children: ["[", citation.index, "] ", source.title] }), _jsxs("div", { className: "text-[11px] text-gray-500", children: ["Confidence ", (citation.confidence * 100).toFixed(0), "% \u2022 ", source.domain] })] }, citation.index));
+                                            : 'border-white/5 bg-white/[0.02] text-gray-300 hover:border-blue-400/40 hover:bg-blue-400/5'}`, children: _jsx("div", { className: "flex items-start justify-between gap-2", children: _jsxs("div", { className: "flex-1", children: [_jsxs("button", { className: "font-semibold text-indigo-300 hover:text-indigo-200 text-left", onClick: () => {
+                                                            onActiveSourceChange(sourceKey);
+                                                            onOpenSource(source.url);
+                                                        }, children: ["[", citation.index, "] ", source.title] }), _jsxs("div", { className: "mt-1 flex items-center gap-2 flex-wrap", children: [_jsxs("span", { className: "text-[11px] text-gray-500", children: ["Confidence ", (citation.confidence * 100).toFixed(0), "% \u2022 ", source.domain] }), _jsxs("span", { className: `rounded px-1.5 py-0.5 text-[10px] font-medium border ${credibilityColor}`, children: [credibilityLabel, " (", credibility.score, "/100)"] })] }), citation.quote && (_jsxs("div", { className: "mt-1 text-[11px] text-gray-400 italic", children: ["\"", citation.quote.substring(0, 100), citation.quote.length > 100 ? '...' : '', "\""] }))] }) }) }, citation.index));
                                 }) })] }))] }), verification && _jsx(VerificationSummary, { verification: verification }), _jsx(SourcesList, { sources: result.sources, activeSourceId: activeSourceId, onActivate: onActiveSourceChange, onOpenSource: onOpenSource })] }));
 }
 const importanceLabel = {
@@ -2055,6 +2180,8 @@ function EmptyState({ onRunExample, minimal = false, }) {
 function SourcesList({ sources, activeSourceId, onActivate, onOpenSource, }) {
     if (!sources || sources.length === 0)
         return null;
+    // Phase 1, Day 6: Calculate credibility for all sources
+    const { calculateCredibility, getCredibilityColor, getCredibilityLabel } = require('../../core/research/sourceCredibility');
     const providerCounts = sources.reduce((acc, source) => {
         const provider = typeof source.metadata?.provider === 'string' ? source.metadata.provider.toLowerCase() : '';
         if (!provider)

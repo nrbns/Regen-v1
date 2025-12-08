@@ -6,7 +6,8 @@
  */
 
 import { WebSocketServer } from 'ws';
-import { analyzeWithLLM, streamLLMAnswer } from '../agent/llm.js';
+import { streamLLMAnswer } from '../agent/llm.js';
+// import { analyzeWithLLM } from '../agent/llm.js'; // Unused
 
 // Note: For production, you'd use a proper Whisper service
 // For now, we'll use the existing voice service and enhance it
@@ -57,11 +58,11 @@ export function createVoiceWebSocketServer(httpServer) {
     path: '/ws/voice',
   });
 
-  wss.on('connection', async (ws, req) => {
+  wss.on('connection', async (ws, _req) => {
     console.log('[VoiceWS] New voice connection');
     
     let buffer = Buffer.alloc(0);
-    let isSpeaking = false;
+    let _isSpeaking = false;
     let silenceFrames = 0;
     const SILENCE_THRESHOLD = 10; // Frames of silence before processing
 
@@ -161,6 +162,9 @@ export function createVoiceWebSocketServer(httpServer) {
 
   return wss;
 }
+
+
+
 
 
 

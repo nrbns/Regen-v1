@@ -6,15 +6,17 @@
 
 import { executeParallelAgents, synthesizeAgentResults } from './parallel-agents.js';
 import { searchViralDevTweets } from './twitter-search.js';
-import { diverseSearch } from './multi-source-search.js';
-import { analyzeWithLLM } from '../agent/llm.js';
+// import { diverseSearch } from './multi-source-search.js'; // Unused
+// import { analyzeWithLLM } from '../agent/llm.js'; // Unused
 import { detectLanguage } from '../lang/detect.js';
-import { getCachedResult, setCachedResult, getCachedOrCompute } from './cache-layer.js';
+import { getCachedResult, setCachedResult } from './cache-layer.js';
+// import { getCachedOrCompute } from './cache-layer.js'; // Unused
 import { generateSourcePreviews } from './source-preview.js';
-import { generatePreviews as generatePreviewsProduction } from './preview-production.js';
-import { pickBestAnswer, bestOfThree } from './insight-scorer.js';
-import { parallelSearch } from './scraper-parallel-production.js';
-import { executeLangGraphWorkflow } from './langgraph-workflow.js';
+// import { generatePreviews as generatePreviewsProduction } from './preview-production.js'; // Unused
+import { pickBestAnswer } from './insight-scorer.js';
+// import { bestOfThree } from './insight-scorer.js'; // Unused
+// import { parallelSearch } from './scraper-parallel-production.js'; // Unused
+// import { executeLangGraphWorkflow } from './langgraph-workflow.js'; // Unused
 
 /**
  * Generate enhanced answer using all golden prompts
@@ -30,7 +32,7 @@ import { executeLangGraphWorkflow } from './langgraph-workflow.js';
  */
 export async function generateEnhancedAnswer({
   query,
-  max_context_tokens = 2000,
+  max_context_tokens: _max_context_tokens = 2000,
   includeTwitter = true,
   includePDF = true,
   includeGitHub = true,

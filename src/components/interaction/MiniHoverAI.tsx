@@ -94,7 +94,7 @@ export function MiniHoverAI({ enabled = true, onAction }: MiniHoverAIProps) {
             await ipc.redix.stream(
               `${actionId}: ${selectedText}`,
               { sessionId: `minihover-${Date.now()}` },
-              chunk => {
+              (chunk: any) => {
                 // Handle streaming response
                 if (chunk.type === 'token' && chunk.text) {
                   // Could show a toast or open right panel

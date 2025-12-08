@@ -24,7 +24,7 @@ export function EvidenceOverlay({ evidence, sources, activeEvidenceId, onEvidenc
         const highlightEvidence = async () => {
             try {
                 const tabs = await ipc.tabs.list();
-                const activeTab = tabs.find(t => t.id === activeId);
+                const activeTab = tabs.find((t) => t.id === activeId);
                 if (!activeTab || !activeTab.url)
                     return;
                 const sourceUrl = new URL(source.url);

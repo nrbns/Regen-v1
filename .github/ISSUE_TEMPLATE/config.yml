@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/nrbns/Regenbrowser#readme
+    about: Check the README and documentation
+  - name: Discussions
+    url: https://github.com/nrbns/Regenbrowser/discussions
+    about: Ask questions and discuss ideas
+

@@ -79,7 +79,7 @@ const SEARCH_ENGINES = {
     enabled: true, // Free, no API key needed
     search: async (query) => {
       try {
-        const response = await axios.get('https://search.marginalia.nu/search', {
+        const _response = await axios.get('https://search.marginalia.nu/search', {
           params: { q: query },
         });
         // Marginalia returns HTML, would need parsing
@@ -163,7 +163,7 @@ export async function diverseSearch(query, requirements = {}) {
     requirePDF = true,
     requireGitHub = true,
     requireArxiv = true,
-    requireTwitter = false,
+    requireTwitter: _requireTwitter = false,
   } = requirements;
 
   const queries = [
@@ -197,6 +197,9 @@ export async function diverseSearch(query, requirements = {}) {
     total: unique.length,
   };
 }
+
+
+
 
 
 

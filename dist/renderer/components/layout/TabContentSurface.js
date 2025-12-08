@@ -15,6 +15,8 @@ import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useOptimizedView } from '../../hooks/useOptimizedView';
 import { getIframeManager, throttleViewUpdate } from '../../utils/gve-optimizer';
 import { BrowserAutomationBridge } from '../browser/BrowserAutomationBridge';
+import { ErrorPage } from '../browser/ErrorPage';
+import { LoadingIndicator } from '../browser/LoadingIndicator';
 const INTERNAL_PROTOCOLS = ['ob://', 'about:', 'chrome://', 'edge://', 'app://', 'regen://'];
 function isInternalUrl(url) {
     if (!url)
@@ -29,6 +31,8 @@ export function TabContentSurface({ tab, overlayActive }) {
     const isTauri = isTauriRuntime();
     const language = useSettingsStore(state => state.language || 'auto');
     const [loading, setLoading] = useState(false);
+    const [loadProgress, setLoadProgress] = useState(0);
+    const [error, setError] = useState(null);
     const [failedMessage, setFailedMessage] = useState(null);
     const [blockedExternal, setBlockedExternal] = useState(false);
     // GVE Optimization: Use optimized view hook
@@ -54,15 +58,15 @@ export function TabContentSurface({ tab, overlayActive }) {
         // If URL doesn't start with http/https, treat as search query
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
             // Convert to search in user's language
-            // Use iframe-friendly search engine (Bing) to avoid X-Frame-Options blocking
-            const searchUrl = normalizeInputToUrlOrSearch(url, 'bing', // Use Bing as default - it allows iframe embedding
-            language !== 'auto' ? language : undefined, true // prefer iframe-friendly
+            // Use DuckDuckGo (privacy-friendly) instead of Bing
+            const searchUrl = normalizeInputToUrlOrSearch(url, 'duckduckgo', // Use DuckDuckGo - privacy-friendly and works well
+            language !== 'auto' ? language : undefined, false // Don't force iframe-friendly - let real sites load
             );
             if (searchUrl) {
                 return searchUrl;
             }
-            // Fallback to Bing search (iframe-friendly)
-            return `https://www.bing.com/search?q=${encodeURIComponent(url)}`;
+            // Fallback to DuckDuckGo search
+            return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
         }
         return url;
     }, [tab?.url, language]);
@@ -581,5 +585,24 @@ export function TabContentSurface({ tab, overlayActive }) {
                                             setLoading(true);
                                             iframeRef.current.src = targetUrl;
                                         }
-                                    }, className: "rounded-lg border border-amber-400/60 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-50 transition-colors hover:bg-amber-500/30", children: "Retry" }) })] }) })) }), _jsx(AnimatePresence, { children: !isElectron && blockedExternal && (_jsx(motion.div, { className: "absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 px-6", initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, children: _jsxs(motion.div, { initial: { scale: 0.95, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 }, transition: { duration: 0.22 }, className: "max-w-lg space-y-4 rounded-3xl border border-emerald-500/40 bg-emerald-500/15 p-6 text-center text-sm text-emerald-100 shadow-2xl shadow-black/50", children: [_jsxs("div", { className: "text-lg font-semibold text-emerald-50", children: [targetUrl ? new URL(targetUrl).hostname : 'This page', " cannot be embedded"] }), _jsx("p", { className: "text-emerald-100/70", children: "This site blocks embedded views for security (X-Frame-Options). You can open it in your system browser or use the desktop build for full webview support." }), _jsx("div", { className: "flex items-center justify-center gap-3", children: _jsxs("button", { type: "button", onClick: launchExternal, className: "inline-flex items-center gap-2 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-50 transition hover:border-emerald-300/70 hover:bg-emerald-500/30", children: [_jsx(ExternalLink, { size: 16 }), "Open in Browser"] }) })] }) })) }), tab && !isElectron && iframeRef.current && (_jsx(BrowserAutomationBridge, { tabId: tab.id, iframeId: tab.id, sessionId: `tab-${tab.id}` }))] }, targetUrl));
+                                    }, className: "rounded-lg border border-amber-400/60 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-50 transition-colors hover:bg-amber-500/30", children: "Retry" }) })] }) })) }), error && (_jsx(ErrorPage, { error: error, onRetry: async () => {
+                    setError(null);
+                    setLoading(true);
+                    if (tab?.id && targetUrl) {
+                        try {
+                            await ipc.tabs.navigate(tab.id, targetUrl);
+                        }
+                        catch {
+                            setError({
+                                code: 'RETRY_FAILED',
+                                message: 'Failed to reload page',
+                                url: targetUrl,
+                            });
+                        }
+                    }
+                }, onGoHome: () => {
+                    if (tab?.id) {
+                        ipc.tabs.navigate(tab.id, 'about:blank').catch(console.error);
+                    }
+                } })), loading && !error && (_jsx(LoadingIndicator, { progress: loadProgress, message: "Loading page...", fullPage: false })), _jsx(AnimatePresence, { children: !isElectron && blockedExternal && !error && (_jsx(motion.div, { className: "absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 px-6", initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, children: _jsxs(motion.div, { initial: { scale: 0.95, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.92, opacity: 0 }, transition: { duration: 0.22 }, className: "max-w-lg space-y-4 rounded-3xl border border-emerald-500/40 bg-emerald-500/15 p-6 text-center text-sm text-emerald-100 shadow-2xl shadow-black/50", children: [_jsxs("div", { className: "text-lg font-semibold text-emerald-50", children: [targetUrl ? new URL(targetUrl).hostname : 'This page', " cannot be embedded"] }), _jsx("p", { className: "text-emerald-100/70", children: "This site blocks embedded views for security (X-Frame-Options). You can open it in your system browser or use the desktop build for full webview support." }), _jsx("div", { className: "flex items-center justify-center gap-3", children: _jsxs("button", { type: "button", onClick: launchExternal, className: "inline-flex items-center gap-2 rounded-xl border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-sm font-medium text-emerald-50 transition hover:border-emerald-300/70 hover:bg-emerald-500/30", children: [_jsx(ExternalLink, { size: 16 }), "Open in Browser"] }) })] }) })) }), tab && !isElectron && iframeRef.current && (_jsx(BrowserAutomationBridge, { tabId: tab.id, iframeId: tab.id, sessionId: `tab-${tab.id}` }))] }, targetUrl));
 }

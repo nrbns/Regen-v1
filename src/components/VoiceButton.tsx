@@ -3,8 +3,13 @@ import { toast } from '../utils/toast';
 import { useSettingsStore } from '../state/settingsStore';
 import { Mic, MicOff } from 'lucide-react';
 import { getLanguageMeta } from '../constants/languageMeta';
+import { VoiceCommandEditor } from './VoiceButton/VoiceCommandEditor';
 
-type Props = { onResult: (text: string) => void; small?: boolean };
+type Props = { 
+  onResult: (text: string) => void; 
+  small?: boolean;
+  editBeforeExecute?: boolean; // Phase 1, Day 5: Edit before execute
+};
 
 const LANGUAGE_LOCALE_MAP: Record<string, string> = {
   hi: 'hi-IN',
@@ -31,6 +36,10 @@ const LANGUAGE_LOCALE_MAP: Record<string, string> = {
 
 function getSpeechRecognitionLocale(lang?: string): string {
   if (!lang || lang === 'auto') return 'en-US';
+  // Phase 2, Day 4: Support dual-language recognition for Hindi + English
+  if (lang === 'hi') {
+    return 'hi-IN,en-US'; // Support both Hindi and English
+  }
   return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 
@@ -57,10 +66,12 @@ const LANGUAGE_LABELS: Record<string, string> = {
   ar: 'العربية',
 };
 
-export default function VoiceButton({ onResult, small }: Props) {
+export default function VoiceButton({ onResult, small, editBeforeExecute = false }: Props) {
   const [active, setActive] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showEditor, setShowEditor] = useState(false);
+  const [pendingCommand, setPendingCommand] = useState<string | null>(null);
   const recogRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
   const language = useSettingsStore(state => state.language || 'auto');
@@ -84,9 +95,16 @@ export default function VoiceButton({ onResult, small }: Props) {
               .filter((t: any) => t && typeof t === 'string');
             const t = transcripts.join(' ').trim();
             if (t) {
-              // Show success toast with language info
-              toast.success(`Voice input received in ${langLabel}`);
-              onResult(t);
+              // Phase 1, Day 5: Edit before execute
+              if (editBeforeExecute) {
+                setPendingCommand(t);
+                setShowEditor(true);
+                toast.info(`Voice command captured. Edit if needed.`);
+              } else {
+                // Show success toast with language info
+                toast.success(`Voice input received in ${langLabel}`);
+                onResult(t);
+              }
             }
             setActive(false);
             setIsProcessing(false);
@@ -297,6 +315,23 @@ export default function VoiceButton({ onResult, small }: Props) {
           </>
         )}
       </div>
+      
+      {/* Phase 1, Day 5: Voice command editor */}
+      {showEditor && pendingCommand && (
+        <VoiceCommandEditor
+          initialCommand={pendingCommand}
+          onExecute={(command) => {
+            onResult(command);
+            setShowEditor(false);
+            setPendingCommand(null);
+          }}
+          onCancel={() => {
+            setShowEditor(false);
+            setPendingCommand(null);
+          }}
+          language={language}
+        />
+      )}
     </button>
   );
 }

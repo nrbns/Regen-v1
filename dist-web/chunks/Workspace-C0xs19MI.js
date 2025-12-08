@@ -1,2 +1,0 @@
-import{a_ as t,j as s}from"./vendor-react-gmX1Lmvt.js";import"./vendor-react-dom-Bkb6jJ_S.js";import"./vendor-Vl2WtvH-.js";import"./core-ai-yFIunLTZ.js";import"./vendor-zustand-BWsgwsXr.js";import"./mode-manager.ts-DwguZmJt.js";import"./core-memory-DmK-uh9X.js";function n(){const{id:e}=t();return s.jsxs("div",{className:"p-4",children:[s.jsxs("h2",{className:"text-lg font-semibold",children:["Workspace ",e]}),s.jsx("p",{className:"text-sm text-neutral-300",children:"Tabs and modes will appear here."})]})}export{n as default};
-//# sourceMappingURL=Workspace-C0xs19MI.js.map

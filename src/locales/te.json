@@ -1,0 +1,69 @@
+{
+  "common": {
+    "search": "శోధించు",
+    "searchPlaceholder": "వెబ్‌లో శోధించు...",
+    "cancel": "రద్దుచేయి",
+    "save": "సేవ్ చేయి",
+    "delete": "తొలగించు",
+    "edit": "సవరించు",
+    "close": "మూసివేయి",
+    "loading": "లోడ్ అవుతోంది...",
+    "error": "దోషం",
+    "retry": "మళ్లీ ప్రయత్నించు",
+    "success": "విజయం"
+  },
+  "modes": {
+    "research": "పరిశోధన",
+    "trade": "వాణిజ్యం",
+    "browse": "బ్రౌజ్ చేయి",
+    "docs": "డాక్యుమెంట్‌లు",
+    "games": "ఆటలు"
+  },
+  "search": {
+    "title": "శోధన",
+    "placeholder": "వెబ్‌లో శోధించు...",
+    "noResults": "ఫలితాలు దొరకలేదు",
+    "results": "ఫలితాలు",
+    "results_one": "ఫలితం",
+    "results_other": "ఫలితాలు",
+    "cached": "కాష్ చేయబడింది",
+    "searching": "శోధిస్తోంది...",
+    "summarize": "సారాంశం",
+    "summarizing": "సారాంశం చేస్తోంది..."
+  },
+  "agent": {
+    "title": "ఏజెంట్ కన్సోల్",
+    "queryPlaceholder": "ఏదైనా అడగండి...",
+    "executing": "నిర్వహిస్తోంది...",
+    "completed": "పూర్తయింది",
+    "failed": "విఫలమైంది"
+  },
+  "research": {
+    "title": "పరిశోధన",
+    "startResearch": "పరిశోధన ప్రారంభించు",
+    "researching": "పరిశోధిస్తోంది...",
+    "noResults": "పరిశోధన ఫలితాలు దొరకలేదు",
+    "sources": "మూలాలు",
+    "summary": "సారాంశం"
+  },
+  "settings": {
+    "title": "సెట్టింగ్‌లు",
+    "language": "భాష",
+    "appearance": "రూపం",
+    "privacy": "గోప్యత",
+    "general": "సాధారణం"
+  },
+  "tabs": {
+    "newTab": "కొత్త టాబ్",
+    "closeTab": "టాబ్ మూసివేయి",
+    "reload": "మళ్లీ లోడ్ చేయి",
+    "noTabs": "ఓపెన్ టాబ్‌లు లేవు"
+  },
+  "errors": {
+    "somethingWentWrong": "ఏదో తప్పు జరిగింది",
+    "tryAgain": "మళ్లీ ప్రయత్నించు",
+    "networkError": "నెట్‌వర్క్ దోషం",
+    "permissionDenied": "అనుమతి నిరాకరించబడింది"
+  }
+}
+

@@ -65,12 +65,13 @@ export const useTrustDashboardStore = create((set, get) => ({
         }
         set({ loading: true, error: null });
         try {
-            const [{ records: trustRecords } = { records: [] }, consentRecordsRaw, shieldsStatus, privacyAudit] = await Promise.all([
+            const [trustResult, consentRecordsRaw, shieldsStatus, privacyAudit] = await Promise.all([
                 safeCall(() => ipc.trust.list()),
                 safeCall(() => ipc.consent.list()),
                 safeCall(() => ipc.shields.getStatus()),
                 safeCall(() => ipc.privacy.sentinel.audit()),
             ]);
+            const trustRecords = trustResult?.records || [];
             const consentRecords = Array.isArray(consentRecordsRaw) ? consentRecordsRaw : [];
             const consentStats = consentRecords.reduce((stats, record) => {
                 stats.total += 1;
@@ -92,7 +93,9 @@ export const useTrustDashboardStore = create((set, get) => ({
                         return b.score - a.score;
                     }
                     const order = { trusted: 2, caution: 1, risk: 0 };
-                    return order[b.verdict] - order[a.verdict];
+                    const aVerdict = a.verdict || 'risk';
+                    const bVerdict = b.verdict || 'risk';
+                    return order[bVerdict] - order[aVerdict];
                 })
                 : [];
             const blockedSummary = {
@@ -104,8 +107,8 @@ export const useTrustDashboardStore = create((set, get) => ({
                 loading: false,
                 consentTimeline,
                 trustSignals,
-                shieldsStatus: shieldsStatus ?? null,
-                privacyAudit: privacyAudit ?? null,
+                shieldsStatus: shieldsStatus ?? undefined,
+                privacyAudit: privacyAudit ?? undefined,
                 consentStats,
                 blockedSummary,
                 lastUpdated: Date.now(),

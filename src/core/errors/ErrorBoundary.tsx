@@ -10,6 +10,7 @@ import { log } from '../../utils/logger';
 import { getUserFriendlyError } from '../../utils/userFriendlyErrors';
 import { recordCrash } from '../../services/errorRecovery';
 import { telemetryMetrics } from '../../services/telemetryMetrics';
+import { getRecoveryAction, executeRecoveryAction } from './errorRecovery';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -73,11 +74,20 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       errorInfo,
     });
 
-    // STABILITY FIX: User-friendly error message
+    // Phase 1, Day 3: Enhanced error recovery with suggestions
     const friendlyMessage = getUserFriendlyError(error);
-    toast.error(
-      `${componentName || 'Component'} error: ${friendlyMessage}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`
-    );
+    const recoveryAction = getRecoveryAction(error, componentName);
+    
+    if (recoveryAction) {
+      toast.error(
+        `${componentName || 'Component'} error: ${friendlyMessage}. ${recoveryAction.message}`,
+        { duration: 6000 }
+      );
+    } else {
+      toast.error(
+        `${componentName || 'Component'} error: ${friendlyMessage}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`
+      );
+    }
 
     // Call custom error handler
     if (onError) {
@@ -105,13 +115,26 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  private handleRetry = () => {
+  private handleRetry = async () => {
     const { retryCount } = this.state;
     const { retryable = true } = this.props;
+    const { error } = this.state;
 
     if (!retryable || retryCount >= MAX_RETRIES) {
       toast.warning('Maximum retry attempts reached. Please reload the app.');
       return;
+    }
+
+    // Phase 1, Day 3: Enhanced retry with recovery actions
+    if (error) {
+      const recoveryAction = getRecoveryAction(error, this.props.componentName);
+      if (recoveryAction && recoveryAction.action !== 'retry') {
+        const shouldRetry = await executeRecoveryAction(recoveryAction, error);
+        if (!shouldRetry) {
+          // Recovery action was executed but doesn't require retry
+          return;
+        }
+      }
     }
 
     log.info(`Retrying after error (attempt ${retryCount + 1}/${MAX_RETRIES})`);
@@ -203,6 +226,24 @@ ${errorInfo?.componentStack || 'No component stack available'}
             </div>
 
             <div className="flex flex-wrap gap-3">
+              {/* Phase 1, Day 3: Show recovery action button if available */}
+              {error && (() => {
+                const recoveryAction = getRecoveryAction(error, componentName);
+                if (recoveryAction && recoveryAction.action !== 'retry') {
+                  return (
+                    <button
+                      onClick={async () => {
+                        await executeRecoveryAction(recoveryAction, error);
+                      }}
+                      className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500/70 transition-colors"
+                    >
+                      <RefreshCw size={16} />
+                      {recoveryAction.label}
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               {canRetry && (
                 <button
                   onClick={this.handleRetry}

@@ -102,12 +102,16 @@ export function FeaturesMenu() {
                                         orange: 'text-orange-400',
                                     }[feature.color] || 'text-gray-400';
                                     return (_jsxs("button", { type: "button", onClick: e => {
-                                            e.stopImmediatePropagation();
                                             e.stopPropagation();
+                                            if (e.nativeEvent?.stopImmediatePropagation) {
+                                                e.nativeEvent.stopImmediatePropagation();
+                                            }
                                             handleFeatureClick(feature.id);
                                         }, onMouseDown: e => {
-                                            e.stopImmediatePropagation();
                                             e.stopPropagation();
+                                            if (e.nativeEvent?.stopImmediatePropagation) {
+                                                e.nativeEvent.stopImmediatePropagation();
+                                            }
                                         }, className: "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]", style: { zIndex: 10011, isolation: 'isolate' }, children: [_jsx(Icon, { className: `h-5 w-5 ${colorClass}` }), _jsx("span", { children: feature.label })] }, feature.id));
                                 }) })] }))] }), activeFeature === 'split' && (_jsxs("div", { className: "fixed inset-0 z-[100] bg-gray-900", children: [_jsx(SplitView, {}), _jsx("button", { onClick: () => setActiveFeature(null), className: "absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700", children: "\u00D7" })] })), activeFeature === 'vault' && (_jsxs("div", { className: "fixed inset-0 z-[100] bg-gray-900", children: [_jsx(RegenVault, {}), _jsx("button", { onClick: () => setActiveFeature(null), className: "absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700", children: "\u00D7" })] })), activeFeature === 'theme' && (_jsx("div", { className: "fixed inset-0 z-[100] bg-gray-900 overflow-y-auto", children: _jsxs("div", { className: "max-w-4xl mx-auto p-8", children: [_jsx(ThemeEngine, {}), _jsx("button", { onClick: () => setActiveFeature(null), className: "mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700", children: "Close" })] }) })), activeFeature === 'dev' && (_jsxs("div", { className: "fixed inset-0 z-[100] bg-gray-900", children: [_jsx(AIDeveloperConsole, {}), _jsx("button", { onClick: () => setActiveFeature(null), className: "absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700", children: "\u00D7" })] })), regenSidebarOpen && (_jsx("div", { className: "fixed right-0 top-0 bottom-0 w-96 z-[90]", children: _jsx(EnhancedRegenSidebar, {}) }))] }));
 }

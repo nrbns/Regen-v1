@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, StopCircle, Copy, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { AIThinkingSkeleton } from '../components/common/LoadingSkeleton';
 import { aiEngine } from '../core/ai';
+import { createFastCharStream } from '../core/ai/streamEnhancer';
 import { MemoryStoreInstance } from '../core/supermemory/store';
 import { semanticSearchMemories } from '../core/supermemory/search';
 import { useAgentStreamStore } from '../state/agentStreamStore';
@@ -16,6 +17,7 @@ import { AgentModeSelector } from '../components/integrations/AgentModeSelector'
 import { multiAgentSystem } from '../core/agents/multiAgentSystem';
 import { useTabsStore } from '../state/tabsStore';
 import { AgentStagehandIntegration } from './AgentConsole/stagehand-integration';
+import { toast } from '../utils/toast';
 export default function AgentConsole() {
     const [runId, setRunId] = useState(null);
     const [_logs, setLogs] = useState([]);
@@ -305,31 +307,22 @@ export default function AgentConsole() {
                 metadata: { surface: 'agent-console' },
                 llm: { temperature: 0.2, maxTokens: 900 },
                 signal: controller.signal,
-            }, event => {
-                if (event.type === 'token' && typeof event.data === 'string') {
-                    if (!sawFirstToken) {
-                        sawFirstToken = true;
-                        setStatus('live');
-                    }
-                    setStreamingText(prev => `${prev}${event.data}`);
-                    appendTranscript(event.data);
+            }, createFastCharStream((char, accumulated) => {
+                if (!sawFirstToken) {
+                    sawFirstToken = true;
+                    setStatus('live');
                 }
-                else if (event.type === 'done') {
-                    if (event.data && typeof event.data !== 'string') {
-                        finalResult = event.data;
-                    }
-                    else if (typeof event.data === 'string') {
-                        finalResult = {
-                            text: event.data,
-                            provider: 'unknown',
-                            model: 'unknown',
-                        };
-                    }
+                setStreamingText(accumulated);
+                // Append to transcript character by character for smoother updates
+                if (char) {
+                    appendTranscript(char);
                 }
-                else if (event.type === 'error') {
-                    streamError = typeof event.data === 'string' ? event.data : 'AI stream failed';
-                }
-            });
+            }, (fullText) => {
+                finalResult = { text: fullText, provider: 'openai', model: 'unknown' };
+                setStreamingText(fullText);
+            }, (error) => {
+                streamError = error;
+            }));
             abortControllerRef.current = null;
             if (controller.signal.aborted) {
                 setIsStreaming(false);
@@ -478,7 +471,23 @@ export default function AgentConsole() {
                                                             }
                                                         }, placeholder: "Ask anything... (e.g., 'summarize quantum computing trends')", disabled: isStreaming, className: "w-full rounded-xl border border-slate-700/60 bg-slate-800/70 px-4 py-3 text-sm text-gray-100 placeholder:text-gray-500 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 disabled:opacity-50" }), isStreaming && (_jsx(motion.div, { className: "absolute right-3 top-1/2 -translate-y-1/2", animate: { rotate: 360 }, transition: { duration: 1, repeat: Infinity, ease: 'linear' }, children: _jsx(Loader2, { size: 16, className: "text-blue-400" }) }))] }), isStreaming ? (_jsxs(motion.button, { onClick: handleStopStream, whileHover: { scale: 1.05 }, whileTap: { scale: 0.95 }, className: "inline-flex items-center gap-2 rounded-xl border border-red-500/60 bg-red-500/20 px-4 py-3 text-sm font-medium text-red-100 transition hover:bg-red-500/30", children: [_jsx(StopCircle, { size: 16 }), "Stop"] })) : (_jsxs(motion.button, { onClick: handleStartStream, disabled: !query.trim(), whileHover: { scale: query.trim() ? 1.05 : 1 }, whileTap: { scale: query.trim() ? 0.95 : 1 }, className: "inline-flex items-center gap-2 rounded-xl border border-blue-500/60 bg-blue-500/20 px-4 py-3 text-sm font-medium text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-40", children: [_jsx(Send, { size: 16 }), "Send"] }))] })] }), _jsxs("details", { className: "rounded-xl border border-slate-700/60 bg-slate-900/40", children: [_jsx("summary", { className: "cursor-pointer px-4 py-2 text-sm font-medium text-gray-300 hover:text-gray-100", children: "Advanced: Agent DSL" }), _jsxs("div", { className: "border-t border-slate-700/60 p-4", children: [_jsx("textarea", { id: "agent-dsl-editor", name: "agent-dsl", className: "h-48 w-full rounded-lg border border-slate-700/60 bg-slate-800/70 p-3 font-mono text-xs text-gray-200 focus:border-blue-500/60 focus:outline-none", defaultValue: dslRef.current, onChange: e => (dslRef.current = e.target.value) }), _jsxs("div", { className: "mt-3 flex flex-wrap gap-2", children: [_jsx("button", { className: "rounded-lg border border-indigo-500/60 bg-indigo-500/20 px-3 py-1.5 text-xs font-medium text-indigo-100 transition hover:bg-indigo-500/30", onClick: async () => {
                                                             if (typeof window === 'undefined' || !window.agent) {
-                                                                alert('Agent API not available. Please ensure you are running in Electron.');
+                                                                // Fallback to multi-agent system
+                                                                try {
+                                                                    const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
+                                                                        mode: selectedAgentMode,
+                                                                        tabId: activeId,
+                                                                        url: activeTab?.url,
+                                                                        sessionId: activeTab?.sessionId,
+                                                                    });
+                                                                    if (agentResult.runId) {
+                                                                        setRunId(agentResult.runId);
+                                                                        toast.success('Agent run started');
+                                                                    }
+                                                                }
+                                                                catch (error) {
+                                                                    console.error('[AgentConsole] Fallback execution failed:', error);
+                                                                    alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                                                                }
                                                                 return;
                                                             }
                                                             try {
@@ -505,16 +514,37 @@ export default function AgentConsole() {
                                                             }
                                                         }, children: "Start Run" }), _jsx("button", { className: "rounded-lg border border-slate-700/60 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 transition hover:bg-slate-800/80", onClick: async () => {
                                                             if (typeof window === 'undefined' || !window.agent) {
-                                                                alert('Agent API not available. Please ensure you are running in Electron.');
+                                                                // Fallback to multi-agent system
+                                                                try {
+                                                                    const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
+                                                                        mode: selectedAgentMode,
+                                                                        tabId: activeId,
+                                                                        url: activeTab?.url,
+                                                                        sessionId: activeTab?.sessionId,
+                                                                    });
+                                                                    if (agentResult.runId) {
+                                                                        setRunId(agentResult.runId);
+                                                                        toast.success('Agent run started');
+                                                                    }
+                                                                }
+                                                                catch (error) {
+                                                                    console.error('[AgentConsole] Fallback execution failed:', error);
+                                                                    alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                                                                }
                                                                 return;
                                                             }
                                                             if (runId) {
                                                                 try {
-                                                                    await window.agent.stop(runId);
+                                                                    if (typeof window !== 'undefined' && window.agent) {
+                                                                        await window.agent.stop(runId);
+                                                                    }
+                                                                    setRunId(null);
+                                                                    setIsStreaming(false);
+                                                                    toast.success('Agent run stopped');
                                                                 }
                                                                 catch (error) {
                                                                     console.error('Failed to stop agent run:', error);
-                                                                    alert(`Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`);
+                                                                    toast.error(`Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`);
                                                                 }
                                                             }
                                                         }, children: "Stop Run" })] })] })] }), events.length > 0 && (_jsxs("div", { className: "flex flex-col gap-2", children: [_jsx("h3", { className: "text-sm font-medium text-gray-300", children: "Recent Events" }), _jsx("div", { className: "max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-700/60 bg-slate-900/40 p-3", children: _jsx(AnimatePresence, { children: events

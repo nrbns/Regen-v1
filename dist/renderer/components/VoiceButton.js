@@ -4,6 +4,7 @@ import { toast } from '../utils/toast';
 import { useSettingsStore } from '../state/settingsStore';
 import { Mic, MicOff } from 'lucide-react';
 import { getLanguageMeta } from '../constants/languageMeta';
+import { VoiceCommandEditor } from './VoiceButton/VoiceCommandEditor';
 const LANGUAGE_LOCALE_MAP = {
     hi: 'hi-IN',
     ta: 'ta-IN',
@@ -29,6 +30,10 @@ const LANGUAGE_LOCALE_MAP = {
 function getSpeechRecognitionLocale(lang) {
     if (!lang || lang === 'auto')
         return 'en-US';
+    // Phase 2, Day 4: Support dual-language recognition for Hindi + English
+    if (lang === 'hi') {
+        return 'hi-IN,en-US'; // Support both Hindi and English
+    }
     return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 const LANGUAGE_LABELS = {
@@ -53,10 +58,12 @@ const LANGUAGE_LABELS = {
     pt: 'Português',
     ar: 'العربية',
 };
-export default function VoiceButton({ onResult, small }) {
+export default function VoiceButton({ onResult, small, editBeforeExecute = false }) {
     const [active, setActive] = useState(false);
     const [isAvailable, setIsAvailable] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [showEditor, setShowEditor] = useState(false);
+    const [pendingCommand, setPendingCommand] = useState(null);
     const recogRef = useRef(null);
     const animationRef = useRef(null);
     const language = useSettingsStore(state => state.language || 'auto');
@@ -79,9 +86,17 @@ export default function VoiceButton({ onResult, small }) {
                             .filter((t) => t && typeof t === 'string');
                         const t = transcripts.join(' ').trim();
                         if (t) {
-                            // Show success toast with language info
-                            toast.success(`Voice input received in ${langLabel}`);
-                            onResult(t);
+                            // Phase 1, Day 5: Edit before execute
+                            if (editBeforeExecute) {
+                                setPendingCommand(t);
+                                setShowEditor(true);
+                                toast.info(`Voice command captured. Edit if needed.`);
+                            }
+                            else {
+                                // Show success toast with language info
+                                toast.success(`Voice input received in ${langLabel}`);
+                                onResult(t);
+                            }
                         }
                         setActive(false);
                         setIsProcessing(false);
@@ -191,7 +206,7 @@ export default function VoiceButton({ onResult, small }) {
         }
         return () => stopWaveformAnimation();
     }, [active]);
-    return (_jsx("button", { type: "button", className: `${small ? 'px-2 py-1 text-[11px]' : 'px-3 py-2 text-xs'} ml-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${active ? 'text-white shadow-lg' : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'} ${isProcessing ? 'animate-pulse' : ''}`, onClick: start, onKeyDown: e => {
+    return (_jsxs("button", { type: "button", className: `${small ? 'px-2 py-1 text-[11px]' : 'px-3 py-2 text-xs'} ml-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${active ? 'text-white shadow-lg' : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'} ${isProcessing ? 'animate-pulse' : ''}`, onClick: start, onKeyDown: e => {
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 start();
@@ -201,35 +216,42 @@ export default function VoiceButton({ onResult, small }) {
                 background: `linear-gradient(120deg, ${languageMeta.gradient[0]}, ${languageMeta.gradient[1]})`,
                 boxShadow: `0 12px 24px ${languageMeta.gradient[0]}40`,
             }
-            : undefined, children: _jsx("div", { className: "flex items-center gap-2", children: active ? (_jsxs(_Fragment, { children: [_jsx(Mic, { className: "h-4 w-4 animate-pulse" }), !small && (_jsxs("div", { className: "flex items-center gap-1", children: [_jsxs("div", { className: "flex h-4 items-end gap-0.5", children: [_jsx("div", { className: "w-0.5 rounded-full", style: {
-                                            height: '60%',
-                                            animation: 'waveform 1s ease-in-out infinite',
-                                            animationDelay: '0ms',
-                                            background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
-                                        } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
-                                            height: '80%',
-                                            animation: 'waveform 1s ease-in-out infinite',
-                                            animationDelay: '200ms',
-                                            background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
-                                        } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
-                                            height: '100%',
-                                            animation: 'waveform 1s ease-in-out infinite',
-                                            animationDelay: '400ms',
-                                            background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
-                                        } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
-                                            height: '70%',
-                                            animation: 'waveform 1s ease-in-out infinite',
-                                            animationDelay: '600ms',
-                                            background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
-                                        } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
-                                            height: '90%',
-                                            animation: 'waveform 1s ease-in-out infinite',
-                                            animationDelay: '800ms',
-                                            background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
-                                        } })] }), _jsx("style", { children: `
+            : undefined, children: [_jsx("div", { className: "flex items-center gap-2", children: active ? (_jsxs(_Fragment, { children: [_jsx(Mic, { className: "h-4 w-4 animate-pulse" }), !small && (_jsxs("div", { className: "flex items-center gap-1", children: [_jsxs("div", { className: "flex h-4 items-end gap-0.5", children: [_jsx("div", { className: "w-0.5 rounded-full", style: {
+                                                height: '60%',
+                                                animation: 'waveform 1s ease-in-out infinite',
+                                                animationDelay: '0ms',
+                                                background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
+                                            } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
+                                                height: '80%',
+                                                animation: 'waveform 1s ease-in-out infinite',
+                                                animationDelay: '200ms',
+                                                background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
+                                            } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
+                                                height: '100%',
+                                                animation: 'waveform 1s ease-in-out infinite',
+                                                animationDelay: '400ms',
+                                                background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
+                                            } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
+                                                height: '70%',
+                                                animation: 'waveform 1s ease-in-out infinite',
+                                                animationDelay: '600ms',
+                                                background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
+                                            } }), _jsx("div", { className: "w-0.5 rounded-full", style: {
+                                                height: '90%',
+                                                animation: 'waveform 1s ease-in-out infinite',
+                                                animationDelay: '800ms',
+                                                background: `linear-gradient(180deg, ${languageMeta.waveform[0]}, ${languageMeta.waveform[1]})`,
+                                            } })] }), _jsx("style", { children: `
                   @keyframes waveform {
                     0%, 100% { transform: scaleY(0.5); opacity: 0.7; }
                     50% { transform: scaleY(1); opacity: 1; }
                   }
-                ` }), _jsx("span", { className: "ml-1 text-xs", children: langLabel })] }))] })) : (_jsxs(_Fragment, { children: [_jsx(MicOff, { className: "h-4 w-4" }), !small && _jsx("span", { className: "text-xs", children: langLabel })] })) }) }));
+                ` }), _jsx("span", { className: "ml-1 text-xs", children: langLabel })] }))] })) : (_jsxs(_Fragment, { children: [_jsx(MicOff, { className: "h-4 w-4" }), !small && _jsx("span", { className: "text-xs", children: langLabel })] })) }), showEditor && pendingCommand && (_jsx(VoiceCommandEditor, { initialCommand: pendingCommand, onExecute: (command) => {
+                    onResult(command);
+                    setShowEditor(false);
+                    setPendingCommand(null);
+                }, onCancel: () => {
+                    setShowEditor(false);
+                    setPendingCommand(null);
+                }, language: language }))] }));
 }

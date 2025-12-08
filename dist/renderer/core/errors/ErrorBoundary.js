@@ -10,6 +10,7 @@ import { log } from '../../utils/logger';
 import { getUserFriendlyError } from '../../utils/userFriendlyErrors';
 import { recordCrash } from '../../services/errorRecovery';
 import { telemetryMetrics } from '../../services/telemetryMetrics';
+import { getRecoveryAction, executeRecoveryAction } from './errorRecovery';
 const MAX_RETRIES = 3;
 export class ErrorBoundary extends Component {
     retryTimeoutId = null;
@@ -42,9 +43,15 @@ export class ErrorBoundary extends Component {
             error,
             errorInfo,
         });
-        // STABILITY FIX: User-friendly error message
+        // Phase 1, Day 3: Enhanced error recovery with suggestions
         const friendlyMessage = getUserFriendlyError(error);
-        toast.error(`${componentName || 'Component'} error: ${friendlyMessage}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`);
+        const recoveryAction = getRecoveryAction(error, componentName);
+        if (recoveryAction) {
+            toast.error(`${componentName || 'Component'} error: ${friendlyMessage}. ${recoveryAction.message}`, { duration: 6000 });
+        }
+        else {
+            toast.error(`${componentName || 'Component'} error: ${friendlyMessage}. ${this.props.retryable ? 'Retrying...' : 'Check console for details.'}`);
+        }
         // Call custom error handler
         if (onError) {
             onError(error, errorInfo);
@@ -70,12 +77,24 @@ export class ErrorBoundary extends Component {
             }
         }
     }
-    handleRetry = () => {
+    handleRetry = async () => {
         const { retryCount } = this.state;
         const { retryable = true } = this.props;
+        const { error } = this.state;
         if (!retryable || retryCount >= MAX_RETRIES) {
             toast.warning('Maximum retry attempts reached. Please reload the app.');
             return;
+        }
+        // Phase 1, Day 3: Enhanced retry with recovery actions
+        if (error) {
+            const recoveryAction = getRecoveryAction(error, this.props.componentName);
+            if (recoveryAction && recoveryAction.action !== 'retry') {
+                const shouldRetry = await executeRecoveryAction(recoveryAction, error);
+                if (!shouldRetry) {
+                    // Recovery action was executed but doesn't require retry
+                    return;
+                }
+            }
         }
         log.info(`Retrying after error (attempt ${retryCount + 1}/${MAX_RETRIES})`);
         this.setState(prev => ({
@@ -136,7 +155,15 @@ ${errorInfo?.componentStack || 'No component stack available'}
             const canRetry = retryable && retryCount < MAX_RETRIES;
             return (_jsx("div", { className: "flex min-h-screen w-full items-center justify-center bg-slate-950 px-6 py-12 text-gray-100", children: _jsxs("div", { className: "w-full max-w-xl space-y-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg", children: [_jsxs("div", { className: "flex items-start gap-3", children: [_jsx("div", { className: "rounded-full bg-red-500/20 p-2 text-red-200", children: _jsx(AlertTriangle, { className: "h-5 w-5" }) }), _jsxs("div", { className: "flex-1", children: [_jsxs("h1", { className: "text-lg font-semibold text-red-200", children: ["Something went wrong", componentName ? ` in ${componentName}` : ''] }), error && (_jsx("p", { className: "mt-2 text-sm text-red-100/80 font-mono", children: getUserFriendlyError(error) })), _jsx("p", { className: "mt-2 text-sm text-gray-400", children: canRetry
                                                 ? 'The app will attempt to recover automatically. You can also retry manually or reload.'
-                                                : 'Please reload the app to continue. Error details have been logged.' })] })] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [canRetry && (_jsxs("button", { onClick: this.handleRetry, className: "flex items-center gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors", children: [_jsx(RefreshCw, { size: 16 }), "Retry (", retryCount + 1, "/", MAX_RETRIES, ")"] })), _jsx("button", { onClick: this.handleReload, className: "rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors", children: "Reload App" }), _jsx("button", { onClick: this.handleCopyError, className: `flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${this.state.copyStatus === 'success'
+                                                : 'Please reload the app to continue. Error details have been logged.' })] })] }), _jsxs("div", { className: "flex flex-wrap gap-3", children: [error && (() => {
+                                    const recoveryAction = getRecoveryAction(error, componentName);
+                                    if (recoveryAction && recoveryAction.action !== 'retry') {
+                                        return (_jsxs("button", { onClick: async () => {
+                                                await executeRecoveryAction(recoveryAction, error);
+                                            }, className: "flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500/70 transition-colors", children: [_jsx(RefreshCw, { size: 16 }), recoveryAction.label] }));
+                                    }
+                                    return null;
+                                })(), canRetry && (_jsxs("button", { onClick: this.handleRetry, className: "flex items-center gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors", children: [_jsx(RefreshCw, { size: 16 }), "Retry (", retryCount + 1, "/", MAX_RETRIES, ")"] })), _jsx("button", { onClick: this.handleReload, className: "rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors", children: "Reload App" }), _jsx("button", { onClick: this.handleCopyError, className: `flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${this.state.copyStatus === 'success'
                                         ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-100'
                                         : this.state.copyStatus === 'error'
                                             ? 'border-red-500/50 bg-red-500/10 text-red-100'

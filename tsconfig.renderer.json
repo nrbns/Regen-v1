@@ -5,7 +5,9 @@
     "outDir": "./dist/renderer",
     "rootDir": "./src",
     "types": ["node"],
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "skipLibCheck": true
   },
-  "include": ["src", "src/**/*.json", "src/vite-env.d.ts"]
+  "include": ["src", "src/**/*.json", "src/vite-env.d.ts"],
+  "exclude": ["server", "node_modules", "dist", "dist-web"]
 }

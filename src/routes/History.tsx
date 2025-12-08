@@ -109,7 +109,7 @@ export default function HistoryPage() {
         if (cancelled) return;
         setSearchResults(Array.isArray(results) ? results : []);
       })
-      .catch(error => {
+      .catch((error: any) => {
         if (cancelled) return;
         console.error('History search failed:', error);
         setSearchResults([]);

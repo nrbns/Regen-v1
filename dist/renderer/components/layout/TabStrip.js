@@ -6,7 +6,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 // @ts-nocheck
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Eye, Sparkles, RotateCcw, Pin, PinOff, ChevronDown, ChevronRight, Palette, Edit3, FolderPlus, } from 'lucide-react';
+import { X, Plus, Eye, Sparkles, Pin, PinOff, ChevronDown, ChevronRight, Palette, Edit3, FolderPlus, } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore, TAB_GROUP_COLORS, } from '../../state/tabsStore';
 import { useContainerStore } from '../../state/containerStore';
@@ -22,8 +22,8 @@ import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClust
 import { TabGroupsOverlay } from '../tabs/TabGroupsOverlay';
 // HolographicPreviewOverlay removed - unused component
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem, } from '../ui/dropdown-menu';
-import { reopenClosedTab } from '../../lib/tabLifecycle';
+// DropdownMenu components removed - no longer used
+// Tab reopening still works via Ctrl+Shift+T keyboard shortcut
 import { saveTabForResurrection, scheduleAutoResurrection, RESURRECTION_DELAY_MS, } from '../../core/tabs/resurrection';
 import { useAppError } from '../../hooks/useAppError';
 const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
@@ -746,7 +746,7 @@ export function TabStrip() {
                                     void ipc.crossReality.handoff(tab.id, 'mobile');
                                 }, children: [_jsx("span", { role: "img", "aria-label": "mobile", children: "\uD83D\uDCF1" }), ' ', "Send"] })] })), _jsx("div", { className: "flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center", children: tab.favicon ? (_jsx("img", { src: tab.favicon, alt: "", className: "w-full h-full rounded-full" })) : (_jsx("div", { className: "w-2 h-2 bg-gray-400 rounded-full" })) }), tab.mode && tab.mode !== 'normal' && (_jsx("span", { className: `px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${tab.mode === 'ghost'
                             ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
-                            : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'}`, children: tab.mode === 'ghost' ? 'Ghost' : 'Private' })), tab.containerId && tab.containerId !== 'default' && (_jsx("div", { className: "w-2.5 h-2.5 rounded-full border border-gray-700/60", style: { backgroundColor: tab.containerColor || '#6366f1' }, title: `${tab.containerName || 'Custom'} container` })), group && (_jsx("span", { className: "w-2 h-2 rounded-full border border-white/20", style: { backgroundColor: group.color }, title: `Group: ${group.name}` })), tab.sleeping && (_jsx("span", { className: "flex items-center", title: "Tab is hibernating", children: _jsx(motion.span, { className: "w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]", animate: { scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }, transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } }) })), !tab.pinned && (_jsx("span", { className: `flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`, children: tab.title })), _jsx(motion.button, { type: "button", onClick: e => {
+                            : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'}`, children: tab.mode === 'ghost' ? 'Ghost' : 'Private' })), tab.containerId && tab.containerId !== 'default' && (_jsx("div", { className: "w-2.5 h-2.5 rounded-full border border-gray-700/60", style: { backgroundColor: tab.containerColor || '#6366f1' }, title: `${tab.containerName || 'Custom'} container` })), group && (_jsx("span", { className: "w-2 h-2 rounded-full border border-white/20", style: { backgroundColor: group.color }, title: `Group: ${group.name}` })), tab.sleeping && (_jsxs("span", { className: "flex items-center gap-1", title: "Tab is hibernating (click to wake)", children: [_jsx(motion.span, { className: "w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]", animate: { scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }, transition: { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } }), _jsx("span", { className: "text-[10px] text-amber-400/70 font-medium hidden group-hover:inline", children: "Zzz" })] })), !tab.pinned && (_jsx("span", { className: `flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`, children: tab.title })), _jsx(motion.button, { type: "button", onClick: e => {
                             e.preventDefault();
                             stopEventPropagation(e);
                             togglePinTab(tab.id);
@@ -1408,9 +1408,7 @@ export function TabStrip() {
             }, 200); // Increased slightly to prevent rapid-fire clicks
         }
     };
-    const handleReopenClosedTab = useCallback(async (entry) => {
-        await reopenClosedTab(entry);
-    }, []);
+    // Tab reopening handled via keyboard shortcut (Ctrl+Shift+T) - no UI button needed
     const handleApplyCluster = useCallback((clusterId) => {
         const cluster = predictedClusters.find(c => c.id === clusterId);
         if (!cluster)
@@ -1668,23 +1666,7 @@ export function TabStrip() {
                                             handleDropToNewGroup();
                                         }, className: `hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors ${groupDragTarget === NEW_GROUP_DROP_ID
                                             ? 'border-blue-500/70 text-blue-200 bg-blue-500/10'
-                                            : 'border-gray-700/40 text-gray-300 hover:bg-gray-800/50'}`, children: [_jsx(FolderPlus, { size: 14 }), "Group"] }), _jsx("div", { className: "hidden lg:block", children: _jsx(ContainerQuickSelector, { compact: true, showLabel: false }) }), _jsxs(DropdownMenu, { children: [_jsx(DropdownMenuTrigger, { asChild: true, children: _jsx(motion.button, { type: "button", whileHover: { scale: 1.05 }, whileTap: { scale: 0.95 }, disabled: recentlyClosed.length === 0, className: `
-                    p-2 rounded-lg border transition
-                    ${recentlyClosed.length === 0 ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-gray-700/40 hover:bg-gray-800/50 text-gray-300 hover:text-gray-100'}
-                  `, title: recentlyClosed.length === 0
-                                                        ? 'No recently closed tabs'
-                                                        : 'Reopen closed tab (Ctrl+Shift+T / ⌘⇧T)', children: _jsx(RotateCcw, { size: 16 }) }) }), _jsxs(DropdownMenuContent, { align: "end", className: "w-72", children: [_jsx(DropdownMenuLabel, { children: "Recently closed" }), _jsx(DropdownMenuSeparator, {}), recentlyClosed.length === 0 ? (_jsx("div", { className: "px-3 py-2 text-xs text-slate-500", children: "No tabs to reopen" })) : (recentlyClosed.map(entry => {
-                                                        let hostname = 'about:blank';
-                                                        if (entry.url) {
-                                                            try {
-                                                                hostname = new URL(entry.url).hostname;
-                                                            }
-                                                            catch {
-                                                                hostname = entry.url;
-                                                            }
-                                                        }
-                                                        return (_jsxs(DropdownMenuItem, { className: "flex flex-col items-start gap-1 py-2", onClick: () => handleReopenClosedTab(entry), children: [_jsx("span", { className: "text-sm text-slate-100", children: entry.title || entry.url || 'Untitled tab' }), _jsxs("span", { className: "text-[11px] text-slate-500", children: [hostname, " \u2022 ", new Date(entry.closedAt).toLocaleTimeString()] })] }, entry.closedId));
-                                                    })), _jsx(DropdownMenuSeparator, {}), _jsxs(DropdownMenuItem, { disabled: recentlyClosed.length === 0, onClick: () => handleReopenClosedTab(), className: "gap-2", children: [_jsx(RotateCcw, { size: 14 }), "Reopen last tab"] })] })] }), _jsx(motion.button, { onClick: e => {
+                                            : 'border-gray-700/40 text-gray-300 hover:bg-gray-800/50'}`, children: [_jsx(FolderPlus, { size: 14 }), "Group"] }), _jsx("div", { className: "hidden lg:block", children: _jsx(ContainerQuickSelector, { compact: true, showLabel: false }) }), _jsx(motion.button, { onClick: e => {
                                             stopEventPropagation(e);
                                             addTab();
                                         }, onMouseDown: e => {

@@ -24,6 +24,11 @@ import TradesTape, { type Trade } from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
 // TradeModeFallback and useResponsive not yet implemented - removed for now
 import { TradeStagehandIntegration } from './stagehand-integration';
+import { SSEConnectionStatusIndicator } from '../../components/realtime/SSEConnectionStatus';
+import { validateSignal } from '../../core/trade/signalGenerator';
+import { getSSESignalService } from '../../services/realtime/sseSignalService';
+import { calculateRiskMetrics } from '../../core/trade/riskMetrics';
+import BrowserView from '../../components/BrowserView';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -63,6 +68,7 @@ export default function TradePanel() {
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [_lastChange, setLastChange] = useState<number | null>(null);
   const [_lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [useTradingView, setUseTradingView] = useState(false); // Toggle for real TradingView
   // Responsive hooks not yet implemented - using fallback values
   const isMobile = false;
   const isTablet = false;
@@ -100,6 +106,7 @@ export default function TradePanel() {
   const {
     tick: _tick,
     connected: wsConnected,
+    reconnecting: wsReconnecting,
     orderbook: wsOrderbook,
   } = useRealtimeTrade({
     symbol: selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol,
@@ -247,22 +254,40 @@ export default function TradePanel() {
     };
   }, [selected.symbol, wsConnected, price]);
 
-  // Telepathy Upgrade Phase 2: Real-time trade signals via WebSocket (replaces 30s polling)
+  // Phase 1, Day 7 & 9: Enhanced trade signals with SSE fallback and notifications
+  const [_signalHistory, setSignalHistory] = useState<TradeSignal[]>([]);
+  const [_sseConnected, setSseConnected] = useState(false);
+  
   useEffect(() => {
     const signalService = getTradeSignalService();
 
+    // Phase 1, Day 9: Monitor SSE connection status
+    const sseService = getSSESignalService();
+    const statusUnsubscribe = sseService.onStatusChange((status: { connected: boolean; reconnecting: boolean; lastConnected?: number; reconnectAttempts: number; error?: string }) => {
+      setSseConnected(status.connected);
+    });
+
     // Subscribe to real-time trade signals (instant push when detected)
     const unsubscribe = signalService.subscribe(selected.symbol, (signal: TradeSignal) => {
-      if (signal.action === 'BUY' || signal.action === 'SELL') {
+      const config = { enableFallback: true, fallbackInterval: 30000, minConfidence: 0.6 };
+      const validation = validateSignal(signal, config);
+      
+      if (validation.shouldDisplay) {
+        // Phase 1, Day 9: Enhanced notification
         toast.success(
-          `Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`
+          `Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`,
+          { 
+            duration: 8000,
+          }
         );
+        setSignalHistory(prev => [...prev.slice(-9), signal]);
       }
-      console.log('[Trade] Received signal:', signal);
+      console.log('[Trade] Received signal:', signal, validation);
     });
 
     return () => {
       unsubscribe();
+      statusUnsubscribe();
     };
   }, [selected]);
 
@@ -330,7 +355,7 @@ export default function TradePanel() {
           setChartLoading(true);
           try {
             // Try mock server first
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
+            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
             const symbolKey = selected.symbol.includes(':')
               ? selected.symbol.split(':')[1]
               : selected.symbol;
@@ -443,19 +468,20 @@ export default function TradePanel() {
     };
   }, []);
 
-  // Update chart when symbol changes
+  // Phase 1, Day 7: Enhanced chart update with error handling and resize fix
   useEffect(() => {
     if (seriesRef.current && chartRef.current) {
       // Reload candles for new symbol
       const loadCandles = async () => {
         try {
+          setChartLoading(true);
           const realtimeService = getRealtimeMarketDataService();
           const symbol = selected.symbol.includes(':')
             ? selected.symbol.split(':')[1]
             : selected.symbol;
           const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
 
-          if (candles.length > 0 && seriesRef.current) {
+          if (candles.length > 0 && seriesRef.current && chartRef.current) {
             const candleData = candles.map(c => ({
               time: (c.time / 1000) as any,
               open: c.open,
@@ -464,9 +490,22 @@ export default function TradePanel() {
               close: c.close,
             }));
             seriesRef.current.setData(candleData);
+            
+            // Phase 1, Day 7: Fix chart resize after data update
+            if (chartContainerRef.current && chartRef.current) {
+              chartRef.current.applyOptions({
+                width: chartContainerRef.current.clientWidth || 800,
+                height: chartContainerRef.current.clientHeight || 600,
+              });
+            }
           }
         } catch (error) {
           console.error('[Trade] Failed to reload candles for new symbol:', error);
+          toast.error('Failed to load chart data. Retrying...');
+          // Retry after 2 seconds
+          setTimeout(loadCandles, 2000);
+        } finally {
+          setChartLoading(false);
         }
       };
 
@@ -545,6 +584,16 @@ export default function TradePanel() {
       const fees = estimatedCost * 0.001; // 0.1% fee
       const marginRequired = orderType === 'market' ? estimatedCost * 0.1 : undefined; // 10% margin for market orders
 
+      // Phase 1, Day 7: Calculate risk metrics
+      const riskMetrics = calculateRiskMetrics({
+        entryPrice: orderPrice,
+        quantity: qty,
+        stopLoss: sl > 0 ? sl : undefined,
+        takeProfit: tp > 0 ? tp : undefined,
+        orderType: orderType as 'market' | 'limit',
+        side,
+      });
+
       const order: OrderDetails = {
         side,
         symbol: selected.name,
@@ -556,6 +605,15 @@ export default function TradePanel() {
         estimatedCost,
         fees,
         marginRequired,
+        // Phase 1, Day 7: Include risk metrics
+        riskMetrics: {
+          riskAmount: riskMetrics.riskAmount,
+          rewardAmount: riskMetrics.rewardAmount,
+          riskRewardRatio: riskMetrics.riskRewardRatio,
+          maxLoss: riskMetrics.maxLoss,
+          maxGain: riskMetrics.maxGain,
+          riskPercentage: riskMetrics.riskPercentage,
+        },
       };
 
       setPendingOrder(order);
@@ -569,40 +627,7 @@ export default function TradePanel() {
 
     setIsPlacingOrder(true);
     try {
-      // Try mock server first, then fallback to tradeApi
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
-      const symbolKey = selected.symbol.includes(':')
-        ? selected.symbol.split(':')[1]
-        : selected.symbol;
-
-      try {
-        const response = await fetch(`${API_BASE}/api/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            symbol: symbolKey,
-            side: pendingOrder.side,
-            qty: pendingOrder.quantity,
-            price: pendingOrder.orderType === 'limit' ? pendingOrder.price : undefined,
-            type: pendingOrder.orderType,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          toast.success(
-            `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId} | Filled: ${result.filled}`
-          );
-          setShowConfirmModal(false);
-          setPendingOrder(null);
-          setIsPlacingOrder(false);
-          return;
-        }
-      } catch {
-        console.debug('[Trade] Mock server not available, trying tradeApi');
-      }
-
-      // Fallback to tradeApi
+      // Use tradeApi directly (it handles backend connection)
       const { tradeApi } = await import('../../lib/api-client');
       const result = await tradeApi.placeOrder({
         symbol: selected.symbol,
@@ -611,6 +636,7 @@ export default function TradePanel() {
         stopLoss: pendingOrder.stopLoss,
         takeProfit: pendingOrder.takeProfit,
       });
+      
       if (result.success) {
         toast.success(
           `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId}`
@@ -698,19 +724,31 @@ export default function TradePanel() {
         </div>
       )}
 
-      {/* Show cached data warning when disconnected but have data */}
-      {!wsConnected && lastPrice !== null && (
-        <div className="border-b border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-100">
+      {/* Show reconnecting status when disconnected but have data */}
+      {!wsConnected && (lastPrice !== null || wsReconnecting) && (
+        <div className={`border-b px-4 py-2 text-sm ${
+          wsReconnecting 
+            ? 'border-blue-500/40 bg-blue-500/10 text-blue-100' 
+            : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-100'
+        }`}>
           <div className="flex items-center justify-between">
-            <span>⚠️ Showing cached data - Connection lost</span>
+            <span>
+              {wsReconnecting ? '🔄 Reconnecting...' : '⚠️ Connection lost'}
+              {lastPrice !== null && ' (Showing cached data)'}
+            </span>
             <button
               onClick={async () => {
                 setConnectionError(null);
                 console.log('[Trade] Retrying connection...');
+                window.dispatchEvent(new CustomEvent('trade:reconnect'));
               }}
-              className="rounded bg-yellow-500/20 px-2 py-1 text-xs hover:bg-yellow-500/30"
+              className={`rounded px-2 py-1 text-xs hover:opacity-80 ${
+                wsReconnecting 
+                  ? 'bg-blue-500/20 hover:bg-blue-500/30' 
+                  : 'bg-yellow-500/20 hover:bg-yellow-500/30'
+              }`}
             >
-              Retry
+              {wsReconnecting ? 'Cancel' : 'Retry'}
             </button>
           </div>
         </div>
@@ -721,6 +759,19 @@ export default function TradePanel() {
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-emerald-400" />
           <h1 className="text-sm font-semibold text-white md:text-lg">Trade Mode</h1>
+          {/* Phase 1, Day 9: SSE Connection Status */}
+          <SSEConnectionStatusIndicator showDetails={false} />
+          <button
+            onClick={() => setUseTradingView(!useTradingView)}
+            className={`ml-4 rounded-lg px-3 py-1 text-xs transition ${
+              useTradingView
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'
+            }`}
+            title="Toggle TradingView"
+          >
+            {useTradingView ? 'Custom Chart' : 'TradingView'}
+          </button>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1">
           <button
@@ -815,23 +866,38 @@ export default function TradePanel() {
       <div className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
         {/* Chart Area */}
         <div className="col-span-12 flex flex-col lg:col-span-8">
-          <div
-            ref={chartContainerRef}
-            className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
-          >
-            {chartLoading && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-                  <span className="text-sm text-gray-400">Loading chart data...</span>
-                </div>
+          {useTradingView ? (
+            // Real TradingView embed
+            <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]">
+              <BrowserView
+                url={`https://in.tradingview.com/chart/?symbol=${selected.symbol.replace(':', '')}`}
+                mode="trade"
+                className="h-full"
+              />
+              <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
+                Live TradingView • {selected.symbol}
               </div>
-            )}
-            <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
-              1D • EMA • RSI • Volume Profile
-              {wsConnected && <span className="ml-2 text-green-400">● Live</span>}
             </div>
-          </div>
+          ) : (
+            // Custom chart
+            <div
+              ref={chartContainerRef}
+              className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
+            >
+              {chartLoading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+                    <span className="text-sm text-gray-400">Loading chart data...</span>
+                  </div>
+                </div>
+              )}
+              <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
+                1D • EMA • RSI • Volume Profile
+                {wsConnected && <span className="ml-2 text-green-400">● Live</span>}
+              </div>
+            </div>
+          )}
 
           {/* Trades Tape below chart */}
           <div className="mt-4">

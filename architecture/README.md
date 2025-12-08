@@ -38,22 +38,26 @@ Shared utility scripts used across different architectural concerns.
 
 Each subdirectory contains scripts specific to its purpose. Refer to individual script files for usage instructions.
 
-## Quick Fix for Service Issues
+## Available Commands
 
-If AI Agent or Research features are not working:
-
+### Quick Fix for Service Issues
 ```bash
-# Run the fix script
 npm run arch:fix
-
-# Or directly
-node architecture/fix-services.js
 ```
 
-This will:
-- Check if the server is running
-- Verify API endpoints
-- Start the server if needed
-- Diagnose connection issues
-- Provide fix recommendations
+### Integration Verification
+```bash
+npm run arch:verify
+```
+
+### Run All Tests
+```bash
+npm run arch:test
+```
+
+### Other Commands
+- `npm run arch:init` - Initialize architecture
+- `npm run arch:analyze` - Analyze structure
+- `npm run arch:deploy-check` - Check deployment readiness
+- `npm run arch:health` - Health check
 

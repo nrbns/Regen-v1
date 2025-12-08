@@ -62,6 +62,11 @@ const initPowerModes = () =>
     )
   );
 import { useRedix } from '../../core/redix/useRedix';
+import { getRedixConfig } from '../../lib/redix-mode';
+import { useRedixTabEviction } from '../../hooks/useRedixTabEviction';
+import { RedixModeToggle } from '../redix/RedixModeToggle';
+import { useI18nSync } from '../../hooks/useI18nSync';
+import { initializeRedixMode } from '../../lib/redix-mode/integration';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
 const getPolicyRecommendations = () =>
@@ -219,7 +224,7 @@ class ErrorBoundary extends React.Component<
           copyMessage: 'Clipboard unavailable. Diagnostics logged to console.',
           copying: false,
         });
-        console.info('[Diagnostics] Summary:', result?.diagnostics);
+        // Diagnostics summary available
       }
     } catch (error) {
       console.error('Failed to copy diagnostics from error boundary:', error);
@@ -403,14 +408,14 @@ export function AppShell() {
         try {
           const { listen } = await import('@tauri-apps/api/event');
           unlisten = await listen<string>('navigate-to-url', event => {
-            console.log('[AppShell] Received navigation event:', event.payload);
+            // Navigation event received - no logging needed
             window.location.href = event.payload;
           });
-        } catch (error) {
-          console.warn('[AppShell] Failed to setup Tauri navigation listener:', error);
+        } catch {
+          // Tauri navigation listener setup failed - fallback to window events
           // Fallback: listen to window events
           const handleNavigate = (event: CustomEvent<string>) => {
-            console.log('[AppShell] Received navigation event (fallback):', event.detail);
+            // Navigation event received (fallback) - no logging needed
             window.location.href = event.detail;
           };
           window.addEventListener('navigate-to-url', handleNavigate as EventListener);
@@ -423,14 +428,10 @@ export function AppShell() {
       // PR: Fix tab switch - Listen for postMessage from iframes to create new tabs
       const handlePostMessage = (event: MessageEvent) => {
         // In production, check event.origin for security
-        const { type, url, sourceTabId } = event.data || {};
+        const { type, url, sourceTabId: _sourceTabId } = event.data || {};
 
         if (type === 'open-in-new-tab' && url) {
-          console.log('[AppShell] Received open-in-new-tab message', {
-            url,
-            sourceTabId,
-            origin: event.origin,
-          });
+          // Open-in-new-tab message received - no logging needed
 
           // Create new tab with the URL
           const tabsStore = useTabsStore.getState();
@@ -473,18 +474,26 @@ export function AppShell() {
     let cleanup: (() => void) | null = null;
 
     const initMemoryMonitoring = async () => {
-      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs } =
+      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs: _unloadInactiveTabs } =
         await import('../../core/monitoring/memoryMonitor');
 
+      // Phase 1, Day 2: Enhanced memory monitoring with hibernation
+      const { hibernateInactiveTabs } = await import('../../core/tabs/hibernation');
+      
       startMemoryMonitoring(
         async () => {
-          // Low memory: unload inactive tabs
-          await unloadInactiveTabs();
+          // Low memory: hibernate inactive tabs (with scroll position preservation)
+          const count = await hibernateInactiveTabs();
+          if (count > 0) {
+            toast.info(`${count} tab${count > 1 ? 's' : ''} hibernated to free memory`);
+          }
         },
         async () => {
-          // Critical memory: unload more aggressively
-          await unloadInactiveTabs();
-          toast.warning('Low memory detected. Some tabs were unloaded for better performance.');
+          // Critical memory: hibernate more aggressively
+          const count = await hibernateInactiveTabs();
+          if (count > 0) {
+            toast.warning(`Low memory detected. ${count} tab${count > 1 ? 's' : ''} hibernated for better performance.`);
+          }
         }
       );
 
@@ -688,7 +697,7 @@ export function AppShell() {
     if (isOffline) {
       void ipc.ollama
         .check()
-        .then(result => {
+        .then((result: any) => {
           setOllamaAvailable(result?.available ?? false);
         })
         .catch(() => {
@@ -746,6 +755,18 @@ export function AppShell() {
   const clearHistoryEntries = useHistoryStore(state => state.clear);
   const tabsState = useTabsStore();
   const { handleError: _handleError, safeExecute: _safeExecute } = useAppError();
+
+  // REDIX MODE: Enable tab eviction if Redix mode is active
+  const redixConfig = getRedixConfig();
+  useRedixTabEviction(redixConfig.enabled && redixConfig.enableTabEviction);
+
+  // i18n: Sync language settings with i18n
+  useI18nSync();
+
+  // Initialize Redix mode on mount
+  useEffect(() => {
+    initializeRedixMode();
+  }, []);
   const [showTOS, setShowTOS] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
   const [restoreToast, setRestoreToast] = useState<{
@@ -758,21 +779,11 @@ export function AppShell() {
 
   // Memoize TOS callbacks to prevent hook order issues - must be called unconditionally
   const handleTOSAccept = useCallback(() => {
-    console.log('[AppShell] handleTOSAccept called - closing TOS modal');
-    console.log(
-      '[AppShell] Current state - showTOS:',
-      showTOS,
-      'hasConsented:',
-      hasConsented,
-      'showCookieConsent:',
-      showCookieConsent
-    );
+    // TOS accepted - closing modal
     setShowTOS(false);
     // The onboarding will start automatically via the useEffect that checks showTOS
     // But first cookie consent will be shown if not already consented
-    console.log(
-      '[AppShell] TOS modal closed, waiting for cookie consent and onboarding to start...'
-    );
+    // TOS modal closed, waiting for cookie consent and onboarding to start...
   }, [showTOS, hasConsented, showCookieConsent]);
 
   const handleTOSDecline = useCallback(() => {
@@ -1313,31 +1324,17 @@ export function AppShell() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (showTOS || showCookieConsent) {
-      console.log(
-        '[AppShell] Onboarding blocked - showTOS:',
-        showTOS,
-        'showCookieConsent:',
-        showCookieConsent
-      );
+      // Onboarding blocked - modals are showing
       return; // Don't start onboarding if modals are showing
     }
 
-    console.log('[AppShell] Checking if onboarding should start...', {
-      isCompleted: onboardingStorage.isCompleted(),
-      onboardingVisible,
-    });
-
+    // Checking if onboarding should start...
     const timer = setTimeout(() => {
       if (!onboardingStorage.isCompleted() && !onboardingVisible) {
-        console.log('[AppShell] Starting onboarding...');
+        // Starting onboarding...
         startOnboarding();
       } else {
-        console.log(
-          '[AppShell] Onboarding not started - isCompleted:',
-          onboardingStorage.isCompleted(),
-          'visible:',
-          onboardingVisible
-        );
+        // Onboarding not started - already completed or visible
       }
     }, 1200); // Delay to let UI render first (increased for slower machines)
     return () => clearTimeout(timer);
@@ -1507,7 +1504,7 @@ export function AppShell() {
       // ⌘T / Ctrl+T: New Tab
       if (modifier && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-        ipc.tabs.create('about:blank').catch(error => {
+        ipc.tabs.create('about:blank').catch((error: any) => {
           if (isDevEnv()) {
             console.error('[AppShell] Failed to create tab:', error);
           }
@@ -1524,7 +1521,7 @@ export function AppShell() {
           if (tab) {
             state.rememberClosedTab(tab);
           }
-          ipc.tabs.close({ id: state.activeId }).catch(error => {
+          ipc.tabs.close({ id: state.activeId }).catch((error: any) => {
             if (isDevEnv()) {
               console.error('[AppShell] Failed to close tab:', error);
             }
@@ -1734,14 +1731,7 @@ export function AppShell() {
   };
 
   // Ensure we always render something - never return null or empty
-  console.log(
-    '[AppShell] Rendering - showTOS:',
-    showTOS,
-    'showCookieConsent:',
-    showCookieConsent,
-    'onboardingVisible:',
-    onboardingVisible
-  );
+  // Rendering state tracked internally - no logging needed for performance
 
   return (
     <div
@@ -2241,24 +2231,19 @@ export function AppShell() {
       {showCookieConsent && !showTOS && !onboardingVisible && (
         <CookieConsent
           onAccept={preferences => {
-            console.log('[AppShell] Cookie consent accepted:', preferences);
+            // Cookie consent accepted
             localStorage.setItem('regen:cookie-consent', JSON.stringify(preferences));
             // Force a small delay to ensure localStorage is written and state updates
             setTimeout(() => {
               setShowCookieConsent(false);
-              console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+              // Cookie consent modal closed, onboarding should start now
               // Force a re-check of onboarding after cookie consent is closed
-              // The useEffect should trigger automatically, but we'll log to confirm
-              console.log('[AppShell] State after cookie consent:', {
-                showTOS,
-                showCookieConsent: false,
-                hasConsented,
-                onboardingVisible,
-              });
+              // The useEffect should trigger automatically
+              // State after cookie consent tracked internally
             }, 100);
           }}
           onDecline={() => {
-            console.log('[AppShell] Cookie consent declined');
+            // Cookie consent declined
             // Save minimal consent (essential only)
             const minimal: CookiePreferences = {
               essential: true,
@@ -2271,7 +2256,7 @@ export function AppShell() {
             localStorage.setItem('regen:cookie-consent', JSON.stringify(minimal));
             setTimeout(() => {
               setShowCookieConsent(false);
-              console.log('[AppShell] Cookie consent modal closed, onboarding should start now');
+              // Cookie consent modal closed, onboarding should start now
             }, 100);
           }}
         />
@@ -2295,6 +2280,13 @@ export function AppShell() {
       <GlobalSearch />
       <WisprOrb />
       <OmniModeSwitcher />
+
+      {/* REDIX MODE: Toggle for Redix mode (dev mode only, bottom-right) */}
+      {isDevEnv() && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <RedixModeToggle compact={true} showLabel={false} />
+        </div>
+      )}
 
       {/* Mini Hover AI - Text selection assistant */}
       <MiniHoverAI enabled={!overlayActive && showWebContent} />
@@ -2342,4 +2334,9 @@ export function AppShell() {
       <ConnectionStatus />
     </div>
   );
+}
+
+// Enable HMR for this component (must be after export)
+if (import.meta.hot) {
+  import.meta.hot.accept();
 }

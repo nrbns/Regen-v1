@@ -13,7 +13,7 @@ function safeStringify(obj: unknown): string {
       }
       return value;
     }, 2);
-  } catch (error) {
+  } catch {
     return safeErrorString(obj);
   }
 }

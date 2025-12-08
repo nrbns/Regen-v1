@@ -3,7 +3,6 @@
  * Ordered execution using Redis Streams
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const redis = require('../../config/redis-client');
 
 const log = {

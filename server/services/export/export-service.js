@@ -183,7 +183,7 @@ async function exportToRoam(contentMd, graphName) {
       status: 'imported to Roam',
       graph: ROAM_API_GRAPH,
     };
-  } catch (error) {
+  } catch {
     // Fallback: Return file for manual import
     return {
       success: true,
@@ -221,6 +221,9 @@ export async function exportToTool(contentMd, tool, options = {}) {
       throw new Error(`Invalid tool: ${tool}. Supported: notion, obsidian, roam`);
   }
 }
+
+
+
 
 
 

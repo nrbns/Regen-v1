@@ -85,3 +85,6 @@ export default function TradesTape({ trades, maxVisible = 20, symbol }: TradesTa
 
 
 
+
+
+

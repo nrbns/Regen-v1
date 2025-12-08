@@ -7,7 +7,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { analyzeYouTube as baseAnalyzeYouTube } from './youtube-analyzer.js';
-import { callLocalLLM, streamLocalLLM } from '../ollama/local-llm.js';
+import { callLocalLLM } from '../ollama/local-llm.js';
 
 /**
  * Analyze YouTube with local models only

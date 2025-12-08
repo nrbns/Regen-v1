@@ -23,7 +23,7 @@ export function safeErrorString(error: unknown): string {
     try {
       // Try to serialize with circular reference handling
       return JSON.stringify(error, getCircularReplacer(), 2);
-    } catch (e) {
+    } catch {
       // If that fails, try to extract useful info
       try {
         const errorObj = error as Record<string, unknown>;
@@ -154,6 +154,9 @@ function getCircularReplacer() {
     return value;
   };
 }
+
+
+
 
 
 

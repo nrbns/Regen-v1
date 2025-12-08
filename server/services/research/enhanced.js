@@ -6,7 +6,7 @@
 import { researchSearch } from './search.js';
 import { analyzeWithLLM } from '../agent/llm.js';
 import { detectLanguage, getLanguageLabel } from '../lang/detect.js';
-import { executePipeline } from '../../utils/async-pipeline.cjs';
+// import { executePipeline } from '../../utils/async-pipeline.cjs'; // Unused
 
 function extractDomain(url) {
   try {

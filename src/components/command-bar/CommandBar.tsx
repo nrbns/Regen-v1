@@ -99,8 +99,18 @@ export function CommandBar() {
         icon: Settings,
         keywords: ['settings', 'preferences', 'config'],
         category: 'navigation',
-        action: () => {
-          window.location.href = '/settings';
+        action: async () => {
+          // Open settings in a new tab
+          try {
+            await ipc.tabs.create({
+              url: '/settings',
+              activate: true, // Activate the new tab
+            });
+          } catch (error) {
+            console.error('[CommandBar] Failed to open settings in new tab:', error);
+            // Fallback to navigation if tab creation fails
+            window.location.href = '/settings';
+          }
         },
       },
       {

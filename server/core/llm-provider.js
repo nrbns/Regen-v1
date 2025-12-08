@@ -42,7 +42,7 @@ export async function getLLM(options = {}) {
     model = null,
     temperature = 0.7,
     maxTokens = 2000,
-    stream = false,
+    stream: _stream = false,
   } = options;
 
   if (isOffline()) {
@@ -202,6 +202,7 @@ async function* streamCloudLLM(endpoint, prompt, options = {}) {
     }
   }
 }
+
 
 
 

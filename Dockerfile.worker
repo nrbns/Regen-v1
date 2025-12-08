@@ -22,3 +22,6 @@ CMD ["python", "workers/pg_worker.py"]
 
 
 
+
+
+

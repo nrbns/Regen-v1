@@ -102,3 +102,6 @@ function normalizeVector(vector: number[]): number[] {
 
 
 
+
+
+

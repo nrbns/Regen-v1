@@ -4,7 +4,7 @@
  * Converted from Python production code
  */
 
-import FormData from 'form-data';
+// import FormData from 'form-data'; // Unused
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -99,7 +99,7 @@ async function extractTextFallback(pdfBytes) {
 /**
  * Extract text, tables, and figures from PDF
  */
-export async function extractPDF(pdfBytes, filename = 'document.pdf') {
+export async function extractPDF(pdfBytes, _filename = 'document.pdf') {
   try {
     // Try PDF.js first
     if (pdfjsLib) {
@@ -163,6 +163,9 @@ export async function processPDFUpload(file, options = {}) {
     extracted_text: extracted.text.substring(0, 1000), // First 1000 chars as preview
   };
 }
+
+
+
 
 
 

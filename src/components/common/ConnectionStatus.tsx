@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getInitializationStatus, isAppInitialized } from '../../lib/initialize-app';
 import { isBackendAvailable } from '../../lib/backend-status';
 

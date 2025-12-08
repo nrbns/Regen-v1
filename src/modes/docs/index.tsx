@@ -25,6 +25,9 @@ import { PDFViewer } from '../../components/DocumentViewer/PDFViewer';
 import { CommentsPanel, Comment } from '../../components/DocumentViewer/CommentsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
+import { DocumentEditor } from '../../components/docs/DocumentEditor';
+import { OCRProcessor } from '../../components/docs/OCRProcessor';
+// import { toast } from '../../utils/toast'; // Unused
 
 type ViewMode = 'list' | 'review' | 'ingest';
 type IngestType = 'pdf' | 'docx' | 'web';
@@ -39,6 +42,10 @@ export default function DocsPanel() {
   const [ingestUrl, setIngestUrl] = useState('');
   const [fileToIngest, setFileToIngest] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editorFile, setEditorFile] = useState<File | null>(null);
+  const [showOCR, setShowOCR] = useState(false);
+  const [ocrFile, setOcrFile] = useState<File | null>(null);
 
   useEffect(() => {
     const loadReviews = async () => {
@@ -152,23 +159,71 @@ export default function DocsPanel() {
       />
 
       <main className="flex-1 overflow-y-auto">
-        {viewMode === 'list' && <EmptyState onCreate={handleStartIngest} />}
-
-        {viewMode === 'ingest' && (
-          <IngestForm
-            ingestType={ingestType}
-            ingestUrl={ingestUrl}
-            loading={loading}
-            uploadProgress={uploadProgress}
-            error={error}
-            fileToIngest={fileToIngest}
-            onTypeChange={setIngestType}
-            onUrlChange={setIngestUrl}
-            onFileSelect={handleFileSelect}
-            onSubmit={handleIngest}
-            onCancel={handleIngestCancel}
+        {showOCR && ocrFile ? (
+          <OCRProcessor
+            file={ocrFile}
+            onComplete={(result) => {
+              // Phase 2, Day 2: OCR completed
+              console.log('[Docs] OCR completed:', result);
+            }}
+            onCancel={() => {
+              setShowOCR(false);
+              setOcrFile(null);
+            }}
           />
-        )}
+        ) : showEditor && editorFile ? (
+          <DocumentEditor
+            file={editorFile}
+            onSave={async (editedContent) => {
+              // Phase 2, Day 1: Save edited content
+              try {
+                const blob = new Blob([editedContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = editorFile.name.replace(/\.(pdf|docx|xlsx)$/, '_edited.txt');
+                a.click();
+                URL.revokeObjectURL(url);
+                setShowEditor(false);
+                setEditorFile(null);
+              } catch (error) {
+                console.error('Failed to save edited document:', error);
+              }
+            }}
+            onClose={() => {
+              setShowEditor(false);
+              setEditorFile(null);
+            }}
+          />
+        ) : (
+          <>
+            {viewMode === 'list' && <EmptyState onCreate={handleStartIngest} />}
+
+            {viewMode === 'ingest' && (
+              <IngestForm
+                ingestType={ingestType}
+                ingestUrl={ingestUrl}
+                loading={loading}
+                uploadProgress={uploadProgress}
+                error={error}
+                fileToIngest={fileToIngest}
+                onTypeChange={setIngestType}
+                onUrlChange={setIngestUrl}
+                onFileSelect={handleFileSelect}
+                onSubmit={handleIngest}
+                onCancel={handleIngestCancel}
+                onEdit={(file) => {
+                  // Phase 2, Day 1: Open editor for file
+                  setEditorFile(file);
+                  setShowEditor(true);
+                }}
+                onOCR={(file) => {
+                  // Phase 2, Day 2: Open OCR processor for file
+                  setOcrFile(file);
+                  setShowOCR(true);
+                }}
+              />
+            )}
 
         {viewMode === 'review' && activeReview && (
           <DocumentReviewView
@@ -205,6 +260,8 @@ export default function DocsPanel() {
             }}
             onDelete={() => activeReview && handleDeleteReview(activeReview)}
           />
+            )}
+          </>
         )}
       </main>
     </div>
@@ -328,6 +385,8 @@ interface IngestFormProps {
   onFileSelect(event: React.ChangeEvent<HTMLInputElement>): void;
   onSubmit(): void;
   onCancel(): void;
+  onEdit?(file: File): void;
+  onOCR?(file: File): void;
 }
 
 function IngestForm({
@@ -342,6 +401,8 @@ function IngestForm({
   onFileSelect,
   onSubmit,
   onCancel,
+  onEdit,
+  onOCR: _onOCR,
 }: IngestFormProps) {
   return (
     <div className="flex max-w-3xl flex-col gap-6 px-10 py-12">
@@ -407,9 +468,20 @@ function IngestForm({
             className="mx-auto block text-sm text-gray-300"
           />
           {fileToIngest && (
-            <p className="mt-3 text-xs text-gray-400">
-              Selected: {fileToIngest.name} ({Math.round(fileToIngest.size / 1024)} KB)
-            </p>
+            <div className="mt-3 flex items-center justify-between rounded border border-slate-700 bg-slate-800/50 p-3">
+              <div>
+                <p className="text-xs text-gray-300">{fileToIngest.name}</p>
+                <p className="text-xs text-gray-500">{Math.round(fileToIngest.size / 1024)} KB</p>
+              </div>
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(fileToIngest)}
+                  className="rounded border border-purple-500/50 bg-purple-500/10 px-3 py-1.5 text-xs text-purple-200 hover:bg-purple-500/20"
+                >
+                  Edit with AI
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

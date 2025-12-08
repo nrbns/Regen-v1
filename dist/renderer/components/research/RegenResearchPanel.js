@@ -187,11 +187,12 @@ export function RegenResearchPanel() {
             if (response.direct && response.answer) {
                 // Direct answer - no WebSocket needed
                 console.log('[RegenResearch] Received direct answer (queue unavailable)');
+                const responseAny = response;
                 setState(prev => ({
                     ...prev,
                     jobId: response.jobId,
-                    answer: response.answer,
-                    sources: (response.citations || []).map((c, idx) => ({
+                    answer: responseAny.answer,
+                    sources: (responseAny.citations || []).map((c, idx) => ({
                         id: c.id || c.url || `source-${idx}`,
                         url: c.url,
                         title: c.title || 'Untitled',
@@ -199,7 +200,7 @@ export function RegenResearchPanel() {
                         score: c.score || 0.5,
                         source: c.source_type || 'unknown',
                     })),
-                    citations: (response.citations || []).map((c, idx) => ({
+                    citations: (responseAny.citations || []).map((c, idx) => ({
                         id: String(c.id || idx + 1),
                         url: c.url,
                         title: c.title || 'Untitled',
@@ -209,8 +210,8 @@ export function RegenResearchPanel() {
                 }));
                 setIsInitialLoad(false);
                 // Generate follow-up suggestions
-                if (response.answer) {
-                    setFollowUpSuggestions(generateFollowUpSuggestions(query, response.answer));
+                if (responseAny.answer) {
+                    setFollowUpSuggestions(generateFollowUpSuggestions(query, responseAny.answer));
                 }
             }
             else if (response.jobId) {

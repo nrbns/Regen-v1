@@ -5,6 +5,9 @@
 
 import type { AutomationPlaybook } from '../services/automationBridge';
 
+// Re-export for convenience
+export type { AutomationPlaybook };
+
 export const AUTOMATION_TEMPLATES: AutomationPlaybook[] = [
   {
     id: 'template-research-btc',

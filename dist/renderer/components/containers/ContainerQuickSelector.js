@@ -50,7 +50,7 @@ export function ContainerQuickSelector({ onSelect, compact = false, showLabel = 
             try {
                 const existing = await ipc.containers.list().catch(() => []);
                 // const presetNames = PRESET_CONTAINERS.map(p => p.name.toLowerCase()); // Unused for now
-                const missing = PRESET_CONTAINERS.filter(preset => !existing.some(c => c.name.toLowerCase() === preset.name.toLowerCase()));
+                const missing = PRESET_CONTAINERS.filter(preset => !existing.some((c) => c.name.toLowerCase() === preset.name.toLowerCase()));
                 if (missing.length > 0) {
                     // Create missing preset containers
                     for (const preset of missing) {
@@ -69,7 +69,7 @@ export function ContainerQuickSelector({ onSelect, compact = false, showLabel = 
                 const updated = await ipc.containers.list().catch(() => []);
                 const presets = [];
                 for (const preset of PRESET_CONTAINERS) {
-                    const found = updated.find(c => c.name.toLowerCase() === preset.name.toLowerCase());
+                    const found = updated.find((c) => c.name.toLowerCase() === preset.name.toLowerCase());
                     if (found && found.scope) {
                         presets.push(found);
                     }

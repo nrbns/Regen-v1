@@ -186,7 +186,7 @@ async function handoffToTrade(payload: HandoffPayload, _language: string): Promi
 
       // Optionally trigger IPC event for trade mode
       try {
-        const activeTab = await ipc.tabs.list().then(tabs => tabs.find(t => t.active) || tabs[0]);
+        const activeTab = await ipc.tabs.list().then((tabs: any) => tabs.find((t: any) => t.active) || tabs[0]);
         if (activeTab) {
           await ipc.crossReality?.handoff?.(activeTab.id, 'mobile');
         }

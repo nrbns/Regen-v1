@@ -20,9 +20,13 @@ const LANGUAGE_LOCALE_MAP = {
     ur: 'ur-PK',
 };
 function getSpeechRecognitionLocale(lang) {
-    // Support both Hindi and English simultaneously for best accuracy
+    // Phase 2, Day 4: Support both Hindi and English simultaneously for best accuracy
     if (!lang || lang === 'auto')
         return 'hi-IN,en-US';
+    if (lang === 'hi')
+        return 'hi-IN,en-US'; // Support both
+    if (lang === 'en')
+        return 'en-US,hi-IN'; // Support both
     return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 export function WisprOrb() {
@@ -121,13 +125,12 @@ export function WisprOrb() {
                         // Analyze with vision
                         const visionPrompt = `User said: "${commandText || text}"\nDescribe what you see on screen and suggest the best action.`;
                         const visionResponse = await ipc.vision.analyze(visionPrompt, screenshot);
-                        // Speak response
+                        // Phase 2, Day 4: Enhanced TTS with language detection
                         if ('speechSynthesis' in window) {
-                            const speech = new SpeechSynthesisUtterance(visionResponse || 'Command processed');
-                            speech.lang = 'en-IN'; // Indian English
-                            speech.rate = 1.0;
-                            speech.pitch = 1.0;
-                            window.speechSynthesis.speak(speech);
+                            const { getVoicePipeline } = await import('../services/voice/voicePipeline');
+                            const voicePipeline = getVoicePipeline();
+                            const detectedLang = language === 'hi' ? 'hi' : 'en';
+                            await voicePipeline.speakResponse(visionResponse || 'Command processed', detectedLang, { rate: 1.0, pitch: 1.0, volume: 1.0 });
                             // Show vision response in transcript
                             setTranscript(`Jarvis: ${visionResponse.substring(0, 100)}${visionResponse.length > 100 ? '...' : ''}`);
                         }

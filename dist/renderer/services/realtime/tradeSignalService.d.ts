@@ -1,7 +1,7 @@
 /**
  * Trade Signal Service - Telepathy Upgrade Phase 2
  * WebSocket push for instant trade signals (replaces 30s polling)
- * Push the moment scanner detects signals
+ * Phase 1, Day 9: Enhanced with SSE fallback and auto-reconnect
  */
 export interface TradeSignal {
     symbol: string;
@@ -13,6 +13,8 @@ export interface TradeSignal {
 export type TradeSignalCallback = (signal: TradeSignal) => void;
 declare class TradeSignalService {
     private ws;
+    private sseFallback;
+    private useSSE;
     private callbacks;
     private reconnectAttempts;
     private maxReconnectAttempts;
@@ -29,6 +31,10 @@ declare class TradeSignalService {
      */
     private connect;
     /**
+     * Phase 1, Day 9: Connect via SSE as fallback
+     */
+    private connectSSE;
+    /**
      * Subscribe to a specific symbol
      */
     private subscribeToSymbol;
@@ -37,7 +43,7 @@ declare class TradeSignalService {
      */
     private scheduleReconnect;
     /**
-     * Disconnect from WebSocket
+     * Disconnect from WebSocket/SSE
      */
     private disconnect;
 }

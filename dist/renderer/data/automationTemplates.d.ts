@@ -3,6 +3,7 @@
  * Pre-built automations for common tasks
  */
 import type { AutomationPlaybook } from '../services/automationBridge';
+export type { AutomationPlaybook };
 export declare const AUTOMATION_TEMPLATES: AutomationPlaybook[];
 /**
  * Load template by ID

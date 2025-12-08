@@ -5,7 +5,7 @@
  */
 
 import { generateAllQueries, getSystemPrompt } from './golden-prompts.js';
-import { multiSourceSearch, diverseSearch } from './multi-source-search.js';
+// import { multiSourceSearch, diverseSearch } from './multi-source-search.js'; // Unused
 import { analyzeWithLLM } from '../agent/llm.js';
 
 /**
@@ -14,7 +14,7 @@ import { analyzeWithLLM } from '../agent/llm.js';
 export async function executeParallelAgents(query, options = {}) {
   const {
     maxResultsPerAgent = 10,
-    includeTwitter = true,
+    includeTwitter: _includeTwitter = true,
     includePDF = true,
     includeGitHub = true,
     includeArxiv = true,
@@ -111,7 +111,7 @@ export async function synthesizeAgentResults(agentResults, query) {
   // Build synthesis context
   const context = agents
     .filter(a => a.analysis && a.count > 0)
-    .map((a, idx) => {
+    .map((a, _idx) => {
       return `=== ${a.strategy.toUpperCase()} ANALYSIS ===\n${a.analysis}\n\nKey Sources:\n${a.results.slice(0, 3).map((r, i) => `  ${i + 1}. ${r.title} - ${r.url}`).join('\n')}`;
     })
     .join('\n\n');
@@ -170,7 +170,7 @@ Generate the answer following the structure above.`;
 }
 
 function extractBullets(text) {
-  const bulletRegex = /[•\-\*]\s*(.+?)(?=\n|$)/g;
+  const bulletRegex = /[•-*]\s*(.+?)(?=\n|$)/g;
   const matches = [];
   let match;
   while ((match = bulletRegex.exec(text)) !== null && matches.length < 5) {

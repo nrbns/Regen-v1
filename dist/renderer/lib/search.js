@@ -142,8 +142,20 @@ export function normalizeInputToUrlOrSearch(input, provider = 'google', language
             // Not a valid URL even with https://
         }
     }
+    // Special handling for YouTube - direct navigation
+    const lowerTrimmed = trimmed.toLowerCase();
+    if (lowerTrimmed === 'youtube' || lowerTrimmed.startsWith('youtube ')) {
+        const query = lowerTrimmed === 'youtube' ? '' : trimmed.substring(8).trim();
+        if (query) {
+            return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+        }
+        return 'https://www.youtube.com';
+    }
     // Not a URL - convert to search
-    // Default to Bing if provider is 'all' and iframe-friendly is preferred (Bing allows iframes)
-    const searchProvider = provider === 'all' ? (preferIframeFriendly ? 'bing' : 'google') : provider;
+    // Use DuckDuckGo by default (privacy-friendly, works in iframes with proper setup)
+    // Only use Bing if explicitly requested or iframe-friendly is critical
+    const searchProvider = provider === 'all'
+        ? (preferIframeFriendly ? 'duckduckgo' : 'google')
+        : provider;
     return buildSearchUrl(searchProvider, trimmed, language, preferIframeFriendly);
 }

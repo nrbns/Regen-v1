@@ -107,12 +107,13 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
     }
     set({ loading: true, error: null });
     try {
-      const [{ records: trustRecords } = { records: [] }, consentRecordsRaw, shieldsStatus, privacyAudit] = await Promise.all([
+      const [trustResult, consentRecordsRaw, shieldsStatus, privacyAudit] = await Promise.all([
         safeCall(() => ipc.trust.list()),
         safeCall(() => ipc.consent.list()),
         safeCall(() => ipc.shields.getStatus()),
         safeCall(() => ipc.privacy.sentinel.audit()),
       ]);
+      const trustRecords = (trustResult as any)?.records || [];
 
       const consentRecords = Array.isArray(consentRecordsRaw) ? consentRecordsRaw : [];
       const consentStats = consentRecords.reduce<ConsentStats>(
@@ -138,22 +139,24 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
               return b.score - a.score;
             }
             const order = { trusted: 2, caution: 1, risk: 0 } as const;
-            return order[b.verdict] - order[a.verdict];
+            const aVerdict = (a.verdict as keyof typeof order) || 'risk';
+            const bVerdict = (b.verdict as keyof typeof order) || 'risk';
+            return order[bVerdict] - order[aVerdict];
           })
         : [];
 
       const blockedSummary: BlockedSummary = {
-        trackers: shieldsStatus?.trackersBlocked ?? 0,
-        ads: shieldsStatus?.adsBlocked ?? 0,
-        upgrades: shieldsStatus?.httpsUpgrades ?? 0,
+        trackers: (shieldsStatus as any)?.trackersBlocked ?? 0,
+        ads: (shieldsStatus as any)?.adsBlocked ?? 0,
+        upgrades: (shieldsStatus as any)?.httpsUpgrades ?? 0,
       };
 
       set({
         loading: false,
         consentTimeline,
         trustSignals,
-        shieldsStatus: shieldsStatus ?? null,
-        privacyAudit: privacyAudit ?? null,
+        shieldsStatus: (shieldsStatus as any) ?? undefined,
+        privacyAudit: (privacyAudit as any) ?? undefined,
         consentStats,
         blockedSummary,
         lastUpdated: Date.now(),

@@ -1,27 +1,13 @@
 /**
- * Utility helpers shared across UI layers.
+ * Utility functions
  */
 
-type ClassValue = string | number | null | undefined | false | ClassValue[];
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-function flatten(values: ClassValue[]): string[] {
-  const result: string[] = [];
-  values.forEach((value) => {
-    if (!value) {
-      return;
-    }
-    if (Array.isArray(value)) {
-      result.push(...flatten(value));
-    } else {
-      result.push(String(value));
-    }
-  });
-  return result;
+/**
+ * Merge Tailwind classes
+ */
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
-
-export function cn(...inputs: ClassValue[]): string {
-  return flatten(inputs)
-    .filter((value) => value.trim().length > 0)
-    .join(' ');
-}
-

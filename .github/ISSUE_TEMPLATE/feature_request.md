@@ -1,28 +1,27 @@
 ---
 name: Feature Request
-about: Suggest a new feature or enhancement
+about: Suggest an idea for RegenBrowser
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''
 ---
 
 ## Feature Description
-<!-- Clear, concise description of the feature -->
+A clear and concise description of the feature you'd like to see.
 
-## Use Case
-<!-- Why is this feature needed? What problem does it solve? -->
+## Problem Statement
+What problem does this feature solve? Why is it needed?
 
-## Acceptance Criteria
-<!-- Checklist of what must be done for this feature to be considered complete -->
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+## Proposed Solution
+Describe how you envision this feature working.
 
-## Implementation Notes
-<!-- Optional: Any technical considerations, dependencies, or design decisions -->
+## Use Cases
+- Use case 1: ...
+- Use case 2: ...
+- Use case 3: ...
 
-## Related
-<!-- Links to related issues, PRs, or documentation -->
-- Related to #issue-number
-- Part of milestone: Milestone-name
+## Alternatives Considered
+Have you considered any alternative solutions or features?
 
+## Additional Context
+Add any other context, mockups, or examples about the feature request here.

@@ -1,0 +1,25 @@
+# Models directory - do not commit large model files
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Token file - contains authentication token
+.bridge_token
+
+# Environment variables
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+

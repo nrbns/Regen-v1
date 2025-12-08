@@ -12,6 +12,15 @@ export interface OrderDetails {
   estimatedCost: number;
   fees: number;
   marginRequired?: number;
+  // Phase 1, Day 7: Risk metrics
+  riskMetrics?: {
+    riskAmount: number;
+    rewardAmount: number;
+    riskRewardRatio: number;
+    maxLoss: number;
+    maxGain: number;
+    riskPercentage: number;
+  };
 }
 
 interface OrderConfirmModalProps {
@@ -183,6 +192,52 @@ export default function OrderConfirmModal({
                             minimumFractionDigits: 2,
                           })}
                         </span>
+                      </div>
+                    )}
+
+                    {/* Phase 1, Day 7: Risk Metrics */}
+                    {order.riskMetrics && (
+                      <div className="mt-4 space-y-2 border-t border-gray-700 pt-3">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          Risk Metrics
+                        </h4>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Risk Amount</span>
+                            <span className="font-semibold text-red-400">
+                              ${order.riskMetrics.riskAmount.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Reward Amount</span>
+                            <span className="font-semibold text-green-400">
+                              ${order.riskMetrics.rewardAmount.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Risk/Reward</span>
+                            <span className={`font-semibold ${
+                              order.riskMetrics.riskRewardRatio < 1 ? 'text-green-400' : 
+                              order.riskMetrics.riskRewardRatio < 2 ? 'text-yellow-400' : 'text-red-400'
+                            }`}>
+                              {order.riskMetrics.riskRewardRatio > 0 
+                                ? `1:${(1 / order.riskMetrics.riskRewardRatio).toFixed(2)}`
+                                : 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Max Loss</span>
+                            <span className="font-semibold text-red-400">
+                              ${order.riskMetrics.maxLoss.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Risk %</span>
+                            <span className="font-semibold text-yellow-400">
+                              {order.riskMetrics.riskPercentage.toFixed(2)}%
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     )}
 

@@ -3,7 +3,6 @@
  * The execution engine for Regen
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const eventBus = require('./event-bus');
 const commandQueue = require('./command-queue');
 const sessionStore = require('./session-store');

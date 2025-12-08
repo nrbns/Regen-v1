@@ -1,33 +1,38 @@
 ---
 name: Bug Report
-about: Report a bug or issue
+about: Create a report to help us improve
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
 ## Bug Description
-<!-- Clear, concise description of the bug -->
+A clear and concise description of what the bug is.
 
 ## Steps to Reproduce
-1. Step one
-2. Step two
-3. Step three
+1. Go to '...'
+2. Click on '...'
+3. Scroll down to '...'
+4. See error
 
 ## Expected Behavior
-<!-- What should happen? -->
+A clear and concise description of what you expected to happen.
 
 ## Actual Behavior
-<!-- What actually happens? -->
+A clear and concise description of what actually happened.
+
+## Screenshots
+If applicable, add screenshots to help explain your problem.
 
 ## Environment
-- OS: [e.g., Windows 11, macOS 14, Ubuntu 22.04]
-- Browser Version: [e.g., v0.1.0]
-- Electron Version: [e.g., 31.0.0]
-
-## Screenshots/Logs
-<!-- If applicable, add screenshots or error logs -->
+- **OS**: [e.g. Windows 11, Ubuntu 22.04, macOS 13]
+- **RegenBrowser Version**: [e.g. 1.1.0]
+- **Ollama Version**: [e.g. 0.1.20]
+- **RAM**: [e.g. 8GB]
+- **Mode**: [e.g. Research, Trade, Browse]
 
 ## Additional Context
-<!-- Any other relevant information -->
+Add any other context about the problem here.
 
+## Logs
+If applicable, paste relevant console logs or error messages here.

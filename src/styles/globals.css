@@ -255,8 +255,15 @@ iframe[role='tabpanel'] {
   outline-offset: 2px;
 }
 
-/* Reduced motion support */
+/* Smooth scrolling - DAY 2: Mobile UI Fix */
+html {
+  scroll-behavior: smooth;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   * {
     animation: none !important;
     transition: none !important;
@@ -351,4 +358,92 @@ iframe[role='tabpanel'] {
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* DAY 2: Mobile UI Improvements */
+
+/* Responsive breakpoints */
+@media (max-width: 767px) {
+  /* Mobile-specific styles */
+  :root {
+    --mobile-padding: 16px;
+    --mobile-card-padding: 16px;
+    --mobile-card-gap: 8px;
+  }
+
+  /* Touch targets - minimum 44x44px */
+  button,
+  a,
+  [role='button'],
+  input[type='button'],
+  input[type='submit'] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Card spacing on mobile */
+  .card-mobile {
+    padding: var(--mobile-card-padding);
+    margin-bottom: var(--mobile-card-gap);
+  }
+
+  /* Responsive grid - single column on mobile */
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablet-specific styles */
+  :root {
+    --tablet-padding: 24px;
+    --tablet-card-padding: 20px;
+    --tablet-card-gap: 12px;
+  }
+
+  /* Responsive grid - 2 columns on tablet */
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Desktop-specific styles */
+  :root {
+    --desktop-padding: 32px;
+    --desktop-card-padding: 24px;
+    --desktop-card-gap: 16px;
+  }
+
+  /* Responsive grid - 3+ columns on desktop */
+  .responsive-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+/* Mobile keyboard handling */
+@media (max-width: 767px) {
+  /* Prevent input from being hidden by keyboard */
+  input:focus,
+  textarea:focus {
+    scroll-margin-bottom: 100px;
+  }
+
+  /* Adjust viewport on mobile when keyboard appears */
+  .mobile-input-container {
+    padding-bottom: env(keyboard-inset-height, 0px);
+  }
+}
+
+/* Mobile scroll improvements */
+@media (max-width: 767px) {
+  /* Better scroll performance on mobile */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent scroll bounce on iOS */
+  body {
+    overscroll-behavior-y: none;
+  }
 }

@@ -246,7 +246,7 @@ export function ChromeNewTabPage() {
                     : `https://${trimmedQuery}`
                 : `https://www.google.com/search?q=${encodeURIComponent(trimmedQuery)}`;
             const activeTab = activeId
-                ? (await ipc.tabs.list().catch(() => [])).find(t => t.id === activeId) || null
+                ? (await ipc.tabs.list().catch(() => [])).find((t) => t.id === activeId) || null
                 : null;
             if (activeTab && (activeTab.url === 'about:blank' || !activeTab.url)) {
                 await ipc.tabs.navigate(activeTab.id, targetUrl);

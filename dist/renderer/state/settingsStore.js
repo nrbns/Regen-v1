@@ -7,6 +7,9 @@ const createDefaults = () => ({
         telemetryOptIn: false,
         showKeyboardHints: true,
         allowBetaUpdates: false,
+        voiceEditBeforeExecute: true, // Phase 1, Day 5: Default to enabled
+        voiceTTSEnabled: true, // Phase 2, Day 4: Default to enabled
+        voiceAutoDetectLanguage: true, // Phase 2, Day 4: Default to enabled
     },
     privacy: {
         localOnlyMode: false,

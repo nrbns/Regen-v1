@@ -85,7 +85,7 @@ async function searchWithSearXNG(query, options = {}) {
       results: response.data.results || [],
       total: response.data.number_of_results || 0,
     };
-  } catch (error) {
+  } catch {
     // Fallback to local Whoosh index if SearXNG unavailable
     console.warn('[SearchProvider] SearXNG failed, using local index');
     return await searchWithWhoosh(query, options);
@@ -95,7 +95,7 @@ async function searchWithSearXNG(query, options = {}) {
 /**
  * Search with local Whoosh index (offline)
  */
-async function searchWithWhoosh(query, options = {}) {
+async function searchWithWhoosh(query, _options = {}) {
   // This would use a local Whoosh index
   // For now, return empty results
   console.warn('[SearchProvider] Whoosh index not implemented');
@@ -104,6 +104,9 @@ async function searchWithWhoosh(query, options = {}) {
     total: 0,
   };
 }
+
+
+
 
 
 

@@ -1,0 +1,69 @@
+{
+  "common": {
+    "search": "தேடு",
+    "searchPlaceholder": "வலைத்தளத்தில் தேடு...",
+    "cancel": "ரத்துசெய்",
+    "save": "சேமி",
+    "delete": "நீக்கு",
+    "edit": "திருத்து",
+    "close": "மூடு",
+    "loading": "லோடு செய்கிறது...",
+    "error": "பிழை",
+    "retry": "மீண்டும் முயற்சி",
+    "success": "வெற்றி"
+  },
+  "modes": {
+    "research": "ஆராய்ச்சி",
+    "trade": "வர்த்தகம்",
+    "browse": "உலாவு",
+    "docs": "ஆவணங்கள்",
+    "games": "விளையாட்டுகள்"
+  },
+  "search": {
+    "title": "தேடல்",
+    "placeholder": "வலைத்தளத்தில் தேடு...",
+    "noResults": "முடிவுகள் எதுவும் இல்லை",
+    "results": "முடிவுகள்",
+    "results_one": "முடிவு",
+    "results_other": "முடிவுகள்",
+    "cached": "캐ஷ் செய்யப்பட்டது",
+    "searching": "தேடுகிறது...",
+    "summarize": "சுருக்கம்",
+    "summarizing": "சுருக்கம் செய்கிறது..."
+  },
+  "agent": {
+    "title": "ஏஜென்ட் கன்சோல்",
+    "queryPlaceholder": "எதையும் கேளுங்கள்...",
+    "executing": "செயல்படுத்துகிறது...",
+    "completed": "முடிந்தது",
+    "failed": "தோல்வியடைந்தது"
+  },
+  "research": {
+    "title": "ஆராய்ச்சி",
+    "startResearch": "ஆராய்ச்சி தொடங்க",
+    "researching": "ஆராய்ச்சி செய்கிறது...",
+    "noResults": "ஆராய்ச்சி முடிவுகள் எதுவும் இல்லை",
+    "sources": "ஆதாரங்கள்",
+    "summary": "சுருக்கம்"
+  },
+  "settings": {
+    "title": "அமைப்புகள்",
+    "language": "மொழி",
+    "appearance": "தோற்றம்",
+    "privacy": "தனியுரிமை",
+    "general": "பொது"
+  },
+  "tabs": {
+    "newTab": "புதிய தாவல்",
+    "closeTab": "தாவலை மூடு",
+    "reload": "மீண்டும் ஏற்று",
+    "noTabs": "திறந்த தாவல்கள் எதுவும் இல்லை"
+  },
+  "errors": {
+    "somethingWentWrong": "ஏதோ தவறு நடந்தது",
+    "tryAgain": "மீண்டும் முயற்சி",
+    "networkError": "நெட்வொர்க் பிழை",
+    "permissionDenied": "அனுமதி மறுக்கப்பட்டது"
+  }
+}
+

@@ -32,6 +32,7 @@ export interface OrderBookUpdate {
 export declare function useRealtimeTrade({ symbol, enabled, onTick, onCandle, }: UseRealtimeTradeOptions): {
     tick: RealtimeTick | null;
     connected: boolean;
+    reconnecting: boolean;
     error: string | null;
     orderbook: OrderBookUpdate | null;
 };

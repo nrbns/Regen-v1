@@ -88,7 +88,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }) {
             // Stream AI response
             await ipc.redix.stream(query, {
                 sessionId: `ai-panel-${Date.now()}`,
-            }, chunk => {
+            }, (chunk) => {
                 if (chunk.type === 'token' && chunk.text) {
                     setResponse(prev => prev + chunk.text);
                 }

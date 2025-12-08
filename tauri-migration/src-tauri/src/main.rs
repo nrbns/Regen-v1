@@ -14,6 +14,8 @@ use urlencoding;
 use chrono::{Local, Duration as ChronoDuration, Datelike};
 use std::collections::HashMap;
 use sysinfo::System;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 mod agent;
 mod db;
@@ -25,6 +27,9 @@ mod phase2_commands;
 mod cef_host;
 mod adblock;
 mod bus_bridge;
+mod llama;
+#[path = "llama-server.rs"]
+mod llama_server;
 
 // Production-ready API modules
 pub mod api;
@@ -1278,6 +1283,10 @@ fn main() {
     // Load .env file if it exists (for API keys: OPENAI_API_KEY, ANTHROPIC_API_KEY)
     let _ = dotenv::dotenv();
     
+    // Initialize llama model manager state
+    let llama_manager = Arc::new(Mutex::new(llama::LlamaModelManager::new()));
+    let llama_server_manager = Arc::new(Mutex::new(llama_server::LlamaServerManager::new()));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -1287,6 +1296,21 @@ fn main() {
             std::env::set_var("OLLAMA_ORIGINS", "*");
             std::env::set_var("OLLAMA_HOST", "127.0.0.1:11434");
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
+            
+            // Download handler - handle file downloads from webview
+            let app_handle = app.handle().clone();
+            if let Some(window) = app.get_webview_window("main") {
+                window.listen("tauri://file-drop", move |event| {
+                    // Handle file drops if needed
+                });
+                
+                // Listen for download events (Tauri v2 handles downloads differently)
+                // For now, downloads will be handled via IPC commands if needed
+                #[cfg(target_os = "windows")]
+                {
+                    // Windows-specific download handling can be added here if needed
+                }
+            }
             
             // Start WebSocket server for real-time agent streaming
             // Use tauri::async_runtime to spawn in the correct runtime context
@@ -1535,7 +1559,24 @@ fn main() {
 
             Ok(())
         })
+        .manage(llama_manager.clone())
+        .manage(llama_server_manager.clone())
         .invoke_handler(tauri::generate_handler![
+            // Llama on-device AI commands
+            llama::check_ondevice_model,
+            llama::load_ondevice_model,
+            llama::get_model_info,
+            llama::set_threads,
+            llama::set_context_size,
+            llama::ondevice_generate,
+            llama::get_model_memory_usage_mb,
+            llama::unload_ondevice_model,
+            llama::ondevice_summarize,
+            llama_server::start_llama_server,
+            llama_server::stop_llama_server,
+            llama_server::get_llama_server_status,
+            llama::ondevice_translate,
+            llama::ondevice_detect_intent,
             // PR: Fix tab switch - Add commands for iframe blocked fallback
             navigate_main_webview,
             open_external,

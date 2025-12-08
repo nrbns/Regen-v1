@@ -3,7 +3,6 @@
  * BullMQ + Redis for job queue and workflow execution
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { Queue, Worker } = require('bullmq');
 
 const log = {

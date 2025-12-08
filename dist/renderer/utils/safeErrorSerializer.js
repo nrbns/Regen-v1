@@ -20,7 +20,7 @@ export function safeErrorString(error) {
             // Try to serialize with circular reference handling
             return JSON.stringify(error, getCircularReplacer(), 2);
         }
-        catch (e) {
+        catch {
             // If that fails, try to extract useful info
             try {
                 const errorObj = error;

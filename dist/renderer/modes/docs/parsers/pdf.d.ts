@@ -1,1 +1,3 @@
-export declare function parsePdfFile(file: File): Promise<string>;
+export declare function parsePdfFile(file: File, options?: {
+    useOCR?: boolean;
+}): Promise<string>;

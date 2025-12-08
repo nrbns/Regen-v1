@@ -3,7 +3,6 @@
  * Wraps Regen message handling with real-time streaming
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const { v4: uuidv4 } = require('uuid');
 const { sendToClient } = require('./websocket-server');
 const { handleMessage } = require('../../electron/services/regen/core');

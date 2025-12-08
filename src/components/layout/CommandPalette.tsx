@@ -268,12 +268,12 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     if (containers.length === 0) {
       ipc.containers
         .list()
-        .then((list) => {
+        .then((list: any) => {
           if (!cancelled && Array.isArray(list)) {
             setContainers(list as ContainerInfo[]);
           }
         })
-        .catch((error) => {
+        .catch((error: any) => {
           console.warn('[CommandPalette] Failed to load containers:', error);
         });
     }

@@ -22,7 +22,7 @@ Answer only with a JSON: {"score": 9, "one_line_why": "..."}
 Answer to evaluate:
 ${answer}
 
-Query: ${query}`;
+Query: ${query}
 
 1. **Surprise Factor** (1-10): How surprising or unexpected is this information?
 2. **Novelty** (1-10): How new or cutting-edge is this insight?

@@ -101,6 +101,8 @@ export declare class StagehandAPI {
     navigate(url: string): Promise<void>;
     /**
      * Evaluate JavaScript in page context
+     * SECURITY: This is inherently unsafe but required for browser automation.
+     * Only use with trusted scripts from the automation system.
      */
     evaluate(script: string): Promise<any>;
     /**

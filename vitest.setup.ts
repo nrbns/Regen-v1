@@ -5,6 +5,24 @@
 
 import { vi } from 'vitest';
 
+// Mock MeiliSearch to prevent unhandled promise rejections during tests
+vi.mock('./src/lib/meili', () => ({
+  indexDocuments: vi.fn(() => Promise.resolve()),
+  ensureIndex: vi.fn(() => Promise.resolve()),
+  checkMeiliSearch: vi.fn(() => Promise.resolve(false)),
+  searchMeili: vi.fn(() => Promise.resolve({ hits: [], limit: 0, offset: 0, processingTimeMs: 0, query: '' })),
+}));
+
+// Mock meiliIndexer service to prevent async initialization during tests
+vi.mock('./src/services/meiliIndexer', () => ({
+  indexTab: vi.fn(() => Promise.resolve()),
+  indexTabs: vi.fn(() => Promise.resolve()),
+  indexResearch: vi.fn(() => Promise.resolve()),
+  indexNote: vi.fn(() => Promise.resolve()),
+  initMeiliIndexing: vi.fn(() => Promise.resolve()),
+  setIndexingEnabled: vi.fn(),
+}));
+
 // Mock framer-motion - MUST be hoisted before any component imports
 // This prevents React context errors when testing components with framer-motion
 vi.mock('framer-motion', async () => {

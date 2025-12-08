@@ -1,11 +1,13 @@
 /**
  * Trade Signal Service - Telepathy Upgrade Phase 2
  * WebSocket push for instant trade signals (replaces 30s polling)
- * Push the moment scanner detects signals
+ * Phase 1, Day 9: Enhanced with SSE fallback and auto-reconnect
  */
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://127.0.0.1:18080';
 class TradeSignalService {
     ws = null;
+    sseFallback = null;
+    useSSE = false; // Phase 1, Day 9: Fallback to SSE if WebSocket fails
     callbacks = new Set();
     reconnectAttempts = 0;
     maxReconnectAttempts = 10;
@@ -93,11 +95,69 @@ class TradeSignalService {
             this.ws.onclose = () => {
                 console.log('[TradeSignalService] WebSocket closed');
                 this.isConnected = false;
-                this.scheduleReconnect();
+                // Phase 1, Day 9: Try SSE fallback if WebSocket fails
+                if (this.reconnectAttempts >= 3 && !this.useSSE) {
+                    console.log('[TradeSignalService] Switching to SSE fallback');
+                    this.useSSE = true;
+                    this.connectSSE();
+                }
+                else {
+                    this.scheduleReconnect();
+                }
             };
         }
         catch (error) {
             console.error('[TradeSignalService] Failed to create WebSocket', error);
+            // Phase 1, Day 9: Try SSE fallback immediately on error
+            if (!this.useSSE) {
+                console.log('[TradeSignalService] Switching to SSE fallback');
+                this.useSSE = true;
+                this.connectSSE();
+            }
+            else {
+                this.scheduleReconnect();
+            }
+        }
+    }
+    /**
+     * Phase 1, Day 9: Connect via SSE as fallback
+     */
+    connectSSE() {
+        if (this.sseFallback) {
+            return; // Already connected
+        }
+        try {
+            const { getSSESignalService } = require('./sseSignalService');
+            this.sseFallback = getSSESignalService();
+            // Subscribe to trade signals via SSE
+            this.subscribedSymbols.forEach(symbol => {
+                const unsubscribe = this.sseFallback.subscribe(`trade_signals:${symbol}`, (signal) => {
+                    if (signal.type === 'trade_signal' && signal.action) {
+                        const tradeSignal = {
+                            symbol: signal.symbol || symbol,
+                            action: signal.action,
+                            confidence: signal.confidence || 0,
+                            reason: signal.reason || '',
+                            timestamp: signal.timestamp,
+                        };
+                        // Notify all callbacks
+                        this.callbacks.forEach(cb => {
+                            try {
+                                cb(tradeSignal);
+                            }
+                            catch (error) {
+                                console.error('[TradeSignalService] Callback error', error);
+                            }
+                        });
+                    }
+                });
+            });
+            this.isConnected = true;
+            this.reconnectAttempts = 0;
+            console.log('[TradeSignalService] Connected via SSE');
+        }
+        catch (error) {
+            console.error('[TradeSignalService] Failed to connect via SSE', error);
             this.scheduleReconnect();
         }
     }
@@ -135,7 +195,7 @@ class TradeSignalService {
         }, delay);
     }
     /**
-     * Disconnect from WebSocket
+     * Disconnect from WebSocket/SSE
      */
     disconnect() {
         if (this.reconnectTimeout) {
@@ -146,7 +206,12 @@ class TradeSignalService {
             this.ws.close();
             this.ws = null;
         }
+        if (this.sseFallback) {
+            this.sseFallback.disconnect();
+            this.sseFallback = null;
+        }
         this.isConnected = false;
+        this.useSSE = false;
     }
 }
 // Singleton instance

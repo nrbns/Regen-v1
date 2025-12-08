@@ -40,8 +40,9 @@ export class AIEngine {
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' ? window.__OB_API_BASE__ : '');
 
-  // Rate limiting: max 2 concurrent AI requests to prevent overload
-  private readonly requestQueue = new PQueue({ concurrency: 2 });
+  // Rate limiting: max 4 concurrent AI requests for parallel execution
+  // Increased from 2 to 4 to support parallel reasoning + summarization
+  private readonly requestQueue = new PQueue({ concurrency: 4 });
 
   // Provider chain: try in order, fallback to next on failure
   private readonly providerChain: LLMProvider[] = ['openai', 'anthropic', 'ollama'];
@@ -57,7 +58,7 @@ export class AIEngine {
     // Save state before running
     this.saveState(request);
 
-    // Use queue to limit concurrency (max 2 concurrent requests)
+    // Use queue to limit concurrency (max 4 concurrent requests for parallel execution)
     return (await this.requestQueue.add(async (): Promise<AITaskResult> => {
       // Try backend first
       const backendResult = await this.callBackendTask(request, onStream);
@@ -71,6 +72,26 @@ export class AIEngine {
       this.saveState(request, localResult);
       return localResult;
     })) as AITaskResult;
+  }
+
+  /**
+   * Run multiple AI tasks in parallel (e.g., reasoning + summarization)
+   * This allows independent tasks to execute simultaneously for faster responses
+   */
+  async runParallelTasks(
+    requests: AITaskRequest[],
+    onStream?: (index: number, event: Parameters<StreamHandler>[0]) => void
+  ): Promise<AITaskResult[]> {
+    if (!requests.length) {
+      return [];
+    }
+
+    // Execute all tasks in parallel (queue handles concurrency)
+    const promises = requests.map((request, index) =>
+      this.runTask(request, onStream ? (event) => onStream(index, event) : undefined)
+    );
+
+    return Promise.all(promises);
   }
 
   private async callBackendTask(

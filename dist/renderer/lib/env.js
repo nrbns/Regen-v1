@@ -1,3 +1,10 @@
+/**
+ * Environment Detection
+ * Detects runtime environment (Tauri, Web, Electron, etc.)
+ */
+/**
+ * Get environment variable (works in both Node and Vite)
+ */
 export const getEnvVar = (key) => {
     if (typeof process !== 'undefined' && process?.env && process.env[key] !== undefined) {
         return process.env[key];
@@ -9,49 +16,36 @@ export const getEnvVar = (key) => {
     }
     return undefined;
 };
-export const isDevEnv = () => {
-    const nodeMode = getEnvVar('NODE_ENV');
-    if (nodeMode) {
-        return nodeMode === 'development';
-    }
-    const viteMode = getEnvVar('MODE');
-    return viteMode === 'development';
-};
-export const isTauriRuntime = () => {
-    if (typeof window === 'undefined') {
+/**
+ * Check if running in Tauri runtime
+ */
+export function isTauriRuntime() {
+    if (typeof window === 'undefined')
         return false;
-    }
-    // Check for Tauri runtime
-    return !!window.__TAURI__;
-};
-export const isElectronRuntime = () => {
-    if (typeof window === 'undefined') {
+    return typeof window.__TAURI__ !== 'undefined';
+}
+/**
+ * Check if running in Electron
+ */
+export function isElectronRuntime() {
+    if (typeof window === 'undefined')
         return false;
-    }
-    // Check for Tauri first (Tauri also has IPC)
-    if (isTauriRuntime()) {
-        return false; // Tauri is not Electron
-    }
-    // Check for IPC bridge (most reliable indicator)
-    const maybeIpc = window.ipc;
-    if (maybeIpc && typeof maybeIpc.invoke === 'function') {
-        return true;
-    }
-    // Check for legacy electron API
-    if (window.electron) {
-        return true;
-    }
-    // Check for user agent (fallback)
-    if (typeof navigator !== 'undefined' && navigator.userAgent) {
-        return navigator.userAgent.includes('Electron');
-    }
-    return false;
-};
+    return typeof window.electron !== 'undefined' ||
+        typeof window.require !== 'undefined';
+}
+/**
+ * Check if running in browser
+ */
+export function isBrowserRuntime() {
+    return typeof window !== 'undefined' &&
+        !isTauriRuntime() &&
+        !isElectronRuntime();
+}
 /**
  * Check if running in pure web mode (not Electron, not Tauri)
  * This is the authoritative check for whether backend services are available
  */
-export const isWebMode = () => {
+export function isWebMode() {
     if (typeof window === 'undefined') {
         return false; // SSR - assume not web mode
     }
@@ -65,4 +59,31 @@ export const isWebMode = () => {
     }
     // If neither Electron nor Tauri, we're in web mode
     return true;
-};
+}
+/**
+ * Check if running in development mode
+ */
+export function isDevEnv() {
+    const nodeMode = getEnvVar('NODE_ENV');
+    if (nodeMode) {
+        return nodeMode === 'development';
+    }
+    const viteMode = getEnvVar('MODE');
+    return viteMode === 'development';
+}
+/**
+ * Check if running in production mode
+ */
+export function isProductionEnv() {
+    return import.meta.env.PROD || process.env.NODE_ENV === 'production';
+}
+/**
+ * Get runtime type
+ */
+export function getRuntimeType() {
+    if (isTauriRuntime())
+        return 'tauri';
+    if (isElectronRuntime())
+        return 'electron';
+    return 'browser';
+}

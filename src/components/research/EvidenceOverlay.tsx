@@ -41,7 +41,7 @@ export function EvidenceOverlay({
     const highlightEvidence = async () => {
       try {
         const tabs = await ipc.tabs.list();
-        const activeTab = tabs.find(t => t.id === activeId);
+        const activeTab = tabs.find((t: any) => t.id === activeId);
         if (!activeTab || !activeTab.url) return;
 
         const sourceUrl = new URL(source.url);

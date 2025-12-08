@@ -453,7 +453,7 @@ export function OmniDesk({ variant = 'overlay', forceShow = false, useChromeStyl
                     if (tabs.length > 0) {
                         // Session has tabs, they should be visible now
                         // Activate the first tab if none is active
-                        const activeTab = tabs.find(t => t.active);
+                        const activeTab = tabs.find((t) => t.active);
                         if (!activeTab && tabs[0]) {
                             await ipc.tabs.activate({ id: tabs[0].id });
                         }

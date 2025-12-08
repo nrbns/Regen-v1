@@ -76,7 +76,7 @@ async function analyzeWithLocalVision(images, prompt) {
     );
 
     return response.data.response;
-  } catch (error) {
+  } catch {
     // Fallback to text-only if vision fails
     console.warn('[VisionProvider] Vision analysis failed, using text-only');
     return await callLocalLLM(prompt, { model: 'llama3.1' });
@@ -137,6 +137,9 @@ async function analyzeWithPoe(images, prompt) {
   console.warn('[VisionProvider] Poe vision not implemented, using text-only');
   return prompt; // Placeholder
 }
+
+
+
 
 
 

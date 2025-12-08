@@ -163,17 +163,17 @@ export function createCollabWebSocketServer(httpServer) {
 /**
  * Broadcast message to all clients in a room
  */
-function broadcastToRoom(roomId, message, exclude = null) {
+function broadcastToRoom(_roomId, message, _exclude = null) {
   // In a full implementation, you'd track all WebSocket connections per room
   // For now, this is a placeholder
-  const messageStr = JSON.stringify(message);
+  const _messageStr = JSON.stringify(message);
   // Would broadcast to all clients in room except exclude
 }
 
 /**
  * Broadcast awareness updates
  */
-function broadcastAwareness(roomId) {
+function broadcastAwareness(_roomId) {
   // Would broadcast cursor positions, selections, etc.
 }
 

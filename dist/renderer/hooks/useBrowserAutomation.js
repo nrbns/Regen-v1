@@ -114,11 +114,11 @@ export function useBrowserAutomation(options = {}) {
                                 wsRef.current.onmessage = originalOnMessage;
                             }
                         }
-                        else if (originalOnMessage) {
+                        else if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (err) {
+                    catch (_err) {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -144,11 +144,11 @@ export function useBrowserAutomation(options = {}) {
                                 wsRef.current.onmessage = originalOnMessage;
                             }
                         }
-                        else if (originalOnMessage) {
+                        else if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (err) {
+                    catch (_err) {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -174,11 +174,11 @@ export function useBrowserAutomation(options = {}) {
                                 wsRef.current.onmessage = originalOnMessage;
                             }
                         }
-                        else if (originalOnMessage) {
+                        else if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (err) {
+                    catch (_err) {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -204,11 +204,11 @@ export function useBrowserAutomation(options = {}) {
                                 wsRef.current.onmessage = originalOnMessage;
                             }
                         }
-                        else if (originalOnMessage) {
+                        else if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (err) {
+                    catch (_err) {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }

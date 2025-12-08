@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import type { PrivacyAuditSummary } from './ipc-events';
+import { ipcEvents } from './ipc-events';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './env';
 import apiClient from './api-client';
 import type { EcoImpactForecast } from '../types/ecoImpact';
@@ -766,7 +767,7 @@ export async function ipcCall<TRequest, TResponse = unknown>(
 /**
  * Typed IPC client with pre-configured channels
  */
-export const ipc = {
+export const ipc: any = {
   windowControl: {
     toggleFullscreen: (force?: boolean) =>
       ipcCall<{ fullscreen?: boolean }, { success: boolean; fullscreen: boolean }>(
@@ -2987,6 +2988,8 @@ export const ipc = {
         }
       >('regen:trade:confirm', payload),
   },
+  // Event system for real-time updates
+  events: ipcEvents,
 };
 
 type ConsentVaultEntry = {

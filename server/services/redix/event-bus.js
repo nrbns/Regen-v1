@@ -3,7 +3,6 @@
  * Real-time Pub/Sub for zero-latency communication
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const redis = require('../../config/redis-client');
 
 const log = {

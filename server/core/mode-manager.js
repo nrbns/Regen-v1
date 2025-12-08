@@ -8,7 +8,7 @@
 import os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import axios from 'axios';
+// import axios from 'axios'; // Not currently used
 
 const execAsync = promisify(exec);
 
@@ -88,6 +88,7 @@ export function isOffline() {
 export function isOnline() {
   return !IS_OFFLINE;
 }
+
 
 
 

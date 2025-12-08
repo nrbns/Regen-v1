@@ -1,0 +1,69 @@
+{
+  "common": {
+    "search": "खोजें",
+    "searchPlaceholder": "वेब खोजें...",
+    "cancel": "रद्द करें",
+    "save": "सहेजें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "close": "बंद करें",
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "retry": "पुनः प्रयास करें",
+    "success": "सफल"
+  },
+  "modes": {
+    "research": "अनुसंधान",
+    "trade": "ट्रेडिंग",
+    "browse": "ब्राउज़ करें",
+    "docs": "दस्तावेज़",
+    "games": "गेम्स"
+  },
+  "search": {
+    "title": "खोज",
+    "placeholder": "वेब खोजें...",
+    "noResults": "कोई परिणाम नहीं मिला",
+    "results": "परिणाम",
+    "results_one": "परिणाम",
+    "results_other": "परिणाम",
+    "cached": "कैश किया गया",
+    "searching": "खोज रहे हैं...",
+    "summarize": "सारांश",
+    "summarizing": "सारांश बना रहे हैं..."
+  },
+  "agent": {
+    "title": "एजेंट कंसोल",
+    "queryPlaceholder": "कुछ भी पूछें...",
+    "executing": "निष्पादित कर रहे हैं...",
+    "completed": "पूर्ण",
+    "failed": "असफल"
+  },
+  "research": {
+    "title": "अनुसंधान",
+    "startResearch": "अनुसंधान शुरू करें",
+    "researching": "अनुसंधान कर रहे हैं...",
+    "noResults": "कोई अनुसंधान परिणाम नहीं मिला",
+    "sources": "स्रोत",
+    "summary": "सारांश"
+  },
+  "settings": {
+    "title": "सेटिंग्स",
+    "language": "भाषा",
+    "appearance": "रूप",
+    "privacy": "गोपनीयता",
+    "general": "सामान्य"
+  },
+  "tabs": {
+    "newTab": "नया टैब",
+    "closeTab": "टैब बंद करें",
+    "reload": "पुनः लोड करें",
+    "noTabs": "कोई टैब खुला नहीं है"
+  },
+  "errors": {
+    "somethingWentWrong": "कुछ गलत हो गया",
+    "tryAgain": "पुनः प्रयास करें",
+    "networkError": "नेटवर्क त्रुटि",
+    "permissionDenied": "अनुमति अस्वीकृत"
+  }
+}
+

@@ -133,7 +133,7 @@ ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', (pa
   if (!state.policies[profileId] && !policy) {
     ipc.profiles
       .getPolicy(profileId)
-      .then((policyResponse) => {
+      .then((policyResponse: any) => {
         useProfileStore.setState((prev) => ({
           policies: {
             ...prev.policies,
@@ -141,7 +141,7 @@ ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', (pa
           },
         }));
       })
-      .catch((error) => console.warn('[Profiles] Failed to refresh policy', error));
+      .catch((error: any) => console.warn('[Profiles] Failed to refresh policy', error));
   }
 });
 

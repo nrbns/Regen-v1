@@ -149,13 +149,17 @@ export function FeaturesMenu() {
                     key={feature.id}
                     type="button"
                     onClick={e => {
-                      (e as any).stopImmediatePropagation();
                       e.stopPropagation();
+                      if (e.nativeEvent?.stopImmediatePropagation) {
+                        e.nativeEvent.stopImmediatePropagation();
+                      }
                       handleFeatureClick(feature.id);
                     }}
                     onMouseDown={e => {
-                      (e as any).stopImmediatePropagation();
                       e.stopPropagation();
+                      if (e.nativeEvent?.stopImmediatePropagation) {
+                        e.nativeEvent.stopImmediatePropagation();
+                      }
                     }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
                     style={{ zIndex: 10011, isolation: 'isolate' }}

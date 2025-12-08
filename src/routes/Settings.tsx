@@ -3,8 +3,7 @@
  * Tabs: Accounts, Appearance, APIs, Bookmarks, Workspaces, Safety, Shortcuts
  */
 
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import {
   User,
   Palette,
@@ -15,6 +14,12 @@ import {
   Keyboard,
   Zap,
   Activity,
+  Settings2,
+  Trophy,
+  FileText,
+  Video,
+  Globe,
+  // Bot, // Unused
 } from 'lucide-react';
 import { useSettingsStore } from '../state/settingsStore';
 import { useExternalApisStore } from '../state/externalApisStore';
@@ -24,10 +29,13 @@ import { crashReporter } from '../core/crash-reporting';
 import { BookmarksPanel } from '../components/bookmarks/BookmarksPanel';
 import { WorkspacesPanel } from '../components/WorkspacesPanel';
 import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
-import { EXTERNAL_APIS, getApisForMode, type ExternalAPI } from '../config/externalApis';
-import { formatDistanceToNow } from 'date-fns';
-import { PrivacyDashboard } from '../components/integrations/PrivacyDashboard';
-import { useTheme } from '../ui/theme';
+// Optional components - only available in tauri-migration, removed for now
+import { EXTERNAL_APIS } from '../config/externalApis';
+import { RedixModeToggle } from '../components/redix/RedixModeToggle';
+// import { getRedixConfig } from '../lib/redix-mode'; // Unused
+import { LanguageSelector } from '../components/settings/LanguageSelector';
+import { ModelDownloader } from '../components/settings/ModelDownloader';
+import { SettingsPersistence } from '../components/settings/SettingsPersistence';
 
 // Helper Components
 function SectionCard({
@@ -43,11 +51,11 @@ function SectionCard({
 }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6">
-      <div className="mb-4 flex items-center gap-3">
+      <div className="flex items-center gap-3 mb-4">
         {Icon && <Icon size={20} className="text-slate-400" />}
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
-          {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+          {description && <p className="text-sm text-slate-400 mt-1">{description}</p>}
         </div>
       </div>
       <div className="space-y-4">{children}</div>
@@ -69,8 +77,8 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex-1">
-        <label className="cursor-pointer text-sm font-medium text-slate-200">{label}</label>
-        {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
+        <label className="text-sm font-medium text-slate-200 cursor-pointer">{label}</label>
+        {description && <p className="text-xs text-slate-400 mt-1">{description}</p>}
       </div>
       <button
         type="button"
@@ -109,44 +117,35 @@ const TABS = [
   { id: 'workspaces', label: 'Workspaces', icon: FolderOpen },
   { id: 'safety', label: 'Safety', icon: Shield },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'system', label: 'System', icon: Settings2 },
+  { id: 'skills', label: 'Skills', icon: Zap },
+  { id: 'bounty', label: 'Bounty', icon: Trophy },
+  { id: 'resume', label: 'Resume Fixer', icon: FileText },
+  { id: 'recorder', label: 'Clip Recorder', icon: Video },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
 
 export default function SettingsRoute() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get('tab') as TabId | null;
-  const [activeTab, setActiveTab] = useState<TabId>(
-    tabParam && TABS.some(t => t.id === tabParam) ? tabParam : 'accounts'
-  );
-
-  useEffect(() => {
-    if (tabParam && TABS.some(t => t.id === tabParam)) {
-      setActiveTab(tabParam);
-    }
-  }, [tabParam]);
-
-  const handleTabChange = (tabId: TabId) => {
-    setActiveTab(tabId);
-    setSearchParams({ tab: tabId });
-  };
+  const [activeTab, setActiveTab] = useState<TabId>('accounts');
+  const settings = useSettingsStore();
 
   return (
     <div className="flex h-full w-full bg-slate-950 text-slate-100">
       {/* Sidebar */}
       <div className="w-64 border-r border-slate-800 bg-slate-900/50 p-4">
-        <h2 className="mb-4 text-lg font-semibold">Settings</h2>
+        <h2 className="text-lg font-semibold mb-4">Settings</h2>
         <nav className="space-y-1">
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border border-blue-500/40 bg-blue-600/20 text-blue-300'
-                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
+                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
                 }`}
               >
                 <Icon size={18} />
@@ -174,26 +173,92 @@ export default function SettingsRoute() {
         )}
         {activeTab === 'safety' && <SafetyPanel />}
         {activeTab === 'shortcuts' && <ShortcutsHelp />}
+        {activeTab === 'system' && (
+          <div className="max-w-4xl space-y-6">
+            <SectionCard title="System Settings" icon={Settings2}>
+              <p className="text-sm text-slate-400 mb-4">System configuration and diagnostics.</p>
+              <div className="space-y-4">
+                <RedixModeToggle showLabel={true} compact={false} />
+                <div className="pt-4 border-t border-slate-800">
+                  <h4 className="text-sm font-semibold text-white mb-2">Privacy Mode</h4>
+                  <ToggleRow
+                    label="Enable Privacy Mode"
+                    checked={settings.privacy.trackerProtection && settings.privacy.adBlockEnabled}
+                    onChange={checked =>
+                      settings.updatePrivacy({
+                        trackerProtection: checked,
+                        adBlockEnabled: checked,
+                      })
+                    }
+                    description="Block trackers and ads for enhanced privacy"
+                  />
+                </div>
+              </div>
+            </SectionCard>
+            <SectionCard title="AI Models" icon={Zap}>
+              <ModelDownloader />
+            </SectionCard>
+            <SectionCard title="Data Management" icon={Activity}>
+              <SettingsPersistence />
+            </SectionCard>
+          </div>
+        )}
+        {activeTab === 'skills' && (
+          <div className="h-full">
+            <SectionCard title="Skills Store" icon={Zap}>
+              <p className="text-sm text-slate-400">Skills store coming soon.</p>
+            </SectionCard>
+          </div>
+        )}
+        {activeTab === 'bounty' && (
+          <div className="h-full">
+            <SectionCard title="Bounty Submission" icon={Trophy}>
+              <p className="text-sm text-slate-400">Bounty submission coming soon.</p>
+            </SectionCard>
+          </div>
+        )}
+        {activeTab === 'resume' && (
+          <div className="h-full">
+            <SectionCard title="Resume Fixer" icon={FileText}>
+              <p className="text-sm text-slate-400">Resume fixer coming soon.</p>
+            </SectionCard>
+          </div>
+        )}
+        {activeTab === 'recorder' && (
+          <div className="h-full">
+            <SectionCard title="Clip Recorder" icon={Video}>
+              <p className="text-sm text-slate-400">Clip recorder coming soon.</p>
+            </SectionCard>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Accounts Panel
+// Panel Components
 function AccountsPanel() {
   const settings = useSettingsStore();
   const account = settings.account;
-
   return (
-    <div className="space-y-6">
-      <SectionCard title="Profile" icon={User}>
+    <div className="max-w-4xl space-y-6">
+      <SectionCard title="Account Settings" icon={User}>
         <LabeledField label="Display Name">
           <input
             type="text"
             value={account?.displayName || ''}
             onChange={e => settings.updateAccount({ displayName: e.target.value })}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
             placeholder="Your name"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+        </LabeledField>
+        <LabeledField label="Email">
+          <input
+            type="email"
+            value={account?.email || ''}
+            onChange={e => settings.updateAccount({ email: e.target.value })}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+            placeholder="your@email.com"
           />
         </LabeledField>
         <LabeledField label="Avatar Color">
@@ -201,44 +266,37 @@ function AccountsPanel() {
             type="color"
             value={account?.avatarColor || '#8b5cf6'}
             onChange={e => settings.updateAccount({ avatarColor: e.target.value })}
-            className="h-10 w-20 cursor-pointer rounded"
+            className="h-10 w-20 rounded cursor-pointer"
           />
         </LabeledField>
-      </SectionCard>
-
-      <SectionCard title="Account Status" icon={User}>
-        <div className="text-sm text-slate-400">
-          <p>Local account (no sign-in required)</p>
-          <p className="mt-2 text-xs">Your data is stored locally on this device.</p>
-        </div>
       </SectionCard>
     </div>
   );
 }
 
-// Appearance Panel
 function AppearancePanel() {
   const settings = useSettingsStore();
   const appearance = settings.appearance;
-  const { preference, setPreference } = useTheme();
-
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-6">
+      <SectionCard title="Language" icon={Globe}>
+        <LanguageSelector />
+      </SectionCard>
+      
       <SectionCard title="Theme" icon={Palette}>
         <LabeledField label="Color Scheme">
           <select
-            value={preference || 'system'}
-            onChange={e => setPreference(e.target.value as 'light' | 'dark' | 'system')}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            value={appearance.theme || 'dark'}
+            onChange={e =>
+              settings.updateAppearance({ theme: e.target.value as 'light' | 'dark' | 'system' })
+            }
+            className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
-            <option value="system">System (Auto)</option>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
+            <option value="system">System</option>
           </select>
         </LabeledField>
-        <p className="text-xs text-slate-400">
-          System mode automatically switches between light and dark based on your OS preference
-        </p>
         <ToggleRow
           label="Compact UI"
           checked={appearance.compactUI || false}
@@ -252,57 +310,26 @@ function AppearancePanel() {
           description="Use Google Chrome-style new tab page"
         />
       </SectionCard>
-
-      <SectionCard title="Display" icon={Palette}>
-        <LabeledField label="Font Size">
-          <select
-            value={appearance.fontSize || 'medium'}
-            onChange={e =>
-              settings.updateAppearance({ fontSize: e.target.value as 'small' | 'medium' | 'large' })
-            }
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          >
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-        </LabeledField>
-        <ToggleRow
-          label="Smooth Scrolling"
-          checked={appearance.smoothScrolling ?? true}
-          onChange={checked => settings.updateAppearance({ smoothScrolling: checked })}
-          description="Enable smooth scrolling animations"
-        />
-        <ToggleRow
-          label="Reduced Motion"
-          checked={appearance.reducedMotion || false}
-          onChange={checked => settings.updateAppearance({ reducedMotion: checked })}
-          description="Reduce animations for better performance"
-        />
-      </SectionCard>
     </div>
   );
 }
 
-// APIs Panel
 function ApisPanel() {
-  const { apis, setApiEnabled, setApiKey } = useExternalApisStore();
+  const { apis: _apis, setApiKey, setApiEnabled, getApiConfig } = useExternalApisStore();
   const [selectedMode, setSelectedMode] = useState<'trade' | 'research' | 'threat' | 'image'>(
     'research'
   );
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  const modeApis = getApisForMode(selectedMode);
+  const modeApis = EXTERNAL_APIS.filter(api => api.mode === selectedMode);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-6">
       {/* Mode Selector */}
-      <div className="mb-6 flex gap-2">
+      <div className="flex gap-2 mb-6">
         {(['research', 'trade', 'threat', 'image'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => setSelectedMode(mode)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               selectedMode === mode
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -319,41 +346,24 @@ function ApisPanel() {
         icon={Plug}
       >
         <div className="space-y-3">
-          {modeApis.map((api: ExternalAPI) => {
-            const apiState = apis[api.id];
-            const health = apiState?.health;
-            const isEnabled = apiState?.enabled ?? false;
-            const needsApiKey = api.authType === 'apiKey' && !apiState?.apiKey;
+          {modeApis.map(api => {
+            const apiConfig = getApiConfig(api.id);
+            const isEnabled = apiConfig?.enabled ?? false;
+            const apiKey = apiConfig?.apiKey || '';
 
             return (
-              <div key={api.id} className="rounded-lg border border-slate-800 bg-slate-800/30 p-4">
-                <div className="mb-3 flex items-start justify-between">
+              <div key={api.id} className="p-4 rounded-lg border border-slate-800 bg-slate-800/30">
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <div className="mb-1 flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-medium text-slate-200">{api.name}</h4>
-                      {needsApiKey && (
-                        <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
+                      {api.authType === 'apiKey' && !apiKey && (
+                        <span className="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-300">
                           Key Required
                         </span>
                       )}
-                      {api.rateLimitPerMin && api.rateLimitPerMin > 100 && (
-                        <span className="rounded bg-blue-500/20 px-2 py-0.5 text-xs text-blue-300">
-                          High Rate Limit
-                        </span>
-                      )}
                     </div>
-                    <p className="mb-2 text-xs text-slate-400">{api.description}</p>
-                    {health && (
-                      <div className="text-xs text-slate-500">
-                        Last success:{' '}
-                        {health.lastSuccess
-                          ? formatDistanceToNow(new Date(health.lastSuccess), { addSuffix: true })
-                          : 'Never'}
-                        {health.requestCount > 0 &&
-                          health.errorCount > 0 &&
-                          ` • Error rate: ${((health.errorCount / health.requestCount) * 100).toFixed(1)}%`}
-                      </div>
-                    )}
+                    <p className="text-xs text-slate-400 mb-2">{api.description}</p>
                   </div>
                   <ToggleRow
                     label=""
@@ -361,15 +371,15 @@ function ApisPanel() {
                     onChange={checked => setApiEnabled(api.id, checked)}
                   />
                 </div>
-                {isEnabled && needsApiKey && (
-                  <div className="mt-3 border-t border-slate-700 pt-3">
+                {isEnabled && api.authType === 'apiKey' && (
+                  <div className="mt-3 pt-3 border-t border-slate-700">
                     <LabeledField label="API Key">
                       <input
                         type="password"
-                        value={apiState?.apiKey || ''}
+                        value={apiKey}
                         onChange={e => setApiKey(api.id, e.target.value)}
                         placeholder={`Enter ${api.name} API key`}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       />
                     </LabeledField>
                     {api.docsUrl && (
@@ -377,7 +387,7 @@ function ApisPanel() {
                         href={api.docsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-1 inline-block text-xs text-blue-400 hover:text-blue-300"
+                        className="text-xs text-blue-400 hover:text-blue-300 mt-1 inline-block"
                       >
                         Get API key →
                       </a>
@@ -389,105 +399,28 @@ function ApisPanel() {
           })}
         </div>
       </SectionCard>
-
-      {/* Diagnostics */}
-      <SectionCard title="API Diagnostics" icon={Activity}>
-        <ToggleRow
-          label="Show Diagnostics"
-          checked={showDiagnostics}
-          onChange={setShowDiagnostics}
-          description="View detailed API health metrics"
-        />
-        {showDiagnostics && <ApiDiagnosticsPanel />}
-      </SectionCard>
     </div>
   );
 }
 
-function ApiDiagnosticsPanel() {
-  const { apis } = useExternalApisStore();
-  const allApis = EXTERNAL_APIS;
-
-  return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-slate-700">
-            <th className="px-3 py-2 text-left text-slate-400">API</th>
-            <th className="px-3 py-2 text-left text-slate-400">Mode</th>
-            <th className="px-3 py-2 text-left text-slate-400">Status</th>
-            <th className="px-3 py-2 text-left text-slate-400">Last Success</th>
-            <th className="px-3 py-2 text-left text-slate-400">Error Rate</th>
-            <th className="px-3 py-2 text-left text-slate-400">Avg Latency</th>
-          </tr>
-        </thead>
-        <tbody>
-          {allApis.map((api: ExternalAPI) => {
-            const apiState = apis[api.id];
-            const health = apiState?.health;
-            const isEnabled = apiState?.enabled ?? false;
-
-            return (
-              <tr key={api.id} className="border-b border-slate-800">
-                <td className="px-3 py-2 text-slate-200">{api.name}</td>
-                <td className="px-3 py-2 text-slate-400">{api.mode}</td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${
-                      isEnabled ? 'bg-green-500/20 text-green-300' : 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {isEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-slate-400">
-                  {health?.lastSuccess
-                    ? formatDistanceToNow(new Date(health.lastSuccess), { addSuffix: true })
-                    : 'Never'}
-                </td>
-                <td className="px-3 py-2 text-slate-400">
-                  {health && health.requestCount > 0
-                    ? `${((health.errorCount / health.requestCount) * 100).toFixed(1)}%`
-                    : 'N/A'}
-                </td>
-                <td className="px-3 py-2 text-slate-400">
-                  {health?.avgLatency ? `${health.avgLatency}ms` : 'N/A'}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// Safety Panel
 function SafetyPanel() {
-  const {
-    capabilities,
-    experimentalToolsEnabled,
-    externalPluginsEnabled,
-    setCapability,
-    setExperimentalTools,
-    setExternalPlugins,
-  } = useCapabilityStore();
-
+  const { capabilities, setCapability, experimentalToolsEnabled, externalPluginsEnabled, setExperimentalTools, setExternalPlugins } = useCapabilityStore();
   const capabilityDescriptions = getCapabilityDescriptions();
   const plugins = pluginRegistry.getAll();
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl space-y-6">
       <SectionCard title="Agent Capabilities" icon={Shield}>
-        <p className="mb-4 text-sm text-slate-400">
+        <p className="text-sm text-slate-400 mb-4">
           Control what OmniAgent can do. Disable capabilities you don't trust.
         </p>
         {Object.entries(capabilities).map(([cap, enabled]) => (
           <ToggleRow
             key={cap}
-            label={capabilityDescriptions[cap as keyof typeof capabilityDescriptions]}
+            label={capabilityDescriptions[cap as keyof typeof capabilityDescriptions] || cap}
             checked={enabled}
             onChange={checked => setCapability(cap as any, checked)}
+            description={`Allow agent to ${cap.replace(/_/g, ' ')}`}
           />
         ))}
       </SectionCard>
@@ -508,7 +441,7 @@ function SafetyPanel() {
       </SectionCard>
 
       <SectionCard title="Plugins" icon={Plug}>
-        <p className="mb-4 text-sm text-slate-400">Manage installed plugins and extensions.</p>
+        <p className="text-sm text-slate-400 mb-4">Manage installed plugins and extensions.</p>
         {plugins.length === 0 ? (
           <p className="text-sm text-slate-500">No plugins installed</p>
         ) : (
@@ -516,7 +449,7 @@ function SafetyPanel() {
             {plugins.map(plugin => (
               <div
                 key={plugin.id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 p-3"
+                className="flex items-center justify-between p-3 rounded-lg border border-slate-800"
               >
                 <div>
                   <p className="text-sm font-medium text-white">{plugin.name}</p>
@@ -540,7 +473,7 @@ function SafetyPanel() {
       </SectionCard>
 
       <SectionCard title="Crash Reporting" icon={Activity}>
-        <p className="mb-4 text-sm text-slate-400">
+        <p className="text-sm text-slate-400 mb-4">
           Help improve Regen by automatically reporting crashes and errors.
         </p>
         <ToggleRow
@@ -549,15 +482,6 @@ function SafetyPanel() {
           onChange={enabled => crashReporter.setEnabled(enabled)}
           description="Automatically send error reports to help improve Regen"
         />
-      </SectionCard>
-
-      {/* Phase 2: Privacy Dashboard */}
-      <SectionCard
-        title="Privacy & Trust Controls"
-        icon={Shield}
-        description="Manage domain trust levels and privacy settings"
-      >
-        <PrivacyDashboard />
       </SectionCard>
     </div>
   );

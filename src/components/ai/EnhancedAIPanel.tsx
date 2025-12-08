@@ -106,7 +106,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
         {
           sessionId: `ai-panel-${Date.now()}`,
         },
-        chunk => {
+        (chunk: any) => {
           if (chunk.type === 'token' && chunk.text) {
             setResponse(prev => prev + chunk.text);
           } else if (chunk.type === 'done') {

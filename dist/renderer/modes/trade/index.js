@@ -14,6 +14,11 @@ import TradesTape from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
 // TradeModeFallback and useResponsive not yet implemented - removed for now
 import { TradeStagehandIntegration } from './stagehand-integration';
+import { SSEConnectionStatusIndicator } from '../../components/realtime/SSEConnectionStatus';
+import { validateSignal } from '../../core/trade/signalGenerator';
+import { getSSESignalService } from '../../services/realtime/sseSignalService';
+import { calculateRiskMetrics } from '../../core/trade/riskMetrics';
+import BrowserView from '../../components/BrowserView';
 const markets = [
     { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
     { name: 'BANKNIFTY', symbol: 'NSE:BANKNIFTY', currency: '₹', exchange: 'NSE' },
@@ -51,6 +56,7 @@ export default function TradePanel() {
     const [lastPrice, setLastPrice] = useState(null);
     const [_lastChange, setLastChange] = useState(null);
     const [_lastUpdate, setLastUpdate] = useState(null);
+    const [useTradingView, setUseTradingView] = useState(false); // Toggle for real TradingView
     // Responsive hooks not yet implemented - using fallback values
     const isMobile = false;
     const isTablet = false;
@@ -79,7 +85,7 @@ export default function TradePanel() {
     }, [selected]);
     // Real-time WebSocket updates
     const [candleHistory, setCandleHistory] = useState([]);
-    const { tick: _tick, connected: wsConnected, orderbook: wsOrderbook, } = useRealtimeTrade({
+    const { tick: _tick, connected: wsConnected, reconnecting: wsReconnecting, orderbook: wsOrderbook, } = useRealtimeTrade({
         symbol: selected.symbol.includes(':') ? selected.symbol.split(':')[1] : selected.symbol,
         enabled: true,
         onTick: tickData => {
@@ -218,18 +224,32 @@ export default function TradePanel() {
             unsubscribe();
         };
     }, [selected.symbol, wsConnected, price]);
-    // Telepathy Upgrade Phase 2: Real-time trade signals via WebSocket (replaces 30s polling)
+    // Phase 1, Day 7 & 9: Enhanced trade signals with SSE fallback and notifications
+    const [signalHistory, setSignalHistory] = useState([]);
+    const [sseConnected, setSseConnected] = useState(false);
     useEffect(() => {
         const signalService = getTradeSignalService();
+        // Phase 1, Day 9: Monitor SSE connection status
+        const sseService = getSSESignalService();
+        const statusUnsubscribe = sseService.onStatusChange((status) => {
+            setSseConnected(status.connected);
+        });
         // Subscribe to real-time trade signals (instant push when detected)
         const unsubscribe = signalService.subscribe(selected.symbol, (signal) => {
-            if (signal.action === 'BUY' || signal.action === 'SELL') {
-                toast.success(`Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`);
+            const config = { enableFallback: true, fallbackInterval: 30000, minConfidence: 0.6 };
+            const validation = validateSignal(signal, config);
+            if (validation.shouldDisplay) {
+                // Phase 1, Day 9: Enhanced notification
+                toast.success(`Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`, {
+                    duration: 8000,
+                });
+                setSignalHistory(prev => [...prev.slice(-9), signal]);
             }
-            console.log('[Trade] Received signal:', signal);
+            console.log('[Trade] Received signal:', signal, validation);
         });
         return () => {
             unsubscribe();
+            statusUnsubscribe();
         };
     }, [selected]);
     // REAL TRADINGVIEW CANDLES — FULLY WORKING
@@ -288,7 +308,7 @@ export default function TradePanel() {
                     setChartLoading(true);
                     try {
                         // Try mock server first
-                        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
+                        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
                         const symbolKey = selected.symbol.includes(':')
                             ? selected.symbol.split(':')[1]
                             : selected.symbol;
@@ -393,18 +413,19 @@ export default function TradePanel() {
             }
         };
     }, []);
-    // Update chart when symbol changes
+    // Phase 1, Day 7: Enhanced chart update with error handling and resize fix
     useEffect(() => {
         if (seriesRef.current && chartRef.current) {
             // Reload candles for new symbol
             const loadCandles = async () => {
                 try {
+                    setChartLoading(true);
                     const realtimeService = getRealtimeMarketDataService();
                     const symbol = selected.symbol.includes(':')
                         ? selected.symbol.split(':')[1]
                         : selected.symbol;
                     const candles = await realtimeService.getHistoricalCandles(symbol, 'D');
-                    if (candles.length > 0 && seriesRef.current) {
+                    if (candles.length > 0 && seriesRef.current && chartRef.current) {
                         const candleData = candles.map(c => ({
                             time: (c.time / 1000),
                             open: c.open,
@@ -413,10 +434,23 @@ export default function TradePanel() {
                             close: c.close,
                         }));
                         seriesRef.current.setData(candleData);
+                        // Phase 1, Day 7: Fix chart resize after data update
+                        if (chartContainerRef.current && chartRef.current) {
+                            chartRef.current.applyOptions({
+                                width: chartContainerRef.current.clientWidth || 800,
+                                height: chartContainerRef.current.clientHeight || 600,
+                            });
+                        }
                     }
                 }
                 catch (error) {
                     console.error('[Trade] Failed to reload candles for new symbol:', error);
+                    toast.error('Failed to load chart data. Retrying...');
+                    // Retry after 2 seconds
+                    setTimeout(loadCandles, 2000);
+                }
+                finally {
+                    setChartLoading(false);
                 }
             };
             loadCandles();
@@ -482,6 +516,15 @@ export default function TradePanel() {
         const estimatedCost = orderPrice * qty;
         const fees = estimatedCost * 0.001; // 0.1% fee
         const marginRequired = orderType === 'market' ? estimatedCost * 0.1 : undefined; // 10% margin for market orders
+        // Phase 1, Day 7: Calculate risk metrics
+        const riskMetrics = calculateRiskMetrics({
+            entryPrice: orderPrice,
+            quantity: qty,
+            stopLoss: sl > 0 ? sl : undefined,
+            takeProfit: tp > 0 ? tp : undefined,
+            orderType: orderType,
+            side,
+        });
         const order = {
             side,
             symbol: selected.name,
@@ -493,6 +536,15 @@ export default function TradePanel() {
             estimatedCost,
             fees,
             marginRequired,
+            // Phase 1, Day 7: Include risk metrics
+            riskMetrics: {
+                riskAmount: riskMetrics.riskAmount,
+                rewardAmount: riskMetrics.rewardAmount,
+                riskRewardRatio: riskMetrics.riskRewardRatio,
+                maxLoss: riskMetrics.maxLoss,
+                maxGain: riskMetrics.maxGain,
+                riskPercentage: riskMetrics.riskPercentage,
+            },
         };
         setPendingOrder(order);
         setShowConfirmModal(true);
@@ -502,36 +554,7 @@ export default function TradePanel() {
             return;
         setIsPlacingOrder(true);
         try {
-            // Try mock server first, then fallback to tradeApi
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4001';
-            const symbolKey = selected.symbol.includes(':')
-                ? selected.symbol.split(':')[1]
-                : selected.symbol;
-            try {
-                const response = await fetch(`${API_BASE}/api/orders`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        symbol: symbolKey,
-                        side: pendingOrder.side,
-                        qty: pendingOrder.quantity,
-                        price: pendingOrder.orderType === 'limit' ? pendingOrder.price : undefined,
-                        type: pendingOrder.orderType,
-                    }),
-                });
-                if (response.ok) {
-                    const result = await response.json();
-                    toast.success(`${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId} | Filled: ${result.filled}`);
-                    setShowConfirmModal(false);
-                    setPendingOrder(null);
-                    setIsPlacingOrder(false);
-                    return;
-                }
-            }
-            catch {
-                console.debug('[Trade] Mock server not available, trying tradeApi');
-            }
-            // Fallback to tradeApi
+            // Use tradeApi directly (it handles backend connection)
             const { tradeApi } = await import('../../lib/api-client');
             const result = await tradeApi.placeOrder({
                 symbol: selected.symbol,
@@ -609,10 +632,17 @@ export default function TradePanel() {
                                 // Trigger reconnection by re-enabling the hook
                                 // The useRealtimeTrade hook should handle reconnection
                                 console.log('[Trade] Retrying connection...');
-                            }, className: "mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700", children: "Retry Connection" })] }) })), !wsConnected && lastPrice !== null && (_jsx("div", { className: "border-b border-yellow-500/40 bg-yellow-500/10 px-4 py-2 text-sm text-yellow-100", children: _jsxs("div", { className: "flex items-center justify-between", children: [_jsx("span", { children: "\u26A0\uFE0F Showing cached data - Connection lost" }), _jsx("button", { onClick: async () => {
+                            }, className: "mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700", children: "Retry Connection" })] }) })), !wsConnected && (lastPrice !== null || wsReconnecting) && (_jsx("div", { className: `border-b px-4 py-2 text-sm ${wsReconnecting
+                    ? 'border-blue-500/40 bg-blue-500/10 text-blue-100'
+                    : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-100'}`, children: _jsxs("div", { className: "flex items-center justify-between", children: [_jsxs("span", { children: [wsReconnecting ? '🔄 Reconnecting...' : '⚠️ Connection lost', lastPrice !== null && ' (Showing cached data)'] }), _jsx("button", { onClick: async () => {
                                 setConnectionError(null);
                                 console.log('[Trade] Retrying connection...');
-                            }, className: "rounded bg-yellow-500/20 px-2 py-1 text-xs hover:bg-yellow-500/30", children: "Retry" })] }) })), _jsxs("div", { className: "sticky top-0 z-30 flex flex-shrink-0 items-center justify-between border-b border-purple-800 bg-black/80 px-4 py-2 backdrop-blur", children: [_jsxs("div", { className: "flex items-center gap-2", children: [_jsx(TrendingUp, { className: "h-5 w-5 text-emerald-400" }), _jsx("h1", { className: "text-sm font-semibold text-white md:text-lg", children: "Trade Mode" })] }), _jsxs("div", { className: "flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1", children: [_jsxs("button", { onClick: () => setMode('Browse'), className: `flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${currentMode === 'Browse'
+                                window.dispatchEvent(new CustomEvent('trade:reconnect'));
+                            }, className: `rounded px-2 py-1 text-xs hover:opacity-80 ${wsReconnecting
+                                ? 'bg-blue-500/20 hover:bg-blue-500/30'
+                                : 'bg-yellow-500/20 hover:bg-yellow-500/30'}`, children: wsReconnecting ? 'Cancel' : 'Retry' })] }) })), _jsxs("div", { className: "sticky top-0 z-30 flex flex-shrink-0 items-center justify-between border-b border-purple-800 bg-black/80 px-4 py-2 backdrop-blur", children: [_jsxs("div", { className: "flex items-center gap-2", children: [_jsx(TrendingUp, { className: "h-5 w-5 text-emerald-400" }), _jsx("h1", { className: "text-sm font-semibold text-white md:text-lg", children: "Trade Mode" }), _jsx(SSEConnectionStatusIndicator, { showDetails: false }), _jsx("button", { onClick: () => setUseTradingView(!useTradingView), className: `ml-4 rounded-lg px-3 py-1 text-xs transition ${useTradingView
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-700/50 text-gray-300 hover:bg-slate-700'}`, title: "Toggle TradingView", children: useTradingView ? 'Custom Chart' : 'TradingView' })] }), _jsxs("div", { className: "flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1", children: [_jsxs("button", { onClick: () => setMode('Browse'), className: `flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${currentMode === 'Browse'
                                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                                     : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'}`, title: "Switch to Browse Mode", children: [_jsx(Globe, { size: 12 }), _jsx("span", { className: "hidden sm:inline", children: "Browse" })] }), _jsxs("button", { onClick: () => setMode('Research'), className: `flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all md:px-3 md:py-1.5 md:text-sm ${currentMode === 'Research'
                                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
@@ -620,7 +650,11 @@ export default function TradePanel() {
                                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                                     : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'}`, title: "Switch to Trade Mode", children: [_jsx(TrendingUp, { size: 12 }), _jsx("span", { className: "hidden sm:inline", children: "Trade" })] })] })] }), _jsx("div", { className: "z-20 flex-shrink-0 bg-gradient-to-r from-purple-800 to-pink-800 p-3 md:p-4", children: _jsx("div", { className: "scrollbar-hide flex gap-2 overflow-x-auto md:gap-3", children: markets.map(m => (_jsxs("button", { onClick: () => setSelected(m), className: `flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 font-bold transition-all md:px-6 md:py-3 ${selected.symbol === m.symbol
                             ? 'scale-110 bg-white/30 shadow-2xl'
-                            : 'bg-white/10 hover:bg-white/20'}`, children: [m.exchange === 'NSE' && _jsx(IndianRupee, { className: "h-3 w-3 md:h-4 md:w-4" }), m.exchange === 'Crypto' && _jsx(Bitcoin, { className: "h-3 w-3 md:h-4 md:w-4" }), (m.exchange === 'NYSE' || m.exchange === 'NASDAQ' || m.exchange === 'Forex') && (_jsx(DollarSign, { className: "h-3 w-3 md:h-4 md:w-4" })), _jsxs("span", { className: "text-xs md:text-sm", children: [m.currency, " ", m.name] })] }, m.symbol))) }) }), _jsx("div", { className: "z-10 flex-shrink-0 border-b border-gray-800 p-4 md:p-8", children: _jsxs("div", { className: "flex flex-col items-start justify-between gap-4 md:flex-row md:items-end", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-4xl font-black md:text-7xl", children: selected.name }), _jsxs("div", { className: `mt-2 text-3xl font-bold md:mt-4 md:text-6xl ${isGreen ? 'text-green-400' : 'text-red-400'}`, children: [selected.currency, price.toLocaleString('en-IN', { minimumFractionDigits: 2 }), _jsxs("span", { className: "ml-3 text-xl md:ml-6 md:text-4xl", children: [isGreen ? '↑' : '↓', " ", change.toFixed(1), " (", ((change / (price - change)) * 100).toFixed(2), "%)"] })] })] }), _jsxs("div", { className: "text-left text-sm text-gray-400 md:text-right md:text-base", children: [_jsxs("div", { children: ["High: ", selected.currency, "25,120"] }), _jsxs("div", { children: ["Low: ", selected.currency, "24,720"] })] })] }) }), _jsxs("div", { className: "grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4", children: [_jsxs("div", { className: "col-span-12 flex flex-col lg:col-span-8", children: [_jsxs("div", { ref: chartContainerRef, className: "relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]", children: [chartLoading && (_jsx("div", { className: "absolute inset-0 z-20 flex items-center justify-center bg-black/50", children: _jsxs("div", { className: "flex flex-col items-center gap-2", children: [_jsx(Loader2, { className: "h-8 w-8 animate-spin text-emerald-400" }), _jsx("span", { className: "text-sm text-gray-400", children: "Loading chart data..." })] }) })), _jsxs("div", { className: "absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm", children: ["1D \u2022 EMA \u2022 RSI \u2022 Volume Profile", wsConnected && _jsx("span", { className: "ml-2 text-green-400", children: "\u25CF Live" })] })] }), _jsx("div", { className: "mt-4", children: _jsx(TradesTape, { trades: recentTrades, symbol: selected.name }) })] }), _jsxs("div", { className: "col-span-12 flex flex-col gap-4 lg:col-span-4", children: [_jsx(OrderBook, { bids: orderBookBids, asks: orderBookAsks, onPriceClick: (price, _side) => {
+                            : 'bg-white/10 hover:bg-white/20'}`, children: [m.exchange === 'NSE' && _jsx(IndianRupee, { className: "h-3 w-3 md:h-4 md:w-4" }), m.exchange === 'Crypto' && _jsx(Bitcoin, { className: "h-3 w-3 md:h-4 md:w-4" }), (m.exchange === 'NYSE' || m.exchange === 'NASDAQ' || m.exchange === 'Forex') && (_jsx(DollarSign, { className: "h-3 w-3 md:h-4 md:w-4" })), _jsxs("span", { className: "text-xs md:text-sm", children: [m.currency, " ", m.name] })] }, m.symbol))) }) }), _jsx("div", { className: "z-10 flex-shrink-0 border-b border-gray-800 p-4 md:p-8", children: _jsxs("div", { className: "flex flex-col items-start justify-between gap-4 md:flex-row md:items-end", children: [_jsxs("div", { children: [_jsx("h1", { className: "text-4xl font-black md:text-7xl", children: selected.name }), _jsxs("div", { className: `mt-2 text-3xl font-bold md:mt-4 md:text-6xl ${isGreen ? 'text-green-400' : 'text-red-400'}`, children: [selected.currency, price.toLocaleString('en-IN', { minimumFractionDigits: 2 }), _jsxs("span", { className: "ml-3 text-xl md:ml-6 md:text-4xl", children: [isGreen ? '↑' : '↓', " ", change.toFixed(1), " (", ((change / (price - change)) * 100).toFixed(2), "%)"] })] })] }), _jsxs("div", { className: "text-left text-sm text-gray-400 md:text-right md:text-base", children: [_jsxs("div", { children: ["High: ", selected.currency, "25,120"] }), _jsxs("div", { children: ["Low: ", selected.currency, "24,720"] })] })] }) }), _jsxs("div", { className: "grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4", children: [_jsxs("div", { className: "col-span-12 flex flex-col lg:col-span-8", children: [useTradingView ? (
+                            // Real TradingView embed
+                            _jsxs("div", { className: "relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]", children: [_jsx(BrowserView, { url: `https://in.tradingview.com/chart/?symbol=${selected.symbol.replace(':', '')}`, mode: "trade", className: "h-full" }), _jsxs("div", { className: "absolute bottom-4 left-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm", children: ["Live TradingView \u2022 ", selected.symbol] })] })) : (
+                            // Custom chart
+                            _jsxs("div", { ref: chartContainerRef, className: "relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]", children: [chartLoading && (_jsx("div", { className: "absolute inset-0 z-20 flex items-center justify-center bg-black/50", children: _jsxs("div", { className: "flex flex-col items-center gap-2", children: [_jsx(Loader2, { className: "h-8 w-8 animate-spin text-emerald-400" }), _jsx("span", { className: "text-sm text-gray-400", children: "Loading chart data..." })] }) })), _jsxs("div", { className: "absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm", children: ["1D \u2022 EMA \u2022 RSI \u2022 Volume Profile", wsConnected && _jsx("span", { className: "ml-2 text-green-400", children: "\u25CF Live" })] })] })), _jsx("div", { className: "mt-4", children: _jsx(TradesTape, { trades: recentTrades, symbol: selected.name }) })] }), _jsxs("div", { className: "col-span-12 flex flex-col gap-4 lg:col-span-4", children: [_jsx(OrderBook, { bids: orderBookBids, asks: orderBookAsks, onPriceClick: (price, _side) => {
                                     setLimitPrice(price);
                                     setOrderType('limit');
                                 } }), _jsxs("div", { className: "grid grid-cols-2 gap-2", children: [_jsxs("div", { className: "rounded-lg border border-gray-700 bg-gray-900 p-3", children: [_jsx("div", { className: "mb-1 text-xs text-gray-400", children: "High" }), _jsxs("div", { className: "text-sm font-semibold text-white", children: [selected.currency, "25,120"] })] }), _jsxs("div", { className: "rounded-lg border border-gray-700 bg-gray-900 p-3", children: [_jsx("div", { className: "mb-1 text-xs text-gray-400", children: "Low" }), _jsxs("div", { className: "text-sm font-semibold text-white", children: [selected.currency, "24,720"] })] })] })] })] }), _jsx(motion.div, { initial: { y: 200 }, animate: { y: 0 }, className: "trade-controls fixed bottom-0 left-0 right-0 z-40 border-t-4 border-purple-600 bg-black/95 p-4 shadow-2xl backdrop-blur md:p-6", children: _jsx("div", { className: "mx-auto max-w-6xl", children: _jsxs("div", { className: "grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4", children: [_jsx("input", { type: "number", value: qty, onChange: e => setQty(+e.target.value || 0), className: "rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl", placeholder: "Qty", "aria-label": "Quantity" }), _jsxs("select", { value: orderType, onChange: e => setOrderType(e.target.value), className: "rounded-xl bg-gray-900 px-3 py-3 text-center text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-2xl", "aria-label": "Order Type", children: [_jsx("option", { value: "market", children: "Market" }), _jsx("option", { value: "limit", children: "Limit" })] }), orderType === 'limit' && (_jsx("input", { type: "number", value: limitPrice, onChange: e => setLimitPrice(+e.target.value || price), className: "rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl", placeholder: "Price", "aria-label": "Limit Price" })), _jsx("input", { type: "number", value: sl, onChange: e => setSl(+e.target.value || 0), className: "rounded-xl border-2 border-red-600 bg-red-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500 md:px-6 md:py-5 md:text-3xl", placeholder: "SL", "aria-label": "Stop Loss" }), _jsx("input", { type: "number", value: tp, onChange: e => setTp(+e.target.value || 0), className: "rounded-xl border-2 border-green-600 bg-green-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500 md:px-6 md:py-5 md:text-3xl", placeholder: "Target", "aria-label": "Take Profit" }), _jsx("button", { onClick: () => handleOrderClick('buy'), disabled: isPlacingOrder, className: `flex items-center justify-center gap-2 rounded-2xl bg-green-600 font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${isMobile

@@ -6,6 +6,9 @@ type GeneralSettings = {
     telemetryOptIn: boolean;
     showKeyboardHints: boolean;
     allowBetaUpdates: boolean;
+    voiceEditBeforeExecute?: boolean;
+    voiceTTSEnabled?: boolean;
+    voiceAutoDetectLanguage?: boolean;
 };
 type PrivacySettings = {
     localOnlyMode: boolean;
@@ -36,7 +39,7 @@ type AccountSettings = {
     avatarColor?: string;
     lastSyncedAt?: number;
 };
-type SettingsData = {
+export type SettingsData = {
     general: GeneralSettings;
     privacy: PrivacySettings;
     appearance: AppearanceSettings;

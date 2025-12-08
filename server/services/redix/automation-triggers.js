@@ -3,7 +3,6 @@
  * Real-time trigger-based intelligence using Redis Streams
  */
 
-/* eslint-disable @typescript-eslint/no-require-imports */
 const redis = require('../../config/redis-client');
 const { publishAutomationTrigger } = require('./event-bus');
 

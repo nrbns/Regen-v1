@@ -9,6 +9,14 @@ export interface OrderDetails {
     estimatedCost: number;
     fees: number;
     marginRequired?: number;
+    riskMetrics?: {
+        riskAmount: number;
+        rewardAmount: number;
+        riskRewardRatio: number;
+        maxLoss: number;
+        maxGain: number;
+        riskPercentage: number;
+    };
 }
 interface OrderConfirmModalProps {
     isOpen: boolean;

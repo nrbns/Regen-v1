@@ -1,62 +1,21 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/png" href="/logo.png" />
-    <title>Regen</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { height: 100%; width: 100%; }
-      body { background-color: #1A1D28; color: #fff; overflow: hidden; }
-      #root { height: 100%; width: 100%; }
-    </style>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="RegenBrowser - The #1 AI Browser in the World. Tauri-powered AI browser with WISPR (Voice + Vision + Action). Works 100% offline with Ollama." />
+    <meta name="keywords" content="AI browser, Tauri, WISPR, voice assistant, offline AI, Ollama, Hindi, English, research mode, trade mode" />
+    <meta name="author" content="RegenBrowser Team" />
+    <meta property="og:title" content="RegenBrowser - The #1 AI Browser" />
+    <meta property="og:description" content="Tauri-powered AI browser with WISPR. Works 100% offline with Ollama." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://regenbrowser.com" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <title>RegenBrowser - The #1 AI Browser</title>
   </head>
   <body>
     <div id="root"></div>
-    <div id="portal-root"></div>
-    <script>
-      // Theme pre-init: prevent FOUC (Flash of Unstyled Content)
-      (function() {
-        try {
-          const themeKey = 'regen:theme-preference';
-          const saved = localStorage.getItem(themeKey);
-          const html = document.documentElement;
-          
-          if (saved === 'dark') {
-            html.classList.add('dark');
-            html.setAttribute('data-theme', 'dark');
-          } else if (saved === 'light') {
-            html.classList.remove('dark');
-            html.setAttribute('data-theme', 'light');
-          } else {
-            // System preference (default)
-            const mq = window.matchMedia('(prefers-color-scheme: dark)');
-            const isDark = mq.matches;
-            if (isDark) {
-              html.classList.add('dark');
-              html.setAttribute('data-theme', 'dark');
-            } else {
-              html.classList.remove('dark');
-              html.setAttribute('data-theme', 'light');
-            }
-          }
-          
-          // Set body background immediately to prevent white flash
-          if (html.classList.contains('dark')) {
-            document.body.style.backgroundColor = '#0f172a';
-          } else {
-            document.body.style.backgroundColor = '#f8fafc';
-          }
-        } catch (e) {
-          // Fallback: default to dark
-          document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', 'dark');
-          document.body.style.backgroundColor = '#0f172a';
-        }
-      })();
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
-  </html>
-
+</html>

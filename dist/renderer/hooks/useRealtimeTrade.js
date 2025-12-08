@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 export function useRealtimeTrade({ symbol, enabled = true, onTick, onCandle, }) {
     const [tick, setTick] = useState(null);
     const [connected, setConnected] = useState(false);
+    const [reconnecting, setReconnecting] = useState(false);
     const [error, setError] = useState(null);
     const [orderbook, setOrderbook] = useState(null);
     const wsRef = useRef(null);
@@ -18,21 +19,29 @@ export function useRealtimeTrade({ symbol, enabled = true, onTick, onCandle, }) 
         }
         const connect = () => {
             try {
-                // Use mock server in development, or configured WS host
-                const wsUrl = import.meta.env.VITE_WS_HOST || 'localhost:4001';
+                // Use backend server WebSocket, or configured WS host
+                const wsBase = import.meta.env.VITE_WS_URL || import.meta.env.VITE_WS_HOST || 'ws://localhost:4000';
                 const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-                // Check if it's a full URL or just host:port
-                // Mock server expects: ws://localhost:4001?symbol=...
-                const url = wsUrl.includes('://')
-                    ? `${wsUrl}?symbol=${encodeURIComponent(symbol)}`
-                    : `${scheme}://${wsUrl}?symbol=${encodeURIComponent(symbol)}`;
+                // Backend server expects: ws://localhost:4000/ws?symbol=...
+                let url;
+                if (wsBase.includes('://')) {
+                    // Full URL provided
+                    url = `${wsBase.replace(/^https?:/, scheme === 'wss' ? 'wss' : 'ws')}/ws?symbol=${encodeURIComponent(symbol)}`;
+                }
+                else {
+                    // Just host:port
+                    url = `${scheme}://${wsBase}/ws?symbol=${encodeURIComponent(symbol)}`;
+                }
                 const ws = new WebSocket(url);
                 wsRef.current = ws;
                 ws.onopen = () => {
                     console.log('[useRealtimeTrade] WebSocket connected for', symbol);
                     setConnected(true);
+                    setReconnecting(false);
                     setError(null);
                     reconnectAttempts.current = 0;
+                    // Emit connection event for UI
+                    window.dispatchEvent(new CustomEvent('ws-connected', { detail: { symbol } }));
                 };
                 ws.onmessage = event => {
                     try {
@@ -118,11 +127,15 @@ export function useRealtimeTrade({ symbol, enabled = true, onTick, onCandle, }) 
                     wsRef.current = null;
                     // Exponential backoff reconnection
                     if (enabled) {
+                        setReconnecting(true);
                         const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
                         reconnectAttempts.current++;
+                        console.log(`[useRealtimeTrade] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
                         reconnectTimeoutRef.current = setTimeout(() => {
                             connect();
                         }, delay);
+                        // Emit disconnection event for UI
+                        window.dispatchEvent(new CustomEvent('ws-disconnected', { detail: { symbol, reconnecting: true } }));
                     }
                 };
             }
@@ -144,5 +157,5 @@ export function useRealtimeTrade({ symbol, enabled = true, onTick, onCandle, }) 
             setConnected(false);
         };
     }, [symbol, enabled, onTick, onCandle]);
-    return { tick, connected, error, orderbook };
+    return { tick, connected, reconnecting, error, orderbook };
 }

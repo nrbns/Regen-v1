@@ -10,6 +10,9 @@ type GeneralSettings = {
   telemetryOptIn: boolean;
   showKeyboardHints: boolean;
   allowBetaUpdates: boolean;
+  voiceEditBeforeExecute?: boolean; // Phase 1, Day 5: Edit voice commands before executing
+  voiceTTSEnabled?: boolean; // Phase 2, Day 4: Enable text-to-speech responses
+  voiceAutoDetectLanguage?: boolean; // Phase 2, Day 4: Auto-detect language for voice
 };
 
 type PrivacySettings = {
@@ -44,7 +47,7 @@ type AccountSettings = {
   lastSyncedAt?: number;
 };
 
-type SettingsData = {
+export type SettingsData = {
   general: GeneralSettings;
   privacy: PrivacySettings;
   appearance: AppearanceSettings;
@@ -72,6 +75,9 @@ const createDefaults = (): SettingsData => ({
     telemetryOptIn: false,
     showKeyboardHints: true,
     allowBetaUpdates: false,
+    voiceEditBeforeExecute: true, // Phase 1, Day 5: Default to enabled
+    voiceTTSEnabled: true, // Phase 2, Day 4: Default to enabled
+    voiceAutoDetectLanguage: true, // Phase 2, Day 4: Default to enabled
   },
   privacy: {
     localOnlyMode: false,

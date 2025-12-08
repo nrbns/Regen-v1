@@ -142,7 +142,7 @@ async function handoffToTrade(payload, _language) {
             }
             // Optionally trigger IPC event for trade mode
             try {
-                const activeTab = await ipc.tabs.list().then(tabs => tabs.find(t => t.active) || tabs[0]);
+                const activeTab = await ipc.tabs.list().then((tabs) => tabs.find((t) => t.active) || tabs[0]);
                 if (activeTab) {
                     await ipc.crossReality?.handoff?.(activeTab.id, 'mobile');
                 }

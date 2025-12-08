@@ -14,7 +14,7 @@ export interface MemoryStats {
  */
 export declare function getMemoryUsage(): MemoryStats | null;
 /**
- * Check if memory is low
+ * Phase 1, Day 2: Check if memory is low (improved for 4GB devices)
  */
 export declare function isMemoryLow(): boolean;
 /**

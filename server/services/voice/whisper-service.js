@@ -53,7 +53,7 @@ async function transcribeWithLocalWhisper(audioBytes) {
 
   try {
     // Use whisper CLI (requires: pip install openai-whisper)
-    const { stdout } = await execAsync(`whisper "${tempFile}" --model ${WHISPER_MODEL} --language en --output_format txt --fp16 False`);
+    const { stdout: _stdout } = await execAsync(`whisper "${tempFile}" --model ${WHISPER_MODEL} --language en --output_format txt --fp16 False`);
     
     // Read transcription
     const txtFile = tempFile.replace('.webm', '.txt');
@@ -102,6 +102,9 @@ export async function transcribeAudioFile(filePath) {
   const audioBytes = fs.readFileSync(filePath);
   return await transcribeAudio(audioBytes);
 }
+
+
+
 
 
 

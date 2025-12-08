@@ -69,8 +69,18 @@ const toastObj = {
             toastLib.dismiss();
         }
     },
-    promise: (promise, messages) => {
-        return toastLib.promise(promise, messages, {
+    promise: (promise, messages, options) => {
+        // Phase 1, Day 3: Enhanced promise toast with retry support
+        const promiseWithRetry = options?.retry
+            ? (async () => {
+                const { withNetworkRetry } = await import('../core/errors/errorRecovery');
+                return withNetworkRetry(() => promise, {
+                    maxRetries: options.maxRetries || 3,
+                    context: messages.loading,
+                });
+            })()
+            : promise;
+        return toastLib.promise(promiseWithRetry, messages, {
             style: {
                 background: '#1e293b',
                 color: '#e2e8f0',

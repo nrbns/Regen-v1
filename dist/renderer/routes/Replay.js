@@ -14,7 +14,7 @@ function safeStringify(obj) {
             return value;
         }, 2);
     }
-    catch (error) {
+    catch (_error) {
         return safeErrorString(obj);
     }
 }

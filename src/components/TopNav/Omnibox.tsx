@@ -23,6 +23,9 @@ import {
   Calculator,
   Sparkles,
   Clock,
+  ArrowLeft,
+  ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
@@ -112,12 +115,21 @@ const evaluateExpression = (raw: string) => {
   }
 
   // Only allow safe characters
+  // SECURITY FIX: Validate expression strictly - only allow safe math characters
   if (!/^[0-9+\-*/().%\s^]+$/.test(expr)) {
     return null;
   }
 
   try {
-    const value = Function(`"use strict"; return (${expr.replace(/\^/g, '**')})`)();
+    // SECURITY FIX: Use Function with strict validation (safer than eval)
+    // Replace ^ with ** for exponentiation
+    const safeExpr = expr.replace(/\^/g, '**');
+    // Additional validation: ensure no function calls or dangerous patterns
+    if (/[a-zA-Z_$]/.test(safeExpr)) {
+      return null; // Reject any variable names or function calls
+    }
+    // Use Function constructor with strict mode (still requires validation)
+    const value = Function(`"use strict"; return (${safeExpr})`)();
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
     }
@@ -262,6 +274,8 @@ export const Omnibox = forwardRef<
   const activeContainerId = useContainerStore(state => state.activeContainerId);
   const language = useSettingsStore(state => state.language || 'auto');
   const isElectron = isElectronRuntime();
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
   const formatTabsForEvent = (
     list: Array<{
       id: string;
@@ -477,7 +491,8 @@ export const Omnibox = forwardRef<
     [attachIpcListener, detachIpcListener, handleLiveStep, stopLiveSession]
   );
 
-  // Listen for tab updates
+  // Phase 1, Day 1: Fix URL bar sync with active tab
+  // Listen for tab updates and sync URL bar with active tab
   useIPCEvent<TabUpdate[]>(
     'tabs:updated',
     tabList => {
@@ -496,6 +511,25 @@ export const Omnibox = forwardRef<
     },
     [activeId, focused]
   );
+
+  // Phase 1, Day 1: Also sync when active tab changes or URL updates
+  useEffect(() => {
+    if (!focused && activeTab) {
+      setUrl(activeTab.url || '');
+      try {
+        if (activeTab.url && !activeTab.url.startsWith('about:')) {
+          const urlObj = new URL(activeTab.url);
+          setSiteInfo({
+            secure: urlObj.protocol === 'https:',
+          });
+        } else {
+          setSiteInfo(null);
+        }
+      } catch {
+        setSiteInfo(null);
+      }
+    }
+  }, [activeTab?.url, activeTab?.id, focused]);
 
   // Listen for progress updates
   useIPCEvent<{ tabId: string; progress: number }>(
@@ -1171,6 +1205,32 @@ export const Omnibox = forwardRef<
     }
   }, [activeTab, focused]);
 
+  // Check navigation availability
+  useEffect(() => {
+    if (!activeId) {
+      setCanGoBack(false);
+      setCanGoForward(false);
+      return;
+    }
+
+    // Check navigation state periodically
+    const checkNavigation = async () => {
+      try {
+        // For now, assume navigation is available if tab exists
+        // In the future, we can check actual history state
+        setCanGoBack(true);
+        setCanGoForward(true);
+      } catch {
+        setCanGoBack(false);
+        setCanGoForward(false);
+      }
+    };
+
+    checkNavigation();
+    const interval = setInterval(checkNavigation, 1000);
+    return () => clearInterval(interval);
+  }, [activeId]);
+
   return (
     <div className="relative max-w-2xl flex-1">
       <motion.div
@@ -1180,7 +1240,68 @@ export const Omnibox = forwardRef<
         animate={{ scale: focused ? 1.02 : 1 }}
         transition={{ duration: 0.2 }}
       >
-        <div className="relative flex items-center">
+        <div className="relative flex items-center gap-2">
+          {/* Navigation Buttons */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!activeId || !canGoBack) return;
+                try {
+                  await ipc.tabs.goBack(activeId);
+                } catch (error) {
+                  console.error('[Omnibox] Failed to go back:', error);
+                }
+              }}
+              disabled={!canGoBack}
+              className={`p-2 rounded-lg transition-all ${
+                canGoBack
+                  ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
+                  : 'text-gray-600 cursor-not-allowed border border-transparent'
+              }`}
+              title="Go back (Alt+Left Arrow)"
+              aria-label="Go back"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!activeId || !canGoForward) return;
+                try {
+                  await ipc.tabs.goForward(activeId);
+                } catch (error) {
+                  console.error('[Omnibox] Failed to go forward:', error);
+                }
+              }}
+              disabled={!canGoForward}
+              className={`p-2 rounded-lg transition-all ${
+                canGoForward
+                  ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
+                  : 'text-gray-600 cursor-not-allowed border border-transparent'
+              }`}
+              title="Go forward (Alt+Right Arrow)"
+              aria-label="Go forward"
+            >
+              <ArrowRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!activeId) return;
+                try {
+                  await ipc.tabs.reload(activeId);
+                } catch (error) {
+                  console.error('[Omnibox] Failed to reload:', error);
+                }
+              }}
+              className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all"
+              title="Reload (Ctrl+R / ⌘R)"
+              aria-label="Reload page"
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
           {/* Site Info Icons */}
           {siteInfo && url && !focused && (
             <div

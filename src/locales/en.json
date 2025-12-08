@@ -1,0 +1,69 @@
+{
+  "common": {
+    "search": "Search",
+    "searchPlaceholder": "Search the web...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "success": "Success"
+  },
+  "modes": {
+    "research": "Research",
+    "trade": "Trade",
+    "browse": "Browse",
+    "docs": "Documents",
+    "games": "Games"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search the web...",
+    "noResults": "No results found",
+    "results": "results",
+    "results_one": "result",
+    "results_other": "results",
+    "cached": "cached",
+    "searching": "Searching...",
+    "summarize": "Summarize",
+    "summarizing": "Summarizing..."
+  },
+  "agent": {
+    "title": "Agent Console",
+    "queryPlaceholder": "Ask anything...",
+    "executing": "Executing...",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "research": {
+    "title": "Research",
+    "startResearch": "Start Research",
+    "researching": "Researching...",
+    "noResults": "No research results found",
+    "sources": "Sources",
+    "summary": "Summary"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "appearance": "Appearance",
+    "privacy": "Privacy",
+    "general": "General"
+  },
+  "tabs": {
+    "newTab": "New Tab",
+    "closeTab": "Close Tab",
+    "reload": "Reload",
+    "noTabs": "No tabs open"
+  },
+  "errors": {
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Try again",
+    "networkError": "Network error",
+    "permissionDenied": "Permission denied"
+  }
+}
+

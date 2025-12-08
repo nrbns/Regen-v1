@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Info, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Info, Sparkles, Shield } from 'lucide-react';
 import type { ResearchSource } from '../../types/research';
+import { calculateCredibility, getCredibilityColor, getCredibilityLabel } from '../../core/research/sourceCredibility';
 
 type SourceCardProps = {
   source: ResearchSource;
@@ -37,6 +38,11 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
   const fetchedAtLabel = source.fetchedAt ? new Date(source.fetchedAt).toLocaleString() : null;
   const languageLabel = source.lang ? source.lang.toUpperCase() : null;
   const selectorMatched = Boolean(source.metadata?.selectorMatched);
+  
+  // Phase 1, Day 6: Calculate credibility
+  const credibility = useMemo(() => calculateCredibility(source), [source]);
+  const credibilityColor = getCredibilityColor(credibility.level);
+  const credibilityLabel = getCredibilityLabel(credibility.level);
 
   const preview = useMemo(() => {
     if (expanded) {
@@ -86,6 +92,11 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
               {Math.round(relevance)}
             </span>
           )}
+          {/* Phase 1, Day 6: Credibility badge */}
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${credibilityColor}`}>
+            <Shield size={10} />
+            {credibilityLabel} ({credibility.score}/100)
+          </span>
         </div>
       </header>
 

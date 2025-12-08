@@ -5,6 +5,11 @@ import { resolve } from 'path';
 export default defineConfig({
   plugins: [
     react({
+      // Fast Refresh is enabled by default in @vitejs/plugin-react
+      // Explicitly enable Fast Refresh for better HMR
+      jsxRuntime: 'automatic',
+      // Include all JSX/TSX files for Fast Refresh
+      include: '**/*.{jsx,tsx}',
       babel: {
         parserOpts: {
           plugins: ['jsx'],
@@ -39,12 +44,26 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist-web',
-    sourcemap: true,
+    sourcemap: process.env.NODE_ENV === 'development', // Only sourcemaps in dev
     emptyOutDir: true,
-    minify: 'esbuild',
-    chunkSizeWarningLimit: 1000, // Increased to reduce warnings for large chunks
+    minify: process.env.NODE_ENV === 'production' ? 'terser' : false, // Use terser in prod for better minification
+    chunkSizeWarningLimit: 500, // Reduce warning limit to catch large chunks
     // NETWORK FIX: Enable compression (brotli/gzip handled by server)
     reportCompressedSize: true,
+    // DAY 6: Enhanced build optimization
+    target: 'esnext',
+    cssCodeSplit: true,
+    terserOptions: process.env.NODE_ENV === 'production' ? {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+        passes: 2,
+      },
+      format: {
+        comments: false,
+      },
+    } : undefined,
     rollupOptions: {
       external: [
         '@ghostery/adblocker-electron',
@@ -54,6 +73,7 @@ export default defineConfig({
         '@tauri-apps/api',
         '@tauri-apps/api/core',
         '@tauri-apps/api/event',
+        '@sentry/electron/renderer', // Optional dependency - external to prevent build-time resolution
       ],
       output: {
         // Optimize chunk names for better caching
@@ -62,6 +82,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]',
         // Optimize chunk splitting for better loading performance
         manualChunks: id => {
+          // DAY 6: Enhanced chunk splitting for better performance
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
             // Large UI libraries - split into separate chunks
@@ -78,7 +99,7 @@ export default defineConfig({
             if (id.includes('react-dom')) {
               return 'vendor-react-dom';
             }
-            if (id.includes('react') && !id.includes('react-dom')) {
+            if (id.includes('react') && !id.includes('react-dom') && !id.includes('react-router')) {
               return 'vendor-react';
             }
             // Router - load early
@@ -104,6 +125,14 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'vendor-icons';
             }
+            // Tailwind CSS utilities
+            if (id.includes('tailwindcss') || id.includes('autoprefixer')) {
+              return 'vendor-styles';
+            }
+            // i18n libraries
+            if (id.includes('i18next') || id.includes('react-i18next')) {
+              return 'vendor-i18n';
+            }
             // Other large vendors
             if (id.includes('date-fns') || id.includes('lodash') || id.includes('lunr')) {
               return 'vendor-utils';
@@ -118,6 +147,13 @@ export default defineConfig({
               return `mode-${modeMatch[1]}`;
             }
           }
+          // Split route components
+          if (id.includes('/routes/')) {
+            const routeMatch = id.match(/\/routes\/([^/]+)/);
+            if (routeMatch) {
+              return `route-${routeMatch[1]}`;
+            }
+          }
           // Split core AI components
           if (id.includes('/core/ai/') || id.includes('/core/agents/')) {
             return 'core-ai';
@@ -125,6 +161,14 @@ export default defineConfig({
           // Split SuperMemory components
           if (id.includes('/core/supermemory/')) {
             return 'core-memory';
+          }
+          // Split browser components
+          if (id.includes('/components/browser/')) {
+            return 'components-browser';
+          }
+          // Split agent components
+          if (id.includes('/components/agents/')) {
+            return 'components-agents';
           }
         },
       },
@@ -134,13 +178,34 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: true,
+    // Enable HMR with proper configuration
     hmr: {
       protocol: 'ws',
       host: 'localhost',
+      port: 5173,
+      clientPort: 5173,
+      overlay: true, // Show error overlay
+    },
+    // Watch for file changes - use polling for better reliability on Windows
+    watch: {
+      usePolling: true, // Force polling for better file change detection
+      interval: 100, // Reduced polling interval for faster updates (ms)
+      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/dist-web/**'],
+    },
+    // Force reload on certain file changes
+    fs: {
+      strict: false, // Allow serving files outside root
+      allow: ['..'], // Allow serving files from parent directories
     },
   },
   define: {
     // Ensure process.env is available for compatibility
     'process.env': {},
+    // Enable HMR in development
+    __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
   },
+  // Clear screen on restart
+  clearScreen: false,
+  // Log level
+  logLevel: 'info',
 });

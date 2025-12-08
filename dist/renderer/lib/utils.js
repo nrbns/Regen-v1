@@ -1,23 +1,11 @@
 /**
- * Utility helpers shared across UI layers.
+ * Utility functions
  */
-function flatten(values) {
-    const result = [];
-    values.forEach((value) => {
-        if (!value) {
-            return;
-        }
-        if (Array.isArray(value)) {
-            result.push(...flatten(value));
-        }
-        else {
-            result.push(String(value));
-        }
-    });
-    return result;
-}
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+/**
+ * Merge Tailwind classes
+ */
 export function cn(...inputs) {
-    return flatten(inputs)
-        .filter((value) => value.trim().length > 0)
-        .join(' ');
+    return twMerge(clsx(inputs));
 }

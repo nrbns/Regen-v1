@@ -43,12 +43,12 @@ export function TabContextMenu({ tabId, url, containerId, containerName, contain
         if (containers.length === 0) {
             ipc.containers
                 .list()
-                .then(list => {
+                .then((list) => {
                 if (Array.isArray(list)) {
                     setContainers(list);
                 }
             })
-                .catch(error => {
+                .catch((error) => {
                 console.error('Failed to load containers for context menu:', error);
             });
         }

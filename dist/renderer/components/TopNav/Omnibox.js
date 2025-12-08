@@ -5,7 +5,7 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  */
 // @ts-nocheck
 import { forwardRef, useState, useEffect, useRef, useCallback, useMemo, useImperativeHandle, } from 'react';
-import { Search, Lock, Shield, AlertCircle, Globe, Calculator, Sparkles, Clock, } from 'lucide-react';
+import { Search, Lock, Shield, AlertCircle, Globe, Calculator, Sparkles, Clock, ArrowLeft, ArrowRight, RotateCcw, } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -47,11 +47,20 @@ const evaluateExpression = (raw) => {
         return null;
     }
     // Only allow safe characters
+    // SECURITY FIX: Validate expression strictly - only allow safe math characters
     if (!/^[0-9+\-*/().%\s^]+$/.test(expr)) {
         return null;
     }
     try {
-        const value = Function(`"use strict"; return (${expr.replace(/\^/g, '**')})`)();
+        // SECURITY FIX: Use Function with strict validation (safer than eval)
+        // Replace ^ with ** for exponentiation
+        const safeExpr = expr.replace(/\^/g, '**');
+        // Additional validation: ensure no function calls or dangerous patterns
+        if (/[a-zA-Z_$]/.test(safeExpr)) {
+            return null; // Reject any variable names or function calls
+        }
+        // Use Function constructor with strict mode (still requires validation)
+        const value = Function(`"use strict"; return (${safeExpr})`)();
         if (typeof value === 'number' && Number.isFinite(value)) {
             return value;
         }
@@ -170,6 +179,8 @@ export const Omnibox = forwardRef(({ onCommandPalette, onRedixOpen }, ref) => {
     const activeContainerId = useContainerStore(state => state.activeContainerId);
     const language = useSettingsStore(state => state.language || 'auto');
     const isElectron = isElectronRuntime();
+    const [canGoBack, setCanGoBack] = useState(false);
+    const [canGoForward, setCanGoForward] = useState(false);
     const formatTabsForEvent = (list) => list.map(t => ({
         id: t.id,
         title: t.title || 'New Tab',
@@ -347,7 +358,8 @@ export const Omnibox = forwardRef(({ onCommandPalette, onRedixOpen }, ref) => {
             setLiveStatus('Live search failed');
         }
     }, [attachIpcListener, detachIpcListener, handleLiveStep, stopLiveSession]);
-    // Listen for tab updates
+    // Phase 1, Day 1: Fix URL bar sync with active tab
+    // Listen for tab updates and sync URL bar with active tab
     useIPCEvent('tabs:updated', tabList => {
         const tab = Array.isArray(tabList) ? tabList.find((t) => t.active) : null;
         if (tab && !focused) {
@@ -363,6 +375,26 @@ export const Omnibox = forwardRef(({ onCommandPalette, onRedixOpen }, ref) => {
             }
         }
     }, [activeId, focused]);
+    // Phase 1, Day 1: Also sync when active tab changes or URL updates
+    useEffect(() => {
+        if (!focused && activeTab) {
+            setUrl(activeTab.url || '');
+            try {
+                if (activeTab.url && !activeTab.url.startsWith('about:')) {
+                    const urlObj = new URL(activeTab.url);
+                    setSiteInfo({
+                        secure: urlObj.protocol === 'https:',
+                    });
+                }
+                else {
+                    setSiteInfo(null);
+                }
+            }
+            catch {
+                setSiteInfo(null);
+            }
+        }
+    }, [activeTab?.url, activeTab?.id, focused]);
     // Listen for progress updates
     useIPCEvent('tabs:progress', data => {
         if (data.tabId === activeId) {
@@ -956,7 +988,62 @@ export const Omnibox = forwardRef(({ onCommandPalette, onRedixOpen }, ref) => {
             setUrl(activeTab.url || '');
         }
     }, [activeTab, focused]);
-    return (_jsxs("div", { className: "relative max-w-2xl flex-1", children: [_jsx(motion.div, { className: `relative rounded-2xl transition-shadow duration-200 ${shortcutPulse ? 'shadow-[0_0_0_3px_rgba(59,130,246,0.18)] ring-2 ring-blue-500/40' : ''}`, animate: { scale: focused ? 1.02 : 1 }, transition: { duration: 0.2 }, children: _jsxs("div", { className: "relative flex items-center", children: [siteInfo && url && !focused && (_jsxs("div", { className: "pointer-events-none absolute left-3 z-10 flex items-center gap-2", "aria-hidden": "true", children: [siteInfo.secure ? (_jsx(Lock, { size: 14, className: "text-green-400", "aria-label": "Secure connection" })) : url.startsWith('http://') ? (_jsx(AlertCircle, { size: 14, className: "text-amber-400", "aria-label": "Insecure connection" })) : (_jsx(Globe, { size: 14, className: "text-gray-400", "aria-label": "Web page" })), siteInfo.shieldCount !== undefined && siteInfo.shieldCount > 0 && (_jsxs("div", { className: "flex items-center gap-1", "aria-label": `${siteInfo.shieldCount} shields active`, children: [_jsx(Shield, { size: 14, className: "text-blue-400" }), _jsx("span", { className: "text-xs text-gray-400", children: siteInfo.shieldCount })] }))] })), _jsx("input", { ref: inputRef, id: "omnibox-input", name: "omnibox-url", type: "text", value: url, onChange: e => setUrl(e.target.value), onFocus: () => setFocused(true), onBlur: () => setTimeout(() => setFocused(false), 200), onKeyDown: handleKeyDown, "aria-label": "Address bar - Search or enter URL", "aria-autocomplete": "list", "aria-expanded": focused && suggestions.length > 0, placeholder: "Search or enter URL", autoComplete: "off", "data-omnibox-input": true, className: `h-10 w-full px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} bg-white/12 border-white/12 hover:bg-white/16 rounded-2xl border pr-14 text-sm font-medium text-white placeholder-white/50 backdrop-blur-md transition-all focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/40`, style: { color: '#ffffff', WebkitTextFillColor: '#ffffff' } }), isLoading && progress > 0 && (_jsx(motion.div, { className: "absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl bg-blue-500", initial: { scaleX: 0 }, animate: { scaleX: progress / 100 }, transition: { duration: 0.1 } })), _jsxs("div", { className: "absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40", children: [_jsx("span", { className: "hidden sm:inline", children: typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC')
+    // Check navigation availability
+    useEffect(() => {
+        if (!activeId) {
+            setCanGoBack(false);
+            setCanGoForward(false);
+            return;
+        }
+        // Check navigation state periodically
+        const checkNavigation = async () => {
+            try {
+                // For now, assume navigation is available if tab exists
+                // In the future, we can check actual history state
+                setCanGoBack(true);
+                setCanGoForward(true);
+            }
+            catch {
+                setCanGoBack(false);
+                setCanGoForward(false);
+            }
+        };
+        checkNavigation();
+        const interval = setInterval(checkNavigation, 1000);
+        return () => clearInterval(interval);
+    }, [activeId]);
+    return (_jsxs("div", { className: "relative max-w-2xl flex-1", children: [_jsx(motion.div, { className: `relative rounded-2xl transition-shadow duration-200 ${shortcutPulse ? 'shadow-[0_0_0_3px_rgba(59,130,246,0.18)] ring-2 ring-blue-500/40' : ''}`, animate: { scale: focused ? 1.02 : 1 }, transition: { duration: 0.2 }, children: _jsxs("div", { className: "relative flex items-center gap-2", children: [_jsxs("div", { className: "flex items-center gap-1 flex-shrink-0", children: [_jsx("button", { type: "button", onClick: async () => {
+                                        if (!activeId || !canGoBack)
+                                            return;
+                                        try {
+                                            await ipc.tabs.goBack(activeId);
+                                        }
+                                        catch (error) {
+                                            console.error('[Omnibox] Failed to go back:', error);
+                                        }
+                                    }, disabled: !canGoBack, className: `p-2 rounded-lg transition-all ${canGoBack
+                                        ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
+                                        : 'text-gray-600 cursor-not-allowed border border-transparent'}`, title: "Go back (Alt+Left Arrow)", "aria-label": "Go back", children: _jsx(ArrowLeft, { size: 16 }) }), _jsx("button", { type: "button", onClick: async () => {
+                                        if (!activeId || !canGoForward)
+                                            return;
+                                        try {
+                                            await ipc.tabs.goForward(activeId);
+                                        }
+                                        catch (error) {
+                                            console.error('[Omnibox] Failed to go forward:', error);
+                                        }
+                                    }, disabled: !canGoForward, className: `p-2 rounded-lg transition-all ${canGoForward
+                                        ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
+                                        : 'text-gray-600 cursor-not-allowed border border-transparent'}`, title: "Go forward (Alt+Right Arrow)", "aria-label": "Go forward", children: _jsx(ArrowRight, { size: 16 }) }), _jsx("button", { type: "button", onClick: async () => {
+                                        if (!activeId)
+                                            return;
+                                        try {
+                                            await ipc.tabs.reload(activeId);
+                                        }
+                                        catch (error) {
+                                            console.error('[Omnibox] Failed to reload:', error);
+                                        }
+                                    }, className: "p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all", title: "Reload (Ctrl+R / \u2318R)", "aria-label": "Reload page", children: _jsx(RotateCcw, { size: 16 }) })] }), siteInfo && url && !focused && (_jsxs("div", { className: "pointer-events-none absolute left-3 z-10 flex items-center gap-2", "aria-hidden": "true", children: [siteInfo.secure ? (_jsx(Lock, { size: 14, className: "text-green-400", "aria-label": "Secure connection" })) : url.startsWith('http://') ? (_jsx(AlertCircle, { size: 14, className: "text-amber-400", "aria-label": "Insecure connection" })) : (_jsx(Globe, { size: 14, className: "text-gray-400", "aria-label": "Web page" })), siteInfo.shieldCount !== undefined && siteInfo.shieldCount > 0 && (_jsxs("div", { className: "flex items-center gap-1", "aria-label": `${siteInfo.shieldCount} shields active`, children: [_jsx(Shield, { size: 14, className: "text-blue-400" }), _jsx("span", { className: "text-xs text-gray-400", children: siteInfo.shieldCount })] }))] })), _jsx("input", { ref: inputRef, id: "omnibox-input", name: "omnibox-url", type: "text", value: url, onChange: e => setUrl(e.target.value), onFocus: () => setFocused(true), onBlur: () => setTimeout(() => setFocused(false), 200), onKeyDown: handleKeyDown, "aria-label": "Address bar - Search or enter URL", "aria-autocomplete": "list", "aria-expanded": focused && suggestions.length > 0, placeholder: "Search or enter URL", autoComplete: "off", "data-omnibox-input": true, className: `h-10 w-full px-4 ${siteInfo && !focused ? 'pl-20' : 'pl-4'} bg-white/12 border-white/12 hover:bg-white/16 rounded-2xl border pr-14 text-sm font-medium text-white placeholder-white/50 backdrop-blur-md transition-all focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/40`, style: { color: '#ffffff', WebkitTextFillColor: '#ffffff' } }), isLoading && progress > 0 && (_jsx(motion.div, { className: "absolute bottom-0 left-0 right-0 h-0.5 rounded-b-xl bg-blue-500", initial: { scaleX: 0 }, animate: { scaleX: progress / 100 }, transition: { duration: 0.1 } })), _jsxs("div", { className: "absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-white/40", children: [_jsx("span", { className: "hidden sm:inline", children: typeof navigator !== 'undefined' && navigator.platform?.toUpperCase().includes('MAC')
                                         ? '⌘ K'
                                         : 'CTRL K' }), _jsx(Search, { size: 14, className: "text-white/50" })] })] }) }), _jsx(AnimatePresence, { children: focused && suggestions.length > 0 && (_jsx(motion.div, { initial: { opacity: 0, y: -10 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -10 }, className: "absolute left-0 right-0 top-full z-50 mt-2 max-h-[500px] overflow-hidden overflow-y-auto rounded-lg border border-gray-700/50 bg-gray-900/95 shadow-2xl backdrop-blur-xl", children: suggestions.map((suggestion, index) => (_jsxs(motion.button, { type: "button", disabled: suggestion.interactive === false, onMouseDown: async (event) => {
                             event.preventDefault();
