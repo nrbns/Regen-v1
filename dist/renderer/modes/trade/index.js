@@ -83,6 +83,68 @@ export default function TradePanel() {
         window.addEventListener('wispr:trade', handleWisprTrade);
         return () => window.removeEventListener('wispr:trade', handleWisprTrade);
     }, [selected]);
+    // Voice agent intents: simulate trade actions (safe, no real orders).
+    useEffect(() => {
+        const handleAgentTrade = (event) => {
+            const { intent, action, symbol, quantity } = event.detail;
+            if (!intent)
+                return;
+            // Parse and simulate trade action
+            const actionType = action?.toUpperCase();
+            const qty = quantity || 1;
+            let targetSymbol = symbol || selected.symbol;
+            // Try to find matching market
+            if (symbol) {
+                const market = markets.find(m => m.name.toLowerCase().includes(symbol.toLowerCase()) ||
+                    m.symbol.toLowerCase().includes(symbol.toLowerCase()));
+                if (market) {
+                    setSelected(market);
+                    targetSymbol = market.symbol;
+                }
+            }
+            if (actionType === 'BUY' || intent.toUpperCase().includes('BUY')) {
+                setQty(qty);
+                setOrderType('market');
+                toast.success(`Simulated BUY: ${qty} ${targetSymbol}`, { duration: 3000 });
+                // Show confirmation modal (simulation only)
+                setPendingOrder({
+                    symbol: targetSymbol,
+                    side: 'buy',
+                    quantity: qty,
+                    orderType: 'market',
+                    price: price,
+                    stopLoss: sl,
+                    takeProfit: tp,
+                    estimatedCost: price * qty,
+                    fees: price * qty * 0.001, // 0.1% fee estimate
+                });
+                setShowConfirmModal(true);
+            }
+            else if (actionType === 'SELL' || intent.toUpperCase().includes('SELL')) {
+                setQty(qty);
+                setOrderType('market');
+                toast.success(`Simulated SELL: ${qty} ${targetSymbol}`, { duration: 3000 });
+                // Show confirmation modal (simulation only)
+                setPendingOrder({
+                    symbol: targetSymbol,
+                    side: 'sell',
+                    quantity: qty,
+                    orderType: 'market',
+                    price: price,
+                    stopLoss: sl,
+                    takeProfit: tp,
+                    estimatedCost: price * qty,
+                    fees: price * qty * 0.001, // 0.1% fee estimate
+                });
+                setShowConfirmModal(true);
+            }
+            else {
+                toast.info(`Agent trade intent: ${intent}`, { duration: 2500 });
+            }
+        };
+        window.addEventListener('agent:trade-action', handleAgentTrade);
+        return () => window.removeEventListener('agent:trade-action', handleAgentTrade);
+    }, [selected, price, sl, tp, setSelected, setQty, setOrderType, setPendingOrder, setShowConfirmModal]);
     // Real-time WebSocket updates
     const [candleHistory, setCandleHistory] = useState([]);
     const { tick: _tick, connected: wsConnected, reconnecting: wsReconnecting, orderbook: wsOrderbook, } = useRealtimeTrade({
@@ -225,8 +287,8 @@ export default function TradePanel() {
         };
     }, [selected.symbol, wsConnected, price]);
     // Phase 1, Day 7 & 9: Enhanced trade signals with SSE fallback and notifications
-    const [signalHistory, setSignalHistory] = useState([]);
-    const [sseConnected, setSseConnected] = useState(false);
+    const [_signalHistory, setSignalHistory] = useState([]);
+    const [_sseConnected, setSseConnected] = useState(false);
     useEffect(() => {
         const signalService = getTradeSignalService();
         // Phase 1, Day 9: Monitor SSE connection status

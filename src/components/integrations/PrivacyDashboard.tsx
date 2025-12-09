@@ -71,6 +71,8 @@ export function PrivacyDashboard() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
+          id="privacy-search"
+          name="privacy-search"
           type="text"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -120,6 +122,8 @@ export function PrivacyDashboard() {
                     Audit
                   </button>
                   <select
+                    id={`trust-level-${record.domain}`}
+                    name={`trust-level-${record.domain}`}
                     value={record.trustLevel}
                     onChange={e => handleSetTrust(record.domain, e.target.value as TrustLevel)}
                     className="rounded border border-neutral-600 bg-neutral-700 px-3 py-1.5 text-xs text-gray-300 focus:border-emerald-500 focus:outline-none"
@@ -138,6 +142,7 @@ export function PrivacyDashboard() {
     </div>
   );
 }
+
 
 
 

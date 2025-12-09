@@ -7,8 +7,8 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
-// Lazy load translation files (to avoid import errors if files don't exist)
-// Will be loaded dynamically when i18n initializes
+// Load translation files using static imports - Vite handles these at build time
+// Initialize with empty translations, then load asynchronously
 const resources: Record<string, { translation: any }> = {
   en: { translation: {} },
   hi: { translation: {} },
@@ -16,34 +16,35 @@ const resources: Record<string, { translation: any }> = {
   te: { translation: {} },
 };
 
-// Try to load translations (if files exist)
-try {
-  const enTranslations = require('../locales/en.json');
-  resources.en.translation = enTranslations;
-} catch {
-  console.warn('[i18n] English translations not found');
-}
-
-try {
-  const hiTranslations = require('../locales/hi.json');
-  resources.hi.translation = hiTranslations;
-} catch {
-  console.warn('[i18n] Hindi translations not found');
-}
-
-try {
-  const taTranslations = require('../locales/ta.json');
-  resources.ta.translation = taTranslations;
-} catch {
-  console.warn('[i18n] Tamil translations not found');
-}
-
-try {
-  const teTranslations = require('../locales/te.json');
-  resources.te.translation = teTranslations;
-} catch {
-  console.warn('[i18n] Telugu translations not found');
-}
+// Load translations asynchronously (non-blocking)
+(async () => {
+  try {
+    // Static imports - Vite will resolve these at build time
+    const [en, hi, ta, te] = await Promise.allSettled([
+      import('../../locales/en.json').then(m => m.default),
+      import('../../locales/hi.json').then(m => m.default),
+      import('../../locales/ta.json').then(m => m.default),
+      import('../../locales/te.json').then(m => m.default),
+    ]);
+    
+    if (en.status === 'fulfilled') resources.en.translation = en.value;
+    else console.warn('[i18n] English translations not found');
+    
+    if (hi.status === 'fulfilled') resources.hi.translation = hi.value;
+    else console.warn('[i18n] Hindi translations not found');
+    
+    if (ta.status === 'fulfilled') resources.ta.translation = ta.value;
+    else console.warn('[i18n] Tamil translations not found');
+    
+    if (te.status === 'fulfilled') resources.te.translation = te.value;
+    else console.warn('[i18n] Telugu translations not found');
+    
+    // Reload i18n after translations are loaded
+    i18n.reloadResources();
+  } catch (error) {
+    console.warn('[i18n] Error loading translations:', error);
+  }
+})();
 
 // Supported languages
 export const SUPPORTED_LANGUAGES = ['en', 'hi', 'ta', 'te'] as const;

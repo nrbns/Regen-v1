@@ -136,7 +136,7 @@ export function TabStrip() {
     const updateTab = useTabsStore(state => state.updateTab);
     const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
     const openPeek = usePeekPreviewStore(state => state.open); // Must be defined before renderTabNode
-    const recentlyClosed = useTabsStore(state => state.recentlyClosed);
+    const _recentlyClosed = useTabsStore(state => state.recentlyClosed);
     const togglePinTab = useTabsStore(state => state.togglePinTab);
     const tabGroups = useTabsStore(state => state.tabGroups);
     const createGroup = useTabsStore(state => state.createGroup);

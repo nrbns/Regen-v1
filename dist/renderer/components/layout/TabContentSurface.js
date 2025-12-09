@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 // @ts-nocheck
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
@@ -31,7 +31,7 @@ export function TabContentSurface({ tab, overlayActive }) {
     const isTauri = isTauriRuntime();
     const language = useSettingsStore(state => state.language || 'auto');
     const [loading, setLoading] = useState(false);
-    const [loadProgress, setLoadProgress] = useState(0);
+    const [_loadProgress, _setLoadProgress] = useState(0);
     const [error, setError] = useState(null);
     const [failedMessage, setFailedMessage] = useState(null);
     const [blockedExternal, setBlockedExternal] = useState(false);
@@ -524,47 +524,47 @@ export function TabContentSurface({ tab, overlayActive }) {
             width: '100%',
             height: '100%',
             zIndex: isInactive ? 0 : 1,
-        }, children: [!isElectron && targetUrl ? (_jsx("iframe", { ref: el => {
-                    if (el) {
-                        iframeRef.current = el;
-                        // GVE Optimization: Register iframe with optimizations
-                        if (tab?.id) {
-                            const iframeManager = getIframeManager();
-                            throttleViewUpdate(() => {
-                                iframeManager.registerIframe(tab.id, el, {
-                                    lazy: !tab.active,
-                                    sandbox: SAFE_IFRAME_SANDBOX.split(' '),
-                                    allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access',
+        }, children: [!isElectron && targetUrl ? (_jsx(Suspense, { fallback: _jsx("div", { className: "flex h-full w-full items-center justify-center bg-slate-950", children: _jsxs("div", { className: "text-center", children: [_jsx(Loader2, { className: "mx-auto h-8 w-8 animate-spin text-emerald-400" }), _jsx("p", { className: "mt-4 text-sm text-slate-400", children: "Loading page..." })] }) }), children: _jsx("iframe", { ref: el => {
+                        if (el) {
+                            iframeRef.current = el;
+                            // GVE Optimization: Register iframe with optimizations
+                            if (tab?.id) {
+                                const iframeManager = getIframeManager();
+                                throttleViewUpdate(() => {
+                                    iframeManager.registerIframe(tab.id, el, {
+                                        lazy: !tab.active,
+                                        sandbox: SAFE_IFRAME_SANDBOX.split(' '),
+                                        allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access',
+                                    });
                                 });
-                            });
+                            }
                         }
-                    }
-                }, className: "h-full w-full border-0", style: {
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    // GVE Optimization: Performance improvements
-                    contentVisibility: tab?.active ? 'auto' : 'hidden',
-                    contain: 'layout style paint',
-                }, src: targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab', sandbox: SAFE_IFRAME_SANDBOX, allow: "fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access", referrerPolicy: "no-referrer", loading: tab?.active ? 'eager' : 'lazy', fetchPriority: tab?.active ? 'high' : 'low', title: tab?.title ?? 'Tab content', "aria-label": tab?.title
-                    ? `Content for ${tab.title}`
-                    : targetUrl
-                        ? `External content for ${new URL(targetUrl).hostname}`
-                        : 'Tab content', "aria-live": "off", onError: e => {
-                    // Additional error handling for iframe
-                    console.warn('[TabContentSurface] Iframe error event:', e);
-                    // Check if it's a blocked iframe
-                    const iframe = e.currentTarget;
-                    if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
-                        setBlockedExternal(true);
-                        setFailedMessage('This site blocks embedded views (X-Frame-Options).');
-                    }
-                } })) : null, _jsx(AnimatePresence, { children: loading && (_jsx(motion.div, { className: "pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm", initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, role: "status", "aria-live": "polite", "aria-label": "Loading page content", children: _jsxs(motion.div, { initial: { scale: 0.95, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.95, opacity: 0 }, transition: { duration: 0.2 }, className: "flex flex-col items-center gap-4 rounded-2xl border border-slate-700/60 bg-slate-900/90 px-6 py-5 text-sm text-slate-200 shadow-lg shadow-black/40", children: [_jsx(motion.div, { animate: { rotate: 360 }, transition: { duration: 1, repeat: Infinity, ease: 'linear' }, children: _jsx(Loader2, { className: "h-6 w-6 text-emerald-300", "aria-hidden": "true" }) }), _jsxs("div", { className: "w-full max-w-xs text-center", children: [_jsxs("div", { className: "mb-2 font-medium", children: ["Loading ", new URL(targetUrl).hostname, "\u2026"] }), _jsx("div", { className: "mb-3 mt-1 text-xs text-slate-400", children: "This may take a moment" }), _jsx("div", { className: "w-full", children: _jsx("div", { className: "h-1 w-full overflow-hidden rounded-full bg-slate-800/60", children: _jsx(motion.div, { className: "h-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-emerald-500", initial: { x: '-100%', width: '40%' }, animate: {
+                    }, className: "h-full w-full border-0", style: {
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                        // GVE Optimization: Performance improvements
+                        contentVisibility: tab?.active ? 'auto' : 'hidden',
+                        contain: 'layout style paint',
+                    }, src: targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab', sandbox: SAFE_IFRAME_SANDBOX, allow: "fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access", referrerPolicy: "no-referrer", loading: tab?.active ? 'eager' : 'lazy', fetchPriority: tab?.active ? 'high' : 'low', title: tab?.title ?? 'Tab content', "aria-label": tab?.title
+                        ? `Content for ${tab.title}`
+                        : targetUrl
+                            ? `External content for ${new URL(targetUrl).hostname}`
+                            : 'Tab content', "aria-live": "off", onError: e => {
+                        // Additional error handling for iframe
+                        console.warn('[TabContentSurface] Iframe error event:', e);
+                        // Check if it's a blocked iframe
+                        const iframe = e.currentTarget;
+                        if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
+                            setBlockedExternal(true);
+                            setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+                        }
+                    } }) })) : null, _jsx(AnimatePresence, { children: loading && (_jsx(motion.div, { className: "pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-slate-950/55 backdrop-blur-sm", initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 }, role: "status", "aria-live": "polite", "aria-label": "Loading page content", children: _jsxs(motion.div, { initial: { scale: 0.95, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.95, opacity: 0 }, transition: { duration: 0.2 }, className: "flex flex-col items-center gap-4 rounded-2xl border border-slate-700/60 bg-slate-900/90 px-6 py-5 text-sm text-slate-200 shadow-lg shadow-black/40", children: [_jsx(motion.div, { animate: { rotate: 360 }, transition: { duration: 1, repeat: Infinity, ease: 'linear' }, children: _jsx(Loader2, { className: "h-6 w-6 text-emerald-300", "aria-hidden": "true" }) }), _jsxs("div", { className: "w-full max-w-xs text-center", children: [_jsxs("div", { className: "mb-2 font-medium", children: ["Loading ", new URL(targetUrl).hostname, "\u2026"] }), _jsx("div", { className: "mb-3 mt-1 text-xs text-slate-400", children: "This may take a moment" }), _jsx("div", { className: "w-full", children: _jsx("div", { className: "h-1 w-full overflow-hidden rounded-full bg-slate-800/60", children: _jsx(motion.div, { className: "h-full bg-gradient-to-r from-emerald-500 via-cyan-500 to-emerald-500", initial: { x: '-100%', width: '40%' }, animate: {
                                                     x: ['-100%', '100%'],
                                                 }, transition: {
                                                     duration: 1.5,

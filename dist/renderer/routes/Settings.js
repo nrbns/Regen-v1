@@ -4,7 +4,9 @@ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
  * Tabs: Accounts, Appearance, APIs, Bookmarks, Workspaces, Safety, Shortcuts
  */
 import { useState } from 'react';
-import { User, Palette, Plug, Bookmark, FolderOpen, Shield, Keyboard, Zap, Activity, Settings2, Trophy, FileText, Video, Globe, } from 'lucide-react';
+import { User, Palette, Plug, Bookmark, FolderOpen, Shield, Keyboard, Zap, Activity, Settings2, Trophy, FileText, Video, Globe,
+// Bot, // Unused
+ } from 'lucide-react';
 import { useSettingsStore } from '../state/settingsStore';
 import { useExternalApisStore } from '../state/externalApisStore';
 import { useCapabilityStore, getCapabilityDescriptions } from '../core/security/capabilities';
@@ -16,6 +18,7 @@ import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
 // Optional components - only available in tauri-migration, removed for now
 import { EXTERNAL_APIS } from '../config/externalApis';
 import { RedixModeToggle } from '../components/redix/RedixModeToggle';
+// import { getRedixConfig } from '../lib/redix-mode'; // Unused
 import { LanguageSelector } from '../components/settings/LanguageSelector';
 import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
@@ -69,7 +72,7 @@ function AppearancePanel() {
     return (_jsxs("div", { className: "max-w-4xl space-y-6", children: [_jsx(SectionCard, { title: "Language", icon: Globe, children: _jsx(LanguageSelector, {}) }), _jsxs(SectionCard, { title: "Theme", icon: Palette, children: [_jsx(LabeledField, { label: "Color Scheme", children: _jsxs("select", { value: appearance.theme || 'dark', onChange: e => settings.updateAppearance({ theme: e.target.value }), className: "w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50", children: [_jsx("option", { value: "dark", children: "Dark" }), _jsx("option", { value: "light", children: "Light" }), _jsx("option", { value: "system", children: "System" })] }) }), _jsx(ToggleRow, { label: "Compact UI", checked: appearance.compactUI || false, onChange: checked => settings.updateAppearance({ compactUI: checked }), description: "Reduce spacing and padding for a more compact interface" }), _jsx(ToggleRow, { label: "Chrome-style New Tab Page", checked: appearance.chromeNewTabPage ?? true, onChange: checked => settings.updateAppearance({ chromeNewTabPage: checked }), description: "Use Google Chrome-style new tab page" })] })] }));
 }
 function ApisPanel() {
-    const { apis, setApiKey, setApiEnabled, getApiConfig } = useExternalApisStore();
+    const { apis: _apis, setApiKey, setApiEnabled, getApiConfig } = useExternalApisStore();
     const [selectedMode, setSelectedMode] = useState('research');
     const modeApis = EXTERNAL_APIS.filter(api => api.mode === selectedMode);
     return (_jsxs("div", { className: "max-w-4xl space-y-6", children: [_jsx("div", { className: "flex gap-2 mb-6", children: ['research', 'trade', 'threat', 'image'].map(mode => (_jsx("button", { onClick: () => setSelectedMode(mode), className: `px-4 py-2 rounded-lg text-sm font-medium transition-colors ${selectedMode === mode

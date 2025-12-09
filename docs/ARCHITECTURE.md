@@ -156,6 +156,7 @@ Report Generation
 ## Technology Stack
 
 ### Frontend
+
 - **React 18** - UI framework
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
@@ -166,6 +167,7 @@ Report Generation
 - **FlexSearch** - Local search
 
 ### Backend
+
 - **Node.js** - Runtime
 - **Fastify** - Web framework
 - **cheerio** - HTML parsing
@@ -173,11 +175,13 @@ Report Generation
 - **BullMQ** - Job queue (planned)
 
 ### Desktop
+
 - **Tauri** - Desktop framework
 - **Rust** - Native code
 - **llama.cpp** - On-device AI
 
 ### AI/ML
+
 - **llama.cpp** - On-device inference
 - **@mlc-ai/web-llm** - Browser inference
 - **FlexSearch** - Full-text search
@@ -265,11 +269,13 @@ Display (i18n)
 ## Deployment Architecture
 
 ### Desktop (Tauri)
+
 - Single binary
 - Bundled dependencies
 - Auto-update support
 
 ### Web (Optional)
+
 - Static hosting (Vercel/Netlify)
 - Service workers for offline
 - CDN for assets
@@ -287,5 +293,3 @@ Display (i18n)
 ---
 
 **Architecture designed for scalability, privacy, and performance.** 🚀
-
-

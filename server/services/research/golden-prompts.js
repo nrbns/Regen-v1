@@ -10,8 +10,8 @@ export const GOLDEN_PROMPTS = {
    */
   ultraDeep: {
     systemPrompt: `Act as a world-class intelligence analyst with access to real-time web + X data. Use a multi-hop reasoning chain. First, list 8–12 highly specific, non-obvious search queries that would reveal hidden truths or cutting-edge developments on this topic (include arXiv, GitHub, patents, obscure forums, and deep X threads). Then execute the top 5 in parallel. Finally, synthesize into a surprising, defensible answer with live citations.`,
-    
-    generateQueries: (topic) => [
+
+    generateQueries: topic => [
       `site:arxiv.org ${topic} 2024 OR 2025`,
       `site:github.com ${topic} stars:>100 created:>2024-09-01`,
       `site:patents.google.com ${topic}`,
@@ -28,8 +28,8 @@ export const GOLDEN_PROMPTS = {
    */
   twitterDeepDive: {
     systemPrompt: `Search X for the last 72 hours using 6 different advanced operators (from:, since:, filter:links, min_retweets:50, etc.). Look for takes from verified engineers, founders, or researchers with >10k followers. Extract signal vs noise. Quote the 4 most important tweets verbatim with links.`,
-    
-    generateQueries: (topic) => [
+
+    generateQueries: topic => [
       `${topic} min_retweets:50 since:2025-01-01`,
       `${topic} filter:verified min_followers:10000`,
       `${topic} filter:links -filter:retweets`,
@@ -42,8 +42,8 @@ export const GOLDEN_PROMPTS = {
    */
   contraConsensus: {
     systemPrompt: `Find the 3 strongest recent arguments AGAINST the current mainstream view on this topic. Prioritize sources that are credentialed but dissenting (e.g. Stanford professor vs consensus, leaked internal docs, etc.).`,
-    
-    generateQueries: (topic) => [
+
+    generateQueries: topic => [
       `${topic} "criticism" OR "problem" OR "issue" OR "concern"`,
       `${topic} "alternative view" OR "dissenting opinion" OR "contrary"`,
       `${topic} "debate" OR "controversy" OR "disagreement"`,
@@ -56,8 +56,8 @@ export const GOLDEN_PROMPTS = {
    */
   primarySource: {
     systemPrompt: `Go directly to the original paper / commit / SEC filing / patent / court document. Quote the exact paragraph that matters. Never rely on secondary articles.`,
-    
-    generateQueries: (topic) => [
+
+    generateQueries: topic => [
       `site:arxiv.org ${topic} filetype:pdf`,
       `site:github.com ${topic} "README" OR "docs"`,
       `site:sec.gov ${topic} filetype:pdf`,
@@ -71,8 +71,8 @@ export const GOLDEN_PROMPTS = {
    */
   bleedingEdge: {
     systemPrompt: `Search arXiv, HuggingFace, GitHub "stars:>1000 created:>2025-09-01", and v0/vercel showcases for implementations that are <90 days old.`,
-    
-    generateQueries: (topic) => [
+
+    generateQueries: topic => [
       `site:arxiv.org ${topic} submittedDate:[2024-09-01 TO *]`,
       `site:github.com ${topic} stars:>1000 created:>2024-09-01`,
       `site:huggingface.co ${topic} created:>2024-09-01`,
@@ -86,12 +86,12 @@ export const GOLDEN_PROMPTS = {
  */
 export function generateAllQueries(topic) {
   const allQueries = [];
-  
+
   for (const [key, prompt] of Object.entries(GOLDEN_PROMPTS)) {
     const queries = prompt.generateQueries(topic);
     allQueries.push(...queries.map(q => ({ query: q, strategy: key })));
   }
-  
+
   return allQueries;
 }
 
@@ -101,10 +101,3 @@ export function generateAllQueries(topic) {
 export function getSystemPrompt(strategy = 'ultraDeep') {
   return GOLDEN_PROMPTS[strategy]?.systemPrompt || GOLDEN_PROMPTS.ultraDeep.systemPrompt;
 }
-
-
-
-
-
-
-

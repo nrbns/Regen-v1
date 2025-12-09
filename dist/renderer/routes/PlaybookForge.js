@@ -1,6 +1,7 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useState } from 'react';
 import { executeAutomation, getAutomationStatus, onAutomationStatusUpdate, } from '../services/automationBridge';
+// import { getAllTemplates, getTemplate } from '../data/automationTemplates'; // Unused
 import { toast } from '../utils/toast';
 import { Play, Loader2, CheckCircle2, XCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { parseChainDefinition, getChainExecutor } from '../core/agents/chainExecutor';
@@ -25,7 +26,7 @@ export default function PlaybookForge() {
     const [title, setTitle] = useState('New Playbook');
     const [yaml, setYaml] = useState('');
     const [currentExecution, setCurrentExecution] = useState(getAutomationStatus());
-    const [showTemplates, setShowTemplates] = useState(false);
+    const [_showTemplates, _setShowTemplates] = useState(false);
     const [showTemplateGallery, setShowTemplateGallery] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
     const [validationWarnings, setValidationWarnings] = useState([]);

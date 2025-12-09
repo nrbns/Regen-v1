@@ -18,6 +18,7 @@ import { getIframeManager, throttleViewUpdate } from '../../utils/gve-optimizer'
 import { BrowserAutomationBridge } from '../browser/BrowserAutomationBridge';
 import { ErrorPage } from '../browser/ErrorPage';
 import { LoadingIndicator } from '../browser/LoadingIndicator';
+import { isYouTubeUrl, convertToYouTubeEmbed, isYouTubeEmbeddable } from '../../utils/youtubeHandler';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
@@ -39,7 +40,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(false);
-  const [_loadProgress, _setLoadProgress] = useState(0);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(null);
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
@@ -82,6 +83,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       }
       // Fallback to DuckDuckGo search
       return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
+    }
+
+    // Handle YouTube URLs: convert to embed format if it's a video URL
+    if (isYouTubeUrl(url)) {
+      const embedUrl = convertToYouTubeEmbed(url);
+      if (embedUrl) {
+        // It's a video URL, use embed format
+        return embedUrl;
+      }
+      // It's not a video URL (e.g., youtube.com homepage), keep original
+      // Will be handled by X-Frame-Options error handler
     }
 
     return url;
@@ -209,7 +221,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
       if (isFrameBlocked) {
         setBlockedExternal(true);
-        setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+        // Special message for YouTube
+        if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
+          setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
+        } else {
+          setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+        }
       } else {
         // Generic error - don't assume it's blocking, might be network issue
         setFailedMessage('Failed to load this page. Please check the URL or your connection.');
@@ -445,7 +462,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
       if (isFrameBlocked) {
         setBlockedExternal(true);
-        setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+        // Special message for YouTube
+        if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
+          setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
+        } else {
+          setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+        }
       } else {
         // Generic error - don't assume it's blocking, might be network issue
         setFailedMessage('Failed to load this page. Please check the URL or your connection.');
@@ -618,7 +640,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                   iframeManager.registerIframe(tab.id, el, {
                     lazy: !tab.active,
                     sandbox: SAFE_IFRAME_SANDBOX.split(' '),
-                    allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access',
+                    allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture',
                   });
                 });
               }
@@ -640,10 +662,10 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           }}
           src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
           sandbox={SAFE_IFRAME_SANDBOX}
-          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access"
+          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture"
           referrerPolicy="no-referrer"
           loading={tab?.active ? 'eager' : 'lazy'}
-          fetchPriority={tab?.active ? 'high' : 'low'}
+          fetchpriority={tab?.active ? 'high' : 'low'}
           title={tab?.title ?? 'Tab content'}
           aria-label={
             tab?.title
@@ -660,7 +682,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             const iframe = e.currentTarget;
             if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
               setBlockedExternal(true);
-              setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+              // Special message for YouTube
+              if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
+                setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
+              } else {
+                setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+              }
             }
           }}
         />
@@ -814,11 +841,16 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               className="max-w-lg space-y-4 rounded-3xl border border-emerald-500/40 bg-emerald-500/15 p-6 text-center text-sm text-emerald-100 shadow-2xl shadow-black/50"
             >
               <div className="text-lg font-semibold text-emerald-50">
-                {targetUrl ? new URL(targetUrl).hostname : 'This page'} cannot be embedded
+                {targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)
+                  ? 'YouTube homepage cannot be embedded'
+                  : targetUrl
+                  ? `${new URL(targetUrl).hostname} cannot be embedded`
+                  : 'This page cannot be embedded'}
               </div>
               <p className="text-emerald-100/70">
-                This site blocks embedded views for security (X-Frame-Options). You can open it in
-                your system browser or use the desktop build for full webview support.
+                {targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)
+                  ? 'YouTube blocks embedding of their homepage. Try opening a specific video URL (e.g., youtube.com/watch?v=VIDEO_ID) or open it in your system browser.'
+                  : 'This site blocks embedded views for security (X-Frame-Options). You can open it in your system browser or use the desktop build for full webview support.'}
               </p>
               <div className="flex items-center justify-center gap-3">
                 <button

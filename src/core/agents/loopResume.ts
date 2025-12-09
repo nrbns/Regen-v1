@@ -37,10 +37,10 @@ export function saveLoopState(state: Partial<LoopState>): void {
     const fullState: LoopState = {
       runId: currentRunId,
       goal: useAgentStreamStore.getState().lastGoal || state.goal || '',
-      status: useAgentStreamStore.getState().status,
+      status: useAgentStreamStore.getState().status as LoopState['status'],
       transcript: useAgentStreamStore.getState().transcript,
       events: useAgentStreamStore.getState().events,
-      error: useAgentStreamStore.getState().error,
+      error: useAgentStreamStore.getState().error || null,
       lastSaved: Date.now(),
       ...state,
     };
@@ -96,7 +96,7 @@ export function resumeLoop(runId: string): boolean {
     const store = useAgentStreamStore.getState();
     store.setRun(state.runId, state.goal);
     store.setStatus(state.status);
-    store.setError(state.error);
+    store.setError(state.error || undefined);
 
     // Restore transcript
     if (state.transcript) {
@@ -148,7 +148,7 @@ export function startAutoSave(metadata?: LoopState['metadata']): void {
 
   saveInterval = setInterval(() => {
     const store = useAgentStreamStore.getState();
-    if (store.runId && store.status === 'live') {
+    if (store.runId && (store.status === 'live' || store.status === 'connecting')) {
       saveLoopState({ metadata });
     }
   }, SAVE_INTERVAL_MS);

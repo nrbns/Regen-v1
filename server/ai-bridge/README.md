@@ -5,22 +5,26 @@ Local offline AI inference bridge for Regen Browser.
 ## Quick Start
 
 1. **Install dependencies:**
+
 ```bash
 cd server/ai-bridge
 npm ci
 ```
 
 2. **Set up authentication token:**
+
 ```bash
 echo "LOCAL_DEV_TOKEN" > .bridge_token
 ```
 
 3. **Start the service:**
+
 ```bash
 node index.js
 ```
 
 4. **Verify health:**
+
 ```bash
 curl http://127.0.0.1:4300/health
 ```
@@ -53,9 +57,11 @@ AI_BRIDGE_TOKEN=your-token-here
 ## API Endpoints
 
 ### GET /health
+
 Health check endpoint.
 
 **Response:**
+
 ```json
 {
   "status": "ok",
@@ -67,19 +73,20 @@ Health check endpoint.
 ```
 
 ### POST /v1/chat
+
 Chat completion endpoint.
 
 **Headers:**
+
 ```
 Authorization: Bearer YOUR_TOKEN
 ```
 
 **Request:**
+
 ```json
 {
-  "messages": [
-    { "role": "user", "content": "Hello, how are you?" }
-  ],
+  "messages": [{ "role": "user", "content": "Hello, how are you?" }],
   "model": "default",
   "temperature": 0.7,
   "max_tokens": 1000
@@ -87,15 +94,18 @@ Authorization: Bearer YOUR_TOKEN
 ```
 
 **Response:**
+
 ```json
 {
-  "choices": [{
-    "message": {
-      "role": "assistant",
-      "content": "Response text here"
-    },
-    "finish_reason": "stop"
-  }],
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "Response text here"
+      },
+      "finish_reason": "stop"
+    }
+  ],
   "usage": {
     "prompt_tokens": 10,
     "completion_tokens": 50,
@@ -108,9 +118,11 @@ Authorization: Bearer YOUR_TOKEN
 ```
 
 ### GET /v1/models
+
 List available models.
 
 **Response:**
+
 ```json
 {
   "models": [
@@ -128,6 +140,7 @@ List available models.
 ## Providers
 
 ### Mock Provider
+
 Default provider for testing. Returns mock responses.
 
 ```bash
@@ -135,6 +148,7 @@ LLM_PROVIDER=mock
 ```
 
 ### Ollama Provider
+
 Uses local Ollama installation.
 
 ```bash
@@ -144,6 +158,7 @@ OLLAMA_MODEL=llama3.1:8b
 ```
 
 ### OpenAI Provider
+
 Cloud fallback using OpenAI API.
 
 ```bash
@@ -153,6 +168,7 @@ OPENAI_MODEL=gpt-3.5-turbo
 ```
 
 ### Llama.cpp Provider
+
 Direct integration with llama.cpp (coming soon).
 
 ```bash
@@ -176,5 +192,3 @@ npm test
 - Always use authentication token in production
 - Token can be set via `AI_BRIDGE_TOKEN` env var or `.bridge_token` file
 - Service binds to `127.0.0.1` by default (localhost only)
-
-

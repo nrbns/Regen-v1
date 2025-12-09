@@ -14,7 +14,9 @@ import { performLiveWebSearch } from '../../services/liveWebSearch';
 import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
-import { searchOfflineDocuments } from '../../services/offlineRAG';
+// import { useOfflineRAG } from '../../hooks/useOfflineRAG'; // Unused
+// import { searchOfflineDocuments } from '../../services/offlineRAG'; // Unused
+// import { SavePageButton } from '../../components/offline/SavePageButton'; // Unused
 import { aiEngine } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
@@ -25,6 +27,7 @@ import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
 import { useContainerStore } from '../../state/containerStore';
 import { ResearchGraphView } from '../../components/research/ResearchGraphView';
+// import { isWebMode } from '../../lib/env'; // Unused
 import { SourceCard } from '../../components/research/SourceCard';
 import { AnswerWithCitations } from '../../components/research/AnswerWithCitations';
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
@@ -36,6 +39,7 @@ import { toast } from '../../utils/toast';
 import { runDeepScan } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
+import { executeAgentActions } from '../../services/agenticActions';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
@@ -111,6 +115,125 @@ export default function ResearchPanel() {
         window.addEventListener('wispr:research', handleWisprResearch);
         return () => window.removeEventListener('wispr:research', handleWisprResearch);
     }, []);
+    // Voice agent intents: open/scrape URLs for research.
+    useEffect(() => {
+        const handleAgentOpen = (event) => {
+            const url = event?.detail?.url;
+            if (!url)
+                return;
+            toast.success('Opening for research…');
+            void executeAgentActions([`[OPEN ${url}]`]);
+        };
+        const handleAgentScraped = (event) => {
+            const { url, results } = event.detail;
+            if (!url || !results)
+                return;
+            toast.success(`Scraped: ${results.title || url}`);
+            // Add scraped result to research sources if available
+            if (results.content || results.excerpt) {
+                const source = {
+                    id: `agent-${Date.now()}`,
+                    url,
+                    title: results.title || url,
+                    snippet: results.excerpt || results.content?.substring(0, 200) || '',
+                    type: 'web',
+                    credibility: 'medium',
+                    timestamp: Date.now(),
+                };
+                if (result) {
+                    setResult({
+                        ...result,
+                        sources: [...(result.sources || []), source],
+                    });
+                }
+            }
+        };
+        const handleAgentSummarize = async (event) => {
+            const targetUrl = event.detail.url;
+            if (targetUrl) {
+                // Summarize specific URL
+                toast.info('Summarizing page…');
+                try {
+                    const { scrapeResearchSources } = await import('../../services/researchScraper');
+                    const [scraped] = await scrapeResearchSources([targetUrl]);
+                    if (scraped?.content) {
+                        const { summarizeOffline } = await import('../../services/offlineSummarizer');
+                        const summary = await summarizeOffline(scraped.content);
+                        setResult({
+                            query: `Summary of ${targetUrl}`,
+                            answer: summary.summary,
+                            sources: [
+                                {
+                                    id: `summary-${Date.now()}`,
+                                    url: targetUrl,
+                                    title: scraped.title || targetUrl,
+                                    snippet: summary.summary,
+                                    type: 'web',
+                                    credibility: 'high',
+                                    timestamp: Date.now(),
+                                },
+                            ],
+                            confidence: summary.confidence,
+                            timestamp: Date.now(),
+                        });
+                        toast.success('Page summarized');
+                    }
+                }
+                catch (error) {
+                    console.warn('[Research] Summarize failed:', error);
+                    toast.error('Failed to summarize page');
+                }
+            }
+            else {
+                // Summarize current active tab
+                const activeTab = tabs.find(t => t.id === activeId);
+                if (activeTab?.url && activeTab.url.startsWith('http')) {
+                    toast.info('Summarizing current page…');
+                    try {
+                        const { scrapeResearchSources } = await import('../../services/researchScraper');
+                        const [scraped] = await scrapeResearchSources([activeTab.url]);
+                        if (scraped?.content) {
+                            const { summarizeOffline } = await import('../../services/offlineSummarizer');
+                            const summary = await summarizeOffline(scraped.content);
+                            setResult({
+                                query: `Summary of ${activeTab.url}`,
+                                answer: summary.summary,
+                                sources: [
+                                    {
+                                        id: `summary-${Date.now()}`,
+                                        url: activeTab.url,
+                                        title: scraped.title || activeTab.title || activeTab.url,
+                                        snippet: summary.summary,
+                                        type: 'web',
+                                        credibility: 'high',
+                                        timestamp: Date.now(),
+                                    },
+                                ],
+                                confidence: summary.confidence,
+                                timestamp: Date.now(),
+                            });
+                            toast.success('Page summarized');
+                        }
+                    }
+                    catch (error) {
+                        console.warn('[Research] Summarize failed:', error);
+                        toast.error('Failed to summarize page');
+                    }
+                }
+                else {
+                    toast.warning('No page to summarize');
+                }
+            }
+        };
+        window.addEventListener('agent:research-open', handleAgentOpen);
+        window.addEventListener('agent:research-scraped', handleAgentScraped);
+        window.addEventListener('agent:research-summarize', handleAgentSummarize);
+        return () => {
+            window.removeEventListener('agent:research-open', handleAgentOpen);
+            window.removeEventListener('agent:research-scraped', handleAgentScraped);
+            window.removeEventListener('agent:research-summarize', handleAgentSummarize);
+        };
+    }, [activeId, tabs, result, setResult]);
     useEffect(() => {
         const handleHandoff = (event) => {
             const { query: handoffQuery, symbol, language: _handoffLanguage } = event.detail;
@@ -2181,7 +2304,8 @@ function SourcesList({ sources, activeSourceId, onActivate, onOpenSource, }) {
     if (!sources || sources.length === 0)
         return null;
     // Phase 1, Day 6: Calculate credibility for all sources
-    const { calculateCredibility, getCredibilityColor, getCredibilityLabel } = require('../../core/research/sourceCredibility');
+    // Note: These are used in the SourceCard component (lines 2793-2795), not here
+    const { calculateCredibility: _calculateCredibility, getCredibilityColor: _getCredibilityColor, getCredibilityLabel: _getCredibilityLabel } = require('../../core/research/sourceCredibility');
     const providerCounts = sources.reduce((acc, source) => {
         const provider = typeof source.metadata?.provider === 'string' ? source.metadata.provider.toLowerCase() : '';
         if (!provider)

@@ -48,6 +48,7 @@ import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
 import { OmniAgentInput } from '../../components/OmniAgentInput';
+import { executeAgentActions } from '../../services/agenticActions';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
@@ -152,6 +153,120 @@ export default function ResearchPanel() {
     window.addEventListener('wispr:research', handleWisprResearch as EventListener);
     return () => window.removeEventListener('wispr:research', handleWisprResearch as EventListener);
   }, []);
+
+  // Voice agent intents: open/scrape URLs for research.
+  useEffect(() => {
+    const handleAgentOpen = (event: CustomEvent<{ url?: string }>) => {
+      const url = event?.detail?.url;
+      if (!url) return;
+      toast.success('Opening for research…');
+      void executeAgentActions([`[OPEN ${url}]`]);
+    };
+    const handleAgentScraped = (event: CustomEvent<{ url?: string; results?: any }>) => {
+      const { url, results } = event.detail;
+      if (!url || !results) return;
+      toast.success(`Scraped: ${results.title || url}`);
+      // Add scraped result to research sources if available
+      if (results.content || results.excerpt) {
+        const source: ResearchSource = {
+          id: `agent-${Date.now()}`,
+          url,
+          title: results.title || url,
+          snippet: results.excerpt || results.content?.substring(0, 200) || '',
+          type: 'web' as ResearchSourceType,
+          credibility: 'medium',
+          timestamp: Date.now(),
+        };
+        if (result) {
+          setResult({
+            ...result,
+            sources: [...(result.sources || []), source],
+          });
+        }
+      }
+    };
+    const handleAgentSummarize = async (event: CustomEvent<{ url?: string | null }>) => {
+      const targetUrl = event.detail.url;
+      if (targetUrl) {
+        // Summarize specific URL
+        toast.info('Summarizing page…');
+        try {
+          const { scrapeResearchSources } = await import('../../services/researchScraper');
+          const [scraped] = await scrapeResearchSources([targetUrl]);
+          if (scraped?.content) {
+            const { summarizeOffline } = await import('../../services/offlineSummarizer');
+            const summary = await summarizeOffline(scraped.content);
+            setResult({
+              query: `Summary of ${targetUrl}`,
+              answer: summary.summary,
+              sources: [
+                {
+                  id: `summary-${Date.now()}`,
+                  url: targetUrl,
+                  title: scraped.title || targetUrl,
+                  snippet: summary.summary,
+                  type: 'web' as ResearchSourceType,
+                  credibility: 'high',
+                  timestamp: Date.now(),
+                },
+              ],
+              confidence: summary.confidence,
+              timestamp: Date.now(),
+            });
+            toast.success('Page summarized');
+          }
+        } catch (error) {
+          console.warn('[Research] Summarize failed:', error);
+          toast.error('Failed to summarize page');
+        }
+      } else {
+        // Summarize current active tab
+        const activeTab = tabs.find(t => t.id === activeId);
+        if (activeTab?.url && activeTab.url.startsWith('http')) {
+          toast.info('Summarizing current page…');
+          try {
+            const { scrapeResearchSources } = await import('../../services/researchScraper');
+            const [scraped] = await scrapeResearchSources([activeTab.url]);
+            if (scraped?.content) {
+              const { summarizeOffline } = await import('../../services/offlineSummarizer');
+              const summary = await summarizeOffline(scraped.content);
+              setResult({
+                query: `Summary of ${activeTab.url}`,
+                answer: summary.summary,
+                sources: [
+                  {
+                    id: `summary-${Date.now()}`,
+                    url: activeTab.url,
+                    title: scraped.title || activeTab.title || activeTab.url,
+                    snippet: summary.summary,
+                    type: 'web' as ResearchSourceType,
+                    credibility: 'high',
+                    timestamp: Date.now(),
+                  },
+                ],
+                confidence: summary.confidence,
+                timestamp: Date.now(),
+              });
+              toast.success('Page summarized');
+            }
+          } catch (error) {
+            console.warn('[Research] Summarize failed:', error);
+            toast.error('Failed to summarize page');
+          }
+        } else {
+          toast.warning('No page to summarize');
+        }
+      }
+    };
+    window.addEventListener('agent:research-open', handleAgentOpen as EventListener);
+    window.addEventListener('agent:research-scraped', handleAgentScraped as EventListener);
+    window.addEventListener('agent:research-summarize', handleAgentSummarize as EventListener);
+    return () => {
+      window.removeEventListener('agent:research-open', handleAgentOpen as EventListener);
+      window.removeEventListener('agent:research-scraped', handleAgentScraped as EventListener);
+      window.removeEventListener('agent:research-summarize', handleAgentSummarize as EventListener);
+    };
+  }, [activeId, tabs, result, setResult]);
 
   useEffect(() => {
     const handleHandoff = (event: CustomEvent) => {
@@ -928,7 +1043,14 @@ export default function ResearchPanel() {
             console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
           } catch (apiError) {
             // Log the error for debugging
-            console.warn('[Research] Backend API call failed (will use fallback):', apiError instanceof Error ? apiError.message : String(apiError));
+            const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
+            console.warn('[Research] Backend API call failed (will use fallback):', errorMsg);
+            
+            // Show user-friendly message if backend is clearly offline
+            if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('ECONNREFUSED') || errorMsg.includes('Failed to fetch')) {
+              toast.info('Backend server is offline. Using fallback search engines...', { duration: 3000 });
+            }
+            
             // Continue with fallback - backend is optional
             backendResult = null;
           }
@@ -976,12 +1098,17 @@ export default function ResearchPanel() {
         // Fallback to multi-source search if backend API failed or returned no results
         if (aggregatedSources.length === 0) {
           try {
+            console.log('[Research] Using fallback search (optimizedSearch)...');
+            setLoadingMessage('Searching with fallback engines...');
+            
             // OPTIMIZED SEARCH: Use optimized search service for better reliability
             const optimizedResults = await optimizedSearch(searchQuery, {
               count: 20,
               language,
               timeout: 10000,
             });
+            
+            console.log('[Research] Fallback search returned', optimizedResults.length, 'results');
 
             // Convert optimized results to multi-source format
             const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
@@ -1034,11 +1161,17 @@ export default function ResearchPanel() {
             }
           } catch (multiSourceError) {
             console.warn('[Research] Multi-source search failed:', multiSourceError);
+            // Don't give up - try next fallback
+            if (aggregatedSources.length === 0) {
+              toast.info('Primary search failed, trying alternative engines...', { duration: 2000 });
+            }
           }
         }
 
         // Final fallback to live web search if all else fails
         if (aggregatedSources.length === 0) {
+          console.log('[Research] No results from optimizedSearch, trying live web search...');
+          toast.info('Using alternative search engine...', { duration: 2000 });
           try {
             const liveResults = await performLiveWebSearch(searchQuery, {
               count: 15,
@@ -1789,13 +1922,21 @@ export default function ResearchPanel() {
           }
         } catch (fallbackError) {
           console.warn('[Research] Offline fallback also failed:', fallbackError);
+          const fallbackErrorMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          setError(
+            `All search methods failed. ${fallbackErrorMsg}. ${searchHealth?.error ? `(${searchHealth.error})` : 'Backend is offline and fallback engines are not responding. Please check your internet connection or start the backend server with: npm run dev:server'}`
+          );
+          toast.error('Search failed: All engines offline. Check connection or start backend.');
         }
       }
 
-      setError(
-        `Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`
-      );
-      toast.error(`Search failed: ${errorMessage}`);
+      // Only set error if we haven't set it in the catch block above and errorMessage is defined
+      if (typeof errorMessage !== 'undefined' && !error) {
+        setError(
+          `Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`
+        );
+        toast.error(`Search failed: ${errorMessage}`);
+      }
 
       // TELEMETRY FIX: Track failed search latency
       const searchLatency = performance.now() - searchStartTime;

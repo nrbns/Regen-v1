@@ -131,7 +131,7 @@ class TradeSignalService {
             this.sseFallback = getSSESignalService();
             // Subscribe to trade signals via SSE
             this.subscribedSymbols.forEach(symbol => {
-                const unsubscribe = this.sseFallback.subscribe(`trade_signals:${symbol}`, (signal) => {
+                const _unsubscribe = this.sseFallback.subscribe(`trade_signals:${symbol}`, (signal) => {
                     if (signal.type === 'trade_signal' && signal.action) {
                         const tradeSignal = {
                             symbol: signal.symbol || symbol,

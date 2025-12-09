@@ -55,7 +55,7 @@ export function VoiceInput() {
         setState(prev => ({ ...prev, isListening: true, error: null }));
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = event => {
         try {
           const msg = JSON.parse(event.data);
 
@@ -91,7 +91,7 @@ export function VoiceInput() {
         }
       };
 
-      ws.onerror = (error) => {
+      ws.onerror = error => {
         console.error('[VoiceInput] WebSocket error:', error);
         setState(prev => ({
           ...prev,
@@ -111,7 +111,7 @@ export function VoiceInput() {
       });
       mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.ondataavailable = (event) => {
+      mediaRecorder.ondataavailable = event => {
         if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
           ws.send(event.data);
         }
@@ -119,7 +119,6 @@ export function VoiceInput() {
 
       // Record in 250ms chunks
       mediaRecorder.start(250);
-
     } catch (error: any) {
       console.error('[VoiceInput] Failed to start listening:', error);
       setState(prev => ({
@@ -199,17 +198,8 @@ export function VoiceInput() {
       )}
 
       {state.error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          Error: {state.error}
-        </div>
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Error: {state.error}</div>
       )}
     </div>
   );
 }
-
-
-
-
-
-
-

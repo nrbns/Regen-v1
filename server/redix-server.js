@@ -157,21 +157,42 @@ async function loadProductionSearchAPIs() {
     const searchModule = await import('./api/search.js');
     const summarizeModule = await import('./api/summarize.js');
     const rateLimiterModule = await import('./middleware/rateLimiter.js');
-    
+
     searchHandler = searchModule.searchHandler;
     searchGetHandler = searchModule.searchGetHandler;
     summarizeHandler = summarizeModule.summarizeHandler;
     searchRateLimiter = rateLimiterModule.searchRateLimiter;
     summarizeRateLimiter = rateLimiterModule.summarizeRateLimiter;
-    
+
     return true;
   } catch (error) {
     console.warn('[RedixServer] Could not load production search/summarize APIs:', error.message);
     console.warn('[RedixServer] Make sure TypeScript files are compiled or use tsx to run server');
     // Provide fallback handlers
-    searchHandler = async (req, reply) => reply.code(503).send({ error: 'search_api_not_available', message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.' });
-    searchGetHandler = async (req, reply) => reply.code(503).send({ error: 'search_api_not_available', message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.' });
-    summarizeHandler = async (req, reply) => reply.code(503).send({ error: 'summarize_api_not_available', message: 'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.' });
+    searchHandler = async (req, reply) =>
+      reply
+        .code(503)
+        .send({
+          error: 'search_api_not_available',
+          message:
+            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+        });
+    searchGetHandler = async (req, reply) =>
+      reply
+        .code(503)
+        .send({
+          error: 'search_api_not_available',
+          message:
+            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+        });
+    summarizeHandler = async (req, reply) =>
+      reply
+        .code(503)
+        .send({
+          error: 'summarize_api_not_available',
+          message:
+            'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.',
+        });
     searchRateLimiter = async () => {}; // No-op
     summarizeRateLimiter = async () => {}; // No-op
     return false;
@@ -972,19 +993,37 @@ async function handleBinanceStream(symbol, request, reply) {
 
 // Register CORS for Tauri migration
 fastify.register(cors, {
-  origin: [
-    'http://localhost:1420', // Tauri dev server
-    'tauri://localhost', // Tauri production
-    'http://localhost:5173', // Vite dev (Electron fallback)
-    'http://127.0.0.1:1420',
-    'http://127.0.0.1:5173',
-    'http://localhost:4000', // Direct backend access
-    'http://127.0.0.1:4000', // Direct backend access
-    '*', // Allow all origins for development
-  ],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, curl, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const allowedOrigins = [
+      'http://localhost:1420', // Tauri dev server
+      'tauri://localhost', // Tauri production
+      'http://localhost:5173', // Vite dev (Electron fallback)
+      'http://127.0.0.1:1420',
+      'http://127.0.0.1:5173',
+      'http://localhost:4000', // Direct backend access
+      'http://127.0.0.1:4000', // Direct backend access
+    ];
+
+    // In development, allow all origins
+    if (nodeProcess?.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+
+    // In production, check against allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin'],
 });
 
 // CATEGORY B FIX: Rate limiting for expensive endpoints
@@ -1662,7 +1701,7 @@ if (enableWebSockets) {
           // Broadcast mode switch to all other clients
           const { mode, data } = message;
           client.mode = mode;
-          
+
           // Broadcast to all other mode sync clients
           modeSyncClients.forEach((otherClient, otherWs) => {
             if (otherWs !== ws && otherWs.readyState === WebSocket.OPEN) {
@@ -1817,7 +1856,10 @@ try {
   createBrowserAutomationWebSocket(fastify.server);
   fastify.log.info('Browser automation WebSocket server registered');
 } catch (error) {
-  fastify.log.warn({ err: error }, 'Failed to register browser automation WebSocket server (optional)');
+  fastify.log.warn(
+    { err: error },
+    'Failed to register browser automation WebSocket server (optional)'
+  );
 }
 
 // Register scraper API routes
@@ -2048,13 +2090,13 @@ fastify.post('/api/search/hybrid', async (request, reply) => {
 fastify.post('/api/search', async (request, reply) => {
   // Ensure APIs are loaded
   await loadAPIsPromise;
-  
+
   // Apply rate limiting
   if (searchRateLimiter) {
     await searchRateLimiter(request, reply);
     if (reply.sent) return; // Rate limit exceeded
   }
-  
+
   return searchHandler(request, reply);
 });
 
@@ -2065,13 +2107,13 @@ fastify.post('/api/search', async (request, reply) => {
 fastify.get('/api/search', async (request, reply) => {
   // Ensure APIs are loaded
   await loadAPIsPromise;
-  
+
   // Apply rate limiting
   if (searchRateLimiter) {
     await searchRateLimiter(request, reply);
     if (reply.sent) return; // Rate limit exceeded
   }
-  
+
   return searchGetHandler(request, reply);
 });
 
@@ -2083,13 +2125,13 @@ fastify.get('/api/search', async (request, reply) => {
 fastify.post('/api/summarize/v2', async (request, reply) => {
   // Ensure APIs are loaded
   await loadAPIsPromise;
-  
+
   // Apply rate limiting
   if (summarizeRateLimiter) {
     await summarizeRateLimiter(request, reply);
     if (reply.sent) return; // Rate limit exceeded
   }
-  
+
   return summarizeHandler(request, reply);
 });
 
@@ -2150,7 +2192,7 @@ fastify.get('/api/research/scrape', async (request, reply) => {
   if (!q) {
     return reply.code(400).send({ error: 'Query parameter "q" is required' });
   }
-  
+
   try {
     const { parallelSearch } = await import('./services/research/scraper-parallel-production.js');
     const result = await parallelSearch(q);
@@ -2173,7 +2215,7 @@ fastify.post('/api/research/langgraph', async (request, reply) => {
   if (!topic) {
     return reply.code(400).send({ error: 'Topic is required' });
   }
-  
+
   try {
     const { executeLangGraphWorkflow } = await import('./services/research/langgraph-workflow.js');
     const result = await executeLangGraphWorkflow(topic);
@@ -2193,29 +2235,29 @@ fastify.post('/api/research/langgraph', async (request, reply) => {
  */
 fastify.post('/api/pdf/upload', async (request, reply) => {
   const data = await request.file();
-  
+
   if (!data) {
     return reply.code(400).send({ error: 'PDF file is required' });
   }
-  
+
   if (!data.mimetype || !data.mimetype.includes('pdf')) {
     return reply.code(400).send({ error: 'File must be a PDF' });
   }
-  
+
   try {
     const { processPDFUpload } = await import('./services/pdf/pdf-extractor.js');
-    
+
     const file = {
       filename: data.filename,
       buffer: await data.toBuffer(),
       mimetype: data.mimetype,
     };
-    
+
     const result = await processPDFUpload(file, {
       autoResearch: request.body?.autoResearch !== false,
       customQuery: request.body?.customQuery,
     });
-    
+
     return result;
   } catch (error) {
     console.error('[PDFUpload] Error:', error);
@@ -2232,15 +2274,15 @@ fastify.post('/api/pdf/upload', async (request, reply) => {
  */
 fastify.get('/api/collab/room/:roomId', async (request, reply) => {
   const { roomId } = request.params;
-  
+
   try {
     const { getRoomContent } = await import('./services/collab/collab-server.js');
     const content = getRoomContent(roomId);
-    
+
     if (content === null) {
       return reply.code(404).send({ error: 'Room not found' });
     }
-    
+
     return {
       roomId,
       content,

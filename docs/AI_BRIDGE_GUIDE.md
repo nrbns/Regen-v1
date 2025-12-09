@@ -24,11 +24,13 @@ npm run dev:with-ai
 ## Providers
 
 ### Mock (Default)
+
 - Always available
 - No configuration needed
 - Perfect for testing
 
 ### Ollama (Recommended)
+
 ```bash
 # Install: https://ollama.com
 ollama serve
@@ -37,6 +39,7 @@ export LLM_PROVIDER=ollama
 ```
 
 ### OpenAI
+
 ```bash
 export LLM_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
@@ -49,5 +52,3 @@ export OPENAI_API_KEY=sk-...
 - `GET /v1/models` - List models
 
 See `server/ai-bridge/README.md` for full API documentation.
-
-

@@ -46,29 +46,47 @@ export async function generateSourcePreview(url, options = {}) {
     });
 
     const html = response.data;
-    
+
     // Extract Open Graph tags
-    const ogTitle = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogDescription = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogImage = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i)?.[1];
-    const ogSiteName = html.match(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i)?.[1];
+    const ogTitle = html.match(
+      /<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i
+    )?.[1];
+    const ogDescription = html.match(
+      /<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i
+    )?.[1];
+    const ogImage = html.match(
+      /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i
+    )?.[1];
+    const ogSiteName = html.match(
+      /<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i
+    )?.[1];
 
     // Extract Twitter Card tags
-    const twitterTitle = html.match(/<meta\s+name=["']twitter:title["']\s+content=["']([^"']+)["']/i)?.[1];
-    const twitterDescription = html.match(/<meta\s+name=["']twitter:description["']\s+content=["']([^"']+)["']/i)?.[1];
-    const twitterImage = html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i)?.[1];
+    const twitterTitle = html.match(
+      /<meta\s+name=["']twitter:title["']\s+content=["']([^"']+)["']/i
+    )?.[1];
+    const twitterDescription = html.match(
+      /<meta\s+name=["']twitter:description["']\s+content=["']([^"']+)["']/i
+    )?.[1];
+    const twitterImage = html.match(
+      /<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i
+    )?.[1];
 
     // Extract title
     const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim();
 
     // Extract favicon
-    const favicon = html.match(/<link[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']/i)?.[1];
+    const favicon = html.match(
+      /<link[^>]*rel=["'](?:shortcut\s+)?icon["'][^>]*href=["']([^"']+)["']/i
+    )?.[1];
 
     preview.title = ogTitle || twitterTitle || title || null;
     preview.description = ogDescription || twitterDescription || null;
     preview.image = ogImage || twitterImage || null;
     preview.siteName = ogSiteName || new URL(url).hostname;
-    preview.favicon = favicon ? new URL(favicon, url).href : `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}`;
+    preview.favicon = favicon
+      ? new URL(favicon, url).href
+      : `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}`;
 
     // Special handling for known domains
     if (url.includes('arxiv.org')) {
@@ -90,7 +108,6 @@ export async function generateSourcePreview(url, options = {}) {
         preview.metadata = twitterData.results[0];
       }
     }
-
   } catch (error) {
     console.warn('[SourcePreview] Failed to generate preview:', error.message);
     // Return basic preview with URL
@@ -112,12 +129,14 @@ export async function generateSourcePreview(url, options = {}) {
  */
 export async function generateSourcePreviews(urls) {
   const previews = await Promise.all(
-    urls.map(url => generateSourcePreview(url).catch(() => ({
-      url,
-      title: new URL(url).hostname,
-      description: url,
-      type: 'web',
-    })))
+    urls.map(url =>
+      generateSourcePreview(url).catch(() => ({
+        url,
+        title: new URL(url).hostname,
+        description: url,
+        type: 'web',
+      }))
+    )
   );
 
   return previews;
@@ -139,10 +158,3 @@ export function getPreviewCacheStats() {
     entries: Array.from(PREVIEW_CACHE.keys()),
   };
 }
-
-
-
-
-
-
-

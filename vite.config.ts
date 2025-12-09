@@ -197,6 +197,19 @@ export default defineConfig({
       strict: false, // Allow serving files outside root
       allow: ['..'], // Allow serving files from parent directories
     },
+    // DEVELOPMENT ONLY: Set relaxed CSP header for local development
+    headers: {
+      'Content-Security-Policy': 
+        "default-src 'self' https: data: blob:; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
+        "connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:; " +
+        "img-src 'self' data: https:; " +
+        "style-src 'self' 'unsafe-inline' https://rsms.me https:; " +
+        "style-src-elem 'self' 'unsafe-inline' https://rsms.me https:; " +
+        "font-src 'self' https://rsms.me https:; " +
+        "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https:; " +
+        "media-src https:;",
+    },
   },
   define: {
     // Ensure process.env is available for compatibility

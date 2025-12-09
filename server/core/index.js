@@ -4,7 +4,13 @@
  * Single entry point for all providers
  */
 
-export { getMode, isOffline, isOnline, detectSystemCapabilities, getRecommendedModel } from './mode-manager.js';
+export {
+  getMode,
+  isOffline,
+  isOnline,
+  detectSystemCapabilities,
+  getRecommendedModel,
+} from './mode-manager.js';
 export { getLLM } from './llm-provider.js';
 export { getVisionModel } from './vision-provider.js';
 export { getSTTProvider, getTTSProvider } from './voice-provider.js';
@@ -19,7 +25,9 @@ export async function initializeProviders() {
   const capabilities = await detectSystemCapabilities();
 
   console.log(`[Core] Initializing in ${mode.toUpperCase()} mode`);
-  console.log(`[Core] System: ${capabilities.totalMemory / (1024**3)}GB RAM, GPU: ${capabilities.gpu ? 'Yes' : 'No'}`);
+  console.log(
+    `[Core] System: ${capabilities.totalMemory / 1024 ** 3}GB RAM, GPU: ${capabilities.gpu ? 'Yes' : 'No'}`
+  );
 
   return {
     mode,
@@ -31,10 +39,3 @@ export async function initializeProviders() {
     search: await import('./search-provider.js').then(m => m.getSearchProvider()),
   };
 }
-
-
-
-
-
-
-

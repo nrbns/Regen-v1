@@ -10,6 +10,7 @@ import { MemoryStoreInstance } from '../core/supermemory/store';
 import { semanticSearchMemories } from '../core/supermemory/search';
 import { useAgentStreamStore } from '../state/agentStreamStore';
 import { useAgentMemoryStore } from '../state/agentMemoryStore';
+// import { getLast5Turns, buildContextualPrompt, getConversationContext } from '../core/agents/contextMemory'; // Unused
 import { trackAgent, trackAction } from '../core/supermemory/tracker';
 import { startAutoSave, stopAutoSave, saveLoopState, checkForCrashedLoops, } from '../core/agents/loopResume';
 import { useSettingsStore } from '../state/settingsStore';

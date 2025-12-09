@@ -50,11 +50,13 @@ export async function searchTwitter(query, options = {}) {
         .filter(tweet => {
           const user = users.find(u => u.id === tweet.author_id);
           if (!user) return false;
-          
+
           if (verifiedOnly && !user.verified) return false;
-          if (minFollowers > 0 && (user.public_metrics?.followers_count || 0) < minFollowers) return false;
-          if (minRetweets > 0 && (tweet.public_metrics?.retweet_count || 0) < minRetweets) return false;
-          
+          if (minFollowers > 0 && (user.public_metrics?.followers_count || 0) < minFollowers)
+            return false;
+          if (minRetweets > 0 && (tweet.public_metrics?.retweet_count || 0) < minRetweets)
+            return false;
+
           return true;
         })
         .map(tweet => {
@@ -91,7 +93,7 @@ export async function searchTwitter(query, options = {}) {
 
     const command = `snscrape --jsonl --max-results ${maxResults} twitter-search "${query} min_retweets:${minRetweets}"`;
     const { stdout } = await execAsync(command, { timeout: 10000 });
-    
+
     const tweets = stdout
       .trim()
       .split('\n')
@@ -154,13 +156,6 @@ export async function searchViralDevTweets(topic, options = {}) {
 
   // Sort by engagement
   return unique
-    .sort((a, b) => (b.retweets + b.likes) - (a.retweets + a.likes))
+    .sort((a, b) => b.retweets + b.likes - (a.retweets + a.likes))
     .slice(0, options.maxResults || 10);
 }
-
-
-
-
-
-
-

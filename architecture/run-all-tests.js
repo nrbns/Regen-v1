@@ -29,7 +29,7 @@ const testResults = {
 };
 
 async function runCommand(name, command, args = [], options = {}) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     log(`\n🧪 Running: ${name}...`, 'blue');
     log(`   Command: ${command} ${args.join(' ')}`, 'cyan');
 
@@ -39,7 +39,7 @@ async function runCommand(name, command, args = [], options = {}) {
       ...options,
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         log(`   ✅ ${name} passed`, 'green');
         testResults.passed.push(name);
@@ -51,7 +51,7 @@ async function runCommand(name, command, args = [], options = {}) {
       }
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       log(`   ⚠ ${name} error: ${error.message}`, 'yellow');
       testResults.warnings.push(name);
       resolve(false);
@@ -142,7 +142,3 @@ if (require.main === module) {
 }
 
 module.exports = { runAllTests };
-
-
-
-

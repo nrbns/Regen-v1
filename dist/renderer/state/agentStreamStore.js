@@ -1,11 +1,56 @@
 import { create } from 'zustand';
+// Simple store for voice control (used by VoiceControl component)
+export const useVoiceControlStore = create(set => ({
+    status: 'idle',
+    transcript: '',
+    stream: '',
+    actions: [],
+    actionResults: [],
+    actionProgress: {},
+    error: undefined,
+    setStatus: status => set({ status }),
+    setTranscript: text => set({ transcript: text }),
+    appendStream: chunk => set(state => ({ stream: state.stream + chunk })),
+    setActions: actions => set({ actions }),
+    setActionResults: results => set({ actionResults: results }),
+    setActionProgress: (action, progress) => set(state => ({
+        actionProgress: {
+            ...state.actionProgress,
+            [action]: progress,
+        },
+    })),
+    clearActionProgress: action => set(state => {
+        const { [action]: _, ...rest } = state.actionProgress;
+        return { actionProgress: rest };
+    }),
+    cancelledActions: new Set(),
+    cancelAction: action => set(state => {
+        const newCancelled = new Set(state.cancelledActions);
+        newCancelled.add(action);
+        return { cancelledActions: newCancelled };
+    }),
+    isActionCancelled: (action) => {
+        return useVoiceControlStore.getState().cancelledActions.has(action);
+    },
+    setError: message => set({ error: message }),
+    reset: () => set({
+        status: 'idle',
+        transcript: '',
+        stream: '',
+        actions: [],
+        actionResults: [],
+        actionProgress: {},
+        cancelledActions: new Set(),
+        error: undefined,
+    }),
+}));
 import { persist } from 'zustand/middleware';
 export const useAgentStreamStore = create()(persist(set => ({
     runId: null,
     status: 'idle',
     transcript: '',
     events: [],
-    error: null,
+    error: undefined,
     lastGoal: null,
     activeTabId: null,
     setRun: (runId, goal, tabId = null) => {
@@ -13,16 +58,16 @@ export const useAgentStreamStore = create()(persist(set => ({
         set({
             runId,
             status: 'live',
-            error: null,
+            error: undefined,
             transcript: '',
             events: [],
             lastGoal: goal,
             activeTabId: tabId,
         });
     },
-    setStatus: status => set({ status }),
-    setError: error => set({ error, status: error ? 'error' : 'idle' }),
-    appendEvent: event => {
+    setStatus: (status) => set({ status }),
+    setError: (error) => set({ error, status: error ? 'error' : 'idle' }),
+    appendEvent: (event) => {
         // PR: Fix tab switch - only append events for current active tab
         const state = useAgentStreamStore.getState();
         if (event.tabId && state.activeTabId && event.tabId !== state.activeTabId) {
@@ -43,7 +88,7 @@ export const useAgentStreamStore = create()(persist(set => ({
             events: [...state.events, event],
         }));
     },
-    appendTranscript: delta => {
+    appendTranscript: (delta) => {
         const state = useAgentStreamStore.getState();
         console.log('[AGENT_STREAM] appendTranscript', {
             deltaLength: delta.length,
@@ -53,7 +98,7 @@ export const useAgentStreamStore = create()(persist(set => ({
             transcript: state.transcript ? `${state.transcript}${delta}` : delta,
         }));
     },
-    setActiveTabId: tabId => {
+    setActiveTabId: (tabId) => {
         console.log('[AGENT_STREAM] setActiveTabId', { tabId });
         set({ activeTabId: tabId });
     },
@@ -64,7 +109,7 @@ export const useAgentStreamStore = create()(persist(set => ({
             status: 'idle',
             transcript: '',
             events: [],
-            error: null,
+            error: undefined,
             lastGoal: null,
             activeTabId: null,
         });

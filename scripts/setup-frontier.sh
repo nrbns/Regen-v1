@@ -41,3 +41,4 @@ echo "  2. Check stats: psql -h localhost -U regen -d regen -c 'SELECT state, CO
 
 
 
+

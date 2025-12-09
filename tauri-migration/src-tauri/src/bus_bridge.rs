@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+#[allow(dead_code)]
 pub struct BusBridge {
     bus_url: String,
     ws_client: Option<Arc<Mutex<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>>>,
@@ -17,6 +18,7 @@ pub struct BusBridge {
     message_tx: Option<mpsc::UnboundedSender<Value>>,
 }
 
+#[allow(dead_code)]
 impl BusBridge {
     pub fn new(bus_url: String) -> Self {
         Self {
@@ -52,6 +54,7 @@ impl BusBridge {
     }
 
     /// Subscribe to channel
+    #[allow(dead_code)]
     pub async fn subscribe(&self, channel: &str) -> Result<(), String> {
         if let Some(window) = &self.window {
             window.emit("bus:subscribe", json!({
@@ -63,6 +66,7 @@ impl BusBridge {
 }
 
 /// Handle content extraction from CEF
+#[allow(dead_code)]
 #[tauri::command]
 pub async fn handle_content_extraction(
     extraction: Value,
@@ -76,6 +80,7 @@ pub async fn handle_content_extraction(
 }
 
 /// Listen for content script messages
+#[allow(dead_code)]
 pub fn setup_content_listener(window: Window) {
     // Listen for postMessage from content scripts
     let window_clone = window.clone();

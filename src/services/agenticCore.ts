@@ -3,6 +3,11 @@ import { parseAgentActions } from './agenticActions';
 export type AgentStreamOptions = {
   mode?: string;
   model?: string;
+  context?: {
+    activeTabUrl?: string;
+    activeTabTitle?: string;
+    tabCount?: number;
+  };
   onToken?: (chunk: string) => void;
   onDone?: (full: string) => void;
   onActions?: (actions: string[]) => void;
@@ -17,13 +22,14 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
   const {
     mode = 'general',
     model = 'phi3:mini',
+    context,
     onToken,
     onDone,
     onActions,
     onError,
   } = opts;
 
-  const prompt = buildPrompt(task, mode);
+  const prompt = buildPrompt(task, mode, context);
 
   try {
     const response = await fetch('http://127.0.0.1:11434/api/chat', {
@@ -73,7 +79,7 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
             full += content;
             onToken?.(content);
           }
-        } catch (_e) {
+        } catch {
           // Ignore malformed chunks
         }
       }
@@ -91,16 +97,40 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
   }
 }
 
-function buildPrompt(task: string, mode: string): string {
+function buildPrompt(
+  task: string,
+  mode: string,
+  context?: AgentStreamOptions['context']
+): string {
+  const contextParts: string[] = [];
+  if (context?.activeTabUrl) {
+    contextParts.push(`Current page: ${context.activeTabTitle || 'Untitled'} (${context.activeTabUrl})`);
+  }
+  if (context?.tabCount !== undefined) {
+    contextParts.push(`Open tabs: ${context.tabCount}`);
+  }
+
+  const contextStr = contextParts.length > 0 ? `\n\nContext:\n${contextParts.join('\n')}\n` : '';
+
   return [
-    'You are Regen, an agentic browser AI.',
-    `Mode: ${mode}.`,
-    'Task:',
+    'You are Regen, an agentic browser AI assistant.',
+    `Current mode: ${mode}.`,
+    contextStr,
+    'User request:',
     task,
     '',
-    'Respond concisely.',
-    'If actions are needed, emit bracketed tags like:',
-    '[SCRAPE https://example.com], [SUMMARIZE], [TRADE BUY NIFTY 10], [OPEN https://...]',
-  ].join(' ');
+    'Available actions (use bracketed tags):',
+    '- [OPEN <url>] - Open a URL in a new tab',
+    '- [SCRAPE <url>] - Scrape and analyze a webpage',
+    '- [SUMMARIZE] or [SUMMARIZE <url>] - Summarize current page or specific URL',
+    '- [SEARCH <query>] - Perform a web search',
+    '- [TRADE BUY <symbol> <quantity>] - Simulate buying stocks (e.g., [TRADE BUY NIFTY 10])',
+    '- [TRADE SELL <symbol> <quantity>] - Simulate selling stocks',
+    '- [SWITCH_MODE <mode>] - Switch to Browse/Research/Trade mode',
+    '- [CLOSE_TAB] - Close current tab',
+    '',
+    'Respond naturally, then emit actions as needed.',
+    'Example: "I\'ll search for that. [SEARCH quantum computing] Then I\'ll open the top result. [OPEN https://example.com]"',
+  ].join('\n');
 }
 

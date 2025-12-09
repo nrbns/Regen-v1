@@ -31,7 +31,10 @@ class ModeSyncHub {
       return;
     }
 
-    const url = wsUrl || import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/sync';
+    const baseUrl = wsUrl || import.meta.env.VITE_WS_URL || 'localhost:4000/ws/sync';
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+    const url = `${protocol}${cleanUrl}`;
     console.log('[ModeSyncHub] Connecting to', url);
 
     try {

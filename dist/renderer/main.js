@@ -46,6 +46,8 @@ import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
 import { startSnapshotting } from './core/recovery';
 // DAY 9 FIX: Onboarding tour for first-time users
 import { QuickStartTour } from './components/Onboarding/QuickStartTour';
+// REDIX MODE: Runtime enforcement - check mode early
+// import { initializeRedixMode } from './lib/redix-mode/integration'; // Unused
 import { getRedixConfig } from './lib/redix-mode';
 // i18n: Initialize internationalization
 import './lib/i18n/config';

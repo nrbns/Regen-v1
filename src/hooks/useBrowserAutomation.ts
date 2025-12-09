@@ -34,7 +34,12 @@ interface UseBrowserAutomationReturn {
   sendMessage: (message: any) => void;
 }
 
-const DEFAULT_WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/browser-automation';
+const DEFAULT_WS_URL = (() => {
+  const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/browser-automation';
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+  return `${protocol}${cleanUrl}`;
+})();
 
 export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}): UseBrowserAutomationReturn {
   const {
@@ -55,6 +60,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageQueueRef = useRef<any[]>([]);
+  const reconnectAttemptsRef = useRef<number>(0);
 
   const connect = useCallback(() => {
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
@@ -70,11 +76,32 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
     if (iframeId) urlParams.set('iframeId', iframeId);
 
     const url = `${wsUrl}?${urlParams.toString()}`;
-    const ws = new WebSocket(url);
+    
+    // Only log in development to reduce console noise
+    if (import.meta.env.DEV) {
+      console.log('[useBrowserAutomation] Attempting to connect to:', url);
+    }
+    
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(url);
+    } catch (error) {
+      // Silently fail if WebSocket creation fails (e.g., server not available)
+      if (import.meta.env.DEV) {
+        const errorMsg = `Failed to create WebSocket: ${error instanceof Error ? error.message : String(error)}`;
+        console.warn('[useBrowserAutomation]', errorMsg, '- Server may not be running');
+      }
+      // Don't call onError for connection failures - it's expected if server isn't running
+      return;
+    }
+    
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[useBrowserAutomation] WebSocket connected');
+      if (import.meta.env.DEV) {
+        console.log('[useBrowserAutomation] WebSocket connected');
+      }
+      reconnectAttemptsRef.current = 0; // Reset on successful connection
       setIsConnected(true);
       onConnect?.(currentSessionId);
       
@@ -115,23 +142,47 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       }
     };
 
-    ws.onclose = () => {
-      console.log('[useBrowserAutomation] WebSocket disconnected');
+    ws.onclose = (event) => {
+      // Only log in development
+      if (import.meta.env.DEV && event.code !== 1006) {
+        // 1006 is a normal close when server isn't available
+        console.log('[useBrowserAutomation] WebSocket disconnected', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+      }
       setIsConnected(false);
       onDisconnect?.();
       
-      if (autoReconnect) {
+      // Only auto-reconnect if it wasn't a clean close or if it was a connection error
+      // But limit reconnection attempts to avoid spam
+      if (autoReconnect && (!event.wasClean || event.code === 1006)) {
+        // Exponential backoff: increase delay on each reconnect attempt
+        const maxDelay = 30000; // Max 30 seconds
+        const delay = Math.min(reconnectDelay * Math.pow(1.5, reconnectAttemptsRef.current), maxDelay);
+        reconnectAttemptsRef.current++;
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('[useBrowserAutomation] Attempting to reconnect...');
+          if (import.meta.env.DEV) {
+            console.log('[useBrowserAutomation] Attempting to reconnect...');
+          }
           connect();
-        }, reconnectDelay);
+        }, delay);
       }
     };
 
     ws.onerror = (event) => {
-      console.error('[useBrowserAutomation] WebSocket error:', event);
-      onError?.('WebSocket connection error');
-      ws.close();
+      // Only log errors in development to reduce console noise
+      // WebSocket errors are expected if the server isn't running
+      if (import.meta.env.DEV) {
+        console.warn('[useBrowserAutomation] WebSocket connection failed', {
+          url,
+          readyState: ws.readyState,
+          hint: 'Server may not be running on port 4000. This is expected if browser automation is not needed.',
+        });
+      }
+      // Don't call onError - connection failures are expected when server isn't available
+      // Don't close immediately - let onclose handle cleanup
     };
   }, [wsUrl, sessionId, tabId, iframeId, autoReconnect, reconnectDelay, onConnect, onDisconnect, onEvent, onError]);
 

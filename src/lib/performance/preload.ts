@@ -59,9 +59,10 @@ export function dnsPrefetch(origin: string): void {
  */
 export function preloadCriticalResources(): void {
   // Preconnect to API origins
-  if (process.env.VITE_API_BASE_URL) {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (apiBaseUrl) {
     try {
-      const apiUrl = new URL(process.env.VITE_API_BASE_URL);
+      const apiUrl = new URL(apiBaseUrl);
       preconnectOrigin(apiUrl.origin);
     } catch {
       // Invalid URL, skip
@@ -72,5 +73,6 @@ export function preloadCriticalResources(): void {
   dnsPrefetch('https://fonts.googleapis.com');
   dnsPrefetch('https://fonts.gstatic.com');
 }
+
 
 

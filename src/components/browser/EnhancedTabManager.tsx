@@ -35,7 +35,7 @@ export function EnhancedTabManager({
   const [loading, setLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [_previewPosition, _setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
+  const [previewPosition, _setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
 
   const { goBack, goForward, canGoBack, canGoForward } = useTabsStore();
 

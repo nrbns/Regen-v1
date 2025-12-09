@@ -3,8 +3,8 @@
  * Phase 2, Day 5: Unified AI Bar - Consistent AI interface across all modes
  */
 
-import { useState, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { useSettingsStore } from '../../state/settingsStore';
 import { VoicePipelineButton } from '../voice/VoicePipelineButton';
@@ -128,6 +128,8 @@ export function UnifiedAIBar({
           {/* Input */}
           <input
             ref={inputRef}
+            id="unified-ai-input"
+            name="unified-ai-input"
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}

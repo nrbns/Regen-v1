@@ -1298,9 +1298,9 @@ fn main() {
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
             
             // Download handler - handle file downloads from webview
-            let app_handle = app.handle().clone();
+            let _app_handle = app.handle().clone();
             if let Some(window) = app.get_webview_window("main") {
-                window.listen("tauri://file-drop", move |event| {
+                window.listen("tauri://file-drop", move |_event| {
                     // Handle file drops if needed
                 });
                 

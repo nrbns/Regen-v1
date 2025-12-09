@@ -98,9 +98,3 @@ export function validateApiKeys() {
     hasSearch: available.some(a => a.includes('Bing') || a.includes('Google')),
   };
 }
-
-
-
-
-
-

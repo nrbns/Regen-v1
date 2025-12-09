@@ -21,7 +21,7 @@ export async function callLocalLLM(prompt, options = {}) {
   } = options;
 
   const messages = [];
-  
+
   if (systemPrompt) {
     messages.push({
       role: 'system',
@@ -54,11 +54,13 @@ export async function callLocalLLM(prompt, options = {}) {
     return {
       text: response.data.message?.content || '',
       model: response.data.model || model,
-      usage: response.data.eval_count ? {
-        prompt_tokens: response.data.prompt_eval_count,
-        completion_tokens: response.data.eval_count,
-        total_tokens: response.data.prompt_eval_count + response.data.eval_count,
-      } : null,
+      usage: response.data.eval_count
+        ? {
+            prompt_tokens: response.data.prompt_eval_count,
+            completion_tokens: response.data.eval_count,
+            total_tokens: response.data.prompt_eval_count + response.data.eval_count,
+          }
+        : null,
     };
   } catch (error) {
     if (error.code === 'ECONNREFUSED') {
@@ -80,7 +82,7 @@ export async function* streamLocalLLM(prompt, options = {}) {
   } = options;
 
   const messages = [];
-  
+
   if (systemPrompt) {
     messages.push({
       role: 'system',
@@ -172,12 +174,16 @@ export async function ensureModel(model = DEFAULT_MODEL) {
     }
 
     const hasModel = health.models.some(m => m.name === model || m.name.startsWith(`${model}:`));
-    
+
     if (!hasModel) {
       console.log(`[Ollama] Pulling model: ${model}`);
-      await axios.post(`${OLLAMA_BASE_URL}/api/pull`, { name: model }, {
-        timeout: 0, // No timeout for model download
-      });
+      await axios.post(
+        `${OLLAMA_BASE_URL}/api/pull`,
+        { name: model },
+        {
+          timeout: 0, // No timeout for model download
+        }
+      );
       console.log(`[Ollama] Model ${model} pulled successfully`);
     }
 
@@ -186,10 +192,3 @@ export async function ensureModel(model = DEFAULT_MODEL) {
     throw new Error(`Failed to ensure model ${model}: ${error.message}`);
   }
 }
-
-
-
-
-
-
-

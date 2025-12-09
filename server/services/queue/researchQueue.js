@@ -95,9 +95,3 @@ export async function getResearchJobStatus(jobId) {
     timestamp: job.timestamp,
   };
 }
-
-
-
-
-
-

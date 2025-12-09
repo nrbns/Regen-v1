@@ -62,6 +62,12 @@ const initPowerModes = () =>
       2000
     )
   );
+// const AgentSummarizeHandlerLazy = React.lazy(() =>
+//   import('./AgentSummarizeHandler').then(m => ({ default: m.AgentSummarizeHandler }))
+// ); // Reserved for future use
+const AgentActionHandlersLazy = React.lazy(() =>
+  import('./AgentActionHandlers').then(m => ({ default: m.AgentActionHandlers }))
+);
 import { useRedix } from '../../core/redix/useRedix';
 import { getRedixConfig } from '../../lib/redix-mode';
 import { useRedixTabEviction } from '../../hooks/useRedixTabEviction';
@@ -2204,6 +2210,13 @@ export function AppShell() {
       <div className="fixed bottom-6 left-1/2 z-[105] w-full max-w-3xl -translate-x-1/2 px-4">
         <MemoryMonitor />
       </div>
+
+      {/* Agent action handlers */}
+      <Suspense fallback={null}>
+        <ErrorBoundary componentName="AgentActionHandlers">
+          <AgentActionHandlersLazy />
+        </ErrorBoundary>
+      </Suspense>
 
       {restoreToast && (
         <Portal>

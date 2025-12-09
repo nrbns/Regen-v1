@@ -69,7 +69,10 @@ class StreamingOrchestrator {
             ? (window as any).__API_BASE_URL
                 .replace('http://', 'ws://')
                 .replace('https://', 'wss://') + '/agent/stream'
-            : 'ws://127.0.0.1:4000/agent/stream');
+            : (() => {
+                const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                return `${protocol}127.0.0.1:4000/agent/stream`;
+              })());
         await this.connectWebSocket(wsUrl);
       } else if (config.transport === 'sse') {
         await this.connectSSE(config.url || 'http://127.0.0.1:18080/sse');

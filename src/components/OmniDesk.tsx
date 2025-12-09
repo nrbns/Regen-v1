@@ -239,7 +239,7 @@ export function OmniDesk({
     };
     const statusTone = statusPalette[agentStatus] ?? statusPalette.idle;
 
-    const timeline = latestEvents.map(event => {
+    const timeline = latestEvents.map((event: any) => {
       switch (event.type) {
         case 'start':
           return {
@@ -298,7 +298,7 @@ export function OmniDesk({
     });
 
     const snippetSource = timeline
-      .map(entry => entry.detail)
+      .map((entry: any) => entry.detail)
       .filter(Boolean)
       .slice(0, 2);
     const snippet = snippetSource.length > 0 ? snippetSource : transcriptLines.slice(-2);
@@ -810,6 +810,8 @@ export function OmniDesk({
                 <div className="flex min-h-[52px] flex-1 items-center gap-3 rounded-2xl border border-slate-700/60 bg-slate-800/70 px-4 py-3 text-slate-200 focus-within:border-blue-500/60">
                   <Search size={18} className="text-blue-400" />
                   <input
+                    id="omnidesk-search"
+                    name="omnidesk-search"
                     value={searchQuery}
                     onChange={event => setSearchQuery(event.target.value)}
                     onKeyDown={e => {
@@ -984,7 +986,7 @@ export function OmniDesk({
                 <div className="mt-2 text-xs text-purple-100/80">
                   <AnimatePresence mode="popLayout">
                     {agentPreview.snippet.length > 0 ? (
-                      agentPreview.snippet.map((line, index) => (
+                      agentPreview.snippet.map((line: any, index: number) => (
                         <motion.p
                           key={`${line}-${index}`}
                           initial={{ opacity: 0, y: 6 }}
@@ -1048,7 +1050,7 @@ export function OmniDesk({
                 <div className="mt-2 space-y-2">
                   <AnimatePresence initial={false}>
                     {agentPreview.timeline.length > 0 ? (
-                      agentPreview.timeline.map(event => (
+                      agentPreview.timeline.map((event: any) => (
                         <motion.div
                           key={event.id}
                           initial={{ opacity: 0, x: 8 }}

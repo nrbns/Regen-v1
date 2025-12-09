@@ -4,7 +4,12 @@
  * PR: Frontend-bus integration
  */
 
-const BUS_URL = import.meta.env.VITE_BUS_URL || 'ws://localhost:4002';
+const BUS_URL = (() => {
+  const baseUrl = import.meta.env.VITE_BUS_URL || 'localhost:4002';
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+  return `${protocol}${cleanUrl}`;
+})();
 
 export interface BusMessage {
   type: 'message' | 'connected' | 'subscribed' | 'published' | 'error' | 'history';

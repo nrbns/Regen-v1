@@ -56,7 +56,7 @@ async function initRendererSentry() {
                         console.info('[Sentry] Using @sentry/electron/renderer');
                     }
                 }
-                catch (_error) {
+                catch {
                     // Silently fail - Electron Sentry is optional
                     console.debug('[Sentry] @sentry/electron/renderer not available');
                 }

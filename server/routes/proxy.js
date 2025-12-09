@@ -291,9 +291,3 @@ export async function healthCheck(request, reply) {
     ...checks,
   });
 }
-
-
-
-
-
-

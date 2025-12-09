@@ -13,25 +13,25 @@ Production-ready Research Agent pipeline with Search → Fetch → Summarize →
 ✅ **Content extraction** - Fetches and extracts from multiple sources  
 ✅ **Summarization** - On-device AI with cloud fallback  
 ✅ **Citation support** - Automatic source attribution  
-✅ **Error handling** - Robust retry and fallback logic  
+✅ **Error handling** - Robust retry and fallback logic
 
 ### 2. Frontend Service (`src/services/researchAgent.ts`)
 
 ✅ **Client API** - Easy-to-use service for frontend  
 ✅ **Type safety** - Full TypeScript interfaces  
-✅ **Error handling** - Graceful error management  
+✅ **Error handling** - Graceful error management
 
 ### 3. React Hook (`src/hooks/useResearchAgent.ts`)
 
 ✅ **Loading states** - Built-in loading/error management  
 ✅ **Toast notifications** - User feedback  
-✅ **Result caching** - Stores last result  
+✅ **Result caching** - Stores last result
 
 ### 4. API Endpoint (`/api/agent/research/v2`)
 
 ✅ **Production endpoint** - Integrated into redix-server  
 ✅ **Rate limiting** - Protected against abuse  
-✅ **Full pipeline** - End-to-end research flow  
+✅ **Full pipeline** - End-to-end research flow
 
 ## 🚀 Usage
 
@@ -137,11 +137,11 @@ const steps = planResearchTask('Research best AI browsers');
 
 ```typescript
 interface ResearchAgentOptions {
-  maxResults?: number;          // Default: 5
-  language?: string;            // Default: 'en'
-  useOnDeviceAI?: boolean;      // Default: false
-  includeCitations?: boolean;   // Default: true
-  format?: 'report' | 'bullets' | 'summary';  // Default: 'report'
+  maxResults?: number; // Default: 5
+  language?: string; // Default: 'en'
+  useOnDeviceAI?: boolean; // Default: false
+  includeCitations?: boolean; // Default: true
+  format?: 'report' | 'bullets' | 'summary'; // Default: 'report'
 }
 ```
 
@@ -212,12 +212,14 @@ for await (const chunk of stream) {
 ## 📝 Performance
 
 **Typical Latency:**
+
 - Search: ~500-1500ms
 - Fetch (5 sources): ~2000-5000ms
 - Summarize: ~1000-3000ms (cloud) or ~2000-5000ms (on-device)
 - **Total: ~3-10 seconds**
 
 **Optimizations:**
+
 - Content caching (6 hour TTL)
 - Parallel fetching (3 concurrent)
 - Result caching (24 hour TTL)
@@ -241,6 +243,7 @@ for await (const chunk of stream) {
 **Issue:** `sources.length === 0`
 
 **Solutions:**
+
 - Check search API is working
 - Verify query is valid (>= 2 characters)
 - Check API_BASE_URL is correct
@@ -250,6 +253,7 @@ for await (const chunk of stream) {
 **Issue:** `summary` is empty
 
 **Solutions:**
+
 - Check LLM provider configured
 - Verify on-device model loaded (if using)
 - Check network connectivity
@@ -260,6 +264,7 @@ for await (const chunk of stream) {
 **Issue:** Latency > 15 seconds
 
 **Solutions:**
+
 - Reduce maxResults
 - Enable content caching
 - Use on-device AI (if available)
@@ -279,6 +284,7 @@ for await (const chunk of stream) {
 ### POST /api/agent/research/v2
 
 **Request:**
+
 ```json
 {
   "query": "Research topic",
@@ -291,6 +297,7 @@ for await (const chunk of stream) {
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -306,5 +313,3 @@ for await (const chunk of stream) {
 ```
 
 The research agent pipeline is complete and ready for integration!
-
-

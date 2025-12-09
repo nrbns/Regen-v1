@@ -97,7 +97,7 @@ export async function generateWasm(
     // return result[0].generated_text;
 
     // Placeholder
-    return `[WASM] Generated response for: ${prompt.slice(0, 50)}...`;
+    return `[WASM] Generated response for: ${_prompt.slice(0, 50)}...`;
   } catch (error) {
     console.error('[WasmModel] Generation failed:', error);
     throw new Error(`Generation failed: ${error}`);

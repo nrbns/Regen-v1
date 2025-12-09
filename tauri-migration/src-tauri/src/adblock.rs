@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 use regex::Regex;
 use serde::{Serialize, Deserialize};
 
+#[allow(dead_code)]
 pub struct AdblockEngine {
     blocked_domains: Arc<RwLock<HashSet<String>>>,
     blocked_patterns: Arc<RwLock<Vec<Regex>>>,
@@ -16,6 +17,7 @@ pub struct AdblockEngine {
     enabled: bool,
 }
 
+#[allow(dead_code)]
 impl AdblockEngine {
     pub fn new() -> Self {
         let engine = Self {
@@ -190,6 +192,7 @@ impl AdblockEngine {
 }
 
 /// Extract domain from URL
+#[allow(dead_code)]
 fn extract_domain(url: &str) -> String {
     // Simple domain extraction (for production, use proper URL parsing)
     if let Some(start) = url.find("://") {
@@ -205,6 +208,7 @@ fn extract_domain(url: &str) -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct AdblockStats {
     pub blocked_domains: usize,
     pub blocked_patterns: usize,

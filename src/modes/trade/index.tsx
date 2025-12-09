@@ -101,6 +101,72 @@ export default function TradePanel() {
     return () => window.removeEventListener('wispr:trade', handleWisprTrade as EventListener);
   }, [selected]);
 
+  // Voice agent intents: simulate trade actions (safe, no real orders).
+  useEffect(() => {
+    const handleAgentTrade = (event: CustomEvent<{ intent?: string; action?: string; symbol?: string; quantity?: number }>) => {
+      const { intent, action, symbol, quantity } = event.detail;
+      if (!intent) return;
+      
+      // Parse and simulate trade action
+      const actionType = action?.toUpperCase();
+      const qty = quantity || 1;
+      let targetSymbol = symbol || selected.symbol;
+      
+      // Try to find matching market
+      if (symbol) {
+        const market = markets.find(
+          m =>
+            m.name.toLowerCase().includes(symbol.toLowerCase()) ||
+            m.symbol.toLowerCase().includes(symbol.toLowerCase())
+        );
+        if (market) {
+          setSelected(market);
+          targetSymbol = market.symbol;
+        }
+      }
+      
+      if (actionType === 'BUY' || intent.toUpperCase().includes('BUY')) {
+        setQty(qty);
+        setOrderType('market');
+        toast.success(`Simulated BUY: ${qty} ${targetSymbol}`, { duration: 3000 });
+        // Show confirmation modal (simulation only)
+        setPendingOrder({
+          symbol: targetSymbol,
+          side: 'buy',
+          quantity: qty,
+          orderType: 'market',
+          price: price,
+          stopLoss: sl,
+          takeProfit: tp,
+          estimatedCost: price * qty,
+          fees: price * qty * 0.001, // 0.1% fee estimate
+        });
+        setShowConfirmModal(true);
+      } else if (actionType === 'SELL' || intent.toUpperCase().includes('SELL')) {
+        setQty(qty);
+        setOrderType('market');
+        toast.success(`Simulated SELL: ${qty} ${targetSymbol}`, { duration: 3000 });
+        // Show confirmation modal (simulation only)
+        setPendingOrder({
+          symbol: targetSymbol,
+          side: 'sell',
+          quantity: qty,
+          orderType: 'market',
+          price: price,
+          stopLoss: sl,
+          takeProfit: tp,
+          estimatedCost: price * qty,
+          fees: price * qty * 0.001, // 0.1% fee estimate
+        });
+        setShowConfirmModal(true);
+      } else {
+        toast.info(`Agent trade intent: ${intent}`, { duration: 2500 });
+      }
+    };
+    window.addEventListener('agent:trade-action', handleAgentTrade as EventListener);
+    return () => window.removeEventListener('agent:trade-action', handleAgentTrade as EventListener);
+  }, [selected, price, sl, tp, setSelected, setQty, setOrderType, setPendingOrder, setShowConfirmModal]);
+
   // Real-time WebSocket updates
   const [candleHistory, setCandleHistory] = useState<any[]>([]);
   const {

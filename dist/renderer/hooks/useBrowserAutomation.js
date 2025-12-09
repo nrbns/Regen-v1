@@ -118,7 +118,7 @@ export function useBrowserAutomation(options = {}) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (_err) {
+                    catch {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -148,7 +148,7 @@ export function useBrowserAutomation(options = {}) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (_err) {
+                    catch {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -178,7 +178,7 @@ export function useBrowserAutomation(options = {}) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (_err) {
+                    catch {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }
@@ -208,7 +208,7 @@ export function useBrowserAutomation(options = {}) {
                             originalOnMessage.call(wsRef.current, event);
                         }
                     }
-                    catch (_err) {
+                    catch {
                         if (originalOnMessage && wsRef.current) {
                             originalOnMessage.call(wsRef.current, event);
                         }

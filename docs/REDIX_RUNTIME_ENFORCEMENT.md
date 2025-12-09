@@ -11,7 +11,7 @@ Redix mode runtime enforcement is now implemented with dynamic imports, tab evic
 ✅ **Runtime mode detection** (localStorage, URL param, env var)  
 ✅ **Configuration system** (max tabs, Monaco enable/disable, etc.)  
 ✅ **Module blocking** (prevents loading heavy libs in Redix mode)  
-✅ **Toggle functions** (enable/disable/toggle)  
+✅ **Toggle functions** (enable/disable/toggle)
 
 ### 2. Tab Eviction System (`src/utils/tabEviction.ts`)
 
@@ -19,45 +19,49 @@ Redix mode runtime enforcement is now implemented with dynamic imports, tab evic
 ✅ **Unload inactive tabs** (destroy webview, keep snapshot)  
 ✅ **Restore tabs** (recreate from snapshot)  
 ✅ **Automatic eviction** (based on inactivity threshold)  
-✅ **Snapshot cleanup** (removes old snapshots)  
+✅ **Snapshot cleanup** (removes old snapshots)
 
 ### 3. React Hook (`src/hooks/useRedixTabEviction.ts`)
 
 ✅ **Automatic eviction** (runs every 30 seconds in Redix mode)  
 ✅ **Respects max tabs limit** (evicts until under limit)  
-✅ **Never evicts active/pinned tabs**  
+✅ **Never evicts active/pinned tabs**
 
 ### 4. UI Components
 
 ✅ **RedixModeToggle** (`src/components/redix/RedixModeToggle.tsx`) - Toggle button  
-✅ **LazyMonacoEditor** (`src/components/lazy/LazyMonacoEditor.tsx`) - Conditional Monaco loading  
+✅ **LazyMonacoEditor** (`src/components/lazy/LazyMonacoEditor.tsx`) - Conditional Monaco loading
 
 ### 5. Integration Points
 
 ✅ **AppShell** - Tab eviction hook integrated  
 ✅ **main.tsx** - Heavy service loading conditional on Redix mode  
-✅ **Home routes** - Mode lazy loading respects Redix mode  
+✅ **Home routes** - Mode lazy loading respects Redix mode
 
 ## 🚀 Usage
 
 ### Enable Redix Mode
 
 **Option 1: Via UI (Dev Mode)**
+
 - Look for the Redix toggle button (bottom-right corner in dev mode)
 - Click to enable/disable
 
 **Option 2: Via URL**
+
 ```
 http://localhost:1420/?redix=true
 ```
 
 **Option 3: Via localStorage**
+
 ```javascript
 localStorage.setItem('REDIX_MODE', 'true');
 window.location.reload();
 ```
 
 **Option 4: Via Environment Variable**
+
 ```bash
 VITE_REDIX_MODE=true npm run dev
 ```
@@ -86,11 +90,7 @@ import Editor from '@monaco-editor/react';
 // New
 import { LazyMonacoEditor } from '../components/lazy/LazyMonacoEditor';
 
-<LazyMonacoEditor
-  value={code}
-  onChange={setCode}
-  language="typescript"
-/>
+<LazyMonacoEditor value={code} onChange={setCode} language="typescript" />;
 ```
 
 ## 📊 Redix Mode Configuration
@@ -134,6 +134,7 @@ When Redix mode is **disabled** (Full Mode):
 ### Memory Savings
 
 Expected memory reduction:
+
 - **Per evicted tab**: ~50-200MB (depends on page)
 - **Monaco Editor**: ~30-50MB (if disabled)
 - **Heavy libs**: ~20-100MB (varies by lib)
@@ -243,14 +244,14 @@ console.log('Evicted tabs:', evicted);
 ## 📊 Expected Results
 
 **Before (Full Mode):**
+
 - Memory: ~500-800MB (10 tabs + Monaco)
 - Startup: ~3-4s
 
 **After (Redix Mode):**
+
 - Memory: ~200-350MB (5 tabs, no Monaco)
 - Startup: ~1.5-2s
 - **Reduction: 50-60%**
 
 The implementation is complete and ready for testing!
-
-

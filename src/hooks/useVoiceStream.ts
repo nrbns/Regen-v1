@@ -32,7 +32,12 @@ interface UseVoiceStreamReturn {
   sendAudioChunk: (chunk: ArrayBuffer | Blob) => void;
 }
 
-const DEFAULT_WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/voice';
+const DEFAULT_WS_URL = (() => {
+  const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/voice';
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+  return `${protocol}${cleanUrl}`;
+})();
 
 export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStreamReturn {
   const {

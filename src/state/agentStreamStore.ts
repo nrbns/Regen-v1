@@ -1,29 +1,72 @@
 import { create } from 'zustand';
+import type { ActionExecutionResult } from '../services/agenticActions';
 
-type AgentStreamState = {
+type ActionProgress = {
+  action: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress?: number; // 0-100
+  message?: string;
+  cancellable?: boolean;
+};
+
+type VoiceControlState = {
   status: 'idle' | 'listening' | 'running' | 'error';
   transcript: string;
   stream: string;
   actions: string[];
+  actionResults: ActionExecutionResult[];
+  actionProgress: Record<string, ActionProgress>;
   error?: string;
-  setStatus: (status: AgentStreamState['status']) => void;
+  setStatus: (status: VoiceControlState['status']) => void;
   setTranscript: (text: string) => void;
   appendStream: (chunk: string) => void;
   setActions: (actions: string[]) => void;
+  setActionResults: (results: ActionExecutionResult[]) => void;
+  setActionProgress: (action: string, progress: ActionProgress) => void;
+  clearActionProgress: (action: string) => void;
+  cancelledActions: Set<string>;
+  cancelAction: (action: string) => void;
+  isActionCancelled: (action: string) => boolean;
   setError: (message: string | undefined) => void;
   reset: () => void;
 };
 
-export const useAgentStreamStore = create<AgentStreamState>(set => ({
+// Simple store for voice control (used by VoiceControl component)
+export const useVoiceControlStore = create<VoiceControlState>(set => ({
   status: 'idle',
   transcript: '',
   stream: '',
   actions: [],
+  actionResults: [],
+  actionProgress: {},
   error: undefined,
   setStatus: status => set({ status }),
   setTranscript: text => set({ transcript: text }),
   appendStream: chunk => set(state => ({ stream: state.stream + chunk })),
   setActions: actions => set({ actions }),
+  setActionResults: results => set({ actionResults: results }),
+  setActionProgress: (action, progress) =>
+    set(state => ({
+      actionProgress: {
+        ...state.actionProgress,
+        [action]: progress,
+      },
+    })),
+  clearActionProgress: action =>
+    set(state => {
+      const { [action]: _, ...rest } = state.actionProgress;
+      return { actionProgress: rest };
+    }),
+  cancelledActions: new Set<string>(),
+  cancelAction: action =>
+    set(state => {
+      const newCancelled = new Set(state.cancelledActions);
+      newCancelled.add(action);
+      return { cancelledActions: newCancelled };
+    }),
+  isActionCancelled: (action: string): boolean => {
+    return useVoiceControlStore.getState().cancelledActions.has(action);
+  },
   setError: message => set({ error: message }),
   reset: () =>
     set({
@@ -31,10 +74,13 @@ export const useAgentStreamStore = create<AgentStreamState>(set => ({
       transcript: '',
       stream: '',
       actions: [],
+      actionResults: [],
+      actionProgress: {},
+      cancelledActions: new Set<string>(),
       error: undefined,
     }),
 }));
-import { create } from 'zustand';
+
 import { persist } from 'zustand/middleware';
 
 export type StreamStatus = 'idle' | 'connecting' | 'live' | 'complete' | 'error';
@@ -58,13 +104,13 @@ interface AgentStreamState {
   status: StreamStatus;
   transcript: string;
   events: AgentStreamEvent[];
-  error: string | null;
+  error: string | undefined;
   lastGoal: string | null;
   // PR: Fix tab switch - track active tab for agent operations
   activeTabId: string | null;
   setRun: (runId: string, goal: string | null, tabId?: string | null) => void;
   setStatus: (status: StreamStatus) => void;
-  setError: (error: string | null) => void;
+  setError: (error: string | undefined) => void;
   appendEvent: (event: AgentStreamEvent) => void;
   appendTranscript: (delta: string) => void;
   setActiveTabId: (tabId: string | null) => void;
@@ -78,24 +124,24 @@ export const useAgentStreamStore = create<AgentStreamState>()(
       status: 'idle',
       transcript: '',
       events: [],
-      error: null,
+      error: undefined,
       lastGoal: null,
       activeTabId: null,
-      setRun: (runId, goal, tabId = null) => {
+      setRun: (runId: string, goal: string | null, tabId: string | null = null) => {
         console.log('[AGENT_STREAM] setRun', { runId, goal, tabId });
         set({
           runId,
           status: 'live',
-          error: null,
+          error: undefined,
           transcript: '',
           events: [],
           lastGoal: goal,
           activeTabId: tabId,
         });
       },
-      setStatus: status => set({ status }),
-      setError: error => set({ error, status: error ? 'error' : 'idle' }),
-      appendEvent: event => {
+      setStatus: (status: StreamStatus) => set({ status }),
+      setError: (error: string | undefined) => set({ error, status: error ? 'error' : 'idle' }),
+      appendEvent: (event: AgentStreamEvent) => {
         // PR: Fix tab switch - only append events for current active tab
         const state = useAgentStreamStore.getState();
         if (event.tabId && state.activeTabId && event.tabId !== state.activeTabId) {
@@ -116,7 +162,7 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           events: [...state.events, event],
         }));
       },
-      appendTranscript: delta => {
+      appendTranscript: (delta: string) => {
         const state = useAgentStreamStore.getState();
         console.log('[AGENT_STREAM] appendTranscript', {
           deltaLength: delta.length,
@@ -126,7 +172,7 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           transcript: state.transcript ? `${state.transcript}${delta}` : delta,
         }));
       },
-      setActiveTabId: tabId => {
+      setActiveTabId: (tabId: string | null) => {
         console.log('[AGENT_STREAM] setActiveTabId', { tabId });
         set({ activeTabId: tabId });
       },
@@ -137,7 +183,7 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           status: 'idle',
           transcript: '',
           events: [],
-          error: null,
+          error: undefined,
           lastGoal: null,
           activeTabId: null,
         });

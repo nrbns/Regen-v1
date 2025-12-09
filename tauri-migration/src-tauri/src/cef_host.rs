@@ -9,11 +9,13 @@ use tauri::{Window, Emitter};
 use serde_json::Value;
 
 // CEF Request Handler
+#[allow(dead_code)]
 pub struct CefRequestHandler {
     adblock_enabled: bool,
     adblock_matcher: Arc<dyn AdblockMatcher + Send + Sync>,
 }
 
+#[allow(dead_code)]
 impl CefRequestHandler {
     pub fn new(adblock_enabled: bool) -> Self {
         Self {
@@ -53,17 +55,20 @@ impl CefRequestHandler {
 }
 
 /// Adblock matcher trait
+#[allow(dead_code)]
 pub trait AdblockMatcher: Send + Sync {
     fn should_block(&self, url: &str, resource_type: &str) -> bool;
     fn update_filters(&mut self, filters: Vec<String>);
 }
 
 /// Rust-based adblock matcher (high performance)
+#[allow(dead_code)]
 pub struct RustAdblockMatcher {
     blocked_domains: Vec<String>,
     blocked_patterns: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl RustAdblockMatcher {
     pub fn new() -> Self {
         let mut matcher = Self {
@@ -137,11 +142,14 @@ impl AdblockMatcher for RustAdblockMatcher {
 }
 
 /// Bridge to publish DOM extraction to realtime bus
+#[allow(dead_code)]
 pub struct CefBridge {
+    #[allow(dead_code)]
     bus_url: String,
     window: Option<Window>,
 }
 
+#[allow(dead_code)]
 impl CefBridge {
     pub fn new(bus_url: String) -> Self {
         Self {

@@ -23,7 +23,12 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:4000';
+  const wsUrl = (() => {
+    const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000';
+    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+    return `${protocol}${cleanUrl}`;
+  })();
   const collabWsUrl = `${wsUrl}/ws/collab?room=${roomId}`;
 
   useEffect(() => {
@@ -135,6 +140,8 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
       {/* Editor */}
       <textarea
         ref={textareaRef}
+        id="collab-editor"
+        name="collab-editor"
         value={state.content}
         onChange={handleTextChange}
         placeholder="Start typing... Multiple people can edit this document in real-time."
@@ -149,6 +156,7 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
     </div>
   );
 }
+
 
 
 

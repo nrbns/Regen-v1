@@ -58,7 +58,7 @@ export async function generatePreview(url) {
       // Fallback to basic extraction
       const titleMatch = response.data.match(/<title[^>]*>([^<]+)<\/title>/i);
       const title = titleMatch ? titleMatch[1].trim() : new URL(url).hostname;
-      
+
       const preview = {
         url,
         title,
@@ -123,20 +123,15 @@ function cachePreview(url, preview) {
  */
 export async function generatePreviews(urls) {
   const previews = await Promise.all(
-    urls.map(url => generatePreview(url).catch(() => ({
-      url,
-      title: 'Could not fetch',
-      preview: '',
-      favicon: '🔗',
-    })))
+    urls.map(url =>
+      generatePreview(url).catch(() => ({
+        url,
+        title: 'Could not fetch',
+        preview: '',
+        favicon: '🔗',
+      }))
+    )
   );
 
   return previews;
 }
-
-
-
-
-
-
-

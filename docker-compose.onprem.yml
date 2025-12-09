@@ -9,23 +9,23 @@ services:
       context: .
       dockerfile: Dockerfile.onprem
     ports:
-      - "8000:8000"    # App server
-      - "11434:11434"  # Ollama API
+      - '8000:8000' # App server
+      - '11434:11434' # Ollama API
     volumes:
-      - ollama-models:/root/.ollama  # Persist models
-      - app-data:/app/data           # Persist app data
+      - ollama-models:/root/.ollama # Persist models
+      - app-data:/app/data # Persist app data
     environment:
       # Disable cloud APIs
       - OPENAI_API_KEY=offline-fake
       - ANTHROPIC_API_KEY=offline-fake
       - NOTION_API_KEY=offline-fake
       - HEYGEN_API_KEY=offline-fake
-      
+
       # Use local LLM
       - OLLAMA_BASE_URL=http://localhost:11434
       - OLLAMA_MODEL=llama3.1
       - USE_LOCAL_LLM=true
-      
+
       # App config
       - NODE_ENV=production
       - PORT=8000
@@ -39,7 +39,7 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/_health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/api/_health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -49,10 +49,3 @@ volumes:
     driver: local
   app-data:
     driver: local
-
-
-
-
-
-
-

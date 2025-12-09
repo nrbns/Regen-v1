@@ -15,7 +15,7 @@ Your codebase already has a **comprehensive ErrorBoundary and Sentry integration
 ✅ **User-friendly error messages**  
 ✅ **Copy error details** to clipboard  
 ✅ **Toast notifications** for errors  
-✅ **Automatic Sentry integration**  
+✅ **Automatic Sentry integration**
 
 ### 2. Sentry Integration (`src/lib/monitoring/sentry-client.ts`)
 
@@ -23,14 +23,14 @@ Your codebase already has a **comprehensive ErrorBoundary and Sentry integration
 ✅ **Environment detection** (dev/prod)  
 ✅ **Privacy-safe** (strips URLs, removes user data)  
 ✅ **Multi-runtime support** (Tauri/Electron/Web)  
-✅ **Opt-in telemetry** (respects user preferences)  
+✅ **Opt-in telemetry** (respects user preferences)
 
 ### 3. Global Error Handlers (`src/main.tsx`)
 
 ✅ **Unhandled error handler** → Sentry  
 ✅ **Unhandled rejection handler** → Sentry  
 ✅ **Memory monitoring** (OOM detection)  
-✅ **Performance metrics** → Sentry  
+✅ **Performance metrics** → Sentry
 
 ## 🚀 Quick Setup (5 minutes)
 
@@ -60,6 +60,7 @@ node scripts/verify-error-boundary.cjs
 ```
 
 Or test manually:
+
 1. Start your app: `pnpm dev`
 2. Open browser console
 3. Trigger a test error (see test commands below)
@@ -112,7 +113,7 @@ If DSN is configured, Sentry receives:
 ✅ **Error level** (component/page/global)  
 ✅ **Performance metrics** (startup time, memory usage)  
 ❌ **User data** (privacy-safe - URLs and user info stripped)  
-❌ **Sensitive data** (API keys, tokens filtered)  
+❌ **Sensitive data** (API keys, tokens filtered)
 
 ## 🛡️ Production Readiness
 
@@ -171,5 +172,3 @@ it('catches errors and shows fallback UI', () => {
 **Your ErrorBoundary + Sentry setup is complete and production-ready!**
 
 Just add your Sentry DSN to `.env` and you're good to go. The system gracefully degrades if Sentry is not configured, so it's safe for development.
-
-

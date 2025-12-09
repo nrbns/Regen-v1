@@ -43,7 +43,12 @@ interface UseAgentStreamReturn {
   getTools: () => Promise<any[]>;
 }
 
-const DEFAULT_WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4000/ws/agent';
+const DEFAULT_WS_URL = (() => {
+  const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/agent';
+  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+  return `${protocol}${cleanUrl}`;
+})();
 
 export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStreamReturn {
   const {

@@ -5,18 +5,22 @@
 ### Build & Packaging
 
 - [ ] **Frontend build succeeds**
+
   ```bash
   npm run build
   ```
+
   - Verify `dist/` directory is created
   - Check `dist/index.html` exists
   - Verify assets are bundled
 
 - [ ] **Tauri build succeeds**
+
   ```bash
   cd tauri-migration
   npm run tauri build
   ```
+
   - Verify Rust toolchain is installed (`rustup --version`)
   - Check `src-tauri/target/release/bundle/` contains installers
   - Verify installer size is reasonable (< 200MB)
@@ -25,17 +29,20 @@
   ```bash
   npm run verify:build
   ```
+
   - All checks should pass
   - No critical errors
 
 ### Code Quality
 
 - [ ] **Linting passes**
+
   ```bash
   npm run lint
   ```
 
 - [ ] **Type checking passes**
+
   ```bash
   npm run build:types
   ```
@@ -122,6 +129,7 @@ npm run tauri build
 ### Step 4: Create Release
 
 1. Create GitHub release tag
+
    ```bash
    git tag -a v0.3.0 -m "Release v0.3.0"
    git push origin v0.3.0
@@ -160,23 +168,29 @@ npm run tauri build
 ### Build Issues
 
 **Issue:** Tauri build fails with Rust errors
+
 - **Solution:** Run `rustup update` and rebuild
 
 **Issue:** Frontend build fails
+
 - **Solution:** Clear `node_modules` and `dist`, reinstall dependencies
 
 **Issue:** Installer too large
+
 - **Solution:** Enable code splitting, remove unused dependencies
 
 ### Runtime Issues
 
 **Issue:** App crashes on startup
+
 - **Solution:** Check ErrorBoundary logs, verify Sentry reports
 
 **Issue:** Search API not working
+
 - **Solution:** Verify server is running, check API keys
 
 **Issue:** On-device AI not working
+
 - **Solution:** Verify model is downloaded, check Tauri commands
 
 ## 📊 Release Metrics
@@ -216,5 +230,3 @@ git push origin v0.3.0
 ```
 
 The release checklist is ready! Follow these steps for a smooth launch.
-
-

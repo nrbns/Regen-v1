@@ -96,6 +96,8 @@ export function PDFUpload() {
       >
         <input
           ref={fileInputRef}
+          id="pdf-upload"
+          name="pdf-upload"
           type="file"
           accept=".pdf"
           className="hidden"
@@ -155,6 +157,7 @@ export function PDFUpload() {
     </div>
   );
 }
+
 
 
 

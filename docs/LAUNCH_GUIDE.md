@@ -20,5 +20,3 @@ See `docs/LAUNCH_CHECKLIST_FINAL.md` for detailed checklist.
 4. Launch: Follow Christmas Launch Plan schedule
 
 See individual plan documents for details.
-
-

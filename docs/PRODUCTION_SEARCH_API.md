@@ -92,6 +92,7 @@ npx tsx server/redix-server.js
 ```
 
 Or update `package.json` dev script:
+
 ```json
 "dev:server": "tsx server/redix-server.js"
 ```
@@ -134,6 +135,7 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
 ### POST /api/search
 
 **Request:**
+
 ```json
 {
   "q": "search query",
@@ -145,6 +147,7 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
 ```
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -172,6 +175,7 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
 ### POST /api/summarize/v2
 
 **Request:**
+
 ```json
 {
   "urls": ["https://example.com/article"],
@@ -184,6 +188,7 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
 ```
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -194,7 +199,7 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
       "summary": "Full summary text...",
       "bullets": ["Point 1", "Point 2", "Point 3"],
       "excerpt": "Brief excerpt...",
-      "citations": [{"url": "...", "title": "..."}],
+      "citations": [{ "url": "...", "title": "..." }],
       "model": "llama-3.1-70b",
       "tokensUsed": 450
     }
@@ -213,13 +218,14 @@ curl -X POST http://localhost:4000/api/summarize/v2 \
 ✅ **Rate limiting** - Per-IP limits to prevent abuse  
 ✅ **LLM integration** - Uses existing LLM provider (Groq/DeepInfra/Ollama)  
 ✅ **Error handling** - Graceful fallbacks and error messages  
-✅ **Query normalization** - Intent detection, stopword removal, expansion  
+✅ **Query normalization** - Intent detection, stopword removal, expansion
 
 ## ⚙️ Configuration
 
 ### Environment Variables
 
 The APIs use existing environment variables:
+
 - `GROQ_API_KEY` - For Groq LLM (summarization)
 - `DEEPINFRA_API_KEY` - For DeepInfra LLM (fallback)
 - `BRAVE_API_KEY` - For Brave Search
@@ -229,6 +235,7 @@ The APIs use existing environment variables:
 ### Cache TTLs
 
 Default cache TTLs can be adjusted in `server/lib/cache.ts`:
+
 - Search results: 3600s (1 hour)
 - Summaries: 86400s (24 hours)
 - Extracted content: 21600s (6 hours)
@@ -236,6 +243,7 @@ Default cache TTLs can be adjusted in `server/lib/cache.ts`:
 ### Rate Limits
 
 Default rate limits can be adjusted in `server/middleware/rateLimiter.ts`:
+
 - Search: 100 requests per 15 minutes
 - Summarize: 50 requests per hour
 
@@ -244,6 +252,7 @@ Default rate limits can be adjusted in `server/middleware/rateLimiter.ts`:
 ### "search_api_not_available" error
 
 The TypeScript files need to be compiled or the server needs to run with `tsx`:
+
 ```bash
 npx tsx server/redix-server.js
 ```
@@ -263,6 +272,7 @@ Ensure `cheerio` and `@mozilla/readability` are installed. Falls back to basic e
 ## 📊 Performance Targets
 
 As specified in the audit:
+
 - **Search latency (cached)**: < 2.5s ✅
 - **Search latency (uncached)**: < 6s ✅
 - **Summary latency**: ~3-5s (depends on LLM provider)
@@ -275,5 +285,3 @@ As specified in the audit:
 4. **Wire up frontend**: Update `src/components/search/SearchBar.tsx` to use `/api/search`
 
 The implementation is complete and ready for integration!
-
-
