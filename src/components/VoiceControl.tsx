@@ -4,6 +4,7 @@ import { useAgentStreamStore } from '../state/agentStreamStore';
 import { streamAgentTask } from '../services/agenticCore';
 import { useAppStore } from '../state/appStore';
 import { executeAgentActions } from '../services/agenticActions';
+import { ensureAIModelAvailable } from '../utils/firstRun';
 
 type SpeechRecognitionLike = {
   lang: string;
@@ -78,6 +79,14 @@ export function VoiceControl() {
       setError(undefined);
       appendStream('');
       setActions([]);
+
+      const ready = await ensureAIModelAvailable({
+        onProgress: status => setTranscript(`Downloading model… ${status}`),
+      });
+      if (!ready) {
+        setStatus('idle');
+        return;
+      }
 
       await streamAgentTask(text, {
         mode: currentMode,
