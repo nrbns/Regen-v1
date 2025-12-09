@@ -1,4 +1,40 @@
 import { create } from 'zustand';
+
+type AgentStreamState = {
+  status: 'idle' | 'listening' | 'running' | 'error';
+  transcript: string;
+  stream: string;
+  actions: string[];
+  error?: string;
+  setStatus: (status: AgentStreamState['status']) => void;
+  setTranscript: (text: string) => void;
+  appendStream: (chunk: string) => void;
+  setActions: (actions: string[]) => void;
+  setError: (message: string | undefined) => void;
+  reset: () => void;
+};
+
+export const useAgentStreamStore = create<AgentStreamState>(set => ({
+  status: 'idle',
+  transcript: '',
+  stream: '',
+  actions: [],
+  error: undefined,
+  setStatus: status => set({ status }),
+  setTranscript: text => set({ transcript: text }),
+  appendStream: chunk => set(state => ({ stream: state.stream + chunk })),
+  setActions: actions => set({ actions }),
+  setError: message => set({ error: message }),
+  reset: () =>
+    set({
+      status: 'idle',
+      transcript: '',
+      stream: '',
+      actions: [],
+      error: undefined,
+    }),
+}));
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type StreamStatus = 'idle' | 'connecting' | 'live' | 'complete' | 'error';

@@ -12,6 +12,7 @@ import { useTabsStore, type Tab } from '../../state/tabsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
+import { VoiceControl } from '../VoiceControl';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
@@ -2075,11 +2076,10 @@ export function AppShell() {
         </Portal>
       </Suspense>
 
-      {/* Regen Whisper - Voice Tips */}
+      {/* Voice Control - agentic + voice-first entrypoint */}
       {!isFullscreen && (
         <Suspense fallback={null}>
-          {/* VoiceTips disabled by user request */}
-          {/* Voice components removed by user request */}
+          <VoiceControl />
         </Suspense>
       )}
 
@@ -2204,9 +2204,6 @@ export function AppShell() {
       <div className="fixed bottom-6 left-1/2 z-[105] w-full max-w-3xl -translate-x-1/2 px-4">
         <MemoryMonitor />
       </div>
-
-      {/* Voice Companion - Disabled by user request */}
-      {/* Voice components removed by user request */}
 
       {restoreToast && (
         <Portal>
