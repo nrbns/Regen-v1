@@ -55,9 +55,9 @@ export function buildSearchUrl(
 
   // If iframe-friendly is preferred and current provider blocks iframes, use fallback
   if (preferIframeFriendly && !IFRAME_FRIENDLY_PROVIDERS.includes(provider)) {
-    // DuckDuckGo and Google block iframes - use Bing as fallback
+    // DuckDuckGo and Google block iframes - use Startpage as fallback (privacy-friendly)
     if (provider === 'duckduckgo' || provider === 'google') {
-      return `https://www.bing.com/search?q=${enc}&setlang=${langCode}`;
+      return `https://www.startpage.com/sp/search?query=${enc}&language=${langCode}`;
     }
   }
 

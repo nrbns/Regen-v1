@@ -180,30 +180,88 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         const existingScript = iframeDoc.getElementById('regen-link-interceptor');
         if (existingScript) existingScript.remove();
 
-        // Inject link click interceptor
+        // Inject comprehensive link click interceptor
         const script = iframeDoc.createElement('script');
         script.id = 'regen-link-interceptor';
         script.textContent = `
           (function() {
+            // Intercept all link clicks - both same-origin and external
             document.addEventListener('click', function(e) {
               const link = e.target.closest('a');
               if (link && link.href) {
                 const url = link.href;
-                // Don't intercept same-origin navigation or anchors
-                if (url && !url.startsWith('javascript:') && !url.startsWith('#')) {
-                  // Check if it's a new window target or external link
-                  if (link.target === '_blank' || link.target === '_parent' || 
-                      new URL(url, window.location.href).origin !== window.location.origin) {
+                const currentUrl = window.location.href;
+                
+                // Skip javascript: and anchor links
+                if (!url || url.startsWith('javascript:') || url.startsWith('#')) {
+                  return;
+                }
+                
+                try {
+                  // Parse URLs to check if external
+                  const linkUrl = new URL(url, currentUrl);
+                  const currentOrigin = new URL(currentUrl).origin;
+                  const isExternal = linkUrl.origin !== currentOrigin;
+                  
+                  // Intercept if:
+                  // 1. Link has _blank target (always open in new tab)
+                  // 2. Link is external (different origin)
+                  // 3. Link has _parent target
+                  // 4. It's a search result link (common patterns)
+                  const isSearchResult = linkUrl.pathname.includes('/search') || 
+                                         linkUrl.pathname.includes('/results') ||
+                                         linkUrl.pathname.includes('/url') ||
+                                         link.closest('.result') !== null ||
+                                         link.closest('[class*="result"]') !== null ||
+                                         link.closest('[class*="search"]') !== null;
+                  
+                  if (link.target === '_blank' || link.target === '_parent' || isExternal || isSearchResult) {
                     e.preventDefault();
+                    e.stopPropagation();
+                    window.parent.postMessage({ type: 'link-click', url: linkUrl.href }, '*');
+                    return false;
+                  }
+                } catch (urlError) {
+                  // If URL parsing fails, still try to send it (might be relative URL)
+                  if (link.target === '_blank' || link.target === '_parent') {
+                    e.preventDefault();
+                    e.stopPropagation();
                     window.parent.postMessage({ type: 'link-click', url: url }, '*');
                     return false;
                   }
                 }
               }
             }, true);
+            
+            // Also intercept middle-click and Ctrl+click
+            document.addEventListener('auxclick', function(e) {
+              if (e.button === 1) { // Middle click
+                const link = e.target.closest('a');
+                if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.parent.postMessage({ type: 'link-click', url: link.href }, '*');
+                  return false;
+                }
+              }
+            }, true);
+            
+            // Intercept Ctrl+Click (Cmd+Click on Mac)
+            document.addEventListener('click', function(e) {
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                const link = e.target.closest('a');
+                if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.parent.postMessage({ type: 'link-click', url: link.href }, '*');
+                  return false;
+                }
+              }
+            }, true);
           })();
         `;
         iframeDoc.head.appendChild(script);
+        console.log('[TabContentSurface] Link interceptor injected successfully');
       } catch (error) {
         // Cross-origin - can't inject, but that's OK, we'll handle via postMessage
         console.debug('[TabContentSurface] Cannot inject link interceptor (cross-origin):', error);
