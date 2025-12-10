@@ -79,12 +79,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       // Convert to search in user's language
-      // Use DuckDuckGo (privacy-friendly) instead of Bing
+      // Use Startpage (privacy-friendly AND iframe-friendly) as default
       const searchUrl = normalizeInputToUrlOrSearch(
         url,
-        'duckduckgo', // Use DuckDuckGo - privacy-friendly and works well
+        'startpage', // Use Startpage - privacy-friendly and iframe-friendly
         language !== 'auto' ? language : undefined,
-        false // Don't force iframe-friendly - let real sites load
+        true // Prefer iframe-friendly for better compatibility
       );
       if (searchUrl) {
         return searchUrl;

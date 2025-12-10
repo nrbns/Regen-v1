@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppState } from './appStore';
 
-type SearchEngine = 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'all' | 'mock';
+type SearchEngine =
+  | 'google'
+  | 'duckduckgo'
+  | 'bing'
+  | 'yahoo'
+  | 'startpage'
+  | 'ecosia'
+  | 'all'
+  | 'mock';
 
 type GeneralSettings = {
   defaultMode: AppState['mode'];
@@ -112,7 +120,7 @@ const createDefaults = (): SettingsData => ({
     lastSyncedAt: Date.now(),
   },
   videoDownloadConsent: false,
-  searchEngine: 'duckduckgo',
+  searchEngine: 'startpage', // Default: Startpage (iframe-friendly and privacy-focused)
   language: 'auto',
 });
 
