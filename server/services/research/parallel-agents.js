@@ -22,7 +22,7 @@ export async function executeParallelAgents(query, options = {}) {
 
   // Generate all queries from golden prompts
   const allQueries = generateAllQueries(query);
-  
+
   // Group queries by strategy
   const queriesByStrategy = {};
   for (const { query: q, strategy } of allQueries) {
@@ -36,11 +36,11 @@ export async function executeParallelAgents(query, options = {}) {
   const agentPromises = Object.entries(queriesByStrategy).map(async ([strategy, queries]) => {
     try {
       const systemPrompt = getSystemPrompt(strategy);
-      
+
       // Execute top queries for this strategy
       const topQueries = queries.slice(0, 3);
       const searchResults = await Promise.all(
-        topQueries.map(q => 
+        topQueries.map(q =>
           diverseSearch(q, {
             requirePDF: includePDF && strategy === 'primarySource',
             requireGitHub: includeGitHub && strategy === 'bleedingEdge',
@@ -51,7 +51,7 @@ export async function executeParallelAgents(query, options = {}) {
 
       // Combine results
       const combinedResults = searchResults.flatMap(r => r.results);
-      
+
       // Deduplicate
       const seenUrls = new Set();
       const uniqueResults = [];
@@ -66,9 +66,9 @@ export async function executeParallelAgents(query, options = {}) {
       // Analyze with strategy-specific prompt
       const analysis = await analyzeWithLLM({
         task: 'qa',
-        inputText: uniqueResults.map((r, i) => 
-          `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.url}`
-        ).join('\n\n'),
+        inputText: uniqueResults
+          .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet}\nSource: ${r.url}`)
+          .join('\n\n'),
         question: query,
         systemPrompt,
       });
@@ -112,7 +112,10 @@ export async function synthesizeAgentResults(agentResults, query) {
   const context = agents
     .filter(a => a.analysis && a.count > 0)
     .map((a, _idx) => {
-      return `=== ${a.strategy.toUpperCase()} ANALYSIS ===\n${a.analysis}\n\nKey Sources:\n${a.results.slice(0, 3).map((r, i) => `  ${i + 1}. ${r.title} - ${r.url}`).join('\n')}`;
+      return `=== ${a.strategy.toUpperCase()} ANALYSIS ===\n${a.analysis}\n\nKey Sources:\n${a.results
+        .slice(0, 3)
+        .map((r, i) => `  ${i + 1}. ${r.title} - ${r.url}`)
+        .join('\n')}`;
     })
     .join('\n\n');
 
@@ -154,7 +157,7 @@ Generate the answer following the structure above.`;
 
   // Extract structured parts from synthesis
   const answer = synthesis.answer || synthesis.summary || '';
-  
+
   // Parse structured answer (simple extraction)
   const insights = extractBullets(answer);
   const hiddenGem = extractSection(answer, 'HIDDEN GEM', 'CONTRA VIEW');
@@ -170,7 +173,8 @@ Generate the answer following the structure above.`;
 }
 
 function extractBullets(text) {
-  const bulletRegex = /[•-*]\s*(.+?)(?=\n|$)/g;
+  // Fix: Use proper character class - escape hyphen, bullet character, and asterisk
+  const bulletRegex = /[•\-*]\s*(.+?)(?=\n|$)/g;
   const matches = [];
   let match;
   while ((match = bulletRegex.exec(text)) !== null && matches.length < 5) {
@@ -182,13 +186,9 @@ function extractBullets(text) {
 function extractSection(text, startMarker, endMarker) {
   const startIdx = text.indexOf(startMarker);
   if (startIdx === -1) return null;
-  
+
   const endIdx = endMarker ? text.indexOf(endMarker, startIdx) : text.length;
   if (endIdx === -1) return text.substring(startIdx + startMarker.length).trim();
-  
+
   return text.substring(startIdx + startMarker.length, endIdx).trim();
 }
-
-
-
-

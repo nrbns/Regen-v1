@@ -1309,23 +1309,20 @@ fn main() {
                 if let Some(window) = app.get_webview_window("main") {
                     // Listen for download events via IPC
                     window.listen("tauri://download", move |event| {
-                        if let Some(payload) = event.payload() {
-                            // Parse download request and set save path
-                            eprintln!("[Download] Received download request: {:?}", payload);
-                            // The webview will handle the actual download
-                            // We just need to ensure the event is properly handled
-                        }
+                        // In Tauri v2, payload() returns &str directly, not Option
+                        let payload = event.payload();
+                        eprintln!("[Download] Received download request: {:?}", payload);
+                        // The webview will handle the actual download
+                        // We just need to ensure the event is properly handled
                     });
                     
                     // Alternative: Use Tauri's built-in download handler
                     // This is handled automatically by Tauri v2, but we can customize it
                     #[cfg(target_os = "windows")]
                     {
-                        // Windows-specific: Set default download directory
-                        use std::path::PathBuf;
-                        if let Some(downloads_dir) = dirs::download_dir() {
-                            eprintln!("[Download] Default download directory: {:?}", downloads_dir);
-                        }
+                        // Windows-specific: Use Tauri's path API instead of dirs crate
+                        // Tauri v2 handles downloads automatically, no need for manual path setting
+                        eprintln!("[Download] Using Tauri's built-in download handler");
                     }
                 }
             }
