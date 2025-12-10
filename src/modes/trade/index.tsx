@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
+import { useSettingsStore } from '../../state/settingsStore';
 import { getRealtimeMarketDataService, type PriceUpdate } from '../../services/realtimeMarketData';
 import {
   getTradeSignalService,
