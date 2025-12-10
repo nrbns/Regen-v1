@@ -46,6 +46,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(true); // Start with loading true to show spinner
+  const [loadProgress, setLoadProgress] = useState<number | undefined>(undefined);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
     null
   );
