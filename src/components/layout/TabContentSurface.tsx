@@ -277,17 +277,20 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             const urlObj = new URL(targetUrl);
             const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
             if (query) {
-              // Convert to Bing search URL
-              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              // Convert to Startpage search URL (iframe-friendly and privacy-focused)
+              const startpageUrl = `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+              console.log(
+                '[TabContentSurface] Converting iframe-blocked search to Startpage:',
+                startpageUrl
+              );
               setTimeout(() => {
                 if (iframeRef.current) {
-                  iframeRef.current.src = bingUrl;
+                  iframeRef.current.src = startpageUrl;
                   setLoading(true);
                   setFailedMessage(null);
                 }
               }, 100);
-              return; // Don't set error, we're retrying with Bing
+              return; // Don't set error, we're retrying with Startpage
             }
           } catch {
             // URL parsing failed, continue with error handling
@@ -520,17 +523,20 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             const urlObj = new URL(targetUrl);
             const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
             if (query) {
-              // Convert to Bing search URL
-              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              // Convert to Startpage search URL (iframe-friendly and privacy-focused)
+              const startpageUrl = `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+              console.log(
+                '[TabContentSurface] Converting iframe-blocked search to Startpage:',
+                startpageUrl
+              );
               setTimeout(() => {
                 if (iframeRef.current) {
-                  iframeRef.current.src = bingUrl;
+                  iframeRef.current.src = startpageUrl;
                   setLoading(true);
                   setFailedMessage(null);
                 }
               }, 100);
-              return; // Don't set error, we're retrying with Bing
+              return; // Don't set error, we're retrying with Startpage
             }
           } catch {
             // URL parsing failed, continue with error handling
