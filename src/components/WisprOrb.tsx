@@ -22,9 +22,38 @@ const LANGUAGE_LOCALE_MAP: Record<string, string> = {
 
 function getSpeechRecognitionLocale(lang?: string): string {
   // Phase 2, Day 4: Support both Hindi and English simultaneously for best accuracy
-  if (!lang || lang === 'auto') return 'hi-IN,en-US';
+  // DESI POLISH: Enhanced language detection for all Indian languages
+  if (!lang || lang === 'auto') return 'hi-IN,en-US'; // Default to Hindi + English
   if (lang === 'hi') return 'hi-IN,en-US'; // Support both
   if (lang === 'en') return 'en-US,hi-IN'; // Support both
+
+  // For other Indian languages, support with English fallback
+  const indianLanguages = [
+    'ta',
+    'te',
+    'bn',
+    'mr',
+    'kn',
+    'ml',
+    'gu',
+    'pa',
+    'ur',
+    'or',
+    'as',
+    'mai',
+    'sat',
+    'ne',
+    'kok',
+    'mni',
+    'brx',
+    'doi',
+    'ks',
+    'sa',
+  ];
+  if (indianLanguages.includes(lang)) {
+    const locale = LANGUAGE_LOCALE_MAP[lang] || `${lang}-IN`;
+    return `${locale},en-US`; // Support Indian language + English
+  }
   return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 
@@ -288,7 +317,7 @@ export function WisprOrb() {
           setIsJarvisMode(true);
         }
       }
-      
+
       // Cancel with "Band kar" / "Stop" - also listen for these keys
       if (listening && (event.key === 'Escape' || (event.ctrlKey && event.key === 'c'))) {
         event.preventDefault();
@@ -317,25 +346,25 @@ export function WisprOrb() {
           aria-label="WISPR Voice Assistant"
         >
           <div
-            className={`w-20 h-20 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 shadow-2xl flex items-center justify-center transition-all ${
-              listening ? 'animate-pulse scale-110 ring-4 ring-purple-500/50' : 'hover:scale-105'
+            className={`flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-r from-purple-600 to-pink-600 shadow-2xl transition-all ${
+              listening ? 'scale-110 animate-pulse ring-4 ring-purple-500/50' : 'hover:scale-105'
             } ${isJarvisMode ? 'ring-4 ring-blue-500' : ''}`}
           >
             {listening ? (
-              <Mic className="w-10 h-10 text-white animate-bounce" />
+              <Mic className="h-10 w-10 animate-bounce text-white" />
             ) : isJarvisMode ? (
-              <Brain className="w-10 h-10 text-white" />
+              <Brain className="h-10 w-10 text-white" />
             ) : (
-              <Sparkles className="w-10 h-10 text-white" />
+              <Sparkles className="h-10 w-10 text-white" />
             )}
           </div>
           {visionEnabled && (
-            <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-              <Eye className="w-3 h-3 text-white" />
+            <div className="absolute -bottom-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
+              <Eye className="h-3 w-3 text-white" />
             </div>
           )}
         </button>
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur px-4 py-2 rounded-full text-sm whitespace-nowrap pointer-events-none">
+        <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/80 px-4 py-2 text-sm backdrop-blur">
           {isJarvisMode ? 'Jarvis Mode' : 'Ctrl + Space to talk'}
         </div>
       </motion.div>
@@ -346,40 +375,40 @@ export function WisprOrb() {
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 100 }}
-          className="fixed bottom-48 right-8 bg-black/90 backdrop-blur-xl border border-purple-600 rounded-3xl p-8 shadow-2xl max-w-md z-50"
+          className="fixed bottom-48 right-8 z-50 max-w-md rounded-3xl border border-purple-600 bg-black/90 p-8 shadow-2xl backdrop-blur-xl"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-4 h-4 bg-red-500 rounded-full animate-pulse" />
+              <div className="h-4 w-4 animate-pulse rounded-full bg-red-500" />
               <p className="text-2xl font-bold text-purple-300">
                 {isProcessing ? 'Processing...' : 'WISPR Listening...'}
               </p>
             </div>
             <button
               onClick={stopListening}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 transition-colors hover:text-white"
               aria-label="Stop listening"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
 
           {transcript && (
-            <div className="mt-4 p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
-              <p className="text-sm text-gray-300 mb-2">You said:</p>
-              <p className="text-white font-medium text-lg">{transcript}</p>
+            <div className="mt-4 rounded-xl border border-purple-500/30 bg-purple-900/20 p-4">
+              <p className="mb-2 text-sm text-gray-300">You said:</p>
+              <p className="text-lg font-medium text-white">{transcript}</p>
             </div>
           )}
 
-          <p className="mt-4 text-gray-400 text-sm">
+          <p className="mt-4 text-sm text-gray-400">
             {isProcessing
               ? 'Executing your command...'
               : 'Say in Hindi or English:\n"निफ्टी खरीदो 50" or "Buy 50 Nifty"\n"Research Tesla" or "Screenshot le"'}
           </p>
-          
+
           <button
             onClick={stopListening}
-            className="mt-4 w-full bg-red-600/20 hover:bg-red-600/30 border border-red-500/50 rounded-lg px-4 py-2 text-red-300 text-sm font-medium transition-colors"
+            className="mt-4 w-full rounded-lg border border-red-500/50 bg-red-600/20 px-4 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-600/30"
           >
             Band kar / Stop (Esc)
           </button>

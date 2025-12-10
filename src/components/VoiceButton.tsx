@@ -11,17 +11,32 @@ type Props = {
   editBeforeExecute?: boolean; // Phase 1, Day 5: Edit before execute
 };
 
+// DESI POLISH: Complete Indian language support - all 22 official languages + major regional languages
 const LANGUAGE_LOCALE_MAP: Record<string, string> = {
-  hi: 'hi-IN',
-  ta: 'ta-IN',
-  te: 'te-IN',
-  bn: 'bn-IN',
-  mr: 'mr-IN',
-  kn: 'kn-IN',
-  ml: 'ml-IN',
-  gu: 'gu-IN',
-  pa: 'pa-IN',
-  ur: 'ur-PK',
+  // Official Indian Languages (22)
+  hi: 'hi-IN', // Hindi - हिंदी
+  ta: 'ta-IN', // Tamil - தமிழ்
+  te: 'te-IN', // Telugu - తెలుగు
+  bn: 'bn-IN', // Bengali - বাংলা
+  mr: 'mr-IN', // Marathi - मराठी
+  kn: 'kn-IN', // Kannada - ಕನ್ನಡ
+  ml: 'ml-IN', // Malayalam - മലയാളം
+  gu: 'gu-IN', // Gujarati - ગુજરાતી
+  pa: 'pa-IN', // Punjabi - ਪੰਜਾਬੀ
+  ur: 'ur-IN', // Urdu - اردو (India variant)
+  or: 'or-IN', // Odia - ଓଡ଼ିଆ
+  as: 'as-IN', // Assamese - অসমীয়া
+  mai: 'mai-IN', // Maithili - मैथिली
+  sat: 'sat-IN', // Santali - ᱥᱟᱱᱛᱟᱲᱤ
+  ne: 'ne-IN', // Nepali - नेपाली
+  kok: 'kok-IN', // Konkani - कोंकणी
+  mni: 'mni-IN', // Manipuri - ꯃꯤꯇꯩꯂꯣꯟ
+  brx: 'brx-IN', // Bodo - बड़ो
+  doi: 'doi-IN', // Dogri - डोगरी
+  ks: 'ks-IN', // Kashmiri - कॉशुर
+  sa: 'sa-IN', // Sanskrit - संस्कृतम्
+
+  // International languages
   en: 'en-US',
   es: 'es-ES',
   fr: 'fr-FR',
@@ -36,24 +51,71 @@ const LANGUAGE_LOCALE_MAP: Record<string, string> = {
 
 function getSpeechRecognitionLocale(lang?: string): string {
   if (!lang || lang === 'auto') return 'en-US';
-  // Improved Hindi detection: Use hi-IN explicitly for better 70%+ detection rate
-  if (lang === 'hi') {
-    return 'hi-IN'; // Explicit Hindi locale for better detection
+
+  // DESI POLISH: Enhanced Indian language detection with explicit locale mapping
+  // Use explicit locale codes for better recognition rates (70%+ for major languages)
+  const locale = LANGUAGE_LOCALE_MAP[lang];
+  if (locale) {
+    return locale;
   }
-  return LANGUAGE_LOCALE_MAP[lang] || lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
+
+  // Fallback: If it's an Indian language code, append -IN
+  const indianLanguages = [
+    'hi',
+    'ta',
+    'te',
+    'bn',
+    'mr',
+    'kn',
+    'ml',
+    'gu',
+    'pa',
+    'or',
+    'as',
+    'mai',
+    'sat',
+    'ne',
+    'kok',
+    'mni',
+    'brx',
+    'doi',
+    'ks',
+    'sa',
+  ];
+  if (indianLanguages.includes(lang)) {
+    return `${lang}-IN`;
+  }
+
+  // Generic fallback
+  return lang.includes('-') ? lang : `${lang}-${lang.toUpperCase()}`;
 }
 
+// DESI POLISH: Native labels for all Indian languages
 const LANGUAGE_LABELS: Record<string, string> = {
-  hi: 'हिंदी',
-  ta: 'தமிழ்',
-  te: 'తెలుగు',
-  bn: 'বাংলা',
-  mr: 'मराठी',
-  kn: 'ಕನ್ನಡ',
-  ml: 'മലയാളം',
-  gu: 'ગુજરાતી',
-  pa: 'ਪੰਜਾਬੀ',
-  ur: 'اردو',
+  // Official Indian Languages (22)
+  hi: 'हिंदी', // Hindi
+  ta: 'தமிழ்', // Tamil
+  te: 'తెలుగు', // Telugu
+  bn: 'বাংলা', // Bengali
+  mr: 'मराठी', // Marathi
+  kn: 'ಕನ್ನಡ', // Kannada
+  ml: 'മലയാളം', // Malayalam
+  gu: 'ગુજરાતી', // Gujarati
+  pa: 'ਪੰਜਾਬੀ', // Punjabi
+  ur: 'اردو', // Urdu
+  or: 'ଓଡ଼ିଆ', // Odia
+  as: 'অসমীয়া', // Assamese
+  mai: 'मैथिली', // Maithili
+  sat: 'ᱥᱟᱱᱛᱟᱲᱤ', // Santali
+  ne: 'नेपाली', // Nepali
+  kok: 'कोंकणी', // Konkani
+  mni: 'ꯃꯤꯇꯩꯂꯣꯟ', // Manipuri
+  brx: 'बड़ो', // Bodo
+  doi: 'डोगरी', // Dogri
+  ks: 'कॉशुर', // Kashmiri
+  sa: 'संस्कृतम्', // Sanskrit
+
+  // International languages
   en: 'English',
   es: 'Español',
   fr: 'Français',

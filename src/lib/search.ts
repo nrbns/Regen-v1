@@ -2,6 +2,17 @@ const LANGUAGE_LOCALE_MAP: Record<string, string> = {
   // 22 Indic languages (Bhashini supported)
   as: 'as-IN', // Assamese
   bn: 'bn-IN', // Bengali
+  or: 'or-IN', // Odia
+  as: 'as-IN', // Assamese
+  mai: 'mai-IN', // Maithili
+  sat: 'sat-IN', // Santali
+  ne: 'ne-IN', // Nepali
+  kok: 'kok-IN', // Konkani
+  mni: 'mni-IN', // Manipuri
+  brx: 'brx-IN', // Bodo
+  doi: 'doi-IN', // Dogri
+  ks: 'ks-IN', // Kashmiri
+  sa: 'sa-IN', // Sanskrit
   brx: 'brx-IN', // Bodo
   doi: 'doi-IN', // Dogri
   gom: 'gom-IN', // Konkani
@@ -178,8 +189,7 @@ export function normalizeInputToUrlOrSearch(
   // Not a URL - convert to search
   // Use DuckDuckGo by default (privacy-friendly, works in iframes with proper setup)
   // Only use Bing if explicitly requested or iframe-friendly is critical
-  const searchProvider = provider === 'all' 
-    ? (preferIframeFriendly ? 'duckduckgo' : 'google') 
-    : provider;
+  const searchProvider =
+    provider === 'all' ? (preferIframeFriendly ? 'duckduckgo' : 'google') : provider;
   return buildSearchUrl(searchProvider, trimmed, language, preferIframeFriendly);
 }
