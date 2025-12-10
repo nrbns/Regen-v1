@@ -27,6 +27,8 @@ import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
 import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
+// LAG FIX #8: Hindi defaults for Research mode
+import { getModeDefaults, getLocalizedText } from '../../config/modeDefaults';
 import {
   ResearchResult,
   ResearchSource,
@@ -97,6 +99,15 @@ export default function ResearchPanel() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
+
+  // LAG FIX #8: Apply Hindi defaults for Research mode
+  useEffect(() => {
+    const defaults = getModeDefaults('Research');
+    const settings = useSettingsStore.getState();
+    if (!settings.language || settings.language === 'auto') {
+      settings.setLanguage(defaults.language);
+    }
+  }, []);
   const { activeId, tabs } = useTabsStore();
   const useHybridSearch = useSettingsStore(s => s.searchEngine !== 'mock');
   const { containers, activeContainerId, setContainers } = useContainerStore();

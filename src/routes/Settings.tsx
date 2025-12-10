@@ -51,11 +51,11 @@ function SectionCard({
 }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6">
-      <div className="flex items-center gap-3 mb-4">
+      <div className="mb-4 flex items-center gap-3">
         {Icon && <Icon size={20} className="text-slate-400" />}
         <div>
           <h3 className="text-lg font-semibold text-white">{title}</h3>
-          {description && <p className="text-sm text-slate-400 mt-1">{description}</p>}
+          {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
         </div>
       </div>
       <div className="space-y-4">{children}</div>
@@ -77,8 +77,8 @@ function ToggleRow({
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex-1">
-        <label className="text-sm font-medium text-slate-200 cursor-pointer">{label}</label>
-        {description && <p className="text-xs text-slate-400 mt-1">{description}</p>}
+        <label className="cursor-pointer text-sm font-medium text-slate-200">{label}</label>
+        {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
       </div>
       <button
         type="button"
@@ -134,7 +134,7 @@ export default function SettingsRoute() {
     <div className="flex h-full w-full bg-slate-950 text-slate-100">
       {/* Sidebar */}
       <div className="w-64 border-r border-slate-800 bg-slate-900/50 p-4">
-        <h2 className="text-lg font-semibold mb-4">Settings</h2>
+        <h2 className="mb-4 text-lg font-semibold">Settings</h2>
         <nav className="space-y-1">
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -142,10 +142,10 @@ export default function SettingsRoute() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    ? 'border border-blue-500/40 bg-blue-600/20 text-blue-300'
+                    : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                 }`}
               >
                 <Icon size={18} />
@@ -176,11 +176,11 @@ export default function SettingsRoute() {
         {activeTab === 'system' && (
           <div className="max-w-4xl space-y-6">
             <SectionCard title="System Settings" icon={Settings2}>
-              <p className="text-sm text-slate-400 mb-4">System configuration and diagnostics.</p>
+              <p className="mb-4 text-sm text-slate-400">System configuration and diagnostics.</p>
               <div className="space-y-4">
                 <RedixModeToggle showLabel={true} compact={false} />
-                <div className="pt-4 border-t border-slate-800">
-                  <h4 className="text-sm font-semibold text-white mb-2">Privacy Mode</h4>
+                <div className="border-t border-slate-800 pt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-white">Privacy Mode</h4>
                   <ToggleRow
                     label="Enable Privacy Mode"
                     checked={settings.privacy.trackerProtection && settings.privacy.adBlockEnabled}
@@ -266,7 +266,7 @@ function AccountsPanel() {
             type="color"
             value={account?.avatarColor || '#8b5cf6'}
             onChange={e => settings.updateAccount({ avatarColor: e.target.value })}
-            className="h-10 w-20 rounded cursor-pointer"
+            className="h-10 w-20 cursor-pointer rounded"
           />
         </LabeledField>
       </SectionCard>
@@ -282,7 +282,7 @@ function AppearancePanel() {
       <SectionCard title="Language" icon={Globe}>
         <LanguageSelector />
       </SectionCard>
-      
+
       <SectionCard title="Theme" icon={Palette}>
         <LabeledField label="Color Scheme">
           <select
@@ -290,7 +290,7 @@ function AppearancePanel() {
             onChange={e =>
               settings.updateAppearance({ theme: e.target.value as 'light' | 'dark' | 'system' })
             }
-            className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           >
             <option value="dark">Dark</option>
             <option value="light">Light</option>
@@ -324,12 +324,12 @@ function ApisPanel() {
   return (
     <div className="max-w-4xl space-y-6">
       {/* Mode Selector */}
-      <div className="flex gap-2 mb-6">
+      <div className="mb-6 flex gap-2">
         {(['research', 'trade', 'threat', 'image'] as const).map(mode => (
           <button
             key={mode}
             onClick={() => setSelectedMode(mode)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
               selectedMode === mode
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -352,18 +352,18 @@ function ApisPanel() {
             const apiKey = apiConfig?.apiKey || '';
 
             return (
-              <div key={api.id} className="p-4 rounded-lg border border-slate-800 bg-slate-800/30">
-                <div className="flex items-start justify-between mb-3">
+              <div key={api.id} className="rounded-lg border border-slate-800 bg-slate-800/30 p-4">
+                <div className="mb-3 flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="mb-1 flex items-center gap-2">
                       <h4 className="font-medium text-slate-200">{api.name}</h4>
                       {api.authType === 'apiKey' && !apiKey && (
-                        <span className="px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-300">
+                        <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">
                           Key Required
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mb-2">{api.description}</p>
+                    <p className="mb-2 text-xs text-slate-400">{api.description}</p>
                   </div>
                   <ToggleRow
                     label=""
@@ -372,14 +372,14 @@ function ApisPanel() {
                   />
                 </div>
                 {isEnabled && api.authType === 'apiKey' && (
-                  <div className="mt-3 pt-3 border-t border-slate-700">
+                  <div className="mt-3 border-t border-slate-700 pt-3">
                     <LabeledField label="API Key">
                       <input
                         type="password"
                         value={apiKey}
                         onChange={e => setApiKey(api.id, e.target.value)}
                         placeholder={`Enter ${api.name} API key`}
-                        className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                       />
                     </LabeledField>
                     {api.docsUrl && (
@@ -387,7 +387,7 @@ function ApisPanel() {
                         href={api.docsUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:text-blue-300 mt-1 inline-block"
+                        className="mt-1 inline-block text-xs text-blue-400 hover:text-blue-300"
                       >
                         Get API key →
                       </a>
@@ -404,14 +404,21 @@ function ApisPanel() {
 }
 
 function SafetyPanel() {
-  const { capabilities, setCapability, experimentalToolsEnabled, externalPluginsEnabled, setExperimentalTools, setExternalPlugins } = useCapabilityStore();
+  const {
+    capabilities,
+    setCapability,
+    experimentalToolsEnabled,
+    externalPluginsEnabled,
+    setExperimentalTools,
+    setExternalPlugins,
+  } = useCapabilityStore();
   const capabilityDescriptions = getCapabilityDescriptions();
   const plugins = pluginRegistry.getAll();
 
   return (
     <div className="max-w-4xl space-y-6">
       <SectionCard title="Agent Capabilities" icon={Shield}>
-        <p className="text-sm text-slate-400 mb-4">
+        <p className="mb-4 text-sm text-slate-400">
           Control what OmniAgent can do. Disable capabilities you don't trust.
         </p>
         {Object.entries(capabilities).map(([cap, enabled]) => (
@@ -441,7 +448,7 @@ function SafetyPanel() {
       </SectionCard>
 
       <SectionCard title="Plugins" icon={Plug}>
-        <p className="text-sm text-slate-400 mb-4">Manage installed plugins and extensions.</p>
+        <p className="mb-4 text-sm text-slate-400">Manage installed plugins and extensions.</p>
         {plugins.length === 0 ? (
           <p className="text-sm text-slate-500">No plugins installed</p>
         ) : (
@@ -449,7 +456,7 @@ function SafetyPanel() {
             {plugins.map(plugin => (
               <div
                 key={plugin.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-slate-800"
+                className="flex items-center justify-between rounded-lg border border-slate-800 p-3"
               >
                 <div>
                   <p className="text-sm font-medium text-white">{plugin.name}</p>
@@ -473,14 +480,16 @@ function SafetyPanel() {
       </SectionCard>
 
       <SectionCard title="Crash Reporting" icon={Activity}>
-        <p className="text-sm text-slate-400 mb-4">
+        <p className="mb-4 text-sm text-slate-400">
           Help improve Regen by automatically reporting crashes and errors.
         </p>
         <ToggleRow
-          label="Send crash reports"
+          label="Send crash reports (Sentry)"
           checked={crashReporter.isEnabled()}
-          onChange={enabled => crashReporter.setEnabled(enabled)}
-          description="Automatically send error reports to help improve Regen"
+          onChange={async enabled => {
+            await crashReporter.setEnabled(enabled);
+          }}
+          description="LAG FIX #7: Opt-in Sentry error tracking to help improve Regen. Data is anonymized."
         />
       </SectionCard>
     </div>
