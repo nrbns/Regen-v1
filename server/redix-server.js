@@ -170,29 +170,21 @@ async function loadProductionSearchAPIs() {
     console.warn('[RedixServer] Make sure TypeScript files are compiled or use tsx to run server');
     // Provide fallback handlers
     searchHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'search_api_not_available',
-          message:
-            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'search_api_not_available',
+        message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     searchGetHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'search_api_not_available',
-          message:
-            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'search_api_not_available',
+        message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     summarizeHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'summarize_api_not_available',
-          message:
-            'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'summarize_api_not_available',
+        message:
+          'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     searchRateLimiter = async () => {}; // No-op
     summarizeRateLimiter = async () => {}; // No-op
     return false;
@@ -4598,6 +4590,166 @@ fastify.get('/metrics/prom', async (_request, reply) => {
     const { initWebSocketServer } = await import('./services/realtime/websocket-server.js');
     initWebSocketServer(httpServer);
     fastify.log.info('WebSocket server initialized');
+
+    // Initialize Socket.IO server (for Socket.IO clients)
+    try {
+      const { Server } = require('socket.io');
+      const { createAdapter } = require('@socket.io/redis-adapter');
+      const { redisClient } = require('./config/redis.js');
+      const { publish } = require('./pubsub.js');
+      const EVENTS = require('../packages/shared/events.js').EVENTS || {};
+
+      const io = new Server(httpServer, {
+        cors: {
+          origin: process.env.FRONTEND_ORIGIN || '*',
+          methods: ['GET', 'POST'],
+          credentials: true,
+        },
+        pingTimeout: 30000,
+        pingInterval: 25000,
+        transports: ['websocket', 'polling'],
+      });
+
+      // Attach Redis adapter for horizontal scaling (optional)
+      if (redisClient && process.env.REDIS_URL) {
+        try {
+          const pubClient = redisClient.duplicate();
+          const subClient = redisClient.duplicate();
+          io.adapter(createAdapter(pubClient, subClient));
+          fastify.log.info('Socket.IO Redis adapter attached');
+        } catch (error) {
+          fastify.log.warn('Socket.IO Redis adapter failed (continuing without it)');
+        }
+      }
+
+      // Authentication middleware
+      io.use(async (socket, next) => {
+        try {
+          const token =
+            socket.handshake.auth?.token ||
+            socket.handshake.headers?.authorization?.replace('Bearer ', '');
+
+          if (!token && process.env.NODE_ENV === 'production') {
+            return next(new Error('Authentication required'));
+          }
+
+          // Simple token verification (replace with actual JWT verification)
+          const user = token
+            ? { id: token.substring(0, 8) || 'anonymous', token }
+            : { id: 'anonymous', token: null };
+          socket.user = user;
+          socket.userId = user.id;
+          return next();
+        } catch (error) {
+          return next(new Error(`Authentication error: ${error.message}`));
+        }
+      });
+
+      // Connection handler
+      io.on('connection', socket => {
+        const userId = socket.userId;
+        const sessionId = socket.id;
+
+        fastify.log.info({ userId, sessionId }, 'Socket.IO client connected');
+
+        // Join user room for targeted messaging
+        socket.join(`user:${userId}`);
+        socket.join(`session:${sessionId}`);
+
+        // Emit connection confirmation
+        socket.emit('connected', {
+          sessionId,
+          userId,
+          timestamp: Date.now(),
+        });
+
+        // Handle search start
+        socket.on(EVENTS.START_SEARCH || 'search:start:v1', async payload => {
+          try {
+            const { query } = payload;
+            const jobId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+            fastify.log.info({ userId, jobId, query }, 'Search started via Socket.IO');
+
+            // Emit start confirmation
+            socket.emit(EVENTS.JOB_STARTED || 'job:started:v1', { jobId, query });
+
+            // TODO: Enqueue search job to worker queue
+            // Workers will publish progress to Redis, which will be forwarded here
+          } catch (error) {
+            socket.emit('error', { message: error.message });
+          }
+        });
+
+        // Handle task cancellation
+        socket.on(EVENTS.CANCEL_TASK || 'task:cancel:v1', data => {
+          const { jobId } = data;
+          fastify.log.info({ userId, jobId }, 'Task cancelled via Socket.IO');
+
+          // Publish cancellation event to Redis
+          publish(`job:${jobId}`, {
+            type: 'cancelled',
+            jobId,
+            userId,
+            timestamp: Date.now(),
+          }).catch(() => {});
+
+          socket.emit('task:cancelled', { jobId });
+        });
+
+        // Handle disconnection
+        socket.on('disconnect', reason => {
+          fastify.log.info({ userId, sessionId, reason }, 'Socket.IO client disconnected');
+        });
+      });
+
+      // Subscribe to Redis channels for worker events
+      if (redisClient) {
+        try {
+          const { subscribe } = require('./pubsub.js');
+
+          // Subscribe to model chunks
+          subscribe('model:chunk', message => {
+            if (message.jobId && message.userId) {
+              io.to(`user:${message.userId}`).emit(EVENTS.MODEL_CHUNK || 'model:chunk:v1', message);
+            }
+          });
+
+          // Subscribe to job progress
+          subscribe('job:progress', message => {
+            if (message.jobId && message.userId) {
+              io.to(`user:${message.userId}`).emit(
+                EVENTS.TASK_PROGRESS || 'task:progress:v1',
+                message
+              );
+            }
+          });
+
+          fastify.log.info('Socket.IO subscribed to Redis channels');
+        } catch (error) {
+          fastify.log.warn('Socket.IO Redis subscription failed (optional)');
+        }
+      }
+
+      // Optional: Add Socket.IO admin endpoint
+      fastify.get('/api/socketio/stats', async (request, reply) => {
+        try {
+          const sockets = await io.fetchSockets();
+          return {
+            connected: sockets.length,
+            rooms: Array.from(io.sockets.adapter.rooms.keys()).length,
+          };
+        } catch (error) {
+          fastify.log.error({ err: error }, 'Failed to get Socket.IO stats');
+          reply.code(500);
+          return { error: 'Failed to get Socket.IO stats', message: error.message };
+        }
+      });
+
+      fastify.log.info('Socket.IO server initialized');
+    } catch (error) {
+      fastify.log.warn({ err: error }, 'Socket.IO server failed to initialize (optional)');
+    }
 
     // Initialize Voice WebSocket server
     try {
