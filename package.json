@@ -6,6 +6,9 @@
   "scripts": {
     "setup:ollama": "echo 'Ollama setup: Install from https://ollama.com/download. Then run: ollama pull phi3:mini && ollama pull llava:7b'",
     "test:all": "npm run test:unit && npm run lint && npm run build && npm run audit:prod",
+    "test:performance": "node tests/performance/profile-tabs.js",
+    "test:load": "k6 run tests/load/k6-load-test.js",
+    "test:automated": "node scripts/run-tests.js --all",
     "test:comprehensive": "node scripts/run-all-tests.cjs",
     "test:openai": "cd apps/api && python test_openai.py",
     "dev:api": "python -m uvicorn apps.api.main:app --reload --port 8000",
