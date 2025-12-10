@@ -34,8 +34,7 @@ import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { executeAgenticAction } from '../../services/agenticActionExecutor';
 import { trackUserAction } from '../../services/zeroPromptPrediction';
-// LAG FIX #8: UPI mocks and Hindi defaults
-import { upiMockService, parseHindiUPICommand, HINDI_UPI_COMMANDS } from './upi-mock';
+// LAG FIX #8: Hindi defaults for Indian users
 import { getModeDefaults, getLocalizedText } from '../../config/modeDefaults';
 
 const markets = [
@@ -116,51 +115,6 @@ export default function TradePanel() {
     if (!settings.language || settings.language === 'auto') {
       settings.setLanguage(defaults.language);
     }
-  }, []);
-
-  // LAG FIX #8: UPI payment handler for Hindi voice commands
-  useEffect(() => {
-    const handleUPICommand = async (event: CustomEvent<{ command?: string; text?: string }>) => {
-      const text = event.detail?.command || event.detail?.text || '';
-      if (!text) return;
-
-      // Parse Hindi UPI command
-      const upiRequest = parseHindiUPICommand(text);
-      if (!upiRequest) {
-        // Try English pattern: "pay 500 to user@paytm"
-        const englishMatch = text.match(/pay\s+(\d+)\s+to\s+([\w.]+@[\w.]+)/i);
-        if (englishMatch) {
-          upiRequest = {
-            amount: parseFloat(englishMatch[1]),
-            recipientVPA: englishMatch[2],
-            transactionNote: 'Voice payment',
-          };
-        } else {
-          return; // Not a UPI command
-        }
-      }
-
-      try {
-        toast.info(`Initiating UPI payment of ₹${upiRequest.amount}...`);
-        const response = await upiMockService.initiatePayment(upiRequest);
-
-        if (response.success) {
-          toast.success(`Payment successful! Transaction ID: ${response.transactionId}`, {
-            duration: 5000,
-          });
-        } else {
-          toast.error(`Payment failed: ${response.message}`);
-        }
-      } catch (error) {
-        console.error('[Trade] UPI payment failed:', error);
-        toast.error('UPI payment failed. Please try again.');
-      }
-    };
-
-    window.addEventListener('agent:trade-upi', handleUPICommand as EventListener);
-    return () => {
-      window.removeEventListener('agent:trade-upi', handleUPICommand as EventListener);
-    };
   }, []);
 
   // Voice agent intents: simulate trade actions (safe, no real orders).
