@@ -58,7 +58,6 @@ import { getLanguageMeta } from '../../constants/languageMeta';
 import { getSearchHealth } from '../../services/searchHealth';
 import { multiLanguageAI, type SupportedLanguage } from '../../core/language/multiLanguageAI';
 import { checkResearchBackend } from '../../utils/checkBackendConnection';
-import { checkResearchBackend } from '../../utils/checkBackendConnection';
 
 type UploadedDocument = {
   id: string;

@@ -28,10 +28,15 @@ export async function checkBackendConnection(): Promise<BackendConnectionStatus>
     const startTime = performance.now();
 
     // Try ping endpoint first (lightweight)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
     const response = await fetch(`${API_BASE_URL}/api/ping`, {
       method: 'GET',
-      signal: AbortSignal.timeout(3000), // 3 second timeout
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const latency = Math.round(performance.now() - startTime);
 
