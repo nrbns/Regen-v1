@@ -30,10 +30,10 @@ let modelLoaded = false;
 export async function checkWasmModel(): Promise<boolean> {
   // Check if WebGPU/WebAssembly is supported
   if (typeof navigator === 'undefined') return false;
-  
+
   const hasWebGPU = 'gpu' in navigator;
   const hasWASM = typeof WebAssembly !== 'undefined';
-  
+
   return hasWebGPU || hasWASM;
 }
 
@@ -160,10 +160,8 @@ export async function unloadWasmModel(): Promise<void> {
  */
 export function getWasmMemoryUsageMB(): number {
   if (!modelLoaded) return 0;
-  
+
   // Estimate based on model size
   // In real implementation, query actual memory usage
   return 100; // MB estimate
 }
-
-

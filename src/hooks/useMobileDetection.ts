@@ -75,6 +75,3 @@ export function useMobileDetection(breakpoints?: BreakpointConfig) {
     isLarge: deviceType === 'large',
   };
 }
-
-
-

@@ -36,12 +36,15 @@ interface UseBrowserAutomationReturn {
 
 const DEFAULT_WS_URL = (() => {
   const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/browser-automation';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const protocol =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
   return `${protocol}${cleanUrl}`;
 })();
 
-export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}): UseBrowserAutomationReturn {
+export function useBrowserAutomation(
+  options: UseBrowserAutomationOptions = {}
+): UseBrowserAutomationReturn {
   const {
     wsUrl = DEFAULT_WS_URL,
     sessionId: initialSessionId,
@@ -63,7 +66,11 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
   const reconnectAttemptsRef = useRef<number>(0);
 
   const connect = useCallback(() => {
-    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 
@@ -76,12 +83,12 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
     if (iframeId) urlParams.set('iframeId', iframeId);
 
     const url = `${wsUrl}?${urlParams.toString()}`;
-    
+
     // Only log in development to reduce console noise
     if (import.meta.env.DEV) {
       console.log('[useBrowserAutomation] Attempting to connect to:', url);
     }
-    
+
     let ws: WebSocket;
     try {
       ws = new WebSocket(url);
@@ -94,7 +101,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       // Don't call onError for connection failures - it's expected if server isn't running
       return;
     }
-    
+
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -104,7 +111,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       reconnectAttemptsRef.current = 0; // Reset on successful connection
       setIsConnected(true);
       onConnect?.(currentSessionId);
-      
+
       // Send any queued messages
       while (messageQueueRef.current.length > 0) {
         const queuedMessage = messageQueueRef.current.shift();
@@ -112,10 +119,10 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       }
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const message = JSON.parse(event.data);
-        
+
         switch (message.type) {
           case 'connected':
             setSessionId(message.sessionId);
@@ -142,7 +149,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       }
     };
 
-    ws.onclose = (event) => {
+    ws.onclose = event => {
       // Only log in development
       if (import.meta.env.DEV && event.code !== 1006) {
         // 1006 is a normal close when server isn't available
@@ -154,13 +161,16 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       }
       setIsConnected(false);
       onDisconnect?.();
-      
+
       // Only auto-reconnect if it wasn't a clean close or if it was a connection error
       // But limit reconnection attempts to avoid spam
       if (autoReconnect && (!event.wasClean || event.code === 1006)) {
         // Exponential backoff: increase delay on each reconnect attempt
         const maxDelay = 30000; // Max 30 seconds
-        const delay = Math.min(reconnectDelay * Math.pow(1.5, reconnectAttemptsRef.current), maxDelay);
+        const delay = Math.min(
+          reconnectDelay * Math.pow(1.5, reconnectAttemptsRef.current),
+          maxDelay
+        );
         reconnectAttemptsRef.current++;
         reconnectTimeoutRef.current = setTimeout(() => {
           if (import.meta.env.DEV) {
@@ -171,7 +181,7 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       }
     };
 
-    ws.onerror = (event) => {
+    ws.onerror = _event => {
       // Only log errors in development to reduce console noise
       // WebSocket errors are expected if the server isn't running
       if (import.meta.env.DEV) {
@@ -184,7 +194,18 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
       // Don't call onError - connection failures are expected when server isn't available
       // Don't close immediately - let onclose handle cleanup
     };
-  }, [wsUrl, sessionId, tabId, iframeId, autoReconnect, reconnectDelay, onConnect, onDisconnect, onEvent, onError]);
+  }, [
+    wsUrl,
+    sessionId,
+    tabId,
+    iframeId,
+    autoReconnect,
+    reconnectDelay,
+    onConnect,
+    onDisconnect,
+    onEvent,
+    onError,
+  ]);
 
   useEffect(() => {
     connect();
@@ -206,69 +227,75 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
     }
   }, []);
 
-  const execute = useCallback(async (action: string, params?: any): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const originalOnMessage = wsRef.current.onmessage;
-        wsRef.current.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'action:executed' || message.type === 'error') {
-              resolve(message.type === 'action:executed');
-              if (wsRef.current && originalOnMessage) {
-                wsRef.current.onmessage = originalOnMessage;
+  const execute = useCallback(
+    async (action: string, params?: any): Promise<boolean> => {
+      return new Promise(resolve => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          const originalOnMessage = wsRef.current.onmessage;
+          wsRef.current.onmessage = event => {
+            try {
+              const message = JSON.parse(event.data);
+              if (message.type === 'action:executed' || message.type === 'error') {
+                resolve(message.type === 'action:executed');
+                if (wsRef.current && originalOnMessage) {
+                  wsRef.current.onmessage = originalOnMessage;
+                }
+              } else if (originalOnMessage && wsRef.current) {
+                originalOnMessage.call(wsRef.current, event);
               }
-            } else if (originalOnMessage && wsRef.current) {
-              originalOnMessage.call(wsRef.current, event);
-            }
-          } catch {
-            if (originalOnMessage && wsRef.current) {
-              originalOnMessage.call(wsRef.current, event);
-            }
-          }
-        };
-
-        sendMessage({ type: 'execute', action, params });
-      } else {
-        resolve(false);
-      }
-    });
-  }, [sendMessage]);
-
-  const getEvents = useCallback(async (limit: number = 10): Promise<BrowserEvent[]> => {
-    return new Promise((resolve) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const originalOnMessage = wsRef.current.onmessage;
-        wsRef.current.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'events') {
-              resolve(message.events || []);
-              if (wsRef.current && originalOnMessage) {
-                wsRef.current.onmessage = originalOnMessage;
+            } catch {
+              if (originalOnMessage && wsRef.current) {
+                originalOnMessage.call(wsRef.current, event);
               }
-            } else if (originalOnMessage && wsRef.current) {
-              originalOnMessage.call(wsRef.current, event);
             }
-          } catch {
-            if (originalOnMessage && wsRef.current) {
-              originalOnMessage.call(wsRef.current, event);
-            }
-          }
-        };
+          };
 
-        sendMessage({ type: 'get_events', params: { limit } });
-      } else {
-        resolve([]);
-      }
-    });
-  }, [sendMessage]);
+          sendMessage({ type: 'execute', action, params });
+        } else {
+          resolve(false);
+        }
+      });
+    },
+    [sendMessage]
+  );
+
+  const getEvents = useCallback(
+    async (limit: number = 10): Promise<BrowserEvent[]> => {
+      return new Promise(resolve => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          const originalOnMessage = wsRef.current.onmessage;
+          wsRef.current.onmessage = event => {
+            try {
+              const message = JSON.parse(event.data);
+              if (message.type === 'events') {
+                resolve(message.events || []);
+                if (wsRef.current && originalOnMessage) {
+                  wsRef.current.onmessage = originalOnMessage;
+                }
+              } else if (originalOnMessage && wsRef.current) {
+                originalOnMessage.call(wsRef.current, event);
+              }
+            } catch {
+              if (originalOnMessage && wsRef.current) {
+                originalOnMessage.call(wsRef.current, event);
+              }
+            }
+          };
+
+          sendMessage({ type: 'get_events', params: { limit } });
+        } else {
+          resolve([]);
+        }
+      });
+    },
+    [sendMessage]
+  );
 
   const getStats = useCallback(async (): Promise<any> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const originalOnMessage = wsRef.current.onmessage;
-        wsRef.current.onmessage = (event) => {
+        wsRef.current.onmessage = event => {
           try {
             const message = JSON.parse(event.data);
             if (message.type === 'stats') {
@@ -294,10 +321,10 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
   }, [sendMessage]);
 
   const clearHistory = useCallback(async (): Promise<boolean> => {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const originalOnMessage = wsRef.current.onmessage;
-        wsRef.current.onmessage = (event) => {
+        wsRef.current.onmessage = event => {
           try {
             const message = JSON.parse(event.data);
             if (message.type === 'cleared' || message.type === 'error') {
@@ -332,4 +359,3 @@ export function useBrowserAutomation(options: UseBrowserAutomationOptions = {}):
     sendMessage,
   };
 }
-

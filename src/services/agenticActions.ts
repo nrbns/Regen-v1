@@ -29,12 +29,15 @@ export interface ActionExecutionResult {
 /**
  * Progress callback type for long-running actions
  */
-export type ActionProgressCallback = (action: string, progress: {
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  progress?: number;
-  message?: string;
-  cancellable?: boolean;
-}) => void;
+export type ActionProgressCallback = (
+  action: string,
+  progress: {
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+    progress?: number;
+    message?: string;
+    cancellable?: boolean;
+  }
+) => void;
 
 /**
  * Best-effort executor that maps agent actions to IPC calls and real UI flows.
@@ -100,7 +103,12 @@ export async function executeAgentActions(
 
         const safeUrl = validation.sanitized || url;
 
-        reportProgress({ status: 'running', progress: 20, message: 'Scraping page...', cancellable: true });
+        reportProgress({
+          status: 'running',
+          progress: 20,
+          message: 'Scraping page...',
+          cancellable: true,
+        });
 
         // Check for cancellation before expensive operations
         if (isCancelled?.(action)) {
@@ -121,7 +129,7 @@ export async function executeAgentActions(
             (attempt, maxRetries) => {
               reportProgress({
                 status: 'running',
-                progress: 20 + (attempt * 10),
+                progress: 20 + attempt * 10,
                 message: `Retrying scrape (attempt ${attempt + 1}/${maxRetries + 1})...`,
                 cancellable: true,
               });
@@ -137,7 +145,7 @@ export async function executeAgentActions(
           results.push(result);
           continue;
         }
-        
+
         if (isCancelled?.(action)) {
           result.error = 'Action was cancelled';
           result.retryable = true;
@@ -145,8 +153,13 @@ export async function executeAgentActions(
           results.push(result);
           continue;
         }
-        
-        reportProgress({ status: 'running', progress: 60, message: 'Opening tab...', cancellable: true });
+
+        reportProgress({
+          status: 'running',
+          progress: 60,
+          message: 'Opening tab...',
+          cancellable: true,
+        });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(
             new CustomEvent('agent:research-scraped', {
@@ -163,7 +176,7 @@ export async function executeAgentActions(
             await ipc.tabs.navigate(active.id, safeUrl);
           }
         });
-        
+
         // Register undo action
         try {
           const undoFn = await createOpenUndo(safeUrl);
@@ -178,7 +191,7 @@ export async function executeAgentActions(
         } catch (undoError) {
           console.warn('[Agent] Failed to register undo:', undoError);
         }
-        
+
         result.success = true;
         reportProgress({ status: 'completed', progress: 100, message: 'Completed' });
         logAction(action, true);
@@ -211,7 +224,7 @@ export async function executeAgentActions(
             await ipc.tabs.navigate(active.id, safeUrl);
           }
         });
-        
+
         // Register undo action
         try {
           const undoFn = await createOpenUndo(safeUrl);
@@ -226,10 +239,12 @@ export async function executeAgentActions(
         } catch (undoError) {
           console.warn('[Agent] Failed to register undo:', undoError);
         }
-        
+
         // Notify research/browse surfaces to reflect intent
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('agent:research-open', { detail: { url: safeUrl } }));
+          window.dispatchEvent(
+            new CustomEvent('agent:research-open', { detail: { url: safeUrl } })
+          );
         }
         result.success = true;
         reportProgress({ status: 'completed', progress: 100 });
@@ -362,12 +377,14 @@ export async function executeAgentActions(
         if (active?.id) {
           const tabUrl = active.url || '';
           const tabTitle = active.title || '';
-          
+
           await ipc.tabs.close({ id: active.id });
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('agent:tab-closed', { detail: { tabId: active.id } }));
+            window.dispatchEvent(
+              new CustomEvent('agent:tab-closed', { detail: { tabId: active.id } })
+            );
           }
-          
+
           // Register undo action
           try {
             const undoFn = await createCloseTabUndo(active.id, tabUrl, tabTitle);
@@ -382,7 +399,7 @@ export async function executeAgentActions(
           } catch (undoError) {
             console.warn('[Agent] Failed to register undo:', undoError);
           }
-          
+
           result.success = true;
         } else {
           result.error = 'No active tab to close';
@@ -453,4 +470,3 @@ function extractPayload(action: string): string | null {
   if (!match || !match[1]) return null;
   return match[1].trim();
 }
-

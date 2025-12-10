@@ -68,7 +68,8 @@ interface UseTradeStreamReturn {
 
 const DEFAULT_WS_URL = (() => {
   const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/trade';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const protocol =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
   return `${protocol}${cleanUrl}`;
 })();
@@ -98,8 +99,10 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
    * Connect to WebSocket
    */
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN || 
-        wsRef.current?.readyState === WebSocket.CONNECTING) {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -112,10 +115,10 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       setIsConnected(true);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const message = JSON.parse(event.data);
-        
+
         switch (message.type) {
           case 'connected':
             console.log('[useTradeStream] Connected to trade stream');
@@ -174,7 +177,7 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       console.error('[useTradeStream] WebSocket error:', error);
       onError?.('WebSocket connection error');
     };
@@ -219,12 +222,14 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       if (!wsRef.current) {
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'subscribe',
-        symbol,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'subscribe',
+          symbol,
+        })
+      );
     });
   }, []);
 
@@ -236,48 +241,55 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       return;
     }
 
-    wsRef.current.send(JSON.stringify({
-      type: 'unsubscribe',
-      symbol,
-    }));
+    wsRef.current.send(
+      JSON.stringify({
+        type: 'unsubscribe',
+        symbol,
+      })
+    );
   }, []);
 
   /**
    * Place order
    */
-  const placeOrder = useCallback(async (order: Partial<Order>, idempotencyKey?: string): Promise<Order> => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket not connected');
-    }
-
-    return new Promise((resolve, reject) => {
-      const handler = (event: MessageEvent) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'order:placed') {
-            wsRef.current?.removeEventListener('message', handler);
-            resolve(message.order);
-          } else if (message.type === 'order:error') {
-            wsRef.current?.removeEventListener('message', handler);
-            reject(new Error(message.error));
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      };
-
-      if (!wsRef.current) {
-        return;
+  const placeOrder = useCallback(
+    async (order: Partial<Order>, idempotencyKey?: string): Promise<Order> => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket not connected');
       }
-      
-      wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'place_order',
-        order,
-        idempotencyKey,
-      }));
-    });
-  }, []);
+
+      return new Promise((resolve, reject) => {
+        const handler = (event: MessageEvent) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'order:placed') {
+              wsRef.current?.removeEventListener('message', handler);
+              resolve(message.order);
+            } else if (message.type === 'order:error') {
+              wsRef.current?.removeEventListener('message', handler);
+              reject(new Error(message.error));
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        if (!wsRef.current) {
+          return;
+        }
+
+        wsRef.current.addEventListener('message', handler);
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'place_order',
+            order,
+            idempotencyKey,
+          })
+        );
+      });
+    },
+    []
+  );
 
   /**
    * Cancel order
@@ -306,12 +318,14 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       if (!wsRef.current) {
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'cancel_order',
-        order: { id: orderId },
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'cancel_order',
+          order: { id: orderId },
+        })
+      );
     });
   }, []);
 
@@ -323,7 +337,7 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       return [];
     }
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const handler = (event: MessageEvent) => {
         try {
           const message = JSON.parse(event.data);
@@ -339,12 +353,14 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
       if (!wsRef.current) {
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'get_orders',
-        symbol,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'get_orders',
+          symbol,
+        })
+      );
     });
   }, []);
 
@@ -360,4 +376,3 @@ export function useTradeStream(options: UseTradeStreamOptions = {}): UseTradeStr
     latestPrice,
   };
 }
-

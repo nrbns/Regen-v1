@@ -4,11 +4,7 @@
  */
 
 import { searchOfflineRAG, type RAGResult } from './rag';
-import {
-  generateEmbedding,
-  findSimilarDocuments,
-  type Embedding,
-} from './embeddings';
+import { generateEmbedding, findSimilarDocuments, type Embedding } from './embeddings';
 import { listDocuments, getDocument, type StoredDocument } from './indexedDB';
 
 export interface SemanticSearchOptions {
@@ -51,9 +47,7 @@ export async function semanticSearch(
     documents.map(async doc => {
       // Generate embedding if not already present
       if (!doc.embeddings || doc.embeddings.length === 0) {
-        const embedding = await generateEmbedding(
-          `${doc.title}\n\n${doc.content.slice(0, 1000)}`
-        );
+        const embedding = await generateEmbedding(`${doc.title}\n\n${doc.content.slice(0, 1000)}`);
         return {
           id: doc.id,
           embedding,
@@ -124,9 +118,7 @@ export async function semanticSearch(
       })
     );
 
-    const validResults = resultDocuments.filter(
-      (r): r is NonNullable<typeof r> => r !== null
-    );
+    const validResults = resultDocuments.filter((r): r is NonNullable<typeof r> => r !== null);
 
     return {
       documents: validResults,
@@ -149,12 +141,8 @@ function combineResults(
   limit: number
 ): RAGResult['documents'] {
   // Create maps for quick lookup
-  const keywordMap = new Map(
-    keywordResults.documents.map(r => [r.document.id, r.score])
-  );
-  const semanticMap = new Map(
-    semanticResults.map(r => [r.id, r.similarity])
-  );
+  const keywordMap = new Map(keywordResults.documents.map(r => [r.document.id, r.score]));
+  const semanticMap = new Map(semanticResults.map(r => [r.id, r.similarity]));
 
   // Combine scores
   const combinedScores = new Map<string, number>();
@@ -189,6 +177,3 @@ function combineResults(
 
   return results.slice(0, limit);
 }
-
-
-

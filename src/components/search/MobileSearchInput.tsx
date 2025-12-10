@@ -94,14 +94,9 @@ export function MobileSearchInput({
         className
       )}
     >
-      <Search
-        className={cn(
-          'flex-shrink-0 text-slate-400',
-          isMobile ? 'h-5 w-5' : 'h-4 w-4'
-        )}
-      />
+      <Search className={cn('flex-shrink-0 text-slate-400', isMobile ? 'h-5 w-5' : 'h-4 w-4')} />
 
-      <form onSubmit={handleSubmit} className="flex-1 min-w-0">
+      <form onSubmit={handleSubmit} className="min-w-0 flex-1">
         <input
           ref={inputRef}
           type="text"
@@ -121,8 +116,8 @@ export function MobileSearchInput({
           className={cn(
             'w-full bg-transparent text-white placeholder-slate-500',
             'focus:outline-none',
-            isMobile ? 'text-base min-h-[44px]' : 'text-sm',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
+            isMobile ? 'min-h-[44px] text-base' : 'text-sm',
+            'disabled:cursor-not-allowed disabled:opacity-50'
           )}
           style={{
             // Ensure input doesn't get hidden by mobile keyboard
@@ -138,10 +133,10 @@ export function MobileSearchInput({
           onClick={handleClear}
           disabled={disabled}
           className={cn(
-            'flex-shrink-0 p-1 text-slate-400 hover:text-white transition-colors',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
+            'flex-shrink-0 p-1 text-slate-400 transition-colors hover:text-white',
+            'disabled:cursor-not-allowed disabled:opacity-50',
             'touch-manipulation', // Better touch handling
-            isMobile ? 'min-w-[44px] min-h-[44px] flex items-center justify-center' : ''
+            isMobile ? 'flex min-h-[44px] min-w-[44px] items-center justify-center' : ''
           )}
           aria-label="Clear search"
         >
@@ -153,15 +148,14 @@ export function MobileSearchInput({
         <div
           className={cn(
             'flex-shrink-0',
-            isMobile ? 'min-w-[44px] min-h-[44px] flex items-center justify-center' : ''
+            isMobile ? 'flex min-h-[44px] min-w-[44px] items-center justify-center' : ''
           )}
         >
-          <Loader2 className={cn('text-purple-400 animate-spin', isMobile ? 'h-5 w-5' : 'h-4 w-4')} />
+          <Loader2
+            className={cn('animate-spin text-purple-400', isMobile ? 'h-5 w-5' : 'h-4 w-4')}
+          />
         </div>
       )}
     </div>
   );
 }
-
-
-

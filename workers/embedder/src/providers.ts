@@ -93,10 +93,3 @@ export function createEmbeddingProvider(): EmbeddingProvider {
   }
   return new MockEmbeddingProvider();
 }
-
-
-
-
-
-
-

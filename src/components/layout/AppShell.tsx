@@ -481,12 +481,15 @@ export function AppShell() {
     let cleanup: (() => void) | null = null;
 
     const initMemoryMonitoring = async () => {
-      const { startMemoryMonitoring, stopMemoryMonitoring, unloadInactiveTabs: _unloadInactiveTabs } =
-        await import('../../core/monitoring/memoryMonitor');
+      const {
+        startMemoryMonitoring,
+        stopMemoryMonitoring,
+        unloadInactiveTabs: _unloadInactiveTabs,
+      } = await import('../../core/monitoring/memoryMonitor');
 
       // Phase 1, Day 2: Enhanced memory monitoring with hibernation
       const { hibernateInactiveTabs } = await import('../../core/tabs/hibernation');
-      
+
       startMemoryMonitoring(
         async () => {
           // Low memory: hibernate inactive tabs (with scroll position preservation)
@@ -499,7 +502,9 @@ export function AppShell() {
           // Critical memory: hibernate more aggressively
           const count = await hibernateInactiveTabs();
           if (count > 0) {
-            toast.warning(`Low memory detected. ${count} tab${count > 1 ? 's' : ''} hibernated for better performance.`);
+            toast.warning(
+              `Low memory detected. ${count} tab${count > 1 ? 's' : ''} hibernated for better performance.`
+            );
           }
         }
       );

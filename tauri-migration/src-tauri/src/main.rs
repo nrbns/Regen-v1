@@ -1878,15 +1878,39 @@ async fn llm_query(prompt: String, _model: Option<String>, _temperature: Option<
 
 #[tauri::command]
 async fn check_ollama_status() -> Result<serde_json::Value, String> {
-    // Check if Ollama is running and available
-    let output = Command::new("ollama")
-        .arg("list")
-        .output();
-    
-    match output {
-        Ok(_) => Ok(json!({ "available": true })),
-        Err(_) => Ok(json!({ "available": false }))
+    // Check if Ollama is running and capture basic GPU capability if present
+    let availability = Command::new("ollama").arg("list").output();
+
+    let available = availability.is_ok();
+
+    // Best-effort GPU detection (NVIDIA on Windows/Linux). Non-blocking fallback if command missing.
+    let mut gpu_detected = false;
+    let mut gpu_name: Option<String> = None;
+
+    // Try nvidia-smi (common on Windows/Linux with NVIDIA drivers)
+    if let Ok(gpu_output) = Command::new("nvidia-smi")
+        .args(["--query-gpu=name", "--format=csv,noheader"])
+        .output()
+    {
+        if gpu_output.status.success() {
+            gpu_detected = true;
+            let parsed = String::from_utf8_lossy(&gpu_output.stdout)
+                .lines()
+                .next()
+                .unwrap_or("NVIDIA GPU")
+                .trim()
+                .to_string();
+            gpu_name = Some(parsed);
+        }
     }
+
+    Ok(json!({
+        "available": available,
+        "gpu": {
+            "detected": gpu_detected,
+            "name": gpu_name.unwrap_or_else(|| "unknown".to_string())
+        }
+    }))
 }
 
 #[tauri::command]

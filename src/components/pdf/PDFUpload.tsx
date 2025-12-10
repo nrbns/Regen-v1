@@ -101,7 +101,7 @@ export function PDFUpload() {
           type="file"
           accept=".pdf"
           className="hidden"
-          onChange={(e) => {
+          onChange={e => {
             const file = e.target.files?.[0];
             if (file) handleFileSelect(file);
           }}
@@ -157,11 +157,3 @@ export function PDFUpload() {
     </div>
   );
 }
-
-
-
-
-
-
-
-

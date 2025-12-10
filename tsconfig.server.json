@@ -11,5 +11,15 @@
     "skipLibCheck": true
   },
   "include": ["server/**/*"],
-  "exclude": ["node_modules", "dist", "dist-web", "**/*.test.js", "**/*.test.ts", "**/*.spec.js", "**/*.spec.ts", "**/__tests__/**", "**/__mocks__/**"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-web",
+    "**/*.test.js",
+    "**/*.test.ts",
+    "**/*.spec.js",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "**/__mocks__/**"
+  ]
 }

@@ -40,7 +40,7 @@ export async function translateQuery(
   }
 
   // If source and target are the same, no translation needed
-  if (sourceLanguage === targetLanguage || sourceLanguage === 'en' && targetLanguage === 'en') {
+  if (sourceLanguage === targetLanguage || (sourceLanguage === 'en' && targetLanguage === 'en')) {
     return query;
   }
 
@@ -79,6 +79,3 @@ export async function translateQueryForSearch(query: string): Promise<string> {
     targetLanguage: userLanguage,
   });
 }
-
-
-

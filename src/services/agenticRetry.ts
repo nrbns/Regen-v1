@@ -32,7 +32,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
  */
 export function isRetryableError(error: string | Error): boolean {
   const errorStr = typeof error === 'string' ? error.toLowerCase() : error.message.toLowerCase();
-  
+
   // Check against known retryable error patterns
   const retryablePatterns = DEFAULT_OPTIONS.retryableErrors;
   return retryablePatterns.some(pattern => errorStr.includes(pattern));
@@ -43,7 +43,7 @@ export function isRetryableError(error: string | Error): boolean {
  */
 export function isPermanentError(error: string | Error): boolean {
   const errorStr = typeof error === 'string' ? error.toLowerCase() : error.message.toLowerCase();
-  
+
   const permanentPatterns = [
     'invalid',
     'not found',
@@ -56,7 +56,7 @@ export function isPermanentError(error: string | Error): boolean {
     'bad request',
     '400',
   ];
-  
+
   return permanentPatterns.some(pattern => errorStr.includes(pattern));
 }
 
@@ -76,28 +76,28 @@ export async function retryWithBackoff<T>(
       return await fn();
     } catch (error) {
       lastError = error instanceof Error ? error : String(error);
-      
+
       // Don't retry on permanent errors
       if (isPermanentError(lastError)) {
         throw lastError;
       }
-      
+
       // Don't retry if we've exhausted attempts
       if (attempt >= opts.maxRetries) {
         throw lastError;
       }
-      
+
       // Only retry if error is retryable
       if (!isRetryableError(lastError)) {
         throw lastError;
       }
-      
+
       // Wait before retrying with exponential backoff
       await new Promise(resolve => setTimeout(resolve, delay));
       delay *= opts.backoffMultiplier;
     }
   }
-  
+
   throw lastError;
 }
 
@@ -115,12 +115,12 @@ export async function retryAction<T>(
         return await actionFn();
       } catch (error) {
         const errorStr = error instanceof Error ? error.message : String(error);
-        
+
         // Check if it's a retryable error
         if (isRetryableError(errorStr) && !isPermanentError(errorStr)) {
           throw error; // Will be caught by retryWithBackoff
         }
-        
+
         // Permanent error, don't retry
         throw error;
       }
@@ -132,4 +132,3 @@ export async function retryAction<T>(
     }
   );
 }
-

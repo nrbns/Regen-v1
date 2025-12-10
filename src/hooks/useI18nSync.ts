@@ -43,6 +43,3 @@ export function useI18nSync() {
     };
   }, [i18n]);
 }
-
-
-

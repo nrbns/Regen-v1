@@ -26,9 +26,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
           // New service worker available - prompt user to reload
           console.log('[ServiceWorker] New version available');
           // Could show a toast notification here
-          window.dispatchEvent(
-            new CustomEvent('sw:update', { detail: { registration } })
-          );
+          window.dispatchEvent(new CustomEvent('sw:update', { detail: { registration } }));
         }
       });
     });
@@ -76,6 +74,3 @@ export async function checkServiceWorkerUpdate(): Promise<boolean> {
     return false;
   }
 }
-
-
-

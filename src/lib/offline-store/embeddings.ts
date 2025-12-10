@@ -63,10 +63,7 @@ export async function generateEmbedding(
 /**
  * Generate fallback embedding (TF-IDF based or cloud API)
  */
-async function generateFallbackEmbedding(
-  text: string,
-  dimension: number
-): Promise<Embedding> {
+async function generateFallbackEmbedding(text: string, dimension: number): Promise<Embedding> {
   // Option 1: Use HuggingFace Inference API (free tier)
   try {
     const response = await fetch(
@@ -179,9 +176,7 @@ export async function findSimilarDocuments(
 /**
  * Generate and store embeddings for a document
  */
-export async function generateDocumentEmbeddings(
-  document: StoredDocument
-): Promise<Embedding> {
+export async function generateDocumentEmbeddings(document: StoredDocument): Promise<Embedding> {
   // Generate embedding from title + content
   const text = `${document.title}\n\n${document.content.slice(0, 1000)}`;
   return await generateEmbedding(text);
@@ -195,11 +190,6 @@ export async function batchGenerateEmbeddings(
   options: EmbeddingOptions = {}
 ): Promise<Embedding[]> {
   // Generate embeddings in parallel (but limit concurrency)
-  const results = await Promise.all(
-    texts.map(text => generateEmbedding(text, options))
-  );
+  const results = await Promise.all(texts.map(text => generateEmbedding(text, options)));
   return results;
 }
-
-
-

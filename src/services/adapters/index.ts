@@ -30,10 +30,3 @@ export {
   type OptimizedImage,
   type BackgroundRemovedImage,
 } from './ImageModeAdapter';
-
-
-
-
-
-
-

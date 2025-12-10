@@ -25,7 +25,8 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wsUrl = (() => {
     const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000';
-    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const protocol =
+      typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
     return `${protocol}${cleanUrl}`;
   })();
@@ -41,7 +42,7 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
       setState(prev => ({ ...prev, connected: true }));
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const msg = JSON.parse(event.data);
 
@@ -77,7 +78,7 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       console.error('[CollabEditor] WebSocket error:', error);
       setState(prev => ({ ...prev, connected: false }));
     };
@@ -98,10 +99,12 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
 
     // Send update to server
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'text',
-        text: newContent,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'text',
+          text: newContent,
+        })
+      );
     }
   };
 
@@ -117,9 +120,7 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
       <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2">
         <div className="flex items-center gap-2">
           <Users size={18} className="text-gray-600" />
-          <span className="text-sm font-medium text-gray-700">
-            Collaborative Research
-          </span>
+          <span className="text-sm font-medium text-gray-700">Collaborative Research</span>
           {state.connected && (
             <div className="flex items-center gap-1">
               <div className="h-2 w-2 animate-pulse rounded-full bg-green-500"></div>
@@ -156,11 +157,3 @@ export function CollabEditor({ roomId = 'default' }: { roomId?: string }) {
     </div>
   );
 }
-
-
-
-
-
-
-
-

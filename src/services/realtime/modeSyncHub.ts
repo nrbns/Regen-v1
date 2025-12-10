@@ -32,7 +32,8 @@ class ModeSyncHub {
     }
 
     const baseUrl = wsUrl || import.meta.env.VITE_WS_URL || 'localhost:4000/ws/sync';
-    const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const protocol =
+      typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
     const url = `${protocol}${cleanUrl}`;
     console.log('[ModeSyncHub] Connecting to', url);
@@ -47,7 +48,7 @@ class ModeSyncHub {
         this.syncCurrentState();
       };
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const message: ModeSyncMessage = JSON.parse(event.data);
           this.handleMessage(message);
@@ -56,7 +57,7 @@ class ModeSyncHub {
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = error => {
         console.error('[ModeSyncHub] WebSocket error:', error);
       };
 
@@ -265,7 +266,7 @@ if (typeof window !== 'undefined') {
 
   // Listen for mode switches
   let previousMode: AppState['mode'] = useAppStore.getState().mode;
-  useAppStore.subscribe((state) => {
+  useAppStore.subscribe(state => {
     const currentMode = state.mode;
     if (currentMode !== previousMode) {
       getModeSyncHub().sendModeSwitch(previousMode || 'Browse', currentMode);
@@ -273,4 +274,3 @@ if (typeof window !== 'undefined') {
     }
   });
 }
-

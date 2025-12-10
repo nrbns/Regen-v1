@@ -120,7 +120,9 @@ export function SettingsPersistence() {
           break;
       }
 
-      alert(`${type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)} cleared successfully.`);
+      alert(
+        `${type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)} cleared successfully.`
+      );
     } catch (error) {
       console.error(`Failed to clear ${type}:`, error);
       alert(`Failed to clear ${type}. Please try again.`);
@@ -131,17 +133,17 @@ export function SettingsPersistence() {
     <div className="space-y-4">
       {/* Export/Import */}
       <ResponsiveCard padding="md">
-        <h3 className="text-base font-semibold text-white mb-4">Backup & Restore</h3>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <h3 className="mb-4 text-base font-semibold text-white">Backup & Restore</h3>
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button
             onClick={handleExport}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-colors',
               exportStatus === 'success'
                 ? 'bg-emerald-600 text-white'
                 : exportStatus === 'error'
-                ? 'bg-red-600 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
             )}
           >
             {exportStatus === 'success' ? (
@@ -164,12 +166,12 @@ export function SettingsPersistence() {
           <button
             onClick={handleImport}
             className={cn(
-              'flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors',
+              'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium transition-colors',
               importStatus === 'success'
                 ? 'bg-emerald-600 text-white'
                 : importStatus === 'error'
-                ? 'bg-red-600 text-white'
-                : 'bg-slate-700 hover:bg-slate-600 text-white'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
             )}
           >
             {importStatus === 'success' ? (
@@ -194,35 +196,35 @@ export function SettingsPersistence() {
 
       {/* Clear Data */}
       <ResponsiveCard padding="md">
-        <h3 className="text-base font-semibold text-white mb-4">Clear Data</h3>
-        <p className="text-sm text-slate-400 mb-4">
+        <h3 className="mb-4 text-base font-semibold text-white">Clear Data</h3>
+        <p className="mb-4 text-sm text-slate-400">
           Remove stored data. Some actions cannot be undone.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             onClick={() => handleClearData('settings')}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-slate-300 transition-colors hover:bg-slate-700"
           >
             <Trash2 size={16} />
             Clear Settings
           </button>
           <button
             onClick={() => handleClearData('history')}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-slate-300 transition-colors hover:bg-slate-700"
           >
             <Trash2 size={16} />
             Clear History
           </button>
           <button
             onClick={() => handleClearData('cache')}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-slate-300 transition-colors hover:bg-slate-700"
           >
             <Trash2 size={16} />
             Clear Cache
           </button>
           <button
             onClick={() => handleClearData('all')}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-600/30 rounded-lg transition-colors"
+            className="flex items-center justify-center gap-2 rounded-lg border border-red-600/30 bg-red-600/20 px-4 py-2 text-red-400 transition-colors hover:bg-red-600/30"
           >
             <Trash2 size={16} />
             Clear All Data
@@ -232,6 +234,3 @@ export function SettingsPersistence() {
     </div>
   );
 }
-
-
-

@@ -30,10 +30,3 @@ main().catch(error => {
   logger.error({ error }, 'fatal error');
   process.exit(1);
 });
-
-
-
-
-
-
-

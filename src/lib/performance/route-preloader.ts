@@ -21,7 +21,7 @@ const routeImports = {
 export function preloadRoute(routeName: keyof typeof routeImports): void {
   const importFn = routeImports[routeName];
   if (importFn) {
-    importFn().catch((error) => {
+    importFn().catch(error => {
       console.warn(`[RoutePreloader] Failed to preload route ${routeName}:`, error);
     });
   }
@@ -31,7 +31,7 @@ export function preloadRoute(routeName: keyof typeof routeImports): void {
  * Preload multiple routes in parallel
  */
 export function preloadRoutes(routeNames: Array<keyof typeof routeImports>): void {
-  const importFns = routeNames.map((name) => routeImports[name]).filter(Boolean);
+  const importFns = routeNames.map(name => routeImports[name]).filter(Boolean);
   prefetchComponents(importFns);
 }
 
@@ -44,7 +44,7 @@ export function setupSmartPreloading(): void {
 
   // Preload routes on hover
   const links = document.querySelectorAll('a[href]');
-  links.forEach((link) => {
+  links.forEach(link => {
     link.addEventListener('mouseenter', () => {
       const href = (link as HTMLAnchorElement).href;
       if (href.includes('/settings')) preloadRoute('settings');
@@ -54,6 +54,3 @@ export function setupSmartPreloading(): void {
     });
   });
 }
-
-
-

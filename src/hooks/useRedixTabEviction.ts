@@ -58,6 +58,3 @@ export function useRedixTabEviction(enabled: boolean = true) {
     };
   }, [enabled, tabs, activeId]);
 }
-
-
-

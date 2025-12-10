@@ -6,7 +6,25 @@
 
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import Dexie, { type Table } from 'dexie';
 import { useTabsStore } from '../../state/tabsStore';
+
+type PendingUpdate = {
+  id?: number;
+  sessionId: string;
+  update: number[]; // Uint8Array persisted as plain array
+  createdAt: number;
+};
+
+class TabSyncDexie extends Dexie {
+  pending!: Table<PendingUpdate, number>;
+  constructor() {
+    super('tabSyncQueue');
+    this.version(1).stores({
+      pending: '++id,sessionId,createdAt',
+    });
+  }
+}
 
 export interface TabSyncState {
   tabs: Array<{
@@ -32,9 +50,12 @@ class TabSyncService {
   private groupsArray: Y.Array<Y.Map<any>> | null = null;
   private isConnected = false;
   private wsUrl: string;
+  private sessionId: string | null = null;
+  private db: TabSyncDexie;
 
   constructor(wsUrl: string = 'ws://127.0.0.1:18080/yjs') {
     this.wsUrl = wsUrl;
+    this.db = new TabSyncDexie();
   }
 
   /**
@@ -45,6 +66,7 @@ class TabSyncService {
       return; // Already initialized
     }
 
+    this.sessionId = sessionId;
     this.doc = new Y.Doc();
     this.tabsArray = this.doc.getArray('tabs');
     this.activeId = this.doc.getText('activeId');
@@ -53,9 +75,12 @@ class TabSyncService {
     // Connect to WebSocket provider
     this.provider = new WebsocketProvider(this.wsUrl, `session-${sessionId}`, this.doc);
 
-    this.provider.on('status', (event: { status: string }) => {
+    this.provider.on('status', async (event: { status: string }) => {
       this.isConnected = event.status === 'connected';
       console.log('[TabSync] Connection status:', event.status);
+      if (this.isConnected) {
+        await this.flushQueuedUpdates();
+      }
     });
 
     // Observe changes from remote
@@ -75,8 +100,20 @@ class TabSyncService {
       this.syncFromYjs();
     });
 
+    // Persist outbound updates for offline replay
+    this.doc.on('update', update => {
+      if (!this.sessionId) return;
+      // Always persist to guarantee replay after crash/offline close
+      this.queueUpdate(this.sessionId, update).catch(err =>
+        console.warn('[TabSync] Failed to persist update', err)
+      );
+    });
+
     // Initial sync from Zustand to Yjs
     this.syncToYjs();
+
+    // Rehydrate any pending updates (in case we crashed while offline)
+    await this.flushQueuedUpdates();
 
     // Listen to Zustand changes and sync to Yjs
     const initialState = useTabsStore.getState();
@@ -202,6 +239,64 @@ class TabSyncService {
     // Sync groups (would need group management in tabsStore)
     // For now, just log
     console.log('[TabSync] Groups synced:', yjsGroups);
+  }
+
+  /**
+   * Persist an outbound Yjs update to IndexedDB for offline replay
+   */
+  private async queueUpdate(sessionId: string, update: Uint8Array): Promise<void> {
+    try {
+      await this.db.pending.add({
+        sessionId,
+        update: Array.from(update),
+        createdAt: Date.now(),
+      });
+
+      // Keep queue bounded (oldest first) to avoid unbounded growth
+      const count = await this.db.pending.where({ sessionId }).count();
+      if (count > 500) {
+        const old = await this.db.pending.where({ sessionId }).sortBy('createdAt');
+        const dropCount = count - 500;
+        const idsToDelete = old
+          .slice(0, dropCount)
+          .map(item => item.id!)
+          .filter(Boolean);
+        if (idsToDelete.length) {
+          await this.db.pending.bulkDelete(idsToDelete);
+        }
+      }
+    } catch (error) {
+      console.warn('[TabSync] queueUpdate failed', error);
+    }
+  }
+
+  /**
+   * Apply and clear queued updates once reconnected
+   */
+  private async flushQueuedUpdates(): Promise<void> {
+    if (!this.doc || !this.sessionId) return;
+    try {
+      const queued = await this.db.pending.where({ sessionId: this.sessionId }).toArray();
+      if (!queued.length) return;
+
+      for (const item of queued) {
+        try {
+          const buf = new Uint8Array(item.update);
+          Y.applyUpdate(this.doc, buf);
+        } catch (error) {
+          console.warn('[TabSync] Failed to apply queued update', error);
+        }
+      }
+
+      // Clear applied updates
+      const ids = queued.map(item => item.id!).filter(Boolean);
+      if (ids.length) {
+        await this.db.pending.bulkDelete(ids);
+      }
+      console.log(`[TabSync] Applied ${queued.length} queued updates after reconnect`);
+    } catch (error) {
+      console.warn('[TabSync] flushQueuedUpdates failed', error);
+    }
   }
 
   /**

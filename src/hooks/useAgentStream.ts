@@ -45,7 +45,8 @@ interface UseAgentStreamReturn {
 
 const DEFAULT_WS_URL = (() => {
   const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/agent';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const protocol =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
   return `${protocol}${cleanUrl}`;
 })();
@@ -72,8 +73,10 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
    * Connect to WebSocket
    */
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN || 
-        wsRef.current?.readyState === WebSocket.CONNECTING) {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -86,10 +89,10 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
       setIsConnected(true);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const message = JSON.parse(event.data);
-        
+
         switch (message.type) {
           case 'connected':
             console.log('[useAgentStream] Connected to agent stream');
@@ -140,7 +143,8 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
                 lastStep.type = 'tool_result';
                 lastStep.result = message.result;
               }
-              stepCompleteTask.progress = (stepCompleteTask.steps.length / (message.stepIndex + 1)) * 100;
+              stepCompleteTask.progress =
+                (stepCompleteTask.steps.length / (message.stepIndex + 1)) * 100;
               setCurrentTask({ ...stepCompleteTask });
               onStep?.(lastStep);
             }
@@ -207,7 +211,7 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       console.error('[useAgentStream] WebSocket error:', error);
     };
   }, [wsUrl, autoReconnect, onTaskStart, onTaskComplete, onTaskError, onStep]);
@@ -227,42 +231,47 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
   /**
    * Execute a task
    */
-  const executeTask = useCallback(async (task: string, options: any = {}): Promise<string | null> => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      throw new Error('WebSocket not connected');
-    }
-
-    return new Promise((resolve, reject) => {
-      const _messageId = `execute-${Date.now()}`;
-      
-      const handler = (event: MessageEvent) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.type === 'execute:result') {
-            wsRef.current?.removeEventListener('message', handler);
-            resolve(message.result?.taskId || null);
-          } else if (message.type === 'execute:error') {
-            wsRef.current?.removeEventListener('message', handler);
-            reject(new Error(message.error));
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      };
-
-      if (!wsRef.current) {
-        reject(new Error('WebSocket not connected'));
-        return;
+  const executeTask = useCallback(
+    async (task: string, options: any = {}): Promise<string | null> => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        throw new Error('WebSocket not connected');
       }
-      
-      wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'execute',
-        task,
-        options,
-      }));
-    });
-  }, []);
+
+      return new Promise((resolve, reject) => {
+        const _messageId = `execute-${Date.now()}`;
+
+        const handler = (event: MessageEvent) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'execute:result') {
+              wsRef.current?.removeEventListener('message', handler);
+              resolve(message.result?.taskId || null);
+            } else if (message.type === 'execute:error') {
+              wsRef.current?.removeEventListener('message', handler);
+              reject(new Error(message.error));
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        if (!wsRef.current) {
+          reject(new Error('WebSocket not connected'));
+          return;
+        }
+
+        wsRef.current.addEventListener('message', handler);
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'execute',
+            task,
+            options,
+          })
+        );
+      });
+    },
+    []
+  );
 
   /**
    * Cancel a task
@@ -289,12 +298,14 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         reject(new Error('WebSocket not connected'));
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'cancel',
-        taskId,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'cancel',
+          taskId,
+        })
+      );
     });
   }, []);
 
@@ -323,12 +334,14 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         reject(new Error('WebSocket not connected'));
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'status',
-        taskId,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'status',
+          taskId,
+        })
+      );
     });
   }, []);
 
@@ -357,11 +370,13 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
         reject(new Error('WebSocket not connected'));
         return;
       }
-      
+
       wsRef.current.addEventListener('message', handler);
-      wsRef.current.send(JSON.stringify({
-        type: 'tools',
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'tools',
+        })
+      );
     });
   }, []);
 
@@ -374,4 +389,3 @@ export function useAgentStream(options: UseAgentStreamOptions = {}): UseAgentStr
     getTools,
   };
 }
-

@@ -16,10 +16,3 @@ export const defaultSeeds = [
     sourceType: 'news',
   },
 ];
-
-
-
-
-
-
-

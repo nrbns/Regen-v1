@@ -78,10 +78,3 @@ export function MobileDock({
     </motion.nav>
   );
 }
-
-
-
-
-
-
-

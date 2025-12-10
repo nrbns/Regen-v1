@@ -50,7 +50,7 @@ export function SavePageButton({
       <button
         onClick={handleSave}
         disabled={saving || !url}
-        className={`p-2 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 ${className}`}
+        className={`rounded-lg p-2 transition-colors hover:bg-slate-800 disabled:opacity-50 ${className}`}
         title="Save for offline"
       >
         {saving ? (
@@ -69,7 +69,7 @@ export function SavePageButton({
       <button
         onClick={handleSave}
         disabled={saving || !url}
-        className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 ${className}`}
+        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-slate-800 disabled:opacity-50 ${className}`}
       >
         {saving ? (
           <>
@@ -95,7 +95,7 @@ export function SavePageButton({
     <button
       onClick={handleSave}
       disabled={saving || !url}
-      className={`flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+      className={`flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {saving ? (
         <>
@@ -116,6 +116,3 @@ export function SavePageButton({
     </button>
   );
 }
-
-
-

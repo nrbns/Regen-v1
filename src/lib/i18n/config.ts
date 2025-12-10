@@ -26,19 +26,19 @@ const resources: Record<string, { translation: any }> = {
       import('../../locales/ta.json').then(m => m.default),
       import('../../locales/te.json').then(m => m.default),
     ]);
-    
+
     if (en.status === 'fulfilled') resources.en.translation = en.value;
     else console.warn('[i18n] English translations not found');
-    
+
     if (hi.status === 'fulfilled') resources.hi.translation = hi.value;
     else console.warn('[i18n] Hindi translations not found');
-    
+
     if (ta.status === 'fulfilled') resources.ta.translation = ta.value;
     else console.warn('[i18n] Tamil translations not found');
-    
+
     if (te.status === 'fulfilled') resources.te.translation = te.value;
     else console.warn('[i18n] Telugu translations not found');
-    
+
     // Reload i18n after translations are loaded
     i18n.reloadResources();
   } catch (error) {
@@ -48,7 +48,7 @@ const resources: Record<string, { translation: any }> = {
 
 // Supported languages
 export const SUPPORTED_LANGUAGES = ['en', 'hi', 'ta', 'te'] as const;
-export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 // Resources are defined above
 
@@ -77,4 +77,3 @@ i18n
   });
 
 export default i18n;
-

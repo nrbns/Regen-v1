@@ -13,10 +13,7 @@ export interface ImageOptions {
 /**
  * Generate optimized image URL with parameters
  */
-export function getOptimizedImageUrl(
-  src: string,
-  options: ImageOptions = {}
-): string {
+export function getOptimizedImageUrl(src: string, options: ImageOptions = {}): string {
   if (!src) return '';
 
   const { width, height, quality = 80, format } = options;
@@ -38,16 +35,14 @@ export function generateSrcSet(
   baseUrl: string,
   widths: number[] = [320, 640, 768, 1024, 1280, 1920]
 ): string {
-  return widths
-    .map((width) => `${getOptimizedImageUrl(baseUrl, { width })} ${width}w`)
-    .join(', ');
+  return widths.map(width => `${getOptimizedImageUrl(baseUrl, { width })} ${width}w`).join(', ');
 }
 
 /**
  * Check if WebP is supported
  */
 export function isWebPSupported(): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const webP = new Image();
     webP.onload = webP.onerror = () => {
       resolve(webP.height === 2);
@@ -64,7 +59,7 @@ export async function getBestImageFormat(): Promise<'webp' | 'avif' | 'jpg'> {
   if (typeof Image === 'undefined') return 'jpg';
 
   // Check AVIF support
-  const avifSupported = await new Promise<boolean>((resolve) => {
+  const avifSupported = await new Promise<boolean>(resolve => {
     const avif = new Image();
     avif.onload = avif.onerror = () => {
       resolve(avif.height === 2);
@@ -80,6 +75,3 @@ export async function getBestImageFormat(): Promise<'webp' | 'avif' | 'jpg'> {
 
   return 'jpg';
 }
-
-
-

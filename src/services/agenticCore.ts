@@ -71,10 +71,7 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
         if (!line) continue;
         try {
           const parsed = JSON.parse(line);
-          const content: string =
-            parsed?.message?.content ??
-            parsed?.response ??
-            '';
+          const content: string = parsed?.message?.content ?? parsed?.response ?? '';
           if (content) {
             full += content;
             onToken?.(content);
@@ -97,14 +94,12 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
   }
 }
 
-function buildPrompt(
-  task: string,
-  mode: string,
-  context?: AgentStreamOptions['context']
-): string {
+function buildPrompt(task: string, mode: string, context?: AgentStreamOptions['context']): string {
   const contextParts: string[] = [];
   if (context?.activeTabUrl) {
-    contextParts.push(`Current page: ${context.activeTabTitle || 'Untitled'} (${context.activeTabUrl})`);
+    contextParts.push(
+      `Current page: ${context.activeTabTitle || 'Untitled'} (${context.activeTabUrl})`
+    );
   }
   if (context?.tabCount !== undefined) {
     contextParts.push(`Open tabs: ${context.tabCount}`);
@@ -133,4 +128,3 @@ function buildPrompt(
     'Example: "I\'ll search for that. [SEARCH quantum computing] Then I\'ll open the top result. [OPEN https://example.com]"',
   ].join('\n');
 }
-

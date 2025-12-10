@@ -73,6 +73,3 @@ export function preloadCriticalResources(): void {
   dnsPrefetch('https://fonts.googleapis.com');
   dnsPrefetch('https://fonts.gstatic.com');
 }
-
-
-

@@ -24,7 +24,7 @@ describe('Memory Profiling', () => {
 
       // Take snapshot
       const snapshot = profiler.takeSnapshot();
-      
+
       // Should return snapshot or null (depending on browser support)
       expect(snapshot === null || typeof snapshot === 'object').toBe(true);
     });
@@ -34,7 +34,7 @@ describe('Memory Profiling', () => {
       const profiler = getMemoryProfiler();
 
       const trend = profiler.getMemoryTrend();
-      
+
       // Should return one of the valid trends
       expect(['increasing', 'decreasing', 'stable']).toContain(trend);
     });
@@ -111,6 +111,3 @@ export class MemoryMeasurer {
     return 0;
   }
 }
-
-
-

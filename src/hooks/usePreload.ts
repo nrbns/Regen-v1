@@ -25,11 +25,8 @@ export function usePreload(options: UsePreloadOptions): void {
     });
 
     // Prefetch resources
-    prefetch.forEach((href) => {
+    prefetch.forEach(href => {
       prefetchResource(href);
     });
   }, deps); // Re-run if deps change
 }
-
-
-

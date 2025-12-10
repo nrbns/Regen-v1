@@ -26,8 +26,15 @@ export interface LLMResponse {
   tokensUsed?: number;
 }
 
+type LocalLLMStatus = {
+  available: boolean;
+  gpu?: { detected: boolean; name?: string };
+};
+
+let cachedLocalStatus: LocalLLMStatus | null = null;
+
 /**
- * Check if local LLM (Ollama) is available
+ * Check if local LLM (Ollama) is available and capture GPU hint
  */
 async function isLocalLLMAvailable(): Promise<boolean> {
   if (!isTauriRuntime()) {
@@ -35,12 +42,30 @@ async function isLocalLLMAvailable(): Promise<boolean> {
   }
 
   try {
+    if (cachedLocalStatus) {
+      return cachedLocalStatus.available;
+    }
+
     // Try to invoke Tauri command to check Ollama
     const result = await (ipc as any).invoke('check_ollama_status');
-    return result?.available === true;
+    cachedLocalStatus = {
+      available: Boolean(result?.available),
+      gpu: result?.gpu,
+    };
+
+    // Persist hint for UI to decide model sizes (best-effort)
+    if (cachedLocalStatus?.gpu?.detected) {
+      localStorage.setItem('ollama_gpu_name', cachedLocalStatus.gpu.name || 'unknown');
+    }
+
+    return cachedLocalStatus.available;
   } catch {
     return false;
   }
+}
+
+export function getCachedLocalLLMStatus(): LocalLLMStatus | null {
+  return cachedLocalStatus;
 }
 
 /**

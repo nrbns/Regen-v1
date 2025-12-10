@@ -34,7 +34,8 @@ interface UseVoiceStreamReturn {
 
 const DEFAULT_WS_URL = (() => {
   const baseUrl = import.meta.env.VITE_WS_URL || 'localhost:4000/ws/voice';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const protocol =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
   return `${protocol}${cleanUrl}`;
 })();
@@ -63,8 +64,10 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
    * Connect to WebSocket
    */
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN || 
-        wsRef.current?.readyState === WebSocket.CONNECTING) {
+    if (
+      wsRef.current?.readyState === WebSocket.OPEN ||
+      wsRef.current?.readyState === WebSocket.CONNECTING
+    ) {
       return;
     }
 
@@ -77,10 +80,10 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       setIsConnected(true);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const message = JSON.parse(event.data);
-        
+
         switch (message.type) {
           case 'connected':
             console.log('[useVoiceStream] Connected to voice stream');
@@ -144,7 +147,7 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = error => {
       console.error('[useVoiceStream] WebSocket error:', error);
       onError?.('WebSocket connection error');
     };
@@ -176,7 +179,7 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     try {
       // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
+
       // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm',
@@ -184,7 +187,7 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (event) => {
+      mediaRecorder.ondataavailable = event => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
           // Send audio chunk to WebSocket
@@ -202,9 +205,11 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       mediaRecorder.start(500); // Send chunks every 500ms
 
       // Notify server
-      wsRef.current.send(JSON.stringify({
-        type: 'start',
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'start',
+        })
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to start recording';
       onError?.(errorMessage);
@@ -221,10 +226,12 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     }
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'stop',
-        autoSendToAgent,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'stop',
+          autoSendToAgent,
+        })
+      );
     }
   }, [autoSendToAgent]);
 
@@ -237,9 +244,11 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     }
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'cancel',
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'cancel',
+        })
+      );
     }
 
     setCurrentTranscript('');
@@ -264,4 +273,3 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     sendAudioChunk,
   };
 }
-

@@ -70,7 +70,10 @@ class StreamingOrchestrator {
                 .replace('http://', 'ws://')
                 .replace('https://', 'wss://') + '/agent/stream'
             : (() => {
-                const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+                const protocol =
+                  typeof window !== 'undefined' && window.location.protocol === 'https:'
+                    ? 'wss://'
+                    : 'ws://';
                 return `${protocol}127.0.0.1:4000/agent/stream`;
               })());
         await this.connectWebSocket(wsUrl);

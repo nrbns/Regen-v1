@@ -71,7 +71,8 @@ export function AgentActionHandlers() {
 
       const targetUrl = event.detail.url;
       const activeTab = tabs.find(t => t.id === activeId);
-      const urlToSummarize = targetUrl || (activeTab?.url && activeTab.url.startsWith('http') ? activeTab.url : null);
+      const urlToSummarize =
+        targetUrl || (activeTab?.url && activeTab.url.startsWith('http') ? activeTab.url : null);
 
       if (!urlToSummarize) {
         toast.warning('No page to summarize');
@@ -83,19 +84,19 @@ export function AgentActionHandlers() {
         const [scraped] = await scrapeResearchSources([urlToSummarize]);
         if (scraped?.content) {
           const summary = await summarizeOffline(scraped.content);
-          
+
           // Switch to Research mode if not already there
           if (currentMode !== 'Research') {
             setMode('Research');
           }
-          
+
           // Dispatch event to Research mode to display the summary
           window.dispatchEvent(
             new CustomEvent('agent:research-summarize', {
               detail: { url: urlToSummarize, summary: summary.summary, title: scraped.title },
             })
           );
-          
+
           toast.success('Page summarized');
         } else {
           toast.error('Failed to scrape page content');
@@ -109,16 +110,21 @@ export function AgentActionHandlers() {
     window.addEventListener('agent:search', handleSearch as unknown as EventListener);
     window.addEventListener('agent:switch-mode', handleSwitchMode as unknown as EventListener);
     window.addEventListener('agent:tab-closed', handleTabClosed as unknown as EventListener);
-    window.addEventListener('agent:research-summarize', handleSummarize as unknown as EventListener);
+    window.addEventListener(
+      'agent:research-summarize',
+      handleSummarize as unknown as EventListener
+    );
 
     return () => {
       window.removeEventListener('agent:search', handleSearch as unknown as EventListener);
       window.removeEventListener('agent:switch-mode', handleSwitchMode as unknown as EventListener);
       window.removeEventListener('agent:tab-closed', handleTabClosed as unknown as EventListener);
-      window.removeEventListener('agent:research-summarize', handleSummarize as unknown as EventListener);
+      window.removeEventListener(
+        'agent:research-summarize',
+        handleSummarize as unknown as EventListener
+      );
     };
   }, [activeId, tabs, currentMode, setMode]);
 
   return null; // This component doesn't render anything
 }
-

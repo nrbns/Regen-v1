@@ -38,10 +38,3 @@ export const config = {
     region: env.AWS_REGION,
   },
 } as const;
-
-
-
-
-
-
-

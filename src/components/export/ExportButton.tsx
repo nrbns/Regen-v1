@@ -51,12 +51,12 @@ export function ExportButton({ content, parentId, graphName }: ExportButtonProps
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         alert('✅ Exported to Obsidian! Download the file and drop it in your vault.');
       } else {
         const data = await response.json();
         const url = data.url || data.pageId;
-        
+
         if (url) {
           window.open(url, '_blank');
           alert(`✅ Exported to ${tool}!`);
@@ -130,19 +130,7 @@ export function ExportButton({ content, parentId, graphName }: ExportButtonProps
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-2 text-sm text-red-700">
-          Error: {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 p-2 text-sm text-red-700">Error: {error}</div>}
     </div>
   );
 }
-
-
-
-
-
-
-
-

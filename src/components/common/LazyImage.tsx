@@ -34,8 +34,8 @@ export function LazyImage({
 
     // Use IntersectionObserver for lazy loading
     observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
+      entries => {
+        entries.forEach(entry => {
           if (entry.isIntersecting) {
             setIsInView(true);
             observerRef.current?.disconnect();
@@ -69,7 +69,7 @@ export function LazyImage({
     <div className={cn('relative overflow-hidden', className)}>
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-800/50">
-          <Loader2 size={20} className="text-slate-500 animate-spin" />
+          <Loader2 size={20} className="animate-spin text-slate-500" />
         </div>
       )}
       <img
@@ -89,6 +89,3 @@ export function LazyImage({
     </div>
   );
 }
-
-
-

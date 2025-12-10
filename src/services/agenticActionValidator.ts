@@ -48,7 +48,7 @@ export function validateActionUrl(url: string): ValidationResult {
 export function validateMode(mode: string): ValidationResult {
   const validModes = ['browse', 'research', 'trade', 'docs'];
   const normalized = mode.toLowerCase().trim();
-  
+
   if (!validModes.includes(normalized)) {
     return {
       valid: false,
@@ -62,7 +62,11 @@ export function validateMode(mode: string): ValidationResult {
 /**
  * Validate trade action
  */
-export function validateTradeAction(action: string, symbol: string, quantity: number): ValidationResult {
+export function validateTradeAction(
+  action: string,
+  symbol: string,
+  quantity: number
+): ValidationResult {
   const validActions = ['BUY', 'SELL'];
   const upperAction = action.toUpperCase();
 
@@ -130,4 +134,3 @@ export function logAction(action: string, success: boolean, error?: string): voi
     // Ignore localStorage errors
   }
 }
-

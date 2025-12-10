@@ -251,6 +251,3 @@ export async function unloadModel(): Promise<void> {
     console.warn('[EnhancedOnDeviceAI] Failed to unload model:', error);
   }
 }
-
-
-

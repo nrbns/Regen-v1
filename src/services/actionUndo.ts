@@ -125,9 +125,7 @@ export async function createCloseTabUndo(
 /**
  * Create undo function for SWITCH_MODE action
  */
-export async function createSwitchModeUndo(
-  previousMode: string
-): Promise<() => Promise<void>> {
+export async function createSwitchModeUndo(previousMode: string): Promise<() => Promise<void>> {
   return async () => {
     try {
       if (typeof window !== 'undefined') {
@@ -142,4 +140,3 @@ export async function createSwitchModeUndo(
     }
   };
 }
-

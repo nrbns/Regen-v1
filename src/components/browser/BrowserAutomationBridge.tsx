@@ -13,25 +13,25 @@ interface BrowserAutomationBridgeProps {
   sessionId?: string;
 }
 
-export function BrowserAutomationBridge({ 
-  tabId, 
-  iframeId, 
-  sessionId 
+export function BrowserAutomationBridge({
+  tabId,
+  iframeId,
+  sessionId,
 }: BrowserAutomationBridgeProps) {
   const activeTabId = useTabsStore(state => state.activeId);
   const tabs = useTabsStore(state => state.tabs);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  
+
   // Get current tab
   const _currentTab = tabs.find(t => t.id === (tabId || activeTabId));
   const currentTabId = tabId || activeTabId;
-  
+
   // Connect to browser automation WebSocket
   const { isConnected, execute } = useBrowserAutomation({
     sessionId: sessionId || `tab-${currentTabId}`,
     tabId: currentTabId || undefined,
     iframeId: iframeId || currentTabId || undefined,
-    onEvent: (event) => {
+    onEvent: event => {
       // Handle browser automation events
       handleBrowserEvent(event);
     },
@@ -44,14 +44,17 @@ export function BrowserAutomationBridge({
     }
 
     const { type, payload } = event;
-    
+
     try {
       // Send message to iframe content
-      iframeRef.current.contentWindow.postMessage({
-        type: 'browser:automation',
-        action: type,
-        payload,
-      }, '*');
+      iframeRef.current.contentWindow.postMessage(
+        {
+          type: 'browser:automation',
+          action: type,
+          payload,
+        },
+        '*'
+      );
     } catch (error) {
       console.error('[BrowserAutomationBridge] Error sending message to iframe:', error);
     }
@@ -63,7 +66,7 @@ export function BrowserAutomationBridge({
       // Only handle messages from our iframe
       if (iframeRef.current && event.source === iframeRef.current.contentWindow) {
         const { type, action, params } = event.data;
-        
+
         if (type === 'browser:action') {
           // Execute browser action
           execute(action, params).catch(error => {
@@ -83,7 +86,9 @@ export function BrowserAutomationBridge({
   useEffect(() => {
     if (currentTabId) {
       // Find iframe for this tab
-      const iframe = document.querySelector(`iframe[data-tab-id="${currentTabId}"]`) as HTMLIFrameElement;
+      const iframe = document.querySelector(
+        `iframe[data-tab-id="${currentTabId}"]`
+      ) as HTMLIFrameElement;
       if (iframe) {
         iframeRef.current = iframe;
       }
@@ -158,6 +163,48 @@ export function BrowserAutomationBridge({
             }
           };
           
+          // v0.4: Expose scrape function for live tab scraping
+          window.browserScrape = function() {
+            try {
+              const title = document.title || '';
+              const text = document.body?.innerText || document.body?.textContent || '';
+              const html = document.documentElement.outerHTML || '';
+              
+              const images = Array.from(document.querySelectorAll('img'))
+                .map(img => img.src || img.getAttribute('data-src'))
+                .filter(Boolean);
+              
+              const links = Array.from(document.querySelectorAll('a[href]'))
+                .map(a => ({
+                  text: a.textContent?.trim() || '',
+                  url: a.href || ''
+                }))
+                .filter(l => l.url && l.url.startsWith('http'));
+              
+              return {
+                url: window.location.href,
+                title,
+                content: text.substring(0, 50000),
+                text: text.substring(0, 50000),
+                html: html.substring(0, 200000),
+                images: images.slice(0, 20),
+                links: links.slice(0, 50),
+                timestamp: Date.now(),
+                success: true
+              };
+            } catch (e) {
+              return {
+                url: window.location.href,
+                title: document.title || '',
+                content: '',
+                text: '',
+                error: e.message,
+                timestamp: Date.now(),
+                success: false
+              };
+            }
+          };
+          
           // Listen for automation commands
           window.addEventListener('message', function(event) {
             if (event.data.type === 'browser:automation') {
@@ -194,13 +241,39 @@ export function BrowserAutomationBridge({
                   break;
               }
             }
+            
+            // v0.4: Listen for scrape commands
+            if (event.data.type === 'scrape:execute') {
+              try {
+                const scrapeScript = event.data.script;
+                const result = eval('(' + scrapeScript + ')()');
+                window.parent.postMessage({
+                  type: 'scrape:result',
+                  result: result
+                }, '*');
+              } catch (error) {
+                window.parent.postMessage({
+                  type: 'scrape:result',
+                  result: {
+                    url: window.location.href,
+                    title: document.title || '',
+                    content: '',
+                    text: '',
+                    error: error.message,
+                    timestamp: Date.now(),
+                    success: false
+                  }
+                }, '*');
+              }
+            }
           });
         })();
       `;
 
       // Try to inject script (may fail due to CORS)
       try {
-        const iframeDoc = iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
+        const iframeDoc =
+          iframeRef.current.contentDocument || iframeRef.current.contentWindow?.document;
         if (iframeDoc) {
           const scriptEl = iframeDoc.createElement('script');
           scriptEl.textContent = script;
@@ -209,7 +282,9 @@ export function BrowserAutomationBridge({
       } catch {
         // CORS restriction - script injection not possible
         // Automation will work via postMessage only
-        console.warn('[BrowserAutomationBridge] Cannot inject script due to CORS, using postMessage only');
+        console.warn(
+          '[BrowserAutomationBridge] Cannot inject script due to CORS, using postMessage only'
+        );
       }
     } catch (setupError) {
       console.error('[BrowserAutomationBridge] Error setting up automation:', setupError);
@@ -218,4 +293,3 @@ export function BrowserAutomationBridge({
 
   return null; // This component doesn't render anything
 }
-

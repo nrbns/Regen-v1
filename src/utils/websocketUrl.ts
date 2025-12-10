@@ -19,10 +19,10 @@ export function getWebSocketUrl(baseUrl: string): string {
 
   // Determine protocol based on current page protocol
   const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-  
+
   // Remove http:// or https:// if present
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '');
-  
+
   return `${protocol}${cleanUrl}`;
 }
 
@@ -34,4 +34,3 @@ export function getWebSocketUrlFromEnv(envVar: string, fallback: string): string
   const baseUrl = envUrl || fallback;
   return getWebSocketUrl(baseUrl);
 }
-

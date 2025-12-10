@@ -91,6 +91,3 @@ export class APICache {
 
 // Singleton instance
 export const apiCache = new APICache(100, 5 * 60 * 1000);
-
-
-

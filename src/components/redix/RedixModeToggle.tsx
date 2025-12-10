@@ -38,10 +38,10 @@ export function RedixModeToggle({ showLabel = true, compact = false }: RedixMode
     return (
       <button
         onClick={handleToggle}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
           redixEnabled
-            ? 'bg-purple-600 hover:bg-purple-700 text-white'
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            ? 'bg-purple-600 text-white hover:bg-purple-700'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
         }`}
         title={redixEnabled ? 'Disable Redix Mode' : 'Enable Redix Mode'}
       >
@@ -52,9 +52,9 @@ export function RedixModeToggle({ showLabel = true, compact = false }: RedixMode
   }
 
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+    <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-800/50 p-3">
       <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="mb-1 flex items-center gap-2">
           {redixEnabled ? (
             <MemoryStick className="h-4 w-4 text-purple-400" />
           ) : (
@@ -72,10 +72,10 @@ export function RedixModeToggle({ showLabel = true, compact = false }: RedixMode
       </div>
       <button
         onClick={handleToggle}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+        className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
           redixEnabled
-            ? 'bg-purple-600 hover:bg-purple-700 text-white'
-            : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            ? 'bg-purple-600 text-white hover:bg-purple-700'
+            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
         }`}
       >
         {redixEnabled ? 'Disable' : 'Enable'}
@@ -83,6 +83,3 @@ export function RedixModeToggle({ showLabel = true, compact = false }: RedixMode
     </div>
   );
 }
-
-
-

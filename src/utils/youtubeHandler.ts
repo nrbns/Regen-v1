@@ -10,7 +10,7 @@ export function extractYouTubeVideoId(url: string): string | null {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-    
+
     // Check if it's a YouTube domain
     if (!hostname.includes('youtube.com') && !hostname.includes('youtu.be')) {
       return null;
@@ -77,9 +77,18 @@ export function convertToYouTubeEmbed(url: string): string | null {
     const urlObj = new URL(url);
     // Use privacy-respecting embed URL (youtube-nocookie.com)
     const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
-    
+
     // Preserve useful query parameters
-    const usefulParams = ['autoplay', 'start', 'end', 'loop', 'mute', 'controls', 'rel', 'modestbranding'];
+    const usefulParams = [
+      'autoplay',
+      'start',
+      'end',
+      'loop',
+      'mute',
+      'controls',
+      'rel',
+      'modestbranding',
+    ];
     usefulParams.forEach(param => {
       const value = urlObj.searchParams.get(param);
       if (value) {
@@ -100,4 +109,3 @@ export function convertToYouTubeEmbed(url: string): string | null {
 export function isYouTubeEmbeddable(url: string): boolean {
   return extractYouTubeVideoId(url) !== null;
 }
-

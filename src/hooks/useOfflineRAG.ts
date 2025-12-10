@@ -20,10 +20,10 @@ export interface UseOfflineRAGReturn {
   savePage: (url: string, title?: string) => Promise<string | null>;
   deleteDocument: (id: string) => Promise<void>;
   listDocuments: (options?: { limit?: number; offset?: number }) => Promise<StoredDocument[]>;
-  
+
   // Search
   search: (query: string, options?: { limit?: number }) => Promise<RAGResult | null>;
-  
+
   // Stats
   stats: {
     documentCount: number;
@@ -127,6 +127,3 @@ export function useOfflineRAG(): UseOfflineRAGReturn {
     refreshStats,
   };
 }
-
-
-

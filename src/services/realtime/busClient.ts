@@ -6,7 +6,8 @@
 
 const BUS_URL = (() => {
   const baseUrl = import.meta.env.VITE_BUS_URL || 'localhost:4002';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+  const protocol =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss://' : 'ws://';
   const cleanUrl = baseUrl.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
   return `${protocol}${cleanUrl}`;
 })();
@@ -59,7 +60,7 @@ class BusClient {
         resolve();
       };
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const message: BusMessage = JSON.parse(event.data);
           this.handleMessage(message);
@@ -68,7 +69,7 @@ class BusClient {
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = error => {
         console.error('[BusClient] WebSocket error:', error);
         this.isConnected = false;
         reject(error);
@@ -119,10 +120,12 @@ class BusClient {
 
     // Send subscribe message if connected
     if (this.isConnected && this.ws) {
-      this.ws.send(JSON.stringify({
-        type: 'subscribe',
-        channel,
-      }));
+      this.ws.send(
+        JSON.stringify({
+          type: 'subscribe',
+          channel,
+        })
+      );
     }
 
     // Return unsubscribe function
@@ -132,13 +135,15 @@ class BusClient {
         handlers.delete(handler);
         if (handlers.size === 0) {
           this.subscribers.delete(channel);
-          
+
           // Send unsubscribe message
           if (this.isConnected && this.ws) {
-            this.ws.send(JSON.stringify({
-              type: 'unsubscribe',
-              channel,
-            }));
+            this.ws.send(
+              JSON.stringify({
+                type: 'unsubscribe',
+                channel,
+              })
+            );
           }
         }
       }
@@ -155,11 +160,13 @@ class BusClient {
         return;
       }
 
-      this.ws.send(JSON.stringify({
-        type: 'publish',
-        channel,
-        data,
-      }));
+      this.ws.send(
+        JSON.stringify({
+          type: 'publish',
+          channel,
+          data,
+        })
+      );
 
       // Wait for published confirmation
       const timeout = setTimeout(() => {
@@ -167,7 +174,7 @@ class BusClient {
       }, 5000);
 
       const originalOnMessage = this.ws.onmessage;
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const message: BusMessage = JSON.parse(event.data);
           if (message.type === 'published' && message.channel === channel) {
@@ -215,4 +222,3 @@ export const busClient = new BusClient();
 if (typeof window !== 'undefined') {
   busClient.connect().catch(console.error);
 }
-

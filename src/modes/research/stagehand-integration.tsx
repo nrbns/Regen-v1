@@ -42,11 +42,3 @@ export function ResearchStagehandIntegration() {
 
   return null; // This is a side-effect component
 }
-
-
-
-
-
-
-
-

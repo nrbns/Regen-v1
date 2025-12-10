@@ -147,10 +147,3 @@ export default function OrderBook({ bids, asks, maxDepth = 10, onPriceClick }: O
     </div>
   );
 }
-
-
-
-
-
-
-

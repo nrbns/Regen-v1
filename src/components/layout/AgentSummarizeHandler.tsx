@@ -20,7 +20,8 @@ export function AgentSummarizeHandler() {
     const handleSummarize = async (event: CustomEvent<{ url?: string | null }>) => {
       const targetUrl = event.detail.url;
       const activeTab = tabs.find(t => t.id === activeId);
-      const urlToSummarize = targetUrl || (activeTab?.url && activeTab.url.startsWith('http') ? activeTab.url : null);
+      const urlToSummarize =
+        targetUrl || (activeTab?.url && activeTab.url.startsWith('http') ? activeTab.url : null);
 
       if (!urlToSummarize) {
         toast.warning('No page to summarize');
@@ -32,17 +33,17 @@ export function AgentSummarizeHandler() {
         const [scraped] = await scrapeResearchSources([urlToSummarize]);
         if (scraped?.content) {
           const summary = await summarizeOffline(scraped.content);
-          
+
           // Switch to Research mode and show summary
           useAppStore.getState().setMode('Research');
-          
+
           // Dispatch event to Research mode to display the summary
           window.dispatchEvent(
             new CustomEvent('agent:research-summarize', {
               detail: { url: urlToSummarize, summary: summary.summary, title: scraped.title },
             })
           );
-          
+
           toast.success('Page summarized - switched to Research mode');
         } else {
           toast.error('Failed to scrape page content');
@@ -53,12 +54,17 @@ export function AgentSummarizeHandler() {
       }
     };
 
-    window.addEventListener('agent:research-summarize', handleSummarize as unknown as EventListener);
+    window.addEventListener(
+      'agent:research-summarize',
+      handleSummarize as unknown as EventListener
+    );
     return () => {
-      window.removeEventListener('agent:research-summarize', handleSummarize as unknown as EventListener);
+      window.removeEventListener(
+        'agent:research-summarize',
+        handleSummarize as unknown as EventListener
+      );
     };
   }, [activeId, tabs, currentMode]);
 
   return null; // This component doesn't render anything
 }
-

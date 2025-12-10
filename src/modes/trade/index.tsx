@@ -29,6 +29,11 @@ import { validateSignal } from '../../core/trade/signalGenerator';
 import { getSSESignalService } from '../../services/realtime/sseSignalService';
 import { calculateRiskMetrics } from '../../core/trade/riskMetrics';
 import BrowserView from '../../components/BrowserView';
+import VoiceButton from '../../components/VoiceButton';
+import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
+import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
+import { executeAgenticAction } from '../../services/agenticActionExecutor';
+import { trackUserAction } from '../../services/zeroPromptPrediction';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -103,15 +108,17 @@ export default function TradePanel() {
 
   // Voice agent intents: simulate trade actions (safe, no real orders).
   useEffect(() => {
-    const handleAgentTrade = (event: CustomEvent<{ intent?: string; action?: string; symbol?: string; quantity?: number }>) => {
+    const handleAgentTrade = (
+      event: CustomEvent<{ intent?: string; action?: string; symbol?: string; quantity?: number }>
+    ) => {
       const { intent, action, symbol, quantity } = event.detail;
       if (!intent) return;
-      
+
       // Parse and simulate trade action
       const actionType = action?.toUpperCase();
       const qty = quantity || 1;
       let targetSymbol = symbol || selected.symbol;
-      
+
       // Try to find matching market
       if (symbol) {
         const market = markets.find(
@@ -124,7 +131,7 @@ export default function TradePanel() {
           targetSymbol = market.symbol;
         }
       }
-      
+
       if (actionType === 'BUY' || intent.toUpperCase().includes('BUY')) {
         setQty(qty);
         setOrderType('market');
@@ -164,8 +171,19 @@ export default function TradePanel() {
       }
     };
     window.addEventListener('agent:trade-action', handleAgentTrade as EventListener);
-    return () => window.removeEventListener('agent:trade-action', handleAgentTrade as EventListener);
-  }, [selected, price, sl, tp, setSelected, setQty, setOrderType, setPendingOrder, setShowConfirmModal]);
+    return () =>
+      window.removeEventListener('agent:trade-action', handleAgentTrade as EventListener);
+  }, [
+    selected,
+    price,
+    sl,
+    tp,
+    setSelected,
+    setQty,
+    setOrderType,
+    setPendingOrder,
+    setShowConfirmModal,
+  ]);
 
   // Real-time WebSocket updates
   const [candleHistory, setCandleHistory] = useState<any[]>([]);
@@ -323,26 +341,34 @@ export default function TradePanel() {
   // Phase 1, Day 7 & 9: Enhanced trade signals with SSE fallback and notifications
   const [_signalHistory, setSignalHistory] = useState<TradeSignal[]>([]);
   const [_sseConnected, setSseConnected] = useState(false);
-  
+
   useEffect(() => {
     const signalService = getTradeSignalService();
 
     // Phase 1, Day 9: Monitor SSE connection status
     const sseService = getSSESignalService();
-    const statusUnsubscribe = sseService.onStatusChange((status: { connected: boolean; reconnecting: boolean; lastConnected?: number; reconnectAttempts: number; error?: string }) => {
-      setSseConnected(status.connected);
-    });
+    const statusUnsubscribe = sseService.onStatusChange(
+      (status: {
+        connected: boolean;
+        reconnecting: boolean;
+        lastConnected?: number;
+        reconnectAttempts: number;
+        error?: string;
+      }) => {
+        setSseConnected(status.connected);
+      }
+    );
 
     // Subscribe to real-time trade signals (instant push when detected)
     const unsubscribe = signalService.subscribe(selected.symbol, (signal: TradeSignal) => {
       const config = { enableFallback: true, fallbackInterval: 30000, minConfidence: 0.6 };
       const validation = validateSignal(signal, config);
-      
+
       if (validation.shouldDisplay) {
         // Phase 1, Day 9: Enhanced notification
         toast.success(
           `Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`,
-          { 
+          {
             duration: 8000,
           }
         );
@@ -556,7 +582,7 @@ export default function TradePanel() {
               close: c.close,
             }));
             seriesRef.current.setData(candleData);
-            
+
             // Phase 1, Day 7: Fix chart resize after data update
             if (chartContainerRef.current && chartRef.current) {
               chartRef.current.applyOptions({
@@ -702,7 +728,7 @@ export default function TradePanel() {
         stopLoss: pendingOrder.stopLoss,
         takeProfit: pendingOrder.takeProfit,
       });
-      
+
       if (result.success) {
         toast.success(
           `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId}`
@@ -772,9 +798,9 @@ export default function TradePanel() {
       {/* Trade Fallback UI - Show when disconnected and no cached data */}
       {!wsConnected && lastPrice === null && (
         <div className="p-4">
-          <div className="text-center p-8 text-gray-400">
+          <div className="p-8 text-center text-gray-400">
             <p>Trade mode fallback - service unavailable</p>
-            <p className="text-sm mt-2">{connectionError?.message || 'WebSocket disconnected'}</p>
+            <p className="mt-2 text-sm">{connectionError?.message || 'WebSocket disconnected'}</p>
             <button
               onClick={async () => {
                 setConnectionError(null);
@@ -782,7 +808,7 @@ export default function TradePanel() {
                 // The useRealtimeTrade hook should handle reconnection
                 console.log('[Trade] Retrying connection...');
               }}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              className="mt-4 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
               Retry Connection
             </button>
@@ -792,11 +818,13 @@ export default function TradePanel() {
 
       {/* Show reconnecting status when disconnected but have data */}
       {!wsConnected && (lastPrice !== null || wsReconnecting) && (
-        <div className={`border-b px-4 py-2 text-sm ${
-          wsReconnecting 
-            ? 'border-blue-500/40 bg-blue-500/10 text-blue-100' 
-            : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-100'
-        }`}>
+        <div
+          className={`border-b px-4 py-2 text-sm ${
+            wsReconnecting
+              ? 'border-blue-500/40 bg-blue-500/10 text-blue-100'
+              : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-100'
+          }`}
+        >
           <div className="flex items-center justify-between">
             <span>
               {wsReconnecting ? '🔄 Reconnecting...' : '⚠️ Connection lost'}
@@ -809,8 +837,8 @@ export default function TradePanel() {
                 window.dispatchEvent(new CustomEvent('trade:reconnect'));
               }}
               className={`rounded px-2 py-1 text-xs hover:opacity-80 ${
-                wsReconnecting 
-                  ? 'bg-blue-500/20 hover:bg-blue-500/30' 
+                wsReconnecting
+                  ? 'bg-blue-500/20 hover:bg-blue-500/30'
                   : 'bg-yellow-500/20 hover:bg-yellow-500/30'
               }`}
             >
@@ -838,6 +866,27 @@ export default function TradePanel() {
           >
             {useTradingView ? 'Custom Chart' : 'TradingView'}
           </button>
+          {/* v0.4: Voice command for trade actions */}
+          <VoiceButton
+            onResult={async text => {
+              trackUserAction(text);
+              const parsed = parseResearchVoiceCommand(text);
+
+              // Execute agentic action if trade intent detected
+              if (parsed.isTradeCommand || parsed.action?.type === 'trade') {
+                const result = await executeAgenticAction(text, { mode: 'trade' });
+                if (result.success) {
+                  toast.success('Trade action executed');
+                } else {
+                  toast.error(result.error || 'Trade action failed');
+                }
+              } else {
+                // Fallback: try to parse as trade command anyway
+                toast.info(`Voice: ${text} (use "Trade NIFTY" or "Buy 10 RELIANCE")`);
+              }
+            }}
+            small
+          />
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-800/60 p-1">
           <button
@@ -877,6 +926,11 @@ export default function TradePanel() {
             <span className="hidden sm:inline">Trade</span>
           </button>
         </div>
+      </div>
+
+      {/* v0.4: Zero-prompt suggestions */}
+      <div className="z-20 flex-shrink-0 border-b border-gray-800 bg-black/50 px-4 py-2">
+        <ZeroPromptSuggestions maxSuggestions={3} autoRefresh={true} />
       </div>
 
       {/* Market Selector */}

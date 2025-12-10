@@ -52,7 +52,7 @@ export function UnifiedAIBar({
   // Phase 2, Day 5: Mode-specific placeholders
   const getPlaceholder = () => {
     if (placeholder) return placeholder;
-    
+
     const placeholders: Record<string, Record<string, string>> = {
       en: {
         research: 'Ask anything: "Compare Nifty vs BankNifty"',
@@ -114,7 +114,7 @@ export function UnifiedAIBar({
             isFocused
               ? 'border-purple-500/50 shadow-lg shadow-purple-500/20'
               : 'border-slate-700 hover:border-slate-600'
-          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
         >
           {/* AI Icon */}
           <div className="flex items-center justify-center pl-4">
@@ -165,15 +165,11 @@ export function UnifiedAIBar({
             className={`mr-2 rounded-lg p-2 transition-all ${
               query.trim() && !disabled
                 ? 'bg-purple-600 text-white hover:bg-purple-700'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                : 'cursor-not-allowed bg-slate-800 text-slate-500'
             }`}
             title="Submit (Ctrl/Cmd + Enter)"
           >
-            {disabled ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
+            {disabled ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
       </form>
@@ -185,9 +181,9 @@ export function UnifiedAIBar({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-full left-0 right-0 z-50 mt-2 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl"
+            className="absolute left-0 right-0 top-full z-50 mt-2 rounded-lg border border-slate-700 bg-slate-900 p-2 shadow-xl"
           >
-            <div className="text-xs text-slate-400 mb-2 px-2">Suggestions</div>
+            <div className="mb-2 px-2 text-xs text-slate-400">Suggestions</div>
             {/* Suggestions would go here */}
           </motion.div>
         )}
@@ -195,4 +191,3 @@ export function UnifiedAIBar({
     </div>
   );
 }
-

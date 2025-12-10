@@ -5,7 +5,11 @@
 
 import { useState, useEffect } from 'react';
 import { Download, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { getAvailableModels, detectHardwareCapabilities, type ModelRecommendation } from '../../lib/hardware-detection';
+import {
+  getAvailableModels,
+  detectHardwareCapabilities,
+  type ModelRecommendation,
+} from '../../lib/hardware-detection';
 import { loadModel, getCurrentModelInfo } from '../../services/localModelService';
 
 export function ModelDownloader() {
@@ -49,7 +53,7 @@ export function ModelDownloader() {
 
       // For now, simulate download
       console.log('[ModelDownloader] Downloading:', model.modelName);
-      
+
       // Show download progress
       // In production, use actual download with progress tracking
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -79,17 +83,18 @@ export function ModelDownloader() {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-white mb-2">Download Offline AI Model</h3>
-        <p className="text-sm text-gray-400 mb-4">
-          Download a quantized model to use AI features offline. Recommended model based on your device:
+        <h3 className="mb-2 text-lg font-semibold text-white">Download Offline AI Model</h3>
+        <p className="mb-4 text-sm text-gray-400">
+          Download a quantized model to use AI features offline. Recommended model based on your
+          device:
           <strong className="text-white"> {capabilities?.recommendedModel?.modelName}</strong>
         </p>
       </div>
 
       {/* Hardware Info */}
       {capabilities && (
-        <div className="bg-slate-800/50 rounded-lg p-4 mb-4">
-          <h4 className="text-sm font-semibold text-white mb-2">Your Device</h4>
+        <div className="mb-4 rounded-lg bg-slate-800/50 p-4">
+          <h4 className="mb-2 text-sm font-semibold text-white">Your Device</h4>
           <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
             <div>Memory: {capabilities.memoryGB} GB</div>
             <div>WebGPU: {capabilities.webgpu ? '✅' : '❌'}</div>
@@ -101,7 +106,7 @@ export function ModelDownloader() {
 
       {/* Models List */}
       <div className="space-y-2">
-        {models.map((model) => {
+        {models.map(model => {
           const compatible = isModelCompatible(model);
           const loaded = isModelLoaded(model.modelName);
           const downloadingThis = downloading === model.modelName;
@@ -117,27 +122,27 @@ export function ModelDownloader() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="mb-1 flex items-center gap-2">
                     <h4 className="font-semibold text-white">{model.modelName}</h4>
                     {model.recommended && (
-                      <span className="text-xs px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                      <span className="rounded bg-purple-500/20 px-2 py-0.5 text-xs text-purple-400">
                         Recommended
                       </span>
                     )}
                     {loaded && (
-                      <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded flex items-center gap-1">
+                      <span className="flex items-center gap-1 rounded bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
                         <CheckCircle className="h-3 w-3" />
                         Loaded
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-400 space-y-1">
+                  <div className="space-y-1 text-xs text-gray-400">
                     <div>Size: {model.sizeGB} GB</div>
                     <div>Quantization: {model.quantization}</div>
                     <div>Min RAM: {model.minRAMGB} GB</div>
                   </div>
                   {!compatible && (
-                    <div className="mt-2 text-xs text-yellow-400 flex items-center gap-1">
+                    <div className="mt-2 flex items-center gap-1 text-xs text-yellow-400">
                       <AlertCircle className="h-3 w-3" />
                       Requires {model.minRAMGB} GB RAM (you have {capabilities?.memoryGB} GB)
                     </div>
@@ -146,10 +151,10 @@ export function ModelDownloader() {
                 <button
                   onClick={() => handleDownload(model)}
                   disabled={!compatible || downloadingThis || loaded}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium ${
                     compatible && !loaded
-                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                      : 'bg-slate-700 text-gray-500 cursor-not-allowed'
+                      ? 'bg-purple-600 text-white hover:bg-purple-700'
+                      : 'cursor-not-allowed bg-slate-700 text-gray-500'
                   }`}
                 >
                   {downloadingThis ? (
@@ -176,14 +181,15 @@ export function ModelDownloader() {
       </div>
 
       {error && (
-        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-sm text-red-400">
+        <div className="rounded-lg border border-red-500/50 bg-red-500/20 p-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      <div className="text-xs text-gray-500 mt-4">
+      <div className="mt-4 text-xs text-gray-500">
         <p>
-          💡 <strong>Tip:</strong> Download the recommended model for best performance on your device.
+          💡 <strong>Tip:</strong> Download the recommended model for best performance on your
+          device.
         </p>
         <p className="mt-1">
           Models are quantized GGUF format and stored locally. They work completely offline.
@@ -192,6 +198,3 @@ export function ModelDownloader() {
     </div>
   );
 }
-
-
-

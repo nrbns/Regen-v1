@@ -23,7 +23,10 @@ interface UseProductionSearchReturn {
   searchError: string | null;
 
   // Summarize
-  summarize: (urls: string | string[], options?: SummarizeOptions) => Promise<ProductionSummarizeResponse | null>;
+  summarize: (
+    urls: string | string[],
+    options?: SummarizeOptions
+  ) => Promise<ProductionSummarizeResponse | null>;
   summarizeResults: ProductionSummarizeResponse | null;
   isSummarizing: boolean;
   summarizeError: string | null;
@@ -32,7 +35,10 @@ interface UseProductionSearchReturn {
   searchAndSummarize: (
     query: string,
     options?: SearchOptions & SummarizeOptions & { summarizeTopN?: number }
-  ) => Promise<{ search: ProductionSearchResponse; summaries?: ProductionSummarizeResponse } | null>;
+  ) => Promise<{
+    search: ProductionSearchResponse;
+    summaries?: ProductionSummarizeResponse;
+  } | null>;
   isSearchingAndSummarizing: boolean;
 
   // Utilities
@@ -45,7 +51,9 @@ export function useProductionSearch(): UseProductionSearchReturn {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [summarizeResults, setSummarizeResults] = useState<ProductionSummarizeResponse | null>(null);
+  const [summarizeResults, setSummarizeResults] = useState<ProductionSummarizeResponse | null>(
+    null
+  );
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizeError, setSummarizeError] = useState<string | null>(null);
 
@@ -123,7 +131,10 @@ export function useProductionSearch(): UseProductionSearchReturn {
     async (
       query: string,
       options?: SearchOptions & SummarizeOptions & { summarizeTopN?: number }
-    ): Promise<{ search: ProductionSearchResponse; summaries?: ProductionSummarizeResponse } | null> => {
+    ): Promise<{
+      search: ProductionSearchResponse;
+      summaries?: ProductionSummarizeResponse;
+    } | null> => {
       setIsSearchingAndSummarizing(true);
       setSearchError(null);
       setSummarizeError(null);
@@ -186,6 +197,3 @@ export function useProductionSearch(): UseProductionSearchReturn {
     clearErrors,
   };
 }
-
-
-

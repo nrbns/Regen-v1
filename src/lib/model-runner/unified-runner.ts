@@ -144,10 +144,7 @@ export class UnifiedModelRunner {
   /**
    * Generate text with automatic fallback
    */
-  async generate(
-    options: GenerationOptions,
-    onToken?: TokenCallback
-  ): Promise<GenerationResult> {
+  async generate(options: GenerationOptions, onToken?: TokenCallback): Promise<GenerationResult> {
     const startTime = performance.now();
 
     // Try local runtime first
@@ -188,7 +185,7 @@ export class UnifiedModelRunner {
             const duration = performance.now() - startTime;
             return {
               text: result as string,
-              tokens: (options.maxTokens || 256),
+              tokens: options.maxTokens || 256,
               duration,
               method: 'native',
             };
@@ -216,7 +213,7 @@ export class UnifiedModelRunner {
         const duration = performance.now() - startTime;
         return {
           text: data.summary || data.text || '',
-          tokens: (options.maxTokens || 256),
+          tokens: options.maxTokens || 256,
           duration,
           method: 'cloud',
           fallback: true,
@@ -230,7 +227,7 @@ export class UnifiedModelRunner {
     const duration = performance.now() - startTime;
     return {
       text: options.prompt.slice(0, (options.maxTokens || 256) * 4),
-      tokens: (options.maxTokens || 256),
+      tokens: options.maxTokens || 256,
       duration,
       method: 'cloud',
       fallback: true,
@@ -282,10 +279,7 @@ export function getUnifiedModelRunner(): UnifiedModelRunner {
 /**
  * Quick helper: summarize with automatic runtime selection
  */
-export async function summarizeWithLocalOrEdge(
-  text: string,
-  lang: string = 'en'
-): Promise<string> {
+export async function summarizeWithLocalOrEdge(text: string, lang: string = 'en'): Promise<string> {
   const runner = getUnifiedModelRunner();
   await runner.initialize();
 
@@ -298,6 +292,3 @@ export async function summarizeWithLocalOrEdge(
 
   return result.text;
 }
-
-
-

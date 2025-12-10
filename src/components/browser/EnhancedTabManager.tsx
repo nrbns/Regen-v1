@@ -94,7 +94,7 @@ export function EnhancedTabManager({
     if (!tab?.url) return;
     setError(null);
     setLoading(true);
-    
+
     try {
       if (onNavigate) {
         onNavigate(tab.url);
@@ -143,7 +143,7 @@ export function EnhancedTabManager({
     <div className={`relative h-full w-full ${className || ''}`}>
       {/* Navigation Controls */}
       {tab && (
-        <div className="absolute top-2 left-2 z-20">
+        <div className="absolute left-2 top-2 z-20">
           <NavigationControls
             tab={tab}
             canGoBack={tab ? canGoBack(tab.id) : false}
@@ -158,14 +158,10 @@ export function EnhancedTabManager({
       )}
 
       {/* Error Page */}
-      {error && (
-        <ErrorPage error={error} onRetry={handleRetry} onGoHome={handleGoHome} />
-      )}
+      {error && <ErrorPage error={error} onRetry={handleRetry} onGoHome={handleGoHome} />}
 
       {/* Loading Indicator */}
-      {loading && !error && (
-        <LoadingIndicator progress={loadProgress} message="Loading page..." />
-      )}
+      {loading && !error && <LoadingIndicator progress={loadProgress} message="Loading page..." />}
 
       {/* Tab Content */}
       {!error && <div className="h-full w-full">{children}</div>}
@@ -191,5 +187,3 @@ export function EnhancedTabManager({
     </div>
   );
 }
-
-

@@ -177,10 +177,3 @@ test.describe('Research Streaming', () => {
     expect(response.body).toHaveProperty('error');
   });
 });
-
-
-
-
-
-
-

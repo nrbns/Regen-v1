@@ -4,7 +4,12 @@
  */
 
 import { useState, useCallback } from 'react';
-import { executeResearchAgent, planResearchTask, type ResearchAgentResult, type ResearchAgentOptions } from '../services/researchAgent';
+import {
+  executeResearchAgent,
+  planResearchTask,
+  type ResearchAgentResult,
+  type ResearchAgentOptions,
+} from '../services/researchAgent';
 import { toast } from '../utils/toast';
 
 export interface UseResearchAgentReturn {
@@ -70,6 +75,3 @@ export function useResearchAgent(): UseResearchAgentReturn {
     lastResult,
   };
 }
-
-
-

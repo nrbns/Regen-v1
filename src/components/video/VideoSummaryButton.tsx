@@ -74,11 +74,7 @@ export function VideoSummaryButton({ text, voiceId }: VideoSummaryButtonProps) {
         )}
       </button>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-2 text-sm text-red-700">
-          Error: {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 p-2 text-sm text-red-700">Error: {error}</div>}
 
       {videoUrl && (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -86,12 +82,7 @@ export function VideoSummaryButton({ text, voiceId }: VideoSummaryButtonProps) {
             <Play size={16} />
             Video Ready
           </div>
-          <video
-            src={videoUrl}
-            controls
-            className="w-full rounded"
-            style={{ maxHeight: '400px' }}
-          >
+          <video src={videoUrl} controls className="w-full rounded" style={{ maxHeight: '400px' }}>
             Your browser does not support the video tag.
           </video>
           <a
@@ -107,11 +98,3 @@ export function VideoSummaryButton({ text, voiceId }: VideoSummaryButtonProps) {
     </div>
   );
 }
-
-
-
-
-
-
-
-

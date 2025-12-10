@@ -26,6 +26,7 @@ import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
+import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
 import {
   ResearchResult,
   ResearchSource,
@@ -292,11 +293,26 @@ export default function ResearchPanel() {
       }
     };
 
+    // v0.4: Browser search integration - listen for omnibox searches
+    const handleBrowserSearch = (event: CustomEvent) => {
+      const { query: browserQuery } = event.detail;
+      if (browserQuery) {
+        // Always handle browser search in research mode (we're already in research panel)
+        setQuery(browserQuery);
+        setTimeout(() => {
+          handleSearch(browserQuery);
+        }, 200);
+        toast.info(`Researching from browser: ${browserQuery}`);
+      }
+    };
+
     window.addEventListener('handoff:research', handleHandoff as EventListener);
+    window.addEventListener('browser:search', handleBrowserSearch as EventListener);
     return () => {
       window.removeEventListener('handoff:research', handleHandoff as EventListener);
+      window.removeEventListener('browser:search', handleBrowserSearch as EventListener);
     };
-  }, []);
+  }, [handleSearch]);
 
   useEffect(() => {
     setCompareSelection(prev => prev.filter(id => compareEntries.some(entry => entry.id === id)));
@@ -338,32 +354,50 @@ export default function ResearchPanel() {
         let streamedText = '';
         let streamedResult: AITaskResult | null = null;
 
-        const aiResult = await aiEngine.runTask(
-          {
-            kind: 'search',
-            prompt: searchQuery,
-            context,
-            mode: 'research',
-            metadata: {
-              includeCounterpoints,
-              region: region !== 'global' ? region : undefined,
-              recencyWeight,
-              authorityWeight,
-              language: language !== 'auto' ? language : undefined,
+        // v0.4: Parallel AI execution (reason + summarize) for faster responses
+        // Also scrape active tab in parallel if available
+        const [aiResult, liveScrapeResult] = await Promise.all([
+          aiEngine.runTask(
+            {
+              kind: 'search',
+              prompt: searchQuery,
+              context,
+              mode: 'research',
+              metadata: {
+                includeCounterpoints,
+                region: region !== 'global' ? region : undefined,
+                recencyWeight,
+                authorityWeight,
+                language: language !== 'auto' ? language : undefined,
+              },
+              llm: {
+                temperature: 0.2,
+                maxTokens: 1000,
+              },
             },
-            llm: {
-              temperature: 0.2,
-              maxTokens: 1000,
-            },
-          },
-          event => {
-            if (event.type === 'token' && typeof event.data === 'string') {
-              streamedText += event.data;
-            } else if (event.type === 'done' && typeof event.data !== 'string') {
-              streamedResult = event.data as AITaskResult;
+            event => {
+              if (event.type === 'token' && typeof event.data === 'string') {
+                streamedText += event.data;
+              } else if (event.type === 'done' && typeof event.data !== 'string') {
+                streamedResult = event.data as AITaskResult;
+              }
             }
-          }
-        );
+          ),
+          // v0.4: Live scrape active tab in parallel
+          (async () => {
+            try {
+              const { scrapeActiveTab } = await import('../../services/liveTabScraper');
+              const result = await scrapeActiveTab();
+              if (result?.success) {
+                console.debug('[Research] Live scraped active tab:', result.url);
+              }
+              return result;
+            } catch (error) {
+              console.warn('[Research] Live scraping failed:', error);
+              return null;
+            }
+          })(),
+        ]);
 
         const finalResult = streamedResult ?? aiResult;
         aiMetaRef.current = {
@@ -371,6 +405,63 @@ export default function ResearchPanel() {
           model: finalResult?.model,
         };
         let finalAnswer = streamedText || finalResult?.text || '';
+
+        // v0.4: Parse and execute agentic actions from AI response
+        if (finalAnswer) {
+          const { parseAgenticActions, executeAgenticAction } =
+            await import('../../services/agenticActionParser');
+          const actions = parseAgenticActions(finalAnswer);
+
+          if (actions.length > 0) {
+            // Execute actions in parallel
+            const actionResults = await Promise.all(
+              actions.map(action =>
+                executeAgenticAction(action, {
+                  activeTabUrl: tabs.find(t => t.id === activeId)?.url,
+                  query: searchQuery,
+                })
+              )
+            );
+
+            // Update answer with action results
+            for (let i = 0; i < actions.length; i++) {
+              const action = actions[i];
+              const result = actionResults[i];
+
+              if (result.success && result.result) {
+                // Replace action marker with result
+                const resultText =
+                  typeof result.result === 'string'
+                    ? result.result
+                    : JSON.stringify(result.result, null, 2);
+                finalAnswer = finalAnswer.replace(
+                  action.raw,
+                  `\n\n[Executed ${action.type}]: ${resultText.substring(0, 500)}\n\n`
+                );
+              }
+            }
+          }
+        }
+
+        // v0.4: Add live scraped content to sources if available
+        if (liveScrapeResult?.success && liveScrapeResult.text) {
+          aggregatedSources.unshift({
+            id: `live-scrape-${Date.now()}`,
+            title: liveScrapeResult.title || 'Current Page',
+            url: liveScrapeResult.url,
+            domain: new URL(liveScrapeResult.url).hostname,
+            snippet: liveScrapeResult.text.substring(0, 300),
+            text: liveScrapeResult.text,
+            type: 'web' as ResearchSourceType,
+            sourceType: 'web' as ResearchSourceType,
+            relevanceScore: 100,
+            timestamp: liveScrapeResult.timestamp,
+            metadata: {
+              provider: 'live-scrape',
+              scraped: true,
+            },
+          });
+        }
 
         // If offline and no answer, try offline mBART summarization
         if (!finalAnswer && typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -517,6 +608,27 @@ export default function ResearchPanel() {
           })) || [];
 
         const dedupedSources = dedupeResearchSources(sources);
+
+        // v0.4: Subscribe to realtime source updates
+        (async () => {
+          try {
+            const { subscribeToSourceUpdates, updateSource } =
+              await import('../../services/realtimeSourceUpdater');
+            const unsubscribe = subscribeToSourceUpdates(dedupedSources, update => {
+              setResult(prev => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  sources: updateSource(prev.sources, update),
+                };
+              });
+            });
+            // Cleanup after 5 minutes
+            setTimeout(() => unsubscribe(), 5 * 60 * 1000);
+          } catch (error) {
+            console.warn('[Research] Realtime updates not available:', error);
+          }
+        })();
 
         setResult({
           query: searchQuery,
@@ -1040,17 +1152,27 @@ export default function ResearchPanel() {
               authorityWeight,
               language: language !== 'auto' ? language : undefined,
             });
-            console.log('[Research] Backend API returned result:', backendResult ? 'success' : 'empty');
+            console.log(
+              '[Research] Backend API returned result:',
+              backendResult ? 'success' : 'empty'
+            );
           } catch (apiError) {
             // Log the error for debugging
             const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
             console.warn('[Research] Backend API call failed (will use fallback):', errorMsg);
-            
+
             // Show user-friendly message if backend is clearly offline
-            if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('ECONNREFUSED') || errorMsg.includes('Failed to fetch')) {
-              toast.info('Backend server is offline. Using fallback search engines...', { duration: 3000 });
+            if (
+              errorMsg.includes('fetch') ||
+              errorMsg.includes('network') ||
+              errorMsg.includes('ECONNREFUSED') ||
+              errorMsg.includes('Failed to fetch')
+            ) {
+              toast.info('Backend server is offline. Using fallback search engines...', {
+                duration: 3000,
+              });
             }
-            
+
             // Continue with fallback - backend is optional
             backendResult = null;
           }
@@ -1100,14 +1222,14 @@ export default function ResearchPanel() {
           try {
             console.log('[Research] Using fallback search (optimizedSearch)...');
             setLoadingMessage('Searching with fallback engines...');
-            
+
             // OPTIMIZED SEARCH: Use optimized search service for better reliability
             const optimizedResults = await optimizedSearch(searchQuery, {
               count: 20,
               language,
               timeout: 10000,
             });
-            
+
             console.log('[Research] Fallback search returned', optimizedResults.length, 'results');
 
             // Convert optimized results to multi-source format
@@ -1163,7 +1285,9 @@ export default function ResearchPanel() {
             console.warn('[Research] Multi-source search failed:', multiSourceError);
             // Don't give up - try next fallback
             if (aggregatedSources.length === 0) {
-              toast.info('Primary search failed, trying alternative engines...', { duration: 2000 });
+              toast.info('Primary search failed, trying alternative engines...', {
+                duration: 2000,
+              });
             }
           }
         }
@@ -1383,17 +1507,23 @@ export default function ResearchPanel() {
         let researchPrompt = searchQuery;
         if (aggregatedSources.length > 0) {
           // Include top sources in the prompt for better context
-          const topSources = aggregatedSources.slice(0, 8).map((source, idx) => {
-            return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
-          }).join('\n\n');
-          
+          const topSources = aggregatedSources
+            .slice(0, 8)
+            .map((source, idx) => {
+              return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
+            })
+            .join('\n\n');
+
           researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following sources, provide a comprehensive answer:\n\n${topSources}\n\nAnswer:`;
         } else if (scrapedSnapshots.length > 0) {
           // Use scraped content if available
-          const scrapedContent = scrapedSnapshots.slice(0, 3).map((snapshot, idx) => {
-            return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
-          }).join('\n\n');
-          
+          const scrapedContent = scrapedSnapshots
+            .slice(0, 3)
+            .map((snapshot, idx) => {
+              return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
+            })
+            .join('\n\n');
+
           researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
         }
 
@@ -1422,7 +1552,8 @@ export default function ResearchPanel() {
             llm: {
               temperature: 0.2,
               maxTokens: 1500, // Increased for better answers
-              systemPrompt: 'You are ReGen\'s research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.',
+              systemPrompt:
+                "You are ReGen's research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.",
             },
           },
           event => {
@@ -1612,8 +1743,12 @@ export default function ResearchPanel() {
         if (!finalSummary || finalSummary === 'No answer generated') {
           // If no answer was generated, create one from sources
           if (dedupedSources.length > 0) {
-            const sourceSummary = dedupedSources.slice(0, 3)
-              .map((s, idx) => `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`)
+            const sourceSummary = dedupedSources
+              .slice(0, 3)
+              .map(
+                (s, idx) =>
+                  `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`
+              )
               .join('\n\n');
             setResult({
               query: searchQuery,
@@ -1630,7 +1765,9 @@ export default function ResearchPanel() {
               confidence: 0.65,
             });
           } else {
-            setError('Unable to generate answer. Please try a different query or check your connection.');
+            setError(
+              'Unable to generate answer. Please try a different query or check your connection.'
+            );
             setLoading(false);
             setLoadingMessage(null);
             toast.dismiss();
@@ -1922,7 +2059,8 @@ export default function ResearchPanel() {
           }
         } catch (fallbackError) {
           console.warn('[Research] Offline fallback also failed:', fallbackError);
-          const fallbackErrorMsg = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          const fallbackErrorMsg =
+            fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
           setError(
             `All search methods failed. ${fallbackErrorMsg}. ${searchHealth?.error ? `(${searchHealth.error})` : 'Backend is offline and fallback engines are not responding. Please check your internet connection or start the backend server with: npm run dev:server'}`
           );
@@ -2241,363 +2379,411 @@ export default function ResearchPanel() {
         navHeight={0}
         className="mode-theme mode-theme--research bg-[#0f111a] text-gray-100"
       >
-      <LayoutHeader sticky={false} className="border-b border-white/5 bg-black/20 backdrop-blur">
-        <div className="flex items-center justify-between px-6 pb-3 pt-6">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold text-white">Research Mode</h1>
-            <p className="text-sm text-gray-400">
-              Aggregate evidence, generate traceable answers, and surface counterpoints without
-              leaving the browser.
-            </p>
+        <LayoutHeader sticky={false} className="border-b border-white/5 bg-black/20 backdrop-blur">
+          <div className="flex items-center justify-between px-6 pb-3 pt-6">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-semibold text-white">Research Mode</h1>
+              <p className="text-sm text-gray-400">
+                Aggregate evidence, generate traceable answers, and surface counterpoints without
+                leaving the browser.
+              </p>
+            </div>
+            <div className="ml-4 flex flex-shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setUseEnhancedView(prev => !prev)}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                  useEnhancedView
+                    ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
+                    : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
+                }`}
+                title={
+                  useEnhancedView
+                    ? 'Switch to Standard View'
+                    : 'Switch to Enhanced Multilingual View'
+                }
+              >
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={14} />
+                  {useEnhancedView ? 'Enhanced' : 'Standard'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCursorPanelOpen(prev => !prev)}
+                className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+                  cursorPanelOpen
+                    ? 'border-blue-500/60 bg-blue-500/10 text-blue-200'
+                    : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
+                }`}
+                title="Toggle Cursor AI Assistant"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Sparkles size={14} />
+                  Cursor AI
+                </span>
+              </button>
+              <ActiveContainerBadge containers={containers} activeContainerId={activeContainerId} />
+            </div>
           </div>
-          <div className="ml-4 flex flex-shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setUseEnhancedView(prev => !prev)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                useEnhancedView
-                  ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-200'
-                  : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
-              }`}
-              title={
-                useEnhancedView ? 'Switch to Standard View' : 'Switch to Enhanced Multilingual View'
-              }
-            >
-              <span className="flex items-center gap-1.5">
-                <Sparkles size={14} />
-                {useEnhancedView ? 'Enhanced' : 'Standard'}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCursorPanelOpen(prev => !prev)}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition ${
-                cursorPanelOpen
-                  ? 'border-blue-500/60 bg-blue-500/10 text-blue-200'
-                  : 'border-white/20 bg-white/10 text-gray-300 hover:bg-white/20'
-              }`}
-              title="Toggle Cursor AI Assistant"
-            >
-              <span className="flex items-center gap-1.5">
-                <Sparkles size={14} />
-                Cursor AI
-              </span>
-            </button>
-            <ActiveContainerBadge containers={containers} activeContainerId={activeContainerId} />
-          </div>
-        </div>
 
-        <div className="flex-shrink-0 px-6 pb-5">
-          <div className="relative max-w-4xl" ref={autocompleteRef}>
-            <form
-              onSubmit={async e => {
-                e.preventDefault();
-                setShowAutocomplete(false);
-                await handleSearch();
-              }}
-              className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20"
-            >
-              <Search size={18} className="flex-shrink-0 text-gray-500" />
-              <input
-                id="research-query-input"
-                name="research-query"
-                className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
-                value={query}
-                onChange={e => {
-                  setQuery(e.target.value);
-                  setShowAutocomplete(true);
-                  // Auto-detect language as user types
-                  if (e.target.value.length > 3) {
-                    detectLanguage(e.target.value)
-                      .then(result => {
-                        setDetectedLang(result.language);
-                      })
-                      .catch(() => {});
-                  }
+          {/* v0.4: Zero-prompt suggestions */}
+          <div className="flex-shrink-0 px-6 pt-4">
+            <ZeroPromptSuggestions maxSuggestions={3} autoRefresh={true} />
+          </div>
+
+          <div className="flex-shrink-0 px-6 pb-5">
+            <div className="relative max-w-4xl" ref={autocompleteRef}>
+              <form
+                onSubmit={async e => {
+                  e.preventDefault();
+                  setShowAutocomplete(false);
+                  await handleSearch();
                 }}
-                onFocus={() => {
-                  if (autocompleteSuggestions.length > 0) {
-                    setShowAutocomplete(true);
-                  }
-                }}
-                placeholder={(() => {
-                  const effectiveLang = language === 'auto' ? detectedLang : language;
-                  if (effectiveLang === 'hi')
-                    return 'हिंदी में पूछें: iPhone vs Samsung की तुलना करें';
-                  if (effectiveLang === 'ta')
-                    return 'தமிழில் கேளுங்கள்: iPhone vs Samsung ஒப்பிடுக';
-                  return 'Ask in Hindi: Compare iPhone vs Samsung';
-                })()}
-                disabled={loading}
-              />
-              <div className="flex items-center gap-2">
-                {autocompleteLoading && (
-                  <Skeleton variant="text" width={80} height={16} className="text-xs" />
-                )}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-inner shadow-black/40 transition-all focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20"
+              >
+                <Search size={18} className="flex-shrink-0 text-gray-500" />
                 <input
-                  id="research-file-input"
-                  name="research-file"
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.txt,.md"
-                  onChange={e => handleFileUpload(e.target.files)}
-                  className="hidden"
+                  id="research-query-input"
+                  name="research-query"
+                  className="flex-1 bg-transparent text-base text-white placeholder:text-gray-500 focus:outline-none"
+                  value={query}
+                  onChange={e => {
+                    setQuery(e.target.value);
+                    setShowAutocomplete(true);
+                    // Auto-detect language as user types
+                    if (e.target.value.length > 3) {
+                      detectLanguage(e.target.value)
+                        .then(result => {
+                          setDetectedLang(result.language);
+                        })
+                        .catch(() => {});
+                    }
+                  }}
+                  onFocus={() => {
+                    if (autocompleteSuggestions.length > 0) {
+                      setShowAutocomplete(true);
+                    }
+                  }}
+                  placeholder={(() => {
+                    const effectiveLang = language === 'auto' ? detectedLang : language;
+                    if (effectiveLang === 'hi')
+                      return 'हिंदी में पूछें: iPhone vs Samsung की तुलना करें';
+                    if (effectiveLang === 'ta')
+                      return 'தமிழில் கேளுங்கள்: iPhone vs Samsung ஒப்பிடுக';
+                    return 'Ask in Hindi: Compare iPhone vs Samsung';
+                  })()}
+                  disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-                  title="Upload documents (PDF, DOCX, TXT, MD)"
-                >
-                  <Upload size={14} />
-                  {uploading ? 'Processing…' : 'Upload'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading || !query.trim()}
-                  className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {loading ? 'Researching…' : 'Run research'}
-                </button>
-                <VoiceButton
-                  editBeforeExecute={useSettingsStore(state => state.general.voiceEditBeforeExecute ?? true)}
-                  onResult={text => {
-                    // Parse voice command for research triggers and language
-                    const parsed = parseResearchVoiceCommand(text);
+                <div className="flex items-center gap-2">
+                  {autocompleteLoading && (
+                    <Skeleton variant="text" width={80} height={16} className="text-xs" />
+                  )}
+                  <input
+                    id="research-file-input"
+                    name="research-file"
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,.md"
+                    onChange={e => handleFileUpload(e.target.files)}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    title="Upload documents (PDF, DOCX, TXT, MD)"
+                  >
+                    <Upload size={14} />
+                    {uploading ? 'Processing…' : 'Upload'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || !query.trim()}
+                    className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {loading ? 'Researching…' : 'Run research'}
+                  </button>
+                  <VoiceButton
+                    editBeforeExecute={useSettingsStore(
+                      state => state.general.voiceEditBeforeExecute ?? true
+                    )}
+                    onResult={async text => {
+                      // v0.4: Agentic action executor - chains voice → scrape/trade/research
+                      const { executeAgenticAction } =
+                        await import('../../services/agenticActionExecutor');
+                      const { trackUserAction } =
+                        await import('../../services/zeroPromptPrediction');
 
-                    if (parsed.isResearchCommand) {
-                      // Update language if detected in voice command
-                      if (parsed.language) {
-                        const settingsStore = useSettingsStore.getState();
-                        if (settingsStore.language !== parsed.language) {
-                          settingsStore.setLanguage(parsed.language);
-                          toast.success(`Language set to ${parsed.language.toUpperCase()}`);
+                      const parsed = parseResearchVoiceCommand(text);
+
+                      // If actionable intent detected, execute agentic chain
+                      if (parsed.action) {
+                        trackUserAction(text);
+                        const result = await executeAgenticAction(text, {
+                          mode: 'research',
+                          activeTabUrl: tabs.find(t => t.id === activeId)?.url,
+                        });
+
+                        if (result.success && result.results) {
+                          // Handle research results
+                          if (parsed.action.type === 'research' && result.results.aiSummary) {
+                            setResult({
+                              query: parsed.query,
+                              answer: result.results.aiSummary,
+                              sources:
+                                result.results.scraped?.map((s, i) => ({
+                                  id: `agentic-${i}`,
+                                  url: s.url,
+                                  title: s.title || s.url,
+                                  snippet: s.excerpt || s.content?.substring(0, 200) || '',
+                                  type: 'web' as ResearchSourceType,
+                                  credibility: 'high',
+                                  timestamp: Date.now(),
+                                })) || [],
+                              confidence: 0.9,
+                              timestamp: Date.now(),
+                            });
+                            toast.success('Agentic research complete');
+                            return;
+                          }
                         }
                       }
 
-                      // Set query and trigger search
-                      setQuery(parsed.query);
-                      setTimeout(() => handleSearch(parsed.query), 120);
-                    } else {
-                      // Regular voice input - just set query and search
-                      setQuery(text);
-                      setTimeout(() => handleSearch(text), 120);
-                    }
-                  }}
-                  small
-                />
-              </div>
-            </form>
-            {showAutocomplete && autocompleteSuggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-[100] mt-2 max-h-[400px] min-h-[120px] overflow-y-auto rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50">
-                <div className="space-y-1 p-2">
-                  {autocompleteSuggestions.map((suggestion, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        suggestion.action?.();
-                      }}
-                      className="w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                    >
-                      <div className="line-clamp-1 text-sm font-medium text-white">
-                        {suggestion.title}
-                      </div>
-                      {suggestion.subtitle && (
-                        <div className="mt-0.5 line-clamp-1 text-xs text-gray-400">
-                          {suggestion.subtitle}
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                      // Fallback to original behavior for non-actionable or failed actions
+                      if (parsed.isResearchCommand) {
+                        // Update language if detected in voice command
+                        if (parsed.language) {
+                          const settingsStore = useSettingsStore.getState();
+                          if (settingsStore.language !== parsed.language) {
+                            settingsStore.setLanguage(parsed.language);
+                            toast.success(`Language set to ${parsed.language.toUpperCase()}`);
+                          }
+                        }
 
-        {/* Uploaded documents display */}
-        {uploadedDocuments.length > 0 && (
-          <div className="flex-shrink-0 px-6 pb-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-gray-400">Uploaded documents:</span>
-              {uploadedDocuments.map(doc => (
-                <div
-                  key={doc.id}
-                  className="group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300"
-                >
-                  <FileText size={12} className="text-gray-400" />
-                  <span className="max-w-[200px] truncate">{doc.name}</span>
-                  <span className="text-gray-500">({(doc.size / 1024).toFixed(1)} KB)</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveDocument(doc.id)}
-                    className="ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
-                    title="Remove document"
-                  >
-                    <X size={12} className="text-gray-400 hover:text-gray-200" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </LayoutHeader>
-
-      <LayoutBody className="flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pb-6">
-        {useEnhancedView ? (
-          <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-            {/* Use new streaming Perplexity-style UI */}
-            <RegenResearchPanel />
-          </div>
-        ) : viewingSourceUrl ? (
-          // Split view: Real web page + AI panel
-          <>
-            <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-              <div className="flex h-full flex-col">
-                <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setViewingSourceUrl(null)}
-                      className="rounded-lg px-3 py-1 text-sm text-gray-300 hover:bg-white/10"
-                    >
-                      ← Back to Results
-                    </button>
-                    <span className="text-xs text-gray-500">|</span>
-                    <span className="truncate text-sm text-gray-300">{viewingSourceUrl}</span>
-                  </div>
-                </div>
-                <BrowserView url={viewingSourceUrl} mode="research" className="flex-1" />
-              </div>
-            </div>
-            <InsightsSidebar
-              result={result}
-              loading={loading}
-              onOpenSource={handleOpenUrl}
-              activeSourceId={activeSourceId}
-              onSelectSource={setActiveSourceId}
-            />
-          </>
-        ) : (
-          <>
-            <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
-              <div className="flex h-full flex-col space-y-4 p-5">
-                <ResearchControls
-                  authorityBias={authorityBias}
-                  includeCounterpoints={includeCounterpoints}
-                  region={region}
-                  loading={loading}
-                  onAuthorityBiasChange={setAuthorityBias}
-                  onIncludeCounterpointsChange={setIncludeCounterpoints}
-                  onRegionChange={value => setRegion(value)}
-                  deepScanEnabled={deepScanEnabled}
-                  onDeepScanToggle={value => setDeepScanEnabled(value)}
-                />
-
-                {deepScanEnabled && (
-                  <DeepScanStatus
-                    loading={deepScanLoading}
-                    steps={deepScanSteps}
-                    error={deepScanError}
+                        // Set query and trigger search
+                        setQuery(parsed.query);
+                        setTimeout(() => handleSearch(parsed.query), 120);
+                      } else {
+                        // Regular voice input - just set query and search
+                        setQuery(text);
+                        setTimeout(() => handleSearch(text), 120);
+                      }
+                    }}
+                    small
                   />
-                )}
-
-                {error && (
-                  <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur">
-                    {error}
+                </div>
+              </form>
+              {showAutocomplete && autocompleteSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-[100] mt-2 max-h-[400px] min-h-[120px] overflow-y-auto rounded-xl border border-white/10 bg-[#111422] shadow-xl shadow-black/50">
+                  <div className="space-y-1 p-2">
+                    {autocompleteSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          suggestion.action?.();
+                        }}
+                        className="w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      >
+                        <div className="line-clamp-1 text-sm font-medium text-white">
+                          {suggestion.title}
+                        </div>
+                        {suggestion.subtitle && (
+                          <div className="mt-0.5 line-clamp-1 text-xs text-gray-400">
+                            {suggestion.subtitle}
+                          </div>
+                        )}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+          </div>
 
-                {loading && (
-                  <div className="flex flex-1 flex-col items-center justify-center gap-4">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200">
-                      <Sparkles size={14} className="animate-pulse" />
-                      Gathering sources and evaluating evidence…
-                    </div>
-                    <div className="w-full max-w-2xl space-y-4">
-                      <LoadingSkeleton variant="card" />
-                      <LoadingSkeleton variant="list" lines={3} />
-                      <LoadingSkeleton variant="text" lines={4} />
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Cross-checking accuracy, bias, and contradictions before presenting the
-                      answer.
-                    </p>
+          {/* Uploaded documents display */}
+          {uploadedDocuments.length > 0 && (
+            <div className="flex-shrink-0 px-6 pb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-400">Uploaded documents:</span>
+                {uploadedDocuments.map(doc => (
+                  <div
+                    key={doc.id}
+                    className="group flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300"
+                  >
+                    <FileText size={12} className="text-gray-400" />
+                    <span className="max-w-[200px] truncate">{doc.name}</span>
+                    <span className="text-gray-500">({(doc.size / 1024).toFixed(1)} KB)</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDocument(doc.id)}
+                      className="ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
+                      title="Remove document"
+                    >
+                      <X size={12} className="text-gray-400 hover:text-gray-200" />
+                    </button>
                   </div>
-                )}
-
-                {!loading && result && (
-                  <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-                    <EvidenceOverlay
-                      evidence={result.evidence || []}
-                      sources={result.sources}
-                      activeEvidenceId={activeEvidenceId}
-                      onEvidenceClick={setActiveEvidenceId}
-                    />
-                    <ResearchResultView
-                      result={result}
-                      onOpenSource={handleOpenUrl}
-                      activeSourceId={activeSourceId}
-                      onActiveSourceChange={setActiveSourceId}
-                      onSaveForCompare={handleSaveForCompare}
-                      onShowCompare={() => setComparePanelOpen(true)}
-                      compareCount={compareEntries.length}
-                    />
-                    <ResearchGraphSection
-                      showGraph={showGraph}
-                      onToggleGraph={() => setShowGraph(prev => !prev)}
-                      query={result.query}
-                      queryKey={queryKey}
-                      graphData={graphData}
-                      activeSourceId={activeSourceId}
-                      onSelectSource={setActiveSourceId}
-                      onOpenSource={handleOpenUrl}
-                    />
-                  </div>
-                )}
-
-                {!loading && !result && !error && <EmptyState onRunExample={handleRunExample} />}
+                ))}
               </div>
-            </section>
+            </div>
+          )}
+        </LayoutHeader>
 
-            <InsightsSidebar
-              result={result}
-              loading={loading}
-              onOpenSource={handleOpenUrl}
-              activeSourceId={activeSourceId}
-              onSelectSource={setActiveSourceId}
+        <LayoutBody className="flex min-h-0 flex-1 gap-6 overflow-hidden px-6 pb-6">
+          {useEnhancedView ? (
+            <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+              {/* Use new streaming Perplexity-style UI */}
+              <RegenResearchPanel />
+            </div>
+          ) : viewingSourceUrl ? (
+            // Split view: Real web page + AI panel
+            <>
+              <div className="flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+                <div className="flex h-full flex-col">
+                  <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setViewingSourceUrl(null)}
+                        className="rounded-lg px-3 py-1 text-sm text-gray-300 hover:bg-white/10"
+                      >
+                        ← Back to Results
+                      </button>
+                      <span className="text-xs text-gray-500">|</span>
+                      <span className="truncate text-sm text-gray-300">{viewingSourceUrl}</span>
+                    </div>
+                  </div>
+                  <BrowserView url={viewingSourceUrl} mode="research" className="flex-1" />
+                </div>
+              </div>
+              <InsightsSidebar
+                result={result}
+                loading={loading}
+                onOpenSource={handleOpenUrl}
+                activeSourceId={activeSourceId}
+                onSelectSource={setActiveSourceId}
+              />
+            </>
+          ) : (
+            <>
+              <section className="relative flex-1 overflow-hidden rounded-2xl border border-white/5 bg-[#111422] shadow-xl shadow-black/30">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+                <div className="flex h-full flex-col space-y-4 p-5">
+                  <ResearchControls
+                    authorityBias={authorityBias}
+                    includeCounterpoints={includeCounterpoints}
+                    region={region}
+                    loading={loading}
+                    onAuthorityBiasChange={setAuthorityBias}
+                    onIncludeCounterpointsChange={setIncludeCounterpoints}
+                    onRegionChange={value => setRegion(value)}
+                    deepScanEnabled={deepScanEnabled}
+                    onDeepScanToggle={value => setDeepScanEnabled(value)}
+                  />
+
+                  {deepScanEnabled && (
+                    <DeepScanStatus
+                      loading={deepScanLoading}
+                      steps={deepScanSteps}
+                      error={deepScanError}
+                    />
+                  )}
+
+                  {error && (
+                    <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 backdrop-blur">
+                      {error}
+                    </div>
+                  )}
+
+                  {loading && (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-4">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-400/10 px-4 py-2 text-blue-200">
+                        <Sparkles size={14} className="animate-pulse" />
+                        Gathering sources and evaluating evidence…
+                      </div>
+                      <div className="w-full max-w-2xl space-y-4">
+                        <LoadingSkeleton variant="card" />
+                        <LoadingSkeleton variant="list" lines={3} />
+                        <LoadingSkeleton variant="text" lines={4} />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Cross-checking accuracy, bias, and contradictions before presenting the
+                        answer.
+                      </p>
+                    </div>
+                  )}
+
+                  {!loading && result && (
+                    <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                      <EvidenceOverlay
+                        evidence={result.evidence || []}
+                        sources={result.sources}
+                        activeEvidenceId={activeEvidenceId}
+                        onEvidenceClick={setActiveEvidenceId}
+                      />
+                      <ResearchResultView
+                        result={result}
+                        onOpenSource={handleOpenUrl}
+                        activeSourceId={activeSourceId}
+                        onActiveSourceChange={setActiveSourceId}
+                        onSaveForCompare={handleSaveForCompare}
+                        onShowCompare={() => setComparePanelOpen(true)}
+                        compareCount={compareEntries.length}
+                      />
+                      <ResearchGraphSection
+                        showGraph={showGraph}
+                        onToggleGraph={() => setShowGraph(prev => !prev)}
+                        query={result.query}
+                        queryKey={queryKey}
+                        graphData={graphData}
+                        activeSourceId={activeSourceId}
+                        onSelectSource={setActiveSourceId}
+                        onOpenSource={handleOpenUrl}
+                      />
+                    </div>
+                  )}
+
+                  {!loading && !result && !error && <EmptyState onRunExample={handleRunExample} />}
+                </div>
+              </section>
+
+              <InsightsSidebar
+                result={result}
+                loading={loading}
+                onOpenSource={handleOpenUrl}
+                activeSourceId={activeSourceId}
+                onSelectSource={setActiveSourceId}
+              />
+            </>
+          )}
+        </LayoutBody>
+        <CompareAnswersPanel
+          open={comparePanelOpen}
+          answers={compareEntries}
+          selectedIds={compareSelection}
+          onToggleSelect={handleToggleCompareSelection}
+          onClose={() => setComparePanelOpen(false)}
+          onRemove={handleRemoveCompare}
+        />
+        {cursorPanelOpen && (
+          <div className="fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-slate-700/70 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
+            <CursorChat
+              pageSnapshot={
+                activeId && tabs.find(t => t.id === activeId)
+                  ? {
+                      url: tabs.find(t => t.id === activeId)?.url || '',
+                      title: tabs.find(t => t.id === activeId)?.title || '',
+                      html: undefined, // Could be enhanced to capture page HTML
+                    }
+                  : undefined
+              }
+              onClose={() => setCursorPanelOpen(false)}
             />
-          </>
+          </div>
         )}
-      </LayoutBody>
-      <CompareAnswersPanel
-        open={comparePanelOpen}
-        answers={compareEntries}
-        selectedIds={compareSelection}
-        onToggleSelect={handleToggleCompareSelection}
-        onClose={() => setComparePanelOpen(false)}
-        onRemove={handleRemoveCompare}
-      />
-      {cursorPanelOpen && (
-        <div className="fixed inset-y-0 right-0 z-50 flex w-96 flex-col border-l border-slate-700/70 bg-slate-900/95 shadow-2xl backdrop-blur-xl">
-          <CursorChat
-            pageSnapshot={
-              activeId && tabs.find(t => t.id === activeId)
-                ? {
-                    url: tabs.find(t => t.id === activeId)?.url || '',
-                    title: tabs.find(t => t.id === activeId)?.title || '',
-                    html: undefined, // Could be enhanced to capture page HTML
-                  }
-                : undefined
-            }
-            onClose={() => setCursorPanelOpen(false)}
-          />
-        </div>
-      )}
-    </LayoutEngine>
+      </LayoutEngine>
     </>
   );
 }
@@ -2902,20 +3088,24 @@ function ResearchResultView({
               <div className="flex gap-1">
                 <button
                   onClick={() => {
-                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                    const {
+                      downloadResearchExport,
+                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'markdown');
                   }}
-                  className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
+                  className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
                   title="Export as Markdown"
                 >
                   MD
                 </button>
                 <button
                   onClick={() => {
-                    const { downloadResearchExport } = require('../../core/research/researchExport');
+                    const {
+                      downloadResearchExport,
+                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'json');
                   }}
-                  className="rounded px-2 py-1 text-[10px] text-gray-400 hover:bg-white/5 hover:text-gray-300 transition-colors"
+                  className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
                   title="Export as JSON"
                 >
                   JSON
@@ -2928,13 +3118,17 @@ function ResearchResultView({
                 const sourceKey = getSourceKey(citation.sourceIndex);
                 const isActive = activeSourceId === sourceKey;
                 if (!source) return null;
-                
+
                 // Phase 1, Day 6: Calculate credibility
-                const { calculateCredibility, getCredibilityColor, getCredibilityLabel } = require('../../core/research/sourceCredibility');
+                const {
+                  calculateCredibility,
+                  getCredibilityColor,
+                  getCredibilityLabel,
+                } = require('../../core/research/sourceCredibility');
                 const credibility = calculateCredibility(source);
                 const credibilityColor = getCredibilityColor(credibility.level);
                 const credibilityLabel = getCredibilityLabel(credibility.level);
-                
+
                 return (
                   <li
                     key={citation.index}
@@ -2947,7 +3141,7 @@ function ResearchResultView({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <button
-                          className="font-semibold text-indigo-300 hover:text-indigo-200 text-left"
+                          className="text-left font-semibold text-indigo-300 hover:text-indigo-200"
                           onClick={() => {
                             onActiveSourceChange(sourceKey);
                             onOpenSource(source.url);
@@ -2955,18 +3149,21 @@ function ResearchResultView({
                         >
                           [{citation.index}] {source.title}
                         </button>
-                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span className="text-[11px] text-gray-500">
                             Confidence {(citation.confidence * 100).toFixed(0)}% • {source.domain}
                           </span>
                           {/* Phase 1, Day 6: Credibility badge */}
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${credibilityColor}`}>
+                          <span
+                            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${credibilityColor}`}
+                          >
                             {credibilityLabel} ({credibility.score}/100)
                           </span>
                         </div>
                         {citation.quote && (
-                          <div className="mt-1 text-[11px] text-gray-400 italic">
-                            "{citation.quote.substring(0, 100)}{citation.quote.length > 100 ? '...' : ''}"
+                          <div className="mt-1 text-[11px] italic text-gray-400">
+                            "{citation.quote.substring(0, 100)}
+                            {citation.quote.length > 100 ? '...' : ''}"
                           </div>
                         )}
                       </div>
@@ -3411,7 +3608,11 @@ function SourcesList({
 
   // Phase 1, Day 6: Calculate credibility for all sources
   // Note: These are used in the SourceCard component (lines 2793-2795), not here
-  const { calculateCredibility: _calculateCredibility, getCredibilityColor: _getCredibilityColor, getCredibilityLabel: _getCredibilityLabel } = require('../../core/research/sourceCredibility');
+  const {
+    calculateCredibility: _calculateCredibility,
+    getCredibilityColor: _getCredibilityColor,
+    getCredibilityLabel: _getCredibilityLabel,
+  } = require('../../core/research/sourceCredibility');
 
   const providerCounts = sources.reduce<Record<string, number>>((acc, source) => {
     const provider =

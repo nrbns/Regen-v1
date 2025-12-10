@@ -46,11 +46,11 @@ export function useEnhancedRedix() {
     });
 
     // Set up callbacks
-    profiler.onWarning((snapshot) => {
+    profiler.onWarning(snapshot => {
       console.warn('[Redix] Memory warning:', snapshot.total / (1024 * 1024), 'MB');
     });
 
-    profiler.onCritical((snapshot) => {
+    profiler.onCritical(snapshot => {
       console.error('[Redix] Critical memory usage:', snapshot.total / (1024 * 1024), 'MB');
       optimizer.performAggressiveCleanup();
     });
@@ -94,6 +94,3 @@ export function useEnhancedRedix() {
     },
   };
 }
-
-
-

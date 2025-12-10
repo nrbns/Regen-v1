@@ -5,22 +5,30 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
-let preconnectPromise: Promise<boolean> | null = null;
-let isPreconnected = false;
+type OllamaStatus = {
+  available: boolean;
+  gpu?: {
+    detected: boolean;
+    name?: string;
+  };
+};
+
+let preconnectPromise: Promise<OllamaStatus> | null = null;
+let cachedStatus: OllamaStatus = { available: false };
 
 /**
  * Pre-connect to Ollama on app startup
  * This eliminates the first-request latency when embedding is needed
  */
-export async function preconnectOllama(): Promise<boolean> {
+export async function preconnectOllama(): Promise<OllamaStatus> {
   // Return cached promise if already connecting
   if (preconnectPromise) {
     return preconnectPromise;
   }
 
   // Return immediately if already connected
-  if (isPreconnected) {
-    return true;
+  if (cachedStatus.available) {
+    return cachedStatus;
   }
 
   preconnectPromise = (async () => {
@@ -28,11 +36,14 @@ export async function preconnectOllama(): Promise<boolean> {
       console.log('[OllamaPreconnect] Starting pre-connection...');
 
       // Check if Ollama is available
-      const isAvailable = await invoke<boolean>('check_ollama_status').catch(() => false);
+      const status = await invoke<OllamaStatus>('check_ollama_status').catch(() => ({
+        available: false,
+      }));
+      cachedStatus = status;
 
-      if (!isAvailable) {
+      if (!status.available) {
         console.warn('[OllamaPreconnect] Ollama not available, skipping pre-connect');
-        return false;
+        return status;
       }
 
       // Warm up connection by calling a lightweight endpoint
@@ -45,12 +56,11 @@ export async function preconnectOllama(): Promise<boolean> {
         // If model doesn't exist, that's okay
       });
 
-      isPreconnected = true;
       console.log('[OllamaPreconnect] Pre-connection complete');
-      return true;
+      return status;
     } catch (error) {
       console.warn('[OllamaPreconnect] Pre-connection failed (non-critical)', error);
-      return false;
+      return cachedStatus;
     } finally {
       preconnectPromise = null;
     }
@@ -63,5 +73,12 @@ export async function preconnectOllama(): Promise<boolean> {
  * Check if Ollama is pre-connected
  */
 export function isOllamaPreconnected(): boolean {
-  return isPreconnected;
+  return cachedStatus.available;
+}
+
+/**
+ * Get the latest Ollama status (includes GPU detection when available)
+ */
+export function getOllamaStatus(): OllamaStatus {
+  return cachedStatus;
 }

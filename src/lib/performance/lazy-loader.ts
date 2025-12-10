@@ -35,14 +35,11 @@ export function lazyWithRetry<T extends ComponentType<any>>(
         return module;
       } catch (error) {
         lastError = error as Error;
-        console.warn(
-          `[LazyLoader] Import attempt ${attempt + 1}/${retries + 1} failed:`,
-          error
-        );
+        console.warn(`[LazyLoader] Import attempt ${attempt + 1}/${retries + 1} failed:`, error);
 
         if (attempt < retries) {
           // Wait before retrying
-          await new Promise((resolve) => setTimeout(resolve, retryDelay * (attempt + 1)));
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (attempt + 1)));
         }
       }
     }
@@ -58,7 +55,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
  * Preload a lazy component before it's needed
  */
 export function preloadComponent(importFn: () => Promise<any>): void {
-  importFn().catch((error) => {
+  importFn().catch(error => {
     console.warn('[LazyLoader] Preload failed:', error);
   });
 }
@@ -68,13 +65,10 @@ export function preloadComponent(importFn: () => Promise<any>): void {
  */
 export function prefetchComponents(importFns: Array<() => Promise<any>>): Promise<void[]> {
   return Promise.all(
-    importFns.map((fn) =>
-      fn().catch((error) => {
+    importFns.map(fn =>
+      fn().catch(error => {
         console.warn('[LazyLoader] Prefetch failed:', error);
       })
     )
   );
 }
-
-
-

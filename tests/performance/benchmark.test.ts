@@ -30,7 +30,7 @@ describe('Performance Benchmarks', () => {
       const fullModeEstimate = 600; // MB
       const redixTarget = 250; // MB
       const reduction = ((fullModeEstimate - redixTarget) / fullModeEstimate) * 100;
-      
+
       expect(reduction).toBeGreaterThanOrEqual(50);
     });
   });
@@ -38,7 +38,7 @@ describe('Performance Benchmarks', () => {
   describe('On-Device AI Latency', () => {
     it('should target <1.5s for summarization', () => {
       const target = 1500; // ms
-      
+
       // Architecture supports this target
       // Actual measurement would require running inference
       expect(target).toBeGreaterThan(0);
@@ -46,10 +46,8 @@ describe('Performance Benchmarks', () => {
     });
 
     it('should have fallback chain implemented', async () => {
-      const { summarizeWithFallbacks } = await import(
-        '../../src/services/onDeviceAI/enhanced'
-      );
-      
+      const { summarizeWithFallbacks } = await import('../../src/services/onDeviceAI/enhanced');
+
       expect(typeof summarizeWithFallbacks).toBe('function');
     });
   });
@@ -57,7 +55,7 @@ describe('Performance Benchmarks', () => {
   describe('Offline RAG Search Latency', () => {
     it('should target <500ms for search', () => {
       const target = 500; // ms
-      
+
       // Architecture supports this target
       expect(target).toBeGreaterThan(0);
       expect(target).toBeLessThanOrEqual(500);
@@ -65,7 +63,7 @@ describe('Performance Benchmarks', () => {
 
     it('should have hybrid search implemented', async () => {
       const { hybridSearch } = await import('../../src/lib/offline-store/hybrid-search');
-      
+
       expect(typeof hybridSearch).toBe('function');
     });
   });
@@ -73,7 +71,7 @@ describe('Performance Benchmarks', () => {
   describe('Agent Execution Latency', () => {
     it('should target <10s for research pipeline', () => {
       const target = 10000; // ms
-      
+
       // Architecture supports this target with parallel execution
       expect(target).toBeGreaterThan(0);
       expect(target).toBeLessThanOrEqual(10000);
@@ -85,7 +83,7 @@ describe('Performance Benchmarks', () => {
       const fs = require('fs');
       const path = require('path');
       const filePath = path.join(process.cwd(), 'server/agents/execution-engine.ts');
-      
+
       expect(fs.existsSync(filePath)).toBe(true);
     });
   });
@@ -118,6 +116,3 @@ export function measureMemory(): number {
   }
   return 0;
 }
-
-
-

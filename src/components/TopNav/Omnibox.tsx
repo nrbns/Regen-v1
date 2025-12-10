@@ -1026,6 +1026,14 @@ export const Omnibox = forwardRef<
                 : action.engine === 'twitter'
                   ? 'Twitter/X'
                   : 'Google';
+
+        // v0.4: Dispatch browser:search event for Research mode integration
+        window.dispatchEvent(
+          new CustomEvent('browser:search', {
+            detail: { query, engine: action.engine },
+          })
+        );
+
         await navigateToUrl(
           buildSearchUrl(action.engine, query, language !== 'auto' ? language : undefined),
           {
@@ -1183,6 +1191,28 @@ export const Omnibox = forwardRef<
           }
         }
         const action = resolveQuickAction(url);
+
+        // v0.4: If it's a search query (not URL), dispatch browser:search event
+        const trimmedUrl = url.trim();
+        if (action?.type === 'search') {
+          window.dispatchEvent(
+            new CustomEvent('browser:search', {
+              detail: { query: action.query || trimmedUrl, engine: action.engine },
+            })
+          );
+        } else if (
+          !trimmedUrl.startsWith('http') &&
+          !trimmedUrl.includes('://') &&
+          trimmedUrl.length > 0
+        ) {
+          // Plain text search - dispatch event
+          window.dispatchEvent(
+            new CustomEvent('browser:search', {
+              detail: { query: trimmedUrl, engine: 'google' },
+            })
+          );
+        }
+
         await executeAction(action, url, { background, newWindow });
       }
     } else if (e.key === 'ArrowDown') {
@@ -1242,7 +1272,7 @@ export const Omnibox = forwardRef<
       >
         <div className="relative flex items-center gap-2">
           {/* Navigation Buttons */}
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex flex-shrink-0 items-center gap-1">
             <button
               type="button"
               onClick={async () => {
@@ -1254,10 +1284,10 @@ export const Omnibox = forwardRef<
                 }
               }}
               disabled={!canGoBack}
-              className={`p-2 rounded-lg transition-all ${
+              className={`rounded-lg p-2 transition-all ${
                 canGoBack
-                  ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
-                  : 'text-gray-600 cursor-not-allowed border border-transparent'
+                  ? 'border border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                  : 'cursor-not-allowed border border-transparent text-gray-600'
               }`}
               title="Go back (Alt+Left Arrow)"
               aria-label="Go back"
@@ -1275,10 +1305,10 @@ export const Omnibox = forwardRef<
                 }
               }}
               disabled={!canGoForward}
-              className={`p-2 rounded-lg transition-all ${
+              className={`rounded-lg p-2 transition-all ${
                 canGoForward
-                  ? 'text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20'
-                  : 'text-gray-600 cursor-not-allowed border border-transparent'
+                  ? 'border border-white/10 text-gray-300 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                  : 'cursor-not-allowed border border-transparent text-gray-600'
               }`}
               title="Go forward (Alt+Right Arrow)"
               aria-label="Go forward"
@@ -1295,7 +1325,7 @@ export const Omnibox = forwardRef<
                   console.error('[Omnibox] Failed to reload:', error);
                 }
               }}
-              className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all"
+              className="rounded-lg border border-white/10 p-2 text-gray-300 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white"
               title="Reload (Ctrl+R / ⌘R)"
               aria-label="Reload page"
             >

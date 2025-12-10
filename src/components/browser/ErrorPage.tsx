@@ -18,35 +18,35 @@ export interface ErrorPageProps {
 }
 
 const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
-  'ERR_INTERNET_DISCONNECTED': {
+  ERR_INTERNET_DISCONNECTED: {
     title: 'No Internet Connection',
     description: 'Check your internet connection and try again.',
   },
-  'ERR_NAME_NOT_RESOLVED': {
-    title: 'Can\'t Find This Website',
+  ERR_NAME_NOT_RESOLVED: {
+    title: "Can't Find This Website",
     description: 'The site might be down or the URL might be incorrect.',
   },
-  'ERR_CONNECTION_REFUSED': {
+  ERR_CONNECTION_REFUSED: {
     title: 'Connection Refused',
     description: 'The server is not accepting connections.',
   },
-  'ERR_CONNECTION_TIMED_OUT': {
+  ERR_CONNECTION_TIMED_OUT: {
     title: 'Connection Timed Out',
     description: 'The server took too long to respond.',
   },
-  'ERR_CONNECTION_RESET': {
+  ERR_CONNECTION_RESET: {
     title: 'Connection Reset',
     description: 'The connection was interrupted.',
   },
-  'ERR_SSL_PROTOCOL_ERROR': {
+  ERR_SSL_PROTOCOL_ERROR: {
     title: 'SSL Protocol Error',
     description: 'There was a problem with the secure connection.',
   },
-  'ERR_CERT_AUTHORITY_INVALID': {
+  ERR_CERT_AUTHORITY_INVALID: {
     title: 'Invalid Certificate',
     description: 'The security certificate is not valid.',
   },
-  'ERR_BLOCKED_BY_CLIENT': {
+  ERR_BLOCKED_BY_CLIENT: {
     title: 'Blocked by Ad Blocker',
     description: 'This page was blocked by your ad blocker or privacy settings.',
   },
@@ -54,7 +54,7 @@ const ERROR_MESSAGES: Record<string, { title: string; description: string }> = {
     title: 'Cannot Display Page',
     description: 'This site cannot be displayed in a frame due to security restrictions.',
   },
-  'CORS': {
+  CORS: {
     title: 'Cross-Origin Restriction',
     description: 'This site cannot be loaded due to cross-origin restrictions.',
   },
@@ -70,14 +70,14 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center min-h-full p-8 bg-slate-950 text-slate-100',
+        'flex min-h-full flex-col items-center justify-center bg-slate-950 p-8 text-slate-100',
         className
       )}
     >
-      <div className="max-w-md w-full text-center space-y-6">
+      <div className="w-full max-w-md space-y-6 text-center">
         {/* Error Icon */}
         <div className="flex justify-center">
-          <div className="p-4 rounded-full bg-red-500/20 border border-red-500/30">
+          <div className="rounded-full border border-red-500/30 bg-red-500/20 p-4">
             <AlertTriangle size={48} className="text-red-400" />
           </div>
         </div>
@@ -86,25 +86,23 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-white">{errorInfo.title}</h1>
           <p className="text-slate-400">{errorInfo.description}</p>
-          {error.message && (
-            <p className="text-sm text-slate-500 mt-2">{error.message}</p>
-          )}
+          {error.message && <p className="mt-2 text-sm text-slate-500">{error.message}</p>}
         </div>
 
         {/* URL Display */}
         {error.url && (
-          <div className="p-3 bg-slate-900 rounded-lg border border-slate-800">
-            <p className="text-xs text-slate-500 mb-1">URL:</p>
-            <p className="text-sm text-slate-300 break-all">{error.url}</p>
+          <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+            <p className="mb-1 text-xs text-slate-500">URL:</p>
+            <p className="break-all text-sm text-slate-300">{error.url}</p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex flex-col justify-center gap-3 sm:flex-row">
           {onRetry && (
             <button
               onClick={onRetry}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+              className="flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-medium text-white transition-colors hover:bg-purple-700"
             >
               <RefreshCw size={18} />
               Retry
@@ -113,7 +111,7 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
           {onGoHome && (
             <button
               onClick={onGoHome}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+              className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-6 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-700"
             >
               <Home size={18} />
               Go Home
@@ -124,7 +122,7 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
               href={error.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+              className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-6 py-3 font-medium text-slate-300 transition-colors hover:bg-slate-700"
             >
               <ExternalLink size={18} />
               Open Externally
@@ -133,7 +131,7 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
         </div>
 
         {/* Help Text */}
-        <p className="text-xs text-slate-500 mt-6">
+        <p className="mt-6 text-xs text-slate-500">
           If this problem persists, try opening the URL in an external browser or check your
           internet connection.
         </p>
@@ -141,6 +139,3 @@ export function ErrorPage({ error, onRetry, onGoHome, className }: ErrorPageProp
     </div>
   );
 }
-
-
-

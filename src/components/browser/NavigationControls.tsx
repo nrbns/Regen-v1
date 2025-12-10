@@ -33,8 +33,8 @@ export function NavigationControls({
   // Determine navigation state from tab history
   const historyIndex = tab?.historyIndex ?? -1;
   const history = tab?.history ?? [];
-  const actualCanGoBack = canGoBack || (historyIndex > 0);
-  const actualCanGoForward = canGoForward || (historyIndex < history.length - 1);
+  const actualCanGoBack = canGoBack || historyIndex > 0;
+  const actualCanGoForward = canGoForward || historyIndex < history.length - 1;
 
   return (
     <div className={cn('flex items-center gap-1', className)}>
@@ -43,10 +43,10 @@ export function NavigationControls({
         onClick={onBack}
         disabled={!actualCanGoBack}
         className={cn(
-          'p-2 rounded-lg transition-colors',
+          'rounded-lg p-2 transition-colors',
           actualCanGoBack
             ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            : 'text-slate-600 cursor-not-allowed'
+            : 'cursor-not-allowed text-slate-600'
         )}
         title="Back"
         aria-label="Go back"
@@ -59,10 +59,10 @@ export function NavigationControls({
         onClick={onForward}
         disabled={!actualCanGoForward}
         className={cn(
-          'p-2 rounded-lg transition-colors',
+          'rounded-lg p-2 transition-colors',
           actualCanGoForward
             ? 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            : 'text-slate-600 cursor-not-allowed'
+            : 'cursor-not-allowed text-slate-600'
         )}
         title="Forward"
         aria-label="Go forward"
@@ -73,22 +73,18 @@ export function NavigationControls({
       {/* Reload Button */}
       <button
         onClick={onReload}
-        className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+        className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
         title="Reload"
         aria-label="Reload page"
       >
-        {isLoading ? (
-          <Loader2 size={18} className="animate-spin" />
-        ) : (
-          <RefreshCw size={18} />
-        )}
+        {isLoading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
       </button>
 
       {/* Home Button */}
       {onHome && (
         <button
           onClick={onHome}
-          className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+          className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
           title="Home"
           aria-label="Go to home page"
         >
@@ -98,6 +94,3 @@ export function NavigationControls({
     </div>
   );
 }
-
-
-

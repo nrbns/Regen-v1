@@ -18,7 +18,11 @@ import { getIframeManager, throttleViewUpdate } from '../../utils/gve-optimizer'
 import { BrowserAutomationBridge } from '../browser/BrowserAutomationBridge';
 import { ErrorPage } from '../browser/ErrorPage';
 import { LoadingIndicator } from '../browser/LoadingIndicator';
-import { isYouTubeUrl, convertToYouTubeEmbed, isYouTubeEmbeddable } from '../../utils/youtubeHandler';
+import {
+  isYouTubeUrl,
+  convertToYouTubeEmbed,
+  isYouTubeEmbeddable,
+} from '../../utils/youtubeHandler';
 
 interface TabContentSurfaceProps {
   tab: Tab | undefined;
@@ -40,17 +44,19 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(false);
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(null);
+  const [loadProgress] = useState(0);
+  const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
+    null
+  );
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
-  
+
   // GVE Optimization: Use optimized view hook
   const { queueUpdate: _queueUpdate } = useOptimizedView({
     iframeId: tab?.id,
     lazy: !tab?.active,
     sandbox: SAFE_IFRAME_SANDBOX.split(' '),
-    onResize: (_rect) => {
+    onResize: _rect => {
       // Handle resize with throttled updates
       throttleViewUpdate(() => {
         // Update view if needed
@@ -223,7 +229,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         setBlockedExternal(true);
         // Special message for YouTube
         if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
-          setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
+          setFailedMessage(
+            'YouTube homepage cannot be embedded. Try opening a specific video URL.'
+          );
         } else {
           setFailedMessage('This site blocks embedded views (X-Frame-Options).');
         }
@@ -464,7 +472,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         setBlockedExternal(true);
         // Special message for YouTube
         if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
-          setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
+          setFailedMessage(
+            'YouTube homepage cannot be embedded. Try opening a specific video URL.'
+          );
         } else {
           setFailedMessage('This site blocks embedded views (X-Frame-Options).');
         }
@@ -630,67 +640,70 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           }
         >
           <iframe
-          ref={el => {
-            if (el) {
-              iframeRef.current = el;
-              // GVE Optimization: Register iframe with optimizations
-              if (tab?.id) {
-                const iframeManager = getIframeManager();
-                throttleViewUpdate(() => {
-                  iframeManager.registerIframe(tab.id, el, {
-                    lazy: !tab.active,
-                    sandbox: SAFE_IFRAME_SANDBOX.split(' '),
-                    allow: 'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture',
+            ref={el => {
+              if (el) {
+                iframeRef.current = el;
+                // GVE Optimization: Register iframe with optimizations
+                if (tab?.id) {
+                  const iframeManager = getIframeManager();
+                  throttleViewUpdate(() => {
+                    iframeManager.registerIframe(tab.id, el, {
+                      lazy: !tab.active,
+                      sandbox: SAFE_IFRAME_SANDBOX.split(' '),
+                      allow:
+                        'fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture',
+                    });
                   });
-                });
+                }
               }
+            }}
+            className="h-full w-full border-0"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              // GVE Optimization: Performance improvements
+              contentVisibility: tab?.active ? 'auto' : 'hidden',
+              contain: 'layout style paint',
+            }}
+            src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
+            sandbox={SAFE_IFRAME_SANDBOX}
+            allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture"
+            referrerPolicy="no-referrer"
+            loading={tab?.active ? 'eager' : 'lazy'}
+            fetchpriority={tab?.active ? 'high' : 'low'}
+            title={tab?.title ?? 'Tab content'}
+            aria-label={
+              tab?.title
+                ? `Content for ${tab.title}`
+                : targetUrl
+                  ? `External content for ${new URL(targetUrl).hostname}`
+                  : 'Tab content'
             }
-          }}
-          className="h-full w-full border-0"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: '100%',
-            height: '100%',
-            border: 'none',
-            // GVE Optimization: Performance improvements
-            contentVisibility: tab?.active ? 'auto' : 'hidden',
-            contain: 'layout style paint',
-          }}
-          src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
-          sandbox={SAFE_IFRAME_SANDBOX}
-          allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture"
-          referrerPolicy="no-referrer"
-          loading={tab?.active ? 'eager' : 'lazy'}
-          fetchpriority={tab?.active ? 'high' : 'low'}
-          title={tab?.title ?? 'Tab content'}
-          aria-label={
-            tab?.title
-              ? `Content for ${tab.title}`
-              : targetUrl
-                ? `External content for ${new URL(targetUrl).hostname}`
-                : 'Tab content'
-          }
-          aria-live="off"
-          onError={e => {
-            // Additional error handling for iframe
-            console.warn('[TabContentSurface] Iframe error event:', e);
-            // Check if it's a blocked iframe
-            const iframe = e.currentTarget;
-            if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
-              setBlockedExternal(true);
-              // Special message for YouTube
-              if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
-                setFailedMessage('YouTube homepage cannot be embedded. Try opening a specific video URL.');
-              } else {
-                setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+            aria-live="off"
+            onError={e => {
+              // Additional error handling for iframe
+              console.warn('[TabContentSurface] Iframe error event:', e);
+              // Check if it's a blocked iframe
+              const iframe = e.currentTarget;
+              if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
+                setBlockedExternal(true);
+                // Special message for YouTube
+                if (targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)) {
+                  setFailedMessage(
+                    'YouTube homepage cannot be embedded. Try opening a specific video URL.'
+                  );
+                } else {
+                  setFailedMessage('This site blocks embedded views (X-Frame-Options).');
+                }
               }
-            }
-          }}
-        />
+            }}
+          />
         </Suspense>
       ) : null}
 
@@ -818,11 +831,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
       {/* DAY 4: Loading Indicator */}
       {loading && !error && (
-        <LoadingIndicator
-          progress={loadProgress}
-          message="Loading page..."
-          fullPage={false}
-        />
+        <LoadingIndicator progress={loadProgress} message="Loading page..." fullPage={false} />
       )}
 
       <AnimatePresence>
@@ -844,8 +853,8 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 {targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)
                   ? 'YouTube homepage cannot be embedded'
                   : targetUrl
-                  ? `${new URL(targetUrl).hostname} cannot be embedded`
-                  : 'This page cannot be embedded'}
+                    ? `${new URL(targetUrl).hostname} cannot be embedded`
+                    : 'This page cannot be embedded'}
               </div>
               <p className="text-emerald-100/70">
                 {targetUrl && isYouTubeUrl(targetUrl) && !isYouTubeEmbeddable(targetUrl)
@@ -869,11 +878,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
 
       {/* Browser Automation Bridge - connects automation API with iframe */}
       {tab && !isElectron && iframeRef.current && (
-        <BrowserAutomationBridge
-          tabId={tab.id}
-          iframeId={tab.id}
-          sessionId={`tab-${tab.id}`}
-        />
+        <BrowserAutomationBridge tabId={tab.id} iframeId={tab.id} sessionId={`tab-${tab.id}`} />
       )}
     </motion.div>
   );

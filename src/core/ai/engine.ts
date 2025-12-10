@@ -88,10 +88,37 @@ export class AIEngine {
 
     // Execute all tasks in parallel (queue handles concurrency)
     const promises = requests.map((request, index) =>
-      this.runTask(request, onStream ? (event) => onStream(index, event) : undefined)
+      this.runTask(request, onStream ? event => onStream(index, event) : undefined)
     );
 
     return Promise.all(promises);
+  }
+
+  /**
+   * Convenience helper: run reasoning + summarization in parallel for faster UX.
+   */
+  async runReasonAndSummary(
+    prompt: string,
+    shared?: { context?: Record<string, unknown>; mode?: string }
+  ): Promise<{ reasoning: AITaskResult; summary: AITaskResult }> {
+    const [reasoning, summary] = await this.runParallelTasks([
+      {
+        kind: 'agent',
+        prompt: prompt,
+        context: shared?.context,
+        mode: shared?.mode,
+        llm: { temperature: 0.2 },
+      },
+      {
+        kind: 'summary',
+        prompt: `Summarize crisply:\n${prompt}`,
+        context: shared?.context,
+        mode: shared?.mode,
+        llm: { temperature: 0.1 },
+      },
+    ]);
+
+    return { reasoning, summary };
   }
 
   private async callBackendTask(

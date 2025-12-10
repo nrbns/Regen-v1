@@ -23,13 +23,13 @@ export function LoadingIndicator({
     return (
       <div
         className={cn(
-          'flex flex-col items-center justify-center min-h-full p-8 bg-slate-950',
+          'flex min-h-full flex-col items-center justify-center bg-slate-950 p-8',
           className
         )}
       >
-        <Loader2 className="h-12 w-12 text-purple-400 animate-spin mb-4" />
+        <Loader2 className="mb-4 h-12 w-12 animate-spin text-purple-400" />
         {progress !== undefined && (
-          <div className="w-64 h-1 bg-slate-800 rounded-full overflow-hidden mb-4">
+          <div className="mb-4 h-1 w-64 overflow-hidden rounded-full bg-slate-800">
             <div
               className="h-full bg-purple-600 transition-all duration-300"
               style={{ width: `${progress}%` }}
@@ -44,13 +44,13 @@ export function LoadingIndicator({
   return (
     <div
       className={cn(
-        'absolute inset-0 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm z-10',
+        'absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm',
         className
       )}
     >
-      <Loader2 className="h-8 w-8 text-purple-400 animate-spin mb-3" />
+      <Loader2 className="mb-3 h-8 w-8 animate-spin text-purple-400" />
       {progress !== undefined && (
-        <div className="w-48 h-1 bg-slate-800 rounded-full overflow-hidden mb-3">
+        <div className="mb-3 h-1 w-48 overflow-hidden rounded-full bg-slate-800">
           <div
             className="h-full bg-purple-600 transition-all duration-300"
             style={{ width: `${progress}%` }}
@@ -61,6 +61,3 @@ export function LoadingIndicator({
     </div>
   );
 }
-
-
-

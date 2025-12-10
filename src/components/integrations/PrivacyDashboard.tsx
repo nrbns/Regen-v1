@@ -142,10 +142,3 @@ export function PrivacyDashboard() {
     </div>
   );
 }
-
-
-
-
-
-
-

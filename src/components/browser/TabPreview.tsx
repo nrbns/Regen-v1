@@ -47,7 +47,7 @@ export function TabPreview({
           transition={{ duration: 0.15 }}
           style={previewStyle}
           className={cn(
-            'z-50 w-80 bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden',
+            'z-50 w-80 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl',
             className
           )}
         >
@@ -56,7 +56,7 @@ export function TabPreview({
             {/* In a real implementation, this would show a screenshot/thumbnail */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-16 h-16 bg-slate-700 rounded-lg mb-2 mx-auto flex items-center justify-center">
+                <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-lg bg-slate-700">
                   <ExternalLink size={24} className="text-slate-400" />
                 </div>
                 <p className="text-xs text-slate-500">Preview</p>
@@ -65,16 +65,16 @@ export function TabPreview({
           </div>
 
           {/* Tab Info */}
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-white truncate mb-1">{tab.title}</h3>
-                <p className="text-xs text-slate-400 truncate">{tab.url}</p>
+              <div className="min-w-0 flex-1">
+                <h3 className="mb-1 truncate text-sm font-semibold text-white">{tab.title}</h3>
+                <p className="truncate text-xs text-slate-400">{tab.url}</p>
               </div>
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="flex-shrink-0 p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                  className="flex-shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
                 >
                   <X size={14} />
                 </button>
@@ -82,11 +82,11 @@ export function TabPreview({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center gap-2 border-t border-slate-800 pt-2">
               {onNavigate && tab.url && (
                 <button
                   onClick={() => tab.url && onNavigate(tab.url)}
-                  className="flex-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium transition-colors"
+                  className="flex-1 rounded bg-purple-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-purple-700"
                 >
                   Go to Page
                 </button>
@@ -94,7 +94,7 @@ export function TabPreview({
               {onReload && (
                 <button
                   onClick={onReload}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-medium transition-colors"
+                  className="rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-700"
                   title="Reload"
                 >
                   <RefreshCw size={14} />
@@ -107,6 +107,3 @@ export function TabPreview({
     </AnimatePresence>
   );
 }
-
-
-

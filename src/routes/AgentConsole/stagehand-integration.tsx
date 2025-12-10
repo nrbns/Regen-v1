@@ -45,11 +45,3 @@ export function AgentStagehandIntegration() {
 
   return null; // This is a side-effect component
 }
-
-
-
-
-
-
-
-
