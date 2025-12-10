@@ -138,13 +138,20 @@ See: `docs/MANUAL_TESTING_CHECKLIST.md`
 
 ### k6 Not Found
 
-```bash
-# Install k6 globally
-npm install -g k6
+**Windows Installation** (see [K6_INSTALLATION_GUIDE.md](K6_INSTALLATION_GUIDE.md) for details):
 
-# Or download from:
-# https://k6.io/download
+```powershell
+# Option 1: Chocolatey (Recommended)
+choco install k6
+
+# Option 2: Direct download
+# Visit: https://k6.io/docs/getting-started/installation/
+
+# Option 3: Scoop
+scoop install k6
 ```
+
+**Note**: `npm install -g k6` may not work on Windows. Use one of the methods above.
 
 ### Tests Failing
 
@@ -190,6 +197,14 @@ npm test
 | Load (k6)      | ⏳ Pending | `npm run test:load`        |
 | Cross-Platform | 📋 Manual  | See checklist              |
 | Network        | 📋 Manual  | See checklist              |
+
+---
+
+## Next Steps
+
+For detailed action plan and timeline, see: **[NEXT_STEPS.md](NEXT_STEPS.md)**
+
+**Current Status**: Week 1 - 67% complete (2/3 automated tests done)
 
 ---
 
