@@ -78,7 +78,8 @@ const suggestedPrompts = [
 import { buildSearchUrl as buildSearchUrlWithLang } from '../lib/search';
 
 function buildSearchUrl(query: string, language?: string) {
-  return buildSearchUrlWithLang('duckduckgo', query, language);
+  // Use Startpage by default (iframe-friendly and privacy-focused)
+  return buildSearchUrlWithLang('startpage', query, language, true);
 }
 
 function useDashboardData() {

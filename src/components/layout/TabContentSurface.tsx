@@ -98,10 +98,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       const embedUrl = convertToYouTubeEmbed(url);
       if (embedUrl) {
         // It's a video URL, use embed format
+        console.log('[TabContentSurface] Converting YouTube URL to embed:', url, '->', embedUrl);
         return embedUrl;
       }
-      // It's not a video URL (e.g., youtube.com homepage), keep original
-      // Will be handled by X-Frame-Options error handler
+      // It's not a video URL (e.g., youtube.com homepage) - keep original
+      // YouTube homepage will be blocked by X-Frame-Options, which is expected
+      console.log('[TabContentSurface] YouTube homepage detected, using original URL');
     }
 
     return url;
@@ -141,6 +143,72 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     let isMounted = true;
     const LOADING_TIMEOUT_MS = 30000; // 30 seconds
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Intercept link clicks in iframe to create new tabs
+    const handleIframeLinkClick = async (event: MessageEvent) => {
+      try {
+        // Listen for link clicks from iframe content
+        if (event.data?.type === 'link-click' && event.data?.url) {
+          const url = event.data.url;
+          // Don't create new tab for same-origin navigation
+          if (url && url !== targetUrl && !url.startsWith('javascript:') && !url.startsWith('#')) {
+            console.log('[TabContentSurface] Intercepted link click:', url);
+            // Create new tab for external links
+            try {
+              await ipc.tabs.create(url);
+            } catch (error) {
+              console.warn('[TabContentSurface] Failed to create tab for link:', error);
+              // Fallback: open in new window
+              window.open(url, '_blank', 'noopener,noreferrer');
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('[TabContentSurface] Error handling link click:', error);
+      }
+    };
+
+    window.addEventListener('message', handleIframeLinkClick);
+
+    // Inject script to intercept link clicks in iframe
+    const injectLinkInterceptor = () => {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iframeDoc) return; // Cross-origin, can't inject
+
+        // Remove existing interceptor if any
+        const existingScript = iframeDoc.getElementById('regen-link-interceptor');
+        if (existingScript) existingScript.remove();
+
+        // Inject link click interceptor
+        const script = iframeDoc.createElement('script');
+        script.id = 'regen-link-interceptor';
+        script.textContent = `
+          (function() {
+            document.addEventListener('click', function(e) {
+              const link = e.target.closest('a');
+              if (link && link.href) {
+                const url = link.href;
+                // Don't intercept same-origin navigation or anchors
+                if (url && !url.startsWith('javascript:') && !url.startsWith('#')) {
+                  // Check if it's a new window target or external link
+                  if (link.target === '_blank' || link.target === '_parent' || 
+                      new URL(url, window.location.href).origin !== window.location.origin) {
+                    e.preventDefault();
+                    window.parent.postMessage({ type: 'link-click', url: url }, '*');
+                    return false;
+                  }
+                }
+              }
+            }, true);
+          })();
+        `;
+        iframeDoc.head.appendChild(script);
+      } catch (error) {
+        // Cross-origin - can't inject, but that's OK, we'll handle via postMessage
+        console.debug('[TabContentSurface] Cannot inject link interceptor (cross-origin):', error);
+      }
+    };
 
     const handleLoad = () => {
       if (!isMounted) return; // Don't update state if unmounted
@@ -523,6 +591,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
       window.removeEventListener('tab-closed', handleTabClose);
+      window.removeEventListener('message', handleIframeLinkClick);
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;

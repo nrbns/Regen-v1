@@ -176,9 +176,9 @@ export function normalizeInputToUrlOrSearch(
   }
 
   // Not a URL - convert to search
-  // Use DuckDuckGo by default (privacy-friendly, works in iframes with proper setup)
-  // Only use Bing if explicitly requested or iframe-friendly is critical
+  // Use Startpage by default (privacy-friendly AND iframe-friendly)
+  // DuckDuckGo and Google block iframes, so use Startpage or Bing for iframe compatibility
   const searchProvider =
-    provider === 'all' ? (preferIframeFriendly ? 'duckduckgo' : 'google') : provider;
+    provider === 'all' ? (preferIframeFriendly ? 'startpage' : 'google') : provider;
   return buildSearchUrl(searchProvider, trimmed, language, preferIframeFriendly);
 }
