@@ -10,6 +10,7 @@
     "test:load": "k6 run tests/load/k6-load-test.js",
     "test:integration": "node tests/integration/run-all.js",
     "test:automated": "node scripts/run-tests.js --all",
+    "test:week2-progress": "node scripts/week2-progress.js",
     "test:comprehensive": "node scripts/run-all-tests.cjs",
     "test:openai": "cd apps/api && python test_openai.py",
     "dev:api": "python -m uvicorn apps.api.main:app --reload --port 8000",
