@@ -6,7 +6,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useAppStore } from '../state/appStore';
 import { useSettingsStore } from '../state/settingsStore';
 
 // Lazy load react-joyride to avoid bundle bloat

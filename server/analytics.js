@@ -26,7 +26,7 @@ async function trackEvent(eventType, data) {
   // Publish to Redis for real-time processing
   try {
     await publish('analytics:event', event);
-  } catch (error) {
+  } catch {
     // Silently fail if Redis unavailable
   }
 
@@ -35,7 +35,7 @@ async function trackEvent(eventType, data) {
     try {
       const key = `${ANALYTICS_PREFIX}${eventType}:${timestamp}`;
       await redisClient.setex(key, 86400 * 7, JSON.stringify(event)); // 7 days TTL
-    } catch (error) {
+    } catch {
       // Silently fail
     }
   }
@@ -60,7 +60,7 @@ async function trackSessionStart(userId, sessionId) {
       const dauKey = `${DAU_KEY}${today}`;
       await redisClient.sadd(dauKey, userId);
       await redisClient.expire(dauKey, 86400 * 2); // 2 days
-    } catch (error) {
+    } catch {
       // Silently fail
     }
   }
@@ -70,7 +70,7 @@ async function trackSessionStart(userId, sessionId) {
     try {
       const key = `${SESSION_KEY}${sessionId}`;
       await redisClient.setex(key, 86400, JSON.stringify(session)); // 24 hours
-    } catch (error) {
+    } catch {
       // Silently fail
     }
   }
@@ -152,7 +152,7 @@ async function getDAUCount(date = null) {
     const today = date || new Date().toISOString().split('T')[0];
     const dauKey = `${DAU_KEY}${today}`;
     return await redisClient.scard(dauKey);
-  } catch (error) {
+  } catch {
     return 0;
   }
 }

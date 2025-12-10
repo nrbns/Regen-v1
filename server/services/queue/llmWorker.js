@@ -92,7 +92,7 @@ const worker = new Worker(
                   const { publishModelChunk } = await import('../../pubsub/redis-pubsub.js');
                   const userId = job.data.userId || clientId;
                   await publishModelChunk(job.id, userId, token, chunkIndex, null);
-                } catch (error) {
+                } catch {
                   // Silently fail if Redis unavailable
                 }
               },
@@ -127,7 +127,7 @@ const worker = new Worker(
                   const { publishModelChunk } = await import('../../pubsub/redis-pubsub.js');
                   const userId = job.data.userId || clientId;
                   await publishModelChunk(job.id, userId, token, chunkIndex, null);
-                } catch (error) {
+                } catch {
                   // Silently fail if Redis unavailable
                 }
               },

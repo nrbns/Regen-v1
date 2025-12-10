@@ -35,7 +35,7 @@ import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { executeAgenticAction } from '../../services/agenticActionExecutor';
 import { trackUserAction } from '../../services/zeroPromptPrediction';
 // LAG FIX #8: Hindi defaults for Indian users
-import { getModeDefaults, getLocalizedText } from '../../config/modeDefaults';
+import { getModeDefaults } from '../../config/modeDefaults';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },

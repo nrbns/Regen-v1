@@ -3,7 +3,6 @@ import { useAppStore } from '../state/appStore';
 import { ipc } from '../lib/ipc-typed';
 import { OmniDesk } from '../components/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
-import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from '../core/errors/ErrorBoundary';
 import { WeatherCard } from '../components/WeatherCard';
 import { FlightCard } from '../components/FlightCard';

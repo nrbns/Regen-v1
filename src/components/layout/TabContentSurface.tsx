@@ -36,13 +36,7 @@ function isInternalUrl(url?: string | null): boolean {
   return INTERNAL_PROTOCOLS.some(prefix => url.startsWith(prefix));
 }
 
-// Loading spinner component for Suspense
-const TabLoadingSpinner = () => (
-  <div className="flex h-full w-full flex-col items-center justify-center bg-[#1A1D28]">
-    <Loader2 className="mb-4 h-8 w-8 animate-spin text-emerald-400" />
-    <p className="text-sm text-gray-400">Loading page...</p>
-  </div>
-);
+// Loading spinner component for Suspense (removed - using Suspense fallback directly)
 
 export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -52,7 +46,6 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(true); // Start with loading true to show spinner
-  const [loadProgress] = useState(0);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
     null
   );

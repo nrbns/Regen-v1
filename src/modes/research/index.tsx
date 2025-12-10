@@ -28,7 +28,7 @@ import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
 import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
 // LAG FIX #8: Hindi defaults for Research mode
-import { getModeDefaults, getLocalizedText } from '../../config/modeDefaults';
+import { getModeDefaults } from '../../config/modeDefaults';
 import {
   ResearchResult,
   ResearchSource,

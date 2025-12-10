@@ -87,7 +87,7 @@ async function publishEvent(channel, event, data) {
 
     await pubClient.publish(channel, message);
     return true;
-  } catch (error) {
+  } catch {
     // Silently fail
     return false;
   }

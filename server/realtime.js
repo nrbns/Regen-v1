@@ -143,7 +143,7 @@ function initSocketIOServer(app) {
     // Handle search start
     socket.on(EVENTS.START_SEARCH || 'search:start:v1', async payload => {
       try {
-        const { query, filters } = payload;
+        const { query } = payload;
         const jobId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
         console.log('[Socket.IO] Search started', { userId, jobId, query });
@@ -232,7 +232,6 @@ function initSocketIOServer(app) {
     try {
       // Channel format: user:123 or job:abcd or session:xyz
       if (channel.startsWith('user:')) {
-        const userId = channel.replace('user:', '');
         io.to(channel).emit(message.event, message.data);
       } else if (channel.startsWith('job:')) {
         // Broadcast to all clients (or specific job subscribers)

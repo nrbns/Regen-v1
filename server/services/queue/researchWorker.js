@@ -76,7 +76,7 @@ async function publishEvent(jobId, clientId, sessionId, type, data) {
       jobId,
       ...data,
     });
-  } catch (error) {
+  } catch {
     // Silently fail if Redis unavailable
   }
 
