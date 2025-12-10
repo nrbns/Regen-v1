@@ -61,6 +61,36 @@
 
 ---
 
+## 📋 Week 2: Cross-Platform + Network Testing
+
+**Status**: 🟢 **Started**  
+**Date Started**: December 10, 2025  
+**Target Completion**: December 17, 2025
+
+### Cross-Platform Testing
+
+**Status**: ⏳ **Not Started**
+
+- [ ] Windows 10/11 testing
+- [ ] Linux (Ubuntu/Debian) testing
+- [ ] macOS testing (if available)
+
+**Tracker**: See [WEEK2_TESTING_TRACKER.md](WEEK2_TESTING_TRACKER.md)
+
+### Network Testing
+
+**Status**: ⏳ **Not Started**
+
+- [ ] Jio 4G network testing
+- [ ] Airtel 4G network testing
+- [ ] Offline → Online handoff testing
+
+**Tracker**: See [WEEK2_TESTING_TRACKER.md](WEEK2_TESTING_TRACKER.md)
+
+**Guide**: See [MANUAL_TESTING_CHECKLIST.md](MANUAL_TESTING_CHECKLIST.md)
+
+---
+
 ## 📋 Upcoming
 
 ### 4. Cross-Platform Testing
