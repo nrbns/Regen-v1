@@ -1,4 +1,4 @@
-// God Tier Trade Mode - Real TradingView Candles + Realtime NSE/US/Crypto
+// Trade Mode - Real-Time Market Data Display Only
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { toast } from '../../utils/toast';
@@ -11,6 +11,8 @@ import {
   DollarSign,
   Sparkles,
   Loader2,
+  Activity,
+  BarChart3,
 } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
 import { useSettingsStore } from '../../state/settingsStore';
@@ -19,16 +21,13 @@ import {
   getTradeSignalService,
   type TradeSignal,
 } from '../../services/realtime/tradeSignalService';
-import OrderConfirmModal, { type OrderDetails } from '../../components/trade/OrderConfirmModal';
 import OrderBook, { type OrderBookEntry } from '../../components/trade/OrderBook';
 import TradesTape, { type Trade } from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
-// TradeModeFallback and useResponsive not yet implemented - removed for now
 import { TradeStagehandIntegration } from './stagehand-integration';
 import { SSEConnectionStatusIndicator } from '../../components/realtime/SSEConnectionStatus';
 import { validateSignal } from '../../core/trade/signalGenerator';
 import { getSSESignalService } from '../../services/realtime/sseSignalService';
-import { calculateRiskMetrics } from '../../core/trade/riskMetrics';
 import BrowserView from '../../components/BrowserView';
 import VoiceButton from '../../components/VoiceButton';
 import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
@@ -59,55 +58,20 @@ export default function TradePanel() {
   const [selected, setSelected] = useState(markets[0]);
   const [price, setPrice] = useState(25035.14);
   const [change, setChange] = useState(325.1);
+  const [changePercent, setChangePercent] = useState(1.31);
   const [isGreen, setIsGreen] = useState(true);
-  const [qty, setQty] = useState(50);
-  const [sl, setSl] = useState(24700);
-  const [tp, setTp] = useState(24950);
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [chartLoading, setChartLoading] = useState(true);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingOrder, setPendingOrder] = useState<OrderDetails | null>(null);
   const [orderBookBids, setOrderBookBids] = useState<OrderBookEntry[]>([]);
   const [orderBookAsks, setOrderBookAsks] = useState<OrderBookEntry[]>([]);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
-  const [orderType, setOrderType] = useState<'market' | 'limit'>('limit');
-  const [limitPrice, setLimitPrice] = useState(price);
   const [connectionError, setConnectionError] = useState<Error | null>(null);
   const [lastPrice, setLastPrice] = useState<number | null>(null);
-  const [_lastChange, setLastChange] = useState<number | null>(null);
-  const [_lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [useTradingView, setUseTradingView] = useState(false); // Toggle for real TradingView
-  // Responsive hooks not yet implemented - using fallback values
-  const isMobile = false;
-  const isTablet = false;
-
-  // WISPR Trade Command Handler
-  useEffect(() => {
-    const handleWisprTrade = (event: CustomEvent) => {
-      const { symbol, quantity, orderType, stopLoss } = event.detail;
-      if (symbol) {
-        // Find matching market
-        const market = markets.find(
-          m => m.name.toLowerCase().includes(symbol.toLowerCase()) || m.symbol.includes(symbol)
-        );
-        if (market) {
-          setSelected(market);
-        }
-      }
-      if (quantity) setQty(quantity);
-      if (stopLoss) setSl(stopLoss);
-
-      // Execute order (TODO: Connect to actual broker API)
-      if (orderType && quantity) {
-        toast.success(
-          `${orderType === 'buy' ? 'Buy' : 'Sell'} order: ${quantity} ${symbol || selected.name}`
-        );
-      }
-    };
-
-    window.addEventListener('wispr:trade', handleWisprTrade as EventListener);
-    return () => window.removeEventListener('wispr:trade', handleWisprTrade as EventListener);
-  }, [selected]);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [useTradingView, setUseTradingView] = useState(false);
+  const [high, setHigh] = useState(25120);
+  const [low, setLow] = useState(24720);
+  const [volume, setVolume] = useState(0);
+  const [open, setOpen] = useState(25000);
 
   // LAG FIX #8: Apply Hindi defaults for Trade mode
   useEffect(() => {
@@ -118,20 +82,12 @@ export default function TradePanel() {
     }
   }, []);
 
-  // Voice agent intents: simulate trade actions (safe, no real orders).
+  // Voice agent intents: switch symbols
   useEffect(() => {
     const handleAgentTrade = (
-      event: CustomEvent<{ intent?: string; action?: string; symbol?: string; quantity?: number }>
+      event: CustomEvent<{ intent?: string; action?: string; symbol?: string }>
     ) => {
-      const { intent, action, symbol, quantity } = event.detail;
-      if (!intent) return;
-
-      // Parse and simulate trade action
-      const actionType = action?.toUpperCase();
-      const qty = quantity || 1;
-      let targetSymbol = symbol || selected.symbol;
-
-      // Try to find matching market
+      const { symbol } = event.detail;
       if (symbol) {
         const market = markets.find(
           m =>
@@ -140,62 +96,14 @@ export default function TradePanel() {
         );
         if (market) {
           setSelected(market);
-          targetSymbol = market.symbol;
+          toast.success(`Switched to ${market.name}`, { duration: 2000 });
         }
-      }
-
-      if (actionType === 'BUY' || intent.toUpperCase().includes('BUY')) {
-        setQty(qty);
-        setOrderType('market');
-        toast.success(`Simulated BUY: ${qty} ${targetSymbol}`, { duration: 3000 });
-        // Show confirmation modal (simulation only)
-        setPendingOrder({
-          symbol: targetSymbol,
-          side: 'buy',
-          quantity: qty,
-          orderType: 'market',
-          price: price,
-          stopLoss: sl,
-          takeProfit: tp,
-          estimatedCost: price * qty,
-          fees: price * qty * 0.001, // 0.1% fee estimate
-        });
-        setShowConfirmModal(true);
-      } else if (actionType === 'SELL' || intent.toUpperCase().includes('SELL')) {
-        setQty(qty);
-        setOrderType('market');
-        toast.success(`Simulated SELL: ${qty} ${targetSymbol}`, { duration: 3000 });
-        // Show confirmation modal (simulation only)
-        setPendingOrder({
-          symbol: targetSymbol,
-          side: 'sell',
-          quantity: qty,
-          orderType: 'market',
-          price: price,
-          stopLoss: sl,
-          takeProfit: tp,
-          estimatedCost: price * qty,
-          fees: price * qty * 0.001, // 0.1% fee estimate
-        });
-        setShowConfirmModal(true);
-      } else {
-        toast.info(`Agent trade intent: ${intent}`, { duration: 2500 });
       }
     };
     window.addEventListener('agent:trade-action', handleAgentTrade as EventListener);
     return () =>
       window.removeEventListener('agent:trade-action', handleAgentTrade as EventListener);
-  }, [
-    selected,
-    price,
-    sl,
-    tp,
-    setSelected,
-    setQty,
-    setOrderType,
-    setPendingOrder,
-    setShowConfirmModal,
-  ]);
+  }, []);
 
   // Real-time WebSocket updates
   const [candleHistory, setCandleHistory] = useState<any[]>([]);
@@ -211,13 +119,15 @@ export default function TradePanel() {
       const delta = tickData.price - price;
       setPrice(tickData.price);
       setChange(Math.abs(delta));
+      setChangePercent((delta / (price - delta)) * 100 || 0);
       setIsGreen(delta >= 0);
-      setLimitPrice(tickData.price); // Update limit price to current price
-      // Track last known values for fallback
       setLastPrice(tickData.price);
-      setLastChange(Math.abs(delta));
       setLastUpdate(new Date());
       setConnectionError(null);
+
+      // Update high/low
+      if (tickData.price > high) setHigh(tickData.price);
+      if (tickData.price < low) setLow(tickData.price);
 
       // Update last candle with tick price
       if (seriesRef.current && candleHistory.length > 0) {
@@ -225,7 +135,6 @@ export default function TradePanel() {
         const time = Math.floor(Date.now() / 60000) * 60000;
         const timeSeconds = Math.floor(time / 1000);
 
-        // Use updateData for real-time updates (type-safe approach)
         try {
           (seriesRef.current as any).updateData({
             time: timeSeconds as any,
@@ -235,7 +144,6 @@ export default function TradePanel() {
             close: tickData.price,
           });
         } catch {
-          // Fallback: update the last candle in history and reset data
           const updatedHistory = [...candleHistory];
           const lastIdx = updatedHistory.length - 1;
           if (updatedHistory[lastIdx]) {
@@ -259,7 +167,6 @@ export default function TradePanel() {
       }
     },
     onCandle: candle => {
-      // Add or update candle in history
       setCandleHistory(prev => {
         const existing = prev.findIndex(c => c.time === candle.time);
         if (existing >= 0) {
@@ -267,10 +174,9 @@ export default function TradePanel() {
           updated[existing] = candle;
           return updated;
         }
-        return [...prev, candle].slice(-200); // Keep last 200 candles
+        return [...prev, candle].slice(-200);
       });
 
-      // Update chart with new candle
       if (seriesRef.current) {
         const timeSeconds = Math.floor(candle.time / 1000);
         const candleData = {
@@ -281,11 +187,9 @@ export default function TradePanel() {
           close: candle.close,
         };
 
-        // Try updateData first (for real-time updates)
         try {
           (seriesRef.current as any).updateData?.(candleData);
         } catch {
-          // Fallback: if updateData doesn't work, append to history and setData
           const updatedHistory = [...candleHistory, candle].slice(-200);
           setCandleHistory(updatedHistory);
           const chartData = updatedHistory.map(c => ({
@@ -303,40 +207,38 @@ export default function TradePanel() {
 
   // REAL-TIME PRICE UPDATES (Sub-second latency via SSE) - Fallback
   useEffect(() => {
-    if (wsConnected) return; // Use WebSocket if connected
+    if (wsConnected) return;
 
     const realtimeService = getRealtimeMarketDataService();
     let previousPrice = price;
-    let high = price;
-    let low = price;
 
-    // Subscribe to real-time price updates
     const unsubscribe = realtimeService.subscribe(selected.symbol, (update: PriceUpdate) => {
       const newPrice = update.price;
       const delta = newPrice - previousPrice;
       previousPrice = newPrice;
 
-      // Update high/low
-      if (newPrice > high) high = newPrice;
-      if (newPrice < low) low = newPrice;
-
       setPrice(newPrice);
       setChange(Math.abs(delta));
+      setChangePercent(update.changePercent || (delta / (previousPrice - delta)) * 100 || 0);
       setIsGreen(delta >= 0);
-      setLimitPrice(newPrice);
+      setLastPrice(newPrice);
+      setLastUpdate(new Date(update.timestamp));
+      setConnectionError(null);
+
+      if (update.volume) setVolume(update.volume);
     });
 
-    // Fallback: Try HTTP API for initial price if SSE hasn't connected yet
     const fetchInitialQuote = async () => {
       try {
         const { tradeApi } = await import('../../lib/api-client');
         const quote = await tradeApi.getQuote(selected.symbol);
         if (quote && quote.price) {
           previousPrice = quote.price;
-          high = quote.price;
-          low = quote.price;
           setPrice(quote.price);
-          setLimitPrice(quote.price);
+          setHigh(quote.high || quote.price);
+          setLow(quote.low || quote.price);
+          setOpen(quote.open || quote.price);
+          setVolume(quote.volume || 0);
         }
       } catch (error) {
         console.debug('[Trade] Initial quote fetch failed, waiting for SSE:', error);
@@ -350,14 +252,12 @@ export default function TradePanel() {
     };
   }, [selected.symbol, wsConnected, price]);
 
-  // Phase 1, Day 7 & 9: Enhanced trade signals with SSE fallback and notifications
+  // Trade signals
   const [_signalHistory, setSignalHistory] = useState<TradeSignal[]>([]);
   const [_sseConnected, setSseConnected] = useState(false);
 
   useEffect(() => {
     const signalService = getTradeSignalService();
-
-    // Phase 1, Day 9: Monitor SSE connection status
     const sseService = getSSESignalService();
     const statusUnsubscribe = sseService.onStatusChange(
       (status: {
@@ -371,22 +271,17 @@ export default function TradePanel() {
       }
     );
 
-    // Subscribe to real-time trade signals (instant push when detected)
     const unsubscribe = signalService.subscribe(selected.symbol, (signal: TradeSignal) => {
       const config = { enableFallback: true, fallbackInterval: 30000, minConfidence: 0.6 };
       const validation = validateSignal(signal, config);
 
       if (validation.shouldDisplay) {
-        // Phase 1, Day 9: Enhanced notification
-        toast.success(
-          `Trade Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}% confidence)`,
-          {
-            duration: 8000,
-          }
+        toast.info(
+          `Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}%)`,
+          { duration: 5000 }
         );
         setSignalHistory(prev => [...prev.slice(-9), signal]);
       }
-      console.log('[Trade] Received signal:', signal, validation);
     });
 
     return () => {
@@ -395,7 +290,7 @@ export default function TradePanel() {
     };
   }, [selected]);
 
-  // REAL TRADINGVIEW CANDLES — FULLY WORKING
+  // REAL TRADINGVIEW CANDLES
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -435,13 +330,9 @@ export default function TradePanel() {
           },
         });
 
-        // Check if addCandlestickSeries is available (with fallback)
         const addCandles = (chart as any).addCandlestickSeries ?? chart.addCandlestickSeries;
         if (typeof addCandles !== 'function') {
-          console.error(
-            '[TradePanel] addCandlestickSeries is not available on chart instance',
-            chart
-          );
+          console.error('[TradePanel] addCandlestickSeries not available');
           chartRef.current = chart;
           return;
         }
@@ -454,11 +345,9 @@ export default function TradePanel() {
           wickDownColor: '#ef4444',
         });
 
-        // Load initial candle data from mock server or fallback
         const loadRealCandles = async () => {
           setChartLoading(true);
           try {
-            // Try mock server first
             const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
             const symbolKey = selected.symbol.includes(':')
               ? selected.symbol.split(':')[1]
@@ -486,7 +375,6 @@ export default function TradePanel() {
               console.debug('[Trade] Mock server not available, using fallback');
             }
 
-            // Fallback: Try real service
             const realtimeService = getRealtimeMarketDataService();
             const candles = await realtimeService.getHistoricalCandles(symbolKey, 'D');
 
@@ -499,10 +387,9 @@ export default function TradePanel() {
                 close: c.close,
               }));
               candlestickSeries.setData(candleData);
+              setCandleHistory(candles);
               setChartLoading(false);
             } else {
-              // Final fallback: Generate mock data
-              console.warn('[Trade] Using fallback candle data');
               const fallbackData: Array<{
                 time: number;
                 open: number;
@@ -532,7 +419,6 @@ export default function TradePanel() {
         seriesRef.current = candlestickSeries;
         chartRef.current = chart;
 
-        // Auto-resize
         resizeHandler = () => {
           if (chartContainerRef.current && chart) {
             chart.applyOptions({
@@ -547,7 +433,6 @@ export default function TradePanel() {
       }
     };
 
-    // Ensure container has dimensions before initializing
     const container = chartContainerRef.current;
     if (container.clientWidth === 0 || container.clientHeight === 0) {
       timeoutId = setTimeout(() => {
@@ -572,10 +457,9 @@ export default function TradePanel() {
     };
   }, []);
 
-  // Phase 1, Day 7: Enhanced chart update with error handling and resize fix
+  // Update chart when symbol changes
   useEffect(() => {
     if (seriesRef.current && chartRef.current) {
-      // Reload candles for new symbol
       const loadCandles = async () => {
         try {
           setChartLoading(true);
@@ -594,20 +478,10 @@ export default function TradePanel() {
               close: c.close,
             }));
             seriesRef.current.setData(candleData);
-
-            // Phase 1, Day 7: Fix chart resize after data update
-            if (chartContainerRef.current && chartRef.current) {
-              chartRef.current.applyOptions({
-                width: chartContainerRef.current.clientWidth || 800,
-                height: chartContainerRef.current.clientHeight || 600,
-              });
-            }
+            setCandleHistory(candles);
           }
         } catch (error) {
-          console.error('[Trade] Failed to reload candles for new symbol:', error);
-          toast.error('Failed to load chart data. Retrying...');
-          // Retry after 2 seconds
-          setTimeout(loadCandles, 2000);
+          console.error('[Trade] Failed to reload candles:', error);
         } finally {
           setChartLoading(false);
         }
@@ -637,7 +511,6 @@ export default function TradePanel() {
           .sort((a, b) => a.price - b.price)
       );
     } else if (!wsConnected) {
-      // Fallback: Generate mock order book if WS not connected
       const generateOrderBook = () => {
         const basePrice = price;
         const bids: OrderBookEntry[] = [];
@@ -664,7 +537,7 @@ export default function TradePanel() {
     }
   }, [wsOrderbook, wsConnected, price]);
 
-  // Mock trades tape (replace with real WebSocket feed)
+  // Mock trades tape
   useEffect(() => {
     const generateTrade = () => {
       const newTrade: Trade = {
@@ -677,128 +550,23 @@ export default function TradePanel() {
       setRecentTrades(prev => [...prev.slice(-19), newTrade]);
     };
 
-    const interval = setInterval(generateTrade, 3000); // New trade every 3s
+    const interval = setInterval(generateTrade, 3000);
     return () => clearInterval(interval);
   }, [price]);
 
-  const handleOrderClick = useCallback(
-    (side: 'buy' | 'sell') => {
-      const orderPrice = orderType === 'market' ? price : limitPrice;
-      const estimatedCost = orderPrice * qty;
-      const fees = estimatedCost * 0.001; // 0.1% fee
-      const marginRequired = orderType === 'market' ? estimatedCost * 0.1 : undefined; // 10% margin for market orders
-
-      // Phase 1, Day 7: Calculate risk metrics
-      const riskMetrics = calculateRiskMetrics({
-        entryPrice: orderPrice,
-        quantity: qty,
-        stopLoss: sl > 0 ? sl : undefined,
-        takeProfit: tp > 0 ? tp : undefined,
-        orderType: orderType as 'market' | 'limit',
-        side,
-      });
-
-      const order: OrderDetails = {
-        side,
-        symbol: selected.name,
-        quantity: qty,
-        price: orderPrice,
-        orderType: orderType as 'market' | 'limit',
-        stopLoss: sl > 0 ? sl : undefined,
-        takeProfit: tp > 0 ? tp : undefined,
-        estimatedCost,
-        fees,
-        marginRequired,
-        // Phase 1, Day 7: Include risk metrics
-        riskMetrics: {
-          riskAmount: riskMetrics.riskAmount,
-          rewardAmount: riskMetrics.rewardAmount,
-          riskRewardRatio: riskMetrics.riskRewardRatio,
-          maxLoss: riskMetrics.maxLoss,
-          maxGain: riskMetrics.maxGain,
-          riskPercentage: riskMetrics.riskPercentage,
-        },
-      };
-
-      setPendingOrder(order);
-      setShowConfirmModal(true);
-    },
-    [qty, price, limitPrice, orderType, sl, tp, selected.name]
-  );
-
-  const handleConfirmOrder = useCallback(async () => {
-    if (!pendingOrder || isPlacingOrder) return;
-
-    setIsPlacingOrder(true);
-    try {
-      // Use tradeApi directly (it handles backend connection)
-      const { tradeApi } = await import('../../lib/api-client');
-      const result = await tradeApi.placeOrder({
-        symbol: selected.symbol,
-        quantity: pendingOrder.quantity,
-        orderType: pendingOrder.side,
-        stopLoss: pendingOrder.stopLoss,
-        takeProfit: pendingOrder.takeProfit,
-      });
-
-      if (result.success) {
-        toast.success(
-          `${pendingOrder.side.toUpperCase()} order placed: ${pendingOrder.quantity} × ${pendingOrder.symbol} @ ${selected.currency}${pendingOrder.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOrder ID: ${result.orderId}`
-        );
-        setShowConfirmModal(false);
-        setPendingOrder(null);
-      }
-    } catch (error) {
-      console.error('[Trade] Order placement failed:', error);
-      toast.error(`Failed to place ${pendingOrder.side} order. Please try again.`);
-    } finally {
-      setIsPlacingOrder(false);
-    }
-  }, [pendingOrder, isPlacingOrder, selected.symbol, selected.currency]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (showConfirmModal) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleConfirmOrder();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setShowConfirmModal(false);
-          setPendingOrder(null);
-        }
-      } else {
-        if (e.key === 'b' || e.key === 'B') {
-          e.preventDefault();
-          handleOrderClick('buy');
-        } else if (e.key === 's' || e.key === 'S') {
-          e.preventDefault();
-          handleOrderClick('sell');
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showConfirmModal, handleOrderClick, handleConfirmOrder]);
-
-  // Track price changes for cached data
+  // Track price changes
   useEffect(() => {
     if (price) {
       setLastPrice(price);
-      setLastChange(change);
       setLastUpdate(new Date());
     }
-  }, [price, change]);
+  }, [price]);
 
   // Handle connection errors
   useEffect(() => {
     if (!wsConnected && lastPrice === null) {
-      // Only set error if we've never had a connection
       setConnectionError(new Error('WebSocket connection not established'));
     } else if (!wsConnected && lastPrice !== null) {
-      // Connection lost but we have cached data
       setConnectionError(new Error('Connection lost - showing cached data'));
     } else {
       setConnectionError(null);
@@ -807,29 +575,8 @@ export default function TradePanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-black text-white">
-      {/* Trade Fallback UI - Show when disconnected and no cached data */}
-      {!wsConnected && lastPrice === null && (
-        <div className="p-4">
-          <div className="p-8 text-center text-gray-400">
-            <p>Trade mode fallback - service unavailable</p>
-            <p className="mt-2 text-sm">{connectionError?.message || 'WebSocket disconnected'}</p>
-            <button
-              onClick={async () => {
-                setConnectionError(null);
-                // Trigger reconnection by re-enabling the hook
-                // The useRealtimeTrade hook should handle reconnection
-                console.log('[Trade] Retrying connection...');
-              }}
-              className="mt-4 rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-            >
-              Retry Connection
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Show reconnecting status when disconnected but have data */}
-      {!wsConnected && (lastPrice !== null || wsReconnecting) && (
+      {/* Connection Status Banner */}
+      {!wsConnected && (
         <div
           className={`border-b px-4 py-2 text-sm ${
             wsReconnecting
@@ -842,20 +589,7 @@ export default function TradePanel() {
               {wsReconnecting ? '🔄 Reconnecting...' : '⚠️ Connection lost'}
               {lastPrice !== null && ' (Showing cached data)'}
             </span>
-            <button
-              onClick={async () => {
-                setConnectionError(null);
-                console.log('[Trade] Retrying connection...');
-                window.dispatchEvent(new CustomEvent('trade:reconnect'));
-              }}
-              className={`rounded px-2 py-1 text-xs hover:opacity-80 ${
-                wsReconnecting
-                  ? 'bg-blue-500/20 hover:bg-blue-500/30'
-                  : 'bg-yellow-500/20 hover:bg-yellow-500/30'
-              }`}
-            >
-              {wsReconnecting ? 'Cancel' : 'Retry'}
-            </button>
+            <SSEConnectionStatusIndicator showDetails={false} />
           </div>
         </div>
       )}
@@ -865,7 +599,6 @@ export default function TradePanel() {
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-emerald-400" />
           <h1 className="text-sm font-semibold text-white md:text-lg">Trade Mode</h1>
-          {/* Phase 1, Day 9: SSE Connection Status */}
           <SSEConnectionStatusIndicator showDetails={false} />
           <button
             onClick={() => setUseTradingView(!useTradingView)}
@@ -878,13 +611,10 @@ export default function TradePanel() {
           >
             {useTradingView ? 'Custom Chart' : 'TradingView'}
           </button>
-          {/* v0.4: Voice command for trade actions */}
           <VoiceButton
             onResult={async text => {
               trackUserAction(text);
               const parsed = parseResearchVoiceCommand(text);
-
-              // Execute agentic action if trade intent detected
               if (parsed.isTradeCommand || parsed.action?.type === 'trade') {
                 const result = await executeAgenticAction(text, { mode: 'trade' });
                 if (result.success) {
@@ -893,8 +623,7 @@ export default function TradePanel() {
                   toast.error(result.error || 'Trade action failed');
                 }
               } else {
-                // Fallback: try to parse as trade command anyway
-                toast.info(`Voice: ${text} (use "Trade NIFTY" or "Buy 10 RELIANCE")`);
+                toast.info(`Voice: ${text}`);
               }
             }}
             small
@@ -908,7 +637,6 @@ export default function TradePanel() {
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                 : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
-            title="Switch to Browse Mode"
           >
             <Globe size={12} />
             <span className="hidden sm:inline">Browse</span>
@@ -920,7 +648,6 @@ export default function TradePanel() {
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                 : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
-            title="Switch to Research Mode"
           >
             <Sparkles size={12} />
             <span className="hidden sm:inline">Research</span>
@@ -932,7 +659,6 @@ export default function TradePanel() {
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30'
                 : 'text-gray-400 hover:bg-slate-700/50 hover:text-white'
             }`}
-            title="Switch to Trade Mode"
           >
             <TrendingUp size={12} />
             <span className="hidden sm:inline">Trade</span>
@@ -940,7 +666,7 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* v0.4: Zero-prompt suggestions */}
+      {/* Zero-prompt suggestions */}
       <div className="z-20 flex-shrink-0 border-b border-gray-800 bg-black/50 px-4 py-2">
         <ZeroPromptSuggestions maxSuggestions={3} autoRefresh={true} />
       </div>
@@ -971,7 +697,7 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* Live Price */}
+      {/* Live Price Display */}
       <div className="z-10 flex-shrink-0 border-b border-gray-800 p-4 md:p-8">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
           <div>
@@ -982,24 +708,52 @@ export default function TradePanel() {
               {selected.currency}
               {price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               <span className="ml-3 text-xl md:ml-6 md:text-4xl">
-                {isGreen ? '↑' : '↓'} {change.toFixed(1)} (
-                {((change / (price - change)) * 100).toFixed(2)}%)
+                {isGreen ? '↑' : '↓'} {change.toFixed(2)} ({changePercent.toFixed(2)}%)
               </span>
             </div>
+            {lastUpdate && (
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-400 md:text-sm">
+                <Activity className="h-3 w-3" />
+                Last update: {lastUpdate.toLocaleTimeString()}
+                {wsConnected && <span className="text-green-400">● Live</span>}
+              </div>
+            )}
           </div>
-          <div className="text-left text-sm text-gray-400 md:text-right md:text-base">
-            <div>High: {selected.currency}25,120</div>
-            <div>Low: {selected.currency}24,720</div>
+          <div className="grid grid-cols-2 gap-4 text-left text-sm text-gray-400 md:text-right md:text-base">
+            <div>
+              <div className="text-xs text-gray-500">Open</div>
+              <div className="text-sm font-semibold text-white">
+                {selected.currency}
+                {open.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">High</div>
+              <div className="text-sm font-semibold text-green-400">
+                {selected.currency}
+                {high.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Low</div>
+              <div className="text-sm font-semibold text-red-400">
+                {selected.currency}
+                {low.toLocaleString()}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Volume</div>
+              <div className="text-sm font-semibold text-white">{volume.toLocaleString()}</div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Grid - Responsive */}
+      {/* Main Content Grid */}
       <div className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
         {/* Chart Area */}
         <div className="col-span-12 flex flex-col lg:col-span-8">
           {useTradingView ? (
-            // Real TradingView embed
             <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]">
               <BrowserView
                 url={`https://in.tradingview.com/chart/?symbol=${selected.symbol.replace(':', '')}`}
@@ -1011,7 +765,6 @@ export default function TradePanel() {
               </div>
             </div>
           ) : (
-            // Custom chart
             <div
               ref={chartContainerRef}
               className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
@@ -1031,7 +784,7 @@ export default function TradePanel() {
             </div>
           )}
 
-          {/* Trades Tape below chart */}
+          {/* Trades Tape */}
           <div className="mt-4">
             <TradesTape trades={recentTrades} symbol={selected.name} />
           </div>
@@ -1044,140 +797,54 @@ export default function TradePanel() {
             bids={orderBookBids}
             asks={orderBookAsks}
             onPriceClick={(price, _side) => {
-              setLimitPrice(price);
-              setOrderType('limit');
+              // Just show price info, no order placement
+              toast.info(`Price: ${selected.currency}${price.toLocaleString()}`);
             }}
           />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
-              <div className="mb-1 text-xs text-gray-400">High</div>
-              <div className="text-sm font-semibold text-white">{selected.currency}25,120</div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-gray-400">
+                <BarChart3 className="h-3 w-3" />
+                High
+              </div>
+              <div className="text-sm font-semibold text-green-400">
+                {selected.currency}
+                {high.toLocaleString()}
+              </div>
             </div>
             <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
-              <div className="mb-1 text-xs text-gray-400">Low</div>
-              <div className="text-sm font-semibold text-white">{selected.currency}24,720</div>
+              <div className="mb-1 flex items-center gap-1 text-xs text-gray-400">
+                <BarChart3 className="h-3 w-3" />
+                Low
+              </div>
+              <div className="text-sm font-semibold text-red-400">
+                {selected.currency}
+                {low.toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <div className="mb-1 flex items-center gap-1 text-xs text-gray-400">
+                <Activity className="h-3 w-3" />
+                Open
+              </div>
+              <div className="text-sm font-semibold text-white">
+                {selected.currency}
+                {open.toLocaleString()}
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+              <div className="mb-1 flex items-center gap-1 text-xs text-gray-400">
+                <Activity className="h-3 w-3" />
+                Volume
+              </div>
+              <div className="text-sm font-semibold text-white">{volume.toLocaleString()}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Order Panel */}
-      <motion.div
-        initial={{ y: 200 }}
-        animate={{ y: 0 }}
-        className="trade-controls fixed bottom-0 left-0 right-0 z-40 border-t-4 border-purple-600 bg-black/95 p-4 shadow-2xl backdrop-blur md:p-6"
-      >
-        <div className="mx-auto max-w-6xl">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
-            <input
-              type="number"
-              value={qty}
-              onChange={e => setQty(+e.target.value || 0)}
-              className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
-              placeholder="Qty"
-              aria-label="Quantity"
-            />
-            <select
-              value={orderType}
-              onChange={e => setOrderType(e.target.value as 'market' | 'limit')}
-              className="rounded-xl bg-gray-900 px-3 py-3 text-center text-lg font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-2xl"
-              aria-label="Order Type"
-            >
-              <option value="market">Market</option>
-              <option value="limit">Limit</option>
-            </select>
-            {orderType === 'limit' && (
-              <input
-                type="number"
-                value={limitPrice}
-                onChange={e => setLimitPrice(+e.target.value || price)}
-                className="rounded-xl bg-gray-900 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-purple-500 md:px-6 md:py-5 md:text-3xl"
-                placeholder="Price"
-                aria-label="Limit Price"
-              />
-            )}
-            <input
-              type="number"
-              value={sl}
-              onChange={e => setSl(+e.target.value || 0)}
-              className="rounded-xl border-2 border-red-600 bg-red-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-red-500 md:px-6 md:py-5 md:text-3xl"
-              placeholder="SL"
-              aria-label="Stop Loss"
-            />
-            <input
-              type="number"
-              value={tp}
-              onChange={e => setTp(+e.target.value || 0)}
-              className="rounded-xl border-2 border-green-600 bg-green-900/50 px-3 py-3 text-center text-xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-green-500 md:px-6 md:py-5 md:text-3xl"
-              placeholder="Target"
-              aria-label="Take Profit"
-            />
-            <button
-              onClick={() => handleOrderClick('buy')}
-              disabled={isPlacingOrder}
-              className={`flex items-center justify-center gap-2 rounded-2xl bg-green-600 font-black shadow-2xl transition-all hover:bg-green-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
-                isMobile
-                  ? 'py-3 text-lg'
-                  : isTablet
-                    ? 'py-4 text-2xl'
-                    : 'py-4 text-xl md:py-6 md:text-4xl'
-              }`}
-              title="Buy (Press B)"
-            >
-              {isPlacingOrder ? (
-                <>
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span>PLACING...</span>
-                </>
-              ) : (
-                'BUY'
-              )}
-            </button>
-            <button
-              onClick={() => handleOrderClick('sell')}
-              disabled={isPlacingOrder}
-              className={`flex items-center justify-center gap-2 rounded-2xl bg-red-600 font-black shadow-2xl transition-all hover:bg-red-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
-                isMobile
-                  ? 'py-3 text-lg'
-                  : isTablet
-                    ? 'py-4 text-2xl'
-                    : 'py-4 text-xl md:py-6 md:text-4xl'
-              }`}
-              title="Sell (Press S)"
-            >
-              {isPlacingOrder ? (
-                <>
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  <span>PLACING...</span>
-                </>
-              ) : (
-                'SELL'
-              )}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Order Confirmation Modal */}
-      <OrderConfirmModal
-        isOpen={showConfirmModal}
-        order={pendingOrder}
-        onConfirm={handleConfirmOrder}
-        onCancel={() => {
-          setShowConfirmModal(false);
-          setPendingOrder(null);
-        }}
-        warnings={
-          pendingOrder && pendingOrder.quantity * pendingOrder.price > 100000
-            ? ['Large order size - ensure sufficient margin']
-            : []
-        }
-        errors={
-          pendingOrder && pendingOrder.quantity <= 0 ? ['Quantity must be greater than 0'] : []
-        }
-      />
       <TradeStagehandIntegration />
     </div>
   );
