@@ -146,19 +146,58 @@ export class AIEngine {
       : controller.signal;
 
     try {
+      // Determine provider from request or default to ollama
+      const provider = request.llm?.provider || 'ollama';
+      const model = request.llm?.model || (provider === 'ollama' ? 'phi3:mini' : 'gpt-4o-mini');
+
+      // Build payload based on provider
+      let payload: any;
+      if (provider === 'ollama') {
+        payload = {
+          model,
+          stream: request.stream ?? false,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+        };
+      } else if (provider === 'openai') {
+        payload = {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+          temperature: request.llm?.temperature ?? 0.2,
+          max_tokens: request.llm?.maxTokens ?? 800,
+          stream: request.stream ?? false,
+        };
+      } else {
+        // Anthropic or other
+        payload = {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+          max_tokens: request.llm?.maxTokens ?? 800,
+        };
+      }
+
       const response = await fetch(`${base}/api/ai/task`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          kind: request.kind,
-          prompt: request.prompt,
-          context: request.context,
-          mode: request.mode,
-          metadata: request.metadata,
-          temperature: request.llm?.temperature ?? 0.2,
-          max_tokens: request.llm?.maxTokens ?? 800,
+          provider,
+          payload,
         }),
         signal: combinedSignal,
       });
@@ -169,6 +208,7 @@ export class AIEngine {
         return null;
       }
 
+      // Handle streaming response (SSE)
       if (response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.body?.getReader();
         if (!reader) {
@@ -220,7 +260,7 @@ export class AIEngine {
               } catch (error) {
                 console.warn('[AIEngine] Failed to parse done payload', error);
                 onStream?.({ type: 'done', data: tokens.join('') });
-                return { text: tokens.join(''), provider: 'openai', model: 'unknown' };
+                return { text: tokens.join(''), provider: provider, model: model };
               }
             } else if (event.startsWith('data:')) {
               const token = event.replace('data:', '').trim();
@@ -230,13 +270,43 @@ export class AIEngine {
           }
         }
         clearTimeout(timeoutId);
+        return { text: tokens.join(''), provider: provider, model: model };
       }
 
-      const data = (await response.json()) as AITaskResult;
+      // Handle JSON response
+      const responseData = await response.json();
       clearTimeout(timeoutId);
-      this.trackTelemetry(data, request);
-      onStream?.({ type: 'done', data: data });
-      return data;
+
+      // Parse response based on provider format
+      let result: AITaskResult;
+      if (provider === 'ollama') {
+        // Ollama response format
+        result = {
+          text: responseData.message?.content || responseData.response || '',
+          provider: 'ollama',
+          model: responseData.model || model,
+        };
+      } else if (provider === 'openai') {
+        // OpenAI response format
+        result = {
+          text: responseData.choices?.[0]?.message?.content || '',
+          provider: 'openai',
+          model: responseData.model || model,
+          usage: responseData.usage,
+        };
+      } else {
+        // Anthropic or other
+        result = {
+          text: responseData.content?.[0]?.text || responseData.content || '',
+          provider: provider,
+          model: responseData.model || model,
+          usage: responseData.usage,
+        };
+      }
+
+      this.trackTelemetry(result, request);
+      onStream?.({ type: 'done', data: result });
+      return result;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {

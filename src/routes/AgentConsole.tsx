@@ -376,37 +376,51 @@ export default function AgentConsole() {
       let streamError: string | null = null;
       let sawFirstToken = false;
 
-      await aiEngine.runTask(
-        {
-          kind: 'agent',
-          prompt: trimmedQuery,
-          context,
-          mode: 'agent-console',
-          metadata: { surface: 'agent-console' },
-          llm: { temperature: 0.2, maxTokens: 900 },
-          signal: controller.signal,
-        },
-        createFastCharStream(
-          (char, accumulated) => {
-            if (!sawFirstToken) {
-              sawFirstToken = true;
-              setStatus('live');
-            }
-            setStreamingText(accumulated);
-            // Append to transcript character by character for smoother updates
-            if (char) {
-              appendTranscript(char);
-            }
+      try {
+        await aiEngine.runTask(
+          {
+            kind: 'agent',
+            prompt: trimmedQuery,
+            context,
+            mode: 'agent-console',
+            metadata: { surface: 'agent-console' },
+            llm: {
+              provider: 'ollama', // Default to Ollama for offline support
+              model: 'phi3:mini',
+              temperature: 0.2,
+              maxTokens: 900,
+            },
+            stream: true,
+            signal: controller.signal,
           },
-          (fullText) => {
-            finalResult = { text: fullText, provider: 'openai', model: 'unknown' };
-            setStreamingText(fullText);
-          },
-          (error) => {
-            streamError = error;
-          }
-        )
-      );
+          createFastCharStream(
+            (char, accumulated) => {
+              if (!sawFirstToken) {
+                sawFirstToken = true;
+                setStatus('live');
+              }
+              setStreamingText(accumulated);
+              // Append to transcript character by character for smoother updates
+              if (char) {
+                appendTranscript(char);
+              }
+            },
+            fullText => {
+              finalResult = { text: fullText, provider: 'ollama', model: 'phi3:mini' };
+              setStreamingText(fullText);
+            },
+            error => {
+              streamError =
+                typeof error === 'string' ? error : error?.message || 'AI agent error occurred';
+              console.error('[AgentConsole] Stream error:', error);
+            }
+          )
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        streamError = errorMessage;
+        console.error('[AgentConsole] Task execution error:', error);
+      }
 
       abortControllerRef.current = null;
 
@@ -670,19 +684,25 @@ export default function AgentConsole() {
                     if (typeof window === 'undefined' || !window.agent) {
                       // Fallback to multi-agent system
                       try {
-                        const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
-                          mode: selectedAgentMode,
-                          tabId: activeId,
-                          url: activeTab?.url,
-                          sessionId: activeTab?.sessionId,
-                        });
+                        const agentResult = await multiAgentSystem.execute(
+                          selectedAgentMode,
+                          dslRef.current,
+                          {
+                            mode: selectedAgentMode,
+                            tabId: activeId,
+                            url: activeTab?.url,
+                            sessionId: activeTab?.sessionId,
+                          }
+                        );
                         if (agentResult.runId) {
                           setRunId(agentResult.runId);
                           toast.success('Agent run started');
                         }
                       } catch (error: any) {
                         console.error('[AgentConsole] Fallback execution failed:', error);
-                        alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                        alert(
+                          `Agent API not available. Error: ${error?.message || 'Unknown error'}`
+                        );
                       }
                       return;
                     }
@@ -719,19 +739,25 @@ export default function AgentConsole() {
                     if (typeof window === 'undefined' || !window.agent) {
                       // Fallback to multi-agent system
                       try {
-                        const agentResult = await multiAgentSystem.execute(selectedAgentMode, dslRef.current, {
-                          mode: selectedAgentMode,
-                          tabId: activeId,
-                          url: activeTab?.url,
-                          sessionId: activeTab?.sessionId,
-                        });
+                        const agentResult = await multiAgentSystem.execute(
+                          selectedAgentMode,
+                          dslRef.current,
+                          {
+                            mode: selectedAgentMode,
+                            tabId: activeId,
+                            url: activeTab?.url,
+                            sessionId: activeTab?.sessionId,
+                          }
+                        );
                         if (agentResult.runId) {
                           setRunId(agentResult.runId);
                           toast.success('Agent run started');
                         }
                       } catch (error: any) {
                         console.error('[AgentConsole] Fallback execution failed:', error);
-                        alert(`Agent API not available. Error: ${error?.message || 'Unknown error'}`);
+                        alert(
+                          `Agent API not available. Error: ${error?.message || 'Unknown error'}`
+                        );
                       }
                       return;
                     }
@@ -745,7 +771,9 @@ export default function AgentConsole() {
                         toast.success('Agent run stopped');
                       } catch (error) {
                         console.error('Failed to stop agent run:', error);
-                        toast.error(`Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`);
+                        toast.error(
+                          `Failed to stop agent run: ${error instanceof Error ? error.message : String(error)}`
+                        );
                       }
                     }
                   }}

@@ -321,15 +321,54 @@ async function callOllama(
   if (options.topP !== undefined) body.options.top_p = options.topP;
   if (options.stopSequences) body.options.stop = options.stopSequences;
 
+  // Check if Ollama is available first
+  try {
+    const healthController = new AbortController();
+    const healthTimeoutId = setTimeout(() => healthController.abort(), 2000);
+
+    const healthCheck = await fetch(`${baseUrl}/api/tags`, {
+      method: 'GET',
+      signal: healthController.signal,
+    });
+
+    clearTimeout(healthTimeoutId);
+
+    if (!healthCheck.ok) {
+      throw new Error('Ollama not available');
+    }
+  } catch (healthError) {
+    const { getOllamaErrorMessage } = await import('../../utils/ollamaCheck');
+    throw {
+      code: 'ollama_not_running',
+      message: getOllamaErrorMessage(healthError),
+      provider: 'ollama' as LLMProvider,
+      retryable: false,
+    } as LLMError;
+  }
+
+  const requestController = new AbortController();
+  const requestTimeoutId = setTimeout(() => requestController.abort(), 60000); // 60 second timeout
+
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal: requestController.signal,
   });
 
+  clearTimeout(requestTimeoutId);
+
   if (!response.ok) {
+    if (response.status === 404) {
+      throw {
+        code: 'ollama_model_not_found',
+        message: `Model "${model}" not found. Run: ollama pull ${model}`,
+        provider: 'ollama' as LLMProvider,
+        retryable: false,
+      } as LLMError;
+    }
     throw {
       code: `ollama_${response.status}`,
       message: `Ollama API error: ${response.statusText}`,
