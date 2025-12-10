@@ -88,13 +88,41 @@ class TabSyncService {
       color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
     });
 
+    // LAG FIX #1: Better desync handling on network toggle
     this.provider.on('status', async (event: { status: string }) => {
+      const wasConnected = this.isConnected;
       this.isConnected = event.status === 'connected';
       console.log('[TabSync] Connection status:', event.status);
+
       if (this.isConnected) {
+        // Reconnected: flush queued updates and resync
         await this.flushQueuedUpdates();
+        // Force resync to catch up with any missed changes
+        this.syncToYjs();
+        this.syncFromYjs();
+      } else if (wasConnected && !this.isConnected) {
+        // Disconnected: mark as offline and queue all pending changes
+        console.warn('[TabSync] Disconnected - queuing updates for replay');
       }
     });
+
+    // LAG FIX #1: Handle network online/offline events for better desync recovery
+    const handleOnline = () => {
+      console.log('[TabSync] Network online - attempting reconnect');
+      if (this.provider && !this.isConnected) {
+        // Provider will auto-reconnect, but we can trigger status check
+        this.provider.connect();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('[TabSync] Network offline - will queue updates');
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
 
     // Observe changes from remote
     this.tabsArray.observe((_event: Y.YArrayEvent<Y.Map<any>>) => {
@@ -265,11 +293,11 @@ class TabSyncService {
         createdAt: Date.now(),
       });
 
-      // Keep queue bounded (oldest first) to avoid unbounded growth - cap at 200 to prevent 5s spike
+      // LAG FIX #6: Keep queue bounded (oldest first) - cap at 150 to prevent 4s lag spikes
       const count = await this.db.pending.where({ sessionId }).count();
-      if (count > 200) {
+      if (count > 150) {
         const old = await this.db.pending.where({ sessionId }).sortBy('createdAt');
-        const dropCount = count - 100; // Keep last 100, drop older ones
+        const dropCount = count - 75; // Keep last 75, drop older ones
         const idsToDelete = old
           .slice(0, dropCount)
           .map(item => item.id!)

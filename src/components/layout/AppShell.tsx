@@ -75,6 +75,7 @@ import { RedixModeToggle } from '../redix/RedixModeToggle';
 import { useI18nSync } from '../../hooks/useI18nSync';
 import { initializeRedixMode } from '../../lib/redix-mode/integration';
 import { OnboardingTour } from '../OnboardingTour';
+import { AwarenessCursors } from '../collaboration/AwarenessCursors';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
 const getPolicyRecommendations = () =>
@@ -2344,6 +2345,8 @@ export function AppShell() {
       <GlobalSearch />
       <WisprOrb />
       <OmniModeSwitcher />
+      {/* LAG FIX #1: Collaborative cursors for multi-user editing */}
+      <AwarenessCursors />
 
       {/* REDIX MODE: Toggle for Redix mode (dev mode only, bottom-right) */}
       {isDevEnv() && (
