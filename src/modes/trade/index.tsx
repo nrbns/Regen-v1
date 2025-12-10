@@ -1,8 +1,7 @@
 // Trade Mode - Real-Time Market Data Display Only
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, IChartApi, ISeriesApi } from 'lightweight-charts';
 import { toast } from '../../utils/toast';
-import { motion } from 'framer-motion';
 import {
   Globe,
   TrendingUp,
@@ -64,7 +63,7 @@ export default function TradePanel() {
   const [orderBookBids, setOrderBookBids] = useState<OrderBookEntry[]>([]);
   const [orderBookAsks, setOrderBookAsks] = useState<OrderBookEntry[]>([]);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
-  const [connectionError, setConnectionError] = useState<Error | null>(null);
+  const [_connectionError, setConnectionError] = useState<Error | null>(null);
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [useTradingView, setUseTradingView] = useState(false);
