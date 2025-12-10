@@ -11,21 +11,23 @@ import axios from 'axios';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import FormData from 'form-data';
+import { getWhisperLanguageCode } from '../services/voice/whisper-language-map.js';
 
 const execAsync = promisify(exec);
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
 /**
  * Get speech-to-text provider
+ * DESI POLISH: Supports all 22 Indian languages via language parameter
  */
-export async function getSTTProvider() {
+export async function getSTTProvider(language = 'auto') {
   if (isOffline()) {
     // Offline: Use local Whisper
     return {
       type: 'local',
       model: 'whisper',
-      transcribe: async (audioBytes) => {
-        return await transcribeWithLocalWhisper(audioBytes);
+      transcribe: async audioBytes => {
+        return await transcribeWithLocalWhisper(audioBytes, { language });
       },
     };
   } else {
@@ -33,8 +35,8 @@ export async function getSTTProvider() {
     return {
       type: 'cloud',
       provider: 'groq', // Or 'poe', 'openai'
-      transcribe: async (audioBytes) => {
-        return await transcribeWithCloudWhisper(audioBytes);
+      transcribe: async audioBytes => {
+        return await transcribeWithCloudWhisper(audioBytes, { language });
       },
     };
   }
@@ -42,40 +44,54 @@ export async function getSTTProvider() {
 
 /**
  * Transcribe with local Whisper (Ollama)
+ * DESI POLISH: Supports all 22 Indian languages
  */
-async function transcribeWithLocalWhisper(audioBytes) {
+async function transcribeWithLocalWhisper(audioBytes, options = {}) {
   try {
+    const whisperLang = getWhisperLanguageCode(options.language);
+    const requestBody = {
+      model: 'whisper',
+      prompt: '', // Whisper doesn't need prompt
+      audio: audioBytes.toString('base64'),
+      stream: false,
+    };
+
+    // Add language if specified
+    if (whisperLang) {
+      requestBody.language = whisperLang;
+    }
+
     // Use Ollama whisper model
-    const response = await axios.post(
-      `${OLLAMA_BASE_URL}/api/generate`,
-      {
-        model: 'whisper',
-        prompt: '', // Whisper doesn't need prompt
-        audio: audioBytes.toString('base64'),
-        stream: false,
-      },
-      { timeout: 60000 }
-    );
+    const response = await axios.post(`${OLLAMA_BASE_URL}/api/generate`, requestBody, {
+      timeout: 60000,
+    });
 
     return response.data.response;
   } catch {
     // Fallback to faster-whisper or whisper.cpp
     console.warn('[VoiceProvider] Ollama whisper failed, trying faster-whisper...');
-    return await transcribeWithFasterWhisper(audioBytes);
+    return await transcribeWithFasterWhisper(audioBytes, options);
   }
 }
 
 /**
  * Transcribe with faster-whisper (local, faster)
+ * DESI POLISH: Supports all 22 Indian languages
  */
-async function transcribeWithFasterWhisper(audioBytes) {
+async function transcribeWithFasterWhisper(audioBytes, options = {}) {
   // Save to temp file
   const tempFile = `/tmp/audio_${Date.now()}.webm`;
   fs.writeFileSync(tempFile, audioBytes);
 
   try {
+    // DESI POLISH: Map our language code to Whisper language code
+    const whisperLang = getWhisperLanguageCode(options.language);
+    const languageArg = whisperLang ? `--language ${whisperLang}` : '';
+
     // Use faster-whisper CLI
-    const { stdout } = await execAsync(`faster-whisper "${tempFile}" --language en --output_format txt`);
+    const { stdout } = await execAsync(
+      `faster-whisper "${tempFile}" ${languageArg} --output_format txt`
+    );
     return stdout.trim();
   } catch (error) {
     throw new Error(`Faster-whisper failed: ${error.message}`);
@@ -88,8 +104,9 @@ async function transcribeWithFasterWhisper(audioBytes) {
 
 /**
  * Transcribe with cloud Whisper (free)
+ * DESI POLISH: Supports all 22 Indian languages
  */
-async function transcribeWithCloudWhisper(audioBytes) {
+async function transcribeWithCloudWhisper(audioBytes, options = {}) {
   // Try Groq first (free, fast)
   try {
     const GROQ_API_KEY = process.env.GROQ_API_KEY || 'free';
@@ -97,22 +114,24 @@ async function transcribeWithCloudWhisper(audioBytes) {
     form.append('file', audioBytes, { filename: 'audio.webm', contentType: 'audio/webm' });
     form.append('model', 'whisper-large-v3');
 
-    const response = await axios.post(
-      'https://api.groq.com/openai/v1/audio/transcriptions',
-      form,
-      {
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          ...form.getHeaders(),
-        },
-      }
-    );
+    // DESI POLISH: Map our language code to Whisper language code
+    const whisperLang = getWhisperLanguageCode(options.language);
+    if (whisperLang) {
+      form.append('language', whisperLang);
+    }
+
+    const response = await axios.post('https://api.groq.com/openai/v1/audio/transcriptions', form, {
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        ...form.getHeaders(),
+      },
+    });
 
     return response.data.text;
   } catch {
     // Fallback to OpenAI via Poe or local
     console.warn('[VoiceProvider] Groq whisper failed, using local fallback');
-    return await transcribeWithLocalWhisper(audioBytes);
+    return await transcribeWithLocalWhisper(audioBytes, options);
   }
 }
 
@@ -148,7 +167,7 @@ async function synthesizeWithPiper(text, voice) {
   try {
     const outputFile = `/tmp/tts_${Date.now()}.wav`;
     await execAsync(`echo "${text}" | piper --model ${voice} --output_file "${outputFile}"`);
-    
+
     if (fs.existsSync(outputFile)) {
       const audioData = fs.readFileSync(outputFile);
       fs.unlinkSync(outputFile);
@@ -192,4 +211,3 @@ async function synthesizeWithElevenLabs(text, voiceId = null) {
     return await synthesizeWithPiper(text);
   }
 }
-
