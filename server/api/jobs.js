@@ -1,46 +1,48 @@
 /**
  * Job API Routes
- * REST endpoints for job state and resume
- *
- * PR 5: Job persistence and resume
+ * PR 3: Job persistence and resume endpoints
  */
 
 const express = require('express');
-const { getJobState } = require('../jobs/persistence.js');
+const { getJobState, updateJobProgress } = require('../jobs/persistence.js');
 
 const router = express.Router();
 
 /**
  * GET /api/job/:jobId/state
- * Get persisted job state for resume
+ * Get current job state for resume
  */
 router.get('/:jobId/state', async (req, res) => {
   try {
     const { jobId } = req.params;
-    const userId = req.user?.id || req.headers['x-user-id'];
-
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
     const state = await getJobState(jobId);
 
     if (!state) {
-      return res.status(404).json({ error: 'Job not found' });
-    }
-
-    // Verify user owns this job
-    if (state.userId !== userId) {
-      return res.status(403).json({ error: 'Forbidden' });
+      return res.status(404).json({
+        error: 'Job not found',
+        jobId,
+      });
     }
 
     res.json({
-      jobId,
-      ...state,
+      jobId: state.jobId,
+      userId: state.userId,
+      status: state.status,
+      progress: state.progress || 0,
+      lastSequence: state.lastSequence || 0,
+      result: state.result,
+      error: state.error,
+      createdAt: state.createdAt,
+      updatedAt: state.updatedAt,
+      completedAt: state.completedAt,
+      failedAt: state.failedAt,
     });
   } catch (error) {
-    console.error('[JobAPI] Error getting job state', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[JobAPI] Failed to get job state:', error);
+    res.status(500).json({
+      error: 'Failed to get job state',
+      message: error.message,
+    });
   }
 });
 
@@ -54,18 +56,24 @@ router.get('/:jobId/status', async (req, res) => {
     const state = await getJobState(jobId);
 
     if (!state) {
-      return res.status(404).json({ error: 'Job not found' });
+      return res.status(404).json({
+        error: 'Job not found',
+        jobId,
+      });
     }
 
     res.json({
-      jobId,
+      jobId: state.jobId,
       status: state.status,
-      progress: state.progress,
-      updatedAt: state.updatedAt,
+      progress: state.progress || 0,
+      lastSequence: state.lastSequence || 0,
     });
   } catch (error) {
-    console.error('[JobAPI] Error getting job status', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('[JobAPI] Failed to get job status:', error);
+    res.status(500).json({
+      error: 'Failed to get job status',
+      message: error.message,
+    });
   }
 });
 

@@ -4721,21 +4721,59 @@ fastify.get('/metrics/prom', async (_request, reply) => {
         });
       });
 
-      // Subscribe to Redis channels for worker events
+      // PR 2: Subscribe to Redis channels for worker events with pattern matching
       if (redisClient) {
         try {
           const { subscribe } = require('./pubsub.js');
-          const { subscribeToChannel } = require('./pubsub/redis-pubsub.js');
+          const Redis = require('ioredis');
 
-          // Workers publish to job:${jobId} channels with format: { event, data, timestamp }
-          // We need to subscribe to each job channel individually or use a pattern
-          // For now, subscribe to common channels and handle job-specific forwarding
+          // Create a dedicated subscriber for pattern matching
+          const patternSub = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+            maxRetriesPerRequest: null,
+            enableOfflineQueue: false,
+            retryStrategy: () => null,
+            lazyConnect: true,
+          });
 
-          // Subscribe to model chunks (workers publish here)
+          // PR 2: Subscribe to job:* pattern to catch all job-specific channels
+          patternSub.psubscribe('job:*', (err, count) => {
+            if (err) {
+              fastify.log.warn({ err }, 'Failed to psubscribe to job:* pattern');
+            } else {
+              fastify.log.info(`[Socket.IO] Subscribed to job:* pattern (${count} channels)`);
+            }
+          });
+
+          // Handle pattern messages (job:${jobId} channels)
+          patternSub.on('pmessage', (pattern, channel, message) => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              const event = parsed.event || data.event;
+
+              // Extract jobId from channel (job:${jobId})
+              const jobId = channel.replace('job:', '');
+
+              if (data.userId) {
+                // Forward to user room
+                io.to(`user:${data.userId}`).emit(event || 'model:chunk:v1', {
+                  ...data,
+                  jobId,
+                });
+                fastify.log.debug(
+                  { jobId, userId: data.userId, event },
+                  '[Socket.IO] Forwarded job message to user room'
+                );
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error, channel }, 'Failed to parse job channel message');
+            }
+          });
+
+          // Subscribe to general channels (model:chunk, model:complete, job:progress)
           subscribe('model:chunk', message => {
             try {
               const parsed = typeof message === 'string' ? JSON.parse(message) : message;
-              // Handle both direct format and wrapped format
               const data = parsed.data || parsed;
               if (data.jobId && data.userId) {
                 io.to(`user:${data.userId}`).emit(EVENTS.MODEL_CHUNK || 'model:chunk:v1', data);
@@ -4745,7 +4783,6 @@ fastify.get('/metrics/prom', async (_request, reply) => {
             }
           });
 
-          // Subscribe to job progress
           subscribe('job:progress', message => {
             try {
               const parsed = typeof message === 'string' ? JSON.parse(message) : message;
@@ -4758,7 +4795,6 @@ fastify.get('/metrics/prom', async (_request, reply) => {
             }
           });
 
-          // Subscribe to model complete events
           subscribe('model:complete', message => {
             try {
               const parsed = typeof message === 'string' ? JSON.parse(message) : message;
@@ -4774,16 +4810,8 @@ fastify.get('/metrics/prom', async (_request, reply) => {
             }
           });
 
-          // Also use redis-pubsub subscribeToChannel for job-specific channels
-          // This handles job:${jobId} pattern subscriptions
-          if (subscribeToChannel) {
-            // Subscribe to job channels using pattern (if supported)
-            // Workers publish to job:${jobId}, we forward to user:${userId}
-            fastify.log.info('Using redis-pubsub for job channel subscriptions');
-          }
-
           fastify.log.info(
-            'Socket.IO subscribed to Redis channels (model:chunk, job:progress, model:complete)'
+            'Socket.IO subscribed to Redis channels (model:chunk, job:progress, model:complete, job:*)'
           );
         } catch (error) {
           fastify.log.warn({ err: error }, 'Socket.IO Redis subscription failed (optional)');
