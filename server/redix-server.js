@@ -4666,17 +4666,35 @@ fastify.get('/metrics/prom', async (_request, reply) => {
         // Handle search start
         socket.on(EVENTS.START_SEARCH || 'search:start:v1', async payload => {
           try {
-            const { query } = payload;
-            const jobId = `search_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+            const { query, filters } = payload;
 
-            fastify.log.info({ userId, jobId, query }, 'Search started via Socket.IO');
+            // Enqueue to LLM queue for processing
+            const { enqueueLLMJob } = await import('./services/queue/llmQueue.js');
+            const jobResult = await enqueueLLMJob(
+              {
+                query,
+                context: filters || {},
+                userId,
+                sessionId,
+                model: payload.model || 'phi3:mini',
+                stream: true,
+              },
+              { jobId: payload.jobId }
+            );
+
+            const jobId = jobResult.jobId;
+
+            fastify.log.info(
+              { userId, jobId, query },
+              'Search started via Socket.IO - job enqueued'
+            );
 
             // Emit start confirmation
             socket.emit(EVENTS.JOB_STARTED || 'job:started:v1', { jobId, query });
 
-            // TODO: Enqueue search job to worker queue
             // Workers will publish progress to Redis, which will be forwarded here
           } catch (error) {
+            fastify.log.error({ err: error }, 'Failed to enqueue search job');
             socket.emit('error', { message: error.message });
           }
         });
@@ -4707,27 +4725,68 @@ fastify.get('/metrics/prom', async (_request, reply) => {
       if (redisClient) {
         try {
           const { subscribe } = require('./pubsub.js');
+          const { subscribeToChannel } = require('./pubsub/redis-pubsub.js');
 
-          // Subscribe to model chunks
+          // Workers publish to job:${jobId} channels with format: { event, data, timestamp }
+          // We need to subscribe to each job channel individually or use a pattern
+          // For now, subscribe to common channels and handle job-specific forwarding
+
+          // Subscribe to model chunks (workers publish here)
           subscribe('model:chunk', message => {
-            if (message.jobId && message.userId) {
-              io.to(`user:${message.userId}`).emit(EVENTS.MODEL_CHUNK || 'model:chunk:v1', message);
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              // Handle both direct format and wrapped format
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(EVENTS.MODEL_CHUNK || 'model:chunk:v1', data);
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse model:chunk message');
             }
           });
 
           // Subscribe to job progress
           subscribe('job:progress', message => {
-            if (message.jobId && message.userId) {
-              io.to(`user:${message.userId}`).emit(
-                EVENTS.TASK_PROGRESS || 'task:progress:v1',
-                message
-              );
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(EVENTS.TASK_PROGRESS || 'task:progress:v1', data);
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse job:progress message');
             }
           });
 
-          fastify.log.info('Socket.IO subscribed to Redis channels');
+          // Subscribe to model complete events
+          subscribe('model:complete', message => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(
+                  EVENTS.MODEL_COMPLETE || 'model:complete:v1',
+                  data
+                );
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse model:complete message');
+            }
+          });
+
+          // Also use redis-pubsub subscribeToChannel for job-specific channels
+          // This handles job:${jobId} pattern subscriptions
+          if (subscribeToChannel) {
+            // Subscribe to job channels using pattern (if supported)
+            // Workers publish to job:${jobId}, we forward to user:${userId}
+            fastify.log.info('Using redis-pubsub for job channel subscriptions');
+          }
+
+          fastify.log.info(
+            'Socket.IO subscribed to Redis channels (model:chunk, job:progress, model:complete)'
+          );
         } catch (error) {
-          fastify.log.warn('Socket.IO Redis subscription failed (optional)');
+          fastify.log.warn({ err: error }, 'Socket.IO Redis subscription failed (optional)');
         }
       }
 

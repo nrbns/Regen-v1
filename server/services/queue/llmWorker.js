@@ -42,6 +42,8 @@ const worker = new Worker(
       });
     }
 
+    const jobStartTime = Date.now();
+
     try {
       // Call LLM (Ollama or OpenAI) with streaming
       const llmService = await import('../agent/llm.js');
@@ -152,6 +154,22 @@ const worker = new Worker(
             },
             timestamp: Date.now(),
           });
+        }
+
+        // Publish completion to Redis for Socket.IO forwarding
+        try {
+          const { publishModelComplete } = await import('../../pubsub/redis-pubsub.js');
+          const userId = job.data.userId || clientId || 'anonymous';
+          const duration = Date.now() - jobStartTime;
+          await publishModelComplete(
+            job.id,
+            userId,
+            fullResponse,
+            tokensUsed || chunkIndex,
+            duration
+          );
+        } catch (error) {
+          console.warn('[LLMWorker] Failed to publish completion to Redis:', error.message);
         }
 
         return {

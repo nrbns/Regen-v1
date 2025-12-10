@@ -74,8 +74,13 @@ async function publishEvent(channel, event, data) {
   }
 
   if (!pubClient || pubClient.status !== 'ready') {
-    // Silently fail if Redis unavailable
-    return false;
+    // Try to connect if not ready
+    try {
+      await pubClient?.connect();
+    } catch {
+      // Silently fail if Redis unavailable
+      return false;
+    }
   }
 
   try {
@@ -87,8 +92,9 @@ async function publishEvent(channel, event, data) {
 
     await pubClient.publish(channel, message);
     return true;
-  } catch {
-    // Silently fail
+  } catch (error) {
+    // Log but don't throw - Redis is optional
+    console.warn('[RedisPubSub] Publish failed:', error.message);
     return false;
   }
 }
@@ -108,28 +114,46 @@ async function publishJobProgress(jobId, userId, progress, status, message) {
 
 /**
  * Publish model chunk
+ * Publishes to both job-specific channel and general model:chunk channel
  */
 async function publishModelChunk(jobId, userId, chunk, index, total) {
-  return publishEvent(`job:${jobId}`, EVENTS?.MODEL_CHUNK || 'model:chunk:v1', {
+  const data = {
     jobId,
     userId,
     chunk,
     index,
     total,
-  });
+  };
+
+  // Publish to general channel (Socket.IO subscribes here)
+  await publishEvent('model:chunk', EVENTS?.MODEL_CHUNK || 'model:chunk:v1', data);
+
+  // Also publish to job-specific channel for targeted subscriptions
+  await publishEvent(`job:${jobId}`, EVENTS?.MODEL_CHUNK || 'model:chunk:v1', data);
+
+  return true;
 }
 
 /**
  * Publish model complete
+ * Publishes to both job-specific channel and general model:complete channel
  */
 async function publishModelComplete(jobId, userId, text, tokens, duration) {
-  return publishEvent(`job:${jobId}`, EVENTS?.MODEL_COMPLETE || 'model:complete:v1', {
+  const data = {
     jobId,
     userId,
     text,
     tokens,
     duration,
-  });
+  };
+
+  // Publish to general channel (Socket.IO subscribes here)
+  await publishEvent('model:complete', EVENTS?.MODEL_COMPLETE || 'model:complete:v1', data);
+
+  // Also publish to job-specific channel
+  await publishEvent(`job:${jobId}`, EVENTS?.MODEL_COMPLETE || 'model:complete:v1', data);
+
+  return true;
 }
 
 /**
