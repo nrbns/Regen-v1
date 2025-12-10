@@ -150,17 +150,56 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         // Listen for link clicks from iframe content
         if (event.data?.type === 'link-click' && event.data?.url) {
           const url = event.data.url;
-          // Don't create new tab for same-origin navigation
-          if (url && url !== targetUrl && !url.startsWith('javascript:') && !url.startsWith('#')) {
-            console.log('[TabContentSurface] Intercepted link click:', url);
-            // Create new tab for external links
-            try {
-              await ipc.tabs.create(url);
-            } catch (error) {
-              console.warn('[TabContentSurface] Failed to create tab for link:', error);
-              // Fallback: open in new window
-              window.open(url, '_blank', 'noopener,noreferrer');
+
+          // Validate URL
+          if (!url || url.startsWith('javascript:') || url.startsWith('#')) {
+            return;
+          }
+
+          // Normalize URL (handle relative URLs)
+          let normalizedUrl = url;
+          try {
+            // If it's not a full URL, try to make it one
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              // Try to resolve relative to current page
+              if (targetUrl) {
+                normalizedUrl = new URL(url, targetUrl).href;
+              } else {
+                normalizedUrl = url.startsWith('//') ? `https:${url}` : `https://${url}`;
+              }
             }
+
+            // Validate the final URL
+            const urlObj = new URL(normalizedUrl);
+            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+              console.warn('[TabContentSurface] Invalid protocol:', normalizedUrl);
+              return;
+            }
+          } catch (urlError) {
+            console.warn('[TabContentSurface] Invalid URL:', url, urlError);
+            return;
+          }
+
+          // Don't create new tab for same URL (refresh)
+          if (normalizedUrl === targetUrl) {
+            console.log('[TabContentSurface] Same URL, skipping tab creation');
+            return;
+          }
+
+          console.log('[TabContentSurface] Intercepted link click:', normalizedUrl);
+
+          // Create new tab for the link
+          try {
+            if (isElectron || isTauri) {
+              await ipc.tabs.create(normalizedUrl);
+            } else {
+              // Web mode fallback: open in new window
+              window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+            }
+          } catch (error) {
+            console.warn('[TabContentSurface] Failed to create tab for link:', error);
+            // Fallback: open in new window
+            window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
           }
         }
       } catch (error) {
