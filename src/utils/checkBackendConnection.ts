@@ -105,10 +105,15 @@ export async function checkResearchBackend(): Promise<BackendConnectionStatus> {
 
     // Try a lightweight research endpoint check
     // We'll just check if the endpoint exists (OPTIONS or HEAD request)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
     const response = await fetch(`${API_BASE_URL}/api/research/enhanced`, {
       method: 'OPTIONS',
-      signal: AbortSignal.timeout(3000),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const latency = Math.round(performance.now() - startTime);
 
