@@ -16,7 +16,7 @@ import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
 // import { useOfflineRAG } from '../../hooks/useOfflineRAG'; // Unused
-// import { searchOfflineDocuments } from '../../services/offlineRAG'; // Unused
+import { searchOfflineDocuments } from '../../services/offlineRAG';
 // import { SavePageButton } from '../../components/offline/SavePageButton'; // Unused
 import { aiEngine, type AITaskResult } from '../../core/ai';
 import { semanticSearchMemories } from '../../core/supermemory/search';
