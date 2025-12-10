@@ -146,6 +146,27 @@ export default function ResearchPanel() {
     }
   }, [containers.length, setContainers]);
 
+  // Check backend connection on mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const status = await checkResearchBackend();
+        if (status.connected) {
+          console.log('[Research] Backend connected:', status.endpoint, `(${status.latency}ms)`);
+        } else {
+          console.warn('[Research] Backend not connected:', status.error);
+          toast.info(`Research backend offline: ${status.error}`, { duration: 5000 });
+        }
+      } catch (error) {
+        console.error('[Research] Failed to check backend connection:', error);
+      }
+    };
+
+    // Check after a short delay to avoid blocking initial render
+    const timer = setTimeout(checkConnection, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Listen for handoff events from Trade mode
   // WISPR Research Command Handler
   useEffect(() => {
