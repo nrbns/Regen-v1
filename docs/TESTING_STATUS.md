@@ -48,11 +48,14 @@
 
 **Status**: ⏳ **Pending k6 Installation**
 
+**Installation Note**: k6 on Windows requires Chocolatey, direct download, or Scoop. See [k6 Installation Guide](K6_INSTALLATION_GUIDE.md) for detailed instructions.
+
 **Next Steps**:
 
-1. Install k6: `npm install -g k6` (or download from k6.io)
-2. Run: `npm run test:load` or `k6 run tests/load/k6-load-test.js`
-3. Review results and update tracker
+1. Install k6 using one of the methods in [K6_INSTALLATION_GUIDE.md](K6_INSTALLATION_GUIDE.md)
+2. Start server: `npm run dev:server`
+3. Run: `npm run test:load` or `k6 run tests/load/k6-load-test.js`
+4. Review results and update tracker
 
 **Estimated Time**: 30 minutes (installation + test run)
 
