@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { ErrorBoundary } from '../core/errors/ErrorBoundary';
 import { WeatherCard } from '../components/WeatherCard';
 import { FlightCard } from '../components/FlightCard';
+import { ModeSwitchLoader } from '../components/common/ModeSwitchLoader';
 
 // REDIX MODE: Conditionally load modes based on Redix mode
 import { getRedixConfig } from '../lib/redix-mode';
@@ -25,7 +26,7 @@ const ThreatsPanel = lazy(() => {
     // Return minimal stub in Redix mode
     return Promise.resolve({
       default: () => (
-        <div className="flex items-center justify-center h-full text-gray-400">
+        <div className="flex h-full items-center justify-center text-gray-400">
           <p>Threats mode disabled in Redix mode</p>
         </div>
       ),
@@ -34,22 +35,8 @@ const ThreatsPanel = lazy(() => {
   return import('../modes/threats');
 });
 
-// Enhanced loading fallback with skeleton loader
-const ModeLoadingFallback = () => (
-  <div className="flex flex-col items-center justify-center h-full w-full p-8">
-    <div className="flex items-center gap-3 mb-4">
-      <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-      <span className="text-sm text-gray-400">Loading mode...</span>
-    </div>
-    {/* Skeleton loader */}
-    <div className="w-full max-w-2xl space-y-4 animate-pulse">
-      <div className="h-4 bg-gray-800 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-800 rounded w-1/2"></div>
-      <div className="h-32 bg-gray-800 rounded"></div>
-      <div className="h-4 bg-gray-800 rounded w-5/6"></div>
-    </div>
-  </div>
-);
+// LAG FIX #3: Enhanced loading fallback with skeleton loader
+const ModeLoadingFallback = () => <ModeSwitchLoader />;
 
 export default function Home() {
   const mode = useAppStore(s => s.mode);
@@ -99,22 +86,22 @@ export default function Home() {
 
   return (
     <div
-      className={`h-full w-full bg-[#1A1D28] flex flex-col overflow-hidden ${isFullscreen ? 'absolute inset-0' : ''}`}
+      className={`flex h-full w-full flex-col overflow-hidden bg-[#1A1D28] ${isFullscreen ? 'absolute inset-0' : ''}`}
     >
       {mode === 'Browse' || !mode ? (
-        <div className="flex-1 w-full relative min-h-0 overflow-hidden">
+        <div className="relative min-h-0 w-full flex-1 overflow-hidden">
           {/* Browser content is handled by AppShell via TabContentSurface */}
           {/* Show OmniDesk when no tabs or active tab is about:blank (search page) */}
           {/* OmniDesk will handle its own visibility logic */}
           {/* z-20 is below TabStrip (z-50) to ensure tabs are always clickable */}
-          <div className="absolute inset-0 z-20 pointer-events-none">
+          <div className="pointer-events-none absolute inset-0 z-20">
             <div className="pointer-events-auto h-full w-full overflow-hidden">
               <OmniDesk variant="overlay" />
             </div>
           </div>
         </div>
       ) : mode === 'Research' ? (
-        <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
+        <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           {/* Research Panel - Full height, no browser view, no tabs, pure AI interface */}
           <ErrorBoundary componentName="ResearchPanel" retryable={true}>
             <Suspense fallback={<ModeLoadingFallback />}>
@@ -123,7 +110,7 @@ export default function Home() {
           </ErrorBoundary>
         </div>
       ) : mode === 'Trade' ? (
-        <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
+        <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ErrorBoundary componentName="TradePanel" retryable={true}>
             <Suspense fallback={<ModeLoadingFallback />}>
               <TradePanel />
@@ -131,7 +118,7 @@ export default function Home() {
           </ErrorBoundary>
         </div>
       ) : mode === 'Docs' ? (
-        <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
+        <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ErrorBoundary componentName="DocumentMode" retryable={true}>
             <Suspense fallback={<ModeLoadingFallback />}>
               <DocumentMode />
@@ -139,7 +126,7 @@ export default function Home() {
           </ErrorBoundary>
         </div>
       ) : mode === 'Threats' ? (
-        <div className="flex-1 w-full relative flex flex-col min-h-0 overflow-hidden">
+        <div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden">
           <ErrorBoundary componentName="ThreatsPanel" retryable={true}>
             <Suspense fallback={<ModeLoadingFallback />}>
               <ThreatsPanel />
@@ -148,11 +135,11 @@ export default function Home() {
         </div>
       ) : (
         // Show "Coming Soon" placeholder for disabled modes
-        <div className="flex-1 w-full flex items-center justify-center bg-[#1A1D28]">
-          <div className="text-center space-y-4">
+        <div className="flex w-full flex-1 items-center justify-center bg-[#1A1D28]">
+          <div className="space-y-4 text-center">
             <h2 className="text-2xl font-semibold text-gray-300">{mode} Mode</h2>
             <p className="text-gray-500">Coming Soon</p>
-            <p className="text-sm text-gray-600 max-w-md">
+            <p className="max-w-md text-sm text-gray-600">
               This mode is under development. Switch to Research mode to get started with AI-powered
               browsing.
             </p>
