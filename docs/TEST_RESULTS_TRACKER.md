@@ -71,13 +71,13 @@ This document tracks all test results from the pre-launch testing phase.
 
 ## Integration Test Results
 
-| Flow             | Status     | Response Time | Issues | Notes |
-| ---------------- | ---------- | ------------- | ------ | ----- |
-| Voice → Research | ⏳ Pending | -             | -      | -     |
-| Voice → Trade    | ⏳ Pending | -             | -      | -     |
-| Tab → GVE        | ⏳ Pending | -             | -      | -     |
-| Offline → Online | ⏳ Pending | -             | -      | -     |
-| Collaboration    | ⏳ Pending | -             | -      | -     |
+| Flow             | Status        | Response Time | Issues | Notes                     |
+| ---------------- | ------------- | ------------- | ------ | ------------------------- |
+| Voice → Research | ✅ **PASSED** | 2.12ms        | None   | All steps working         |
+| Tab → GVE        | ✅ **PASSED** | 1.62ms        | None   | Indexing and search works |
+| Offline → Online | ✅ **PASSED** | 90.01ms       | None   | Queue sync working        |
+| Voice → Trade    | ⏳ Pending    | -             | -      | -                         |
+| Collaboration    | ⏳ Pending    | -             | -      | -                         |
 
 ---
 
