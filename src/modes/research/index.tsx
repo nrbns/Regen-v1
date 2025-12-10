@@ -155,7 +155,7 @@ export default function ResearchPanel() {
     return () => window.removeEventListener('wispr:research', handleWisprResearch as EventListener);
   }, []);
 
-  // Voice agent intents: open/scrape URLs for research.
+  // AUDIT FIX #4: IPC scrape integration - enhanced voice agent handlers
   useEffect(() => {
     const handleAgentOpen = (event: CustomEvent<{ url?: string }>) => {
       const url = event?.detail?.url;
@@ -163,7 +163,7 @@ export default function ResearchPanel() {
       toast.success('Opening for research…');
       void executeAgentActions([`[OPEN ${url}]`]);
     };
-    const handleAgentScraped = (event: CustomEvent<{ url?: string; results?: any }>) => {
+    const handleAgentScraped = async (event: CustomEvent<{ url?: string; results?: any }>) => {
       const { url, results } = event.detail;
       if (!url || !results) return;
       toast.success(`Scraped: ${results.title || url}`);
@@ -184,6 +184,77 @@ export default function ResearchPanel() {
             sources: [...(result.sources || []), source],
           });
         }
+      }
+    };
+
+    // AUDIT FIX #4: Enhanced scrape handler with IPC fallback
+    const _handleScrapeCommand = async (event: CustomEvent<{ command?: string }>) => {
+      const command = event.detail?.command?.toLowerCase();
+      if (!command || !command.includes('scrape')) return;
+
+      const activeTab = tabs.find(t => t.id === activeId);
+      if (!activeTab?.url || !activeTab.url.startsWith('http')) {
+        toast.error('No active page to scrape');
+        return;
+      }
+
+      try {
+        toast.info('Scraping current page…');
+
+        // Try IPC scrape first (Tauri/Electron)
+        let scrapedContent: string | null = null;
+        try {
+          if (isElectronRuntime() || isTauriRuntime()) {
+            // Use IPC to execute script in webview
+            const script = `document.body.innerText || document.body.textContent || ''`;
+            const result = await ipc.tabs.executeScript?.(activeId, script);
+            if (result) {
+              scrapedContent = typeof result === 'string' ? result : JSON.stringify(result);
+            }
+          }
+        } catch (ipcError) {
+          console.warn('[Research] IPC scrape failed, using fallback:', ipcError);
+        }
+
+        // Fallback to iframe postMessage scraping
+        if (!scrapedContent) {
+          const { scrapeActiveTab } = await import('../../services/liveTabScraper');
+          const scraped = await scrapeActiveTab();
+          scrapedContent = scraped?.content || scraped?.text || null;
+        }
+
+        if (scrapedContent) {
+          // Send to LLM for analysis
+          const analysis = await aiEngine.generate(
+            `Analyze this page content and provide key insights:\n\n${scrapedContent.substring(0, 10000)}`
+          );
+
+          // Add as research source
+          const source: ResearchSource = {
+            id: `scrape-${Date.now()}`,
+            url: activeTab.url,
+            title: activeTab.title || activeTab.url,
+            snippet: analysis.substring(0, 200),
+            type: 'web' as ResearchSourceType,
+            credibility: 'high',
+            timestamp: Date.now(),
+          };
+
+          setResult(prev => ({
+            ...prev,
+            query: prev?.query || `Analysis of ${activeTab.url}`,
+            answer: analysis,
+            sources: [...(prev?.sources || []), source],
+            timestamp: Date.now(),
+          }));
+
+          toast.success('Page scraped and analyzed');
+        } else {
+          toast.error('Failed to scrape page content');
+        }
+      } catch (error) {
+        console.error('[Research] Scrape command failed:', error);
+        toast.error('Scraping failed');
       }
     };
     const handleAgentSummarize = async (event: CustomEvent<{ url?: string | null }>) => {

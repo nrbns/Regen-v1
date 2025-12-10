@@ -69,7 +69,7 @@ const worker = new Worker(
             messages,
             { model, temperature: 0.2 },
             {
-              onToken: token => {
+              onToken: async token => {
                 fullResponse += token;
                 chunkIndex++;
 
@@ -86,6 +86,15 @@ const worker = new Worker(
                     timestamp: Date.now(),
                   });
                 }
+
+                // PR 4: Publish to Redis for Socket.IO forwarding
+                try {
+                  const { publishModelChunk } = await import('../../pubsub/redis-pubsub.js');
+                  const userId = job.data.userId || clientId;
+                  await publishModelChunk(job.id, userId, token, chunkIndex, null);
+                } catch (error) {
+                  // Silently fail if Redis unavailable
+                }
               },
             }
           );
@@ -95,7 +104,7 @@ const worker = new Worker(
             messages,
             { model, temperature: 0.2 },
             {
-              onToken: token => {
+              onToken: async token => {
                 fullResponse += token;
                 chunkIndex++;
 
@@ -111,6 +120,15 @@ const worker = new Worker(
                     index: chunkIndex,
                     timestamp: Date.now(),
                   });
+                }
+
+                // PR 4: Publish to Redis for Socket.IO forwarding
+                try {
+                  const { publishModelChunk } = await import('../../pubsub/redis-pubsub.js');
+                  const userId = job.data.userId || clientId;
+                  await publishModelChunk(job.id, userId, token, chunkIndex, null);
+                } catch (error) {
+                  // Silently fail if Redis unavailable
                 }
               },
             }

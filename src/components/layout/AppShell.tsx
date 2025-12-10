@@ -74,6 +74,7 @@ import { useRedixTabEviction } from '../../hooks/useRedixTabEviction';
 import { RedixModeToggle } from '../redix/RedixModeToggle';
 import { useI18nSync } from '../../hooks/useI18nSync';
 import { initializeRedixMode } from '../../lib/redix-mode/integration';
+import { OnboardingTour } from '../OnboardingTour';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
 const getPolicyRecommendations = () =>
@@ -474,6 +475,54 @@ export function AppShell() {
         setLoopResumeModalOpen(true);
       }, 2000);
     }
+  }, []);
+
+  // Predictive actions: Listen for dom-ready events to auto-summarize pages
+  useEffect(() => {
+    const handleDomReady = async (
+      event: CustomEvent<{ tabId?: string; url?: string; text?: string }>
+    ) => {
+      const { url, text } = event.detail;
+      if (!url || !text || text.length < 100) return;
+
+      // Only auto-predict if user hasn't disabled it
+      const settings = useSettingsStore.getState();
+      if (settings.disableAutoActions) return;
+
+      try {
+        // Import zero-prompt prediction service
+        const { predictZeroPromptActions } = await import('../../services/zeroPromptPrediction');
+        const predictions = await predictZeroPromptActions(1);
+
+        if (predictions.length > 0 && predictions[0].intent === 'summarize') {
+          // Auto-summarize page content
+          const { aiEngine } = await import('../../core/ai');
+          const summary = await aiEngine.runTask({
+            kind: 'summary',
+            prompt: `Summarize this page content:\n${text.substring(0, 2000)}`,
+          });
+
+          // Store summary for later use (don't show intrusive UI)
+          localStorage.setItem(
+            `regen:page_summary:${url}`,
+            JSON.stringify({
+              summary: summary.text,
+              timestamp: Date.now(),
+            })
+          );
+        }
+      } catch (error) {
+        // Silently fail - predictive actions are optional
+        if (import.meta.env.DEV) {
+          console.debug('[AppShell] Predictive action failed:', error);
+        }
+      }
+    };
+
+    window.addEventListener('dom-ready', handleDomReady as EventListener);
+    return () => {
+      window.removeEventListener('dom-ready', handleDomReady as EventListener);
+    };
   }, []);
 
   // Memory monitoring - auto-unload tabs when memory is low
@@ -2347,6 +2396,9 @@ export function AppShell() {
 
       {/* Connection Status Indicator */}
       <ConnectionStatus />
+
+      {/* AUDIT FIX #6: Onboarding Tour */}
+      <OnboardingTour />
     </div>
   );
 }

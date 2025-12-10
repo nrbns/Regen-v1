@@ -6,6 +6,7 @@
 
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import { IndexeddbPersistence } from 'y-indexeddb';
 import Dexie, { type Table } from 'dexie';
 import { useTabsStore } from '../../state/tabsStore';
 
@@ -45,9 +46,11 @@ export interface TabSyncState {
 class TabSyncService {
   private doc: Y.Doc | null = null;
   private provider: WebsocketProvider | null = null;
+  private indexeddbProvider: IndexeddbPersistence | null = null;
   private tabsArray: Y.Array<Y.Map<any>> | null = null;
   private activeId: Y.Text | null = null;
   private groupsArray: Y.Array<Y.Map<any>> | null = null;
+  private awareness: any | null = null;
   private isConnected = false;
   private wsUrl: string;
   private sessionId: string | null = null;
@@ -74,6 +77,16 @@ class TabSyncService {
 
     // Connect to WebSocket provider
     this.provider = new WebsocketProvider(this.wsUrl, `session-${sessionId}`, this.doc);
+
+    // Add IndexedDB persistence for offline support
+    this.indexeddbProvider = new IndexeddbPersistence(`session-${sessionId}`, this.doc);
+
+    // Set up cursor awareness for multi-user collaboration
+    this.awareness = this.provider.awareness;
+    this.awareness.setLocalStateField('user', {
+      name: sessionId.substring(0, 8),
+      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+    });
 
     this.provider.on('status', async (event: { status: string }) => {
       this.isConnected = event.status === 'connected';
@@ -252,11 +265,11 @@ class TabSyncService {
         createdAt: Date.now(),
       });
 
-      // Keep queue bounded (oldest first) to avoid unbounded growth
+      // Keep queue bounded (oldest first) to avoid unbounded growth - cap at 200 to prevent 5s spike
       const count = await this.db.pending.where({ sessionId }).count();
-      if (count > 500) {
+      if (count > 200) {
         const old = await this.db.pending.where({ sessionId }).sortBy('createdAt');
-        const dropCount = count - 500;
+        const dropCount = count - 100; // Keep last 100, drop older ones
         const idsToDelete = old
           .slice(0, dropCount)
           .map(item => item.id!)
@@ -307,10 +320,15 @@ class TabSyncService {
       this.provider.destroy();
       this.provider = null;
     }
+    if (this.indexeddbProvider) {
+      this.indexeddbProvider.destroy();
+      this.indexeddbProvider = null;
+    }
     if (this.doc) {
       this.doc.destroy();
       this.doc = null;
     }
+    this.awareness = null;
     this.isConnected = false;
     console.log('[TabSync] Disconnected');
   }

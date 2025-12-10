@@ -13,6 +13,7 @@ type GeneralSettings = {
   voiceEditBeforeExecute?: boolean; // Phase 1, Day 5: Edit voice commands before executing
   voiceTTSEnabled?: boolean; // Phase 2, Day 4: Enable text-to-speech responses
   voiceAutoDetectLanguage?: boolean; // Phase 2, Day 4: Auto-detect language for voice
+  hasSeenOnboardingTour?: boolean; // AUDIT FIX #6: Track if user has seen onboarding tour
 };
 
 type PrivacySettings = {
@@ -66,6 +67,8 @@ type SettingsState = SettingsData & {
   updateAppearance: (partial: Partial<AppearanceSettings>) => void;
   updateAccount: (partial: Partial<AccountSettings>) => void;
   resetSettings: () => void;
+  hasSeenOnboardingTour: () => boolean; // AUDIT FIX #6: Check if tour was seen
+  setHasSeenOnboardingTour: (seen: boolean) => void; // AUDIT FIX #6: Mark tour as seen
 };
 
 const createDefaults = (): SettingsData => ({
@@ -137,6 +140,15 @@ export const useSettingsStore = create<SettingsState>()(
       resetSettings: () => {
         const defaults = createDefaults();
         set(() => defaults);
+      },
+      hasSeenOnboardingTour: () => {
+        const state = useSettingsStore.getState();
+        return state.general.hasSeenOnboardingTour ?? false;
+      },
+      setHasSeenOnboardingTour: (seen: boolean) => {
+        set(state => ({
+          general: { ...state.general, hasSeenOnboardingTour: seen },
+        }));
       },
     }),
     {

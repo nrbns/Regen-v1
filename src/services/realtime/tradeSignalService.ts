@@ -18,7 +18,8 @@ export type TradeSignalCallback = (signal: TradeSignal) => void;
 
 class TradeSignalService {
   private ws: WebSocket | null = null;
-  private sseFallback: ReturnType<typeof import('./sseSignalService').getSSESignalService> | null = null;
+  private sseFallback: ReturnType<typeof import('./sseSignalService').getSSESignalService> | null =
+    null;
   private useSSE = false; // Phase 1, Day 9: Fallback to SSE if WebSocket fails
   private callbacks: Set<TradeSignalCallback> = new Set();
   private reconnectAttempts = 0;
@@ -75,6 +76,9 @@ class TradeSignalService {
         this.isConnected = true;
         this.reconnectAttempts = 0;
 
+        // Hide reconnecting banner
+        this.hideReconnectingBanner();
+
         // Subscribe to all pending symbols
         this.subscribedSymbols.forEach(symbol => {
           this.subscribeToSymbol(symbol);
@@ -117,7 +121,10 @@ class TradeSignalService {
       this.ws.onclose = () => {
         console.log('[TradeSignalService] WebSocket closed');
         this.isConnected = false;
-        
+
+        // Show reconnecting UI banner
+        this.showReconnectingBanner();
+
         // Phase 1, Day 9: Try SSE fallback if WebSocket fails
         if (this.reconnectAttempts >= 3 && !this.useSSE) {
           console.log('[TradeSignalService] Switching to SSE fallback');
@@ -129,7 +136,7 @@ class TradeSignalService {
       };
     } catch (error) {
       console.error('[TradeSignalService] Failed to create WebSocket', error);
-      
+
       // Phase 1, Day 9: Try SSE fallback immediately on error
       if (!this.useSSE) {
         console.log('[TradeSignalService] Switching to SSE fallback');
@@ -152,10 +159,10 @@ class TradeSignalService {
     try {
       const { getSSESignalService } = require('./sseSignalService');
       this.sseFallback = getSSESignalService();
-      
+
       // Subscribe to trade signals via SSE
       this.subscribedSymbols.forEach(symbol => {
-        const _unsubscribe = this.sseFallback!.subscribe(`trade_signals:${symbol}`, (signal) => {
+        const _unsubscribe = this.sseFallback!.subscribe(`trade_signals:${symbol}`, signal => {
           if (signal.type === 'trade_signal' && signal.action) {
             const tradeSignal: TradeSignal = {
               symbol: signal.symbol || symbol,
@@ -164,7 +171,7 @@ class TradeSignalService {
               reason: signal.reason || '',
               timestamp: signal.timestamp,
             };
-            
+
             // Notify all callbacks
             this.callbacks.forEach(cb => {
               try {
@@ -204,11 +211,12 @@ class TradeSignalService {
   }
 
   /**
-   * Schedule reconnection
+   * Schedule reconnection with exponential backoff
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('[TradeSignalService] Max reconnect attempts reached');
+      this.hideReconnectingBanner();
       return;
     }
 
@@ -217,7 +225,7 @@ class TradeSignalService {
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+    const delay = Math.min(10000, 1000 * Math.pow(2, this.reconnectAttempts)); // Exponential backoff, max 10s
 
     console.log(
       `[TradeSignalService] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`
@@ -228,6 +236,45 @@ class TradeSignalService {
         this.connect();
       }
     }, delay);
+  }
+
+  /**
+   * Show reconnecting banner UI
+   */
+  private showReconnectingBanner(): void {
+    if (typeof window === 'undefined') return;
+
+    const existing = document.getElementById('trade-ws-reconnecting-banner');
+    if (existing) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'trade-ws-reconnecting-banner';
+    banner.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #f59e0b;
+      color: white;
+      padding: 8px 16px;
+      text-align: center;
+      z-index: 10000;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    `;
+    banner.textContent = 'Reconnecting to trade signals...';
+    document.body.appendChild(banner);
+  }
+
+  /**
+   * Hide reconnecting banner UI
+   */
+  private hideReconnectingBanner(): void {
+    if (typeof window === 'undefined') return;
+    const banner = document.getElementById('trade-ws-reconnecting-banner');
+    if (banner) {
+      banner.remove();
+    }
   }
 
   /**

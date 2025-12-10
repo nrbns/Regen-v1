@@ -49,6 +49,9 @@ class BusClient {
         this.reconnectAttempts = 0;
         console.log('[BusClient] Connected to bus');
 
+        // Hide reconnecting banner
+        this.hideReconnectingBanner();
+
         // Resubscribe to all channels
         this.subscribers.forEach((handlers, channel) => {
           // Re-add all handlers for this channel
@@ -79,14 +82,19 @@ class BusClient {
         this.isConnected = false;
         console.log('[BusClient] Disconnected');
 
-        // Auto-reconnect
+        // Show reconnecting UI banner
+        this.showReconnectingBanner();
+
+        // Auto-reconnect with exponential backoff
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
-          const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+          const delay = Math.min(10000, 1000 * Math.pow(2, this.reconnectAttempts));
           console.log(`[BusClient] Reconnecting in ${delay}ms...`);
           this.reconnectTimer = setTimeout(() => {
             this.connect().catch(console.error);
           }, delay);
+        } else {
+          this.hideReconnectingBanner();
         }
       };
     });
@@ -212,6 +220,46 @@ class BusClient {
    */
   get connected(): boolean {
     return this.isConnected;
+  }
+
+  /**
+   * Show reconnecting banner UI
+   */
+  private showReconnectingBanner(): void {
+    if (typeof window === 'undefined') return;
+
+    // Remove existing banner if any
+    const existing = document.getElementById('ws-reconnecting-banner');
+    if (existing) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'ws-reconnecting-banner';
+    banner.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #f59e0b;
+      color: white;
+      padding: 8px 16px;
+      text-align: center;
+      z-index: 10000;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    `;
+    banner.textContent = 'Reconnecting...';
+    document.body.appendChild(banner);
+  }
+
+  /**
+   * Hide reconnecting banner UI
+   */
+  private hideReconnectingBanner(): void {
+    if (typeof window === 'undefined') return;
+    const banner = document.getElementById('ws-reconnecting-banner');
+    if (banner) {
+      banner.remove();
+    }
   }
 }
 

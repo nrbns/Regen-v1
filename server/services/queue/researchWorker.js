@@ -40,8 +40,9 @@ const connection = getBullConnection();
 /**
  * Publish research event to WebSocket clients
  * Uses both direct WebSocket and Redis pub/sub for reliability
+ * PR 4: Enhanced with Socket.IO compatible events
  */
-function publishEvent(jobId, clientId, sessionId, type, data) {
+async function publishEvent(jobId, clientId, sessionId, type, data) {
   const messageId = `${jobId}:${Date.now()}:${crypto.randomBytes(4).toString('hex')}`;
 
   const event = {
@@ -55,7 +56,31 @@ function publishEvent(jobId, clientId, sessionId, type, data) {
 
   console.log(`[ResearchWorker] Publishing event: ${type} for jobId: ${jobId}`);
 
-  // Publish to Redis pub/sub (for jobId-based subscription)
+  // PR 4: Publish to Redis pub/sub for Socket.IO forwarding
+  try {
+    const { publishEvent: publishRedisEvent } = await import('../../pubsub/redis-pubsub.js');
+    const userId = data.userId || clientId;
+    const channel = `job:${jobId}`;
+
+    // Map research events to Socket.IO events
+    const socketEventMap = {
+      'research:chunk': 'research:chunk:v1',
+      'research:source': 'research:source:v1',
+      'research:complete': 'research:complete:v1',
+      'research:progress': 'task:progress:v1',
+    };
+
+    const socketEvent = socketEventMap[type] || type;
+    await publishRedisEvent(channel, socketEvent, {
+      userId,
+      jobId,
+      ...data,
+    });
+  } catch (error) {
+    // Silently fail if Redis unavailable
+  }
+
+  // Publish to Redis pub/sub (for jobId-based subscription) - legacy
   publish('research.event', event)
     .then(() => {
       console.log(`[ResearchWorker] ✓ Published to Redis: ${type} for jobId: ${jobId}`);
