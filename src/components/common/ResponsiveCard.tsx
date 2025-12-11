@@ -3,7 +3,7 @@
  * Consistent spacing and responsive grid layout for mobile/tablet/desktop
  */
 
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 import { cn } from '../../lib/utils';
 
 export interface ResponsiveCardProps {

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { ipc } from '../lib/ipc-typed';
 import { debouncedSaveSession } from '../services/session';
 import { useAppStore } from './appStore';
+import { createIndexedDBStorage, isIndexedDBAvailable } from '../lib/storage/indexedDBStorage';
 
 export const TAB_GROUP_COLORS = [
   '#6366f1',
@@ -598,12 +599,35 @@ export const useTabsStore = create<TabsState>()(
     {
       name: 'regen:tabs-state',
       version: 1,
+      // WEEK 1 TASK 4: Use IndexedDB for better performance and capacity
+      storage: createJSONStorage(() =>
+        isIndexedDBAvailable()
+          ? createIndexedDBStorage('regen:tabs-state', {
+              dbName: 'regen-tabs-storage',
+              storeName: 'tabs-state',
+              version: 1,
+            })
+          : localStorage // Fallback to localStorage if IndexedDB unavailable
+      ),
       partialize: state => ({
         tabs: state.tabs,
         activeId: state.activeId,
         recentlyClosed: state.recentlyClosed,
         tabGroups: state.tabGroups,
       }),
+      // WEEK 1 TASK 4: Handle migration and errors gracefully
+      onRehydrateStorage: () => (state, error) => {
+        if (error) {
+          console.error('[TabsStore] Rehydration error:', error);
+          // Optionally reset to default state on error
+          // return { tabs: [], activeId: null, recentlyClosed: [], tabGroups: [] };
+        } else if (state) {
+          console.log('[TabsStore] Rehydrated', {
+            tabCount: state.tabs.length,
+            activeId: state.activeId,
+          });
+        }
+      },
     }
   )
 );

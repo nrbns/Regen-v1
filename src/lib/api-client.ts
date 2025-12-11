@@ -11,16 +11,17 @@ import {
   markBackendUnavailable,
 } from './backend-status';
 
-// CATEGORY C FIX: Read API base URL from .env (Vite env variables)
+// API base URL configuration - defaults to backend server port (8000)
+// Can be overridden via VITE_API_BASE_URL environment variable
 const API_BASE_URL =
   typeof window !== 'undefined'
     ? (window as any).__API_BASE_URL ||
       import.meta.env.VITE_API_BASE_URL ||
       import.meta.env.VITE_APP_API_URL ||
-      'http://127.0.0.1:4000'
+      'http://127.0.0.1:8000'  // Match backend server port
     : import.meta.env.VITE_API_BASE_URL ||
       import.meta.env.VITE_APP_API_URL ||
-      'http://127.0.0.1:4000';
+      'http://127.0.0.1:8000';  // Match backend server port
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';

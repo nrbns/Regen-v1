@@ -5,8 +5,8 @@ import { NotificationsMenu } from './NotificationsMenu';
 import { ProfileMenu } from './ProfileMenu';
 import { SettingsMenu } from './SettingsMenu';
 import { FeaturesMenu } from './FeaturesMenu';
-import { FeedbackModal } from '../../../components/FeedbackModal';
-import { SystemStatusPanel } from '../../../components/SystemStatusPanel';
+import { FeedbackModal } from '../../../components/common/FeedbackModal';
+import { SystemStatusPanel } from '../../../components/settings/SystemStatusPanel';
 import { LanguageSwitcher } from '../../../components/layout/LanguageSwitcher';
 import { WorkflowMarketplace } from '../../../components/workflows/WorkflowMarketplace';
 

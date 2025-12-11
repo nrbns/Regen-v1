@@ -200,14 +200,14 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                       >
                         {/* Group Header */}
                         <div
-                          className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700"
+                          className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700 min-h-[48px]"
                           style={{
                             borderLeft: `4px solid ${group.color}`,
                           }}
                         >
                           <button
                             onClick={() => toggleGroupCollapsed(group.id)}
-                            className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
+                            className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white flex items-center justify-center flex-shrink-0"
                           >
                             {isCollapsed ? (
                               <ChevronRight size={16} />
@@ -234,23 +234,23 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                                   handleCancelRename();
                                 }
                               }}
-                              className="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              className="flex-1 bg-gray-700 text-white px-2 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[32px]"
                               autoFocus
                             />
                           ) : (
                             <button
                               onClick={() => handleRenameGroup(group)}
-                              className="flex-1 text-left text-sm font-semibold text-white hover:text-purple-400 transition-colors"
+                              className="flex-1 text-left text-sm font-semibold text-white hover:text-purple-400 transition-colors min-h-[32px] flex items-center"
                             >
                               {group.name}
                             </button>
                           )}
 
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0">
                             {groupTabs.length} tab{groupTabs.length !== 1 ? 's' : ''}
                           </span>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             <button
                               onClick={() => handleCycleColor(group)}
                               className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
@@ -333,12 +333,12 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                         handleDropTab(null);
                       }}
                     >
-                      <div className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700">
-                        <Folder className="w-4 h-4 text-gray-400" />
-                        <h3 className="text-sm font-semibold text-gray-300">
+                      <div className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700 min-h-[48px]">
+                        <Folder className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <h3 className="text-sm font-semibold text-gray-300 flex-1">
                           Ungrouped Tabs
                         </h3>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
                           {ungroupedTabs.length} tab{ungroupedTabs.length !== 1 ? 's' : ''}
                         </span>
                       </div>

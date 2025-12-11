@@ -4617,7 +4617,7 @@ fastify.get('/metrics/prom', async (_request, reply) => {
           const subClient = redisClient.duplicate();
           io.adapter(createAdapter(pubClient, subClient));
           fastify.log.info('Socket.IO Redis adapter attached');
-        } catch (error) {
+        } catch {
           fastify.log.warn('Socket.IO Redis adapter failed (continuing without it)');
         }
       }

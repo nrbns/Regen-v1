@@ -5,7 +5,7 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Tab } from '../../state/tabsStore';
 import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
-import { OmniDesk } from '../OmniDesk';
+import { OmniDesk } from '../omni-mode/OmniDesk';
 import NewTabPage from '../Browse/NewTabPage';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -46,7 +46,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(true); // Start with loading true to show spinner
-  const [loadProgress, setLoadProgress] = useState<number | undefined>(undefined);
+  const [loadProgress] = useState<number | undefined>(undefined);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
     null
   );
@@ -210,6 +210,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     window.addEventListener('message', handleIframeLinkClick);
 
     // Inject script to intercept link clicks in iframe
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const injectLinkInterceptor = () => {
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -428,6 +429,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // Cleanup function to prevent memory leaks on tab hibernation/close
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
+      window.removeEventListener('message', handleIframeLinkClick);
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
@@ -694,7 +696,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
       window.removeEventListener('tab-closed', handleTabClose);
-      window.removeEventListener('message', handleIframeLinkClick);
+      // Note: handleIframeLinkClick cleanup is handled in the first useEffect
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;

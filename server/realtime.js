@@ -248,10 +248,44 @@ function initSocketIOServer(app) {
   }
 
   // Subscribe to Redis channels for worker events
+  // PR3 Enhancement: Use psubscribe for pattern matching (job:*)
   if (redisClient) {
     try {
-      const { subscribe } = require('./pubsub.js');
+      const { subscribe, psubscribe } = require('./pubsub.js');
 
+      // Pattern subscribe to all job events: job:*
+      if (psubscribe) {
+        psubscribe('job:*', (channel, message) => {
+          try {
+            const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+
+            // Channel format: job:<jobId>
+            const jobId = channel.replace('job:', '');
+
+            if (parsed.event && parsed.data) {
+              // Forward to user room if userId available
+              if (parsed.data.userId) {
+                forwardToSocket(`user:${parsed.data.userId}`, {
+                  event: parsed.event,
+                  data: { ...parsed.data, jobId },
+                });
+              } else {
+                // Broadcast to all (fallback)
+                io.emit(parsed.event, { ...parsed.data, jobId });
+              }
+            }
+          } catch (error) {
+            console.warn('[Socket.IO] Failed to parse job message', {
+              channel,
+              error: error.message,
+            });
+          }
+        });
+
+        console.log('[Socket.IO] Pattern subscribed to job:* channels');
+      }
+
+      // Direct subscribe to specific channels (fallback)
       // Subscribe to job progress events
       subscribe('job:progress', message => {
         if (message.jobId && message.userId) {

@@ -3,18 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src https:; media-src https:;" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    <!-- DEV ONLY: relaxed CSP to allow local API, websockets, and external font -->
+    <meta http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self' https: data: blob:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https:;
+        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:;
+        img-src 'self' data: https:;
+        style-src 'self' 'unsafe-inline' https://rsms.me https:;
+        style-src-elem 'self' 'unsafe-inline' https://rsms.me https:;
+        font-src 'self' https://rsms.me https:;
+        frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https:;
+        media-src https:;
+      " />
     <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Regen" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <title>Regen</title>
     <!-- Defer font loading for faster initial render -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-    <!-- Inter font for premium typography -->
+    <!-- Inter font for premium typography - locally hosted for CSP compliance -->
+    <!-- Fallback to remote if local font not available -->
     <link rel="preconnect" href="https://rsms.me" />
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="/fonts/inter.css" onerror="this.onerror=null; this.href='https://rsms.me/inter/inter.css';" />
     <!-- DAY 7 FIX: Network optimization - preconnect to important domains -->
     <link rel="preconnect" href="https://api.duckduckgo.com" />
     <link rel="preconnect" href="https://api-inference.huggingface.co" />
@@ -29,26 +48,28 @@
       body { background-color: #1A1D28; color: #fff; overflow: hidden; }
       #root { height: 100%; width: 100%; }
     </style>
-    <script type="module" crossorigin src="/assets/index-DENrjQOy.js"></script>
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-Bp1UKbwZ.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-EoLgQU9f.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-zustand-pI77nXIJ.js">
-    <link rel="modulepreload" crossorigin href="/chunks/core-memory-D-jjSw8d.js">
-    <link rel="modulepreload" crossorigin href="/chunks/core-ai-DvfA2-LL.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-B029Y9Yl.js">
-    <link rel="modulepreload" crossorigin href="/chunks/components-browser-Td2B2XRy.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-B8HJJ1si.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-BRRvcrVi.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-framer-motion-D-qOCV6i.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-utils-_JThB_vY.js">
+    <script type="module" crossorigin src="/assets/index-CX74tO2e.js"></script>
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-CPORU2CU.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-BnZbF3GQ.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-CPIsoiEd.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-state-BOhJBJ1p.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-memory-CsSrF0UI.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-ai-CNxUmBCS.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-C-yZe9LZ.js">
+    <link rel="modulepreload" crossorigin href="/chunks/components-browser-CYFJHoHB.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-Cw51qz3q.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-framer-motion-DqvrE2fY.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mobile-components-CBqs42eG.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-utils-BYwCBAJF.js">
     <link rel="modulepreload" crossorigin href="/chunks/vendor-pdf-Dug1oqzz.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-mammoth-BGTp6KEg.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-docs-BNhRDEG1.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-research-CatwS-Ra.js">
-    <link rel="modulepreload" crossorigin href="/chunks/route-Home.tsx-Dy0uT8FH.js">
-    <link rel="modulepreload" crossorigin href="/chunks/route-Settings.tsx-qglQ_sjm.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-mammoth-6I3bJM1I.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-docs-C9_3KWfl.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-research-D0Cjn5VW.js">
+    <link rel="modulepreload" crossorigin href="/chunks/route-Home.tsx-BD2oc0M9.js">
+    <link rel="modulepreload" crossorigin href="/chunks/route-Settings.tsx-D9-orA0z.js">
     <link rel="modulepreload" crossorigin href="/chunks/vendor-i18n-BZcWhmEy.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-KQABXE-_.css">
+    <link rel="stylesheet" crossorigin href="/assets/mobile-components-4UjRo2QB.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Vwu7DezC.css">
   </head>
   <body>
     <div id="root" class="app-shell"></div>

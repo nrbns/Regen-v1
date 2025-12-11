@@ -9,7 +9,7 @@ import { ModeTabs } from './ModeTabs';
 import { useTokens } from '../useTokens';
 import { Container } from '../layout';
 import { TopRightCluster } from './top-right';
-import { BookmarkButton } from '../../components/BookmarkButton';
+import { BookmarkButton } from '../../components/bookmarks/BookmarkButton';
 import { RealtimeSearchPreview } from '../../components/search/RealtimeSearchPreview';
 
 export interface TopBarProps {

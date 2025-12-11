@@ -47,7 +47,7 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV === 'development', // Only sourcemaps in dev
     emptyOutDir: true,
     minify: process.env.NODE_ENV === 'production' ? 'terser' : false, // Use terser in prod for better minification
-    chunkSizeWarningLimit: 500, // Reduce warning limit to catch large chunks
+    chunkSizeWarningLimit: 400, // DAY 5: Reduced for mobile optimization (400KB chunks)
     // NETWORK FIX: Enable compression (brotli/gzip handled by server)
     reportCompressedSize: true,
     // DAY 6: Enhanced build optimization
@@ -85,7 +85,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]',
         // Optimize chunk splitting for better loading performance
         manualChunks: id => {
-          // DAY 6: Enhanced chunk splitting for better performance
+          // DAY 5: Enhanced chunk splitting for mobile optimization
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
             // Large UI libraries - split into separate chunks
@@ -97,6 +97,13 @@ export default defineConfig({
             }
             if (id.includes('reactflow')) {
               return 'vendor-reactflow';
+            }
+            // DAY 5: Mobile-specific chunk splitting
+            if (id.includes('@lucide-react')) {
+              return 'vendor-icons';
+            }
+            if (id.includes('zustand')) {
+              return 'vendor-state';
             }
             // React and React DOM - core, load first
             if (id.includes('react-dom')) {
@@ -142,6 +149,10 @@ export default defineConfig({
             }
             // Everything else from node_modules
             return 'vendor';
+          }
+          // DAY 5: Mobile components in separate chunk
+          if (id.includes('src/mobile')) {
+            return 'mobile-components';
           }
           // Split mode components (already handled by lazy loading, but ensure they're in separate chunks)
           if (id.includes('/modes/')) {

@@ -20,7 +20,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { EcoBadgeCompact } from '../EcoBadge';
+import { EcoBadgeCompact } from '../widgets/EcoBadge';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import {
@@ -30,7 +30,7 @@ import {
   EfficiencyAlertAction,
 } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
-import { PrivacySwitch } from '../PrivacySwitch';
+import { PrivacySwitch } from '../privacy/PrivacySwitch';
 import { useEfficiencyStore } from '../../state/efficiencyStore';
 import { usePrivacyStore } from '../../state/privacyStore';
 // Voice components disabled by user request
@@ -1162,13 +1162,19 @@ export function BottomStatus() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.2 }}
-            className={`fixed bottom-20 right-6 z-50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-lg shadow-black/40 ${
+            className={`fixed right-6 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-lg shadow-black/40 ${
               privacyToast.status === 'success'
                 ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100'
                 : privacyToast.status === 'warning'
                   ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
                   : 'border-sky-500/40 bg-sky-500/15 text-sky-100'
             }`}
+            style={{ 
+              bottom: typeof window !== 'undefined' && window.innerWidth <= 768 
+                ? 'calc(80px + env(safe-area-inset-bottom, 0px) + 16px)' 
+                : '80px',
+              zIndex: 105
+            }}
           >
             {privacyToast.kind === 'tor' ? (
               <Shield size={16} aria-hidden="true" />

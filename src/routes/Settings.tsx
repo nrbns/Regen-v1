@@ -27,7 +27,7 @@ import { useCapabilityStore, getCapabilityDescriptions } from '../core/security/
 import { pluginRegistry } from '../core/plugins/registry';
 import { crashReporter } from '../core/crash-reporting';
 import { BookmarksPanel } from '../components/bookmarks/BookmarksPanel';
-import { WorkspacesPanel } from '../components/WorkspacesPanel';
+import { WorkspacesPanel } from '../components/workspace/WorkspacesPanel';
 import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
 // Optional components - only available in tauri-migration, removed for now
 import { EXTERNAL_APIS } from '../config/externalApis';
@@ -36,6 +36,8 @@ import { RedixModeToggle } from '../components/redix/RedixModeToggle';
 import { LanguageSelector } from '../components/settings/LanguageSelector';
 import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
+import { AdblockerSettingsPanel } from '../components/adblocker';
+import { VPNPanel } from '../components/vpn';
 
 // Helper Components
 function SectionCard({
@@ -116,6 +118,7 @@ const TABS = [
   { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
   { id: 'workspaces', label: 'Workspaces', icon: FolderOpen },
   { id: 'safety', label: 'Safety', icon: Shield },
+  { id: 'vpn', label: 'VPN', icon: Shield },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'system', label: 'System', icon: Settings2 },
   { id: 'skills', label: 'Skills', icon: Zap },
@@ -171,7 +174,19 @@ export default function SettingsRoute() {
             <WorkspacesPanel />
           </div>
         )}
-        {activeTab === 'safety' && <SafetyPanel />}
+        {activeTab === 'safety' && (
+          <div className="max-w-4xl space-y-6">
+            <SafetyPanel />
+            <SectionCard title="Adblocker" icon={Shield}>
+              <AdblockerSettingsPanel />
+            </SectionCard>
+          </div>
+        )}
+        {activeTab === 'vpn' && (
+          <div className="max-w-4xl">
+            <VPNPanel />
+          </div>
+        )}
         {activeTab === 'shortcuts' && <ShortcutsHelp />}
         {activeTab === 'system' && (
           <div className="max-w-4xl space-y-6">

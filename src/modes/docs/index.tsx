@@ -21,8 +21,8 @@ import {
   AssumptionHighlight,
   AuditTrailEntry,
 } from '../../types/document-review';
-import { PDFViewer } from '../../components/DocumentViewer/PDFViewer';
-import { CommentsPanel, Comment } from '../../components/DocumentViewer/CommentsPanel';
+import { PDFViewer } from '../../components/pdf/PDFViewer';
+import { CommentsPanel, Comment } from '../../components/pdf/CommentsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { DocumentEditor } from '../../components/docs/DocumentEditor';

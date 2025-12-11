@@ -29,7 +29,10 @@ export function BatteryIndicator() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-[110] flex flex-col items-end gap-2">
+      <div 
+        className="fixed right-6 bottom-6 flex flex-col items-end gap-2 hidden md:flex"
+        style={{ zIndex: 104 }}
+      >
         <button
           type="button"
           onClick={() => setSelectorOpen(true)}

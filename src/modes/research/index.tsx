@@ -5,7 +5,7 @@ import { ResearchStagehandIntegration } from './stagehand-integration';
 import { Sparkles, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useSettingsStore } from '../../state/settingsStore';
-import VoiceButton from '../../components/VoiceButton';
+import { VoiceButton } from '../../components/voice';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
@@ -26,7 +26,7 @@ import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
-import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
+import { ZeroPromptSuggestions } from '../../components/search/ZeroPromptSuggestions';
 // LAG FIX #8: Hindi defaults for Research mode
 import { getModeDefaults } from '../../config/modeDefaults';
 import {
@@ -45,12 +45,12 @@ import { AnswerWithCitations } from '../../components/research/AnswerWithCitatio
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
 import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
-import BrowserView from '../../components/BrowserView';
+import BrowserView from '../../components/browser/BrowserView';
 import { useResearchCompareStore } from '../../state/researchCompareStore';
 import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
-import { OmniAgentInput } from '../../components/OmniAgentInput';
+import { OmniAgentInput } from '../../components/omni-mode/OmniAgentInput';
 import { executeAgentActions } from '../../services/agenticActions';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';

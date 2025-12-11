@@ -4,7 +4,7 @@
  * This preserves page state and prevents null refs when switching tabs
  */
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, Suspense } from 'react';
 import type { Tab } from '../../state/tabsStore';
 import { useTabsStore } from '../../state/tabsStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
@@ -16,6 +16,7 @@ import { applyPrivacyModeToIframe } from '../../utils/privacyMode';
 import { getIframeManager, getViewRenderer, throttleViewUpdate } from '../../utils/gve-optimizer';
 import { saveScrollPosition, restoreScrollPosition } from '../../core/tabs/hibernation';
 import { ipcEvents } from '../../lib/ipc-events';
+import { Loader2 } from 'lucide-react';
 
 interface TabIframeManagerProps {
   tabs: Tab[];
@@ -275,9 +276,26 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
           });
         }
 
+        // WEEK 1 TASK 3: Wrap iframe in Suspense to prevent white screens
         return (
-          <iframe
-            key={tab.id} // PR: Fix - stable key based on tab.id, not URL
+          <Suspense
+            key={tab.id}
+            fallback={
+              <div 
+                className="absolute inset-0 flex items-center justify-center bg-slate-950"
+                style={{
+                  display: isActive ? 'flex' : 'none',
+                  zIndex: isActive ? 1 : 0,
+                }}
+              >
+                <div className="text-center">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-emerald-400" />
+                  <p className="mt-4 text-sm text-slate-400">Loading page...</p>
+                </div>
+              </div>
+            }
+          >
+            <iframe
             ref={el => {
               setIframeRef(tab.id)(el);
               // Apply privacy mode when iframe is created
@@ -640,6 +658,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
               }
             }}
           />
+          </Suspense>
         );
       })}
     </div>

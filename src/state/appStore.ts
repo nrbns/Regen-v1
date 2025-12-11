@@ -4,6 +4,19 @@ import { MODES, isModeEnabled, type ModeId } from '../config/modes';
 import { toast } from '../utils/toast';
 
 export type AppState = {
+  // Page AI Panel
+  isPageAIPanelOpen: boolean;
+  setPageAIPanelOpen: (open: boolean) => void;
+  
+  // Adblocker
+  isAdblockerEnabled: boolean;
+  setAdblockerEnabled: (enabled: boolean) => void;
+  
+  // Sync Status
+  syncStatus: 'idle' | 'syncing' | 'error' | 'success';
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'success') => void;
+  
+  // Original state
   mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
   graphDockOpen: boolean;
@@ -134,5 +147,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleRegenSidebar: () => {
     const next = !get().regenSidebarOpen;
     get().setRegenSidebarOpen(next);
+  },
+  // Sprint Features State
+  isPageAIPanelOpen: false,
+  setPageAIPanelOpen: (open: boolean) => {
+    set({ isPageAIPanelOpen: open });
+  },
+  isAdblockerEnabled: true,
+  setAdblockerEnabled: (enabled: boolean) => {
+    set({ isAdblockerEnabled: enabled });
+  },
+  syncStatus: 'idle' as 'idle' | 'syncing' | 'error' | 'success',
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'success') => {
+    set({ syncStatus: status });
   },
 }));

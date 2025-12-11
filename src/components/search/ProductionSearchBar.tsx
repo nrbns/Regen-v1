@@ -9,8 +9,7 @@ import { useProductionSearch } from '../../hooks/useProductionSearch';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from '../../utils/useDebounce';
 import { toast } from '../../utils/toast';
-import { MobileSearchInput } from './MobileSearchInput';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { MobileSearchInput, useMobileDetection } from '../../mobile';
 import { cn } from '../../lib/utils';
 
 interface ProductionSearchBarProps {

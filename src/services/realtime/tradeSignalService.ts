@@ -242,28 +242,8 @@ class TradeSignalService {
    * Show reconnecting banner UI
    */
   private showReconnectingBanner(): void {
-    if (typeof window === 'undefined') return;
-
-    const existing = document.getElementById('trade-ws-reconnecting-banner');
-    if (existing) return;
-
-    const banner = document.createElement('div');
-    banner.id = 'trade-ws-reconnecting-banner';
-    banner.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: #f59e0b;
-      color: white;
-      padding: 8px 16px;
-      text-align: center;
-      z-index: 10000;
-      font-size: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    `;
-    banner.textContent = 'Reconnecting to trade signals...';
-    document.body.appendChild(banner);
+    // Disabled banner to avoid intrusive popups on reconnect
+    return;
   }
 
   /**

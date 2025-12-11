@@ -4,7 +4,7 @@
  */
 
 const express = require('express');
-const { getJobState, updateJobProgress } = require('../jobs/persistence.js');
+const { getJobState, updateJobProgress: _updateJobProgress } = require('../jobs/persistence.js');
 
 const router = express.Router();
 

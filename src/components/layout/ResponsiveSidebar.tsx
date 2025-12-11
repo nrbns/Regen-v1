@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 import { cn } from '../../lib/utils';
 
 export interface ResponsiveSidebarProps {

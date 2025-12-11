@@ -12,7 +12,7 @@ import { useTabsStore, type Tab } from '../../state/tabsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
-import { VoiceControl } from '../VoiceControl';
+import { VoiceControl } from '../voice/VoiceControl';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
@@ -74,13 +74,13 @@ import { useRedixTabEviction } from '../../hooks/useRedixTabEviction';
 import { RedixModeToggle } from '../redix/RedixModeToggle';
 import { useI18nSync } from '../../hooks/useI18nSync';
 import { initializeRedixMode } from '../../lib/redix-mode/integration';
-import { OnboardingTour } from '../OnboardingTour';
+import { OnboardingTour } from '../Onboarding/OnboardingTour';
 import { AwarenessCursors } from '../collaboration/AwarenessCursors';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
 const getPolicyRecommendations = () =>
   import('../../core/redix/policies').then(m => m.getPolicyRecommendations);
-import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
+import { CrashRecoveryDialog, useCrashRecovery } from '../common/CrashRecoveryDialog';
 import { ResearchMemoryPanel } from '../research/ResearchMemoryPanel';
 import { trackVisit } from '../../core/supermemory/tracker';
 // Lazy load heavy summarization service - DEFER significantly
@@ -102,13 +102,13 @@ import { SuspensionIndicator } from '../redix/SuspensionIndicator';
 import { BatteryIndicator } from '../redix/BatteryIndicator';
 import { MemoryMonitor } from '../redix/MemoryMonitor';
 import { MiniHoverAI } from '../interaction/MiniHoverAI';
-import { WisprOrb } from '../WisprOrb';
+import { WisprOrb } from '../voice/WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { OmniModeSwitcher } from '../omni-mode/OmniModeSwitcher';
-import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
+import { CommandPalette as QuickCommandPalette } from '../command-palette/CommandPalette';
 // import { WorkspaceTabs } from '../tabs/WorkspaceTabs'; // Reserved for future use
-import { SessionRestorePrompt } from '../SessionRestorePrompt';
+import { SessionRestorePrompt } from '../common/SessionRestorePrompt';
 const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
@@ -142,7 +142,7 @@ import { useAppError } from '../../hooks/useAppError';
 import { LoopResumeModal } from '../agents/LoopResumeModal';
 import { checkForCrashedLoops } from '../../core/agents/loopResume';
 import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
-import { MobileDock } from './MobileDock';
+import { MobileDock } from '../../mobile';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
 

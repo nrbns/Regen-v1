@@ -1,104 +1,133 @@
-# Legal & License Compliance
+# Legal - Model Licenses & Usage
 
-**Regen Browser - Third-Party Licenses & Compliance**
+This document lists all AI models and libraries used by Regen Browser, along with their licenses and usage terms.
 
----
+## AI Models & Libraries
 
-## AI Models & Licenses
+### Ollama (Local LLM)
 
-### Ollama Models
+- **License**: MIT License
+- **Repository**: https://github.com/ollama/ollama
+- **Usage**: Local LLM inference, offline AI capabilities
+- **Models Used**:
+  - `phi3:mini` - MIT License
+  - `llava:7b` - MIT License
+  - `qwen2.5` - Apache 2.0 License
+- **Terms**: Models run locally, no data sent to external services
 
-Regen Browser uses Ollama to run AI models locally. The following models are supported:
+### OpenAI API
 
-1. **phi3:mini** (Microsoft)
-   - License: MIT
-   - Commercial Use: ✅ Allowed
-   - Source: https://ollama.com/library/phi3:mini
+- **License**: Proprietary (API Terms of Service)
+- **Provider**: OpenAI
+- **Usage**: Optional cloud-based LLM inference (user must provide API key)
+- **Models Used**:
+  - GPT-4, GPT-3.5-turbo
+- **Terms**: Subject to OpenAI's Terms of Service and Privacy Policy
+- **Data**: User queries sent to OpenAI when using OpenAI provider
 
-2. **llava:7b** (LLaVA Team)
-   - License: Apache 2.0
-   - Commercial Use: ✅ Allowed
-   - Source: https://ollama.com/library/llava
+### Anthropic Claude API
 
-### OpenAI API (Optional)
+- **License**: Proprietary (API Terms of Service)
+- **Provider**: Anthropic
+- **Usage**: Optional cloud-based LLM inference (user must provide API key)
+- **Models Used**: Claude 3 (various sizes)
+- **Terms**: Subject to Anthropic's Terms of Service and Privacy Policy
+- **Data**: User queries sent to Anthropic when using Claude provider
 
-- Used only if `OPENAI_API_KEY` is provided
-- Subject to OpenAI Terms of Service
-- Commercial use allowed per OpenAI's terms
-- User's API key, user's responsibility
+### Mistral API
 
-### Anthropic API (Optional)
+- **License**: Proprietary (API Terms of Service)
+- **Provider**: Mistral AI
+- **Usage**: Optional cloud-based LLM inference (user must provide API key)
+- **Models Used**: Mistral 7B, Mixtral
+- **Terms**: Subject to Mistral's Terms of Service and Privacy Policy
+- **Data**: User queries sent to Mistral when using Mistral provider
 
-- Used only if `ANTHROPIC_API_KEY` is provided
-- Subject to Anthropic Terms of Service
-- Commercial use allowed per Anthropic's terms
-- User's API key, user's responsibility
+### Qwen (Local/API)
 
----
+- **License**: Apache 2.0 License
+- **Repository**: https://github.com/QwenLM/Qwen
+- **Usage**: Local or cloud-based LLM inference
+- **Models Used**: Qwen2.5 (various sizes)
+- **Terms**: Apache 2.0 License (permissive)
 
-## Third-Party Dependencies
+## Third-Party Libraries
 
-### Core Dependencies
+### React & React DOM
 
-- **Tauri** - Apache 2.0 / MIT
-- **React** - MIT
-- **Fastify** - MIT
-- **Socket.IO** - MIT
-- **BullMQ** - MIT
-- **Redis** - BSD 3-Clause
-- **Ollama** - MIT
+- **License**: MIT License
+- **Repository**: https://github.com/facebook/react
 
-### Search Engines
+### Vite
 
-- **DuckDuckGo API** - Free, no API key required
-- **Startpage** - Free, no API key required
-- **Bing API** - Requires API key (user-provided)
+- **License**: MIT License
+- **Repository**: https://github.com/vitejs/vite
 
----
+### Socket.IO
 
-## Commercial Usage
+- **License**: MIT License
+- **Repository**: https://github.com/socketio/socket.io
 
-✅ **All components used in Regen Browser are suitable for commercial use**:
+### BullMQ (Job Queue)
 
-- All AI models (phi3:mini, llava) are MIT/Apache 2.0 licensed
-- All core dependencies are MIT/Apache 2.0 licensed
-- Search APIs are free for commercial use
-- Optional paid APIs (OpenAI, Anthropic) require user's own API keys
+- **License**: MIT License
+- **Repository**: https://github.com/taskforcesh/bullmq
 
----
+### Redis
 
-## User Data & Privacy
+- **License**: BSD 3-Clause License
+- **Repository**: https://github.com/redis/redis
 
-- **100% Offline AI**: User data never leaves device when using Ollama
-- **Optional APIs**: User must provide their own API keys
-- **No Tracking**: Zero telemetry by default (opt-in only)
-- **Local Storage**: All data stored locally
+### Fastify
 
----
+- **License**: MIT License
+- **Repository**: https://github.com/fastify/fastify
 
-## Compliance Notes
+### TypeScript
 
-1. **GDPR**: Compliant (no data collection, local storage only)
-2. **DPDP (India)**: Compliant (privacy-first design)
-3. **CCPA**: Compliant (no data sharing)
+- **License**: Apache 2.0 License
+- **Repository**: https://github.com/microsoft/TypeScript
 
----
+### Zustand (State Management)
 
-## Attribution
+- **License**: MIT License
+- **Repository**: https://github.com/pmndrs/zustand
 
-This project uses the following open-source components:
+### Yjs (CRDT)
 
-- Ollama (MIT) - https://ollama.com
-- Tauri (Apache 2.0 / MIT) - https://tauri.app
-- React (MIT) - https://react.dev
-- Fastify (MIT) - https://fastify.dev
+- **License**: MIT License
+- **Repository**: https://github.com/yjs/yjs
 
----
+## Privacy & Data Usage
 
-## Questions?
+### Local Models (Ollama, Qwen)
 
-For license questions, contact: [Your Contact]
+- **Data Processing**: All processing happens locally on user's device
+- **Data Transmission**: No data sent to external services
+- **Privacy**: Fully private, user data never leaves device
 
----
+### Cloud APIs (OpenAI, Anthropic, Mistral)
 
-_Last Updated: December 2025_
+- **Data Processing**: Queries sent to provider's API
+- **Data Transmission**: User queries and context sent to provider
+- **Privacy**: Subject to provider's privacy policy
+- **Opt-in**: Users must explicitly enable and provide API keys
+
+## User Responsibilities
+
+1. **API Keys**: Users are responsible for managing their own API keys
+2. **Terms of Service**: Users must comply with each provider's Terms of Service
+3. **Rate Limits**: Users must respect API rate limits
+4. **Data Privacy**: Users should review provider privacy policies before using cloud APIs
+
+## License Compliance
+
+Regen Browser is open-source and released under MIT License. All third-party dependencies are properly licensed and compatible with MIT License.
+
+## Updates
+
+This document will be updated as new models or libraries are added. Last updated: 2024-12-11
+
+## Contact
+
+For legal inquiries: legal@regen.browser (if applicable)

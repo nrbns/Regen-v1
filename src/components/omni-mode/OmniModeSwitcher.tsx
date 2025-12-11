@@ -101,7 +101,8 @@ export function OmniModeSwitcher() {
       {/* Omni Mode Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 font-semibold transition-all hover:scale-105"
+        className="fixed left-1/2 bottom-6 -translate-x-1/2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 font-semibold transition-all hover:scale-105 hidden md:flex"
+        style={{ zIndex: 103 }}
       >
         <Sparkles className="w-5 h-5" />
         <span>AI Omni Mode</span>

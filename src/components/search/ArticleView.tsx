@@ -16,7 +16,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 
 export interface ArticleViewProps {
   url: string;

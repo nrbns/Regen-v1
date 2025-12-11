@@ -12,6 +12,8 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/logo.png',
+  '/styles/globals.css',
 ];
 
 // API endpoints to cache

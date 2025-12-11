@@ -11,7 +11,7 @@ import { getVoicePipeline, type VoiceLanguage } from '../../services/voice/voice
 import { useSettingsStore } from '../../state/settingsStore';
 import { getLanguageMeta } from '../../constants/languageMeta';
 import { toast } from '../../utils/toast';
-import { VoiceCommandEditor } from '../VoiceButton/VoiceCommandEditor';
+import { VoiceCommandEditor } from './VoiceCommandEditor';
 
 interface VoicePipelineButtonProps {
   onResult: (text: string, language: string) => void;

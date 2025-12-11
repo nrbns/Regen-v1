@@ -8,7 +8,7 @@ import { Clock, Star, Download, X, Search, FolderOpen, ChevronRight } from 'luci
 import { motion, AnimatePresence } from 'framer-motion';
 // Use existing BookmarksPanel from bookmarks folder (has folders support)
 import { BookmarksPanel } from '../bookmarks/BookmarksPanel';
-import { WorkspacesPanel } from '../WorkspacesPanel';
+import { WorkspacesPanel } from '../workspace/WorkspacesPanel';
 import HistoryPage from '../../routes/History';
 import DownloadsPage from '../../routes/Downloads';
 

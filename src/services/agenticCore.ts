@@ -33,7 +33,7 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
 
   // Check if Ollama is available first
   try {
-    const { checkOllamaAvailable } = await import('../../utils/ollamaCheck');
+    const { checkOllamaAvailable } = await import('../utils/ollamaCheck');
     const ollamaCheck = await checkOllamaAvailable();
     if (!ollamaCheck.available) {
       const errorMessage =
@@ -42,7 +42,7 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
       onError?.(new Error(errorMessage));
       return;
     }
-  } catch (checkError) {
+  } catch {
     onError?.(
       new Error(
         'Failed to check Ollama availability. Please ensure Ollama is installed and running.'

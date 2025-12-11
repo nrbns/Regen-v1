@@ -5,6 +5,8 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './styles/mode-themes.css';
+// Mobile styles imported via mobile module
+import './mobile';
 import './lib/battery';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
@@ -14,7 +16,7 @@ import { ipc } from './lib/ipc-typed';
 import { ThemeProvider } from './ui/theme';
 import { CSP_DIRECTIVE } from './config/security';
 import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
-import { SettingsSync } from './components/SettingsSync';
+import { SettingsSync } from './components/settings/SettingsSync';
 // Disable console logs in production for better performance
 import './utils/console';
 
@@ -824,6 +826,15 @@ try {
     })
     .catch(() => {
       // Performance monitoring not critical
+    });
+
+  // SPRINT FEATURES: Initialize all 15-day sprint features
+  import('./lib/integration/sprintFeatures')
+    .then(({ initializeSprintFeaturesDeferred }) => {
+      initializeSprintFeaturesDeferred();
+    })
+    .catch(() => {
+      // Sprint features initialization not critical for startup
     });
 
   // TELEMETRY FIX: Initialize telemetry metrics tracking

@@ -1297,33 +1297,75 @@ fn main() {
             std::env::set_var("OLLAMA_HOST", "127.0.0.1:11434");
             std::env::set_var("OLLAMA_ALLOW_PRIVATE_NETWORK", "true");
             
-            // Download handler - handle file downloads from webview
-            let _app_handle = app.handle().clone();
+            // WEEK 1 TASK 5: Download handler - handle file downloads from webview
+            let app_handle_for_downloads = app.handle().clone();
             if let Some(window) = app.get_webview_window("main") {
                 window.listen("tauri://file-drop", move |_event| {
                     // Handle file drops if needed
                 });
                 
-                // AUDIT FIX #3: Download handler - handle file downloads from webview
-                // Tauri v2 download handling
-                if let Some(window) = app.get_webview_window("main") {
-                    // Listen for download events via IPC
-                    window.listen("tauri://download", move |event| {
-                        // In Tauri v2, payload() returns &str directly, not Option
-                        let payload = event.payload();
-                        eprintln!("[Download] Received download request: {:?}", payload);
-                        // The webview will handle the actual download
-                        // We just need to ensure the event is properly handled
-                    });
-                    
-                    // Alternative: Use Tauri's built-in download handler
-                    // This is handled automatically by Tauri v2, but we can customize it
-                    #[cfg(target_os = "windows")]
-                    {
-                        // Windows-specific: Use Tauri's path API instead of dirs crate
-                        // Tauri v2 handles downloads automatically, no need for manual path setting
-                        eprintln!("[Download] Using Tauri's built-in download handler");
+                // WEEK 1 TASK 5: Proper will-download listener for Tauri v2
+                // Handle downloads initiated by the webview
+                let window_clone = window.clone();
+                let app_handle_clone = app_handle_for_downloads.clone();
+                
+                // Listen for download requests from frontend
+                window.listen("download-request", move |event| {
+                    if let Ok(payload) = serde_json::from_str::<Value>(event.payload()) {
+                        if let (Some(url), Some(filename)) = (
+                            payload.get("url").and_then(|v| v.as_str()),
+                            payload.get("filename").and_then(|v| v.as_str()),
+                        ) {
+                            eprintln!("[Download] Download requested: {} -> {}", url, filename);
+                            
+                            // Emit to frontend to track download
+                            let download_id = format!("dl-{}", chrono::Utc::now().timestamp_millis());
+                            let _ = window_clone.emit("download-started", json!({
+                                "id": download_id,
+                                "url": url,
+                                "filename": filename,
+                                "status": "downloading"
+                            }));
+                        }
                     }
+                });
+                
+                // WEEK 1 TASK 5: Handle actual webview download events
+                // In Tauri v2, we intercept downloads through webview events
+                // Note: Tauri v2 handles downloads automatically, but we can customize the save path
+                if let Some(main_window) = app.get_webview_window("main") {
+                    // Use webview's on_download callback if available
+                    // For now, we'll use IPC events from frontend
+                    eprintln!("[Download] Download handler initialized");
+                    
+                    // Get downloads directory
+                    let downloads_dir = app_handle_for_downloads.path()
+                        .download_dir()
+                        .map(|p| p.to_string_lossy().to_string())
+                        .unwrap_or_else(|_| {
+                            // Fallback to user's home/downloads
+                            #[cfg(target_os = "windows")]
+                            {
+                                std::env::var("USERPROFILE")
+                                    .map(|p| format!("{}\\Downloads", p))
+                                    .unwrap_or_else(|_| "C:\\Users\\Downloads".to_string())
+                            }
+                            #[cfg(not(target_os = "windows"))]
+                            {
+                                std::env::var("HOME")
+                                    .map(|p| format!("{}/Downloads", p))
+                                    .unwrap_or_else(|_| "./Downloads".to_string())
+                            }
+                        });
+                    
+                    eprintln!("[Download] Downloads directory: {}", downloads_dir);
+                    
+                    // Store downloads directory for use in download commands
+                    let downloads_path = downloads_dir.clone();
+                    let app_handle_path = app_handle_for_downloads.clone();
+                    main_window.listen("download-path-request", move |_event| {
+                        let _ = main_window.emit("download-path", downloads_path.clone());
+                    });
                 }
             }
             
@@ -1577,6 +1619,9 @@ fn main() {
         .manage(llama_manager.clone())
         .manage(llama_server_manager.clone())
         .invoke_handler(tauri::generate_handler![
+            // WEEK 1 TASK 5: Download commands
+            handle_download,
+            get_download_path,
             // Llama on-device AI commands
             llama::check_ondevice_model,
             llama::load_ondevice_model,
@@ -2111,4 +2156,133 @@ async fn embed_text(text: String, model: Option<String>) -> Result<Vec<f32>, Str
         .collect();
     
     Ok(embedding)
+}
+
+// WEEK 1 TASK 5: Download handling commands
+#[tauri::command]
+async fn handle_download(
+    url: String,
+    filename: String,
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let download_id = format!("dl-{}", chrono::Utc::now().timestamp_millis());
+    
+    // Get downloads directory
+    let downloads_dir = app.path()
+        .download_dir()
+        .map_err(|e| format!("Failed to get downloads directory: {:?}", e))?;
+    
+    let download_path = downloads_dir.join(&filename);
+    
+    eprintln!("[Download] Starting download: {} -> {:?}", url, download_path);
+    
+    // Emit download started event
+    let _ = window.emit("download-started", json!({
+        "id": download_id,
+        "url": url.clone(),
+        "filename": filename.clone(),
+        "path": download_path.to_string_lossy().to_string(),
+        "status": "downloading",
+        "progress": 0,
+        "startedAt": chrono::Utc::now().timestamp()
+    }));
+    
+    // Spawn async download task
+    let window_clone = window.clone();
+    let url_clone = url.clone();
+    let download_id_clone = download_id.clone();
+    let path_clone = download_path.clone();
+    let filename_clone = filename.clone();
+    
+    tauri::async_runtime::spawn(async move {
+        let client = Client::builder()
+            .timeout(Duration::from_secs(300)) // 5 minute timeout
+            .build()
+            .unwrap_or_else(|_| Client::new());
+        
+        match client.get(&url_clone).send().await {
+            Ok(response) => {
+                let total_size = response.content_length().unwrap_or(0);
+                let mut file = match std::fs::File::create(&path_clone) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        let _ = window_clone.emit("download-error", json!({
+                            "id": download_id_clone,
+                            "error": format!("Failed to create file: {}", e)
+                        }));
+                        return;
+                    }
+                };
+                
+                use std::io::Write;
+                let mut stream = response.bytes_stream();
+                let mut received = 0u64;
+                
+                while let Some(chunk_result) = stream.next().await {
+                    match chunk_result {
+                        Ok(chunk) => {
+                            if let Err(e) = file.write_all(&chunk) {
+                                let _ = window_clone.emit("download-error", json!({
+                                    "id": download_id_clone,
+                                    "error": format!("Write error: {}", e)
+                                }));
+                                return;
+                            }
+                            
+                            received += chunk.len() as u64;
+                            let progress = if total_size > 0 {
+                                (received as f64 / total_size as f64 * 100.0) as u8
+                            } else {
+                                0
+                            };
+                            
+                            let _ = window_clone.emit("download-progress", json!({
+                                "id": download_id_clone,
+                                "progress": progress,
+                                "receivedBytes": received,
+                                "totalBytes": total_size,
+                                "speed": "calculating" // Could calculate actual speed
+                            }));
+                        }
+                        Err(e) => {
+                            let _ = window_clone.emit("download-error", json!({
+                                "id": download_id_clone,
+                                "error": format!("Download error: {}", e)
+                            }));
+                            return;
+                        }
+                    }
+                }
+                
+                // Download completed
+                let _ = window_clone.emit("download-completed", json!({
+                    "id": download_id_clone,
+                    "path": path_clone.to_string_lossy().to_string(),
+                    "filename": filename_clone,
+                    "totalBytes": received,
+                    "completedAt": chrono::Utc::now().timestamp()
+                }));
+                
+                eprintln!("[Download] Completed: {:?}", path_clone);
+            }
+            Err(e) => {
+                let _ = window_clone.emit("download-error", json!({
+                    "id": download_id_clone,
+                    "error": format!("Network error: {}", e)
+                }));
+            }
+        }
+    });
+    
+    Ok(download_id)
+}
+
+#[tauri::command]
+async fn get_download_path(app: tauri::AppHandle) -> Result<String, String> {
+    let downloads_dir = app.path()
+        .download_dir()
+        .map_err(|e| format!("Failed to get downloads directory: {:?}", e))?;
+    
+    Ok(downloads_dir.to_string_lossy().to_string())
 }

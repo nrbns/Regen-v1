@@ -1,0 +1,229 @@
+/**
+ * Mobile-First Responsive Styles
+ * Optimized for touch interactions and mobile devices
+ */
+
+/* Touch-optimized targets (minimum 44x44px per iOS HIG and Material Design) */
+@media (max-width: 768px) {
+  button,
+  a.button,
+  input[type="button"],
+  input[type="submit"],
+  select,
+  label {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Ensure clickable areas are large enough */
+  [role="button"],
+  [role="link"],
+  .clickable {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Mobile navigation drawer */
+  .mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    border-top: 1px solid #333;
+    padding: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    justify-content: space-around;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    min-height: 64px; /* Ensure consistent height */
+    height: calc(64px + env(safe-area-inset-bottom, 0px)); /* Consistent height for spacing calculations */
+  }
+
+  /* Utility class to add spacing above mobile nav */
+  .above-mobile-nav {
+    margin-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Fixed elements that should appear above mobile nav */
+  .fixed.above-mobile-nav {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Hide desktop navigation on mobile */
+  .desktop-nav {
+    display: none !important;
+  }
+
+  /* Mobile-optimized tabs */
+  .tab-list {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+  }
+
+  .tab-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Swipe gestures */
+  .swipeable {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent text selection on UI elements */
+  button,
+  .nav-item,
+  .tab-item {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Larger touch targets for inputs */
+  input,
+  textarea,
+  select {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px;
+  }
+
+  /* Mobile-optimized modals */
+  .modal {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  /* Safe area insets for notched devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Mobile-specific spacing */
+  .mobile-padding {
+    padding: 16px;
+  }
+
+  .mobile-margin {
+    margin: 16px;
+  }
+
+  /* Compact mode for mobile */
+  .compact {
+    padding: 8px;
+    font-size: 14px;
+  }
+
+  /* Hide unnecessary elements on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Stack elements vertically on mobile */
+  .mobile-stack {
+    flex-direction: column;
+  }
+
+  /* Full-width elements on mobile */
+  .mobile-full {
+    width: 100%;
+  }
+}
+
+/* Tablet styles (768px - 1024px) */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .mobile-nav {
+    display: none;
+  }
+
+  .desktop-nav {
+    display: flex;
+  }
+
+  /* Tablet-optimized layouts */
+  .tablet-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+/* Desktop styles (1024px+) */
+@media (min-width: 1024px) {
+  .mobile-nav {
+    display: none;
+  }
+
+  .desktop-nav {
+    display: flex;
+  }
+
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Landscape orientation optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .mobile-nav {
+    padding: 4px 8px;
+  }
+
+  .compact-landscape {
+    padding: 8px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  /* Sharper borders and shadows */
+  .border-retina {
+    border-width: 0.5px;
+  }
+}
+
+/* Dark mode optimizations for mobile */
+@media (max-width: 768px) {
+  @media (prefers-color-scheme: dark) {
+    .mobile-nav {
+      background: #0f172a;
+      border-top-color: #1e293b;
+    }
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

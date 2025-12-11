@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { DownloadUpdate } from '../lib/ipc-events';
 import { ipcEvents } from '../lib/ipc-events';
-import { MediaPlayer, getMediaKind } from '../components/MediaPlayer';
+import { MediaPlayer, getMediaKind } from '../components/media';
 
 type DownloadSafety = {
   status: 'pending' | 'clean' | 'warning' | 'blocked' | 'unknown';

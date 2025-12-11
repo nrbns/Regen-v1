@@ -389,7 +389,7 @@ export function StreamingAgentSidebar() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 p-4 font-semibold text-white shadow-2xl transition-all hover:scale-105 hover:from-purple-700 hover:to-pink-700"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 p-4 font-semibold text-white shadow-2xl transition-all hover:scale-105 hover:from-purple-700 hover:to-pink-700 hidden md:flex"
       >
         <Bot className="h-5 w-5" />
         <span>AI Agent</span>

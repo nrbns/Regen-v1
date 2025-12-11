@@ -40,9 +40,12 @@ export class AIEngine {
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' ? window.__OB_API_BASE__ : '');
 
-  // Rate limiting: max 4 concurrent AI requests for parallel execution
-  // Increased from 2 to 4 to support parallel reasoning + summarization
-  private readonly requestQueue = new PQueue({ concurrency: 4 });
+  // WEEK 1 TASK 2: Rate limiting optimized for parallel voice queries <1.5s
+  // Max 6 concurrent AI requests - allows reasoning + summary + other tasks simultaneously
+  private readonly requestQueue = new PQueue({ 
+    concurrency: 6, // Increased for better parallel performance
+    timeout: 2000, // 2s timeout per task to prevent hanging
+  });
 
   // Provider chain: try in order, fallback to next on failure
   private readonly providerChain: LLMProvider[] = ['openai', 'anthropic', 'ollama'];
@@ -96,25 +99,35 @@ export class AIEngine {
 
   /**
    * Convenience helper: run reasoning + summarization in parallel for faster UX.
+   * WEEK 1 TASK 2: Optimized for <1.5s voice query responses
    */
   async runReasonAndSummary(
     prompt: string,
     shared?: { context?: Record<string, unknown>; mode?: string }
   ): Promise<{ reasoning: AITaskResult; summary: AITaskResult }> {
+    // Optimize prompts for speed: shorter, more focused prompts
+    const optimizedPrompt = prompt.length > 200 ? `${prompt.substring(0, 200)}...` : prompt;
+    
     const [reasoning, summary] = await this.runParallelTasks([
       {
         kind: 'agent',
-        prompt: prompt,
+        prompt: optimizedPrompt,
         context: shared?.context,
         mode: shared?.mode,
-        llm: { temperature: 0.2 },
+        llm: { 
+          temperature: 0.2,
+          max_tokens: 150, // Limit tokens for faster response
+        },
       },
       {
         kind: 'summary',
-        prompt: `Summarize crisply:\n${prompt}`,
+        prompt: `Brief summary:\n${optimizedPrompt}`,
         context: shared?.context,
         mode: shared?.mode,
-        llm: { temperature: 0.1 },
+        llm: { 
+          temperature: 0.1,
+          max_tokens: 100, // Even shorter for summary
+        },
       },
     ]);
 

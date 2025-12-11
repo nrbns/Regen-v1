@@ -3,8 +3,8 @@
  * Multi-pane layout for side-by-side browsing
  */
 
-import { useState, useRef, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { X, Plus, Loader2 } from 'lucide-react';
 import { useTabsStore } from '../../state/tabsStore';
 
 type SplitLayout = 'single' | 'split-2' | 'split-3';
@@ -148,11 +148,22 @@ export function SplitView() {
           {/* Pane Content */}
           <div className="flex-1 relative">
             {pane.tabId ? (
-              <iframe
-                src={tabs.find(t => t.id === pane.tabId)?.url || 'about:blank'}
-                className="w-full h-full border-0"
-                title={`Pane ${index + 1}`}
-              />
+              <Suspense
+                fallback={
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                    <div className="text-center">
+                      <Loader2 className="mx-auto h-8 w-8 animate-spin text-purple-400" />
+                      <p className="mt-4 text-sm text-gray-400">Loading page...</p>
+                    </div>
+                  </div>
+                }
+              >
+                <iframe
+                  src={tabs.find(t => t.id === pane.tabId)?.url || 'about:blank'}
+                  className="w-full h-full border-0"
+                  title={`Pane ${index + 1}`}
+                />
+              </Suspense>
             ) : (
               <div className="flex items-center justify-center h-full bg-gray-900 text-gray-500">
                 <div className="text-center">

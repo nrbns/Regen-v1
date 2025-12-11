@@ -1,12 +1,15 @@
 import { useEffect, useState, Suspense, lazy } from 'react';
 import { useAppStore } from '../state/appStore';
 import { ipc } from '../lib/ipc-typed';
-import { OmniDesk } from '../components/OmniDesk';
+import { OmniDesk } from '../components/omni-mode/OmniDesk';
 import { ResearchPane } from '../components/research/ResearchPane';
 import { ErrorBoundary } from '../core/errors/ErrorBoundary';
-import { WeatherCard } from '../components/WeatherCard';
-import { FlightCard } from '../components/FlightCard';
+import { WeatherCard } from '../components/widgets/WeatherCard';
+import { FlightCard } from '../components/widgets/FlightCard';
 import { ModeSwitchLoader } from '../components/common/ModeSwitchLoader';
+import { MobileNav, InstallPrompt } from '../mobile';
+import { PageAIButton, PageAIPanel } from '../components/pageAI';
+import { TextSelectionAIBar } from '../components/pageAI/TextSelectionAIBar';
 
 // REDIX MODE: Conditionally load modes based on Redix mode
 import { getRedixConfig } from '../lib/redix-mode';
@@ -39,6 +42,8 @@ const ModeLoadingFallback = () => <ModeSwitchLoader />;
 
 export default function Home() {
   const mode = useAppStore(s => s.mode);
+  const isPageAIPanelOpen = useAppStore(s => s.isPageAIPanelOpen);
+  const setPageAIPanelOpen = useAppStore(s => s.setPageAIPanelOpen);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Initialize fullscreen state on mount - ensure it starts as false
@@ -154,6 +159,22 @@ export default function Home() {
 
       {/* Flight Card - Shows when flight booking is initiated */}
       <FlightCard />
+
+      {/* Mobile Navigation - Bottom nav bar for mobile devices */}
+      <MobileNav />
+
+      {/* PWA Install Prompt - Shows install prompt for PWA installation */}
+      <InstallPrompt />
+
+      {/* Page AI Components - Sprint Day 11-12 Features */}
+      <PageAIButton />
+      {isPageAIPanelOpen && (
+        <PageAIPanel
+          isOpen={isPageAIPanelOpen}
+          onClose={() => setPageAIPanelOpen(false)}
+        />
+      )}
+      <TextSelectionAIBar />
     </div>
   );
 }

@@ -205,6 +205,51 @@ function subscribeToChannel(channel, handler) {
   }
 }
 
+/**
+ * PR3 Enhancement: Pattern subscribe (psubscribe) for job:* pattern matching
+ * Socket.IO server uses this to subscribe to all job events
+ */
+function psubscribe(pattern, handler) {
+  if (!subClient) {
+    initRedisClients();
+  }
+
+  if (!subClient || subClient.status !== 'ready') {
+    subClient?.connect().catch(() => {});
+    return;
+  }
+
+  try {
+    subClient.psubscribe(pattern, error => {
+      if (error) {
+        console.warn('[RedisPubSub] Pattern subscribe error', { pattern, error: error.message });
+        return;
+      }
+      console.log('[RedisPubSub] Pattern subscribed', { pattern });
+    });
+
+    subClient.on('pmessage', (matchedPattern, channel, message) => {
+      if (matchedPattern !== pattern) return;
+
+      try {
+        const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+        handler(channel, parsed);
+      } catch (error) {
+        console.error('[RedisPubSub] Parse error in pattern subscribe', {
+          pattern,
+          channel,
+          error: error.message,
+        });
+      }
+    });
+  } catch (error) {
+    console.warn('[RedisPubSub] Pattern subscribe failed', { pattern, error: error.message });
+  }
+}
+
+// Alias for compatibility
+const subscribe = subscribeToChannel;
+
 // Initialize on module load
 initRedisClients();
 
@@ -214,7 +259,9 @@ module.exports = {
   publishModelChunk,
   publishModelComplete,
   publishSearchResult,
+  subscribe: subscribeToChannel,
   subscribeToChannel,
+  psubscribe,
   getPubClient: () => pubClient,
   getSubClient: () => subClient,
 };
