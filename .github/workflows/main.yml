@@ -22,13 +22,13 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run ESLint
         run: npm run lint --if-present
-      
+
       - name: Check TypeScript
         run: npm run type-check --if-present
 
@@ -51,7 +51,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -68,19 +68,19 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run unit tests
         run: npm run test:unit --if-present
-      
+
       - name: Run integration tests
         run: npm run test:integration --if-present
         env:
           DATABASE_URL: postgresql://regen:regen@localhost:5432/regen
           REDIS_URL: redis://localhost:6379
-      
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         if: always()
@@ -94,14 +94,14 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Run Snyk
         uses: snyk/actions/node@master
         if: always()
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      
+
       - name: Check for secrets (Trufflehogg)
         uses: trufflesecurity/trufflehog@main
         if: always()
@@ -115,26 +115,26 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build frontend
         run: npm run build:frontend --if-present
-      
+
       - name: Build backend
         run: npm run build:backend --if-present
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      
+
       - name: Log in to Container Registry
         if: github.event_name == 'push'
         uses: docker/login-action@v2
@@ -142,7 +142,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Build and push backend image
         if: github.event_name == 'push'
         uses: docker/build-push-action@v4
@@ -153,7 +153,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:${{ github.sha }}, ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:buildcache,mode=max
-      
+
       - name: Build and push frontend image
         if: github.event_name == 'push'
         uses: docker/build-push-action@v4
@@ -164,7 +164,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ github.sha }}, ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:buildcache,mode=max
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -176,67 +176,148 @@ jobs:
     name: End-to-End Tests
     runs-on: ubuntu-latest
     needs: build
-    
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
           name: build-artifacts
-      
+
       - name: Start services
         run: docker-compose up -d
-      
+
       - name: Wait for services
         run: |
           npm run wait-for-services || true
-      
+
       - name: Run E2E tests
         run: npm run test:e2e --if-present
-      
+
       - name: Capture logs on failure
         if: failure()
         run: docker-compose logs > e2e-logs.txt
-      
+
       - name: Upload E2E logs
         if: failure()
         uses: actions/upload-artifact@v3
         with:
           name: e2e-logs
           path: e2e-logs.txt
-      
+
       - name: Stop services
         if: always()
         run: docker-compose down -v
 
-  # Stage 6: Performance
-  performance:
-    name: Performance Benchmarks
+  # Stage 6: Format Check (ENFORCED)
+  format:
+    name: Format Check
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+    needs: lint
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
+      - name: Check formatting
+        run: npx prettier --check "**/*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}"
+
+  # Stage 7: K6 Load Tests (CRITICAL)
+  k6-load:
+    name: Load & Stress Tests
+    runs-on: ubuntu-latest
+    needs: build
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+
+      - name: Start services
+        run: |
+          npm run dev:server &
+          sleep 5
+        env:
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run K6 load test (baseline)
+        run: k6 run tests/load/k6-load-test.js --vus 10 --duration 30s
+        continue-on-error: false
+
+      - name: Run K6 streaming test
+        run: k6 run tests/load/k6-streaming.js --vus 20 --duration 30s
+        continue-on-error: false
+        env:
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload k6 results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: k6-results
+          path: k6-results.json
+
+  # Stage 8: Performance Benchmarks
+  performance:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Run performance tests
         run: npm run test:perf --if-present || true
-      
+
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         if: always()
@@ -246,16 +327,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
 
-  # Stage 7: Deploy to Staging (on main)
+  # Stage 9: Deploy to Staging (on main)
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    needs: [e2e, performance]
+    needs: [e2e, k6-load, performance]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Deploy to staging
         if: always()
         run: |
@@ -265,21 +346,58 @@ jobs:
         env:
           DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
 
-  # Final: Status Check
+  # Final: Comprehensive Status Check (ENFORCED)
   status:
-    name: All Checks Passed
+    name: All Quality Gates Passed
     runs-on: ubuntu-latest
-    needs: [lint, test, build, e2e]
+    needs: [lint, format, test, security, build, e2e, k6-load]
     if: always()
-    
+
     steps:
-      - name: Check status
+      - name: Check all quality gates
         run: |
-          if [ "${{ needs.lint.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.build.result }}" != "success" ] || \
-             [ "${{ needs.e2e.result }}" != "success" ]; then
-            echo "❌ One or more checks failed"
+          echo "=== Quality Gate Status ==="
+          echo "Lint: ${{ needs.lint.result }}"
+          echo "Format: ${{ needs.format.result }}"
+          echo "Test: ${{ needs.test.result }}"
+          echo "Security: ${{ needs.security.result }}"
+          echo "Build: ${{ needs.build.result }}"
+          echo "E2E: ${{ needs.e2e.result }}"
+          echo "K6 Load: ${{ needs.k6-load.result }}"
+          echo "========================="
+
+          if [ "${{ needs.lint.result }}" != "success" ]; then
+            echo "❌ Lint check failed"
             exit 1
           fi
-          echo "✅ All checks passed"
+
+          if [ "${{ needs.format.result }}" != "success" ]; then
+            echo "❌ Format check failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Unit/integration tests failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.security.result }}" != "success" ]; then
+            echo "⚠️  Security checks reported issues (non-blocking)"
+          fi
+
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.e2e.result }}" != "success" ]; then
+            echo "❌ E2E tests failed"
+            exit 1
+          fi
+
+          if [ "${{ needs.k6-load.result }}" != "success" ]; then
+            echo "❌ K6 load tests failed - realtime stability NOT proven"
+            exit 1
+          fi
+
+          echo "✅ All quality gates passed - ready for merge"

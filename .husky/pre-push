@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚫 Push to protected branches requires all CI checks to pass"
+echo ""
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Check if pushing to protected branch
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "develop" ]; then
+  echo "⚠️  Pushing to protected branch: $BRANCH"
+  echo ""
+  echo "Required CI checks:"
+  echo "  ✓ Lint & Type Check"
+  echo "  ✓ Format Check"
+  echo "  ✓ Unit Tests"
+  echo "  ✓ Integration Tests"
+  echo "  ✓ Security Scans"
+  echo "  ✓ Build"
+  echo "  ✓ E2E Tests"
+  echo "  ✓ K6 Load Tests"
+  echo ""
+  echo "❌ Direct push blocked. Please:"
+  echo "  1. Create a PR"
+  echo "  2. Wait for CI checks to pass"
+  echo "  3. Get approval"
+  echo "  4. Merge via PR"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Push allowed to branch: $BRANCH"
