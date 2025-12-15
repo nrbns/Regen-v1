@@ -64,22 +64,22 @@ export function MobileNav() {
   ];
 
   return (
-    <nav className="mobile-nav md:hidden safe-bottom" style={{ zIndex: 100 }}>
-      {navItems.map((item) => {
+    <nav className="mobile-nav safe-bottom md:hidden" style={{ zIndex: 100 }}>
+      {navItems.map(item => {
         const Icon = item.icon;
         return (
           <button
             key={item.id}
             onClick={item.onClick}
-            className={`flex flex-col items-center justify-center gap-1 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg transition-colors ${
+            className={`flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 transition-colors ${
               item.active
-                ? 'text-indigo-400 bg-indigo-400/10'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                ? 'bg-indigo-400/10 text-indigo-400'
+                : 'text-gray-400 hover:bg-gray-800/50 hover:text-white'
             }`}
             aria-label={item.label}
             aria-current={item.active ? 'page' : undefined}
           >
-            <Icon className="w-5 h-5" />
+            <Icon className="h-5 w-5" />
             <span className="text-xs font-medium">{item.label}</span>
           </button>
         );
@@ -87,4 +87,3 @@ export function MobileNav() {
     </nav>
   );
 }
-

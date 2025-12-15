@@ -64,7 +64,7 @@ export async function syncHistoryToService(): Promise<void> {
     // const syncData = await storage.getAllSyncData();
 
     // Merge history
-    const historyEntries = localHistory.map((item) => ({
+    const historyEntries = localHistory.map(item => ({
       id: item.id || `history-${item.url}-${item.timestamp}`,
       url: item.url,
       title: item.title || item.url,
@@ -98,7 +98,7 @@ export async function syncBookmarksToService(): Promise<void> {
     // TODO: Replace with actual bookmarks retrieval
     const localBookmarks: any[] = [];
 
-    const bookmarkEntries = localBookmarks.map((item) => ({
+    const bookmarkEntries = localBookmarks.map(item => ({
       id: item.id || `bookmark-${item.url}`,
       url: item.url,
       title: item.title || item.url,
@@ -162,7 +162,7 @@ export async function applySyncedDataToLocal(data: SyncData): Promise<void> {
 
       for (const entry of data.history) {
         const existing = historyMap.get(entry.id || entry.url);
-        if (!existing || (entry.timestamp > (existing.timestamp || 0))) {
+        if (!existing || entry.timestamp > (existing.timestamp || 0)) {
           // Add or update history entry
           await ipc.history.add({
             url: entry.url,
@@ -210,12 +210,14 @@ export function setupSyncListeners(): void {
   });
 
   // Periodic sync
-  setInterval(() => {
-    if (syncServiceInstance && syncServiceInstance.isOnline()) {
-      syncHistoryToService();
-      syncBookmarksToService();
-      syncSettingsToService();
-    }
-  }, 5 * 60 * 1000); // Every 5 minutes
+  setInterval(
+    () => {
+      if (syncServiceInstance && syncServiceInstance.isOnline()) {
+        syncHistoryToService();
+        syncBookmarksToService();
+        syncSettingsToService();
+      }
+    },
+    5 * 60 * 1000
+  ); // Every 5 minutes
 }
-

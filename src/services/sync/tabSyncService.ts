@@ -78,9 +78,9 @@ class TabSyncService {
     // Add IndexedDB persistence FIRST - ensures data is persisted before WebSocket connects
     // Use fixed 'regen' key so all sessions share the same persistent store
     this.indexeddbProvider = new IndexeddbPersistence('regen', this.doc);
-    
+
     // Wait for IndexedDB to sync before connecting WebSocket (prevents desyncs on reconnect)
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       this.indexeddbProvider!.on('synced', () => {
         console.log('[TabSync] IndexedDB synced - ready for WebSocket connection');
         resolve();
@@ -110,7 +110,7 @@ class TabSyncService {
         console.log('[TabSync] Reconnected - syncing from IndexedDB...');
         // IndexedDB persistence automatically restores state, but we ensure sync
         if (this.indexeddbProvider) {
-          await new Promise<void>((resolve) => {
+          await new Promise<void>(resolve => {
             this.indexeddbProvider!.on('synced', () => resolve());
             setTimeout(() => resolve(), 100); // Small timeout
           });

@@ -232,7 +232,7 @@ export class GmailSkill {
    */
   private buildComposeUrl(data: Partial<ComposeEmailData>): string {
     const params = new URLSearchParams();
-    
+
     if (data.to) {
       params.append('to', Array.isArray(data.to) ? data.to.join(',') : data.to);
     }
@@ -272,4 +272,3 @@ export function getGmailSkill(): GmailSkill {
   }
   return gmailSkillInstance;
 }
-

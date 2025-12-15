@@ -4,17 +4,17 @@
  */
 
 import { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  ShieldCheck, 
-  ShieldOff, 
-  Loader2, 
+import {
+  Shield,
+  ShieldCheck,
+  ShieldOff,
+  Loader2,
   AlertCircle,
   CheckCircle2,
   XCircle,
   RefreshCw,
   Server,
-  Clock
+  Clock,
 } from 'lucide-react';
 import { getVPNService, type VPNProfile, type VPNStatus } from '../../services/vpn';
 import { toast } from '../../utils/toast';
@@ -38,7 +38,7 @@ export function VPNPanel() {
     });
 
     // Subscribe to realtime status updates
-    const unsubscribe = service.onStatusUpdate((newStatus) => {
+    const unsubscribe = service.onStatusUpdate(newStatus => {
       setStatus(newStatus);
     });
 
@@ -105,7 +105,7 @@ export function VPNPanel() {
       const service = getVPNService();
       await service.checkStatus();
       toast.success('Status refreshed');
-    } catch (_error: any) {
+    } catch {
       toast.error('Failed to refresh status');
     } finally {
       setLoading(false);
@@ -139,33 +139,31 @@ export function VPNPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${
-            status?.connected 
-              ? 'bg-green-500/20 text-green-400' 
-              : 'bg-gray-500/20 text-gray-400'
-          }`}>
+          <div
+            className={`rounded-lg p-2 ${
+              status?.connected ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+            }`}
+          >
             {status?.connected ? (
-              <ShieldCheck className="w-6 h-6" />
+              <ShieldCheck className="h-6 w-6" />
             ) : (
-              <ShieldOff className="w-6 h-6" />
+              <ShieldOff className="h-6 w-6" />
             )}
           </div>
           <div>
             <h2 className="text-xl font-semibold text-white">VPN</h2>
             <p className="text-sm text-gray-400">
-              {status?.connected 
-                ? `Connected to ${status.profileName || 'VPN'}` 
-                : 'Not connected'}
+              {status?.connected ? `Connected to ${status.profileName || 'VPN'}` : 'Not connected'}
             </p>
           </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={loading}
-          className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-lg bg-gray-800 p-2 text-gray-300 transition-colors hover:bg-gray-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Refresh status"
         >
-          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -178,20 +176,20 @@ export function VPNPanel() {
             exit={{ opacity: 0, y: -10 }}
             className={`rounded-lg border p-4 ${
               status.connected
-                ? 'bg-green-500/10 border-green-500/40'
-                : 'bg-gray-900/50 border-gray-700'
+                ? 'border-green-500/40 bg-green-500/10'
+                : 'border-gray-700 bg-gray-900/50'
             }`}
           >
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {status.connected ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                  <CheckCircle2 className="h-5 w-5 text-green-400" />
                 ) : (
-                  <XCircle className="w-5 h-5 text-gray-400" />
+                  <XCircle className="h-5 w-5 text-gray-400" />
                 )}
-                <span className={`font-medium ${
-                  status.connected ? 'text-green-300' : 'text-gray-300'
-                }`}>
+                <span
+                  className={`font-medium ${status.connected ? 'text-green-300' : 'text-gray-300'}`}
+                >
                   {status.connected ? 'Connected' : 'Disconnected'}
                 </span>
               </div>
@@ -199,11 +197,11 @@ export function VPNPanel() {
                 <button
                   onClick={handleDisconnect}
                   disabled={loading || disconnecting}
-                  className="px-3 py-1.5 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="flex items-center gap-2 rounded-lg bg-red-600/20 px-3 py-1.5 text-sm text-red-300 transition-colors hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {disconnecting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Disconnecting...
                     </>
                   ) : (
@@ -217,19 +215,21 @@ export function VPNPanel() {
               <div className="space-y-2 text-sm">
                 {status.server && (
                   <div className="flex items-center gap-2 text-gray-300">
-                    <Server className="w-4 h-4 text-gray-400" />
+                    <Server className="h-4 w-4 text-gray-400" />
                     <span>{status.server}</span>
                   </div>
                 )}
                 {status.uptime && (
                   <div className="flex items-center gap-2 text-gray-300">
-                    <Clock className="w-4 h-4 text-gray-400" />
+                    <Clock className="h-4 w-4 text-gray-400" />
                     <span>Uptime: {formatUptime(status.uptime)}</span>
                   </div>
                 )}
                 {status.type && (
                   <div className="mt-2">
-                    <span className={`px-2 py-1 text-xs rounded border ${getTypeBadge(status.type)}`}>
+                    <span
+                      className={`rounded border px-2 py-1 text-xs ${getTypeBadge(status.type)}`}
+                    >
                       {status.type.toUpperCase()}
                     </span>
                   </div>
@@ -242,17 +242,17 @@ export function VPNPanel() {
 
       {/* Profiles List */}
       <div>
-        <h3 className="text-lg font-medium text-white mb-4">Available Profiles</h3>
-        
+        <h3 className="mb-4 text-lg font-medium text-white">Available Profiles</h3>
+
         {profiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
-            <Shield className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <div className="py-8 text-center text-gray-400">
+            <Shield className="mx-auto mb-3 h-12 w-12 opacity-50" />
             <p>No VPN profiles available</p>
-            <p className="text-xs mt-1">Add profiles to /config/vpn-profiles.json</p>
+            <p className="mt-1 text-xs">Add profiles to /config/vpn-profiles.json</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {profiles.map((profile) => {
+            {profiles.map(profile => {
               const isActive = status?.connected && status.profileId === profile.id;
               const isConnecting = connecting === profile.id;
 
@@ -263,25 +263,27 @@ export function VPNPanel() {
                   animate={{ opacity: 1, x: 0 }}
                   className={`rounded-lg border p-4 transition-all ${
                     isActive
-                      ? 'bg-green-500/10 border-green-500/40'
-                      : 'bg-gray-900/50 border-gray-700 hover:border-gray-600'
+                      ? 'border-green-500/40 bg-green-500/10'
+                      : 'border-gray-700 bg-gray-900/50 hover:border-gray-600'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="mb-1 flex items-center gap-2">
                         <h4 className="font-medium text-white">{profile.name}</h4>
                         {isActive && (
-                          <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-300 rounded">
+                          <span className="rounded bg-green-500/20 px-2 py-0.5 text-xs text-green-300">
                             Active
                           </span>
                         )}
-                        <span className={`px-2 py-0.5 text-xs rounded border ${getTypeBadge(profile.type)}`}>
+                        <span
+                          className={`rounded border px-2 py-0.5 text-xs ${getTypeBadge(profile.type)}`}
+                        >
                           {profile.type.toUpperCase()}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-400 flex items-center gap-1">
-                        <Server className="w-3 h-3" />
+                      <p className="flex items-center gap-1 text-sm text-gray-400">
+                        <Server className="h-3 w-3" />
                         {profile.server}
                       </p>
                     </div>
@@ -290,10 +292,10 @@ export function VPNPanel() {
                         <button
                           onClick={handleDisconnect}
                           disabled={loading || disconnecting}
-                          className="px-3 py-1.5 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="rounded-lg bg-red-600/20 px-3 py-1.5 text-sm text-red-300 transition-colors hover:bg-red-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {disconnecting ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             'Disconnect'
                           )}
@@ -302,16 +304,16 @@ export function VPNPanel() {
                         <button
                           onClick={() => handleConnect(profile.id)}
                           disabled={loading || isConnecting || status?.connected}
-                          className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isConnecting ? (
                             <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                               Connecting...
                             </>
                           ) : (
                             <>
-                              <Shield className="w-4 h-4" />
+                              <Shield className="h-4 w-4" />
                               Connect
                             </>
                           )}
@@ -327,12 +329,12 @@ export function VPNPanel() {
       </div>
 
       {/* Info Alert */}
-      <div className="rounded-lg bg-blue-500/10 border border-blue-500/40 p-4">
+      <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-4">
         <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-400" />
           <div className="text-sm text-blue-300">
-            <p className="font-medium mb-1">VPN Connection Requirements</p>
-            <ul className="list-disc list-inside space-y-1 text-blue-200/80">
+            <p className="mb-1 font-medium">VPN Connection Requirements</p>
+            <ul className="list-inside list-disc space-y-1 text-blue-200/80">
               <li>VPN functionality requires Electron or Tauri runtime</li>
               <li>Ensure VPN client software is installed (WireGuard/OpenVPN)</li>
               <li>Profile configuration files must be accessible to the system</li>
@@ -344,4 +346,3 @@ export function VPNPanel() {
     </div>
   );
 }
-

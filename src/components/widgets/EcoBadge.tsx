@@ -21,17 +21,17 @@ const tierConfig: Record<GreenTier, { color: string; icon: typeof Leaf; message:
     icon: Sparkles,
     message: 'AI healed the planet!',
   },
-  'Green': {
+  Green: {
     color: '#22c55e', // green-500
     icon: Leaf,
     message: 'Eco-friendly response',
   },
-  'Yellow': {
+  Yellow: {
     color: '#f59e0b', // amber-500
     icon: Sun,
     message: 'Moderate energy use',
   },
-  'Red': {
+  Red: {
     color: '#ef4444', // red-500
     icon: Flame,
     message: 'High energy — optimize!',
@@ -46,7 +46,7 @@ export function EcoBadge({ score, tier, co2SavedG = 0, className = '' }: EcoBadg
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border backdrop-blur-sm ${className}`}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur-sm ${className}`}
       style={{
         borderColor: `${config.color}40`,
         backgroundColor: `${config.color}10`,
@@ -58,9 +58,7 @@ export function EcoBadge({ score, tier, co2SavedG = 0, className = '' }: EcoBadg
           {score}%
         </span>
         {co2SavedG > 0 && (
-          <span className="text-gray-400">
-            • Saved {co2SavedG.toFixed(1)}g CO₂
-          </span>
+          <span className="text-gray-400">• Saved {co2SavedG.toFixed(1)}g CO₂</span>
         )}
       </div>
       <div
@@ -83,7 +81,7 @@ export function EcoBadgeCompact({ score, tier, co2SavedG = 0 }: EcoBadgeProps) {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-sm"
+      className="flex items-center gap-1.5 rounded-md border px-2 py-1 backdrop-blur-sm"
       style={{
         borderColor: `${config.color}40`,
         backgroundColor: `${config.color}10`,
@@ -94,12 +92,7 @@ export function EcoBadgeCompact({ score, tier, co2SavedG = 0 }: EcoBadgeProps) {
       <span style={{ color: config.color }} className="text-[10px] font-semibold">
         {score}%
       </span>
-      {co2SavedG > 0 && (
-        <span className="text-[9px] text-gray-400">
-          {co2SavedG.toFixed(1)}g
-        </span>
-      )}
+      {co2SavedG > 0 && <span className="text-[9px] text-gray-400">{co2SavedG.toFixed(1)}g</span>}
     </motion.div>
   );
 }
-

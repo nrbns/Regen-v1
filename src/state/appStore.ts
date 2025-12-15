@@ -7,15 +7,15 @@ export type AppState = {
   // Page AI Panel
   isPageAIPanelOpen: boolean;
   setPageAIPanelOpen: (open: boolean) => void;
-  
+
   // Adblocker
   isAdblockerEnabled: boolean;
   setAdblockerEnabled: (enabled: boolean) => void;
-  
+
   // Sync Status
   syncStatus: 'idle' | 'syncing' | 'error' | 'success';
   setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'success') => void;
-  
+
   // Original state
   mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
@@ -31,6 +31,9 @@ export type AppState = {
   regenSidebarOpen: boolean;
   setRegenSidebarOpen: (open: boolean) => void;
   toggleRegenSidebar: () => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -148,6 +151,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = !get().regenSidebarOpen;
     get().setRegenSidebarOpen(next);
   },
+  sidebarCollapsed: false,
+  setSidebarCollapsed: (collapsed: boolean) => set({ sidebarCollapsed: collapsed }),
+  toggleSidebarCollapsed: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   // Sprint Features State
   isPageAIPanelOpen: false,
   setPageAIPanelOpen: (open: boolean) => {

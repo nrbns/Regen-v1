@@ -14,4 +14,3 @@ export type { TranslationOptions } from './translator';
 
 export { extractTasks } from './taskExtractor';
 export type { ExtractedTask, ExtractionResult } from './taskExtractor';
-

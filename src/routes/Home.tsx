@@ -10,6 +10,7 @@ import { ModeSwitchLoader } from '../components/common/ModeSwitchLoader';
 import { MobileNav, InstallPrompt } from '../mobile';
 import { PageAIButton, PageAIPanel } from '../components/pageAI';
 import { TextSelectionAIBar } from '../components/pageAI/TextSelectionAIBar';
+import { useWorkspaceShortcuts } from '../hooks/useWorkspaceShortcuts'; // SPRINT 2
 
 // REDIX MODE: Conditionally load modes based on Redix mode
 import { getRedixConfig } from '../lib/redix-mode';
@@ -45,6 +46,9 @@ export default function Home() {
   const isPageAIPanelOpen = useAppStore(s => s.isPageAIPanelOpen);
   const setPageAIPanelOpen = useAppStore(s => s.setPageAIPanelOpen);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // SPRINT 2: Enable workspace keyboard shortcuts
+  useWorkspaceShortcuts();
 
   // Initialize fullscreen state on mount - ensure it starts as false
   useEffect(() => {
@@ -169,10 +173,7 @@ export default function Home() {
       {/* Page AI Components - Sprint Day 11-12 Features */}
       <PageAIButton />
       {isPageAIPanelOpen && (
-        <PageAIPanel
-          isOpen={isPageAIPanelOpen}
-          onClose={() => setPageAIPanelOpen(false)}
-        />
+        <PageAIPanel isOpen={isPageAIPanelOpen} onClose={() => setPageAIPanelOpen(false)} />
       )}
       <TextSelectionAIBar />
     </div>

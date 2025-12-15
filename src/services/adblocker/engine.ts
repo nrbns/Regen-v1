@@ -24,9 +24,12 @@ export class AdblockerEngine {
   /**
    * Initialize engine with filter lists
    */
-  async initialize(filterLists: FilterList[], settings?: Partial<AdblockerSettings>): Promise<void> {
+  async initialize(
+    filterLists: FilterList[],
+    settings?: Partial<AdblockerSettings>
+  ): Promise<void> {
     this.filters.clear();
-    
+
     // Load enabled filter lists
     const enabledLists = filterLists.filter(list => list.enabled);
     const filterContents: string[] = [];
@@ -39,7 +42,7 @@ export class AdblockerEngine {
           filterContents.push(content);
           const parsed = parseFilterList(content);
           parsed.forEach(filter => this.filters.add(filter));
-          
+
           this.stats.blockedByList[list.id] = 0;
         }
       } catch (error) {
@@ -174,7 +177,7 @@ export class AdblockerEngine {
     // Convert pattern to regex-like matching
     let regexPattern = pattern
       .replace(/\./g, '\\.') // Escape dots
-      .replace(/\*/g, '.*')  // * to .*
+      .replace(/\*/g, '.*') // * to .*
       .replace(/\^/g, '[^a-zA-Z0-9_\\-\\+\\.%]') // ^ separator
       .replace(/\|/g, '$|^'); // | anchor
 
@@ -267,4 +270,3 @@ export function getAdblockerEngine(): AdblockerEngine {
   }
   return engineInstance;
 }
-

@@ -6,8 +6,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Search, TrendingUp, Mic, ArrowRight, CheckCircle2, Keyboard } from 'lucide-react';
-import { useAppStore } from '../../state/appStore';
+import { X, Sparkles, Search, TrendingUp, ArrowRight } from 'lucide-react';
+import { useSettingsStore } from '../../state/settingsStore';
 
 interface TourStep {
   id: string;
@@ -17,49 +17,29 @@ interface TourStep {
   action?: () => void;
 }
 
-// Phase 1, Day 5: Enhanced onboarding tour with feature highlights
+// SPRINT 0: Simplified 3-step onboarding tour
 const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to RegenBrowser!',
-    description: 'Your AI-powered browser with voice commands, research, and trading. Let\'s get started!',
+    title: 'Welcome to Regen Browser!',
+    description: 'Your offline-first AI browser with low-data mode, AI tools, and voice commands. Perfect for low-network areas.',
     icon: <Sparkles className="w-6 h-6" />,
   },
   {
-    id: 'voice',
-    title: 'WISPR Voice Assistant',
-    description: 'Press Ctrl+Space to activate WISPR. Speak in Hindi or English: "Research BTC" or "Nifty kharido 50". You can edit commands before executing.',
-    icon: <Mic className="w-6 h-6" />,
-  },
-  {
-    id: 'research',
-    title: 'Research Mode',
-    description: 'Switch to Research mode for AI-powered web research with real-time citations, summaries, and document analysis.',
+    id: 'features',
+    title: 'Key Features',
+    description: 'Try these commands in the address bar: `:summarize` (AI summaries), `:save-for-offline` (offline pages), or press Ctrl+K for command palette. Switch modes to Research/Trade for AI-powered workflows.',
     icon: <Search className="w-6 h-6" />,
-    action: () => {
-      useAppStore.getState().setMode('Research');
-    },
   },
   {
-    id: 'trade',
-    title: 'Trade Mode',
-    description: 'Switch to Trade mode for AI-powered trading signals, real-time market analysis, and position sizing.',
+    id: 'low-data',
+    title: 'Low-Data Mode (Optional)',
+    description: 'On a slow connection? Enable Low-Data Mode in Settings → System to disable images by default, reduce bandwidth, and speed up browsing.',
     icon: <TrendingUp className="w-6 h-6" />,
     action: () => {
-      useAppStore.getState().setMode('Trade');
+      // Optional: Auto-open settings to low-data mode section
+      // For now, just inform user
     },
-  },
-  {
-    id: 'shortcuts',
-    title: 'Keyboard Shortcuts',
-    description: 'Press Ctrl+K for command palette, Ctrl+L for address bar, Ctrl+T for new tab. See all shortcuts in Settings → Shortcuts.',
-    icon: <Keyboard className="w-6 h-6" />,
-  },
-  {
-    id: 'complete',
-    title: 'You\'re all set!',
-    description: 'Start exploring RegenBrowser. You can always access this tour and shortcuts guide from Settings.',
-    icon: <CheckCircle2 className="w-6 h-6" />,
   },
 ];
 
@@ -68,9 +48,9 @@ export function QuickStartTour() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if user has seen the tour
-    const hasSeenTour = localStorage.getItem('regen:has-seen-tour') === 'true';
-    if (!hasSeenTour) {
+    // SPRINT 0: Use settings store to check if user has seen tour
+    const { hasSeenOnboardingTour } = useSettingsStore.getState();
+    if (!hasSeenOnboardingTour()) {
       // Show tour after a short delay
       setTimeout(() => {
         setIsVisible(true);
@@ -100,7 +80,9 @@ export function QuickStartTour() {
   };
 
   const handleComplete = () => {
-    localStorage.setItem('regen:has-seen-tour', 'true');
+    // SPRINT 0: Mark tour as seen in settings store
+    const { setHasSeenOnboardingTour } = useSettingsStore.getState();
+    setHasSeenOnboardingTour(true);
     setIsVisible(false);
   };
 

@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Loader2, Copy, Check } from 'lucide-react';
-import { requestRedix } from '../services/redixClient';
+import { requestRedix } from '../../services/redixClient';
 
 interface AIResponsePaneProps {
   query: string;

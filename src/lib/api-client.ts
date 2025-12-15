@@ -18,10 +18,10 @@ const API_BASE_URL =
     ? (window as any).__API_BASE_URL ||
       import.meta.env.VITE_API_BASE_URL ||
       import.meta.env.VITE_APP_API_URL ||
-      'http://127.0.0.1:8000'  // Match backend server port
+      'http://127.0.0.1:8000' // Match backend server port
     : import.meta.env.VITE_API_BASE_URL ||
       import.meta.env.VITE_APP_API_URL ||
-      'http://127.0.0.1:8000';  // Match backend server port
+      'http://127.0.0.1:8000'; // Match backend server port
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -36,7 +36,7 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
   // FIX: Allow backend requests in web mode - server may be running
   // Don't block requests based on mode alone, let the actual connection attempt determine availability
   const webMode = isWebMode();
-  
+
   // In web mode, we should still try to connect to the backend server
   // The backend-status system will handle connection failures gracefully
   // Only block if backend is confirmed offline AND we're in web mode
@@ -100,27 +100,26 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
   } catch (error) {
     // Mark backend as unavailable if request fails
     markBackendUnavailable(error);
-    
+
     // Provide better error messages for connection errors
-    const isConnectionError = 
-      error instanceof TypeError || 
-      (error instanceof Error && (
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('NetworkError') ||
-        error.message.includes('ECONNREFUSED') ||
-        error.message.includes('connection refused')
-      ));
-    
+    const isConnectionError =
+      error instanceof TypeError ||
+      (error instanceof Error &&
+        (error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('connection refused')));
+
     if (isConnectionError) {
       // Create a more helpful error message
       const connectionError = new Error(
         `Backend server is not running. Please start the server with: npm run dev:server\n\n` +
-        `Attempted to connect to: ${url}`
+          `Attempted to connect to: ${url}`
       );
       connectionError.name = 'ConnectionError';
       throw connectionError;
     }
-    
+
     // In web mode, backend failures are expected initially, but log once we know it's down
     if (webMode) {
       if (!isConnectionError) {

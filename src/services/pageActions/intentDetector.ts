@@ -27,13 +27,17 @@ export type IntentType =
 /**
  * Detect user intent from page analysis
  */
-export async function detectIntent(analysis: PageAnalysis, userContext?: {
-  selectedText?: string;
-  cursorPosition?: { x: number; y: number };
-  mouseOverElement?: string;
-}): Promise<DetectedIntent> {
+export async function detectIntent(
+  analysis: PageAnalysis,
+  userContext?: {
+    selectedText?: string;
+    cursorPosition?: { x: number; y: number };
+    mouseOverElement?: string;
+  }
+): Promise<DetectedIntent> {
   // Analyze based on content type and structure
-  const intents: Array<{ intent: IntentType; confidence: number; context: Record<string, any> }> = [];
+  const intents: Array<{ intent: IntentType; confidence: number; context: Record<string, any> }> =
+    [];
 
   // Content type based intents
   switch (analysis.contentType) {
@@ -46,7 +50,7 @@ export async function detectIntent(analysis: PageAnalysis, userContext?: {
           wordCount: estimateWordCount(analysis),
         },
       });
-      
+
       if (analysis.structure.forms.length > 0) {
         intents.push({
           intent: 'fill_form',
@@ -63,7 +67,9 @@ export async function detectIntent(analysis: PageAnalysis, userContext?: {
         intent: 'purchase_product',
         confidence: 0.7,
         context: {
-          hasPrice: analysis.keywords.some(k => k.includes('price') || k.includes('₹') || k.includes('$')),
+          hasPrice: analysis.keywords.some(
+            k => k.includes('price') || k.includes('₹') || k.includes('$')
+          ),
         },
       });
       break;
@@ -106,7 +112,7 @@ export async function detectIntent(analysis: PageAnalysis, userContext?: {
   // Selected text context
   if (userContext?.selectedText) {
     const selectedText = userContext.selectedText.trim();
-    
+
     if (selectedText.length > 20) {
       // Long selection - likely wants to summarize or share
       intents.push({
@@ -119,7 +125,10 @@ export async function detectIntent(analysis: PageAnalysis, userContext?: {
     }
 
     // Check if selected text contains date/time
-    if (/\d{1,2}[-\/]\d{1,2}/.test(selectedText) || /(?:today|tomorrow|meeting|event)/i.test(selectedText)) {
+    if (
+      /\d{1,2}[-\/]\d{1,2}/.test(selectedText) ||
+      /(?:today|tomorrow|meeting|event)/i.test(selectedText)
+    ) {
       intents.push({
         intent: 'schedule_meeting',
         confidence: 0.8,
@@ -202,4 +211,3 @@ function generateActionsForIntent(intent: IntentType, _analysis: PageAnalysis): 
 
   return actions;
 }
-

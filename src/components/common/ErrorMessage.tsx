@@ -36,38 +36,30 @@ export function ErrorMessage({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className={`
-        p-4 rounded-lg border-2 border-red-500/50
-        bg-red-50 dark:bg-red-900/20
-        ${className}
-      `}
+      className={`rounded-lg border-2 border-red-500/50 bg-red-50 p-4 dark:bg-red-900/20 ${className} `}
     >
       <div className="flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-red-900 dark:text-red-400 mb-1">
-            {title}
-          </h3>
-          <p className="text-sm text-red-800 dark:text-red-300 mb-2">
-            {message}
-          </p>
+        <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+        <div className="min-w-0 flex-1">
+          <h3 className="mb-1 text-sm font-semibold text-red-900 dark:text-red-400">{title}</h3>
+          <p className="mb-2 text-sm text-red-800 dark:text-red-300">{message}</p>
           {details && (
             <details className="mt-2">
-              <summary className="text-xs text-red-700 dark:text-red-400 cursor-pointer hover:underline">
+              <summary className="cursor-pointer text-xs text-red-700 hover:underline dark:text-red-400">
                 Show details
               </summary>
-              <pre className="mt-2 text-xs text-red-600 dark:text-red-500 bg-red-100 dark:bg-red-900/30 p-2 rounded overflow-auto">
+              <pre className="mt-2 overflow-auto rounded bg-red-100 p-2 text-xs text-red-600 dark:bg-red-900/30 dark:text-red-500">
                 {details}
               </pre>
             </details>
           )}
-          
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {onRetry && (
               <Button
                 size="sm"
                 variant="outline"
-                leftIcon={<RefreshCw className="w-4 h-4" />}
+                leftIcon={<RefreshCw className="h-4 w-4" />}
                 onClick={onRetry}
               >
                 Try Again
@@ -86,7 +78,7 @@ export function ErrorMessage({
             {onDismiss && (
               <button
                 onClick={onDismiss}
-                className="text-xs text-red-700 dark:text-red-400 hover:underline"
+                className="text-xs text-red-700 hover:underline dark:text-red-400"
               >
                 Dismiss
               </button>
@@ -97,4 +89,3 @@ export function ErrorMessage({
     </motion.div>
   );
 }
-

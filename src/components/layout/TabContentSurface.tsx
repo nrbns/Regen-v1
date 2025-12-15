@@ -7,10 +7,12 @@ import type { Tab } from '../../state/tabsStore';
 import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
 import { OmniDesk } from '../omni-mode/OmniDesk';
 import NewTabPage from '../Browse/NewTabPage';
+import { ModeEmptyState } from './ModeEmptyState';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { useAppStore } from '../../state/appStore';
+import { useTabLoadingStore } from '../../state/tabLoadingStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useOptimizedView } from '../../hooks/useOptimizedView';
@@ -46,12 +48,17 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
   const [loading, setLoading] = useState(true); // Start with loading true to show spinner
-  const [loadProgress] = useState<number | undefined>(undefined);
+  const [loadProgress, setLoadProgress] = useState<number | undefined>(undefined);
+  const setTabLoading = useTabLoadingStore(state => state.setLoading);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
     null
   );
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
+  
+  // Refs for intervals that need to be cleaned up across different useEffect blocks
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressInterval2Ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // GVE Optimization: Use optimized view hook
   const { queueUpdate: _queueUpdate } = useOptimizedView({
@@ -434,12 +441,19 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       if (iframe && iframeRef.current) {
         iframe.removeEventListener('load', handleLoad);
-        iframe.removeEventListener('error', handleError);
+        iframe.removeEventListener('error', handleError as EventListener);
       }
       // Clear state to prevent memory leaks
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
       setFailedMessage(null);
       setBlockedExternal(false);
     };
@@ -660,18 +674,47 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       }
     };
 
+    // SPRINT 0: Simulate progress during load (second useEffect)
+    if (tab?.id) {
+      setTabLoading(tab.id, true, 0);
+      let progress = 0;
+      progressIntervalRef.current = setInterval(() => {
+        if (!isMounted || !iframeRef.current) {
+          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          return;
+        }
+        progress = Math.min(progress + Math.random() * 30, 90);
+        setLoadProgress(progress);
+        setTabLoading(tab.id!, true, progress);
+      }, 200);
+    }
+    
     // Set loading timeout
     timeoutId = setTimeout(() => {
       if (!isMounted) return; // Don't update state if unmounted
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setFailedMessage(
         'This page is taking too long to load. Check your connection or try refreshing.'
       );
       timeoutId = null;
     }, LOADING_TIMEOUT_MS);
 
-    iframe.addEventListener('load', handleLoad);
-    iframe.addEventListener('error', handleError as EventListener);
+    const wrappedHandleLoad = () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      handleLoad();
+    };
+    
+    const wrappedHandleError = (e: ErrorEvent | Event) => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      handleError(e);
+    };
+
+    iframe.addEventListener('load', wrappedHandleLoad);
+    iframe.addEventListener('error', wrappedHandleError as EventListener);
 
     // MEMORY LEAK FIX: Listen for tab close event to cleanup
     const handleTabClose = ((e: CustomEvent) => {
@@ -701,14 +744,21 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+      if (progressInterval2Ref.current) {
+        clearInterval(progressInterval2Ref.current);
+        progressInterval2Ref.current = null;
+      }
       if (iframe && iframeRef.current) {
         iframe.removeEventListener('load', handleLoad);
-        iframe.removeEventListener('error', handleError);
+        iframe.removeEventListener('error', handleError as EventListener);
         // Clear iframe src to release resources
         iframe.src = 'about:blank';
       }
       // Clear state to prevent memory leaks
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
       setFailedMessage(null);
       setBlockedExternal(false);
     };
@@ -741,6 +791,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       if (!iframe) return;
       if (iframe.src !== targetUrl) {
         setLoading(true);
+        setLoadProgress(0);
+        // SPRINT 0: Update tab loading store
+        if (tab?.id) {
+          setTabLoading(tab.id, true, 0);
+        }
         iframe.src = targetUrl;
       }
       setBlockedExternal(false);
@@ -751,10 +806,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const labelledById = tab?.id ? `tab-${tab.id}` : undefined;
   const isInactive = !tab || !tab.active;
 
-  // Show NewTabPage for about:blank or internal URLs in Browse mode
-  // Show OmniDesk for other modes
+  // Show mode-specific empty states when no URL is present
   const currentMode = useAppStore(state => state.mode ?? 'Browse');
   const isBrowseMode = currentMode === 'Browse' || !currentMode;
+  const isResearchMode = currentMode === 'Research';
+  const isTradeMode = currentMode === 'Trade';
 
   if (!targetUrl) {
     return (
@@ -774,7 +830,13 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           pointerEvents: 'auto',
         }}
       >
-        {isBrowseMode ? <NewTabPage /> : <OmniDesk variant="split" forceShow />}
+        {isBrowseMode ? (
+          <NewTabPage />
+        ) : isResearchMode || isTradeMode ? (
+          <ModeEmptyState mode={currentMode} />
+        ) : (
+          <OmniDesk variant="split" forceShow />
+        )}
       </motion.div>
     );
   }

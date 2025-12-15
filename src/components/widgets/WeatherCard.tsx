@@ -26,7 +26,7 @@ export function WeatherCard() {
     const handleWeatherUpdate = (event: CustomEvent) => {
       setWeather(event.detail);
       setIsVisible(true);
-      
+
       // Auto-hide after 15 seconds
       setTimeout(() => {
         setIsVisible(false);
@@ -34,7 +34,7 @@ export function WeatherCard() {
     };
 
     window.addEventListener('weather-update', handleWeatherUpdate as EventListener);
-    
+
     // Also listen for Tauri events
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
       const { listen } = require('@tauri-apps/api/event');
@@ -58,48 +58,47 @@ export function WeatherCard() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className="fixed top-20 right-5 bg-gradient-to-br from-purple-900 to-blue-900 p-6 rounded-2xl text-white shadow-2xl border border-purple-500 max-w-sm z-50"
+        className="fixed right-5 top-20 z-50 max-w-sm rounded-2xl border border-purple-500 bg-gradient-to-br from-purple-900 to-blue-900 p-6 text-white shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-2xl font-bold">{weather.city}</h3>
           <button
             onClick={() => setIsVisible(false)}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 transition-colors hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="text-5xl my-2 font-bold">{weather.temp}</div>
-        <div className="text-lg text-gray-300 mb-2">Feels like {weather.feels}</div>
-        
-        <div className="capitalize text-xl mb-4 flex items-center gap-2">
+        <div className="my-2 text-5xl font-bold">{weather.temp}</div>
+        <div className="mb-2 text-lg text-gray-300">Feels like {weather.feels}</div>
+
+        <div className="mb-4 flex items-center gap-2 text-xl capitalize">
           {weather.desc.includes('rain') || weather.desc.includes('बारिश') ? (
-            <Droplets className="w-5 h-5" />
+            <Droplets className="h-5 w-5" />
           ) : weather.desc.includes('cloud') || weather.desc.includes('बादल') ? (
-            <Cloud className="w-5 h-5" />
+            <Cloud className="h-5 w-5" />
           ) : (
-            <Sun className="w-5 h-5" />
+            <Sun className="h-5 w-5" />
           )}
           {weather.desc}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <Droplets className="w-4 h-4" />
+            <Droplets className="h-4 w-4" />
             <span>Humidity: {weather.humidity}%</span>
           </div>
           <div className="flex items-center gap-2">
-            <Wind className="w-4 h-4" />
+            <Wind className="h-4 w-4" />
             <span>Wind: {weather.wind} km/h</span>
           </div>
         </div>
 
-        <div className="text-xs mt-3 opacity-70 text-center">
+        <div className="mt-3 text-center text-xs opacity-70">
           Source: {weather.source === 'live' ? 'Live API' : 'Cached data'}
         </div>
       </motion.div>
     </AnimatePresence>
   );
 }
-

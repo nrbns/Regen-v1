@@ -31,4 +31,3 @@ export interface VPNConnectionResult {
   message?: string;
   error?: string;
 }
-

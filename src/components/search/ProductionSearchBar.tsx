@@ -33,7 +33,7 @@ export function ProductionSearchBar({
   const [showResults, setShowResults] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debouncedQuery = useDebounce(query, debounceMs);
-  
+
   // Use translated placeholder or fallback to prop
   const placeholder = placeholderProp || t('search.placeholder');
 
@@ -121,7 +121,7 @@ export function ProductionSearchBar({
         />
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/20">
-          <Search className="h-4 w-4 text-gray-400 flex-shrink-0" />
+          <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
           <input
             ref={inputRef}
             type="text"
@@ -133,7 +133,7 @@ export function ProductionSearchBar({
               }
             }}
             placeholder={placeholder}
-            className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none text-sm"
+            className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
           />
           {query && (
             <button
@@ -141,23 +141,23 @@ export function ProductionSearchBar({
                 setQuery('');
                 setShowResults(false);
               }}
-              className="p-1 text-gray-400 hover:text-white transition-colors"
+              className="p-1 text-gray-400 transition-colors hover:text-white"
             >
               <X className="h-4 w-4" />
             </button>
           )}
           {isSearching && (
-            <Loader2 className="h-4 w-4 text-purple-400 animate-spin flex-shrink-0" />
+            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-purple-400" />
           )}
           {searchError && (
-            <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0" aria-label={searchError} />
+            <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-400" aria-label={searchError} />
           )}
         </div>
       )}
 
       {/* Error indicator for mobile */}
       {isMobile && searchError && (
-        <div className="mt-2 text-sm text-red-400 flex items-center gap-2">
+        <div className="mt-2 flex items-center gap-2 text-sm text-red-400">
           <AlertCircle className="h-4 w-4" />
           <span>{searchError}</span>
         </div>
@@ -167,19 +167,19 @@ export function ProductionSearchBar({
       {showResults && (searchResults || searchError) && (
         <div
           className={cn(
-            'bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-y-auto z-50',
+            'z-50 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900 shadow-xl',
             isMobile
-              ? 'fixed inset-x-4 top-[100px] bottom-20 max-h-[calc(100vh-120px)]' // Mobile: fixed position
-              : 'absolute top-full left-0 right-0 mt-2 max-h-96' // Desktop: absolute position
+              ? 'fixed inset-x-4 bottom-20 top-[100px] max-h-[calc(100vh-120px)]' // Mobile: fixed position
+              : 'absolute left-0 right-0 top-full mt-2 max-h-96' // Desktop: absolute position
           )}
         >
           {searchError ? (
-            <div className="p-4 text-center text-red-400 text-sm">
-              <AlertCircle className="h-5 w-5 mx-auto mb-2" />
+            <div className="p-4 text-center text-sm text-red-400">
+              <AlertCircle className="mx-auto mb-2 h-5 w-5" />
               <p>{searchError}</p>
               <button
                 onClick={handleSearch}
-                className="mt-3 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded text-white text-sm transition-colors"
+                className="mt-3 rounded bg-purple-600 px-4 py-2 text-sm text-white transition-colors hover:bg-purple-700"
               >
                 Retry
               </button>
@@ -187,12 +187,10 @@ export function ProductionSearchBar({
           ) : searchResults && searchResults.results.length > 0 ? (
             <>
               {/* Results Header */}
-              <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-4 py-2 flex items-center justify-between">
+              <div className="sticky top-0 flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2">
                 <div className="text-xs text-gray-400">
                   {searchResults.count} results
-                  {searchResults.cached && (
-                    <span className="ml-2 text-green-400">(cached)</span>
-                  )}
+                  {searchResults.cached && <span className="ml-2 text-green-400">(cached)</span>}
                   <span className="ml-2">• {searchResults.latency_ms}ms</span>
                 </div>
                 {showSummarize && (
@@ -201,7 +199,7 @@ export function ProductionSearchBar({
                       handleSummarize(searchResults.results.slice(0, 3).map(r => r.url))
                     }
                     disabled={isSummarizing}
-                    className="flex items-center gap-1 px-2 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded text-xs text-white transition-colors"
+                    className="flex items-center gap-1 rounded bg-purple-600 px-2 py-1 text-xs text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSummarizing ? (
                       <>
@@ -223,15 +221,17 @@ export function ProductionSearchBar({
                 {searchResults.results.map((result, index) => (
                   <div
                     key={`${result.url}-${index}`}
-                    className="px-4 py-3 border-b border-gray-800 last:border-b-0"
+                    className="border-b border-gray-800 px-4 py-3 last:border-b-0"
                   >
                     {/* Use enhanced result display */}
-                    <div className="flex items-start gap-3 cursor-pointer hover:bg-gray-800/50 rounded-lg p-2 -m-2 transition-colors"
-                         onClick={() => handleResultClick(result.url)}>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium text-white truncate">{result.title}</p>
-                          <span className="text-xs text-gray-500 px-1.5 py-0.5 bg-gray-800 rounded">
+                    <div
+                      className="-m-2 flex cursor-pointer items-start gap-3 rounded-lg p-2 transition-colors hover:bg-gray-800/50"
+                      onClick={() => handleResultClick(result.url)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-white">{result.title}</p>
+                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-xs text-gray-500">
                             {result.source}
                           </span>
                           {result.score && (
@@ -241,9 +241,9 @@ export function ProductionSearchBar({
                           )}
                         </div>
                         {result.domain && (
-                          <p className="text-xs text-purple-400 truncate mb-1">{result.domain}</p>
+                          <p className="mb-1 truncate text-xs text-purple-400">{result.domain}</p>
                         )}
-                        <p className="text-xs text-gray-400 line-clamp-2">{result.snippet}</p>
+                        <p className="line-clamp-2 text-xs text-gray-400">{result.snippet}</p>
                       </div>
                     </div>
                   </div>
@@ -252,26 +252,26 @@ export function ProductionSearchBar({
 
               {/* Summaries (if available) */}
               {summarizeResults && summarizeResults.summaries.length > 0 && (
-                <div className="border-t border-gray-700 p-4 bg-gray-800/50">
-                  <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <div className="border-t border-gray-700 bg-gray-800/50 p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
                     <Sparkles className="h-4 w-4 text-purple-400" />
                     Summaries
                   </h3>
                   <div className="space-y-3">
                     {summarizeResults.summaries.map((summary, idx) => (
-                      <div key={idx} className="bg-gray-900 rounded p-3">
-                        <h4 className="text-xs font-medium text-white mb-2">{summary.title}</h4>
-                        <p className="text-xs text-gray-300 mb-2">{summary.summary}</p>
+                      <div key={idx} className="rounded bg-gray-900 p-3">
+                        <h4 className="mb-2 text-xs font-medium text-white">{summary.title}</h4>
+                        <p className="mb-2 text-xs text-gray-300">{summary.summary}</p>
                         {summary.bullets && summary.bullets.length > 0 && (
-                          <ul className="text-xs text-gray-400 space-y-1 ml-4 list-disc">
+                          <ul className="ml-4 list-disc space-y-1 text-xs text-gray-400">
                             {summary.bullets.map((bullet, i) => (
                               <li key={i}>{bullet}</li>
                             ))}
                           </ul>
                         )}
                         {summary.citations && summary.citations.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-gray-700">
-                            <p className="text-xs text-gray-500 mb-1">Sources:</p>
+                          <div className="mt-2 border-t border-gray-700 pt-2">
+                            <p className="mb-1 text-xs text-gray-500">Sources:</p>
                             {summary.citations.map((cite, i) => (
                               <a
                                 key={i}
@@ -280,7 +280,7 @@ export function ProductionSearchBar({
                                   e.stopPropagation();
                                   handleResultClick(cite.url);
                                 }}
-                                className="text-xs text-purple-400 hover:underline block truncate"
+                                className="block truncate text-xs text-purple-400 hover:underline"
                               >
                                 {cite.title || cite.url}
                               </a>
@@ -294,8 +294,8 @@ export function ProductionSearchBar({
               )}
             </>
           ) : (
-            <div className="p-8 text-center text-gray-400 text-sm">
-              <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <div className="p-8 text-center text-sm text-gray-400">
+              <Search className="mx-auto mb-2 h-8 w-8 opacity-50" />
               <p>No results found</p>
             </div>
           )}
@@ -304,4 +304,3 @@ export function ProductionSearchBar({
     </div>
   );
 }
-

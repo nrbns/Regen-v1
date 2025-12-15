@@ -156,7 +156,7 @@ export function ResponsiveSidebar({
       <div
         ref={sidebarRef}
         className={cn(
-          'fixed top-0 z-50 h-full bg-slate-900 border-r border-slate-800 transition-transform duration-300 ease-in-out',
+          'fixed top-0 z-50 h-full border-r border-slate-800 bg-slate-900 transition-transform duration-300 ease-in-out',
           position === 'left' ? 'left-0' : 'right-0',
           className
         )}
@@ -183,5 +183,3 @@ export function ResponsiveSidebar({
     </>
   );
 }
-
-

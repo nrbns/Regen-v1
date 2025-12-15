@@ -4,11 +4,7 @@
  */
 
 import Dexie, { type Table } from 'dexie';
-import type {
-  Skill,
-  SkillManifest,
-  SkillRegistry as ISkillRegistry,
-} from './types';
+import type { Skill, SkillManifest, SkillRegistry as ISkillRegistry } from './types';
 
 interface SkillRecord {
   id: string;
@@ -79,7 +75,9 @@ export class SkillRegistry implements ISkillRegistry {
 
     // Validate ID format (alphanumeric, dashes, underscores)
     if (!/^[a-z0-9-_]+$/.test(manifest.id)) {
-      throw new Error('Invalid manifest: id must be lowercase alphanumeric with dashes/underscores');
+      throw new Error(
+        'Invalid manifest: id must be lowercase alphanumeric with dashes/underscores'
+      );
     }
   }
 
@@ -260,7 +258,7 @@ export class SkillRegistry implements ISkillRegistry {
     // Check if permissions are granted
     // For now, return true - in production, check actual permission grants
     const requiredPermissions = skill.manifest.permissions.filter(p => p.required);
-    
+
     if (requiredPermissions.length === 0) {
       return true;
     }
@@ -349,4 +347,3 @@ export function getSkillRegistry(): SkillRegistry {
   }
   return registryInstance;
 }
-

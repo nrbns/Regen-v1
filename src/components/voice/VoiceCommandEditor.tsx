@@ -56,12 +56,12 @@ export function VoiceCommandEditor({
 
             <textarea
               value={command}
-              onChange={(e) => setCommand(e.target.value)}
+              onChange={e => setCommand(e.target.value)}
               placeholder={language === 'hi' ? 'आदेश दर्ज करें...' : 'Enter command...'}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               rows={3}
               autoFocus
-              onKeyDown={(e) => {
+              onKeyDown={e => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   handleExecute();
@@ -80,7 +80,7 @@ export function VoiceCommandEditor({
               <div className="flex gap-2">
                 <button
                   onClick={handleCancel}
-                  className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 transition-colors"
+                  className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:bg-slate-700"
                 >
                   <X size={14} />
                   {language === 'hi' ? 'रद्द करें' : 'Cancel'}
@@ -88,7 +88,7 @@ export function VoiceCommandEditor({
                 <button
                   onClick={handleExecute}
                   disabled={!command.trim()}
-                  className="flex items-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Check size={14} />
                   {language === 'hi' ? 'निष्पादित करें' : 'Execute'}
@@ -101,4 +101,3 @@ export function VoiceCommandEditor({
     </AnimatePresence>
   );
 }
-

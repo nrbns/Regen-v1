@@ -24,7 +24,7 @@ export async function initializeSprintFeatures(): Promise<void> {
     try {
       getSkillRegistry(); // Registry auto-initializes on construction
       console.log('[Sprint Features] Skills engine initialized');
-      
+
       // Register built-in skills (lazy load)
       try {
         const { registerGmailSkill } = await import('../../services/skills/gmail/integration');
@@ -32,9 +32,10 @@ export async function initializeSprintFeatures(): Promise<void> {
       } catch (error) {
         console.warn('[Sprint Features] Gmail skill not available:', error);
       }
-      
+
       try {
-        const { registerCalendarSkill } = await import('../../services/skills/calendar/integration');
+        const { registerCalendarSkill } =
+          await import('../../services/skills/calendar/integration');
         await registerCalendarSkill();
       } catch (error) {
         console.warn('[Sprint Features] Calendar skill not available:', error);
@@ -62,7 +63,7 @@ export async function initializeSprintFeatures(): Promise<void> {
           await redixModule.initializeRedixOptimizer();
           console.log('[Sprint Features] Redix optimizer initialized');
         }
-        
+
         // Initialize Redix WebSocket connection (optional, falls back to HTTP)
         const redixWSModule = await import('../../services/redixWs').catch(() => null);
         if (redixWSModule?.getRedixWS) {
@@ -106,9 +107,12 @@ export function initializeSprintFeaturesDeferred(): void {
   // Initialize after first paint
   if (typeof window !== 'undefined') {
     if (window.requestIdleCallback) {
-      requestIdleCallback(() => {
-        initializeSprintFeatures().catch(console.error);
-      }, { timeout: 3000 });
+      requestIdleCallback(
+        () => {
+          initializeSprintFeatures().catch(console.error);
+        },
+        { timeout: 3000 }
+      );
     } else {
       setTimeout(() => {
         initializeSprintFeatures().catch(console.error);
@@ -116,4 +120,3 @@ export function initializeSprintFeaturesDeferred(): void {
     }
   }
 }
-

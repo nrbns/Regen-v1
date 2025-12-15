@@ -19,7 +19,7 @@ export default defineConfig({
     // Electron plugin removed - using Tauri now
   ],
   optimizeDeps: {
-    exclude: ['@sentry/electron/renderer', '@tauri-apps/api'], // Sentry and Tauri API are optional
+    exclude: ['@sentry/electron/renderer', '@tauri-apps/api', 'jsdom', 'cssstyle'], // Sentry and Tauri API are optional, exclude jsdom/cssstyle
     include: ['lightweight-charts'],
   },
   resolve: {
@@ -77,6 +77,8 @@ export default defineConfig({
         '@tauri-apps/api/core',
         '@tauri-apps/api/event',
         '@sentry/electron/renderer', // Optional dependency - external to prevent build-time resolution
+        'jsdom',
+        'cssstyle',
       ],
       output: {
         // Optimize chunk names for better caching

@@ -28,18 +28,18 @@ import {
   Sparkle,
   Loader2,
 } from 'lucide-react';
-import { useTabsStore } from '../state/tabsStore';
-import { useAppStore } from '../state/appStore';
-import { ipc } from '../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
+import { ipc } from '../../lib/ipc-typed';
 import { useNavigate } from 'react-router-dom';
-import { ipcEvents } from '../lib/ipc-events';
+import { ipcEvents } from '../../lib/ipc-events';
 import { AIResponsePane } from '../ai/AIResponsePane';
-import { useEfficiencyStore } from '../state/efficiencyStore';
-import { useWorkspaceEventsStore } from '../state/workspaceEventsStore';
-import { useAgentStreamStore, type StreamStatus } from '../state/agentStreamStore';
-import { createFallbackTab } from '../lib/tabFallback';
+import { useEfficiencyStore } from '../../state/efficiencyStore';
+import { useWorkspaceEventsStore } from '../../state/workspaceEventsStore';
+import { useAgentStreamStore, type StreamStatus } from '../../state/agentStreamStore';
+import { createFallbackTab } from '../../lib/tabFallback';
 import { ChromeNewTabPage } from '../ChromeNewTab/ChromeNewTabPage';
-import { useSettingsStore } from '../state/settingsStore';
+import { useSettingsStore } from '../../state/settingsStore';
 // import { CardSkeleton, ListSkeleton } from './common/Skeleton'; // Reserved for future use
 
 type OmniDeskVariant = 'overlay' | 'split';
@@ -75,7 +75,7 @@ const suggestedPrompts = [
 ];
 
 // Use language-aware search from search.ts
-import { buildSearchUrl as buildSearchUrlWithLang } from '../lib/search';
+import { buildSearchUrl as buildSearchUrlWithLang } from '../../lib/search';
 
 function buildSearchUrl(query: string, language?: string) {
   // Use Startpage by default (iframe-friendly and privacy-focused)

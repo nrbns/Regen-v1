@@ -18,6 +18,9 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
+import { AgentSystemDashboard } from '../agent/AgentSystemDashboard';
+import { WorkflowAnalyticsDashboard } from '../agent/WorkflowAnalyticsDashboard';
+import { WorkflowOptimizerPanel } from '../agent/WorkflowOptimizerPanel';
 
 const ACTION_LABELS: Record<string, string> = {
   download: 'Download file',
@@ -43,12 +46,13 @@ export function TrustEthicsDashboard() {
     privacyAudit,
     consentStats,
     blockedSummary,
+    agentAudits,
     lastUpdated,
     refresh,
     close,
   } = useTrustDashboardStore();
   const openConsent = useConsentOverlayStore((state) => state.open);
-
+  const agentAuditItems = useMemo(() => agentAudits.slice(0, 5), [agentAudits]);
   useEffect(() => {
     if (!visible) return;
     void refresh();
@@ -264,6 +268,65 @@ export function TrustEthicsDashboard() {
                     <EmptyState message="No privacy audit data yet. Trigger an audit from the Shield icon in the top bar." />
                   )}
                 </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
+                <HeaderRow icon={Shield} title="Agent safety log" description="Latest AI actions & outcomes" />
+                <div className="divide-y divide-slate-800/60">
+                  {agentAuditItems.length === 0 ? (
+                    <EmptyState message="No agent actions recorded yet." />
+                  ) : (
+                    agentAuditItems.map((audit) => (
+                      <div key={audit.runId} className="px-4 py-3 text-sm text-gray-200">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">Run {audit.runId}</span>
+                          <span className="text-[11px] text-slate-500">{audit.entries.length} steps</span>
+                        </div>
+                        <div className="mt-2 space-y-1 text-xs text-slate-300">
+                          {audit.entries.slice(0, 3).map((entry, idx) => {
+                            const tone = entry.allowed
+                              ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                              : 'text-red-300 border-red-500/30 bg-red-500/10';
+                            return (
+                              <div
+                                key={`${audit.runId}-${idx}`}
+                                className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1"
+                              >
+                                <span className="truncate">
+                                  {entry.tool} · {entry.risk}
+                                  {entry.reason ? ` · ${entry.reason}` : ''}
+                                </span>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] ${tone}`}>
+                                  {entry.allowed ? 'allowed' : 'blocked'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {audit.entries.length > 3 && (
+                            <div className="text-[11px] text-slate-500">+{audit.entries.length - 3} more…</div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-4">
+                <AgentSystemDashboard />
+              </div>
+
+              <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-4">
+                <WorkflowAnalyticsDashboard />
+              </div>
+
+              {/* Optimizer Quick Access */}
+              <div className="rounded-2xl border border-blue-700/40 bg-blue-900/10 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-white">Workflow Optimizer</div>
+                  <div className="text-[11px] text-slate-400">Review and apply AI-powered suggestions</div>
+                </div>
+                <WorkflowOptimizerPanel />
               </div>
 
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">

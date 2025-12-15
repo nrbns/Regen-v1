@@ -1,12 +1,17 @@
 /**
  * useRedix Hook for Mobile
- * 
+ *
  * React hook for using Redix AI engine from mobile components.
  * Provides query, streaming, and eco-scoring functionality.
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { mobileRedix, type RedixQueryRequest, type RedixQueryResponse, type EcoScoreRequest } from '../utils/redixClient';
+import {
+  mobileRedix,
+  type RedixQueryRequest,
+  type RedixQueryResponse,
+  type EcoScoreRequest,
+} from '../utils/redixClient';
 
 interface UseRedixQueryOptions {
   immediate?: boolean;
@@ -28,7 +33,7 @@ export function useRedixQuery(
   options: UseRedixQueryOptions = {}
 ): UseRedixQueryResult {
   const { immediate = false } = options;
-  
+
   const [data, setData] = useState<RedixQueryResponse | null>(null);
   const [loading, setLoading] = useState(immediate && initialRequest !== null);
   const [error, setError] = useState<Error | null>(null);
@@ -36,7 +41,8 @@ export function useRedixQuery(
 
   // Check Redix health on mount
   useEffect(() => {
-    mobileRedix.checkHealth()
+    mobileRedix
+      .checkHealth()
       .then(connected => setIsConnected(connected))
       .catch(() => setIsConnected(false));
   }, []);
@@ -150,4 +156,3 @@ export function useEcoScore() {
     error,
   };
 }
-

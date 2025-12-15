@@ -11,13 +11,16 @@ import type { SkillContext, SkillResult } from '../types';
 /**
  * Initialize Calendar skill and register with engine
  */
-export async function initializeCalendarSkill(config?: { clientId: string; redirectUri: string }): Promise<void> {
+export async function initializeCalendarSkill(config?: {
+  clientId: string;
+  redirectUri: string;
+}): Promise<void> {
   const registry = getSkillRegistry();
   const engine = getSkillEngine();
 
   // Check if skill is already installed
   let skill = registry.get(CALENDAR_SKILL_MANIFEST.id);
-  
+
   if (!skill) {
     // Install skill
     skill = await registry.install(CALENDAR_SKILL_MANIFEST);
@@ -31,7 +34,7 @@ export async function initializeCalendarSkill(config?: { clientId: string; redir
 
   // Register action handlers
   const calendarSkill = getCalendarSkill();
-  
+
   engine.registerHandler('create_calendar_event', async (ctx: any) => {
     const context: SkillContext = {
       skillId: CALENDAR_SKILL_MANIFEST.id,
@@ -118,4 +121,3 @@ export async function scheduleMeeting(_data?: {
     },
   });
 }
-

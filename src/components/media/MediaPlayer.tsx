@@ -15,9 +15,9 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import { Portal } from './common/Portal';
-import { ipc } from '../lib/ipc-typed';
-import { isDevEnv } from '../lib/env';
+import { Portal } from '../common/Portal';
+import { ipc } from '../../lib/ipc-typed';
+import { isDevEnv } from '../../lib/env';
 
 type MediaKind = 'video' | 'audio';
 
@@ -58,7 +58,10 @@ export interface MediaPlayerProps {
 }
 
 export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: MediaPlayerProps) {
-  const mediaKind = useMemo<MediaKind | null>(() => getMediaKind(fileName || filePath), [fileName, filePath]);
+  const mediaKind = useMemo<MediaKind | null>(
+    () => getMediaKind(fileName || filePath),
+    [fileName, filePath]
+  );
   const sourceUrl = useMemo(() => normalizeFileUrl(filePath), [filePath]);
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
 
@@ -167,12 +170,17 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
   const skipBy = (seconds: number) => {
     const element = mediaRef.current;
     if (!element) return;
-    element.currentTime = Math.min(Math.max(0, element.currentTime + seconds), duration || element.currentTime);
+    element.currentTime = Math.min(
+      Math.max(0, element.currentTime + seconds),
+      duration || element.currentTime
+    );
   };
 
   const togglePictureInPicture = async () => {
     if (mediaKind !== 'video') return;
-    const videoElement = mediaRef.current as (HTMLVideoElement & { requestPictureInPicture?: () => Promise<PictureInPictureWindow> }) | null;
+    const videoElement = mediaRef.current as
+      | (HTMLVideoElement & { requestPictureInPicture?: () => Promise<PictureInPictureWindow> })
+      | null;
     if (!videoElement || typeof videoElement.requestPictureInPicture !== 'function') return;
 
     try {
@@ -195,9 +203,15 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
     const doc = document as any;
 
     if (!isFullscreen) {
-      container.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+      container
+        .requestFullscreen?.()
+        .then(() => setIsFullscreen(true))
+        .catch(() => {});
     } else {
-      doc.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+      doc
+        .exitFullscreen?.()
+        .then(() => setIsFullscreen(false))
+        .catch(() => {});
     }
   };
 
@@ -233,13 +247,14 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+  const progressPercent =
+    duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
 
   return (
     <Portal>
       <AnimatePresence>
         <motion.div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 py-8"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 px-6 py-8 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -252,11 +267,13 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 40, opacity: 0 }}
             transition={{ type: 'spring', damping: 22, stiffness: 180 }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={event => event.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-gray-800/60 bg-gray-900/70 px-4 py-3">
               <div>
-                <p className="text-sm font-medium text-gray-100">{fileName || filePath.split(/[\\/]/).pop() || 'Media file'}</p>
+                <p className="text-sm font-medium text-gray-100">
+                  {fileName || filePath.split(/[\\/]/).pop() || 'Media file'}
+                </p>
                 <p className="text-xs text-gray-400">
                   {mediaKind ? mediaKind.toUpperCase() : 'Unknown'} • {formatTime(duration)}
                 </p>
@@ -303,7 +320,12 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
                   <div className="mt-4 flex h-32 w-32 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500/30 to-purple-500/30 text-blue-200">
                     <AudioLines size={64} />
                   </div>
-                  <audio ref={mediaRef as React.RefObject<HTMLAudioElement>} src={sourceUrl} autoPlay={autoPlay} controls={false} />
+                  <audio
+                    ref={mediaRef as React.RefObject<HTMLAudioElement>}
+                    src={sourceUrl}
+                    autoPlay={autoPlay}
+                    controls={false}
+                  />
                 </div>
               ) : null}
 
@@ -311,7 +333,9 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
                 <div className="flex h-48 w-full flex-col items-center justify-center gap-3 text-center text-gray-400">
                   <MonitorPlay size={40} className="text-gray-600" />
                   <p className="text-sm">Unable to load media preview</p>
-                  <p className="text-xs text-gray-500">Unsupported format or missing file reference.</p>
+                  <p className="text-xs text-gray-500">
+                    Unsupported format or missing file reference.
+                  </p>
                 </div>
               ) : null}
 
@@ -329,8 +353,12 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
                     </button>
 
                     <div className="flex flex-col gap-1 text-xs text-gray-400">
-                      <span className="font-mono text-sm text-gray-100">{formatTime(currentTime)}</span>
-                      <span className="font-mono text-[11px] text-gray-500">{formatTime(duration - currentTime)} remaining</span>
+                      <span className="font-mono text-sm text-gray-100">
+                        {formatTime(currentTime)}
+                      </span>
+                      <span className="font-mono text-[11px] text-gray-500">
+                        {formatTime(duration - currentTime)} remaining
+                      </span>
                     </div>
 
                     <input
@@ -338,7 +366,7 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
                       min={0}
                       max={100}
                       value={progressPercent}
-                      onChange={(event) => handleSeek(Number(event.target.value))}
+                      onChange={event => handleSeek(Number(event.target.value))}
                       className="flex-1 accent-blue-500"
                     />
 
@@ -370,7 +398,7 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
                           min={0}
                           max={100}
                           value={muted ? 0 : Math.round(volume * 100)}
-                          onChange={(event) => handleVolumeChange(Number(event.target.value) / 100)}
+                          onChange={event => handleVolumeChange(Number(event.target.value) / 100)}
                           className="w-24 accent-blue-500"
                         />
                       </div>
@@ -411,5 +439,3 @@ export function MediaPlayer({ filePath, fileName, autoPlay = true, onClose }: Me
     </Portal>
   );
 }
-
-

@@ -110,7 +110,7 @@ export function SplitView() {
   }, [resizing, panes]);
 
   return (
-    <div ref={containerRef} className="relative h-full w-full flex">
+    <div ref={containerRef} className="relative flex h-full w-full">
       {panes.map((pane, index) => (
         <div
           key={pane.id}
@@ -118,12 +118,12 @@ export function SplitView() {
           style={{ width: `${pane.width}%` }}
         >
           {/* Pane Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-3 py-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <select
                 value={pane.tabId || ''}
                 onChange={e => setPaneTab(pane.id, e.target.value)}
-                className="flex-1 bg-gray-700 text-white text-sm rounded px-2 py-1 min-w-0"
+                className="min-w-0 flex-1 rounded bg-gray-700 px-2 py-1 text-sm text-white"
               >
                 <option value="">Select tab...</option>
                 {tabs.map(tab => (
@@ -137,16 +137,16 @@ export function SplitView() {
               {panes.length > 1 && (
                 <button
                   onClick={() => removePane(pane.id)}
-                  className="p-1 text-gray-400 hover:text-white transition-colors"
+                  className="p-1 text-gray-400 transition-colors hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               )}
             </div>
           </div>
 
           {/* Pane Content */}
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             {pane.tabId ? (
               <Suspense
                 fallback={
@@ -160,14 +160,14 @@ export function SplitView() {
               >
                 <iframe
                   src={tabs.find(t => t.id === pane.tabId)?.url || 'about:blank'}
-                  className="w-full h-full border-0"
+                  className="h-full w-full border-0"
                   title={`Pane ${index + 1}`}
                 />
               </Suspense>
             ) : (
-              <div className="flex items-center justify-center h-full bg-gray-900 text-gray-500">
+              <div className="flex h-full items-center justify-center bg-gray-900 text-gray-500">
                 <div className="text-center">
-                  <p className="text-sm mb-2">No tab selected</p>
+                  <p className="mb-2 text-sm">No tab selected</p>
                   <p className="text-xs">Select a tab from the dropdown above</p>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export function SplitView() {
           {index < panes.length - 1 && (
             <div
               onMouseDown={() => startResize(pane.id)}
-              className="absolute right-0 top-0 bottom-0 w-1 bg-gray-700 hover:bg-purple-500 cursor-col-resize z-10"
+              className="absolute bottom-0 right-0 top-0 z-10 w-1 cursor-col-resize bg-gray-700 hover:bg-purple-500"
             />
           )}
         </div>
@@ -188,10 +188,10 @@ export function SplitView() {
       {layout !== 'split-3' && (
         <button
           onClick={addPane}
-          className="absolute bottom-4 right-4 bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-full shadow-lg transition-all hover:scale-110"
+          className="absolute bottom-4 right-4 rounded-full bg-purple-600 p-3 text-white shadow-lg transition-all hover:scale-110 hover:bg-purple-700"
           title="Add pane"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="h-5 w-5" />
         </button>
       )}
     </div>

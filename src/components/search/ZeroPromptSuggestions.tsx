@@ -9,10 +9,10 @@ import {
   predictZeroPromptActions,
   trackUserAction,
   type PredictedAction,
-} from '../services/zeroPromptPrediction';
-import { executeAgenticAction } from '../services/agenticActionExecutor';
-import { useAppStore } from '../state/appStore';
-import { toast } from '../utils/toast';
+} from '../../services/zeroPromptPrediction';
+import { executeAgenticAction } from '../../services/agenticActionExecutor';
+import { useAppStore } from '../../state/appStore';
+import { toast } from '../../utils/toast';
 
 interface Props {
   maxSuggestions?: number;

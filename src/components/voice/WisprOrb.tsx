@@ -158,7 +158,7 @@ export function WisprOrb() {
         // Vision: Auto-screenshot + send to llava
         if (isElectronRuntime()) {
           try {
-            const { ipc } = await import('../lib/ipc-typed');
+            const { ipc } = await import('../../lib/ipc-typed');
 
             // Capture screen
             const screenshot = await ipc.vision.captureScreen();
@@ -332,12 +332,12 @@ export function WisprOrb() {
 
   return (
     <>
-      {/* Floating Orb */}
+      {/* Floating Orb - HIDDEN: Consolidated into AI Omni Mode button */}
       <motion.div
         drag
         dragMomentum={false}
-        className="fixed right-8 bottom-32 cursor-move hidden md:block"
-        style={{ zIndex: 105 }}
+        className="fixed bottom-36 right-8 hidden cursor-move"
+        style={{ zIndex: 105, display: 'none' }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
@@ -376,7 +376,7 @@ export function WisprOrb() {
           initial={{ opacity: 0, y: 100 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 100 }}
-          className="fixed right-8 bottom-80 max-w-md rounded-3xl border border-purple-600 bg-black/90 p-8 shadow-2xl backdrop-blur-xl hidden md:block"
+          className="fixed bottom-80 right-8 hidden max-w-md rounded-3xl border border-purple-600 bg-black/90 p-8 shadow-2xl backdrop-blur-xl md:block"
           style={{ zIndex: 106 }}
         >
           <div className="mb-4 flex items-center justify-between">

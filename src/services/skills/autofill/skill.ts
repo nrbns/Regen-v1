@@ -362,4 +362,3 @@ export function getAutofillSkill(): AutofillSkill {
   }
   return autofillSkillInstance;
 }
-

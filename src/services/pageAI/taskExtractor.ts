@@ -148,4 +148,3 @@ function simpleExtraction(text: string): ExtractionResult {
     summary: `Found ${tasks.length} task(s), ${dates.length} date(s), ${emails.length} email(s), ${phoneNumbers.length} phone number(s)`,
   };
 }
-

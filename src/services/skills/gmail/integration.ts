@@ -11,13 +11,16 @@ import type { SkillContext, SkillResult } from '../types';
 /**
  * Initialize Gmail skill and register with engine
  */
-export async function initializeGmailSkill(config?: { clientId: string; redirectUri: string }): Promise<void> {
+export async function initializeGmailSkill(config?: {
+  clientId: string;
+  redirectUri: string;
+}): Promise<void> {
   const registry = getSkillRegistry();
   const engine = getSkillEngine();
 
   // Check if skill is already installed
   let skill = registry.get(GMAIL_SKILL_MANIFEST.id);
-  
+
   if (!skill) {
     // Install skill
     skill = await registry.install(GMAIL_SKILL_MANIFEST);
@@ -31,7 +34,7 @@ export async function initializeGmailSkill(config?: { clientId: string; redirect
 
   // Register action handlers
   const gmailSkill = getGmailSkill();
-  
+
   engine.registerHandler('compose_email', async (ctx: any) => {
     const context: SkillContext = {
       skillId: GMAIL_SKILL_MANIFEST.id,
@@ -118,4 +121,3 @@ export async function createDraft(_data: {
     },
   });
 }
-

@@ -48,35 +48,35 @@ function MobileErrorFallback({ error }: { error: Error | null }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900 flex items-center justify-center p-4 safe-top safe-bottom">
-      <div className="max-w-md w-full bg-gray-800 rounded-lg p-6 text-center">
-        <div className="flex justify-center mb-4">
-          <AlertTriangle className="w-12 h-12 text-yellow-400" />
+    <div className="safe-top safe-bottom fixed inset-0 flex items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md rounded-lg bg-gray-800 p-6 text-center">
+        <div className="mb-4 flex justify-center">
+          <AlertTriangle className="h-12 w-12 text-yellow-400" />
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Something went wrong</h2>
-        <p className="text-gray-400 text-sm mb-6">
+        <h2 className="mb-2 text-xl font-semibold text-white">Something went wrong</h2>
+        <p className="mb-6 text-sm text-gray-400">
           {error?.message || 'An unexpected error occurred'}
         </p>
         <div className="flex gap-3">
           <button
             onClick={handleReload}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors touch-manipulation min-h-[44px]"
+            className="flex min-h-[44px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="h-4 w-4" />
             Reload
           </button>
           <button
             onClick={handleGoHome}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors touch-manipulation min-h-[44px]"
+            className="flex min-h-[44px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-lg bg-gray-700 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-600"
           >
-            <Home className="w-4 h-4" />
+            <Home className="h-4 w-4" />
             Home
           </button>
         </div>
         {process.env.NODE_ENV === 'development' && error && (
           <details className="mt-4 text-left">
-            <summary className="text-gray-400 text-xs cursor-pointer mb-2">Error details</summary>
-            <pre className="text-xs text-red-400 bg-gray-900 p-2 rounded overflow-auto max-h-32">
+            <summary className="mb-2 cursor-pointer text-xs text-gray-400">Error details</summary>
+            <pre className="max-h-32 overflow-auto rounded bg-gray-900 p-2 text-xs text-red-400">
               {error.stack}
             </pre>
           </details>
@@ -85,4 +85,3 @@ function MobileErrorFallback({ error }: { error: Error | null }) {
     </div>
   );
 }
-

@@ -33,13 +33,13 @@ export function detectForms(): DetectedForm[] {
  */
 export function detectFormFields(form: HTMLFormElement): FormField[] {
   const fields: FormField[] = [];
-  
+
   // Get all input fields
   const inputs = form.querySelectorAll('input, textarea, select');
-  
+
   for (let i = 0; i < inputs.length; i++) {
     const input = inputs[i] as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    
+
     // Skip submit buttons and hidden fields
     if (
       input.type === 'submit' ||
@@ -154,18 +154,18 @@ function detectFieldType(input: HTMLElement): AutofillDataType {
  */
 function parseAutocompleteType(autocomplete: string): AutofillDataType | null {
   const map: Record<string, AutofillDataType> = {
-    'name': 'name',
-    'email': 'email',
-    'tel': 'phone',
+    name: 'name',
+    email: 'email',
+    tel: 'phone',
     'address-line1': 'address',
     'address-line2': 'address',
     'address-level2': 'city',
     'address-level1': 'state',
     'postal-code': 'zip',
-    'country': 'country',
-    'organization': 'company',
+    country: 'country',
+    organization: 'company',
     'job-title': 'jobTitle',
-    'url': 'website',
+    url: 'website',
     'cc-number': 'creditCard',
     'current-password': 'password',
     'new-password': 'password',
@@ -185,11 +185,11 @@ function parseAutocompleteType(autocomplete: string): AutofillDataType | null {
  */
 function parseInputType(type: string): AutofillDataType | null {
   const map: Record<string, AutofillDataType> = {
-    'email': 'email',
-    'tel': 'phone',
-    'url': 'website',
-    'password': 'password',
-    'date': 'date',
+    email: 'email',
+    tel: 'phone',
+    url: 'website',
+    password: 'password',
+    date: 'date',
   };
 
   return map[type] || null;
@@ -287,4 +287,3 @@ function getElementSelector(element: HTMLElement): string {
 
   return element.tagName.toLowerCase();
 }
-

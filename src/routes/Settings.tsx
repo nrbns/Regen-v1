@@ -38,6 +38,8 @@ import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
 import { AdblockerSettingsPanel } from '../components/adblocker';
 import { VPNPanel } from '../components/vpn';
+import { setLowDataMode, isLowDataModeEnabled } from '../services/lowDataMode';
+import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 
 // Helper Components
 function SectionCard({
@@ -208,6 +210,18 @@ export default function SettingsRoute() {
                     description="Block trackers and ads for enhanced privacy"
                   />
                 </div>
+                <div className="border-t border-slate-800 pt-4">
+                  <h4 className="mb-2 text-sm font-semibold text-white">Performance</h4>
+                  <ToggleRow
+                    label="Low-Data Mode"
+                    checked={isLowDataModeEnabled()}
+                    onChange={checked => {
+                      setLowDataMode(checked);
+                      settings.updateGeneral({ lowDataMode: checked });
+                    }}
+                    description="Disable images by default, reduce quality, limit bandwidth. Ideal for slow connections."
+                  />
+                </div>
               </div>
             </SectionCard>
             <SectionCard title="AI Models" icon={Zap}>
@@ -292,6 +306,8 @@ function AccountsPanel() {
 function AppearancePanel() {
   const settings = useSettingsStore();
   const appearance = settings.appearance;
+  const layoutState = useAdaptiveLayout();
+
   return (
     <div className="max-w-4xl space-y-6">
       <SectionCard title="Language" icon={Globe}>
@@ -324,6 +340,119 @@ function AppearancePanel() {
           onChange={checked => settings.updateAppearance({ chromeNewTabPage: checked })}
           description="Use Google Chrome-style new tab page"
         />
+      </SectionCard>
+
+      <SectionCard title="Layout Preferences" icon={Activity}>
+        <p className="mb-4 text-sm text-slate-400">
+          Customize how the browser adapts to your network and screen size. Override automatic detection if needed.
+        </p>
+        
+        <LabeledField label="Layout Mode">
+          <select
+            value={appearance.layoutModeOverride || 'auto'}
+            onChange={e => {
+              const value = e.target.value as 'auto' | 'full' | 'compact' | 'minimal';
+              settings.updateAppearance({ layoutModeOverride: value });
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          >
+            <option value="auto">Auto (network-based)</option>
+            <option value="full">Full (desktop)</option>
+            <option value="compact">Compact</option>
+            <option value="minimal">Minimal (low bandwidth)</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Current: {layoutState.layoutMode} ({layoutState.networkQuality})
+            {layoutState.isUserOverride && ' • User override active'}
+          </p>
+        </LabeledField>
+
+        <div className="mt-4 space-y-3 border-t border-slate-800 pt-4">
+          <LabeledField label="Vertical Tabs">
+            <select
+              value={
+                appearance.verticalTabsOverride === null
+                  ? 'auto'
+                  : appearance.verticalTabsOverride
+                    ? 'enabled'
+                    : 'disabled'
+              }
+              onChange={e => {
+                const value = e.target.value;
+                settings.updateAppearance({
+                  verticalTabsOverride: value === 'auto' ? null : value === 'enabled',
+                });
+              }}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="auto">Auto (wide screens)</option>
+              <option value="enabled">Always Enabled</option>
+              <option value="disabled">Always Disabled</option>
+            </select>
+          </LabeledField>
+
+          <LabeledField label="Compact Tabs">
+            <select
+              value={
+                appearance.compactTabsOverride === null
+                  ? 'auto'
+                  : appearance.compactTabsOverride
+                    ? 'enabled'
+                    : 'disabled'
+              }
+              onChange={e => {
+                const value = e.target.value;
+                settings.updateAppearance({
+                  compactTabsOverride: value === 'auto' ? null : value === 'enabled',
+                });
+              }}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="auto">Auto (mobile/low bandwidth)</option>
+              <option value="enabled">Always Enabled</option>
+              <option value="disabled">Always Disabled</option>
+            </select>
+          </LabeledField>
+
+          <LabeledField label="Hide Sidebars">
+            <select
+              value={
+                appearance.hideSidebarsOverride === null
+                  ? 'auto'
+                  : appearance.hideSidebarsOverride
+                    ? 'enabled'
+                    : 'disabled'
+              }
+              onChange={e => {
+                const value = e.target.value;
+                settings.updateAppearance({
+                  hideSidebarsOverride: value === 'auto' ? null : value === 'enabled',
+                });
+              }}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="auto">Auto (compact/minimal modes)</option>
+              <option value="enabled">Always Hide</option>
+              <option value="disabled">Always Show</option>
+            </select>
+          </LabeledField>
+        </div>
+
+        <div className="mt-4 border-t border-slate-800 pt-4">
+          <button
+            onClick={() => {
+              settings.updateAppearance({
+                layoutModeOverride: 'auto',
+                verticalTabsOverride: null,
+                compactTabsOverride: null,
+                hideSidebarsOverride: null,
+              });
+            }}
+            className="text-sm text-blue-400 hover:text-blue-300"
+          >
+            Reset to Auto
+          </button>
+        </div>
       </SectionCard>
     </div>
   );

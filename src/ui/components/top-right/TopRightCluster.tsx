@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CircleHelp, MessageSquare, Workflow } from 'lucide-react';
+import { CircleHelp, MessageSquare, Workflow, PanelRight } from 'lucide-react';
+import { useAppStore } from '../../../state/appStore';
 
 import { NotificationsMenu } from './NotificationsMenu';
 import { ProfileMenu } from './ProfileMenu';
@@ -13,6 +14,7 @@ import { WorkflowMarketplace } from '../../../components/workflows/WorkflowMarke
 export function TopRightCluster() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [workflowMarketplaceOpen, setWorkflowMarketplaceOpen] = useState(false);
+  const { regenSidebarOpen, setRegenSidebarOpen } = useAppStore();
 
   return (
     <>
@@ -20,13 +22,27 @@ export function TopRightCluster() {
         <LanguageSwitcher />
         <SystemStatusPanel />
         <NotificationsMenu />
+        {/* Regen Sidebar Toggle - Direct UI control (minimal requirement) */}
+        <button
+          type="button"
+          aria-label={regenSidebarOpen ? 'Hide Regen sidebar' : 'Show Regen sidebar'}
+          title={`Toggle Regen Sidebar (Ctrl+B)`}
+          className={`rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)] ${
+            regenSidebarOpen
+              ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+          }`}
+          onClick={() => setRegenSidebarOpen(!regenSidebarOpen)}
+        >
+          <PanelRight className="h-5 w-5" aria-hidden />
+        </button>
         <FeaturesMenu />
         <SettingsMenu />
         {/* Workflow Marketplace Button */}
         <button
           type="button"
           aria-label="Open workflow marketplace"
-          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
           onClick={() => setWorkflowMarketplaceOpen(true)}
           title="Workflow Marketplace"
         >
@@ -36,7 +52,7 @@ export function TopRightCluster() {
         <button
           type="button"
           aria-label="Send feedback"
-          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
           onClick={() => setFeedbackOpen(true)}
         >
           <MessageSquare className="h-5 w-5" aria-hidden />
@@ -44,7 +60,7 @@ export function TopRightCluster() {
         <button
           type="button"
           aria-label="Open help or command palette"
-          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
           onClick={() => {
             window.dispatchEvent(new CustomEvent('commandbar:open'));
           }}

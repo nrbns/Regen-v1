@@ -1,13 +1,13 @@
 /**
  * Mobile Redix Client
- * 
+ *
  * Mobile-specific Redix client that works in both PWA and native mobile contexts.
  * Provides access to Redix AI engine, eco-scoring, and optimization features.
  */
 
 /**
  * Mobile Redix Client
- * 
+ *
  * Mobile-specific Redix client that works in both PWA and native mobile contexts.
  * Provides access to Redix AI engine, eco-scoring, and optimization features.
  */
@@ -25,13 +25,13 @@ const getRedixApiUrl = (): string => {
       : import.meta.env.VITE_API_BASE_URL ||
         import.meta.env.VITE_APP_API_URL ||
         'http://127.0.0.1:8000';
-  
+
   // Check for Redix-specific override
   if (typeof window !== 'undefined') {
     const redixOverride = (window as any).__REDIX_API_URL || import.meta.env.VITE_REDIX_HTTP_URL;
     if (redixOverride) return redixOverride;
   }
-  
+
   // Default to main API server with /api/redix prefix
   return `${baseApiUrl}/api/redix`;
 };
@@ -67,7 +67,7 @@ export interface RedixQueryResponse {
  */
 export async function queryRedix(request: RedixQueryRequest): Promise<RedixQueryResponse> {
   const API_BASE_URL = getRedixApiUrl();
-  
+
   try {
     // Try Redix-specific endpoint first
     let response = await fetch(`${API_BASE_URL}/ask`, {
@@ -103,11 +103,13 @@ export async function queryRedix(request: RedixQueryRequest): Promise<RedixQuery
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Redix query failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `Redix query failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const data = await response.json();
-    
+
     // Normalize response format
     return {
       text: data.text || data.response || '',
@@ -121,7 +123,7 @@ export async function queryRedix(request: RedixQueryRequest): Promise<RedixQuery
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         throw new Error(
           'Cannot connect to Redix server. ' +
-          'Make sure the API backend is running: npm run dev:api'
+            'Make sure the API backend is running: npm run dev:api'
         );
       }
     }
@@ -165,7 +167,7 @@ export function streamRedixQuery(
         fullText += token;
         onToken(token);
       }
-    } catch (_error) {
+    } catch {
       // Ignore parse errors
     }
   });
@@ -248,7 +250,7 @@ export interface EcoScoreResponse {
 
 export async function getEcoScore(request: EcoScoreRequest): Promise<EcoScoreResponse> {
   const API_BASE_URL = getRedixApiUrl();
-  
+
   try {
     const response = await fetch(`${API_BASE_URL}/eco/score`, {
       method: 'POST',
@@ -263,11 +265,11 @@ export async function getEcoScore(request: EcoScoreRequest): Promise<EcoScoreRes
     }
 
     return await response.json();
-  } catch (_error) {
+  } catch {
     // Fallback calculation if API unavailable
     const energyWh = request.energyWh || (request.tokens / 1000) * 0.05;
     const score = Math.max(0, Math.min(100, 100 - (energyWh * 10 + request.tokens * 0.001)));
-    
+
     return {
       score: Math.round(score),
       energyWh,
@@ -284,4 +286,3 @@ export const mobileRedix = {
   checkHealth: checkRedixHealth,
   getEcoScore,
 };
-

@@ -109,7 +109,19 @@ type TabsState = {
 };
 
 const MAX_RECENTLY_CLOSED = 12;
-const MAX_TABS = 15; // Tier 1: Limit tabs for MVP
+const DEFAULT_MAX_TABS = 15; // Tier 1: Limit tabs for MVP (overridden by Redix low-RAM mode)
+
+// Derive max tabs dynamically based on Redix low-RAM mode
+const resolveMaxTabs = (): number => {
+  try {
+    // Lazy import to avoid breaking SSR/build if env differs
+    const { getRedixConfig } = require('../lib/redix-mode');
+    const cfg = getRedixConfig();
+    return cfg?.enabled ? Math.min(cfg.maxTabs ?? DEFAULT_MAX_TABS, DEFAULT_MAX_TABS) : DEFAULT_MAX_TABS;
+  } catch {
+    return DEFAULT_MAX_TABS;
+  }
+};
 
 export const useTabsStore = create<TabsState>()(
   persist(
@@ -120,8 +132,9 @@ export const useTabsStore = create<TabsState>()(
       tabGroups: [],
       add: tab =>
         set(state => {
-          // Tier 1: Check tab limit
-          if (state.tabs.length >= MAX_TABS) {
+          // Tier 1: Check tab limit (low-RAM aware)
+          const maxTabs = resolveMaxTabs();
+          if (state.tabs.length >= maxTabs) {
             // Don't add, but return state (caller should show toast)
             return state;
           }
@@ -587,27 +600,28 @@ export const useTabsStore = create<TabsState>()(
       },
       // Tier 1: Tab limits
       canAddTab: () => {
-        return get().tabs.length < MAX_TABS;
+        return get().tabs.length < resolveMaxTabs();
       },
       getTabCount: () => {
         return get().tabs.length;
       },
       getMaxTabs: () => {
-        return MAX_TABS;
+        return resolveMaxTabs();
       },
     }),
     {
       name: 'regen:tabs-state',
       version: 1,
       // WEEK 1 TASK 4: Use IndexedDB for better performance and capacity
-      storage: createJSONStorage(() =>
-        isIndexedDBAvailable()
-          ? createIndexedDBStorage('regen:tabs-state', {
-              dbName: 'regen-tabs-storage',
-              storeName: 'tabs-state',
-              version: 1,
-            })
-          : localStorage // Fallback to localStorage if IndexedDB unavailable
+      storage: createJSONStorage(
+        () =>
+          isIndexedDBAvailable()
+            ? createIndexedDBStorage('regen:tabs-state', {
+                dbName: 'regen-tabs-storage',
+                storeName: 'tabs-state',
+                version: 1,
+              })
+            : localStorage // Fallback to localStorage if IndexedDB unavailable
       ),
       partialize: state => ({
         tabs: state.tabs,

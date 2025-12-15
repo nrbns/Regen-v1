@@ -4,6 +4,7 @@
 // LOAD ENVIRONMENT VARIABLES - MUST BE FIRST
 // ============================================================================
 import { config } from 'dotenv';
+import { initOrchestratorWebSocket } from './websocket/orchestrator.js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
@@ -4947,6 +4948,14 @@ fastify.get('/metrics/prom', async (_request, reply) => {
 
       await fastify.listen({ port: PORT, host: '0.0.0.0' });
       fastify.log.info(`Redix server listening on port ${PORT}`);
+
+      // Initialize Orchestrator WebSocket on the underlying Node server
+      try {
+        initOrchestratorWebSocket(fastify.server);
+        fastify.log.info('Orchestrator WebSocket initialized at /ws/orchestrator');
+      } catch (e) {
+        fastify.log.warn({ err: e }, 'Failed to initialize Orchestrator WebSocket');
+      }
     } catch (err) {
       console.error('[Redix Server] Failed to start:', err);
       if (process.env.NODE_ENV === 'production') {

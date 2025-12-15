@@ -5,10 +5,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Eye, Network } from 'lucide-react';
-import { useProfileStore } from '../state/profileStore';
-import { useTabsStore } from '../state/tabsStore';
-import { detectTorBrowser } from '../core/tor-detector';
-import { getGhostMode } from '../core/ghost-mode';
+import { useProfileStore } from '../../state/profileStore';
+import { useTabsStore } from '../../state/tabsStore';
+import { detectTorBrowser } from '../../core/tor-detector';
+import { getGhostMode } from '../../core/ghost-mode';
 
 type PrivacyMode = 'Normal' | 'Private' | 'Ghost';
 
@@ -70,7 +70,7 @@ export function PrivacySwitch() {
       return;
     }
 
-    const { ipc } = await import('../lib/ipc-typed');
+    const { ipc } = await import('../../lib/ipc-typed');
     const { activeId } = useTabsStore.getState();
     const ghostMode = getGhostMode();
 

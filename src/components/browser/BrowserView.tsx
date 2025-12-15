@@ -5,8 +5,8 @@
  */
 
 import { useEffect, useRef, useState, Suspense } from 'react';
-// import { useTabsStore } from '../state/tabsStore'; // Unused
-import { useSettingsStore } from '../state/settingsStore';
+// import { useTabsStore } from '../../state/tabsStore'; // Unused
+import { useSettingsStore } from '../../state/settingsStore';
 import { Loader2 } from 'lucide-react';
 
 interface BrowserViewProps {

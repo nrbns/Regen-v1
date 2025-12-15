@@ -3,10 +3,7 @@
  * Calculates and applies only changes (deltas) between syncs
  */
 
-import type {
-  SyncData,
-  SyncDelta,
-} from './types';
+import type { SyncData, SyncDelta } from './types';
 
 /**
  * Calculate delta (changes) between two sync data sets
@@ -24,12 +21,10 @@ export function calculateDelta(
   const historyAdded = newData.history.filter(
     item => !oldData.history.find(old => old.id === item.id) && item.timestamp >= sinceTimestamp
   );
-  const historyUpdated = newData.history.filter(
-    item => {
-      const oldItem = oldData.history.find(old => old.id === item.id);
-      return oldItem && (item.updatedAt || item.timestamp) > (oldItem.updatedAt || oldItem.timestamp);
-    }
-  );
+  const historyUpdated = newData.history.filter(item => {
+    const oldItem = oldData.history.find(old => old.id === item.id);
+    return oldItem && (item.updatedAt || item.timestamp) > (oldItem.updatedAt || oldItem.timestamp);
+  });
   const historyDeleted = oldData.history
     .filter(old => !newData.history.find(item => item.id === old.id))
     .map(item => item.id);
@@ -46,12 +41,10 @@ export function calculateDelta(
   const bookmarksAdded = newData.bookmarks.filter(
     item => !oldData.bookmarks.find(old => old.id === item.id) && item.createdAt >= sinceTimestamp
   );
-  const bookmarksUpdated = newData.bookmarks.filter(
-    item => {
-      const oldItem = oldData.bookmarks.find(old => old.id === item.id);
-      return oldItem && item.updatedAt > oldItem.updatedAt;
-    }
-  );
+  const bookmarksUpdated = newData.bookmarks.filter(item => {
+    const oldItem = oldData.bookmarks.find(old => old.id === item.id);
+    return oldItem && item.updatedAt > oldItem.updatedAt;
+  });
   const bookmarksDeleted = oldData.bookmarks
     .filter(old => !newData.bookmarks.find(item => item.id === old.id))
     .map(item => item.id);
@@ -65,12 +58,10 @@ export function calculateDelta(
   }
 
   // Settings delta
-  const settingsUpdated = newData.settings.filter(
-    item => {
-      const oldItem = oldData.settings.find(old => old.key === item.key);
-      return !oldItem || item.updatedAt > oldItem.updatedAt;
-    }
-  );
+  const settingsUpdated = newData.settings.filter(item => {
+    const oldItem = oldData.settings.find(old => old.key === item.key);
+    return !oldItem || item.updatedAt > oldItem.updatedAt;
+  });
   const settingsDeleted = oldData.settings
     .filter(old => !newData.settings.find(item => item.key === old.key))
     .map(item => item.key);
@@ -152,23 +143,22 @@ export function applyDelta(data: SyncData, delta: SyncDelta): SyncData {
  * Check if delta is empty (no changes)
  */
 export function isDeltaEmpty(delta: SyncDelta): boolean {
-  const hasHistory = delta.history && (
-    (delta.history.added && delta.history.added.length > 0) ||
-    (delta.history.updated && delta.history.updated.length > 0) ||
-    (delta.history.deleted && delta.history.deleted.length > 0)
-  );
+  const hasHistory =
+    delta.history &&
+    ((delta.history.added && delta.history.added.length > 0) ||
+      (delta.history.updated && delta.history.updated.length > 0) ||
+      (delta.history.deleted && delta.history.deleted.length > 0));
 
-  const hasBookmarks = delta.bookmarks && (
-    (delta.bookmarks.added && delta.bookmarks.added.length > 0) ||
-    (delta.bookmarks.updated && delta.bookmarks.updated.length > 0) ||
-    (delta.bookmarks.deleted && delta.bookmarks.deleted.length > 0)
-  );
+  const hasBookmarks =
+    delta.bookmarks &&
+    ((delta.bookmarks.added && delta.bookmarks.added.length > 0) ||
+      (delta.bookmarks.updated && delta.bookmarks.updated.length > 0) ||
+      (delta.bookmarks.deleted && delta.bookmarks.deleted.length > 0));
 
-  const hasSettings = delta.settings && (
-    (delta.settings.updated && delta.settings.updated.length > 0) ||
-    (delta.settings.deleted && delta.settings.deleted.length > 0)
-  );
+  const hasSettings =
+    delta.settings &&
+    ((delta.settings.updated && delta.settings.updated.length > 0) ||
+      (delta.settings.deleted && delta.settings.deleted.length > 0));
 
   return !hasHistory && !hasBookmarks && !hasSettings;
 }
-

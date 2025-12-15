@@ -92,7 +92,7 @@ export class VPNService {
               error: result?.error || `Failed to connect to ${profile.name}`,
             };
           }
-        } catch (_error) {
+        } catch {
           // Fallback: simulate connection for development/testing
           console.warn('[VPNService] execCommand not available, simulating connection');
           this.status = {
@@ -133,7 +133,7 @@ export class VPNService {
   async disconnect(profileId?: string): Promise<VPNConnectionResult> {
     // If no profile specified, try to get current connected profile
     let profile = profileId ? this.getProfile(profileId) : null;
-    
+
     if (!profile && this.status?.profileId) {
       profile = this.getProfile(this.status.profileId);
     }
@@ -209,14 +209,16 @@ export class VPNService {
       // Try to get status from system status API
       if (isElectronRuntime() || isTauriRuntime()) {
         const systemStatus = await ipc.system.getStatus();
-        
+
         if (systemStatus?.vpn) {
           const vpnStatus = systemStatus.vpn;
-          
+
           // Find matching profile if connected
           let profile: VPNProfile | undefined;
           if (vpnStatus.profile) {
-            profile = this.profiles.find(p => p.id === vpnStatus.profile || p.name === vpnStatus.profile);
+            profile = this.profiles.find(
+              p => p.id === vpnStatus.profile || p.name === vpnStatus.profile
+            );
           }
 
           this.status = {
@@ -226,9 +228,10 @@ export class VPNService {
             type: vpnStatus.type as any,
             server: profile?.server,
             connectedAt: this.status?.connectedAt || (vpnStatus.connected ? Date.now() : undefined),
-            uptime: vpnStatus.connected && this.status?.connectedAt 
-              ? Date.now() - this.status.connectedAt 
-              : undefined,
+            uptime:
+              vpnStatus.connected && this.status?.connectedAt
+                ? Date.now() - this.status.connectedAt
+                : undefined,
           };
 
           // Notify listeners
@@ -238,12 +241,14 @@ export class VPNService {
       }
 
       // Fallback: Check manually by running status commands
-      const connectedProfile = this.profiles.find(async (profile) => {
+      const connectedProfile = this.profiles.find(async profile => {
         if (!profile.status) return false;
-        
+
         try {
           if (isElectronRuntime() || isTauriRuntime()) {
-            const result = await (ipc.system as any)?.execCommand?.(profile.status, { timeout: 5000 });
+            const result = await (ipc.system as any)?.execCommand?.(profile.status, {
+              timeout: 5000,
+            });
             return result?.success && result?.output && result.output.trim().length > 0;
           }
         } catch {
@@ -367,4 +372,3 @@ export function getVPNService(): VPNService {
   }
   return vpnServiceInstance;
 }
-

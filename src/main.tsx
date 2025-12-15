@@ -8,6 +8,7 @@ import './styles/mode-themes.css';
 // Mobile styles imported via mobile module
 import './mobile';
 import './lib/battery';
+import './services/tabHibernation/init';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
@@ -23,7 +24,7 @@ import './utils/console';
 // DAY 6: Register service worker for caching and offline support
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   import('./lib/service-worker').then(({ registerServiceWorker }) => {
-    registerServiceWorker().catch((error) => {
+    registerServiceWorker().catch(error => {
       console.warn('[ServiceWorker] Registration failed:', error);
     });
   });
@@ -38,6 +39,10 @@ if (typeof window !== 'undefined') {
 
 // Initialize agent client early
 import './lib/agent-client';
+
+// Initialize agent system (planner, executor, memory, tools)
+import { initializeAgentSystem } from './core/agent/integration';
+initializeAgentSystem();
 
 // Initialize app connections
 import { initializeApp } from './lib/initialize-app';
@@ -77,23 +82,29 @@ let getLRUCache: any = () => new Map();
 // Only load heavy services if not in Redix mode or if enabled in config
 if (!redixConfig.enabled || redixConfig.enableHeavyLibs) {
   // Dynamically import heavy services (ESM-compatible)
-  import('./services/prefetch/queryPrefetcher').then(module => {
-    initializePrefetcher = module.initializePrefetcher;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/prefetch/queryPrefetcher')
+    .then(module => {
+      initializePrefetcher = module.initializePrefetcher;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 
-  import('./services/vector/vectorWorkerService').then(module => {
-    getVectorWorkerService = module.getVectorWorkerService;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/vector/vectorWorkerService')
+    .then(module => {
+      getVectorWorkerService = module.getVectorWorkerService;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 
-  import('./services/embedding/lruCache').then(module => {
-    getLRUCache = module.getLRUCache;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/embedding/lruCache')
+    .then(module => {
+      getLRUCache = module.getLRUCache;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 }
 // Migration functions available but not auto-run (call manually if needed)
 // import { migrateLocalStorageHistory } from './services/history';
@@ -151,7 +162,10 @@ const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'His
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
 const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
 const AIPanelRoute = lazyWithErrorHandling(() => import('./routes/AIPanelRoute'), 'AIPanelRoute');
-const OfflineDocuments = lazyWithErrorHandling(() => import('./routes/OfflineDocuments'), 'OfflineDocuments');
+const OfflineDocuments = lazyWithErrorHandling(
+  () => import('./routes/OfflineDocuments'),
+  'OfflineDocuments'
+);
 const DocumentEditorPage = lazyWithErrorHandling(
   () => import('./routes/DocumentEditor'),
   'DocumentEditorPage'
@@ -454,13 +468,15 @@ try {
   const root = existingRoot || ReactDOM.createRoot(rootElement);
 
   // Initialize app connections (AI, API, Browser)
-  initializeApp().then(status => {
-    if (isDevEnv()) {
-      console.log('[Main] App initialization status:', status);
-    }
-  }).catch(error => {
-    console.warn('[Main] App initialization warning:', error);
-  });
+  initializeApp()
+    .then(status => {
+      if (isDevEnv()) {
+        console.log('[Main] App initialization status:', status);
+      }
+    })
+    .catch(error => {
+      console.warn('[Main] App initialization warning:', error);
+    });
 
   // Setup research clipper handlers
   setupClipperHandlers();
@@ -837,6 +853,25 @@ try {
       // Sprint features initialization not critical for startup
     });
 
+  // SPRINT 0: Initialize low-data mode based on settings
+  import('./services/lowDataMode')
+    .then(({ applyLowDataMode, isLowDataModeEnabled }) => {
+      applyLowDataMode(isLowDataModeEnabled());
+    })
+    .catch(() => {
+      // Low-data mode initialization not critical for startup
+    });
+
+  // SPRINT 2: Initialize adaptive layout manager
+  import('./services/adaptiveUI/adaptiveLayoutManager')
+    .then(({ initializeAdaptiveLayout }) => {
+      initializeAdaptiveLayout();
+      console.log('[Startup] Adaptive layout manager initialized');
+    })
+    .catch(error => {
+      console.warn('[Startup] Adaptive layout manager initialization failed:', error);
+    });
+
   // TELEMETRY FIX: Initialize telemetry metrics tracking
   import('./services/telemetryMetrics')
     .then(({ telemetryMetrics }) => {
@@ -1014,6 +1049,40 @@ try {
           });
       }, 2000); // Wait 2s after first paint
     }
+
+    // SPRINT 1: Initialize tab hibernation manager
+    setTimeout(() => {
+      Promise.all([
+        import('./services/tabHibernation/hibernationManager'),
+        import('./state/tabsStore')
+      ])
+        .then(([{ initializeHibernationManager, trackTabActivity }, { useTabsStore }]) => {
+          const cleanup = initializeHibernationManager();
+          console.log('[Startup] Tab hibernation manager initialized');
+
+          // Track tab activity when tabs become active
+          const tabsStore = useTabsStore.getState();
+          const unsubscribe = tabsStore.subscribe(
+            state => ({ activeId: state.activeId }),
+            (state) => {
+              if (state.activeId) {
+                trackTabActivity(state.activeId);
+              }
+            }
+          );
+
+          // Cleanup on app shutdown (if needed)
+          if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', () => {
+              cleanup();
+              unsubscribe();
+            });
+          }
+        })
+        .catch(error => {
+          console.warn('[Startup] Tab hibernation manager initialization failed:', error);
+        });
+    }, 3000); // Wait 3s after first paint
   };
 
   // Wait for first paint, then defer services
@@ -1204,19 +1273,27 @@ try {
       // Try to serialize safely, avoiding circular references
       try {
         const seen = new WeakSet();
-        safeErrorText = JSON.stringify(error, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-              return '[Circular]';
+        safeErrorText = JSON.stringify(
+          error,
+          (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) {
+                return '[Circular]';
+              }
+              seen.add(value);
+              // Skip React elements and DOM nodes
+              if (
+                (value as any).$$typeof ||
+                (value as any).nodeType ||
+                (value as any)._reactInternalFiber
+              ) {
+                return '[React/DOM Element]';
+              }
             }
-            seen.add(value);
-            // Skip React elements and DOM nodes
-            if ((value as any).$$typeof || (value as any).nodeType || (value as any)._reactInternalFiber) {
-              return '[React/DOM Element]';
-            }
-          }
-          return value;
-        }, 2);
+            return value;
+          },
+          2
+        );
       } catch {
         safeErrorText = String(error);
       }

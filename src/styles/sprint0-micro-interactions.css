@@ -1,0 +1,133 @@
+/**
+ * SPRINT 0: Micro-interactions for polish
+ * Smooth animations for tab open/close, buttons, page load
+ */
+
+/* SPRINT 0: Tab open/close animations */
+@keyframes tabFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tabFadeOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(4px);
+  }
+}
+
+.tab-enter {
+  animation: tabFadeIn var(--animation-normal, 200ms) ease-out;
+}
+
+.tab-exit {
+  animation: tabFadeOut var(--animation-normal, 200ms) ease-out;
+}
+
+/* SPRINT 0: Button press feedback */
+button,
+[role='button'],
+a[role='button'] {
+  transition:
+    background-color var(--animation-fast, 150ms) ease,
+    color var(--animation-fast, 150ms) ease,
+    border-color var(--animation-fast, 150ms) ease,
+    transform var(--animation-fast, 150ms) ease,
+    opacity var(--animation-fast, 150ms) ease;
+}
+
+button:active,
+[role='button']:active,
+a[role='button']:active {
+  transform: scale(0.95);
+}
+
+button:hover:not(:disabled),
+[role='button']:hover:not(:disabled),
+a[role='button']:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+button:disabled,
+[role='button']:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* SPRINT 0: Page load progress bar */
+@keyframes progressBar {
+  0% {
+    width: 0%;
+    opacity: 1;
+  }
+  50% {
+    width: 70%;
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 0;
+  }
+}
+
+.urlbar-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  animation: progressBar 1s ease-out forwards;
+  z-index: 10;
+}
+
+/* SPRINT 0: Back/forward button hover feedback */
+.nav-button {
+  transition:
+    background-color var(--animation-fast, 150ms) ease,
+    transform var(--animation-fast, 150ms) ease;
+}
+
+.nav-button:hover {
+  background-color: var(--surface-hover, rgba(255, 255, 255, 0.05));
+}
+
+.nav-button:active {
+  transform: scale(0.95);
+}
+
+/* SPRINT 0: Smooth transitions for all interactive elements */
+a,
+button,
+input,
+select,
+textarea,
+[role='button'],
+[role='tab'],
+[role='menuitem'] {
+  transition:
+    color var(--animation-fast, 150ms) ease,
+    background-color var(--animation-fast, 150ms) ease,
+    border-color var(--animation-fast, 150ms) ease;
+}
+
+/* SPRINT 0: Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

@@ -38,7 +38,7 @@ export class GhostMode {
 
     // Ghost mode disabled - always use normal mode
     const torDetection = detectTorBrowser();
-    
+
     this.config = {
       enabled: false, // Ghost mode disabled by default - use normal mode
       localAIOnly: false, // Allow cloud APIs for functionality

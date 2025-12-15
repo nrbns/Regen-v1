@@ -20,11 +20,11 @@ import {
   Briefcase,
   Gamepad2,
 } from 'lucide-react';
-import { ipc } from '../lib/ipc-typed';
-import { useTabsStore } from '../state/tabsStore';
-import { useAppStore } from '../state/appStore';
+import { ipc } from '../../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
 import { motion } from 'framer-motion';
-import { isWebMode } from '../lib/env';
+import { isWebMode } from '../../lib/env';
 
 interface MarketData {
   symbol: string;

@@ -102,4 +102,3 @@ export function getAdblockerStorage(): AdblockerStorage {
   }
   return storageInstance;
 }
-

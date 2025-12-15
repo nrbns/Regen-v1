@@ -3,10 +3,7 @@
  * Handles conflicts when local and remote data differ
  */
 
-import type {
-  ConflictEntry,
-  ConflictStrategy,
-} from './types';
+import type { ConflictEntry, ConflictStrategy } from './types';
 
 /**
  * Resolve conflicts based on strategy
@@ -85,10 +82,7 @@ export function detectConflicts<T extends { id: string; version?: number; update
 /**
  * Resolve all conflicts with a strategy
  */
-export function resolveAllConflicts(
-  conflicts: ConflictEntry[],
-  strategy: ConflictStrategy
-): any[] {
+export function resolveAllConflicts(conflicts: ConflictEntry[], strategy: ConflictStrategy): any[] {
   return conflicts.map(conflict => {
     const resolved = resolveConflict(conflict.local, conflict.remote, strategy);
     return {
@@ -153,4 +147,3 @@ export function detectDeletions<T extends { id: string; updatedAt?: number }>(
     })
     .map(item => item.id);
 }
-

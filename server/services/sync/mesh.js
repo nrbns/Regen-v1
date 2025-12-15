@@ -16,7 +16,7 @@ const crypto = require('crypto');
 
 const SYNC_QUEUE_PREFIX = 'sync:queue:';
 const SYNC_STATE_PREFIX = 'sync:state:';
-const SYNC_DIFF_PREFIX = 'sync:diff:';
+const _SYNC_DIFF_PREFIX = 'sync:diff:';
 
 /**
  * Encrypt sync data using AES-256-GCM

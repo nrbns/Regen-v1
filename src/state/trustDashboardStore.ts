@@ -4,6 +4,7 @@ import { isElectronRuntime } from '../lib/env';
 import type { ConsentRecord } from '../types/consent';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { PrivacyAuditSummary } from '../lib/ipc-events';
+import type { SafetyAuditEntry } from '../core/agent/safety';
 
 type ShieldsStatus = {
   adsBlocked: number;
@@ -37,10 +38,12 @@ interface TrustDashboardState {
   privacyAudit: PrivacyAuditSummary | null;
   consentStats: ConsentStats;
   blockedSummary: BlockedSummary;
+  agentAudits: Array<{ runId: string; entries: SafetyAuditEntry[] }>;
   lastUpdated: number | null;
   open: () => Promise<void>;
   close: () => void;
   refresh: () => Promise<void>;
+  recordAgentAudit: (runId: string, entries: SafetyAuditEntry[]) => void;
 }
 
 async function safeCall<T>(callback: () => Promise<T>): Promise<T | undefined> {
@@ -71,6 +74,7 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
     ads: 0,
     upgrades: 0,
   },
+  agentAudits: [],
   lastUpdated: null,
   async open() {
     if (!get().visible) {
@@ -101,6 +105,7 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
           ads: 0,
           upgrades: 0,
         },
+        agentAudits: get().agentAudits,
         lastUpdated: Date.now(),
       });
       return;
@@ -159,6 +164,7 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
         privacyAudit: (privacyAudit as any) ?? undefined,
         consentStats,
         blockedSummary,
+        agentAudits: get().agentAudits,
         lastUpdated: Date.now(),
       });
     } catch (error) {
@@ -167,6 +173,13 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  },
+  recordAgentAudit(runId, entries) {
+    set(state => {
+      const filtered = state.agentAudits.filter(a => a.runId !== runId);
+      const next = [{ runId, entries }, ...filtered].slice(0, 10);
+      return { agentAudits: next };
+    });
   },
 }));
 

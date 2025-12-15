@@ -21,10 +21,10 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useIPCEvent } from '../lib/use-ipc-event';
-import { ipc } from '../lib/ipc-typed';
-import { getEnvVar, isElectronRuntime } from '../lib/env';
-import { useAgentStreamStore, StreamStatus, AgentStreamEvent } from '../state/agentStreamStore';
+import { useIPCEvent } from '../../lib/use-ipc-event';
+import { ipc } from '../../lib/ipc-typed';
+import { getEnvVar, isElectronRuntime } from '../../lib/env';
+import { useAgentStreamStore, StreamStatus, AgentStreamEvent } from '../../state/agentStreamStore';
 
 type TabType = 'responses' | 'plan' | 'actions' | 'logs' | 'memory' | 'ledger';
 

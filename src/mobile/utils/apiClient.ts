@@ -1,6 +1,6 @@
 /**
  * Mobile API Client
- * 
+ *
  * Mobile-specific API client that works in both PWA and native mobile contexts.
  * Uses the same backend API as desktop, with mobile-optimized error handling.
  */
@@ -13,20 +13,18 @@ const getApiBaseUrl = (): string => {
     // Check for mobile-specific override first
     const mobileOverride = (window as any).__MOBILE_API_BASE_URL;
     if (mobileOverride) return mobileOverride;
-    
+
     // Fall back to standard API base URL
     return (
       (window as any).__API_BASE_URL ||
       import.meta.env.VITE_API_BASE_URL ||
       import.meta.env.VITE_APP_API_URL ||
-      'http://127.0.0.1:8000'  // Match backend server port
+      'http://127.0.0.1:8000' // Match backend server port
     );
   }
-  
+
   return (
-    import.meta.env.VITE_API_BASE_URL ||
-    import.meta.env.VITE_APP_API_URL ||
-    'http://127.0.0.1:8000'  // Match backend server port
+    import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_APP_API_URL || 'http://127.0.0.1:8000' // Match backend server port
   );
 };
 
@@ -67,7 +65,9 @@ export async function mobileApiRequest<T>(
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText} - ${errorText}`
+      );
     }
 
     const contentType = response.headers.get('content-type');
@@ -78,21 +78,20 @@ export async function mobileApiRequest<T>(
     return (await response.text()) as unknown as T;
   } catch (error) {
     clearTimeout(timeoutId);
-    
+
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Request timeout - please check your connection');
       }
-      
+
       // Provide mobile-friendly error messages
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         throw new Error(
-          'Cannot connect to server. ' +
-          'Make sure the backend API is running: npm run dev:api'
+          'Cannot connect to server. ' + 'Make sure the backend API is running: npm run dev:api'
         );
       }
     }
-    
+
     throw error;
   }
 }
@@ -124,7 +123,7 @@ export async function checkMobileApiHealth(): Promise<boolean> {
 export const mobileApi = {
   // Health check
   health: () => mobileApiRequest<{ status: string }>('/health'),
-  
+
   // Sync endpoints (for mobile sync)
   sync: {
     upload: (data: unknown) =>
@@ -135,7 +134,7 @@ export const mobileApi = {
     download: () => mobileApiRequest<unknown>('/api/sync/download'),
     status: () => mobileApiRequest<{ status: string; lastSync?: number }>('/api/sync/status'),
   },
-  
+
   // Research endpoints (optimized for mobile)
   research: {
     query: (query: string) =>
@@ -145,7 +144,7 @@ export const mobileApi = {
         timeout: 15000, // Longer timeout for research queries
       }),
   },
-  
+
   // Redix endpoints (Green Intelligence Engine)
   redix: {
     query: (query: string, options?: { provider?: string; maxTokens?: number }) =>
@@ -161,7 +160,7 @@ export const mobileApi = {
         body: { provider, tokens },
       }),
   },
-  
+
   // Tabs (for mobile tab sync)
   tabs: {
     list: () => mobileApiRequest<Array<unknown>>('/api/tabs'),
@@ -172,4 +171,3 @@ export const mobileApi = {
       }),
   },
 };
-

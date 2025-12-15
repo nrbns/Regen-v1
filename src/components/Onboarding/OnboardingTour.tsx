@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useSettingsStore } from '../state/settingsStore';
+import { useSettingsStore } from '../../state/settingsStore';
 
 // Lazy load react-joyride to avoid bundle bloat
 let Joyride: any = null;

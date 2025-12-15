@@ -29,6 +29,7 @@ import {
 } from '../../state/tabsStore';
 import { useContainerStore } from '../../state/containerStore';
 import { useAppStore } from '../../state/appStore';
+import { useToastStore } from '../../state/toastStore';
 import { ipcEvents } from '../../lib/ipc-events';
 import { TabHoverCard } from '../TopNav/TabHoverCard';
 import { ContainerQuickSelector } from '../containers/ContainerQuickSelector';
@@ -38,6 +39,7 @@ import { Portal } from '../common/Portal';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
 import { TabGroupsOverlay } from '../tabs/TabGroupsOverlay';
+import { HibernationIndicator } from '../tabs/HibernationIndicator'; // SPRINT 1
 // HolographicPreviewOverlay removed - unused component
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
 // DropdownMenu components removed - no longer used
@@ -48,6 +50,7 @@ import {
   RESURRECTION_DELAY_MS,
 } from '../../core/tabs/resurrection';
 import { useAppError } from '../../hooks/useAppError';
+import { useAdaptiveLayout } from '../../hooks/useAdaptiveLayout'; // SPRINT 2: Responsive tabs
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
 const IS_DEV = isDevEnv();
@@ -171,6 +174,12 @@ const mapTabsForStore = (list: Tab[]): Tab[] => {
 
 export function TabStrip() {
   const { handleError: _handleError } = useAppError();
+  const { verticalTabs, compactTabs, screenWidth } = useAdaptiveLayout(); // SPRINT 2: Responsive tabs
+  
+  // Compute layout flags early for use in renderTabNode
+  const isVertical = verticalTabs && screenWidth > 1400;
+  const isCompact = compactTabs || screenWidth < 768;
+  
   const setAllTabs = useTabsStore(state => state.setAll);
   const setActiveTab = useTabsStore(state => state.setActive);
   const activeId = useTabsStore(state => state.activeId);
@@ -811,19 +820,30 @@ export function TabStrip() {
             aria-label={`Tab: ${tab.title || 'Untitled'}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
             tabIndex={tab.active ? 0 : -1}
             layout
-            initial={{ opacity: 0, scale: 0.9, x: -20 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.9, x: 20 }}
+            // SPRINT 0: Tab animations - 200ms fade-in/out per UX specs
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 4 }}
             transition={{
-              duration: 0.2,
+              duration: 0.2, // 200ms per Sprint 0 specs
               ease: [0.4, 0, 0.2, 1],
               layout: { duration: 0.3 },
             }}
-            className={`relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg ${tab.pinned ? 'min-w-[40px] max-w-[40px]' : 'min-w-[100px] max-w-[220px]'} group cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+            className={`relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg ${
+              verticalTabs
+                ? 'w-full' // Vertical tabs take full width
+                : compactTabs
+                  ? tab.pinned
+                    ? 'min-w-[40px] max-w-[40px]'
+                    : 'min-w-[100px] max-w-[160px]' // Compact horizontal tabs
+                  : tab.pinned
+                    ? 'min-w-[40px] max-w-[40px]'
+                    : 'min-w-[100px] max-w-[220px]' // Normal horizontal tabs
+            } group cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
               tab.active
                 ? 'border border-purple-500/40 bg-purple-600/20 shadow-lg shadow-purple-500/20'
                 : 'border border-transparent bg-gray-800/30 hover:bg-gray-800/50'
-            } ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''} ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''} ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''} ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''} `}
+            } ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''} ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''} ${tab.sleeping ? 'ring-1 ring-amber-400/40 bg-amber-500/10' : ''} ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''} `}
             style={{
               pointerEvents: 'auto',
               zIndex: 1,
@@ -1020,7 +1040,7 @@ export function TabStrip() {
               </motion.div>
             )}
             {/* Favicon */}
-            <div className="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-600">
+            <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 ${tab.sleeping ? 'opacity-70' : ''}`}>
               {tab.favicon ? (
                 <img src={tab.favicon} alt="" className="h-full w-full rounded-full" />
               ) : (
@@ -1056,23 +1076,29 @@ export function TabStrip() {
               />
             )}
 
-            {/* Phase 1, Day 2: Enhanced hibernation indicator */}
+            {/* SPRINT 2: Enhanced hibernation indicator with better visibility */}
             {tab.sleeping && (
-              <span className="flex items-center gap-1" title="Tab is hibernating (click to wake)">
+              <span
+                className={`flex ${isVertical ? 'flex-row' : 'flex-row'} items-center gap-1`}
+                title={`Hibernating — saves ~${estimateSavedMB(tab)} MB (click to wake)`}
+              >
                 <motion.span
                   className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
                   animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
                   transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
                 />
-                <span className="hidden text-[10px] font-medium text-amber-400/70 group-hover:inline">
-                  Zzz
-                </span>
+                {!isCompact && (
+                  <span className="hidden text-[10px] font-medium text-amber-400/80 group-hover:inline">
+                    Zzz
+                  </span>
+                )}
               </span>
             )}
 
             {!tab.pinned && (
               <span
-                className={`flex-1 truncate text-sm ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}
+                className={`flex-1 truncate ${isCompact ? 'text-xs' : 'text-sm'} ${tab.active ? 'text-gray-100' : 'text-gray-400'} ${tab.sleeping ? 'opacity-75' : ''}`}
+                title={isCompact ? tab.title : tab.sleeping ? `Hibernating — saves ~${estimateSavedMB(tab)} MB` : undefined}
               >
                 {tab.title}
               </span>
@@ -1117,6 +1143,37 @@ export function TabStrip() {
                 title="Peek preview"
               >
                 <Eye size={14} />
+              </motion.button>
+            )}
+
+            {/* Single AI action: Summarize this tab */}
+            {!tab.pinned && (
+              <motion.button
+                type="button"
+                onClick={async e => {
+                  e.preventDefault();
+                  stopEventPropagation(e);
+                  try {
+                    const { summarizeTab } = await import('../../services/agentService');
+                    await summarizeTab?.(tab.id);
+                    useToastStore.getState().show({ type: 'info', message: 'Summarizing tab…' });
+                  } catch (error) {
+                    console.warn('[TabStrip] Summarize action failed', error);
+                    useToastStore.getState().show({ type: 'error', message: 'Failed to summarize' });
+                  }
+                }}
+                onMouseDown={e => {
+                  stopEventPropagation(e);
+                }}
+                aria-label={`Summarize tab: ${tab.title}`}
+                className="no-drag ml-1 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-700/50 hover:text-amber-300 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 group-hover:opacity-100"
+                style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.96 }}
+                title="Summarize this tab"
+              >
+                {/* Sparkles icon already imported earlier in file */}
+                <Sparkles size={14} />
               </motion.button>
             )}
 
@@ -1169,6 +1226,8 @@ export function TabStrip() {
       closeTab,
       togglePinTab,
       openPeek,
+      isVertical,
+      isCompact,
     ]
   );
 
@@ -1300,6 +1359,15 @@ export function TabStrip() {
     },
     [predictedClusters.length]
   );
+
+  // Lightweight memory savings estimator (for tooltip + counter)
+  const estimateSavedMB = useCallback((tab: Tab): number => {
+    // Base estimates: normal ~40MB, private ~35MB, ghost ~20MB
+    const base = tab.mode === 'private' ? 35 : tab.mode === 'ghost' ? 20 : 40;
+    // Minor boost for heavy sites (heuristic: long title)
+    const heuristic = (tab.title?.length ?? 0) > 30 ? 1.2 : 1.0;
+    return Math.round(base * heuristic);
+  }, []);
 
   useEffect(() => {
     fetchPredictiveSuggestionsRef.current = runPredictiveSuggestions;
@@ -1681,6 +1749,21 @@ export function TabStrip() {
         };
       });
 
+      // Dispatch RAM saved events for tabs that just entered sleeping state
+      try {
+        const prevById = new Map<string, Tab>();
+        tabsRef.current.forEach(pt => prevById.set(pt.id, pt));
+        mappedTabs.forEach(mt => {
+          const prev = prevById.get(mt.id);
+          if (mt.sleeping && (!prev || !prev.sleeping)) {
+            const saved = estimateSavedMB(mt);
+            window.dispatchEvent(
+              new CustomEvent('omnibrowser:ram_saved', { detail: { mb: saved, tabId: mt.id } })
+            );
+          }
+        });
+      } catch {}
+
       // OPTIMIZED: Check if tabs actually changed before updating
       const newTabIds = mappedTabs
         .map(t => t.id)
@@ -1760,6 +1843,15 @@ export function TabStrip() {
   }, []); // Empty deps - only run on mount, IPC events handle all updates
 
   const addTab = async () => {
+    // Enforce tab cap (low-RAM aware)
+    if (!useTabsStore.getState().canAddTab()) {
+      useToastStore.getState().show({
+        type: 'warning',
+        message: 'Tab limit reached in low-RAM mode. Close a tab to open a new one.',
+      });
+      return;
+    }
+
     if (!IS_ELECTRON) {
       const baseTabs = (tabsRef.current.length > 0 ? tabsRef.current : tabs).map(t => ({
         ...t,
@@ -2045,13 +2137,20 @@ export function TabStrip() {
     return null;
   }
 
+  // SPRINT 2: Responsive tab layout - vertical for wide displays (>1400px), horizontal for others
+  // Note: isVertical and isCompact are computed earlier in the component for use in renderTabNode
+
   return (
     <>
       <div
         ref={stripRef}
         role="tablist"
         aria-label="Browser tabs"
-        className="no-drag scrollbar-hide relative flex items-center gap-2 overflow-x-auto border-b border-gray-700/30 bg-[#1A1D28] px-3 py-2"
+        className={`no-drag scrollbar-hide relative ${
+          isVertical
+            ? 'flex-col items-stretch h-full w-64 overflow-y-auto border-r border-gray-700/30'
+            : 'flex items-center overflow-x-auto border-b border-gray-700/30'
+        } bg-[#1A1D28] px-3 py-2`}
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 9999 }}
         onKeyDown={handleKeyNavigation}
         data-onboarding="tabstrip"
@@ -2149,13 +2248,13 @@ export function TabStrip() {
           onApply={handleApplyCluster}
           summary={predictionSummary}
         />
-        <div className="flex min-w-0 flex-1 items-center gap-2" style={{ pointerEvents: 'auto' }}>
+        <div className={`flex min-w-0 flex-1 ${isVertical ? 'flex-col' : 'flex-row items-center'} gap-2`} style={{ pointerEvents: 'auto' }}>
           <AnimatePresence mode="popLayout">
             {tabElements.length > 0 ? tabElements : null}
           </AnimatePresence>
 
           {/* Container Selector & New Tab Button */}
-          <div className="flex flex-shrink-0 items-center gap-2">
+          <div className={`flex flex-shrink-0 ${isVertical ? 'flex-col items-stretch' : 'flex-row items-center'} gap-2 ${isVertical ? 'mt-auto' : ''}`}>
             <motion.button
               type="button"
               onClick={e => {
@@ -2249,6 +2348,11 @@ export function TabStrip() {
 
       {/* Tab Groups Overlay */}
       <TabGroupsOverlay open={groupsOverlayOpen} onClose={() => setGroupsOverlayOpen(false)} />
+
+      {/* SPRINT 1: Hibernation Indicator */}
+      <div className="absolute top-full left-0 right-0 z-50 px-4 py-2">
+        <HibernationIndicator />
+      </div>
 
       {/* HolographicPreviewOverlay removed - unused component */}
     </>

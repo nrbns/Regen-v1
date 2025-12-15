@@ -19,6 +19,8 @@ import { useTabsStore } from '../../state/tabsStore';
 // import { normalizeInputToUrlOrSearch } from '../../lib/search'; // Unused
 import { cn } from '../../lib/utils';
 import { useMobileDetection } from '../../mobile';
+import { URLBarProgress } from './URLBarProgress';
+import { useTabLoadingStore } from '../../state/tabLoadingStore';
 
 export interface EnhancedURLBarProps {
   tabId: string | null;
@@ -27,6 +29,8 @@ export interface EnhancedURLBarProps {
   onSubmit?: (url: string) => void;
   placeholder?: string;
   className?: string;
+  isLoading?: boolean; // SPRINT 0: Page loading state for progress bar
+  loadProgress?: number; // SPRINT 0: Load progress (0-100)
 }
 
 export function EnhancedURLBar({
@@ -36,6 +40,8 @@ export function EnhancedURLBar({
   onSubmit,
   placeholder = 'Search or enter URL',
   className,
+  isLoading: isLoadingProp = false, // SPRINT 0: Page loading state
+  loadProgress: loadProgressProp, // SPRINT 0: Load progress
 }: EnhancedURLBarProps) {
   const { isMobile } = useMobileDetection();
   const [localValue, setLocalValue] = useState('');
@@ -50,6 +56,15 @@ export function EnhancedURLBar({
   const tab = useTabsStore(state => (tabId ? state.tabs.find(t => t.id === tabId) : null));
   const historyEntries = useHistoryStore(state => state.getRecent(20));
   const { navigateTab } = useTabsStore();
+  
+  // SPRINT 0: Get loading state from store
+  const tabLoadingState = useTabLoadingStore(state => 
+    tabId ? state.getLoading(tabId) : { isLoading: false }
+  );
+  
+  // Use provided props or fallback to store state
+  const finalIsLoading = isLoadingProp !== undefined ? isLoadingProp : tabLoadingState.isLoading;
+  const finalLoadProgress = loadProgressProp !== undefined ? loadProgressProp : tabLoadingState.progress;
 
   const displayValue = controlledValue !== undefined ? controlledValue : localValue;
   const currentUrl = tab?.url || '';
@@ -181,7 +196,8 @@ export function EnhancedURLBar({
             'flex items-center gap-2 rounded-lg border bg-slate-900/50 transition-all',
             'border-slate-700 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/20',
             isMobile ? 'px-3 py-2.5' : 'px-4 py-2',
-            isFocused && 'shadow-lg shadow-purple-500/10'
+            isFocused && 'shadow-lg shadow-purple-500/10',
+            'overflow-hidden' // SPRINT 0: For progress bar overflow
           )}
         >
           {/* URL Icon */}
@@ -219,6 +235,9 @@ export function EnhancedURLBar({
               <X size={16} />
             </button>
           )}
+          
+          {/* SPRINT 0: Page load progress bar */}
+          <URLBarProgress isLoading={finalIsLoading} progress={finalLoadProgress} />
         </div>
       </form>
 

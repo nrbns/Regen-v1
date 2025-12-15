@@ -122,4 +122,3 @@ function extractConcepts(text: string): string[] {
 
   return [...new Set(concepts)].slice(0, 10); // Unique concepts, limit to 10
 }
-

@@ -73,7 +73,7 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
     setLoading(true);
     const messageId = `msg-${Date.now()}`;
-    
+
     setMessages(prev => [
       ...prev,
       {
@@ -121,10 +121,10 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
     if (!pageContext) return;
 
     const textToExplain = text || document.getSelection()?.toString() || pageContext.title;
-    
+
     setLoading(true);
     const messageId = `msg-${Date.now()}`;
-    
+
     setMessages(prev => [
       ...prev,
       {
@@ -138,12 +138,12 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
     try {
       let explanation: string;
-      
+
       if (textToExplain === pageContext.title || textToExplain.length < 50) {
         // Explain entire page or short text
         const pageExplanation = await explainPage({ level: 'detailed' });
         explanation = pageExplanation.explanation;
-        
+
         if (pageExplanation.concepts && pageExplanation.concepts.length > 0) {
           explanation += `\n\n**Key Concepts:** ${pageExplanation.concepts.join(', ')}`;
         }
@@ -243,58 +243,58 @@ Please provide a helpful answer based on the page content.`;
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: isMobile ? '100%' : 400, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className={`fixed top-0 right-0 bottom-0 ${
+        className={`fixed bottom-0 right-0 top-0 ${
           isMobile ? 'w-full' : 'w-[400px]'
-        } bg-gray-900 border-l border-gray-700 flex flex-col safe-top safe-bottom`}
+        } safe-top safe-bottom flex flex-col border-l border-gray-700 bg-gray-900`}
         style={{ zIndex: 120 }}
       >
         {/* Header */}
-        <div className="p-4 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-700 p-4">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <Sparkles className="h-5 w-5 text-indigo-400" />
             <h2 className="text-lg font-semibold text-white">AI Assistant</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800 min-w-[32px] min-h-[32px] flex items-center justify-center"
+            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Quick Actions */}
-        <div className="p-4 border-b border-gray-700 flex gap-2 flex-wrap flex-shrink-0">
+        <div className="flex flex-shrink-0 flex-wrap gap-2 border-b border-gray-700 p-4">
           <button
             onClick={handleSummarize}
             disabled={loading || !pageContext}
-            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-h-[36px]"
+            className="flex min-h-[36px] items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="h-4 w-4" />
             Summarize
           </button>
           <button
             onClick={() => handleExplain()}
             disabled={loading || !pageContext}
-            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 min-h-[36px]"
+            className="flex min-h-[36px] items-center gap-2 rounded-lg bg-gray-700 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <HelpCircle className="w-4 h-4" />
+            <HelpCircle className="h-4 w-4" />
             Explain
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <Sparkles className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+            <div className="py-12 text-center text-gray-400">
+              <Sparkles className="mx-auto mb-4 h-12 w-12 text-gray-600" />
               <p className="text-sm">Ask me anything about this page</p>
-              <p className="text-xs mt-2 text-gray-500">
+              <p className="mt-2 text-xs text-gray-500">
                 Try: "Summarize this page" or "Explain the main points"
               </p>
             </div>
           ) : (
-            messages.map((message) => (
+            messages.map(message => (
               <div
                 key={message.id}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -306,13 +306,13 @@ Please provide a helpful answer based on the page content.`;
                       : 'bg-gray-800 text-gray-100'
                   }`}
                 >
-                  <div className="text-sm whitespace-pre-wrap break-words">{message.content}</div>
+                  <div className="whitespace-pre-wrap break-words text-sm">{message.content}</div>
                   {message.role === 'assistant' && (
                     <button
                       onClick={() => handleCopy(message.content)}
-                      className="mt-2 text-xs text-gray-400 hover:text-gray-300 flex items-center gap-1"
+                      className="mt-2 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-300"
                     >
-                      <Copy className="w-3 h-3" />
+                      <Copy className="h-3 w-3" />
                       Copy
                     </button>
                   )}
@@ -322,8 +322,8 @@ Please provide a helpful answer based on the page content.`;
           )}
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-gray-800 rounded-lg p-3">
-                <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+              <div className="rounded-lg bg-gray-800 p-3">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-400" />
               </div>
             </div>
           )}
@@ -331,7 +331,7 @@ Please provide a helpful answer based on the page content.`;
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-700 flex-shrink-0">
+        <div className="flex-shrink-0 border-t border-gray-700 p-4">
           <div className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -346,18 +346,18 @@ Please provide a helpful answer based on the page content.`;
               placeholder="Ask anything about this page..."
               rows={2}
               disabled={loading || !pageContext}
-              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none text-base disabled:opacity-50"
+              className="flex-1 resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading || !pageContext}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[44px] min-h-[44px]"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send"
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Send className="w-5 h-5" />
+                <Send className="h-5 w-5" />
               )}
             </button>
           </div>
@@ -366,4 +366,3 @@ Please provide a helpful answer based on the page content.`;
     </AnimatePresence>
   );
 }
-

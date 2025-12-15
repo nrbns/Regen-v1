@@ -59,13 +59,13 @@ export function SyncStatusIndicator({ status, onSync, className }: SyncStatusInd
     <div className={cn('flex items-center gap-2', className)}>
       {/* Status Icon */}
       {!status.isOnline ? (
-        <CloudOff className="w-4 h-4 text-gray-500" />
+        <CloudOff className="h-4 w-4 text-gray-500" />
       ) : hasError ? (
-        <AlertCircle className="w-4 h-4 text-red-400" />
+        <AlertCircle className="h-4 w-4 text-red-400" />
       ) : hasConflicts ? (
-        <AlertCircle className="w-4 h-4 text-yellow-400" />
+        <AlertCircle className="h-4 w-4 text-yellow-400" />
       ) : (
-        <Cloud className={cn('w-4 h-4', status.isOnline ? 'text-green-400' : 'text-gray-500')} />
+        <Cloud className={cn('h-4 w-4', status.isOnline ? 'text-green-400' : 'text-gray-500')} />
       )}
 
       {/* Status Text */}
@@ -77,7 +77,9 @@ export function SyncStatusIndicator({ status, onSync, className }: SyncStatusInd
             </span>
             {(hasPendingChanges || hasConflicts) && (
               <span className="text-xs text-yellow-400">
-                {hasConflicts ? `${status.conflictCount} conflicts` : `${status.pendingChanges} pending`}
+                {hasConflicts
+                  ? `${status.conflictCount} conflicts`
+                  : `${status.pendingChanges} pending`}
               </span>
             )}
           </>
@@ -92,17 +94,16 @@ export function SyncStatusIndicator({ status, onSync, className }: SyncStatusInd
           onClick={handleSync}
           disabled={isSyncing || !status.isOnline}
           className={cn(
-            'p-1.5 rounded-md transition-colors touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center',
+            'flex min-h-[32px] min-w-[32px] touch-manipulation items-center justify-center rounded-md p-1.5 transition-colors',
             isSyncing
-              ? 'text-gray-500 cursor-not-allowed'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              ? 'cursor-not-allowed text-gray-500'
+              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
           )}
           aria-label="Sync now"
         >
-          <RefreshCw className={cn('w-4 h-4', isSyncing && 'animate-spin')} />
+          <RefreshCw className={cn('h-4 w-4', isSyncing && 'animate-spin')} />
         </button>
       )}
     </div>
   );
 }
-

@@ -6,13 +6,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, X } from 'lucide-react';
-import { loadSession, clearSession, getSessionSummary } from '../services/session';
-import { useTabsStore } from '../state/tabsStore';
-import { useAppStore } from '../state/appStore';
-import { ipc } from '../lib/ipc-typed';
+import { loadSession, clearSession, getSessionSummary } from '../../services/session';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
+import { ipc } from '../../lib/ipc-typed';
 import { formatDistanceToNow } from 'date-fns';
-import { log } from '../utils/logger';
-import { track } from '../services/analytics';
+import { log } from '../../utils/logger';
+import { track } from '../../services/analytics';
 
 export default function SessionRestoreModal() {
   const [show, setShow] = useState(false);

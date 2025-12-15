@@ -61,13 +61,14 @@ export function shouldHibernateTabs(): boolean {
 
 /**
  * Phase 1, Day 2: Save scroll position before hibernation
+ * SPRINT 1: Returns the saved state for snapshot storage
  */
-export function saveScrollPosition(tabId: string, iframe: HTMLIFrameElement | null): void {
-  if (!iframe) return;
+export function saveScrollPosition(tabId: string, iframe: HTMLIFrameElement | null): HibernationState | null {
+  if (!iframe) return null;
 
   try {
     const win = iframe.contentWindow;
-    if (!win) return;
+    if (!win) return null;
 
     const state: HibernationState = {
       scrollX: win.scrollX || 0,
@@ -79,9 +80,11 @@ export function saveScrollPosition(tabId: string, iframe: HTMLIFrameElement | nu
 
     scrollPositions.set(tabId, state);
     console.log('[Hibernation] Saved scroll position for tab', tabId, state);
+    return state;
   } catch {
     // Cross-origin - can't access, that's okay
     console.log('[Hibernation] Cannot save scroll position (cross-origin)', tabId);
+    return null;
   }
 }
 

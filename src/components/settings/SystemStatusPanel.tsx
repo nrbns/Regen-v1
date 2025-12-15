@@ -26,7 +26,7 @@ function StatusRow({
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-gray-400 text-xs">{label}</span>
+      <span className="text-xs text-gray-400">{label}</span>
       <span className={`${colorMap[status]} text-xs font-medium`}>{value}</span>
     </div>
   );
@@ -87,7 +87,7 @@ export function SystemStatusPanel() {
   if (isLoading || !status) {
     return (
       <div className="p-2">
-        <Loader className="w-4 h-4 animate-spin text-gray-400" />
+        <Loader className="h-4 w-4 animate-spin text-gray-400" />
       </div>
     );
   }
@@ -110,11 +110,11 @@ export function SystemStatusPanel() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 hover:bg-gray-800 rounded transition-colors"
+        className="rounded p-2 transition-colors hover:bg-gray-800"
         title="System Status"
         aria-label="System Status"
       >
-        <StatusIcon className={`w-5 h-5 ${statusColor}`} />
+        <StatusIcon className={`h-5 w-5 ${statusColor}`} />
       </button>
 
       {isOpen && (
@@ -123,16 +123,16 @@ export function SystemStatusPanel() {
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 
           {/* Panel */}
-          <div className="absolute right-0 top-full mt-2 w-72 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-50">
+          <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-700 bg-gray-900 shadow-xl">
             <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-gray-200">System Status</h3>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-300 transition-colors"
+                  className="text-gray-400 transition-colors hover:text-gray-300"
                   aria-label="Close"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
@@ -170,7 +170,7 @@ export function SystemStatusPanel() {
                 />
                 <StatusRow label="Mode" value={status.mode} status="neutral" />
 
-                <div className="pt-2 border-t border-gray-700 mt-2 space-y-1">
+                <div className="mt-2 space-y-1 border-t border-gray-700 pt-2">
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>Memory</span>
                     <span>{(status.memoryUsage.heapUsed / 1024 / 1024).toFixed(1)} MB</span>

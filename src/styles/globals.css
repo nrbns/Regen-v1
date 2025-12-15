@@ -7,28 +7,55 @@
 
 @import './design-system.css';
 
+/* SPRINT 0: Micro-interactions */
+@import './sprint0-micro-interactions.css';
+
 /* Import Design Tokens - must be before @tailwind */
 @import './tokens.css';
 
 /* Theme vars (light/dark) - must be before @tailwind */
 @import './theme.css';
 
+/* SPRINT 0: Low-Data Mode Styles - Must be before @tailwind */
+@import './low-data-mode.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 html {
+  /* SPRINT 0: Typography foundation - 16px base, system font for low-download */
+  font-size: 16px; /* Base font size for rem calculations */
   font-family:
-    'Inter',
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
-    sans-serif;
+    'Roboto',
+    'Helvetica Neue',
+    Arial,
+    sans-serif; /* System fonts first for low-download, Inter optional */
   font-feature-settings:
     'calt' 1,
     'liga' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5; /* Base line-height for content */
+}
+
+/* SPRINT 0: Typography scale - 8px baseline grid */
+body {
+  font-size: 1rem; /* 16px */
+  line-height: 1.5; /* Content line-height */
+  letter-spacing: -0.01em; /* Slight negative for better readability */
+}
+
+/* SPRINT 0: UI elements line-height (tighter than content) */
+button,
+input,
+select,
+textarea,
+[role='button'] {
+  line-height: 1.4; /* UI line-height */
 }
 
 /* Trade Mode Controls */
@@ -42,11 +69,32 @@ html {
 }
 
 /* Layout CSS Variables - PR: Fix layout overlap issues */
+/* SPRINT 0: 8px baseline grid spacing scale */
 :root {
   --sidebar-width: 320px;
   --topbar-height: 56px;
   --bottom-bar-height: 80px;
   --tabstrip-height: 40px;
+  
+  /* SPRINT 0: 8px baseline grid spacing scale */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+  --spacing-6: 32px;
+  --spacing-7: 48px;
+  --spacing-8: 64px;
+  
+  /* SPRINT 0: Animation durations for micro-interactions */
+  --animation-fast: 150ms;
+  --animation-normal: 200ms;
+  --animation-slow: 300ms;
+  
+  /* SPRINT 0: Border radius scale */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 }
 
 /* App root layout - accounts for bottom bar */
@@ -371,15 +419,20 @@ html {
     --mobile-card-gap: 8px;
   }
 
-  /* Touch targets - minimum 44x44px */
-  button,
-  a,
-  [role='button'],
-  input[type='button'],
-  input[type='submit'] {
-    min-height: 44px;
-    min-width: 44px;
-  }
+  /* SPRINT 0: Touch targets - minimum 44x44px (all devices, not just mobile) */
+button,
+a,
+[role='button'],
+input[type='button'],
+input[type='submit'],
+[role='tab'],
+[role='menuitem'] {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 
   /* Card spacing on mobile */
   .card-mobile {

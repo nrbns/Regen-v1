@@ -5,6 +5,7 @@
 
 import { log } from '../../utils/logger';
 import { track } from '../../services/analytics';
+import type { SafetyContext } from './safety';
 
 export type AgentNode = {
   id: string;
@@ -50,7 +51,16 @@ export interface ToolContext {
   nodeId: string;
   previousResults: Map<string, unknown>;
   memory: AgentMemory;
+  safety?: SafetyContext;
+  planMetadata?: AgentPlan['metadata'];
+  runId?: string;
 }
+
+export type RunPlanOptions = {
+  safety?: SafetyContext;
+  runId?: string;
+  maxNodes?: number;
+};
 
 export interface AgentMemory {
   get: (key: string) => unknown | null;
@@ -95,18 +105,26 @@ class AgentTaskGraph {
   /**
    * Execute a plan
    */
-  async runPlan(plan: AgentPlan, memory: AgentMemory): Promise<PlanExecutionResult> {
+  async runPlan(
+    plan: AgentPlan,
+    memory: AgentMemory,
+    options: RunPlanOptions = {}
+  ): Promise<PlanExecutionResult> {
     const startTime = performance.now();
     const results: NodeResult[] = [];
     const previousResults = new Map<string, unknown>();
+    const runId = options.runId ?? plan.id;
+    const nodes = options.maxNodes ? plan.nodes.slice(0, options.maxNodes) : plan.nodes;
 
-    log.info(`[AgentGraph] Executing plan: ${plan.id} (${plan.nodes.length} nodes)`);
-    track('agent_plan_started' as any, { planId: plan.id, nodeCount: plan.nodes.length });
+    log.info(`[AgentGraph] Executing plan: ${plan.id} (${nodes.length} nodes)`);
+    track('agent_plan_started' as any, { planId: plan.id, nodeCount: nodes.length });
 
     try {
       // Execute nodes in order (topological sort would be better for complex graphs)
-      for (const node of plan.nodes) {
+      for (const node of nodes) {
         const nodeStartTime = performance.now();
+        node.maxRetries = node.maxRetries ?? 3;
+        node.retryCount = node.retryCount ?? 0;
 
         try {
           // Resolve input from previous nodes
@@ -126,6 +144,9 @@ class AgentTaskGraph {
                 nodeId: node.id,
                 previousResults,
                 memory,
+                safety: options.safety,
+                planMetadata: plan.metadata,
+                runId,
               }),
             node.timeout || 30000
           );
@@ -159,7 +180,7 @@ class AgentTaskGraph {
             );
 
             // Retry the node
-            const retryResult = await this.retryNode(node, previousResults, memory);
+            const retryResult = await this.retryNode(node, previousResults, memory, options);
             results.push(retryResult);
             if (retryResult.success && retryResult.output) {
               previousResults.set(node.id, retryResult.output);
@@ -193,7 +214,7 @@ class AgentTaskGraph {
       track('agent_plan_completed' as any, {
         planId: plan.id,
         success,
-        nodeCount: plan.nodes.length,
+        nodeCount: nodes.length,
         duration: totalDuration,
       });
 
@@ -260,7 +281,8 @@ class AgentTaskGraph {
   private async retryNode(
     node: AgentNode,
     previousResults: Map<string, unknown>,
-    memory: AgentMemory
+    memory: AgentMemory,
+    options: RunPlanOptions
   ): Promise<NodeResult> {
     const startTime = performance.now();
 
@@ -278,6 +300,9 @@ class AgentTaskGraph {
             nodeId: node.id,
             previousResults,
             memory,
+            safety: options.safety,
+            planMetadata: undefined,
+            runId: options.runId,
           }),
         node.timeout || 30000
       );

@@ -6,7 +6,11 @@
 import { useState, useEffect } from 'react';
 import { Mail, Send, FileText, X, Loader2 } from 'lucide-react';
 import { getGmailSkill } from '../../services/skills/gmail/skill';
-import { getAllTemplates, fillTemplate, type EmailTemplate } from '../../services/skills/gmail/templates';
+import {
+  getAllTemplates,
+  fillTemplate,
+  type EmailTemplate,
+} from '../../services/skills/gmail/templates';
 import { extractPageContext } from '../../services/skills/gmail/contextExtractor';
 import type { SkillContext } from '../../services/skills/types';
 import { toast } from '../../utils/toast';
@@ -55,7 +59,7 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
       const pageContext = await extractPageContext(context);
       setSubject(pageContext.suggestedSubject);
       setBody(pageContext.suggestedBody);
-      
+
       if (pageContext.suggestedRecipients && pageContext.suggestedRecipients.length > 0) {
         setTo(pageContext.suggestedRecipients[0]);
       }
@@ -86,7 +90,7 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
 
   const handleUseTemplate = (template: EmailTemplate) => {
     setSelectedTemplate(template);
-    
+
     // Fill template with basic context
     const variables: Record<string, string> = {
       title: context?.pageTitle || 'Page',
@@ -170,27 +174,27 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
 
   if (!isAuthorized) {
     return (
-      <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700`}>
-        <div className="flex items-center gap-3 mb-4">
-          <Mail className="w-6 h-6 text-indigo-400" />
+      <div className={`${isMobile ? 'p-4' : 'p-6'} rounded-lg border border-gray-700 bg-gray-900`}>
+        <div className="mb-4 flex items-center gap-3">
+          <Mail className="h-6 w-6 text-indigo-400" />
           <h3 className="text-lg font-semibold text-white">Gmail Integration</h3>
         </div>
-        <p className="text-gray-400 mb-6">
+        <p className="mb-6 text-gray-400">
           Authorize Gmail to compose emails and create drafts from page content.
         </p>
         <button
           onClick={handleAuthorize}
           disabled={isAuthorizing}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isAuthorizing ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               Authorizing...
             </>
           ) : (
             <>
-              <Mail className="w-5 h-5" />
+              <Mail className="h-5 w-5" />
               Authorize Gmail
             </>
           )}
@@ -200,19 +204,21 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
   }
 
   return (
-    <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full`}>
-      <div className="flex items-center justify-between mb-6">
+    <div
+      className={`${isMobile ? 'p-4' : 'p-6'} w-full max-w-2xl rounded-lg border border-gray-700 bg-gray-900`}
+    >
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Mail className="w-6 h-6 text-indigo-400" />
+          <Mail className="h-6 w-6 text-indigo-400" />
           <h3 className="text-lg font-semibold text-white">Compose Email</h3>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800 min-w-[32px] min-h-[32px] flex items-center justify-center"
+            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         )}
       </div>
@@ -221,19 +227,19 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
       <div className="mb-4">
         <button
           onClick={() => setShowTemplates(!showTemplates)}
-          className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-2"
+          className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300"
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="h-4 w-4" />
           {selectedTemplate ? `Template: ${selectedTemplate.name}` : 'Use Template'}
         </button>
-        
+
         {showTemplates && (
-          <div className="mt-2 p-3 bg-gray-800 rounded-lg border border-gray-700 max-h-48 overflow-y-auto">
+          <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-gray-700 bg-gray-800 p-3">
             {templates.map(template => (
               <button
                 key={template.id}
                 onClick={() => handleUseTemplate(template)}
-                className="w-full text-left p-2 hover:bg-gray-700 rounded text-sm mb-1"
+                className="mb-1 w-full rounded p-2 text-left text-sm hover:bg-gray-700"
               >
                 <div className="font-medium text-white">{template.name}</div>
                 <div className="text-xs text-gray-400">{template.description}</div>
@@ -246,77 +252,77 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
       {/* Form */}
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">To</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">To</label>
           <input
             type="text"
             value={to}
             onChange={e => setTo(e.target.value)}
             placeholder="recipient@example.com"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
             autoComplete="email"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Cc (optional)</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Cc (optional)</label>
           <input
             type="text"
             value={cc}
             onChange={e => setCc(e.target.value)}
             placeholder="cc@example.com"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Bcc (optional)</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Bcc (optional)</label>
           <input
             type="text"
             value={bcc}
             onChange={e => setBcc(e.target.value)}
             placeholder="bcc@example.com"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Subject</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Subject</label>
           <input
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
             placeholder="Email subject"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Body</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Body</label>
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
             placeholder="Email body"
             rows={8}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-y text-base"
+            className="w-full resize-y rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 mt-6">
+      <div className="mt-6 flex gap-3">
         <button
           onClick={handleCompose}
           disabled={isComposing}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isComposing ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               Opening...
             </>
           ) : (
             <>
-              <Send className="w-5 h-5" />
+              <Send className="h-5 w-5" />
               Compose in Gmail
             </>
           )}
@@ -324,16 +330,16 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
         <button
           onClick={handleCreateDraft}
           disabled={isComposing}
-          className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg bg-gray-700 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isComposing ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               Creating...
             </>
           ) : (
             <>
-              <FileText className="w-5 h-5" />
+              <FileText className="h-5 w-5" />
               Create Draft
             </>
           )}
@@ -342,4 +348,3 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
     </div>
   );
 }
-

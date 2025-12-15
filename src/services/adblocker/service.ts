@@ -43,7 +43,7 @@ export class AdblockerService {
     // Initialize engine
     if (this.settings.enabled) {
       await this.engine.initialize(this.settings.filterLists, this.settings);
-      
+
       // Initialize request interceptors
       initializeInterceptors();
     }
@@ -146,7 +146,7 @@ export class AdblockerService {
 
     const whitelisted = new Set(this.settings!.whitelistedDomains);
     whitelisted.add(domain);
-    
+
     await this.updateSettings({
       whitelistedDomains: Array.from(whitelisted),
     });
@@ -163,7 +163,7 @@ export class AdblockerService {
     }
 
     const whitelisted = this.settings!.whitelistedDomains.filter(d => d !== domain);
-    
+
     await this.updateSettings({
       whitelistedDomains: whitelisted,
     });
@@ -182,7 +182,7 @@ export class AdblockerService {
 
     const blocked = new Set(this.settings!.blockedDomains);
     blocked.add(domain);
-    
+
     await this.updateSettings({
       blockedDomains: Array.from(blocked),
     });
@@ -217,4 +217,3 @@ export function getAdblockerService(): AdblockerService {
   }
   return serviceInstance;
 }
-

@@ -12,7 +12,7 @@ import { getAdblockerStorage } from './storage';
 export function interceptFetch(): void {
   const originalFetch = window.fetch;
 
-  window.fetch = async function(...args) {
+  window.fetch = async function (...args) {
     const [resource, init] = args;
     const url = typeof resource === 'string' ? resource : resource.url;
 
@@ -25,12 +25,12 @@ export function interceptFetch(): void {
     if (request.blocked) {
       // Record block in stats
       const storage = getAdblockerStorage();
-      const stats = await storage.loadStats() || {
+      const stats = (await storage.loadStats()) || {
         totalBlocked: 0,
         blockedByType: {},
         blockedByList: {},
       };
-      
+
       stats.totalBlocked++;
       stats.blockedByType[request.type] = (stats.blockedByType[request.type] || 0) + 1;
       await storage.saveStats(stats);
@@ -66,7 +66,7 @@ export function interceptXHR(): void {
 
       if (request.blocked) {
         // Block the request by overriding send
-        this.send = function() {
+        this.send = function () {
           // Request blocked - do nothing
           this.readyState = 4;
           this.status = 200;
@@ -87,9 +87,9 @@ export function interceptXHR(): void {
  * Block script tags
  */
 export function interceptScripts(): void {
-  const observer = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      mutation.addedNodes.forEach((node) => {
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
         if (node.nodeName === 'SCRIPT') {
           const script = node as HTMLScriptElement;
           const src = script.src;
@@ -142,4 +142,3 @@ export function initializeInterceptors(): void {
   interceptXHR();
   interceptScripts();
 }
-

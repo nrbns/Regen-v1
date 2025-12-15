@@ -40,12 +40,12 @@ export function createSandbox(skill: Skill, policy: SandboxPolicy = DEFAULT_POLI
       error: (...args: any[]) => console.error(`[Sandbox:${skill.id}]`, ...args),
       warn: (...args: any[]) => console.warn(`[Sandbox:${skill.id}]`, ...args),
     },
-    
+
     // Limited utilities
     utils: {
       // Date operations
       now: () => Date.now(),
-      
+
       // String operations
       escapeHtml: (str: string) => {
         const map: Record<string, string> = {
@@ -57,7 +57,7 @@ export function createSandbox(skill: Skill, policy: SandboxPolicy = DEFAULT_POLI
         };
         return str.replace(/[&<>"']/g, m => map[m]);
       },
-      
+
       // JSON operations
       parse: (str: string) => JSON.parse(str),
       stringify: (obj: any) => JSON.stringify(obj),
@@ -108,7 +108,7 @@ function createSecureFetch(skillId: string, policy: SandboxPolicy): typeof fetch
       const isAllowed = policy.allowedOrigins.some(
         origin => urlObj.origin === origin || urlObj.origin.endsWith(origin)
       );
-      
+
       if (!isAllowed) {
         throw new Error(`Origin ${urlObj.origin} not allowed`);
       }
@@ -124,7 +124,7 @@ function createSecureFetch(skillId: string, policy: SandboxPolicy): typeof fetch
  */
 function createSecureStorage(skillId: string) {
   const prefix = `skill-${skillId}-`;
-  
+
   return {
     get: (key: string) => {
       try {
@@ -134,7 +134,7 @@ function createSecureStorage(skillId: string) {
         return null;
       }
     },
-    
+
     set: (key: string, value: any) => {
       try {
         localStorage.setItem(prefix + key, JSON.stringify(value));
@@ -143,7 +143,7 @@ function createSecureStorage(skillId: string) {
         return false;
       }
     },
-    
+
     remove: (key: string) => {
       try {
         localStorage.removeItem(prefix + key);
@@ -152,7 +152,7 @@ function createSecureStorage(skillId: string) {
         return false;
       }
     },
-    
+
     clear: () => {
       try {
         const keys = Object.keys(localStorage);
@@ -175,12 +175,12 @@ function createSecureDOM(_skillId: string) {
       // This would be restricted to safe selectors
       return document.querySelector(selector);
     },
-    
+
     getTextContent: (selector: string) => {
       const el = document.querySelector(selector);
       return el?.textContent || null;
     },
-    
+
     getAttribute: (selector: string, attr: string) => {
       const el = document.querySelector(selector);
       return el?.getAttribute(attr) || null;
@@ -203,18 +203,21 @@ export async function executeInSandbox<T>(
 
     try {
       let result: T | Promise<T>;
-      
+
       if (typeof code === 'function') {
         result = code(sandbox);
       } else {
         // Execute string code in sandbox context
         // This is unsafe and should only be used with trusted code
         // In production, use a proper sandboxing solution
-        const func = new Function('sandbox', `
+        const func = new Function(
+          'sandbox',
+          `
           with (sandbox) {
             ${code}
           }
-        `);
+        `
+        );
         result = func(sandbox);
       }
 
@@ -238,4 +241,3 @@ export async function executeInSandbox<T>(
     }
   });
 }
-

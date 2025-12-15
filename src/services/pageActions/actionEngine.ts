@@ -132,10 +132,7 @@ function generateActionsFromIntent(
 /**
  * Create action from type
  */
-function createActionFromType(
-  actionType: string,
-  _analysis: PageAnalysis
-): SuggestedAction | null {
+function createActionFromType(actionType: string, _analysis: PageAnalysis): SuggestedAction | null {
   const actionMap: Record<string, () => SuggestedAction> = {
     summarize: () => ({
       id: 'summarize',
@@ -261,4 +258,3 @@ function removeDuplicates(suggestions: ActionSuggestion[]): ActionSuggestion[] {
     return true;
   });
 }
-

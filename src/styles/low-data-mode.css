@@ -1,0 +1,63 @@
+/**
+ * SPRINT 0: Low-Data Mode Styles
+ * Simplified CSS when low-data mode is enabled
+ */
+
+.low-data-mode {
+  /* Remove animations and transitions */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+  
+  /* Reduce shadows (less rendering work) */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  /* Simplify gradients to solid colors */
+  * {
+    background-image: none !important;
+  }
+  
+  /* Disable backdrop filters (performance heavy) */
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  
+  /* Reduce border radius for simpler rendering */
+  * {
+    border-radius: 2px !important;
+  }
+  
+  /* Simplify font rendering */
+  * {
+    text-rendering: optimizeSpeed !important;
+    -webkit-font-smoothing: subpixel-antialiased !important;
+  }
+}
+
+/* Image placeholder styling */
+.low-data-image-placeholder {
+  border: none;
+  padding: 0;
+  background: transparent;
+  margin: 0;
+}
+
+.low-data-image-placeholder:hover {
+  opacity: 0.8;
+}
+
+/* Ensure iframes respect low-data mode */
+.low-data-mode iframe {
+  /* Reduce iframe complexity */
+  transform: none !important;
+}
+

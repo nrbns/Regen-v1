@@ -17,7 +17,7 @@ export function useTextSelection() {
 
   const handleSelection = useCallback(() => {
     const selection = window.getSelection();
-    
+
     if (!selection || selection.isCollapsed || selection.toString().trim().length === 0) {
       // Clear selection after a delay
       if (timeoutRef.current) {
@@ -61,7 +61,7 @@ export function useTextSelection() {
     // Also listen for mouseup (user finished selecting)
     document.addEventListener('mouseup', handleSelection);
     // Clear on click outside
-    document.addEventListener('click', (_e) => {
+    document.addEventListener('click', _e => {
       const selection = window.getSelection();
       if (!selection?.toString() || selection.isCollapsed) {
         clearSelection();
@@ -82,4 +82,3 @@ export function useTextSelection() {
     clearSelection,
   };
 }
-

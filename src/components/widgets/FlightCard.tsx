@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plane, X, ArrowRight } from 'lucide-react';
-import { toast } from '../utils/toast';
+import { toast } from '../../utils/toast';
 
 interface FlightData {
   from: string;
@@ -31,7 +31,7 @@ export function FlightCard() {
     };
 
     window.addEventListener('flight-card', handleFlightCard as EventListener);
-    
+
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
       // Dynamic import to avoid Vite dependency scan errors
       import('@tauri-apps/api/event')
@@ -60,32 +60,32 @@ export function FlightCard() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-indigo-900 to-purple-900 p-8 rounded-2xl text-white shadow-2xl border border-purple-500 max-w-md z-50"
+        className="fixed left-1/2 top-1/2 z-50 max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-purple-500 bg-gradient-to-r from-indigo-900 to-purple-900 p-8 text-white shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-center flex-1">
-            <div className="text-2xl font-bold flex items-center justify-center gap-2">
-              {flight.from} <ArrowRight className="w-5 h-5" /> {flight.to}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex-1 text-center">
+            <div className="flex items-center justify-center gap-2 text-2xl font-bold">
+              {flight.from} <ArrowRight className="h-5 w-5" /> {flight.to}
             </div>
-            <div className="text-sm text-gray-300 mt-1">{flight.type}</div>
+            <div className="mt-1 text-sm text-gray-300">{flight.type}</div>
           </div>
           <button
             onClick={() => setIsVisible(false)}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 transition-colors hover:text-white"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="text-center text-5xl my-4 font-bold">{flight.price}</div>
-        
-        <div className="text-center text-lg mb-2">
+        <div className="my-4 text-center text-5xl font-bold">{flight.price}</div>
+
+        <div className="mb-2 text-center text-lg">
           <div>Out: {flight.depart}</div>
           {flight.return !== '—' && <div>Return: {flight.return}</div>}
         </div>
 
-        <div className="text-center text-xl mb-4 flex items-center justify-center gap-2">
-          <Plane className="w-5 h-5" />
+        <div className="mb-4 flex items-center justify-center gap-2 text-center text-xl">
+          <Plane className="h-5 w-5" />
           {flight.airline}
         </div>
 
@@ -98,16 +98,15 @@ export function FlightCard() {
               toast.info('Click in the booking window to proceed to payment');
             }
           }}
-          className="mt-4 w-full bg-green-500 hover:bg-green-600 px-8 py-3 rounded-full text-xl font-bold transition-colors"
+          className="mt-4 w-full rounded-full bg-green-500 px-8 py-3 text-xl font-bold transition-colors hover:bg-green-600"
         >
           Go to Payment
         </button>
 
-        <div className="text-xs text-center mt-3 opacity-70">
+        <div className="mt-3 text-center text-xs opacity-70">
           Source: {flight.source === 'live' ? 'Live prices' : 'Cached data'}
         </div>
       </motion.div>
     </AnimatePresence>
   );
 }
-

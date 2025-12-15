@@ -22,6 +22,7 @@ type GeneralSettings = {
   voiceTTSEnabled?: boolean; // Phase 2, Day 4: Enable text-to-speech responses
   voiceAutoDetectLanguage?: boolean; // Phase 2, Day 4: Auto-detect language for voice
   hasSeenOnboardingTour?: boolean; // AUDIT FIX #6: Track if user has seen onboarding tour
+  lowDataMode?: boolean; // SPRINT 0: Low-data mode (disable images, reduce quality, limit bandwidth)
 };
 
 type PrivacySettings = {
@@ -45,6 +46,11 @@ type AppearanceSettings = {
   fontSize?: 'small' | 'medium' | 'large';
   smoothScrolling?: boolean;
   reducedMotion?: boolean;
+  // SPRINT 2: Layout preferences
+  layoutModeOverride?: 'auto' | 'full' | 'compact' | 'minimal'; // 'auto' = use network detection, others override
+  verticalTabsOverride?: boolean | null; // null = auto, true/false = override
+  compactTabsOverride?: boolean | null; // null = auto, true/false = override
+  hideSidebarsOverride?: boolean | null; // null = auto, true/false = override
 };
 
 type AccountSettings = {
@@ -89,6 +95,7 @@ const createDefaults = (): SettingsData => ({
     voiceEditBeforeExecute: true, // Phase 1, Day 5: Default to enabled
     voiceTTSEnabled: true, // Phase 2, Day 4: Default to enabled
     voiceAutoDetectLanguage: true, // Phase 2, Day 4: Default to enabled
+    lowDataMode: false, // SPRINT 0: Default to disabled
   },
   privacy: {
     localOnlyMode: false,
@@ -110,6 +117,11 @@ const createDefaults = (): SettingsData => ({
     fontSize: 'medium',
     smoothScrolling: true,
     reducedMotion: false,
+    // SPRINT 2: Layout preferences default to 'auto' (network-based)
+    layoutModeOverride: 'auto',
+    verticalTabsOverride: null,
+    compactTabsOverride: null,
+    hideSidebarsOverride: null,
   },
   account: {
     displayName: 'Explorer',

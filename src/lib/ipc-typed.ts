@@ -648,10 +648,16 @@ export async function ipcCall<TRequest, TResponse = unknown>(
     (userAgent.includes('Safari') && !userAgent.includes('Chrome')) ||
     userAgent.includes('Edg');
 
+  // Explicitly detect Tauri runtime and ensure we DO NOT treat it like Electron here.
+  // In Tauri, there is no Electron-style window.ipc bridge; we should use HTTP mappings
+  // or renderer fallbacks instead of waiting for a non-existent Electron IPC.
+  const isTauri = isTauriRuntime();
+
   // If we have window.ipc or window.api, we're definitely in Electron (even if other checks fail)
-  // Also, if we're NOT in a regular browser, assume Electron (more aggressive detection)
-  const isElectron =
-    hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser;
+  // Also, if we're NOT in a regular browser, assume Electron (more aggressive detection).
+  // However, force Electron=false when running in Tauri to avoid misclassification.
+  const isElectron = !isTauri &&
+    (hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser);
 
   // Wait for IPC to be ready (with longer timeout for first call)
   const isReady = await waitForIPC(8000);

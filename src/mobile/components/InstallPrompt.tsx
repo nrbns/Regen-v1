@@ -19,8 +19,10 @@ export function InstallPrompt() {
 
   useEffect(() => {
     // Check if already installed (standalone mode)
-    if (window.matchMedia('(display-mode: standalone)').matches || 
-        (window.navigator as any).standalone === true) {
+    if (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true
+    ) {
       setIsStandalone(true);
       return;
     }
@@ -33,13 +35,13 @@ export function InstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      
+
       // Check if user dismissed recently
       const dismissed = localStorage.getItem('pwa-install-dismissed');
       if (dismissed && Date.now() - parseInt(dismissed) < 24 * 60 * 60 * 1000) {
         return; // Don't show if dismissed in last 24 hours
       }
-      
+
       // Show prompt after 3 seconds (or based on user behavior)
       setTimeout(() => setShowPrompt(true), 3000);
     };
@@ -102,29 +104,29 @@ export function InstallPrompt() {
   }
 
   return (
-    <div 
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-gray-900 border border-gray-700 rounded-lg shadow-lg p-4 animate-in slide-in-from-bottom-4"
+    <div
+      className="animate-in slide-in-from-bottom-4 fixed bottom-4 left-4 right-4 rounded-lg border border-gray-700 bg-gray-900 p-4 shadow-lg md:left-auto md:right-4 md:w-96"
       style={{ zIndex: 105, bottom: 'calc(80px + env(safe-area-inset-bottom, 0px) + 16px)' }} // Above mobile nav
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3 flex-1">
-          <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-            <Smartphone className="w-5 h-5 text-white" />
+        <div className="flex flex-1 items-start gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600">
+            <Smartphone className="h-5 w-5 text-white" />
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-semibold mb-1 text-sm">
-              Install Regen Browser
-            </h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-1 text-sm font-semibold text-white">Install Regen Browser</h3>
             {isIOS ? (
-              <div className="text-gray-400 text-xs space-y-1">
+              <div className="space-y-1 text-xs text-gray-400">
                 <p>Install Regen for quick access:</p>
-                <ol className="list-decimal list-inside space-y-0.5 ml-1">
-                  <li>Tap the Share button <span className="text-gray-500">(□↑)</span></li>
+                <ol className="ml-1 list-inside list-decimal space-y-0.5">
+                  <li>
+                    Tap the Share button <span className="text-gray-500">(□↑)</span>
+                  </li>
                   <li>Scroll down and tap "Add to Home Screen"</li>
                 </ol>
               </div>
             ) : (
-              <p className="text-gray-400 text-xs">
+              <p className="text-xs text-gray-400">
                 Add Regen to your home screen for quick access and offline support.
               </p>
             )}
@@ -132,24 +134,24 @@ export function InstallPrompt() {
         </div>
         <button
           onClick={handleDismiss}
-          className="flex-shrink-0 text-gray-400 hover:text-white transition-colors"
+          className="flex-shrink-0 text-gray-400 transition-colors hover:text-white"
           aria-label="Dismiss"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
       {!isIOS && (
         <div className="mt-4 flex gap-2">
           <button
             onClick={handleInstall}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+            className="flex flex-1 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
-            <Download className="w-4 h-4" />
+            <Download className="h-4 w-4" />
             Install
           </button>
           <button
             onClick={handleDismiss}
-            className="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+            className="px-4 py-2 text-sm text-gray-400 transition-colors hover:text-white"
           >
             Not now
           </button>
@@ -159,7 +161,7 @@ export function InstallPrompt() {
         <div className="mt-3">
           <button
             onClick={handleDismiss}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
             Got it
           </button>
@@ -168,4 +170,3 @@ export function InstallPrompt() {
     </div>
   );
 }
-

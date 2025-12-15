@@ -9,13 +9,7 @@ import {
   detectDeletions,
   type ConflictStrategy,
 } from './conflictResolver';
-import type {
-  SyncData,
-  SyncDelta,
-  SyncStatus,
-  SyncResult,
-  ConflictEntry,
-} from './types';
+import type { SyncData, SyncDelta, SyncStatus, SyncResult, ConflictEntry } from './types';
 
 export interface SyncServiceConfig {
   apiUrl: string;

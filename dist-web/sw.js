@@ -8,25 +8,15 @@ const RUNTIME_CACHE = 'regen-runtime-v1';
 const STATIC_CACHE = 'regen-static-v1';
 
 // Assets to cache immediately
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/logo.png',
-  '/styles/globals.css',
-];
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/logo.png', '/styles/globals.css'];
 
 // API endpoints to cache
-const API_CACHE_PATTERNS = [
-  /\/api\/search/,
-  /\/api\/summarize/,
-  /\/api\/agent/,
-];
+const API_CACHE_PATTERNS = [/\/api\/search/, /\/api\/summarize/, /\/api\/agent/];
 
 // Install event - cache static assets
-self.addEventListener('install', (event) => {
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
+    caches.open(STATIC_CACHE).then(cache => {
       return cache.addAll(STATIC_ASSETS);
     })
   );
@@ -34,15 +24,15 @@ self.addEventListener('install', (event) => {
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames
-          .filter((name) => {
+          .filter(name => {
             return name !== CACHE_NAME && name !== RUNTIME_CACHE && name !== STATIC_CACHE;
           })
-          .map((name) => caches.delete(name))
+          .map(name => caches.delete(name))
       );
     })
   );
@@ -50,7 +40,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // Fetch event - serve from cache, fallback to network
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
@@ -65,13 +55,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Handle API requests with cache-first strategy
-  if (API_CACHE_PATTERNS.some((pattern) => pattern.test(url.pathname))) {
+  if (API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
     event.respondWith(
-      caches.open(RUNTIME_CACHE).then((cache) => {
-        return cache.match(request).then((cachedResponse) => {
+      caches.open(RUNTIME_CACHE).then(cache => {
+        return cache.match(request).then(cachedResponse => {
           if (cachedResponse) {
             // Serve from cache, but fetch in background to update
-            fetch(request).then((response) => {
+            fetch(request).then(response => {
               if (response.ok) {
                 cache.put(request, response.clone());
               }
@@ -79,7 +69,7 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           // Fetch from network
-          return fetch(request).then((response) => {
+          return fetch(request).then(response => {
             if (response.ok) {
               cache.put(request, response.clone());
             }
@@ -97,11 +87,11 @@ self.addEventListener('fetch', (event) => {
     STATIC_ASSETS.includes(url.pathname)
   ) {
     event.respondWith(
-      caches.open(STATIC_CACHE).then((cache) => {
-        return cache.match(request).then((cachedResponse) => {
+      caches.open(STATIC_CACHE).then(cache => {
+        return cache.match(request).then(cachedResponse => {
           return (
             cachedResponse ||
-            fetch(request).then((response) => {
+            fetch(request).then(response => {
               if (response.ok) {
                 cache.put(request, response.clone());
               }
@@ -118,17 +108,17 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
-        .then((response) => {
+        .then(response => {
           if (response.ok) {
             const responseClone = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => {
+            caches.open(RUNTIME_CACHE).then(cache => {
               cache.put(request, responseClone);
             });
           }
           return response;
         })
         .catch(() => {
-          return caches.match(request).then((cachedResponse) => {
+          return caches.match(request).then(cachedResponse => {
             return cachedResponse || caches.match('/index.html');
           });
         })
@@ -139,10 +129,10 @@ self.addEventListener('fetch', (event) => {
   // Default: network-first for other requests
   event.respondWith(
     fetch(request)
-      .then((response) => {
+      .then(response => {
         if (response.ok) {
           const responseClone = response.clone();
-          caches.open(RUNTIME_CACHE).then((cache) => {
+          caches.open(RUNTIME_CACHE).then(cache => {
             cache.put(request, responseClone);
           });
         }
@@ -155,7 +145,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Background sync for offline actions (optional)
-self.addEventListener('sync', (event) => {
+self.addEventListener('sync', event => {
   if (event.tag === 'sync-research-results') {
     event.waitUntil(syncResearchResults());
   }

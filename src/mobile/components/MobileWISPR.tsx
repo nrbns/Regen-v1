@@ -53,66 +53,62 @@ export function MobileWISPR({ onClose, onResult }: MobileWISPRProps) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div
         ref={containerRef}
-        className="w-full max-w-md bg-gray-900 rounded-t-2xl border-t border-l border-r border-gray-800 shadow-2xl safe-bottom"
+        className="safe-bottom w-full max-w-md rounded-t-2xl border-l border-r border-t border-gray-800 bg-gray-900 shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center">
-              <Volume2 className="w-5 h-5 text-white" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600">
+              <Volume2 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-sm">WISPR Voice Assistant</h3>
-              <p className="text-gray-400 text-xs">Tap mic to speak</p>
+              <h3 className="text-sm font-semibold text-white">WISPR Voice Assistant</h3>
+              <p className="text-xs text-gray-400">Tap mic to speak</p>
             </div>
           </div>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white transition-colors touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
+              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center p-2 text-gray-400 transition-colors hover:text-white"
               aria-label="Close"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           )}
         </div>
 
         {/* Content */}
-        <div className="p-6 flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-6 p-6">
           {/* Voice Button */}
-          <VoiceButton
-            onResult={handleResult}
-            small={false}
-            editBeforeExecute={true}
-          />
+          <VoiceButton onResult={handleResult} small={false} editBeforeExecute={true} />
 
           {/* Status */}
           {isListening && (
             <div className="flex items-center gap-2 text-indigo-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Listening...</span>
             </div>
           )}
 
           {isProcessing && (
             <div className="flex items-center gap-2 text-purple-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin" />
               <span className="text-sm">Processing...</span>
             </div>
           )}
 
           {/* Transcript */}
           {transcript && (
-            <div className="w-full p-4 bg-gray-800 rounded-lg">
-              <p className="text-white text-sm">{transcript}</p>
+            <div className="w-full rounded-lg bg-gray-800 p-4">
+              <p className="text-sm text-white">{transcript}</p>
             </div>
           )}
 
           {/* Hint */}
-          <p className="text-gray-500 text-xs text-center">
+          <p className="text-center text-xs text-gray-500">
             Say "Research", "Trade", or ask a question
           </p>
         </div>
@@ -120,4 +116,3 @@ export function MobileWISPR({ onClose, onResult }: MobileWISPRProps) {
     </div>
   );
 }
-

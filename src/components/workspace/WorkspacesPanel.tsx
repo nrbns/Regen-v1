@@ -5,14 +5,14 @@
 
 import { useState, useRef } from 'react';
 import { Search, Pin, PinOff, Trash2, Save, FolderOpen, Upload, Download } from 'lucide-react';
-import { useWorkspacesStore } from '../state/workspacesStore';
-import { useTabsStore } from '../state/tabsStore';
-import { useAppStore } from '../state/appStore';
-import { ipc } from '../lib/ipc-typed';
-import { track } from '../services/analytics';
-import { toast } from '../utils/toast';
+import { useWorkspacesStore } from '../../state/workspacesStore';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
+import { ipc } from '../../lib/ipc-typed';
+import { track } from '../../services/analytics';
+import { toast } from '../../utils/toast';
 import { formatDistanceToNow } from 'date-fns';
-import { exportSessionToFile, importSessionFromFile } from '../lib/session-transfer';
+import { exportSessionToFile, importSessionFromFile } from '../../lib/session-transfer';
 
 export function WorkspacesPanel() {
   const workspaces = useWorkspacesStore(state => state.workspaces);
@@ -142,10 +142,10 @@ export function WorkspacesPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-100">
+    <div className="flex h-full flex-col bg-slate-900 text-slate-100">
       {/* Header */}
-      <div className="p-4 border-b border-slate-800">
-        <div className="flex items-center justify-between mb-3">
+      <div className="border-b border-slate-800 p-4">
+        <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Workspaces</h2>
           <div className="flex items-center gap-2">
             <button
@@ -157,7 +157,7 @@ export function WorkspacesPanel() {
               <Download size={14} />
               Export .omnisession
             </button>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-700/70 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-700/70 px-3 py-1.5 text-xs text-slate-200 transition hover:border-slate-500/80">
               <Upload size={14} />
               {importing ? 'Importing...' : 'Import session'}
               <input
@@ -172,7 +172,7 @@ export function WorkspacesPanel() {
             <button
               onClick={handleSave}
               disabled={saving || tabsStore.tabs.length === 0}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="flex items-center gap-2 rounded-lg bg-blue-600/20 px-3 py-1.5 text-sm text-blue-300 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save size={14} />
               Save Workspace
@@ -187,7 +187,7 @@ export function WorkspacesPanel() {
             placeholder="Search workspaces..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           />
         </div>
       </div>
@@ -195,9 +195,9 @@ export function WorkspacesPanel() {
       {/* Workspaces List */}
       <div className="flex-1 overflow-y-auto p-4">
         {displayedWorkspaces.length === 0 ? (
-          <div className="text-center text-gray-400 py-12">
+          <div className="py-12 text-center text-gray-400">
             {searchQuery ? 'No workspaces found' : 'No workspaces yet'}
-            <p className="text-sm mt-2">
+            <p className="mt-2 text-sm">
               {!searchQuery && 'Save your current tabs as a workspace to get started'}
             </p>
           </div>
@@ -206,30 +206,30 @@ export function WorkspacesPanel() {
             {displayedWorkspaces.map(workspace => (
               <div
                 key={workspace.id}
-                className="group flex items-start gap-3 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors"
+                className="group flex items-start gap-3 rounded-lg bg-slate-800/50 p-3 transition-colors hover:bg-slate-800"
               >
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-sm text-slate-100">{workspace.name}</h3>
+                    <h3 className="text-sm font-medium text-slate-100">{workspace.name}</h3>
                     {workspace.isPinned && (
-                      <Pin size={12} className="text-yellow-400 fill-current" />
+                      <Pin size={12} className="fill-current text-yellow-400" />
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="mt-1 text-xs text-gray-400">
                     {workspace.tabs.length} tab{workspace.tabs.length === 1 ? '' : 's'} •{' '}
                     {workspace.mode}
                   </p>
                   {workspace.description && (
-                    <p className="text-xs text-gray-500 mt-1">{workspace.description}</p>
+                    <p className="mt-1 text-xs text-gray-500">{workspace.description}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="mt-1 text-xs text-gray-500">
                     {formatDistanceToNow(new Date(workspace.updatedAt), { addSuffix: true })}
                   </p>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     onClick={() => togglePin(workspace.id)}
-                    className="p-1.5 rounded hover:bg-slate-700 transition-colors"
+                    className="rounded p-1.5 transition-colors hover:bg-slate-700"
                     title={workspace.isPinned ? 'Unpin' : 'Pin'}
                   >
                     {workspace.isPinned ? (
@@ -240,14 +240,14 @@ export function WorkspacesPanel() {
                   </button>
                   <button
                     onClick={() => handleRestore(workspace)}
-                    className="p-1.5 rounded hover:bg-blue-500/20 text-blue-400 transition-colors"
+                    className="rounded p-1.5 text-blue-400 transition-colors hover:bg-blue-500/20"
                     title="Restore workspace"
                   >
                     <FolderOpen size={14} />
                   </button>
                   <button
                     onClick={() => handleRemove(workspace.id)}
-                    className="p-1.5 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                    className="rounded p-1.5 text-red-400 transition-colors hover:bg-red-500/20"
                     title="Delete workspace"
                   >
                     <Trash2 size={14} />

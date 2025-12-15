@@ -6,8 +6,8 @@
 import { useState } from 'react';
 import { X, Star, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { track } from '../services/analytics';
-import { toast } from '../utils/toast';
+import { track } from '../../services/analytics';
+import { toast } from '../../utils/toast';
 
 interface FeedbackModalProps {
   open: boolean;
@@ -75,12 +75,12 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-slate-900 rounded-xl border border-slate-700 shadow-2xl max-w-md w-full mx-4"
+            className="mx-4 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
           >
             <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
+              <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-100 mb-1">Share Your Feedback</h3>
+                  <h3 className="mb-1 text-lg font-semibold text-gray-100">Share Your Feedback</h3>
                   <p className="text-sm text-gray-400">
                     Help us improve Regen. What's one thing that confused you or broke?
                   </p>
@@ -95,7 +95,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
-                  className="text-gray-400 hover:text-gray-200 transition-colors"
+                  className="text-gray-400 transition-colors hover:text-gray-200"
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close"
                 >
@@ -106,7 +106,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Rating */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Rating</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Rating</label>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5].map(value => (
                       <button
@@ -121,7 +121,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                           (e as any).stopImmediatePropagation();
                           e.stopPropagation();
                         }}
-                        className={`p-2 rounded transition-colors ${
+                        className={`rounded p-2 transition-colors ${
                           rating && rating >= value
                             ? 'text-yellow-400'
                             : 'text-gray-500 hover:text-gray-400'
@@ -139,7 +139,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
 
                 {/* Feedback Text */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="mb-2 block text-sm font-medium text-gray-300">
                     Feedback (optional)
                   </label>
                   <textarea
@@ -147,7 +147,7 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                     onChange={e => setFeedback(e.target.value)}
                     placeholder="What's one thing that confused you or broke?"
                     rows={4}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                    className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />
                 </div>
 
@@ -180,12 +180,12 @@ export function FeedbackModal({ open, onClose }: FeedbackModalProps) {
                       (e as any).stopImmediatePropagation();
                       e.stopPropagation();
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-600/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ zIndex: 10011, isolation: 'isolate' }}
                   >
                     {submitting ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />
                         Sending...
                       </>
                     ) : (

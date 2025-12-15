@@ -6,8 +6,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, RotateCcw, X, RefreshCw } from 'lucide-react';
-import { ipc } from '../lib/ipc-typed';
-import { ipcEvents } from '../lib/ipc-events';
+import { ipc } from '../../lib/ipc-typed';
+import { ipcEvents } from '../../lib/ipc-events';
 
 interface CrashRecoveryDialogProps {
   tabId: string;
@@ -75,18 +75,18 @@ export function CrashRecoveryDialog({
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="rounded-2xl border border-red-500/40 bg-gray-900/95 backdrop-blur-xl shadow-2xl p-6 max-w-md w-full mx-4"
+          className="mx-4 w-full max-w-md rounded-2xl border border-red-500/40 bg-gray-900/95 p-6 shadow-2xl backdrop-blur-xl"
         >
           <div className="flex items-start gap-4">
             <div className="rounded-full bg-red-500/20 p-3">
               <AlertTriangle size={24} className="text-red-400" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-white mb-1">Tab Crashed</h3>
-              <p className="text-sm text-gray-400 mb-4">
+              <h3 className="mb-1 text-lg font-semibold text-white">Tab Crashed</h3>
+              <p className="mb-4 text-sm text-gray-400">
                 This tab encountered an error and stopped responding.
                 {reason && (
-                  <span className="block mt-1 text-xs">
+                  <span className="mt-1 block text-xs">
                     Reason: {reason}
                     {exitCode !== undefined && ` (Exit code: ${exitCode})`}
                   </span>
@@ -105,7 +105,7 @@ export function CrashRecoveryDialog({
                     e.stopPropagation();
                   }}
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-blue-500/60 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                 >
                   <RefreshCw size={16} />
@@ -114,8 +114,8 @@ export function CrashRecoveryDialog({
 
                 {snapshots.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-xs text-gray-500 mb-2">Or restore from snapshot:</p>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                    <p className="mb-2 text-xs text-gray-500">Or restore from snapshot:</p>
+                    <div className="max-h-32 space-y-1 overflow-y-auto">
                       {snapshots.slice(0, 3).map(snapshot => (
                         <button
                           key={snapshot.id}
@@ -129,7 +129,7 @@ export function CrashRecoveryDialog({
                             e.stopPropagation();
                           }}
                           disabled={loading}
-                          className="w-full flex items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/60 px-3 py-2 text-xs text-gray-300 transition-colors hover:bg-gray-700/60 disabled:opacity-50"
+                          className="flex w-full items-center justify-between rounded-lg border border-gray-700/60 bg-gray-800/60 px-3 py-2 text-xs text-gray-300 transition-colors hover:bg-gray-700/60 disabled:opacity-50"
                           style={{ zIndex: 10011, isolation: 'isolate' }}
                         >
                           <span className="flex items-center gap-2">
@@ -169,7 +169,7 @@ export function CrashRecoveryDialog({
                 (e as any).stopImmediatePropagation();
                 e.stopPropagation();
               }}
-              className="rounded-lg p-1 text-gray-400 hover:text-gray-200 transition-colors"
+              className="rounded-lg p-1 text-gray-400 transition-colors hover:text-gray-200"
               style={{ zIndex: 10011, isolation: 'isolate' }}
             >
               <X size={18} />

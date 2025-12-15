@@ -19,10 +19,10 @@ export async function checkBackendConnection(): Promise<BackendConnectionStatus>
       ? (window as any).__API_BASE_URL ||
         import.meta.env.VITE_API_BASE_URL ||
         import.meta.env.VITE_APP_API_URL ||
-        'http://127.0.0.1:8000'  // Match backend server port
+        'http://127.0.0.1:8000' // Match backend server port
       : import.meta.env.VITE_API_BASE_URL ||
         import.meta.env.VITE_APP_API_URL ||
-        'http://127.0.0.1:8000';  // Match backend server port
+        'http://127.0.0.1:8000'; // Match backend server port
 
   try {
     const startTime = performance.now();
@@ -100,10 +100,10 @@ export async function checkResearchBackend(): Promise<BackendConnectionStatus> {
       ? (window as any).__API_BASE_URL ||
         import.meta.env.VITE_API_BASE_URL ||
         import.meta.env.VITE_APP_API_URL ||
-        'http://127.0.0.1:8000'  // Match backend server port
+        'http://127.0.0.1:8000' // Match backend server port
       : import.meta.env.VITE_API_BASE_URL ||
         import.meta.env.VITE_APP_API_URL ||
-        'http://127.0.0.1:8000';  // Match backend server port
+        'http://127.0.0.1:8000'; // Match backend server port
 
   try {
     const startTime = performance.now();

@@ -248,7 +248,7 @@ function psubscribe(pattern, handler) {
 }
 
 // Alias for compatibility
-const subscribe = subscribeToChannel;
+const _subscribe = subscribeToChannel;
 
 // Initialize on module load
 initRedisClients();

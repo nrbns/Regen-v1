@@ -22,14 +22,14 @@ export function PageAIButton() {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setPageAIPanelOpen(true)}
-            className="fixed right-4 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors touch-manipulation"
-            style={{ 
+            className="fixed right-4 flex h-14 w-14 touch-manipulation items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-colors hover:bg-indigo-700"
+            style={{
               zIndex: 110,
-              bottom: 'calc(80px + env(safe-area-inset-bottom, 0px) + 16px)' // Above mobile nav with spacing
+              bottom: 'calc(80px + env(safe-area-inset-bottom, 0px) + 16px)', // Above mobile nav with spacing
             }}
             aria-label="Open AI Assistant"
           >
-            <Sparkles className="w-6 h-6" />
+            <Sparkles className="h-6 w-6" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -45,14 +45,13 @@ export function PageAIButton() {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 100, opacity: 0 }}
           onClick={() => setPageAIPanelOpen(true)}
-            className="fixed right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors hidden md:flex"
-            style={{ zIndex: 102 }}
+          className="fixed right-4 top-1/2 flex hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-colors hover:bg-indigo-700 md:flex"
+          style={{ zIndex: 102 }}
           aria-label="Open AI Assistant"
         >
-          <Sparkles className="w-5 h-5" />
+          <Sparkles className="h-5 w-5" />
         </motion.button>
       )}
     </AnimatePresence>
   );
 }
-

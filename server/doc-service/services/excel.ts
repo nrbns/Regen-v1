@@ -3,7 +3,6 @@
  * Handles XLSX/XLS reading, normalization, and editing
  */
 
-import * as XLSX from 'xlsx';
 import fs from 'fs/promises';
 import path from 'path';
 import { aiProxy } from './ai-proxy';
@@ -18,10 +17,14 @@ export const excelService = {
     task: EditTask,
     options: EditOptions
   ): Promise<EditResult> {
+    if (process.env.ALLOW_EXCEL_PROCESSING !== 'true') {
+      throw new Error('Excel processing is disabled for security until a patched library is available. Set ALLOW_EXCEL_PROCESSING=true to enable at your own risk.');
+    }
     const startTime = Date.now();
 
     // 1. Read Excel file
     const buffer = await fs.readFile(filePath);
+    const XLSX = await import('xlsx');
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];

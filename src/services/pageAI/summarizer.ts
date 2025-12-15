@@ -25,7 +25,7 @@ export interface PageSummary {
  */
 export async function summarizePage(options: SummaryOptions = {}): Promise<PageSummary> {
   const analysis = await analyzePage();
-  
+
   // Limit content for summary
   const maxLength = options.length === 'short' ? 3000 : options.length === 'long' ? 12000 : 6000;
   const content = document.body.innerText.substring(0, maxLength);
@@ -91,15 +91,15 @@ function extractKeyPoints(text: string): string[] {
   // Look for bullet points, numbered lists, or dashes
   const bulletPattern = /[-•*]\s+(.+?)(?:\n|$)/g;
   const numberedPattern = /^\d+[\.)]\s+(.+?)$/gm;
-  
+
   const points: string[] = [];
-  
+
   // Extract bullet points
   let match;
   while ((match = bulletPattern.exec(text)) !== null) {
     points.push(match[1].trim());
   }
-  
+
   // Extract numbered points
   while ((match = numberedPattern.exec(text)) !== null) {
     points.push(match[1].trim());
@@ -117,7 +117,10 @@ function extractKeyPoints(text: string): string[] {
 /**
  * Summarize selected text
  */
-export async function summarizeSelection(selectedText: string, options: SummaryOptions = {}): Promise<string> {
+export async function summarizeSelection(
+  selectedText: string,
+  options: SummaryOptions = {}
+): Promise<string> {
   const prompt = `Please summarize the following text:
 
 ${selectedText.substring(0, 5000)}
@@ -138,4 +141,3 @@ ${options.length === 'short' ? 'Provide a brief summary.' : 'Provide a concise s
     throw new Error(`Failed to summarize selection: ${error.message}`);
   }
 }
-

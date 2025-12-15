@@ -9,7 +9,11 @@ import { getAutofillSkill } from '../../services/skills/autofill/skill';
 import { AUTOFILL_SKILL_MANIFEST } from '../../services/skills/autofill/skill';
 import { getAutofillStorage } from '../../services/skills/autofill/storage';
 import { detectForms } from '../../services/skills/autofill/formDetector';
-import { getAllTemplates, createProfileFromTemplate, type AutofillTemplate } from '../../services/skills/autofill/templates';
+import {
+  getAllTemplates,
+  createProfileFromTemplate,
+  type AutofillTemplate,
+} from '../../services/skills/autofill/templates';
 import type { AutofillProfile, DetectedForm } from '../../services/skills/autofill/types';
 import { toast } from '../../utils/toast';
 import { useMobileDetection } from '../../mobile';
@@ -41,7 +45,7 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
       await autofillSkill.initialize();
       await loadProfiles();
       await detectPageForms();
-      
+
       // Set default profile
       const defaultProfile = await storage.getDefaultProfile();
       if (defaultProfile) {
@@ -91,7 +95,7 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
       profile.name = newProfileName.trim();
       await storage.saveProfile(profile);
       await loadProfiles();
-      
+
       setNewProfileName('');
       setSelectedTemplate(null);
       setShowCreateProfile(false);
@@ -107,7 +111,7 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
     try {
       await storage.deleteProfile(profileId);
       await loadProfiles();
-      
+
       if (selectedProfile === profileId) {
         setSelectedProfile(profiles.find(p => p.id !== profileId)?.id || null);
       }
@@ -159,40 +163,42 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
 
   if (showCreateProfile) {
     const templates = getAllTemplates();
-    
+
     return (
-      <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full`}>
-        <div className="flex items-center justify-between mb-6">
+      <div
+        className={`${isMobile ? 'p-4' : 'p-6'} w-full max-w-2xl rounded-lg border border-gray-700 bg-gray-900`}
+      >
+        <div className="mb-6 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Create Profile</h3>
           <button
             onClick={() => setShowCreateProfile(false)}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800 min-w-[32px] min-h-[32px] flex items-center justify-center"
+            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Profile Name</label>
+            <label className="mb-1 block text-sm font-medium text-gray-300">Profile Name</label>
             <input
               type="text"
               value={newProfileName}
               onChange={e => setNewProfileName(e.target.value)}
               placeholder="My Profile"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Template</label>
+            <label className="mb-1 block text-sm font-medium text-gray-300">Template</label>
             <div className="space-y-2">
               {templates.map(template => (
                 <button
                   key={template.id}
                   onClick={() => setSelectedTemplate(template)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  className={`w-full rounded-lg border p-3 text-left transition-colors ${
                     selectedTemplate?.id === template.id
                       ? 'border-indigo-500 bg-indigo-500/10'
                       : 'border-gray-700 bg-gray-800 hover:bg-gray-700'
@@ -208,13 +214,13 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
           <div className="flex gap-3">
             <button
               onClick={handleCreateProfile}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg font-medium transition-colors min-h-[44px]"
+              className="min-h-[44px] flex-1 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700"
             >
               Create Profile
             </button>
             <button
               onClick={() => setShowCreateProfile(false)}
-              className="px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors min-h-[44px]"
+              className="min-h-[44px] rounded-lg bg-gray-700 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-600"
             >
               Cancel
             </button>
@@ -225,38 +231,40 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
   }
 
   return (
-    <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full`}>
-      <div className="flex items-center justify-between mb-6">
+    <div
+      className={`${isMobile ? 'p-4' : 'p-6'} w-full max-w-2xl rounded-lg border border-gray-700 bg-gray-900`}
+    >
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6 text-indigo-400" />
+          <FileText className="h-6 w-6 text-indigo-400" />
           <h3 className="text-lg font-semibold text-white">Autofill Forms</h3>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800 min-w-[32px] min-h-[32px] flex items-center justify-center"
+            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         )}
       </div>
 
       {/* Profiles */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <h4 className="text-sm font-medium text-gray-300">Profiles</h4>
           <button
             onClick={() => setShowCreateProfile(true)}
-            className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+            className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="h-4 w-4" />
             New Profile
           </button>
         </div>
 
         {profiles.length === 0 ? (
-          <div className="text-center py-8 text-gray-400">
+          <div className="py-8 text-center text-gray-400">
             <p className="mb-4">No profiles yet</p>
             <button
               onClick={() => setShowCreateProfile(true)}
@@ -270,7 +278,7 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
             {profiles.map(profile => (
               <div
                 key={profile.id}
-                className={`p-3 rounded-lg border ${
+                className={`rounded-lg border p-3 ${
                   selectedProfile === profile.id
                     ? 'border-indigo-500 bg-indigo-500/10'
                     : 'border-gray-700 bg-gray-800'
@@ -278,31 +286,33 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    {profile.isDefault && <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />}
-                    <span className="text-white font-medium">{profile.name}</span>
+                    {profile.isDefault && (
+                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    )}
+                    <span className="font-medium text-white">{profile.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {!profile.isDefault && (
                       <button
                         onClick={() => handleSetDefault(profile.id)}
-                        className="text-gray-400 hover:text-yellow-400 transition-colors"
+                        className="text-gray-400 transition-colors hover:text-yellow-400"
                         title="Set as default"
                       >
-                        <Star className="w-4 h-4" />
+                        <Star className="h-4 w-4" />
                       </button>
                     )}
                     <button
                       onClick={() => setSelectedProfile(profile.id)}
-                      className="text-indigo-400 hover:text-indigo-300 text-sm"
+                      className="text-sm text-indigo-400 hover:text-indigo-300"
                     >
                       {selectedProfile === profile.id ? 'Selected' : 'Select'}
                     </button>
                     <button
                       onClick={() => handleDeleteProfile(profile.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
+                      className="text-red-400 transition-colors hover:text-red-300"
                       title="Delete"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -314,16 +324,16 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
 
       {/* Detected Forms */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <h4 className="text-sm font-medium text-gray-300">Detected Forms</h4>
           <button
             onClick={detectPageForms}
             disabled={isDetecting}
-            className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1 disabled:opacity-50"
+            className="flex items-center gap-1 text-sm text-indigo-400 hover:text-indigo-300 disabled:opacity-50"
           >
             {isDetecting ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Detecting...
               </>
             ) : (
@@ -333,26 +343,26 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
         </div>
 
         {forms.length === 0 ? (
-          <div className="text-center py-4 text-gray-400 text-sm">
+          <div className="py-4 text-center text-sm text-gray-400">
             No forms detected on this page
           </div>
         ) : (
           <div className="space-y-2">
             {forms.map((form, index) => (
-              <div key={index} className="p-3 rounded-lg border border-gray-700 bg-gray-800">
+              <div key={index} className="rounded-lg border border-gray-700 bg-gray-800 p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-white font-medium">Form {index + 1}</div>
+                    <div className="font-medium text-white">Form {index + 1}</div>
                     <div className="text-sm text-gray-400">{form.fields.length} fields</div>
                   </div>
                   <button
                     onClick={() => handleFillForm(index)}
                     disabled={!selectedProfile || isFilling}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+                    className="min-h-[36px] rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isFilling ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                        <Loader2 className="mr-2 inline-block h-4 w-4 animate-spin" />
                         Filling...
                       </>
                     ) : (
@@ -368,4 +378,3 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
     </div>
   );
 }
-

@@ -4,10 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ipc } from '../lib/ipc-typed';
-import { useTabsStore } from '../state/tabsStore';
-import { useAppStore } from '../state/appStore';
-import { isElectronRuntime, isTauriRuntime } from '../lib/env';
+import { ipc } from '../../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
+import { useAppStore } from '../../state/appStore';
+import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
 import { X, RotateCcw, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 

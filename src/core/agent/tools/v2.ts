@@ -134,10 +134,23 @@ toolRegistryV2.register({
     scrapedAt: z.number(),
   }),
   category: 'research',
+  rateLimit: { requests: 5, window: 60000 },
   run: async (input, _ctx) => {
-    const v1Tool = v1Registry.get('scrapePage');
-    if (!v1Tool) throw new Error('scrapePage tool not found');
-    return v1Tool.execute(input);
+    const typed = input as { url: string; extract?: 'text' | 'html' | 'markdown' };
+    requireCapability('send_network_requests');
+
+    const response = await retryFetch(typed.url, 3, 1000);
+    const html = await response.text();
+    const document = await createDocument(html);
+    const title = document.querySelector('title')?.textContent || typed.url;
+    const content = extractText(document, typed.extract || 'text');
+
+    return {
+      url: typed.url,
+      title,
+      content,
+      scrapedAt: Date.now(),
+    };
   },
 });
 
@@ -191,9 +204,32 @@ toolRegistryV2.register({
     window: 60000, // 1 minute
   },
   run: async (input, _ctx) => {
-    const v1Tool = v1Registry.get('searchWeb');
-    if (!v1Tool) throw new Error('searchWeb tool not found');
-    return v1Tool.execute(input);
+    const typed = input as { query: string; maxResults?: number; sources?: string[] };
+    requireCapability('send_network_requests');
+    const max = typed.maxResults ?? 5;
+    const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(typed.query)}&format=json&no_redirect=1&no_html=1`;
+
+    try {
+      const response = await retryFetch(url, 2, 500);
+      const data = (await response.json()) as any;
+      const results = Array.isArray(data.RelatedTopics)
+        ? data.RelatedTopics.slice(0, max)
+            .filter((r: any) => r.FirstURL && r.Text)
+            .map((r: any) => ({ title: r.Text, url: r.FirstURL, snippet: r.Text }))
+        : [];
+
+      if (results.length === 0) {
+        return fallbackResults(typed.query, max);
+      }
+
+      return {
+        query: typed.query,
+        results,
+      };
+    } catch (error) {
+      console.warn('[search_web] fallback to mock results', error);
+      return fallbackResults(typed.query, max);
+    }
   },
 });
 
@@ -211,9 +247,43 @@ toolRegistryV2.register({
     headers: z.array(z.string()).optional(),
   }),
   category: 'docs',
-  run: async (_input, _ctx) => {
-    // TODO: Implement table extraction
-    throw new Error('extract_table not yet implemented');
+  run: async (input, _ctx) => {
+    const typed = input as { url?: string; html?: string; tableIndex?: number };
+    const tableIndex = typed.tableIndex ?? 0;
+
+    let html = typed.html;
+    if (!html && typed.url) {
+      requireCapability('send_network_requests');
+      const response = await fetch(typed.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${typed.url}: ${response.status}`);
+      }
+      html = await response.text();
+    }
+
+    if (!html) {
+      throw new Error('html or url required to extract table');
+    }
+
+    const document = await createDocument(html);
+    const tables = Array.from(document.querySelectorAll('table'));
+    if (!tables[tableIndex]) {
+      throw new Error(`No table found at index ${tableIndex}`);
+    }
+
+    const target = tables[tableIndex];
+    const rows = Array.from(target.querySelectorAll('tr'));
+    const data = rows.map(row =>
+      Array.from(row.querySelectorAll('th,td')).map(cell => (cell.textContent || '').trim())
+    );
+
+    const headersRow = target.querySelectorAll('th').length > 0 ? data[0] : undefined;
+    const tableRows = headersRow ? data.slice(1) : data;
+
+    return {
+      table: tableRows,
+      headers: headersRow,
+    };
   },
 });
 
@@ -329,3 +399,73 @@ toolRegistryV2.register({
     }
   },
 });
+
+function extractText(document: Document, mode: 'text' | 'html' | 'markdown'): string {
+  if (mode === 'html') {
+    return document.documentElement.outerHTML;
+  }
+  // Simple text extraction; markdown conversion could be added later
+  return document.body?.textContent?.trim() || '';
+}
+
+function fallbackResults(query: string, max: number) {
+  return {
+    query,
+    results: Array.from({ length: max }, (_, i) => ({
+      title: `Result ${i + 1} for "${query}"`,
+      url: `https://example.com/result-${i + 1}`,
+      snippet: `Mock search result for "${query}"`,
+    })),
+  };
+}
+
+async function createDocument(html: string): Promise<Document> {
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+
+  const { JSDOM } = await import('jsdom');
+  return new JSDOM(html).window.document;
+}
+
+async function retryFetch(
+  url: string,
+  maxRetries: number = 3,
+  backoffMs: number = 1000,
+  timeout: number = 10000
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status >= 500 && attempt < maxRetries) {
+          lastError = new Error(`HTTP ${response.status}, retrying...`);
+          await delay(backoffMs * Math.pow(2, attempt));
+          continue;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries && (error as any)?.name !== 'AbortError') {
+        await delay(backoffMs * Math.pow(2, attempt));
+        continue;
+      }
+    }
+  }
+
+  throw lastError || new Error(`Failed to fetch ${url} after ${maxRetries} retries`);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

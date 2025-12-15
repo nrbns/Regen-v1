@@ -4,10 +4,10 @@
  */
 
 import { Star } from 'lucide-react';
-import { useBookmarksStore } from '../state/bookmarksStore';
-import { useTabsStore } from '../state/tabsStore';
-import { track } from '../services/analytics';
-import { showToast } from '../state/toastStore';
+import { useBookmarksStore } from '../../state/bookmarksStore';
+import { useTabsStore } from '../../state/tabsStore';
+import { track } from '../../services/analytics';
+import { showToast } from '../../state/toastStore';
 
 export function BookmarkButton() {
   const activeTab = useTabsStore(state => state.tabs.find(t => t.id === state.activeId));

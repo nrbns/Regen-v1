@@ -8,14 +8,15 @@
     <meta http-equiv="Content-Security-Policy"
       content="
         default-src 'self' https: data: blob:;
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:;
+        worker-src 'self' blob:;
         connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:;
         img-src 'self' data: https:;
         style-src 'self' 'unsafe-inline' https://rsms.me https:;
         style-src-elem 'self' 'unsafe-inline' https://rsms.me https:;
         font-src 'self' https://rsms.me https:;
         frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https:;
-        media-src https:;
+        media-src https: blob:;
       " />
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="manifest" href="/manifest.json" />
@@ -48,28 +49,28 @@
       body { background-color: #1A1D28; color: #fff; overflow: hidden; }
       #root { height: 100%; width: 100%; }
     </style>
-    <script type="module" crossorigin src="/assets/index-CX74tO2e.js"></script>
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-CPORU2CU.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-BnZbF3GQ.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-CPIsoiEd.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-state-BOhJBJ1p.js">
-    <link rel="modulepreload" crossorigin href="/chunks/core-memory-CsSrF0UI.js">
-    <link rel="modulepreload" crossorigin href="/chunks/core-ai-CNxUmBCS.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-C-yZe9LZ.js">
-    <link rel="modulepreload" crossorigin href="/chunks/components-browser-CYFJHoHB.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-Cw51qz3q.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-framer-motion-DqvrE2fY.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mobile-components-CBqs42eG.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-utils-BYwCBAJF.js">
+    <script type="module" crossorigin src="/assets/index-CJFw1-6n.js"></script>
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-DAXZx3in.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-BkOdQIrR.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-c7m3vuag.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-state-DJH3G3yo.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-memory-D7Kgnk6h.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-ai-CbJ3CiOA.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-D-adImMr.js">
+    <link rel="modulepreload" crossorigin href="/chunks/components-browser-WZ9VXSec.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-DRc9N0K5.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-framer-motion-CB2Z-mLs.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-utils-9n-DE9K4.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mobile-components-CJZiXuwE.js">
     <link rel="modulepreload" crossorigin href="/chunks/vendor-pdf-Dug1oqzz.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-mammoth-6I3bJM1I.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-docs-C9_3KWfl.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-research-D0Cjn5VW.js">
-    <link rel="modulepreload" crossorigin href="/chunks/route-Home.tsx-BD2oc0M9.js">
-    <link rel="modulepreload" crossorigin href="/chunks/route-Settings.tsx-D9-orA0z.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-mammoth-B8Dc6Rfd.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-docs-DDLHpJXp.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-research-BBYhM-I5.js">
+    <link rel="modulepreload" crossorigin href="/chunks/route-Home.tsx-FAcm261Z.js">
+    <link rel="modulepreload" crossorigin href="/chunks/route-Settings.tsx-CW_vth6o.js">
     <link rel="modulepreload" crossorigin href="/chunks/vendor-i18n-BZcWhmEy.js">
-    <link rel="stylesheet" crossorigin href="/assets/mobile-components-4UjRo2QB.css">
-    <link rel="stylesheet" crossorigin href="/assets/index-Vwu7DezC.css">
+    <link rel="stylesheet" crossorigin href="/assets/mobile-components-BC-ZuVCi.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-Byi5iupp.css">
   </head>
   <body>
     <div id="root" class="app-shell"></div>
@@ -224,7 +225,7 @@
           document.body.style.backgroundColor = '#0f172a';
         }
       })();
-    </script>
+    </script>
   </body>
 </html>
 

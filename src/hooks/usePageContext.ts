@@ -34,13 +34,15 @@ export function usePageContext(): PageContext | null {
     const getPageContext = async () => {
       try {
         // Try to get from iframe
-        const iframe = document.querySelector('iframe[data-tab-id="' + tab.id + '"]') as HTMLIFrameElement;
-        
+        const iframe = document.querySelector(
+          'iframe[data-tab-id="' + tab.id + '"]'
+        ) as HTMLIFrameElement;
+
         if (iframe?.contentWindow?.document) {
           const doc = iframe.contentWindow.document;
           const title = doc.title || '';
           const content = doc.body?.innerText || doc.body?.textContent || '';
-          
+
           setContext({
             url: tab.url || window.location.href,
             title,
@@ -53,9 +55,12 @@ export function usePageContext(): PageContext | null {
         setContext({
           url: tab.url || window.location.href,
           title: document.title || '',
-          content: document.body?.innerText?.substring(0, 5000) || document.body?.textContent?.substring(0, 5000) || '',
+          content:
+            document.body?.innerText?.substring(0, 5000) ||
+            document.body?.textContent?.substring(0, 5000) ||
+            '',
         });
-    } catch {
+      } catch {
         // Cross-origin restrictions, use tab data only
         setContext({
           url: tab.url || window.location.href,
@@ -70,4 +75,3 @@ export function usePageContext(): PageContext | null {
 
   return context;
 }
-

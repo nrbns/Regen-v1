@@ -102,14 +102,13 @@ import { SuspensionIndicator } from '../redix/SuspensionIndicator';
 import { BatteryIndicator } from '../redix/BatteryIndicator';
 import { MemoryMonitor } from '../redix/MemoryMonitor';
 import { MiniHoverAI } from '../interaction/MiniHoverAI';
-import { WisprOrb } from '../voice/WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { OmniModeSwitcher } from '../omni-mode/OmniModeSwitcher';
 import { CommandPalette as QuickCommandPalette } from '../command-palette/CommandPalette';
 // import { WorkspaceTabs } from '../tabs/WorkspaceTabs'; // Reserved for future use
 import { SessionRestorePrompt } from '../common/SessionRestorePrompt';
-const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
+const SessionRestoreModal = React.lazy(() => import('../common/SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
 import { useSessionStore } from '../../state/sessionStore';
@@ -145,6 +144,9 @@ import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
 import { MobileDock } from '../../mobile';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
+import RamSavedCounter from '../../components/RamSavedCounter';
+import { TabSummaryToast } from '../common/TabSummaryToast';
+import FirstRunModal from '../../ui/onboarding/FirstRunModal';
 
 declare global {
   interface Window {
@@ -344,7 +346,7 @@ const ConsentPrompt = React.lazy(() =>
   import('../Overlays/ConsentPrompt').then(m => ({ default: m.ConsentPrompt }))
 );
 const AgentOverlay = React.lazy(() =>
-  import('../AgentOverlay').then(m => ({ default: m.AgentOverlay }))
+  import('../agent/AgentOverlay').then(m => ({ default: m.AgentOverlay }))
 );
 const RegenSidebar = React.lazy(() =>
   import('../regen/RegenSidebar').then(m => ({ default: m.RegenSidebar }))
@@ -397,11 +399,35 @@ export function AppShell() {
   const compactUI = useSettingsStore(state => state.appearance.compactUI);
   const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
+  const [showFirstRun, setShowFirstRun] = useState(false);
+
+  // Week 2 MVP: State declarations
 
   // PR: Fix layout overlap - Initialize layout sync
   useEffect(() => {
     const cleanup = initLayoutSync();
     return cleanup;
+  }, []);
+
+  // Week 2 MVP: Initialize telemetry service
+  useEffect(() => {
+    import('../../services/telemetry').then(({ initializeTelemetry }) => {
+      initializeTelemetry();
+      console.log('[AppShell] Telemetry initialized');
+    }).catch(error => {
+      console.warn('[AppShell] Telemetry initialization failed:', error);
+    });
+  }, []);
+
+  // First-run onboarding: show after consent accepted, only once
+  useEffect(() => {
+    try {
+      const consentOk = useCookieConsent.getState().preferences.accepted === true;
+      const hasSeen = window.localStorage.getItem('omnibrowser:first-run:seen') === 'true';
+      if (consentOk && !hasSeen) {
+        setShowFirstRun(true);
+      }
+    } catch {}
   }, []);
 
   // PR: Fix tab switch - Setup iframe blocked fallback handler
@@ -524,6 +550,22 @@ export function AppShell() {
     return () => {
       window.removeEventListener('dom-ready', handleDomReady as EventListener);
     };
+  }, []);
+
+  // Keyboard shortcuts: toggle Regen sidebar (minimal UI requirement)
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      // Ctrl+B (or Cmd+B on macOS) toggles sidebar visibility
+      const isMeta = event.metaKey || event.ctrlKey;
+      if (isMeta && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        const { toggleRegenSidebar } = useAppStore.getState();
+        toggleRegenSidebar();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
   }, []);
 
   // Memory monitoring - auto-unload tabs when memory is low
@@ -1315,6 +1357,11 @@ export function AppShell() {
         initPowerModes().catch(err => {
           if (isDevEnv()) console.warn('[AppShell] Power modes init failed:', err);
         }),
+        import('../../core/redix/power-auto')
+          .then(m => m.initAutoPowerMode())
+          .catch(err => {
+            if (isDevEnv()) console.warn('[AppShell] Auto power mode init failed:', err);
+          }),
         initMemoryManager().catch(err => {
           if (isDevEnv()) console.warn('[AppShell] Memory manager init failed:', err);
         }),
@@ -1797,8 +1844,7 @@ export function AppShell() {
 
   return (
     <div
-      className="flex w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
-      style={{ height: 'calc(100vh - var(--bottom-bar-height, 80px))' }}
+      className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
       data-app-shell="true"
     >
       {/* Top Chrome Elements - Fixed header, never scrolls */}
@@ -2049,19 +2095,20 @@ export function AppShell() {
         )}
       </div>
 
-      {/* Bottom Chrome - Fixed footer, never scrolls */}
+      {/* Bottom Chrome - Footer participates in flex layout */}
       <div
         ref={bottomChromeRef}
         id="bottomBar"
-        className="fixed bottom-0 left-0 right-0 z-50 flex-none shrink-0 border-t border-slate-800 bg-slate-950"
-        style={{
-          boxShadow: '0 -6px 24px rgba(0,0,0,0.35)',
-          background: 'linear-gradient(180deg, rgba(15,23,42,0.96), rgba(10,12,16,0.96))',
-        }}
+        className="flex-none shrink-0 border-t border-slate-800 bg-slate-950"
       >
-        {!isFullscreen && currentMode === 'Browse' && (
+        {!isFullscreen && isDesktopLayout && (
           <Suspense fallback={null}>
             <ErrorBoundary componentName="BottomStatus">
+              {/* Inline Omni button inside bottom bar */}
+              <div className="flex w-full items-center justify-center">
+                {/* Render OmniModeSwitcher inline within the status bar */}
+                <OmniModeSwitcher variant="inline" />
+              </div>
               <BottomStatus />
             </ErrorBoundary>
           </Suspense>
@@ -2343,8 +2390,7 @@ export function AppShell() {
       />
 
       <GlobalSearch />
-      <WisprOrb />
-      <OmniModeSwitcher />
+      {/* OmniModeSwitcher moved inline into bottom bar for proper anchoring */}
       {/* LAG FIX #1: Collaborative cursors for multi-user editing */}
       <AwarenessCursors />
 
@@ -2399,6 +2445,36 @@ export function AppShell() {
 
       {/* Connection Status Indicator */}
       <ConnectionStatus />
+
+      {/* RAM Saved Counter — lightweight brag + visibility */}
+      <Portal>
+        <div className="fixed right-4 top-3 z-[60]">
+          <RamSavedCounter />
+        </div>
+      </Portal>
+
+      {/* AI Summary Toast */}
+      <TabSummaryToast />
+
+      {showFirstRun && (
+        <FirstRunModal
+          onClose={() => {
+            setShowFirstRun(false);
+            try {
+              window.localStorage.setItem('omnibrowser:first-run:seen', 'true');
+            } catch {}
+          }}
+          onEnableLowRam={() => {
+            try {
+              import('../../config/mvpFeatureFlags').then(m => {
+                if (typeof (m as any).setMVPFeatureEnabled === 'function') {
+                  (m as any).setMVPFeatureEnabled('low-ram-mode', true);
+                }
+              });
+            } catch {}
+          }}
+        />
+      )}
 
       {/* AUDIT FIX #6: Onboarding Tour */}
       <OnboardingTour />

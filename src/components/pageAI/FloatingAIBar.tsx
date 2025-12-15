@@ -21,7 +21,9 @@ interface FloatingAIBarProps {
 
 export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBarProps) {
   const { isMobile } = useMobileDetection();
-  const [action, setAction] = useState<'translate' | 'explain' | 'summarize' | 'extract' | null>(null);
+  const [action, setAction] = useState<'translate' | 'explain' | 'summarize' | 'extract' | null>(
+    null
+  );
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const barRef = useRef<HTMLDivElement>(null);
@@ -90,9 +92,9 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
     setLoading(true);
     try {
       const extraction = await extractTasks(selectedText);
-      
+
       let resultText = '';
-      
+
       if (extraction.tasks.length > 0) {
         resultText += '**Tasks:**\n';
         extraction.tasks.forEach(task => {
@@ -103,23 +105,23 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
         });
         resultText += '\n';
       }
-      
+
       if (extraction.dates.length > 0) {
         resultText += `**Dates:** ${extraction.dates.join(', ')}\n\n`;
       }
-      
+
       if (extraction.emails.length > 0) {
         resultText += `**Emails:** ${extraction.emails.join(', ')}\n\n`;
       }
-      
+
       if (extraction.phoneNumbers.length > 0) {
         resultText += `**Phone Numbers:** ${extraction.phoneNumbers.join(', ')}\n\n`;
       }
-      
+
       if (extraction.summary) {
         resultText += `\n${extraction.summary}`;
       }
-      
+
       setResult(resultText || 'No tasks or items found.');
     } catch (error: any) {
       toast.error(error.message || 'Failed to extract');
@@ -145,20 +147,20 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="fixed bg-gray-900 border border-gray-700 rounded-lg shadow-xl max-w-md w-[90vw] md:w-[400px]"
-          style={{ zIndex: 110 }}
-          style={{
-            left: `${Math.min(position.x, window.innerWidth - 420)}px`,
-            top: `${Math.min(position.y + 30, window.innerHeight - 200)}px`,
-          }}
+            className="fixed w-[90vw] max-w-md rounded-lg border border-gray-700 bg-gray-900 shadow-xl md:w-[400px]"
+            style={{
+              zIndex: 110,
+              left: `${Math.min(position.x, window.innerWidth - 420)}px`,
+              top: `${Math.min(position.y + 30, window.innerHeight - 200)}px`,
+            }}
         >
           <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-white capitalize">{action}</h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold capitalize text-white">{action}</h3>
               <div className="flex gap-2">
                 <button
                   onClick={handleCopy}
-                  className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded"
+                  className="rounded px-2 py-1 text-xs text-gray-400 hover:text-white"
                 >
                   Copy
                 </button>
@@ -169,11 +171,11 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
                   }}
                   className="text-gray-400 hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
-            <div className="text-sm text-gray-300 whitespace-pre-wrap break-words max-h-64 overflow-y-auto">
+            <div className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm text-gray-300">
               {result}
             </div>
           </div>
@@ -190,7 +192,7 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        className="fixed bg-gray-900 border border-gray-700 rounded-lg shadow-xl flex items-center gap-1 p-1"
+        className="fixed flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-900 p-1 shadow-xl"
         style={{
           left: `${Math.min(position.x, window.innerWidth - 300)}px`,
           top: `${Math.min(
@@ -203,53 +205,52 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
         <button
           onClick={handleTranslate}
           disabled={loading}
-          className="px-3 py-2 hover:bg-gray-800 rounded text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 min-w-[80px] min-h-[36px] justify-center"
+          className="flex min-h-[36px] min-w-[80px] items-center justify-center gap-2 rounded px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:opacity-50"
           title="Translate"
         >
-          <Languages className="w-4 h-4" />
+          <Languages className="h-4 w-4" />
           {isMobile ? '' : 'Translate'}
         </button>
         <button
           onClick={handleExplain}
           disabled={loading}
-          className="px-3 py-2 hover:bg-gray-800 rounded text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 min-w-[80px] min-h-[36px] justify-center"
+          className="flex min-h-[36px] min-w-[80px] items-center justify-center gap-2 rounded px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:opacity-50"
           title="Explain"
         >
-          <MessageSquare className="w-4 h-4" />
+          <MessageSquare className="h-4 w-4" />
           {isMobile ? '' : 'Explain'}
         </button>
         <button
           onClick={handleSummarize}
           disabled={loading}
-          className="px-3 py-2 hover:bg-gray-800 rounded text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 min-w-[80px] min-h-[36px] justify-center"
+          className="flex min-h-[36px] min-w-[80px] items-center justify-center gap-2 rounded px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:opacity-50"
           title="Summarize"
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="h-4 w-4" />
           {isMobile ? '' : 'Summarize'}
         </button>
         <button
           onClick={handleExtract}
           disabled={loading}
-          className="px-3 py-2 hover:bg-gray-800 rounded text-sm text-gray-300 hover:text-white transition-colors disabled:opacity-50 flex items-center gap-2 min-w-[80px] min-h-[36px] justify-center"
+          className="flex min-h-[36px] min-w-[80px] items-center justify-center gap-2 rounded px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white disabled:opacity-50"
           title="Extract Tasks"
         >
-          <ListTodo className="w-4 h-4" />
+          <ListTodo className="h-4 w-4" />
           {isMobile ? '' : 'Extract'}
         </button>
         <button
           onClick={onClose}
-          className="px-2 py-2 hover:bg-gray-800 rounded text-gray-400 hover:text-white transition-colors min-w-[32px] min-h-[36px] flex items-center justify-center"
+          className="flex min-h-[36px] min-w-[32px] items-center justify-center rounded px-2 py-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
           title="Close"
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
         {loading && (
           <div className="px-2">
-            <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
           </div>
         )}
       </motion.div>
     </AnimatePresence>
   );
 }
-

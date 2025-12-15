@@ -44,7 +44,7 @@ export function ResponsiveCard({
         'rounded-lg border border-slate-800 bg-slate-900/70 backdrop-blur-sm',
         'transition-all duration-200',
         paddingClasses[padding],
-        hoverable && 'hover:border-slate-700 hover:bg-slate-900/90 cursor-pointer',
+        hoverable && 'cursor-pointer hover:border-slate-700 hover:bg-slate-900/90',
         onClick && 'cursor-pointer',
         className
       )}
@@ -82,22 +82,16 @@ export function ResponsiveGrid({
 
   return (
     <div
-      className={cn(
-        'responsive-grid',
-        gapClasses[gap],
-        className
-      )}
+      className={cn('responsive-grid', gapClasses[gap], className)}
       style={{
         gridTemplateColumns: isMobile
           ? '1fr'
           : isTablet
-          ? 'repeat(2, 1fr)'
-          : `repeat(auto-fit, minmax(${minColumnWidth}, 1fr))`,
+            ? 'repeat(2, 1fr)'
+            : `repeat(auto-fit, minmax(${minColumnWidth}, 1fr))`,
       }}
     >
       {children}
     </div>
   );
 }
-
-

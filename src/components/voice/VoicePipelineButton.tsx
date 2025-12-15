@@ -77,8 +77,9 @@ export function VoicePipelineButton({
     }
 
     try {
-      const targetLanguage: VoiceLanguage = language === 'hi' ? 'hi' : language === 'auto' ? 'auto' : 'en';
-      
+      const targetLanguage: VoiceLanguage =
+        language === 'hi' ? 'hi' : language === 'auto' ? 'auto' : 'en';
+
       await voicePipeline.startRecognition({
         language: targetLanguage,
         continuous: false,
@@ -92,7 +93,7 @@ export function VoicePipelineButton({
           setIsListening(false);
           stopWaveformAnimation();
           setDetectedLanguage(detectedLang);
-          
+
           if (onLanguageDetected) {
             onLanguageDetected(detectedLang, confidence);
           }
@@ -101,13 +102,17 @@ export function VoicePipelineButton({
           if (editBeforeExecute) {
             setPendingCommand(text);
             setShowEditor(true);
-            toast.info(`Voice command captured in ${LANGUAGE_LABELS[detectedLang] || detectedLang}. Edit if needed.`);
+            toast.info(
+              `Voice command captured in ${LANGUAGE_LABELS[detectedLang] || detectedLang}. Edit if needed.`
+            );
           } else {
-            toast.success(`Voice input received in ${LANGUAGE_LABELS[detectedLang] || detectedLang}`);
+            toast.success(
+              `Voice input received in ${LANGUAGE_LABELS[detectedLang] || detectedLang}`
+            );
             onResult(text, detectedLang);
           }
         },
-        onError: (error) => {
+        onError: error => {
           setIsListening(false);
           stopWaveformAnimation();
           console.error('[VoicePipelineButton] Recognition error:', error);
@@ -136,7 +141,7 @@ export function VoicePipelineButton({
         volume: 1.0,
         onStart: () => setIsSpeaking(true),
         onEnd: () => setIsSpeaking(false),
-        onError: (error) => {
+        onError: error => {
           console.error('[VoicePipelineButton] TTS error:', error);
           setIsSpeaking(false);
         },
@@ -190,10 +195,8 @@ export function VoicePipelineButton({
         onClick={handleToggle}
         disabled={!isAvailable}
         className={`${small ? 'px-2 py-1 text-[11px]' : 'px-3 py-2 text-xs'} rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${
-          isListening
-            ? 'text-white shadow-lg'
-            : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
-        } ${!isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+          isListening ? 'text-white shadow-lg' : 'bg-neutral-800 text-gray-300 hover:bg-neutral-700'
+        } ${!isAvailable ? 'cursor-not-allowed opacity-50' : ''}`}
         style={
           isListening
             ? {
@@ -234,11 +237,7 @@ export function VoicePipelineButton({
           ) : (
             <>
               <MicOff className="h-4 w-4" />
-              {!small && (
-                <span className="text-xs">
-                  {LANGUAGE_LABELS[language] || 'Voice'}
-                </span>
-              )}
+              {!small && <span className="text-xs">{LANGUAGE_LABELS[language] || 'Voice'}</span>}
             </>
           )}
         </div>
@@ -256,11 +255,7 @@ export function VoicePipelineButton({
           }`}
           title={ttsEnabled ? 'Disable text-to-speech' : 'Enable text-to-speech'}
         >
-          {ttsEnabled ? (
-            <Volume2 className="h-4 w-4" />
-          ) : (
-            <VolumeX className="h-4 w-4" />
-          )}
+          {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
       )}
 
@@ -278,7 +273,7 @@ export function VoicePipelineButton({
       {showEditor && pendingCommand && (
         <VoiceCommandEditor
           initialCommand={pendingCommand}
-          onExecute={(command) => {
+          onExecute={command => {
             onResult(command, detectedLanguage);
             setShowEditor(false);
             setPendingCommand(null);
@@ -300,4 +295,3 @@ export function VoicePipelineButton({
     </div>
   );
 }
-

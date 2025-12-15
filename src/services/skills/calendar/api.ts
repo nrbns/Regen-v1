@@ -92,7 +92,7 @@ export class CalendarAPIClient {
    */
   async createEvent(data: CreateEventData, calendarId: string = 'primary'): Promise<CalendarEvent> {
     const event = this.prepareEvent(data);
-    
+
     const response = await this.request<CalendarEvent>(`/calendars/${calendarId}/events`, {
       method: 'POST',
       body: JSON.stringify(event),
@@ -110,11 +110,14 @@ export class CalendarAPIClient {
     calendarId: string = 'primary'
   ): Promise<CalendarEvent> {
     const event = this.prepareEvent(data as CreateEventData, true);
-    
-    const response = await this.request<CalendarEvent>(`/calendars/${calendarId}/events/${eventId}`, {
-      method: 'PUT',
-      body: JSON.stringify(event),
-    });
+
+    const response = await this.request<CalendarEvent>(
+      `/calendars/${calendarId}/events/${eventId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(event),
+      }
+    );
 
     return response;
   }
@@ -140,11 +143,12 @@ export class CalendarAPIClient {
     } = {}
   ): Promise<{ items: CalendarEvent[] }> {
     const params = new URLSearchParams();
-    
+
     if (options.timeMin) params.append('timeMin', options.timeMin);
     if (options.timeMax) params.append('timeMax', options.timeMax);
     if (options.maxResults) params.append('maxResults', options.maxResults.toString());
-    if (options.singleEvents !== undefined) params.append('singleEvents', options.singleEvents.toString());
+    if (options.singleEvents !== undefined)
+      params.append('singleEvents', options.singleEvents.toString());
     if (options.orderBy) params.append('orderBy', options.orderBy);
 
     return this.request(`/calendars/${calendarId}/events?${params.toString()}`);
@@ -162,7 +166,9 @@ export class CalendarAPIClient {
   /**
    * Get calendar list
    */
-  async listCalendars(): Promise<{ items: Array<{ id: string; summary: string; timeZone: string }> }> {
+  async listCalendars(): Promise<{
+    items: Array<{ id: string; summary: string; timeZone: string }>;
+  }> {
     return this.request('/users/me/calendarList');
   }
 
@@ -178,19 +184,19 @@ export class CalendarAPIClient {
 
     // Handle dates
     const timeZone = data.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
-    
+
     if (data.allDay) {
       // All-day event
       const startDate = typeof data.start === 'string' ? data.start : formatDate(data.start);
       const endDate = typeof data.end === 'string' ? data.end : formatDate(data.end);
-      
+
       event.start = { date: startDate, timeZone };
       event.end = { date: endDate, timeZone };
     } else {
       // Timed event
       const startDateTime = typeof data.start === 'string' ? data.start : data.start.toISOString();
       const endDateTime = typeof data.end === 'string' ? data.end : data.end.toISOString();
-      
+
       event.start = { dateTime: startDateTime, timeZone };
       event.end = { dateTime: endDateTime, timeZone };
     }
@@ -219,4 +225,3 @@ function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toISOString().split('T')[0];
 }
-

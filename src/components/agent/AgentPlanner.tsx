@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Sparkles, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { ipc } from '../lib/ipc-typed';
+import { ipc } from '../../lib/ipc-typed';
 
 export interface PlanStep {
   id: string;

@@ -92,18 +92,19 @@ async function executeTradeAction(
   // WEEK 1 TASK 2: Optimize for <1.5s voice query response
   // Start AI reasoning immediately without waiting for scraping (faster initial response)
   const searchQuery = `${symbol} latest news analysis`;
-  
+
   // AI reasoning starts immediately (no dependency on scraping)
-  const aiPromise = aiEngine.runReasonAndSummary(
-    `Should I ${action.params?.side || 'trade'} ${symbol}? Brief analysis.`,
-    { mode: 'trade' }
-  ).catch(() => ({ reasoning: { text: '' }, summary: { text: '' } }));
-  
+  const aiPromise = aiEngine
+    .runReasonAndSummary(`Should I ${action.params?.side || 'trade'} ${symbol}? Brief analysis.`, {
+      mode: 'trade',
+    })
+    .catch(() => ({ reasoning: { text: '' }, summary: { text: '' } }));
+
   // Scraping happens in background (non-blocking)
   const scrapedPromise = scrapeResearchSources([
     `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`,
   ]).catch(() => []);
-  
+
   // Wait for AI first (faster), then scraping can continue in background
   const aiResults = await aiPromise;
   const scrapedResults = await scrapedPromise;
@@ -234,7 +235,7 @@ async function executeResearchAction(
     `Research: ${query}. Provide brief analysis and summary.`,
     { mode: 'research', context: { query } }
   );
-  
+
   // Scraping happens in parallel but doesn't block AI response
   const searchUrls = [
     `https://www.google.com/search?q=${encodeURIComponent(query)}`,
@@ -243,7 +244,7 @@ async function executeResearchAction(
   const scrapedPromise = Promise.all(
     searchUrls.map(url => scrapeResearchSources([url]).catch(() => []))
   ).then(results => results.flat());
-  
+
   // Get AI results first (faster UX), scraping can finish in background
   const aiResults = await aiPromise;
   const scrapedResults = await scrapedPromise;

@@ -42,7 +42,7 @@ export class AIEngine {
 
   // WEEK 1 TASK 2: Rate limiting optimized for parallel voice queries <1.5s
   // Max 6 concurrent AI requests - allows reasoning + summary + other tasks simultaneously
-  private readonly requestQueue = new PQueue({ 
+  private readonly requestQueue = new PQueue({
     concurrency: 6, // Increased for better parallel performance
     timeout: 2000, // 2s timeout per task to prevent hanging
   });
@@ -107,14 +107,14 @@ export class AIEngine {
   ): Promise<{ reasoning: AITaskResult; summary: AITaskResult }> {
     // Optimize prompts for speed: shorter, more focused prompts
     const optimizedPrompt = prompt.length > 200 ? `${prompt.substring(0, 200)}...` : prompt;
-    
+
     const [reasoning, summary] = await this.runParallelTasks([
       {
         kind: 'agent',
         prompt: optimizedPrompt,
         context: shared?.context,
         mode: shared?.mode,
-        llm: { 
+        llm: {
           temperature: 0.2,
           max_tokens: 150, // Limit tokens for faster response
         },
@@ -124,7 +124,7 @@ export class AIEngine {
         prompt: `Brief summary:\n${optimizedPrompt}`,
         context: shared?.context,
         mode: shared?.mode,
-        llm: { 
+        llm: {
           temperature: 0.1,
           max_tokens: 100, // Even shorter for summary
         },

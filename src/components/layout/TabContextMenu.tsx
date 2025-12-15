@@ -197,8 +197,20 @@ export function TabContextMenu({
     }
   };
 
+  // SPRINT 1: Handle manual suspend
+  const handleSuspend = async () => {
+    try {
+      const { hibernateTab } = await import('../../services/tabHibernation/hibernationManager');
+      await hibernateTab(tabId);
+      onClose();
+    } catch (error) {
+      console.error('Failed to suspend tab:', error);
+    }
+  };
+
   const isGhost = mode === 'ghost';
   const isPrivate = mode === 'private';
+  const isPinned = tab?.pinned ?? false;
 
   const menuItems = [
     { icon: Eye, label: 'Peek preview', action: handlePeek },
@@ -223,6 +235,12 @@ export function TabContextMenu({
       action: handleStartTimer,
       disabled: privateDisabled,
       disabledReason: 'Disabled by profile policy',
+    },
+    {
+      icon: MoonStar,
+      label: 'Suspend Tab',
+      action: handleSuspend,
+      hide: isSleeping || isPinned,
     },
     {
       icon: Sun,

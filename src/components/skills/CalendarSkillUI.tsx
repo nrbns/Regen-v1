@@ -46,7 +46,7 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(14, 0, 0, 0);
-      
+
       const end = new Date(tomorrow);
       end.setHours(15, 0, 0, 0);
 
@@ -71,7 +71,7 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
 
     try {
       const meetingDetails = extractMeetingDetails(context.pageContent, context.pageTitle);
-      
+
       if (meetingDetails.title) setSummary(meetingDetails.title);
       if (meetingDetails.description) setDescription(meetingDetails.description);
       if (meetingDetails.location) setLocation(meetingDetails.location);
@@ -141,7 +141,12 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
         start,
         end,
         allDay,
-        attendees: attendees ? attendees.split(',').map(email => email.trim()).filter(Boolean) : undefined,
+        attendees: attendees
+          ? attendees
+              .split(',')
+              .map(email => email.trim())
+              .filter(Boolean)
+          : undefined,
       });
 
       if (result.success) {
@@ -167,27 +172,27 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
 
   if (!isAuthorized) {
     return (
-      <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700`}>
-        <div className="flex items-center gap-3 mb-4">
-          <Calendar className="w-6 h-6 text-indigo-400" />
+      <div className={`${isMobile ? 'p-4' : 'p-6'} rounded-lg border border-gray-700 bg-gray-900`}>
+        <div className="mb-4 flex items-center gap-3">
+          <Calendar className="h-6 w-6 text-indigo-400" />
           <h3 className="text-lg font-semibold text-white">Calendar Integration</h3>
         </div>
-        <p className="text-gray-400 mb-6">
+        <p className="mb-6 text-gray-400">
           Authorize Google Calendar to create events and schedule meetings.
         </p>
         <button
           onClick={handleAuthorize}
           disabled={isAuthorizing}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isAuthorizing ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               Authorizing...
             </>
           ) : (
             <>
-              <Calendar className="w-5 h-5" />
+              <Calendar className="h-5 w-5" />
               Authorize Calendar
             </>
           )}
@@ -197,49 +202,51 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
   }
 
   return (
-    <div className={`${isMobile ? 'p-4' : 'p-6'} bg-gray-900 rounded-lg border border-gray-700 max-w-2xl w-full`}>
-      <div className="flex items-center justify-between mb-6">
+    <div
+      className={`${isMobile ? 'p-4' : 'p-6'} w-full max-w-2xl rounded-lg border border-gray-700 bg-gray-900`}
+    >
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Calendar className="w-6 h-6 text-indigo-400" />
+          <Calendar className="h-6 w-6 text-indigo-400" />
           <h3 className="text-lg font-semibold text-white">Create Calendar Event</h3>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800 min-w-[32px] min-h-[32px] flex items-center justify-center"
+            className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         )}
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Event Title *</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Event Title *</label>
           <input
             type="text"
             value={summary}
             onChange={e => setSummary(e.target.value)}
             placeholder="Meeting with team"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+          <label className="mb-1 block text-sm font-medium text-gray-300">Description</label>
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
             placeholder="Event description"
             rows={3}
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-y text-base"
+            className="w-full resize-y rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
-            <MapPin className="w-4 h-4" />
+          <label className="mb-1 block flex items-center gap-2 text-sm font-medium text-gray-300">
+            <MapPin className="h-4 w-4" />
             Location
           </label>
           <input
@@ -247,7 +254,7 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
             value={location}
             onChange={e => setLocation(e.target.value)}
             placeholder="Meeting room or address"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
 
@@ -257,7 +264,7 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
             id="allDay"
             checked={allDay}
             onChange={e => setAllDay(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
           />
           <label htmlFor="allDay" className="text-sm text-gray-300">
             All-day event
@@ -266,8 +273,8 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
-              <Clock className="w-4 h-4" />
+            <label className="mb-1 block flex items-center gap-2 text-sm font-medium text-gray-300">
+              <Clock className="h-4 w-4" />
               Start
             </label>
             <div className="space-y-2">
@@ -275,34 +282,34 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 text-base"
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white focus:border-indigo-500 focus:outline-none"
               />
               {!allDay && (
                 <input
                   type="time"
                   value={startTime}
                   onChange={e => setStartTime(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 text-base"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white focus:border-indigo-500 focus:outline-none"
                 />
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">End</label>
+            <label className="mb-1 block text-sm font-medium text-gray-300">End</label>
             <div className="space-y-2">
               <input
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 text-base"
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white focus:border-indigo-500 focus:outline-none"
               />
               {!allDay && (
                 <input
                   type="time"
                   value={endTime}
                   onChange={e => setEndTime(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500 text-base"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white focus:border-indigo-500 focus:outline-none"
                 />
               )}
             </div>
@@ -310,8 +317,8 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
-            <Users className="w-4 h-4" />
+          <label className="mb-1 block flex items-center gap-2 text-sm font-medium text-gray-300">
+            <Users className="h-4 w-4" />
             Attendees (comma-separated emails)
           </label>
           <input
@@ -319,7 +326,7 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
             value={attendees}
             onChange={e => setAttendees(e.target.value)}
             placeholder="email1@example.com, email2@example.com"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 text-base"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-base text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
         </div>
       </div>
@@ -328,16 +335,16 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
         <button
           onClick={handleCreateEvent}
           disabled={isCreating}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isCreating ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
               Creating Event...
             </>
           ) : (
             <>
-              <Calendar className="w-5 h-5" />
+              <Calendar className="h-5 w-5" />
               Create Event
             </>
           )}
@@ -346,4 +353,3 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
     </div>
   );
 }
-

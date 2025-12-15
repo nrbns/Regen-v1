@@ -7,8 +7,8 @@
 @media (max-width: 768px) {
   button,
   a.button,
-  input[type="button"],
-  input[type="submit"],
+  input[type='button'],
+  input[type='submit'],
   select,
   label {
     min-height: 44px;
@@ -16,8 +16,8 @@
   }
 
   /* Ensure clickable areas are large enough */
-  [role="button"],
-  [role="link"],
+  [role='button'],
+  [role='link'],
   .clickable {
     min-height: 44px;
     min-width: 44px;
@@ -42,7 +42,9 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     min-height: 64px; /* Ensure consistent height */
-    height: calc(64px + env(safe-area-inset-bottom, 0px)); /* Consistent height for spacing calculations */
+    height: calc(
+      64px + env(safe-area-inset-bottom, 0px)
+    ); /* Consistent height for spacing calculations */
   }
 
   /* Utility class to add spacing above mobile nav */
@@ -226,4 +228,3 @@
     transition-duration: 0.01ms !important;
   }
 }
-

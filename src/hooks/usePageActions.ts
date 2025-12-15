@@ -45,4 +45,3 @@ export function usePageActions(selectedText?: string) {
     executeAction,
   };
 }
-

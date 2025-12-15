@@ -1,6 +1,6 @@
 /**
  * useApi Hook for Mobile
- * 
+ *
  * React hook for making API calls from mobile components.
  * Provides loading states, error handling, and automatic retries.
  */
@@ -25,12 +25,9 @@ interface UseApiResult<T> {
 /**
  * Hook for making API calls
  */
-export function useApi<T>(
-  endpoint: string | null,
-  options: UseApiOptions = {}
-): UseApiResult<T> {
+export function useApi<T>(endpoint: string | null, options: UseApiOptions = {}): UseApiResult<T> {
   const { immediate = true, retries = 2, retryDelay = 1000 } = options;
-  
+
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(immediate);
   const [error, setError] = useState<Error | null>(null);
@@ -96,14 +93,15 @@ export function useApi<T>(
 /**
  * Hook for POST/PUT/DELETE API calls
  */
-export function useApiMutation<TRequest, TResponse>(
-  endpoint: string
-) {
+export function useApiMutation<TRequest, TResponse>(endpoint: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   const mutate = useCallback(
-    async (data: TRequest, method: 'POST' | 'PUT' | 'DELETE' = 'POST'): Promise<TResponse | null> => {
+    async (
+      data: TRequest,
+      method: 'POST' | 'PUT' | 'DELETE' = 'POST'
+    ): Promise<TResponse | null> => {
       setLoading(true);
       setError(null);
 
@@ -130,4 +128,3 @@ export function useApiMutation<TRequest, TResponse>(
     error,
   };
 }
-

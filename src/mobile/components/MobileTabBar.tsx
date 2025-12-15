@@ -30,16 +30,16 @@ export function MobileTabBar() {
   if (!isMobile) return null;
 
   return (
-    <div className="mobile-tab-bar fixed top-0 left-0 right-0 z-50 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 safe-top">
+    <div className="mobile-tab-bar safe-top fixed left-0 right-0 top-0 z-50 border-b border-gray-800 bg-gray-900/95 backdrop-blur-md">
       <div
         ref={scrollContainerRef}
-        className="flex items-center gap-1 overflow-x-auto px-2 py-2 scrollbar-hide"
+        className="scrollbar-hide flex items-center gap-1 overflow-x-auto px-2 py-2"
         style={{
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
         }}
       >
-        {tabs.map((tab) => {
+        {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const displayTitle = tab.title || 'New Tab';
           const truncatedTitle =
@@ -51,7 +51,7 @@ export function MobileTabBar() {
               ref={isActive ? activeTabRef : null}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                'group flex items-center gap-1.5 px-3 py-2 rounded-lg min-w-[80px] max-w-[200px] flex-shrink-0 transition-all touch-manipulation',
+                'group flex min-w-[80px] max-w-[200px] flex-shrink-0 touch-manipulation items-center gap-1.5 rounded-lg px-3 py-2 transition-all',
                 isActive
                   ? 'bg-indigo-600 text-white'
                   : 'bg-gray-800/50 text-gray-300 hover:bg-gray-800'
@@ -62,31 +62,33 @@ export function MobileTabBar() {
                 <img
                   src={tab.favicon}
                   alt=""
-                  className="w-4 h-4 flex-shrink-0"
-                  onError={(e) => {
+                  className="h-4 w-4 flex-shrink-0"
+                  onError={e => {
                     (e.target as HTMLImageElement).style.display = 'none';
                   }}
                 />
               ) : (
-                <div className="w-4 h-4 flex-shrink-0 rounded bg-gray-600" />
+                <div className="h-4 w-4 flex-shrink-0 rounded bg-gray-600" />
               )}
 
               {/* Title */}
-              <span className="text-xs font-medium truncate flex-1 text-left">{truncatedTitle}</span>
+              <span className="flex-1 truncate text-left text-xs font-medium">
+                {truncatedTitle}
+              </span>
 
               {/* Close button */}
               <button
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
                   closeTab(tab.id);
                 }}
                 className={cn(
-                  'opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-gray-700/50',
+                  'rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-700/50 group-hover:opacity-100',
                   isActive && 'opacity-100'
                 )}
                 aria-label="Close tab"
               >
-                <X className="w-3 h-3" />
+                <X className="h-3 w-3" />
               </button>
             </button>
           );
@@ -95,13 +97,12 @@ export function MobileTabBar() {
         {/* New Tab Button */}
         <button
           onClick={() => createTab('about:blank')}
-          className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-800/50 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors flex-shrink-0 touch-manipulation"
+          className="flex h-10 w-10 flex-shrink-0 touch-manipulation items-center justify-center rounded-lg bg-gray-800/50 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
           aria-label="New tab"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="h-5 w-5" />
         </button>
       </div>
     </div>
   );
 }
-
