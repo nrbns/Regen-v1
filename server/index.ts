@@ -7,9 +7,10 @@
 import express from 'express';
 import { createServer } from 'http';
 import { createClient } from 'redis';
+import { fileURLToPath } from 'url';
 import { initRealtimeServer } from './realtime';
 import { StreamingWorker } from './streamingWorker';
-import { createIndexedDBJobManager, JobStateManager } from './jobState';
+import { createInMemoryJobManager, JobStateManager } from './jobState';
 
 const app = express();
 const httpServer = createServer(app);
@@ -36,8 +37,8 @@ export async function startRealtimeServer() {
     await redisClient.connect();
     console.log('[Server] Redis connected');
 
-    // Initialize job manager
-    jobManager = createIndexedDBJobManager();
+    // Initialize job manager (in-memory for server, can be replaced with DB)
+    jobManager = createInMemoryJobManager();
     console.log('[Server] Job manager initialized');
 
     // Initialize Socket.IO server
@@ -91,7 +92,7 @@ function setupJobHandlers() {
     const userId = socket.data.userId;
 
     // Handle job start
-    socket.on('start:job', async (payload: any, callback: Function) => {
+    socket.on('start:job', async (payload: any, callback: (response: { jobId?: string; error?: string }) => void) => {
       try {
         console.log(`[Server] User ${userId} starting job: ${payload.type}`);
 
@@ -220,8 +221,11 @@ async function shutdown() {
   }
 }
 
-// Auto-start if running directly
-if (require.main === module) {
+// Auto-start if running directly (ESM version)
+const __filename = fileURLToPath(import.meta.url);
+
+// Check if this module is being run directly
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   startRealtimeServer().catch(error => {
     console.error('[Server] Fatal error:', error);
     process.exit(1);

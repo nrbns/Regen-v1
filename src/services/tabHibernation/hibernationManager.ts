@@ -331,12 +331,61 @@ export function initializeHibernationManager(): () => void {
     startInactivityMonitoring();
   }, CHECK_INTERVAL_MS);
 
+  // LAYER 1: Wire memory-triggered tab eviction
+  // Listen for memory warning events and hibernate least-recently-used tabs
+  const handleMemoryWarning = () => {
+    console.warn('[HibernationManager] Memory warning received, hibernating LRU tabs');
+    evictLRUTabs(2); // Hibernate 2 oldest tabs on warning
+  };
+
+  const handleMemoryExceeded = () => {
+    console.error('[HibernationManager] Memory limit exceeded, aggressively hibernating tabs');
+    evictLRUTabs(5); // Hibernate 5 oldest tabs on critical memory
+  };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('memory-warning', handleMemoryWarning);
+    window.addEventListener('memory-limit-exceeded', handleMemoryExceeded);
+  }
+
   // Cleanup function
   return () => {
     unsubscribe();
     clearInterval(intervalId);
     inactivityTimers.forEach(timer => clearTimeout(timer));
     inactivityTimers.clear();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('memory-warning', handleMemoryWarning);
+      window.removeEventListener('memory-limit-exceeded', handleMemoryExceeded);
+    }
   };
+}
+
+/**
+ * LAYER 1: Evict (hibernate) least-recently-used tabs to free memory
+ * @param count Number of tabs to hibernate
+ */
+export function evictLRUTabs(count: number): void {
+  const tabsState = useTabsStore.getState();
+  const { tabs, activeId } = tabsState;
+
+  // Find eviction candidates: non-pinned, non-sleeping, non-active tabs sorted by lastActiveAt
+  const candidates = tabs
+    .filter(tab => !tab.pinned && !tab.sleeping && tab.id !== activeId)
+    .sort((a, b) => {
+      const aTime = a.lastActiveAt || a.createdAt || 0;
+      const bTime = b.lastActiveAt || b.createdAt || 0;
+      return aTime - bTime; // Oldest first
+    });
+
+  const toEvict = candidates.slice(0, count);
+  console.log(`[HibernationManager] Evicting ${toEvict.length} tabs:`, toEvict.map(t => t.title));
+
+  // Hibernate each candidate
+  toEvict.forEach(tab => {
+    hibernateTab(tab.id).catch(err => {
+      console.warn('[HibernationManager] Failed to evict tab:', tab.id, err);
+    });
+  });
 }
 

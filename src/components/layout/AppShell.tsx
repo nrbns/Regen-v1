@@ -5,7 +5,7 @@
 import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
 import { AlertTriangle, PanelsTopLeft, PanelRightOpen } from 'lucide-react';
 // RotateCcw, Loader2, X - unused (restore banner removed)
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { useTabsStore, type Tab } from '../../state/tabsStore';
@@ -16,6 +16,8 @@ import { VoiceControl } from '../voice/VoiceControl';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
+import { getLayoutOptimizer, getNavigationPreloader } from '../../utils/layer2-optimizer';
+import { getLayoutOptimizer, getNavigationPreloader } from '../../utils/layer2-optimizer';
 import { TabContentSurface } from './TabContentSurface';
 import { TabIframeManager } from './TabIframeManager';
 import { GlobalSearch } from '../search/GlobalSearch';
@@ -383,6 +385,7 @@ import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 
 export function AppShell() {
+  const location = useLocation();
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [unifiedSidePanelOpen, setUnifiedSidePanelOpen] = useState(false);
@@ -403,7 +406,16 @@ export function AppShell() {
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
   const [showFirstRun, setShowFirstRun] = useState(false);
 
+  // Layer 2: Initialize performance optimizers
+  const _layoutOptimizer = React.useRef(getLayoutOptimizer());
+  const navigationPreloader = React.useRef(getNavigationPreloader());
+
   // Week 2 MVP: State declarations
+
+  // Layer 2: Prefetch likely navigation paths on location change
+  useEffect(() => {
+    navigationPreloader.current.prefetchLikelyPages(location.pathname);
+  }, [location.pathname]);
 
   // PR: Fix layout overlap - Initialize layout sync
   useEffect(() => {

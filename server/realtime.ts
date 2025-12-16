@@ -28,7 +28,7 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
-import { verify } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 interface AuthToken {
   userId: string;
@@ -108,7 +108,7 @@ export async function initRealtimeServer(
       }
 
       // Verify JWT
-      const decoded = verify(token as string, fullConfig.jwtSecret) as AuthToken;
+      const decoded = jwt.verify(token as string, fullConfig.jwtSecret) as AuthToken;
 
       if (!decoded.userId) {
         return next(new Error('Invalid token: missing userId'));

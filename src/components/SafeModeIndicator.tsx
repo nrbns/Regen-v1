@@ -6,7 +6,7 @@ import { getSafeModeStatus, disableSafeMode } from '../services/safeMode';
  * Safe Mode Indicator - Shows when safe mode is active
  */
 export function SafeModeIndicator() {
-  const [status, setStatus] = React.useState(getSafeModeStatus());
+  const [status] = React.useState(getSafeModeStatus());
 
   const handleDisable = () => {
     if (confirm('Exit safe mode? Heavy features will be re-enabled.')) {
@@ -47,7 +47,7 @@ export function SafeModeIndicator() {
  * Safe Mode Toggle - Button to enable/disable safe mode
  */
 export function SafeModeToggle() {
-  const [status, setStatus] = React.useState(getSafeModeStatus());
+  const [status] = React.useState(getSafeModeStatus());
 
   const handleToggle = () => {
     if (status.enabled) {

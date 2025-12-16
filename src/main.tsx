@@ -23,6 +23,11 @@ import './utils/console';
 
 // DOGFOODING: Safe mode for crash recovery
 import { initSafeMode } from './services/safeMode';
+// Layer 1: Core stability imports
+import { useSessionStore } from './state/sessionStore';
+import { useSettingsStore } from './state/settingsStore';
+import { isMVPFeatureEnabled } from './config/mvpFeatureFlags';
+import { startMemoryMonitoring } from './utils/memoryLimits';
 
 // DAY 6: Register service worker for caching and offline support
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
@@ -472,6 +477,40 @@ try {
 
   // DOGFOODING: Initialize safe mode crash detection
   initSafeMode();
+
+  // =====================================================================
+  // LAYER 1: Browser Core Stability - Auto-Restore & Low-RAM Watchdog
+  // =====================================================================
+  // Layer 1 Task 1: Wire session restore at startup based on settings
+  setTimeout(() => {
+    const settingsState = useSettingsStore.getState();
+    const sessionState = useSessionStore.getState();
+    const startupBehavior = settingsState.general?.startupBehavior || 'newTab';
+    
+    // If configured to restore last session and we have a snapshot, trigger restore
+    if (startupBehavior === 'restore' && sessionState.snapshot) {
+      console.log('[Layer1] Auto-restoring last session per startup settings');
+      sessionState.restoreFromSnapshot()
+        .then(result => {
+          console.log('[Layer1] Session restored successfully:', result);
+        })
+        .catch(err => {
+          console.warn('[Layer1] Session restore failed:', err);
+        });
+    } else {
+      console.log('[Layer1] Startup behavior:', startupBehavior, '(no auto-restore)');
+    }
+  }, 800); // After safe mode init but before heavy services
+
+  // Layer 1 Task 2: Start low-RAM memory watchdog if feature is enabled
+  setTimeout(() => {
+    if (isMVPFeatureEnabled('low-ram-mode')) {
+      console.log('[Layer1] Low-RAM mode enabled; starting memory monitoring watchdog');
+      startMemoryMonitoring();
+    } else {
+      console.log('[Layer1] Low-RAM mode disabled');
+    }
+  }, 1200); // Start watchdog after session restore
 
   // Initialize app connections (AI, API, Browser)
   initializeApp()
