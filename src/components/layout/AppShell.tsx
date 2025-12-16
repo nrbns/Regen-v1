@@ -21,6 +21,8 @@ import { TabIframeManager } from './TabIframeManager';
 import { GlobalSearch } from '../search/GlobalSearch';
 import { setupIframeBlockedListener } from '../../utils/iframeBlockedFallback';
 // Voice components removed by user request
+// DOGFOODING: Safe mode indicator
+import { SafeModeIndicator } from '../SafeModeIndicator';
 // Lazy load heavy Redix services - DEFER until after first render
 const initializeOptimizer = () =>
   new Promise(resolve =>
@@ -411,12 +413,14 @@ export function AppShell() {
 
   // Week 2 MVP: Initialize telemetry service
   useEffect(() => {
-    import('../../services/telemetry').then(({ initializeTelemetry }) => {
-      initializeTelemetry();
-      console.log('[AppShell] Telemetry initialized');
-    }).catch(error => {
-      console.warn('[AppShell] Telemetry initialization failed:', error);
-    });
+    import('../../services/telemetry')
+      .then(({ initializeTelemetry }) => {
+        initializeTelemetry();
+        console.log('[AppShell] Telemetry initialized');
+      })
+      .catch(error => {
+        console.warn('[AppShell] Telemetry initialization failed:', error);
+      });
   }, []);
 
   // First-run onboarding: show after consent accepted, only once
@@ -1847,6 +1851,15 @@ export function AppShell() {
       className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
       data-app-shell="true"
     >
+      {/* Safe Mode Indicator - Show at top if enabled */}
+      {typeof window !== 'undefined' && (
+        <Suspense fallback={null}>
+          <ErrorBoundary componentName="SafeModeIndicator">
+            <SafeModeIndicator />
+          </ErrorBoundary>
+        </Suspense>
+      )}
+
       {/* Top Chrome Elements - Fixed header, never scrolls */}
       <div
         ref={topChromeRef}

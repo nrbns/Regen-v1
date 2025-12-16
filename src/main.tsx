@@ -21,6 +21,9 @@ import { SettingsSync } from './components/settings/SettingsSync';
 // Disable console logs in production for better performance
 import './utils/console';
 
+// DOGFOODING: Safe mode for crash recovery
+import { initSafeMode } from './services/safeMode';
+
 // DAY 6: Register service worker for caching and offline support
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   import('./lib/service-worker').then(({ registerServiceWorker }) => {
@@ -466,6 +469,9 @@ try {
   }
 
   const root = existingRoot || ReactDOM.createRoot(rootElement);
+
+  // DOGFOODING: Initialize safe mode crash detection
+  initSafeMode();
 
   // Initialize app connections (AI, API, Browser)
   initializeApp()
@@ -1054,7 +1060,7 @@ try {
     setTimeout(() => {
       Promise.all([
         import('./services/tabHibernation/hibernationManager'),
-        import('./state/tabsStore')
+        import('./state/tabsStore'),
       ])
         .then(([{ initializeHibernationManager, trackTabActivity }, { useTabsStore }]) => {
           const cleanup = initializeHibernationManager();
@@ -1064,7 +1070,7 @@ try {
           const tabsStore = useTabsStore.getState();
           const unsubscribe = tabsStore.subscribe(
             state => ({ activeId: state.activeId }),
-            (state) => {
+            state => {
               if (state.activeId) {
                 trackTabActivity(state.activeId);
               }
