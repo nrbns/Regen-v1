@@ -221,25 +221,26 @@ class SearchDatabase {
     console.log('[SearchDB] Rebuilding search index...');
     const start = performance.now();
 
-    // Build Lunr index
-    this.index = lunr(function () {
-      this.ref('id');
-      this.field('title', { boost: 10 });
-      this.field('content', { boost: 5 });
-      this.field('url', { boost: 2 });
-      this.field('tags', { boost: 8 });
+    // Build Lunr index without relying on dynamic `this` typing
+    const builder = new lunr.Builder();
+    builder.ref('id');
+    builder.field('title', { boost: 10 });
+    builder.field('content', { boost: 5 });
+    builder.field('url', { boost: 2 });
+    builder.field('tags', { boost: 8 });
 
-      // Add all documents
-      Array.from(this.indexData.values()).forEach((doc) => {
-        this.add({
-          id: doc.id,
-          title: doc.title,
-          content: doc.content,
-          url: doc.url || '',
-          tags: doc.tags?.join(' ') || '',
-        });
-      }, this);
-    }.bind(this));
+    // Add all documents
+    for (const doc of this.indexData.values()) {
+      builder.add({
+        id: doc.id,
+        title: doc.title,
+        content: doc.content,
+        url: doc.url || '',
+        tags: doc.tags?.join(' ') || '',
+      });
+    }
+
+    this.index = builder.build();
 
     // Save serialized index
     const transaction = this.db.transaction([STORES.index], 'readwrite');

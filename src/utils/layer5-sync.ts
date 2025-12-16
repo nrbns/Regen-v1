@@ -33,7 +33,7 @@ export interface Change<T = any> {
 
 export interface VersionedData<T> {
   id: string;
-  data: T;
+  data: T | undefined;
   version: number;
   lastModified: number;
   lastModifiedBy: string;
@@ -220,7 +220,7 @@ export interface ConflictMarker {
   base: any;
   local: any;
   remote: any;
-  resolution: 'local' | 'remote' | 'manual';
+  resolution: 'local' | 'remote' | 'manual' | 'merge';
 }
 
 export class ConflictResolver {
@@ -602,7 +602,7 @@ export class DataValidator {
     });
 
     // Check data consistency with changes
-    let reconstructed = data.data;
+    let reconstructed: T | undefined = data.data;
     data.changes.forEach((change) => {
       if (change.operation === 'delete') {
         reconstructed = undefined;
@@ -624,7 +624,7 @@ export class DataValidator {
    */
   static repair<T>(versioned: VersionedData<T>): VersionedData<T> {
     let repaired = { ...versioned };
-    let reconstructedData = versioned.data;
+    let reconstructedData: T | undefined = versioned.data;
 
     // Replay changes in order
     versioned.changes.forEach((change) => {
