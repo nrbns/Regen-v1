@@ -62,16 +62,16 @@ export function createIndexedDBStorage(
     request.onerror = () => reject(request.error);
   });
 
-  const withStore = async (
+  const withStore = async <T>(
     mode: IDBTransactionMode,
-    fn: (store: IDBObjectStore) => Promise<any>
-  ) => {
+    fn: (store: IDBObjectStore) => Promise<T>
+  ): Promise<T> => {
     const db = await dbPromise;
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       const tx = db.transaction(storeName, mode);
       const store = tx.objectStore(storeName);
       Promise.resolve(fn(store))
-        .then(res => {
+        .then((res: T) => {
           tx.oncomplete = () => resolve(res);
         })
         .catch(err => reject(err));
@@ -81,7 +81,7 @@ export function createIndexedDBStorage(
 
   return {
     async getItem(key: string): Promise<string | null> {
-      return withStore('readonly', async (store): Promise<string | null> => {
+      return withStore<string | null>('readonly', async (store): Promise<string | null> => {
         return new Promise<string | null>((resolve, reject) => {
           const req = store.get(key);
           req.onsuccess = () => {
@@ -91,7 +91,7 @@ export function createIndexedDBStorage(
             } else if (typeof result === 'string') {
               resolve(result);
             } else {
-              resolve(JSON.stringify(result));
+              resolve(String(result || ''));
             }
           };
           req.onerror = () => reject(req.error);

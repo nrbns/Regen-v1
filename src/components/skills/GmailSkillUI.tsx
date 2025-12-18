@@ -57,11 +57,11 @@ export function GmailSkillUI({ context, onClose }: GmailSkillUIProps) {
 
     try {
       const pageContext = await extractPageContext(context);
-      setSubject(pageContext.suggestedSubject);
-      setBody(pageContext.suggestedBody);
+      setSubject(pageContext.suggestedSubject ?? '');
+      setBody(pageContext.suggestedBody ?? '');
 
       if (pageContext.suggestedRecipients && pageContext.suggestedRecipients.length > 0) {
-        setTo(pageContext.suggestedRecipients[0]);
+        setTo(pageContext.suggestedRecipients.join(', '));
       }
     } catch (error) {
       console.error('Failed to extract page context:', error);

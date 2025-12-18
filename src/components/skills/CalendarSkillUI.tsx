@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Loader2, Clock, MapPin, Users, X } from 'lucide-react';
 import { getCalendarSkill } from '../../services/skills/calendar/skill';
-import { extractMeetingDetails } from '../../services/skills/calendar/meetingExtractor';
+import { extractMeetings } from '../../services/skills/calendar/meetingExtractor';
 import type { SkillContext } from '../../services/skills/types';
 import { toast } from '../../utils/toast';
 import { useMobileDetection } from '../../mobile';
@@ -70,7 +70,9 @@ export function CalendarSkillUI({ context, onClose }: CalendarSkillUIProps) {
     if (!context?.pageContent) return;
 
     try {
-      const meetingDetails = extractMeetingDetails(context.pageContent, context.pageTitle);
+      const meetings = extractMeetings();
+      const meetingDetails = meetings[0];
+      if (!meetingDetails) return;
 
       if (meetingDetails.title) setSummary(meetingDetails.title);
       if (meetingDetails.description) setDescription(meetingDetails.description);

@@ -9,6 +9,7 @@ export interface BreakpointConfig {
 
 export function useMobileDetection() {
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   useEffect(() => {
     const check = () => {
@@ -16,9 +17,13 @@ export function useMobileDetection() {
         const ua = navigator.userAgent || '';
         const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
         const smallViewport = window.innerWidth <= 768;
-        setIsMobile(mobileUA.test(ua) || smallViewport);
+        const tabletViewport = window.innerWidth > 768 && window.innerWidth <= 1080;
+        const mobileDetected = mobileUA.test(ua) || smallViewport;
+        setIsMobile(mobileDetected);
+        setIsTablet(!mobileDetected && tabletViewport);
       } catch {
         setIsMobile(false);
+        setIsTablet(false);
       }
     };
     check();

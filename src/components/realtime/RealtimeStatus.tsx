@@ -4,17 +4,18 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useJobProgress } from '../../hooks/useJobProgress';
 
 interface RealtimeStatusProps {
   jobId: string;
   className?: string;
 }
 
-export function RealtimeStatus({ jobId, className = '' }: RealtimeStatusProps) {
-  // TODO: Import useJobProgress hook from correct path
-  const [isConnected, setIsConnected] = useState(true);
-  const [isResuming, setIsResuming] = useState(false);
-  const [lastSequence, setLastSequence] = useState(0);
+export function RealtimeStatus({ jobId: _jobId, className = '' }: RealtimeStatusProps) {
+  const { connection, lastSequence } = useJobProgress(_jobId);
+
+  const isConnected = connection.socketStatus === 'connected';
+  const isResuming = connection.socketStatus === 'connecting';
   const [showStatus, setShowStatus] = useState(false);
 
   useEffect(() => {

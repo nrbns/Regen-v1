@@ -9,6 +9,7 @@ export interface EmailTemplate {
   subject: string;
   body: string;
   category: string;
+  description?: string;
 }
 
 const DEFAULT_TEMPLATES: EmailTemplate[] = [
@@ -45,7 +46,10 @@ export function getAllTemplates(): EmailTemplate[] {
 /**
  * Fill template with variables
  */
-export function fillTemplate(template: EmailTemplate, variables: Record<string, string>): EmailTemplate {
+export function fillTemplate(
+  template: EmailTemplate,
+  variables: Record<string, string>
+): EmailTemplate {
   let subject = template.subject;
   let body = template.body;
 

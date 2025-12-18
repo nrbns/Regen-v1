@@ -238,7 +238,7 @@ export function AdblockerSettingsPanel({ onClose }: AdblockerSettingsPanelProps)
           </button>
         </div>
         <div className="space-y-2">
-          {settings.whitelistedDomains.map(domain => (
+          {(settings.whitelistedDomains ?? []).map(domain => (
             <div key={domain} className="flex items-center justify-between rounded bg-gray-800 p-2">
               <span className="text-sm text-gray-300">{domain}</span>
               <button
@@ -249,7 +249,7 @@ export function AdblockerSettingsPanel({ onClose }: AdblockerSettingsPanelProps)
               </button>
             </div>
           ))}
-          {settings.whitelistedDomains.length === 0 && (
+          {(settings.whitelistedDomains ?? []).length === 0 && (
             <div className="py-4 text-center text-sm text-gray-400">No whitelisted domains</div>
           )}
         </div>
@@ -276,12 +276,12 @@ export function AdblockerSettingsPanel({ onClose }: AdblockerSettingsPanelProps)
           </button>
         </div>
         <div className="space-y-2">
-          {settings.blockedDomains.map(domain => (
+          {(settings.blockedDomains ?? []).map(domain => (
             <div key={domain} className="flex items-center justify-between rounded bg-gray-800 p-2">
               <span className="text-sm text-gray-300">{domain}</span>
             </div>
           ))}
-          {settings.blockedDomains.length === 0 && (
+          {(settings.blockedDomains ?? []).length === 0 && (
             <div className="py-4 text-center text-sm text-gray-400">No custom blocked domains</div>
           )}
         </div>

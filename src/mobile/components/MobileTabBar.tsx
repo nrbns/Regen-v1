@@ -13,7 +13,7 @@ export function MobileTabBar() {
   const tabs = useTabsStore(s => s.tabs);
   const activeTabId = useTabsStore(s => s.activeId);
   const setActiveTab = useTabsStore(s => s.setActive);
-  const closeTab = useTabsStore(s => s.close);
+  const closeTab = useTabsStore(s => s.remove);
   const createTab = useTabsStore(s => s.add);
   const { isMobile } = useMobileDetection();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -100,7 +100,14 @@ export function MobileTabBar() {
 
         {/* New Tab Button */}
         <button
-          onClick={() => createTab('about:blank')}
+          onClick={() =>
+            createTab({
+              id: `tab-${Date.now()}`,
+              title: 'New Tab',
+              url: 'about:blank',
+              active: true,
+            })
+          }
           className="flex h-10 w-10 flex-shrink-0 touch-manipulation items-center justify-center rounded-lg bg-gray-800/50 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
           aria-label="New tab"
         >

@@ -10,11 +10,12 @@ export interface Meeting {
   duration?: number;
   attendees?: string[];
   description?: string;
+  location?: string;
 }
 
 export function extractMeetings(): Meeting[] {
   const meetings: Meeting[] = [];
-  
+
   // Look for common meeting patterns
   const meetingPatterns = [
     /meeting[:\s]+([^,\n]+)/gi,
@@ -23,7 +24,7 @@ export function extractMeetings(): Meeting[] {
   ];
 
   const pageContent = document.body.innerText;
-  
+
   meetingPatterns.forEach(pattern => {
     const matches = pageContent.matchAll(pattern);
     for (const match of matches) {

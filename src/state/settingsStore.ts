@@ -18,6 +18,7 @@ type GeneralSettings = {
   telemetryOptIn: boolean;
   showKeyboardHints: boolean;
   allowBetaUpdates: boolean;
+  disableAutoActions?: boolean; // Toggle predictive actions
   voiceEditBeforeExecute?: boolean; // Phase 1, Day 5: Edit voice commands before executing
   voiceTTSEnabled?: boolean; // Phase 2, Day 4: Enable text-to-speech responses
   voiceAutoDetectLanguage?: boolean; // Phase 2, Day 4: Auto-detect language for voice
@@ -92,6 +93,7 @@ const createDefaults = (): SettingsData => ({
     telemetryOptIn: false,
     showKeyboardHints: true,
     allowBetaUpdates: false,
+    disableAutoActions: false,
     voiceEditBeforeExecute: true, // Phase 1, Day 5: Default to enabled
     voiceTTSEnabled: true, // Phase 2, Day 4: Default to enabled
     voiceAutoDetectLanguage: true, // Phase 2, Day 4: Default to enabled

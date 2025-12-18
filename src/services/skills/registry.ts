@@ -108,7 +108,7 @@ export class SkillRegistry implements ISkillRegistry {
     await this.db.skills.add({
       id: skill.id,
       manifest: skill.manifest,
-      installedAt: skill.installedAt,
+      installedAt: skill.installedAt ?? Date.now(),
       enabled: skill.enabled,
       settings: skill.settings,
       useCount: skill.useCount ?? 0,

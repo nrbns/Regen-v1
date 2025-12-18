@@ -91,9 +91,14 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
       );
 
       // Add extracted steps to the template
+      const toStepType = (t: string): 'goal' | 'template' | 'batch' => {
+        if (t === 'goal' || t === 'template' || t === 'batch') return t;
+        return 'goal';
+      };
+
       extractedSteps.forEach(step => {
         useWorkflowStore.getState().addStepToTemplate(templateId, {
-          type: step.type,
+          type: toStepType(step.type),
           content: step.content,
           description: step.description,
           order: step.order,

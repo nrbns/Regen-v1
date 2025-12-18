@@ -12,9 +12,12 @@ import { detectForms } from '../../services/skills/autofill/formDetector';
 import {
   getAllTemplates,
   createProfileFromTemplate,
-  type AutofillTemplate,
 } from '../../services/skills/autofill/templates';
-import type { AutofillProfile, DetectedForm } from '../../services/skills/autofill/types';
+import type {
+  AutofillProfile,
+  DetectedForm,
+  AutofillTemplate,
+} from '../../services/skills/autofill/types';
 import { toast } from '../../utils/toast';
 import { useMobileDetection } from '../../mobile';
 
@@ -61,7 +64,9 @@ export function AutofillSkillUI({ onClose }: AutofillSkillUIProps) {
   const loadProfiles = async () => {
     try {
       const allProfiles = await storage.getAllProfiles();
-      setProfiles(allProfiles);
+      const defaultProfile = await storage.getDefaultProfile();
+      const defaultId = defaultProfile?.id;
+      setProfiles(allProfiles.map((p: any) => ({ ...p, isDefault: p.id === defaultId })));
     } catch (error) {
       console.error('Failed to load profiles:', error);
     }

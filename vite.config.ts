@@ -69,6 +69,7 @@ export default defineConfig({
         : undefined,
     rollupOptions: {
       external: [
+        'apps/desktop',
         '@ghostery/adblocker-electron',
         '@cliqz/adblocker-electron',
         'chromium-bidi/lib/cjs/bidiMapper/BidiMapper',

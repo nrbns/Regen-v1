@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { Globe, FlaskConical, LineChart, Library, Bot } from 'lucide-react';
+import type { AppState } from '../../state/appStore';
 
-type ModeId = 'Browse' | 'Research' | 'Trade';
+type ModeId = AppState['mode'];
 
 interface MobileDockProps {
   activeMode: ModeId;
@@ -11,7 +12,7 @@ interface MobileDockProps {
 }
 
 const navItems: Array<{
-  id: ModeId;
+  id: Extract<ModeId, 'Browse' | 'Research' | 'Trade'>;
   label: string;
   icon: React.ComponentType<{ size?: number | string }>;
 }> = [
@@ -45,7 +46,7 @@ export function MobileDock({
               onClick={() => onSelectMode(item.id)}
               className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-semibold transition ${
                 isActive
-                  ? 'text-emerald-300 bg-emerald-500/10'
+                  ? 'bg-emerald-500/10 text-emerald-300'
                   : 'text-slate-400 hover:text-slate-100'
               }`}
               aria-pressed={isActive}

@@ -15,6 +15,9 @@ export interface GmailMessage {
   threadId: string;
   labelIds: string[];
   snippet: string;
+  timestamp?: string | number | Date;
+  subject?: string;
+  body?: string;
   internalDate: string;
   headers: GmailHeader[];
   from?: string;
@@ -49,13 +52,13 @@ export interface GmailHeader {
 export interface EmailThread {
   id: string;
   subject: string;
-  from: string;
-  to: string;
-  date: string;
-  snippet: string;
-  fullText: string;
-  isUnread: boolean;
-  messages?: GmailMessage[];
+  from?: string;
+  to?: string;
+  date?: string;
+  snippet?: string;
+  fullText?: string;
+  isUnread?: boolean;
+  messages?: Array<Partial<GmailMessage>>;
 }
 
 export interface EmailSummary {

@@ -7,12 +7,12 @@ import { create } from 'zustand';
 import type { WorkflowTemplate, WorkflowStep } from './workflows';
 import { useWorkflowStore } from './workflows';
 
-export type OptimizationType = 
-  | 'parallel_execution'    // Run independent steps in parallel
-  | 'timeout_adjustment'    // Optimize timeout values
-  | 'step_consolidation'    // Merge similar consecutive steps
-  | 'step_reordering'       // Reorder for better efficiency
-  | 'duplicate_removal';    // Remove redundant steps
+export type OptimizationType =
+  | 'parallel_execution' // Run independent steps in parallel
+  | 'timeout_adjustment' // Optimize timeout values
+  | 'step_consolidation' // Merge similar consecutive steps
+  | 'step_reordering' // Reorder for better efficiency
+  | 'duplicate_removal'; // Remove redundant steps
 
 export interface OptimizationSuggestion {
   id: string;
@@ -42,18 +42,21 @@ export interface OptimizationResult {
 interface OptimizerState {
   suggestions: OptimizationSuggestion[];
   history: OptimizationResult[];
-  
+
   // Analysis
-  generateSuggestions: (template: WorkflowTemplate, executionMetrics?: {
-    avgDuration: number;
-    successRate: number;
-    usageCount: number;
-  }) => OptimizationSuggestion[];
-  
+  generateSuggestions: (
+    template: WorkflowTemplate,
+    executionMetrics?: {
+      avgDuration: number;
+      successRate: number;
+      usageCount: number;
+    }
+  ) => OptimizationSuggestion[];
+
   // Application
   applySuggestion: (suggestionId: string) => OptimizationResult;
   applyMultiple: (suggestionIds: string[]) => OptimizationResult[];
-  
+
   // Management
   dismissSuggestion: (suggestionId: string) => void;
   clearHistory: () => void;
@@ -74,11 +77,13 @@ function detectParallelOpportunities(steps: WorkflowStep[]): WorkflowStep[][] {
     // Steps can run in parallel if they don't depend on each other's output
     // For simplicity, we check if consecutive steps are both 'goal' type
     // and don't reference each other
-    if (nextStep && 
-        step.type === 'goal' && 
-        nextStep.type === 'goal' &&
-        !nextStep.content.toLowerCase().includes('previous') &&
-        !nextStep.content.toLowerCase().includes('above')) {
+    if (
+      nextStep &&
+      step.type === 'goal' &&
+      nextStep.type === 'goal' &&
+      !nextStep.content.toLowerCase().includes('previous') &&
+      !nextStep.content.toLowerCase().includes('above')
+    ) {
       currentGroup.push(step, nextStep);
       i++; // Skip next since we've added it
     } else if (currentGroup.length > 0) {
@@ -97,7 +102,10 @@ function detectParallelOpportunities(steps: WorkflowStep[]): WorkflowStep[][] {
 /**
  * Analyze timeout values and suggest optimizations
  */
-function analyzeTimeouts(steps: WorkflowStep[], avgDuration: number): {
+function analyzeTimeouts(
+  steps: WorkflowStep[],
+  avgDuration: number
+): {
   tooLong: WorkflowStep[];
   tooShort: WorkflowStep[];
   optimal: number;
@@ -122,7 +130,7 @@ function findDuplicates(steps: WorkflowStep[]): WorkflowStep[][] {
   for (const step of steps) {
     // Normalize content for comparison
     const normalized = step.content.toLowerCase().trim().replace(/\s+/g, ' ');
-    
+
     if (seen.has(normalized)) {
       const group = seen.get(normalized)!;
       group.push(step);
@@ -151,12 +159,13 @@ function detectConsolidationOpportunities(steps: WorkflowStep[]): WorkflowStep[]
     if (step.type === nextStep.type) {
       const words1 = new Set(step.content.toLowerCase().split(/\s+/));
       const words2 = new Set(nextStep.content.toLowerCase().split(/\s+/));
-      
+
       // Calculate word overlap
       const overlap = [...words1].filter(w => words2.has(w)).length;
       const total = Math.max(words1.size, words2.size);
-      
-      if (overlap / total > 0.5) { // 50% word overlap
+
+      if (overlap / total > 0.5) {
+        // 50% word overlap
         consolidatable.push([step, nextStep]);
         i++; // Skip next
       }
@@ -188,12 +197,12 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         estimatedImprovement: '40-50% faster execution',
         changes: {
           before: group.map(s => ({ id: s.id, content: s.content, order: s.order })),
-          after: group.map((s, _i) => ({ 
-            id: s.id, 
-            content: s.content, 
+          after: group.map((s, _i) => ({
+            id: s.id,
+            content: s.content,
             order: s.order,
-            parallel: true 
-          }))
+            parallel: true,
+          })),
         },
         autoApplicable: true,
         createdAt: Date.now(),
@@ -212,14 +221,14 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         impact: 'medium',
         estimatedImprovement: `Reduce wait time by ${timeoutAnalysis.tooLong.length * 10}s`,
         changes: {
-          before: timeoutAnalysis.tooLong.map(s => ({ 
-            id: s.id, 
-            timeout: s.timeout 
+          before: timeoutAnalysis.tooLong.map(s => ({
+            id: s.id,
+            timeout: s.timeout,
           })),
-          after: timeoutAnalysis.tooLong.map(s => ({ 
-            id: s.id, 
-            timeout: timeoutAnalysis.optimal * 1000 
-          }))
+          after: timeoutAnalysis.tooLong.map(s => ({
+            id: s.id,
+            timeout: timeoutAnalysis.optimal * 1000,
+          })),
         },
         autoApplicable: false, // User should review timeout changes
         createdAt: Date.now(),
@@ -239,7 +248,7 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         estimatedImprovement: `${dupGroup.length - 1} fewer steps`,
         changes: {
           before: dupGroup.map(s => ({ id: s.id, content: s.content })),
-          after: [dupGroup[0]].map(s => ({ id: s.id, content: s.content }))
+          after: [dupGroup[0]].map(s => ({ id: s.id, content: s.content })),
         },
         autoApplicable: false,
         createdAt: Date.now(),
@@ -260,7 +269,7 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         estimatedImprovement: '1 fewer step',
         changes: {
           before: group.map(s => ({ id: s.id, content: s.content })),
-          after: [{ id: group[0].id, content: merged }]
+          after: [{ id: group[0].id, content: merged }],
         },
         autoApplicable: false,
         createdAt: Date.now(),
@@ -269,13 +278,13 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
 
     // Store suggestions
     set(state => ({
-      suggestions: [...state.suggestions, ...suggestions]
+      suggestions: [...state.suggestions, ...suggestions],
     }));
 
     return suggestions;
   },
 
-  applySuggestion: (suggestionId) => {
+  applySuggestion: suggestionId => {
     const suggestion = get().suggestions.find(s => s.id === suggestionId);
     if (!suggestion) {
       return {
@@ -306,7 +315,9 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         // Replace the first step's content with merged content and remove the second
         const after = suggestion.changes.after?.[0];
         if (after?.id && after.content) {
-          const updatedSteps = template.steps.map(s => (s.id === after.id ? { ...s, content: after.content } : s));
+          const updatedSteps = template.steps.map(s =>
+            s.id === after.id ? { ...s, content: after.content || '' } : s
+          );
           // Remove the second step listed in 'before' if present
           const removeId = suggestion.changes.before?.[1]?.id;
           const finalSteps = removeId ? updatedSteps.filter(s => s.id !== removeId) : updatedSteps;
@@ -321,7 +332,9 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
       if (suggestion.type === 'timeout_adjustment') {
         // Apply new timeout to targeted steps
         const targets = new Map((suggestion.changes.after || []).map(a => [a.id, a.timeout]));
-        const updated = template.steps.map(s => (targets.has(s.id) ? { ...s, timeout: targets.get(s.id) } : s));
+        const updated = template.steps.map(s =>
+          targets.has(s.id) ? { ...s, timeout: targets.get(s.id) } : s
+        );
         wfStore.updateTemplate(template.id, { steps: updated, updatedAt: Date.now() });
         changesLog.push('Adjusted step timeouts');
       }
@@ -330,9 +343,7 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
         // Mark steps as parallel via a hint in description
         const targetIds = new Set((suggestion.changes.after || []).map(a => a.id));
         const updated = template.steps.map(s =>
-          targetIds.has(s.id)
-            ? { ...s, description: (s.description || '') + ' [parallel]' }
-            : s,
+          targetIds.has(s.id) ? { ...s, description: (s.description || '') + ' [parallel]' } : s
         );
         wfStore.updateTemplate(template.id, { steps: updated, updatedAt: Date.now() });
         changesLog.push('Marked steps for parallel execution');
@@ -365,11 +376,11 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
     return result;
   },
 
-  applyMultiple: (suggestionIds) => {
+  applyMultiple: suggestionIds => {
     return suggestionIds.map(id => get().applySuggestion(id));
   },
 
-  dismissSuggestion: (suggestionId) => {
+  dismissSuggestion: suggestionId => {
     set(state => ({
       suggestions: state.suggestions.filter(s => s.id !== suggestionId),
     }));
@@ -379,7 +390,7 @@ export const useOptimizerStore = create<OptimizerState>((set, get) => ({
     set({ history: [] });
   },
 
-  getSuggestionsForTemplate: (templateId) => {
+  getSuggestionsForTemplate: templateId => {
     return get().suggestions.filter(s => s.templateId === templateId);
   },
 }));

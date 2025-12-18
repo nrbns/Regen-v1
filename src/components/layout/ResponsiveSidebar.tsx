@@ -25,7 +25,9 @@ export function ResponsiveSidebar({
   width = '320px',
   className,
 }: ResponsiveSidebarProps) {
-  const { isMobile, isTablet } = useMobileDetection();
+  const detection = useMobileDetection() as any;
+  const isMobile = detection?.isMobile ?? false;
+  const isTablet = detection?.isTablet ?? false;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [_isDragging, _setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);

@@ -9,19 +9,31 @@ import { Search, X } from 'lucide-react';
 export interface MobileSearchInputProps {
   onSearch?: (query: string) => void;
   onClear?: () => void;
+  onChange?: (query: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  value?: string;
+  isLoading?: boolean;
 }
 
-export function MobileSearchInput({ 
-  onSearch, 
-  onClear, 
-  placeholder = 'Search...', 
-  autoFocus = false 
+export function MobileSearchInput({
+  onSearch,
+  onClear,
+  onChange,
+  placeholder = 'Search...',
+  autoFocus = false,
+  value,
+  isLoading = false,
 }: MobileSearchInputProps) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(value ?? '');
   const [_isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value !== undefined) {
+      setQuery(value);
+    }
+  }, [value]);
 
   useEffect(() => {
     if (autoFocus && inputRef.current) {
@@ -30,7 +42,9 @@ export function MobileSearchInput({
   }, [autoFocus]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
+    const next = e.target.value;
+    setQuery(next);
+    onChange?.(next);
   };
 
   const handleSearch = () => {
@@ -39,6 +53,7 @@ export function MobileSearchInput({
 
   const handleClear = () => {
     setQuery('');
+    onChange?.('');
     onClear?.();
   };
 
@@ -62,6 +77,9 @@ export function MobileSearchInput({
         placeholder={placeholder}
         className="flex-1 bg-transparent text-sm outline-none"
       />
+      {isLoading && (
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+      )}
       {query && (
         <button onClick={handleClear} className="p-1 text-gray-400 hover:text-gray-600">
           <X className="h-4 w-4" />

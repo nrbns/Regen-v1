@@ -173,41 +173,55 @@ class AdaptiveLayoutManager {
       this.state.layoutMode = this.userPreferences.layoutModeOverride as LayoutMode;
 
       // Apply user overrides for individual settings, or use defaults for the mode
-      if (this.userPreferences.hideSidebarsOverride !== null) {
+      if (
+        this.userPreferences.hideSidebarsOverride !== null &&
+        this.userPreferences.hideSidebarsOverride !== undefined
+      ) {
         this.state.hideSidebars = this.userPreferences.hideSidebarsOverride;
       } else {
         // Default for the mode
-        this.state.hideSidebars =
-          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
+        this.state.hideSidebars = !!(
+          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact'
+        );
       }
 
-      if (this.userPreferences.compactTabsOverride !== null) {
+      if (
+        this.userPreferences.compactTabsOverride !== null &&
+        this.userPreferences.compactTabsOverride !== undefined
+      ) {
         this.state.compactTabs = this.userPreferences.compactTabsOverride;
       } else {
-        this.state.compactTabs =
-          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
+        this.state.compactTabs = !!(
+          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact'
+        );
       }
 
-      if (this.userPreferences.verticalTabsOverride !== null) {
+      if (
+        this.userPreferences.verticalTabsOverride !== null &&
+        this.userPreferences.verticalTabsOverride !== undefined
+      ) {
         this.state.verticalTabs = this.userPreferences.verticalTabsOverride;
       } else {
-        this.state.verticalTabs =
-          this.state.layoutMode === 'full' && this.state.screenWidth > 1400 && supportsFullUI();
+        this.state.verticalTabs = !!(
+          this.state.layoutMode === 'full' &&
+          this.state.screenWidth > 1400 &&
+          supportsFullUI()
+        );
       }
     } else {
       // Auto mode: determine layout mode based on network and screen size
       if (isLowBandwidth()) {
         // Low bandwidth: minimal layout
         this.state.layoutMode = 'minimal';
-        this.state.hideSidebars = this.userPreferences.hideSidebarsOverride ?? true;
-        this.state.compactTabs = this.userPreferences.compactTabsOverride ?? true;
-        this.state.verticalTabs = this.userPreferences.verticalTabsOverride ?? false;
+        this.state.hideSidebars = !!(this.userPreferences.hideSidebarsOverride ?? true);
+        this.state.compactTabs = !!(this.userPreferences.compactTabsOverride ?? true);
+        this.state.verticalTabs = !!(this.userPreferences.verticalTabsOverride ?? false);
       } else if (this.state.screenWidth < 768) {
         // Mobile: compact layout
         this.state.layoutMode = 'compact';
-        this.state.hideSidebars = this.userPreferences.hideSidebarsOverride ?? true;
-        this.state.compactTabs = this.userPreferences.compactTabsOverride ?? true;
-        this.state.verticalTabs = this.userPreferences.verticalTabsOverride ?? false;
+        this.state.hideSidebars = !!(this.userPreferences.hideSidebarsOverride ?? true);
+        this.state.compactTabs = !!(this.userPreferences.compactTabsOverride ?? true);
+        this.state.verticalTabs = !!(this.userPreferences.verticalTabsOverride ?? false);
       } else if (this.state.screenWidth > 1400) {
         // Wide screen: full layout with vertical tabs
         this.state.layoutMode = 'full';

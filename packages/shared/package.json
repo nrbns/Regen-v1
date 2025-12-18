@@ -1,0 +1,11 @@
+{
+  "name": "@regen/shared",
+  "version": "1.0.0",
+  "description": "Shared event types and utilities",
+  "type": "module",
+  "main": "events.ts",
+  "exports": {
+    ".": "./events.ts",
+    "./events": "./events.ts"
+  }
+}

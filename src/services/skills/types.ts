@@ -47,6 +47,7 @@ export interface SkillContext {
   data?: Record<string, any>;
   suggestedSubject?: string;
   suggestedBody?: string;
+  suggestedRecipients?: string[];
 }
 
 export interface SkillResult {

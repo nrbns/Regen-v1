@@ -116,7 +116,7 @@ export class AIEngine {
         mode: shared?.mode,
         llm: {
           temperature: 0.2,
-          max_tokens: 150, // Limit tokens for faster response
+          maxTokens: 150, // Limit tokens for faster response
         },
       },
       {

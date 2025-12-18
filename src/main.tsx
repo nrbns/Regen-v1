@@ -59,7 +59,9 @@ import { initializeApp } from './lib/initialize-app';
 const setupRealtimeSocket = async () => {
   try {
     // Try to import Socket client - may not exist in desktop builds
-    const { initSocketClient } = await import('../apps/desktop/src/services/socket').catch(() => ({
+    // Use computed path to prevent Rollup static analysis
+    const socketModulePath = `../apps/desktop/src/services/socket`;
+    const { initSocketClient } = await import(/* @vite-ignore */ socketModulePath).catch(() => ({
       initSocketClient: null,
     }));
 

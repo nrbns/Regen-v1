@@ -38,6 +38,7 @@ export function useJobProgress(
     socketStatus: 'connected' | 'connecting' | 'disconnected';
     retryCount: number;
   };
+  lastSequence: number;
 } {
   const [state, setState] = useState<JobProgressState | null>(null);
   const [streamingText, setStreamingText] = useState('');
@@ -139,7 +140,8 @@ export function useJobProgress(
               jobId,
               state: (progressData.state as JobState) || 'running',
               progress: progressData.progress || progressData?.payload?.progress?.percentage || 0,
-              step: progressData.step || progressData?.payload?.progress?.message || 'Processing...',
+              step:
+                progressData.step || progressData?.payload?.progress?.message || 'Processing...',
               partial: progressData.partial,
               isComplete: progressData.state === 'completed',
               isFailed: progressData.state === 'failed',
@@ -213,6 +215,7 @@ export function useJobProgress(
     isStreaming,
     streamingText,
     connection,
+    lastSequence,
   };
 }
 

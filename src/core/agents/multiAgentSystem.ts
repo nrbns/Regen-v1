@@ -523,7 +523,7 @@ class MultiAgentSystem {
         case 'chart':
           return this.execute('trade', `Create chart for: ${query}`, context);
         default:
-          return Promise.resolve({ success: false, error: 'Unknown action' });
+          return Promise.resolve<AgentResult>({ success: false, error: 'Unknown action' });
       }
     });
 
@@ -562,13 +562,13 @@ class MultiAgentSystem {
       );
       return {
         ...summaryResult,
-        data: { ...summaryResult.data, scrapedContent },
+        data: { ...(summaryResult.data ?? {}), scrapedContent },
       };
     }
 
     return {
       ...agentResult,
-      data: { ...agentResult.data, scrapedContent },
+      data: { ...(agentResult.data ?? {}), scrapedContent },
     };
   }
 
@@ -597,7 +597,9 @@ class MultiAgentSystem {
             }
           };
           window.addEventListener('message', handler);
-          iframe.contentWindow.postMessage({ type: 'scrape-request', tabId }, '*');
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'scrape-request', tabId }, '*');
+          }
           setTimeout(() => {
             window.removeEventListener('message', handler);
             resolve(null);

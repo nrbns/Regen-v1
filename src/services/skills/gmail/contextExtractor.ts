@@ -8,13 +8,16 @@ import type { SkillContext } from '../types';
 export function extractPageContext(_context?: SkillContext): {
   suggestedSubject?: string;
   suggestedBody?: string;
+  suggestedRecipients?: string[];
 } {
   const selectedText = getSelectedText();
   const pageTitle = document.title;
+  const suggestedRecipients = extractEmails();
 
   return {
     suggestedSubject: pageTitle || undefined,
     suggestedBody: selectedText || undefined,
+    suggestedRecipients: suggestedRecipients.length > 0 ? suggestedRecipients : undefined,
   };
 }
 

@@ -189,11 +189,11 @@ export class MailSummarizer {
 5. Is this urgent? (yes/no)
 
 Email:
-From: ${thread.from}
+From: ${thread.from || ''}
 Subject: ${thread.subject}
-Date: ${thread.date}
+Date: ${thread.date || ''}
 
-${thread.fullText.substring(0, 2000)}
+${(thread.fullText || '').substring(0, 2000)}
 
 Format response as:
 KEY POINTS:
@@ -265,11 +265,13 @@ URGENT: [yes|no]`;
 
     return {
       subject: thread.subject,
-      from: thread.from,
+      from: thread.from || '',
       keyPoints: keyPoints.length > 0 ? keyPoints : ['Thread summarized from email content.'],
       actionItems: actionItems.length > 0 ? actionItems : [],
       sentiment,
-      suggestedReplySnippet: sections['suggestedReply'] || `Thanks for reaching out about ${thread.subject}. Will get back to you shortly.`,
+      suggestedReplySnippet:
+        sections['suggestedReply'] ||
+        `Thanks for reaching out about ${thread.subject}. Will get back to you shortly.`,
       isUrgent,
     };
   }
@@ -280,12 +282,12 @@ URGENT: [yes|no]`;
   private fallbackSummary(thread: EmailThread): EmailSummary {
     return {
       subject: thread.subject,
-      from: thread.from,
-      keyPoints: [thread.snippet.substring(0, 100)],
+      from: thread.from || '',
+      keyPoints: [(thread.snippet || '').substring(0, 100)],
       actionItems: [],
       sentiment: 'neutral',
       suggestedReplySnippet: `Thanks for your email. Will review and respond shortly.`,
-      isUrgent: thread.subject.toLowerCase().includes('urgent'),
+      isUrgent: (thread.subject || '').toLowerCase().includes('urgent'),
     };
   }
 }

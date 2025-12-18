@@ -24,7 +24,8 @@ const DEFAULT_FEATURES: MVPFeature[] = [
   {
     id: 'tab-hibernation',
     name: 'Tab Hibernation',
-    description: 'Automatically suspend inactive browser tabs after 30 minutes to save memory and battery',
+    description:
+      'Automatically suspend inactive browser tabs after 30 minutes to save memory and battery',
     category: 'performance',
     enabled: true,
     inactivityTimeoutMs: 30 * 60 * 1000, // 30 minutes
@@ -79,7 +80,9 @@ function loadFeaturesFromStorage(): MVPFeature[] {
       // Merge with defaults to handle new features added in updates
       return DEFAULT_FEATURES.map(defaultFeature => {
         const storedFeature = parsed.find((f: MVPFeature) => f.id === defaultFeature.id);
-        return storedFeature ? { ...defaultFeature, enabled: storedFeature.enabled } : defaultFeature;
+        return storedFeature
+          ? { ...defaultFeature, enabled: storedFeature.enabled }
+          : defaultFeature;
       });
     }
   } catch (error) {
@@ -139,11 +142,14 @@ export function toggleMVPFeature(featureId: string): void {
     featuresCache = loadFeaturesFromStorage();
   }
 
-  const feature = featuresCache.find(f => f.id === featureId);
+  const cache = featuresCache ?? loadFeaturesFromStorage();
+  featuresCache = cache;
+
+  const feature = cache.find(f => f.id === featureId);
   if (feature) {
     feature.enabled = !feature.enabled;
-    saveFeaturesToStorage(featuresCache);
-    
+    saveFeaturesToStorage(cache);
+
     // Log toggle event
     console.log(`[MVP Features] Feature toggled: ${featureId} = ${feature.enabled}`);
 
@@ -164,10 +170,13 @@ export function setMVPFeatureEnabled(featureId: string, enabled: boolean): void 
     featuresCache = loadFeaturesFromStorage();
   }
 
-  const feature = featuresCache.find(f => f.id === featureId);
+  const cache = featuresCache ?? loadFeaturesFromStorage();
+  featuresCache = cache;
+
+  const feature = cache.find(f => f.id === featureId);
   if (feature && feature.enabled !== enabled) {
     feature.enabled = enabled;
-    saveFeaturesToStorage(featuresCache);
+    saveFeaturesToStorage(cache);
 
     console.log(`[MVP Features] Feature set: ${featureId} = ${enabled}`);
     window.dispatchEvent(
@@ -183,7 +192,9 @@ export function setMVPFeatureEnabled(featureId: string, enabled: boolean): void 
  */
 export function resetMVPFeaturestoDefaults(): void {
   featuresCache = JSON.parse(JSON.stringify(DEFAULT_FEATURES));
-  saveFeaturesToStorage(featuresCache);
+  if (featuresCache) {
+    saveFeaturesToStorage(featuresCache);
+  }
 
   console.log('[MVP Features] Reset to defaults');
   window.dispatchEvent(

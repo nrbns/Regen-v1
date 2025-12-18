@@ -6,9 +6,9 @@
 import { getGmailOAuthManager } from './oauth';
 
 export interface ComposeEmailData {
-  to: string;
-  cc?: string;
-  bcc?: string;
+  to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   body: string;
   isDraft?: boolean;
@@ -19,7 +19,7 @@ export interface EmailMessage {
   threadId: string;
   subject: string;
   from: string;
-  to: string;
+  to: string | string[];
   body: string;
   date: Date;
 }
@@ -118,10 +118,14 @@ export class GmailAPIClient {
    * Encode email to base64
    */
   private encodeEmail(data: ComposeEmailData): string {
+    const toStr = Array.isArray(data.to) ? data.to.join(',') : data.to;
+    const ccStr = data.cc ? (Array.isArray(data.cc) ? data.cc.join(',') : data.cc) : '';
+    const bccStr = data.bcc ? (Array.isArray(data.bcc) ? data.bcc.join(',') : data.bcc) : '';
+
     const email = [
-      `To: ${data.to}`,
-      data.cc ? `Cc: ${data.cc}` : '',
-      data.bcc ? `Bcc: ${data.bcc}` : '',
+      `To: ${toStr}`,
+      ccStr ? `Cc: ${ccStr}` : '',
+      bccStr ? `Bcc: ${bccStr}` : '',
       `Subject: ${data.subject}`,
       '',
       data.body,

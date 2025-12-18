@@ -114,10 +114,10 @@ export function MobileSettingsPanel({ isOpen, onClose }: MobileSettingsPanelProp
 // Settings Components
 function AppearanceSettings() {
   const theme = useSettingsStore(s => s.appearance.theme);
-  const setTheme = useSettingsStore(s => s.setAppearance);
+  const updateAppearance = useSettingsStore(s => s.updateAppearance);
 
   const handleSetTheme = (newTheme: string) => {
-    setTheme({ theme: newTheme as any });
+    updateAppearance({ theme: newTheme as any });
   };
 
   return (
@@ -126,7 +126,7 @@ function AppearanceSettings() {
         <h3 className="mb-3 font-medium text-white">Theme</h3>
         <div className="space-y-2">
           <button
-            onClick={() => setTheme('light')}
+            onClick={() => updateAppearance({ theme: 'light' })}
             className={cn(
               'flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-lg border p-3 transition-colors',
               theme === 'light'
@@ -138,7 +138,7 @@ function AppearanceSettings() {
             <span>Light</span>
           </button>
           <button
-            onClick={() => setTheme('dark')}
+            onClick={() => updateAppearance({ theme: 'dark' })}
             className={cn(
               'flex min-h-[44px] w-full touch-manipulation items-center gap-3 rounded-lg border p-3 transition-colors',
               theme === 'dark'

@@ -17,7 +17,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
 import { getLayoutOptimizer, getNavigationPreloader } from '../../utils/layer2-optimizer';
-import { getLayoutOptimizer, getNavigationPreloader } from '../../utils/layer2-optimizer';
 import { TabContentSurface } from './TabContentSurface';
 import { TabIframeManager } from './TabIframeManager';
 import { GlobalSearch } from '../search/GlobalSearch';
@@ -127,6 +126,7 @@ import {
   CookieConsent,
   useCookieConsent,
   type CookiePreferences,
+  getCookiePreferences,
 } from '../Onboarding/CookieConsent';
 import { useResearchHotkeys } from '../../hooks/useResearchHotkeys';
 import { ToastHost } from '../common/ToastHost';
@@ -453,7 +453,8 @@ export function AppShell() {
   // First-run onboarding: show after consent accepted, only once
   useEffect(() => {
     try {
-      const consentOk = useCookieConsent.getState().preferences.accepted === true;
+      const consent = getCookiePreferences();
+      const consentOk = consent?.essential === true;
       const hasSeen = window.localStorage.getItem('omnibrowser:first-run:seen') === 'true';
       if (consentOk && !hasSeen) {
         setShowFirstRun(true);
@@ -537,15 +538,14 @@ export function AppShell() {
 
   // Predictive actions: Listen for dom-ready events to auto-summarize pages
   useEffect(() => {
-    const handleDomReady = async (
-      event: CustomEvent<{ tabId?: string; url?: string; text?: string }>
-    ) => {
-      const { url, text } = event.detail;
+    const handleDomReady = async (event: Event) => {
+      const { url, text } =
+        (event as CustomEvent<{ tabId?: string; url?: string; text?: string }>).detail || {};
       if (!url || !text || text.length < 100) return;
 
       // Only auto-predict if user hasn't disabled it
       const settings = useSettingsStore.getState();
-      if (settings.disableAutoActions) return;
+      if (settings.general.disableAutoActions) return;
 
       try {
         // Import zero-prompt prediction service

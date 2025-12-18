@@ -34,10 +34,10 @@ export class EmailRAGService {
     // EmailThread has fullText property, not messages array
     const content = `
 Thread: ${thread.subject}
-From: ${thread.from}
+From: ${thread.from || ''}
 
 Content:
-${thread.fullText.substring(0, 2000)}
+${(thread.fullText || '').substring(0, 2000)}
 `;
 
     return await this.ragEngine.indexDocument(userId, content, {
@@ -73,9 +73,9 @@ ${thread.fullText.substring(0, 2000)}
     // Build base summary using fullText instead of messages array
     const baseContent = `
 Subject: ${thread.subject}
-From: ${thread.from}
+From: ${thread.from || ''}
 
-${thread.fullText.substring(0, 1500)}
+${(thread.fullText || '').substring(0, 1500)}
 `;
 
     // Retrieve context
@@ -105,7 +105,7 @@ Generate a concise summary that incorporates the historical context:
 
       return {
         subject: thread.subject,
-        from: thread.from,
+        from: thread.from || '',
         keyPoints: this.extractKeyPoints(summary),
         actionItems: this.extractActionItems(summary),
         sentiment: this.analyzeSentiment(summary),
@@ -114,7 +114,7 @@ Generate a concise summary that incorporates the historical context:
         contextDocuments: ragContext.documents.map(d => ({
           id: d.id,
           snippet: d.content.substring(0, 200),
-          similarity: d.similarity
+          similarity: d.similarity,
         })),
         contextAwarenessScore: Math.min(ragContext.documents.length * 0.2, 1), // 0-1
         relatedEmails: [],
@@ -124,7 +124,7 @@ Generate a concise summary that incorporates the historical context:
       // Fallback to basic summary
       return {
         subject: thread.subject,
-        from: thread.from,
+        from: thread.from || '',
         keyPoints: [],
         actionItems: [],
         sentiment: 'neutral',
@@ -140,19 +140,23 @@ Generate a concise summary that incorporates the historical context:
   /**
    * Find related emails
    */
-  async findRelatedEmails(userId: string, thread: EmailThread, limit: number = 3): Promise<string[]> {
+  async findRelatedEmails(
+    userId: string,
+    thread: EmailThread,
+    limit: number = 3
+  ): Promise<string[]> {
     const ragContext = await this.ragEngine.retrieveAndGenerate(userId, thread.subject);
 
-    return ragContext.documents.slice(0, limit).map((d) => d.id);
+    return ragContext.documents.slice(0, limit).map(d => d.id);
   }
 
   /**
    * Extract key points from summary
    */
   private extractKeyPoints(summary: string): string[] {
-    const sentences = summary.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+    const sentences = summary.split(/[.!?]+/).filter(s => s.trim().length > 0);
 
-    return sentences.slice(0, 3).map((s) => s.trim());
+    return sentences.slice(0, 3).map(s => s.trim());
   }
 
   /**
@@ -175,7 +179,7 @@ Generate a concise summary that incorporates the historical context:
 
     for (const sentence of sentences) {
       const lowerSentence = sentence.toLowerCase();
-      if (actionKeywords.some((keyword) => lowerSentence.includes(keyword))) {
+      if (actionKeywords.some(keyword => lowerSentence.includes(keyword))) {
         items.push(sentence.trim());
       }
     }
@@ -191,8 +195,8 @@ Generate a concise summary that incorporates the historical context:
     const negative = ['bad', 'poor', 'terrible', 'angry', 'urgent', 'critical'];
 
     const lowerSummary = summary.toLowerCase();
-    const positiveCount = positive.filter((word) => lowerSummary.includes(word)).length;
-    const negativeCount = negative.filter((word) => lowerSummary.includes(word)).length;
+    const positiveCount = positive.filter(word => lowerSummary.includes(word)).length;
+    const negativeCount = negative.filter(word => lowerSummary.includes(word)).length;
 
     if (positiveCount > negativeCount) {
       return 'positive';

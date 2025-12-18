@@ -50,7 +50,7 @@ export class DraftReplyGenerator {
       const draftBody = response.choices[0]?.message?.content || '';
 
       // Extract recipient from thread
-      const replyTo = thread.from;
+      const replyTo = thread.from || '';
 
       const draft: DraftReply = {
         threadId: thread.id,
@@ -107,10 +107,9 @@ export class DraftReplyGenerator {
     maxLength: number
   ): string {
     const toneGuidelines: Record<ReplyTone, string> = {
-      professional:
-        'Be formal, concise, and action-oriented. Focus on facts and next steps.',
+      professional: 'Be formal, concise, and action-oriented. Focus on facts and next steps.',
       casual: 'Be friendly and conversational. Use a warm, approachable tone.',
-      appreciative: 'Express gratitude and positivity. Acknowledge the sender\'s effort.',
+      appreciative: "Express gratitude and positivity. Acknowledge the sender's effort.",
       urgent: 'Be direct and immediate. Prioritize the most critical information.',
     };
 
@@ -144,26 +143,26 @@ Generate only the reply body, no subject line or greeting. Start directly with t
     tone: ReplyTone
   ): DraftReply {
     const templates: Record<ReplyTone, (summary: EmailSummary) => string> = {
-      professional: (s) =>
+      professional: s =>
         `Thank you for your email. I've reviewed your message and the key points you mentioned. 
 ${s.actionItems.length > 0 ? `I will address the following items: ${s.actionItems.slice(0, 2).join(', ')}.` : 'Please let me know how I can assist further.'}
 Best regards`,
 
-      casual: (s) =>
+      casual: s =>
         `Thanks for reaching out! I appreciate you taking the time to send this. 
 ${s.actionItems.length > 0 ? `I'll get on these items: ${s.actionItems.slice(0, 2).join(', ')}.` : 'Talk soon!'}`,
 
-      appreciative: (s) =>
+      appreciative: s =>
         `Thank you so much for your message! I really appreciate your thoughtfulness. 
 ${s.actionItems.length > 0 ? `I'll take care of ${s.actionItems[0]}.` : 'Looking forward to staying in touch!'}`,
 
-      urgent: (s) =>
+      urgent: s =>
         `Acknowledged. Priority items: ${s.actionItems.slice(0, 2).join(', ') || 'noted'}.
 Will confirm updates within 24 hours.`,
     };
 
     const replyBody = templates[tone](summary);
-    const replyTo = thread.from;
+    const replyTo = thread.from || '';
 
     return {
       threadId: thread.id,
@@ -180,9 +179,7 @@ Will confirm updates within 24 hours.`,
   private extractSender(message: any): string | null {
     if (!message?.payload?.headers) return null;
 
-    const fromHeader = message.payload.headers.find(
-      (h: any) => h.name.toLowerCase() === 'from'
-    );
+    const fromHeader = message.payload.headers.find((h: any) => h.name.toLowerCase() === 'from');
     return fromHeader?.value || null;
   }
 }

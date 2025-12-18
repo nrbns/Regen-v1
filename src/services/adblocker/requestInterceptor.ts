@@ -91,7 +91,8 @@ export function interceptXHR(): void {
         return;
       }
 
-      super.open(method, url as any, ...args);
+      const [asyncOrUndefined, userOrUndefined, passwordOrUndefined] = args as any[];
+      super.open(method, url as any, asyncOrUndefined, userOrUndefined, passwordOrUndefined);
     }
   } as any;
 }

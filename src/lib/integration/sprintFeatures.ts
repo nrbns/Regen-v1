@@ -57,8 +57,12 @@ export async function initializeSprintFeatures(): Promise<void> {
     try {
       const syncModule = await import('../../services/sync/syncIntegration').catch(() => null);
       if (syncModule?.initializeSyncService) {
-        await syncModule.initializeSyncService();
-        console.log('[Sprint Features] Sync service initialized');
+        try {
+          await syncModule.initializeSyncService('guest', 'http://localhost:3001');
+          console.log('[Sprint Features] Sync service initialized');
+        } catch (error) {
+          console.warn('[Sprint Features] Sync initialization failed:', error);
+        }
       }
     } catch (error) {
       console.warn('[Sprint Features] Sync not available:', error);
@@ -115,8 +119,8 @@ export async function initializeSprintFeatures(): Promise<void> {
 export function initializeSprintFeaturesDeferred(): void {
   // Initialize after first paint
   if (typeof window !== 'undefined') {
-    if (window.requestIdleCallback) {
-      requestIdleCallback(
+    if ('requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(
         () => {
           initializeSprintFeatures().catch(console.error);
         },

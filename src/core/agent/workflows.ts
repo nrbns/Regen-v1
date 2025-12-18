@@ -13,6 +13,7 @@ export interface WorkflowStep {
   parameters?: Record<string, string>; // template placeholders
   description?: string;
   order: number;
+  timeout?: number;
 }
 
 export interface WorkflowTemplate {
@@ -47,7 +48,10 @@ interface WorkflowState {
   incrementUsageCount: (templateId: string) => void;
   exportTemplate: (templateId: string) => string;
   importTemplate: (json: string) => boolean;
-  fillTemplateParameters: (template: WorkflowTemplate, values: Record<string, string>) => WorkflowStep[];
+  fillTemplateParameters: (
+    template: WorkflowTemplate,
+    values: Record<string, string>
+  ) => WorkflowStep[];
 }
 
 const builtInTemplates: WorkflowTemplate[] = [
@@ -221,9 +225,10 @@ export const useWorkflowStore = create<WorkflowState>()(
   persist(
     (set, get) => ({
       // Allow disabling built-ins via env for real-only runtime
-      templates: (typeof process !== 'undefined' && process.env && process.env.OMNI_DISABLE_BUILTINS === '1')
-        ? []
-        : builtInTemplates,
+      templates:
+        typeof process !== 'undefined' && process.env && process.env.OMNI_DISABLE_BUILTINS === '1'
+          ? []
+          : builtInTemplates,
 
       createTemplate: (name, description, tags = []) => {
         const id = `workflow-${Date.now()}`;
@@ -310,13 +315,13 @@ export const useWorkflowStore = create<WorkflowState>()(
         }));
       },
 
-      deleteTemplate: (templateId) => {
+      deleteTemplate: templateId => {
         set(state => ({
           templates: state.templates.filter(t => t.id !== templateId),
         }));
       },
 
-      getTemplate: (templateId) => {
+      getTemplate: templateId => {
         return get().templates.find(t => t.id === templateId);
       },
 
@@ -324,11 +329,11 @@ export const useWorkflowStore = create<WorkflowState>()(
         return get().templates;
       },
 
-      getTemplatesByTag: (tag) => {
+      getTemplatesByTag: tag => {
         return get().templates.filter(t => t.tags.includes(tag));
       },
 
-      incrementUsageCount: (templateId) => {
+      incrementUsageCount: templateId => {
         set(state => ({
           templates: state.templates.map(t => {
             if (t.id === templateId) {
@@ -342,13 +347,13 @@ export const useWorkflowStore = create<WorkflowState>()(
         }));
       },
 
-      exportTemplate: (templateId) => {
+      exportTemplate: templateId => {
         const template = get().templates.find(t => t.id === templateId);
         if (!template) return '';
         return JSON.stringify(template, null, 2);
       },
 
-      importTemplate: (json) => {
+      importTemplate: json => {
         try {
           const template = JSON.parse(json) as WorkflowTemplate;
           // Validate required fields

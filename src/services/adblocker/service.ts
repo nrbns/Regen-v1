@@ -161,7 +161,7 @@ export class AdblockerService {
       await this.initialize();
     }
 
-    const whitelisted = this.settings!.whitelistedDomains.filter(d => d !== domain);
+    const whitelisted = (this.settings?.whitelistedDomains || []).filter(d => d !== domain);
 
     await this.updateSettings({
       whitelistedDomains: whitelisted,

@@ -51,6 +51,7 @@ class CalendarSkill implements Skill {
   manifest = CALENDAR_SKILL_MANIFEST;
   enabled = true;
   settings: Record<string, any> = {};
+  private authorized = false;
 
   async execute(context: SkillContext): Promise<SkillResult> {
     if (context.action?.handler === 'createEvent') {
@@ -69,6 +70,14 @@ class CalendarSkill implements Skill {
 
   async initialize(_config?: { clientId: string; redirectUri: string }): Promise<void> {
     // OAuth initialization placeholder
+  }
+
+  async authorize(): Promise<void> {
+    this.authorized = true;
+  }
+
+  async isAuthorized(): Promise<boolean> {
+    return this.authorized;
   }
 
   async createEvent(_context: SkillContext, _data: Record<string, any>): Promise<SkillResult> {

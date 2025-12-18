@@ -18,6 +18,7 @@ export interface AutofillProfile {
   fields: Record<string, string>;
   createdAt: number | Date;
   updatedAt?: number | Date;
+  isDefault?: boolean;
 }
 
 export type AutofillDataType =

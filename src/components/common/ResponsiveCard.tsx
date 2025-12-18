@@ -26,7 +26,9 @@ export function ResponsiveCard({
   onMouseLeave,
   ...props
 }: ResponsiveCardProps) {
-  const { isMobile, isTablet } = useMobileDetection();
+  const detection = useMobileDetection() as any;
+  const isMobile = detection?.isMobile ?? false;
+  const isTablet = detection?.isTablet ?? false;
 
   const paddingClasses = {
     none: '',
@@ -72,7 +74,9 @@ export function ResponsiveGrid({
   gap = 'md',
   minColumnWidth = '300px',
 }: ResponsiveGridProps) {
-  const { isMobile, isTablet } = useMobileDetection();
+  const detection = useMobileDetection() as any;
+  const isMobile = detection?.isMobile ?? false;
+  const isTablet = detection?.isTablet ?? false;
 
   const gapClasses = {
     sm: isMobile ? 'gap-2' : isTablet ? 'gap-3' : 'gap-4',
