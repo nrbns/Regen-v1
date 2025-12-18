@@ -54,7 +54,7 @@ export function tokenizeText(text: string, chunkSize = 1): string[] {
  */
 export async function emitStreamChunk(
   chunk: string,
-  options: StreamChunkOptions
+  _options: StreamChunkOptions
 ): Promise<void> {
   try {
     const client = getSocketClient();

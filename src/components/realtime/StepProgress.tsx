@@ -52,7 +52,7 @@ export function StepProgress({
         const Icon = step.icon;
         const isActive = index === currentStepIndex;
         const isCompleted = isComplete || index < currentStepIndex;
-        const isPending = index > currentStepIndex && !isComplete;
+        const _isPending = index > currentStepIndex && !isComplete;
 
         return (
           <div key={step.id} className="flex items-center gap-2">

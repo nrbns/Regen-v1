@@ -273,8 +273,19 @@ export class AgenticWorkflowEngine {
   async researchWorkflow(
     query: string,
     context = '',
-    options: { maxIterations?: number; maxTokens?: number; temperature?: number } = {}
+    options: { maxIterations?: number; maxTokens?: number; temperature?: number } = {},
+    streamCallback?: StreamCallback
   ): Promise<AgenticWorkflowResponse> {
+          // Emit initial step: thinking
+          if (streamCallback) {
+            streamCallback({
+              type: 'step',
+              step: 0,
+              content: 'thinking',
+              data: { stage: 'Analyzing query and planning search...' },
+            });
+          }
+
     const startTime = Date.now();
     const steps: AgenticWorkflowResponse['steps'] = [];
     let totalTokens = 0;
@@ -282,6 +293,15 @@ export class AgenticWorkflowEngine {
 
     try {
       // Step 1: Search Agent
+            if (streamCallback) {
+              streamCallback({
+                type: 'step',
+                step: 1,
+                content: 'searching',
+                data: { stage: 'Searching web for information...' },
+              });
+            }
+
       const searchTools = [AgentTools.createSearchTool()];
       const searchAgent = await this.createReActAgent(
         this.getGPTModel(options.temperature ?? 0.7),
@@ -308,7 +328,24 @@ export class AgenticWorkflowEngine {
 
       totalTokens += Math.ceil((searchResult.output || '').length / 4);
 
+      // Emit search results as stream
+      if (streamCallback) {
+        streamCallback({
+          type: 'token',
+          content: `Search Results:\n${(searchResult.output || '').slice(0, 500)}...\n\n`,
+        });
+      }
+
       // Step 2: Summarize Agent
+            if (streamCallback) {
+              streamCallback({
+                type: 'step',
+                step: 2,
+                content: 'writing',
+                data: { stage: 'Summarizing results...' },
+              });
+            }
+
       const summarizePrompt = ChatPromptTemplate.fromMessages([
         [
           'system',
@@ -320,10 +357,25 @@ export class AgenticWorkflowEngine {
       const summarizeModel = this.getGPTModel(0.5);
       agentsUsed.push('gpt-4o-mini-summarize');
       const summarizeChain = summarizePrompt.pipe(summarizeModel).pipe(new StringOutputParser());
-      const summary = await summarizeChain.invoke({
-        search_results: searchResult.output,
-        query,
-      });
+
+      let summary = '';
+      if (options.stream && streamCallback) {
+        // Streaming mode
+        const stream = await summarizeChain.stream({
+          search_results: searchResult.output,
+          query,
+        });
+        for await (const chunk of stream) {
+          summary += chunk;
+          streamCallback({ type: 'token', content: chunk });
+        }
+      } else {
+        // Non-streaming mode
+        summary = await summarizeChain.invoke({
+          search_results: searchResult.output,
+          query,
+        });
+      }
 
       steps.push({
         step: 2,
@@ -335,6 +387,15 @@ export class AgenticWorkflowEngine {
       totalTokens += Math.ceil(summary.length / 4);
 
       // Step 3: Ethics Check Agent
+            if (streamCallback) {
+              streamCallback({
+                type: 'step',
+                step: 3,
+                content: 'writing',
+                data: { stage: 'Performing ethics check...' },
+              });
+            }
+
       const ethicsPrompt = ChatPromptTemplate.fromMessages([
         [
           'system',
@@ -346,7 +407,20 @@ export class AgenticWorkflowEngine {
       const ethicsModel = this.getClaudeModel(0.1);
       agentsUsed.push('claude-3-5-sonnet-ethics');
       const ethicsChain = ethicsPrompt.pipe(ethicsModel).pipe(new StringOutputParser());
-      const ethicsCheck = await ethicsChain.invoke({ summary, query });
+
+      let ethicsCheck = '';
+      if (options.stream && streamCallback) {
+        // Streaming mode
+        streamCallback({ type: 'token', content: '\n\nEthics Check:\n' });
+        const stream = await ethicsChain.stream({ summary, query });
+        for await (const chunk of stream) {
+          ethicsCheck += chunk;
+          streamCallback({ type: 'token', content: chunk });
+        }
+      } else {
+        // Non-streaming mode
+        ethicsCheck = await ethicsChain.invoke({ summary, query });
+      }
 
       steps.push({
         step: 3,
@@ -366,6 +440,14 @@ export class AgenticWorkflowEngine {
         this.ecoScorer.estimateEnergy('anthropic', totalTokens * 0.4);
       const greenScore = this.ecoScorer.calculateGreenScore(energy, totalTokens);
       const latency = Date.now() - startTime;
+
+      // Emit completion
+      if (streamCallback) {
+        streamCallback({
+          type: 'done',
+          data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed },
+        });
+      }
 
       return {
         result: fusedResult,
@@ -495,7 +577,8 @@ What should I do next?`,
   async multiAgentWorkflow(
     query: string,
     context = '',
-    options: { maxIterations?: number; maxTokens?: number; temperature?: number } = {}
+    options: { maxIterations?: number; maxTokens?: number; temperature?: number } = {},
+    streamCallback?: StreamCallback
   ): Promise<AgenticWorkflowResponse> {
     const startTime = Date.now();
     const steps: AgenticWorkflowResponse['steps'] = [];
@@ -504,13 +587,22 @@ What should I do next?`,
 
     try {
       // Agent 1: Research
-      const researchResult = await this.researchWorkflow(query, context, options);
+      const researchResult = await this.researchWorkflow(query, context, options, streamCallback);
       steps.push(...researchResult.steps);
       totalTokens += researchResult.tokensUsed;
       agentsUsed.push(...researchResult.agentsUsed);
 
       // Agent 2: Code Generation (if query involves code)
       if (query.toLowerCase().includes('code') || query.toLowerCase().includes('function')) {
+                if (streamCallback) {
+                  streamCallback({
+                    type: 'step',
+                    step: steps.length + 1,
+                    content: 'writing',
+                    data: { stage: 'Generating code...' },
+                  });
+                }
+
         const codeTools = [AgentTools.createCodeTool(), AgentTools.createCalculatorTool()];
         const codeAgent = await this.createReActAgent(this.getGPTModel(0.2), codeTools);
         const codeExecutor = {
@@ -533,6 +625,22 @@ What should I do next?`,
         });
 
         totalTokens += Math.ceil((codeResult.output || '').length / 4);
+
+              // Emit code result
+              if (streamCallback) {
+                streamCallback({
+                  type: 'token',
+                  content: `\n\nGenerated Code:\n${codeResult.output}\n`,
+                });
+              }
+
+            // Emit completion
+            if (streamCallback) {
+              streamCallback({
+                type: 'done',
+                data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed },
+              });
+            }
       }
 
       // Calculate final eco score
@@ -688,18 +796,23 @@ What should I do next?`,
       context = '',
       workflowType = 'research',
       tools: _tools = [],
-      options = {},
+      options = { stream: true },
     } = request;
+
+    // Enable streaming by default if callback provided
+    if (streamCallback) {
+      options.stream = true;
+    }
 
     switch (workflowType) {
       case 'research':
-        return this.researchWorkflow(query, context, options);
+        return this.researchWorkflow(query, context, options, streamCallback);
       case 'multi-agent':
-        return this.multiAgentWorkflow(query, context, options);
+        return this.multiAgentWorkflow(query, context, options, streamCallback);
       case 'rag':
         return this.ragWorkflow(query, context, options, streamCallback);
       default:
-        return this.researchWorkflow(query, context, options);
+        return this.researchWorkflow(query, context, options, streamCallback);
     }
   }
 }

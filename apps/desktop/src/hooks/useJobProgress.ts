@@ -49,8 +49,9 @@ export function useJobProgress(
     socketStatus: 'disconnected' as 'connected' | 'connecting' | 'disconnected',
     retryCount: 0,
   });
-  const unsubscribeRef = useRef<() => void | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
   const connectionUnsubs = useRef<Array<() => void>>([]);
+  const jobSocketListeners = useRef<Array<() => void>>([]); // Track job-specific listeners
 
   // Connection state listeners (socket + browser online/offline)
   useEffect(() => {
@@ -149,10 +150,18 @@ export function useJobProgress(
 
             setState(newState);
 
-            // Handle streaming text
+            // Handle streaming text (with buffer size limit to prevent memory bloat)
             if (progressData.partial || progressData?.payload?.chunk) {
               const chunk = progressData.partial || progressData?.payload?.chunk;
-              setStreamingText(prev => prev + chunk);
+              const MAX_BUFFER_SIZE = 5000; // Keep last 5000 chars only
+              setStreamingText(prev => {
+                const combined = prev + chunk;
+                if (combined.length > MAX_BUFFER_SIZE) {
+                  // Keep most recent text to save memory
+                  return combined.slice(-MAX_BUFFER_SIZE);
+                }
+                return combined;
+              });
               setIsStreaming(true);
             }
 
@@ -175,11 +184,12 @@ export function useJobProgress(
         );
 
         // Ask server to replay missed events after reconnect
-        socket.on('socket:connected', () => {
+        const unsubReconnect = socket.on('socket:connected', () => {
           if (lastSequence > 0) {
             socket.reconnectSync(jobId, lastSequence);
           }
         });
+        jobSocketListeners.current.push(unsubReconnect);
       } catch (error) {
         console.error('[useJobProgress] Failed to subscribe:', error);
       }
@@ -190,7 +200,11 @@ export function useJobProgress(
     return () => {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
+      // Clean up job-specific socket listeners
+      jobSocketListeners.current.forEach(fn => fn?.());
+      jobSocketListeners.current = [];
       // Clear connection listeners
       connectionUnsubs.current.forEach(fn => fn?.());
       connectionUnsubs.current = [];

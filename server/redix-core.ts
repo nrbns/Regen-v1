@@ -4,9 +4,12 @@
  */
 
 import fastify, { FastifyInstance } from 'fastify';
+import { Server as HttpServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import { getLangChainFusion, FusionRequest } from './langchain-fusion';
 import { getAgenticWorkflowEngine, AgenticWorkflowRequest } from './langchain-agents';
 import { getVoiceProcessor, VoiceRequest } from './redix-voice';
+import { createAgentStreamCallback } from './agentStreamingBridge';
 
 // Types
 interface AskRequest {
@@ -179,13 +182,15 @@ class LLMAdapter {
 // Redix Server
 export class RedixServer {
   private app: FastifyInstance;
+  private io?: SocketIOServer;
   private router = new ModelRouter();
   private llm = new LLMAdapter();
   private ecoScorer = new EcoScorer();
   private port: number;
 
-  constructor(port = 8001) {
+  constructor(port = 8001, io?: SocketIOServer) {
     this.port = port;
+    this.io = io;
     this.app = fastify({ logger: true });
     this.setupRoutes();
   }
@@ -321,18 +326,48 @@ export class RedixServer {
     });
 
     // /workflow endpoint - LangChain agentic workflows
-    this.app.post<{ Body: AgenticWorkflowRequest & { stream?: boolean } }>(
+    this.app.post<{ Body: AgenticWorkflowRequest & { stream?: boolean; jobId?: string; userId?: string } }>(
       '/workflow',
       async (request, reply) => {
         try {
-          const { query, context, workflowType, tools, options, stream } = request.body;
+          const { query, context, workflowType, tools, options, stream, jobId, userId } = request.body;
 
           if (!query?.trim()) {
             reply.code(400).send({ error: 'Query is required' });
             return;
           }
 
-          // SSE streaming mode
+          // Socket.IO streaming mode (preferred)
+          if (stream && this.io && jobId && userId) {
+            const workflowEngine = getAgenticWorkflowEngine();
+            const streamCallback = createAgentStreamCallback({
+              jobId,
+              userId,
+              io: this.io,
+            });
+
+            try {
+              await workflowEngine.runWorkflow(
+                {
+                  query,
+                  context,
+                  workflowType,
+                  tools,
+                  options: { ...options, stream: true },
+                },
+                streamCallback
+              );
+            } catch (error: any) {
+              streamCallback({
+                type: 'error',
+                content: error.message,
+              });
+            }
+            reply.code(200).send({ status: 'streaming', jobId });
+            return;
+          }
+
+          // SSE streaming mode (fallback for SSE clients)
           if (stream) {
             reply.raw.setHeader('Content-Type', 'text/event-stream');
             reply.raw.setHeader('Cache-Control', 'no-cache');

@@ -44,7 +44,7 @@ interface ActionLogProps {
   isCollapsed?: boolean;
 }
 
-export function ActionLog({ entries, isCollapsed = false }: ActionLogProps) {
+export function ActionLog({ entries, isCollapsed: _isCollapsed = false }: ActionLogProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 

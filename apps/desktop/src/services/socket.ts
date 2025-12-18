@@ -54,6 +54,14 @@ export class SocketClient {
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        // Exponential backoff: 1s * 1.5^attempt, capped at 30s
+        const calculateBackoff = (attempt: number) => {
+          return Math.min(
+            this.config.reconnectDelay! * Math.pow(1.5, Math.max(0, attempt - 1)),
+            30000 // Max 30s between attempts
+          );
+        };
+
         this.socket = io(this.config.url, {
           auth: {
             token: this.config.token,
@@ -61,9 +69,17 @@ export class SocketClient {
           },
           reconnection: true,
           reconnectionDelay: this.config.reconnectDelay,
-          reconnectionDelayMax: 5000,
+          reconnectionDelayMax: 30000, // Max 30s between retries
           reconnectionAttempts: this.maxReconnectAttempts,
           transports: ['websocket', 'polling'],
+          // Exponential backoff calculation
+          reconnectionDelayFn: (attempt: number) => {
+            const delay = calculateBackoff(attempt);
+            console.log(
+              `[SocketClient] Scheduled reconnect in ${Math.round(delay / 1000)}s (attempt ${attempt})`
+            );
+            return delay;
+          },
         });
 
         // Connection established
