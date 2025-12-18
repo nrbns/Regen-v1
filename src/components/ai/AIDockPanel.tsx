@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Bot, ExternalLink, Loader2, Pin, PinOff, Send, Sparkles, Timer } from 'lucide-react';
 
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { showToast } from '../../state/toastStore';
+import { createStreamingHandler } from '../../services/realtime/streamingBridge';
 
 type DockEntry = {
   id: string;
@@ -39,6 +40,7 @@ export function AIDockPanel() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pinned, setPinned] = useState(true);
   const [history, setHistory] = useState<DockEntry[]>([]);
+  const streamHandlerRef = useRef(createStreamingHandler(`dock-${Date.now()}`));
   const activeTab = useTabsStore(state => {
     const tab = state.tabs.find(t => t.id === state.activeId);
     return tab ? { url: tab.url, title: tab.title } : null;
@@ -74,6 +76,10 @@ export function AIDockPanel() {
     const started = performance.now();
     let jobId: string | null = null;
 
+    // Reset streaming handler for new request
+    streamHandlerRef.current.reset();
+    streamHandlerRef.current = createStreamingHandler(`dock-${Date.now()}`);
+
     try {
       const response = await ipc.agent.askWithScrape({
         url: activeTab.url,
@@ -104,6 +110,9 @@ export function AIDockPanel() {
               if (result.status === 'complete' && result.agentResult) {
                 const agentResult = result.agentResult;
                 const answer = agentResult.answer?.trim() || 'No answer returned yet.';
+                // Emit MODEL_CHUNK for realtime panel
+                streamHandlerRef.current.onChunk(answer);
+                streamHandlerRef.current.onComplete();
                 const sources =
                   Array.isArray(agentResult.sources) && agentResult.sources.length > 0
                     ? agentResult.sources.map((s: { url: string }) => s.url)
@@ -168,6 +177,9 @@ export function AIDockPanel() {
 
       // Handle immediate response (200)
       const answer = response?.answer?.trim() || 'No answer returned yet.';
+      // Emit MODEL_CHUNK for realtime panel
+      streamHandlerRef.current.onChunk(answer);
+      streamHandlerRef.current.onComplete();
       const sources =
         Array.isArray(response?.sources) && response.sources.length > 0
           ? response.sources

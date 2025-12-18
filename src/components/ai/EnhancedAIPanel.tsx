@@ -10,6 +10,7 @@ import { SmartActionGroup, type SmartAction } from './SmartActionButton';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { VoiceButton } from '../voice';
+import { createStreamingHandler } from '../../services/realtime/streamingBridge';
 
 export interface EnhancedAIPanelProps {
   onClose?: () => void;
@@ -24,6 +25,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
   const [copied, setCopied] = useState(false);
   const [smartActions, setSmartActions] = useState<SmartAction[]>([]);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const streamHandlerRef = useRef(createStreamingHandler(`ai-panel-${Date.now()}`));
   const { activeId, tabs } = useTabsStore();
   const activeTab = tabs.find(t => t.id === activeId);
 
@@ -99,6 +101,10 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
     setIsStreaming(true);
     setSmartActions([]);
 
+    // Reset streaming handler for new request
+    streamHandlerRef.current.reset();
+    streamHandlerRef.current = createStreamingHandler(`ai-panel-${Date.now()}`);
+
     try {
       // Stream AI response
       await ipc.redix.stream(
@@ -109,8 +115,12 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
         (chunk: any) => {
           if (chunk.type === 'token' && chunk.text) {
             setResponse(prev => prev + chunk.text);
+            // Emit MODEL_CHUNK events for realtime panel
+            streamHandlerRef.current.onChunk(chunk.text);
           } else if (chunk.type === 'done') {
             setIsStreaming(false);
+            // Mark streaming complete
+            streamHandlerRef.current.onComplete();
           } else if (chunk.type === 'error') {
             setIsStreaming(false);
             setError(chunk.error || 'Failed to get AI response');

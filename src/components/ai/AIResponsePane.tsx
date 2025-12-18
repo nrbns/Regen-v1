@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import { requestRedix } from '../../services/redixClient';
+import { createStreamingHandler } from '../../services/realtime/streamingBridge';
 
 interface AIResponsePaneProps {
   query: string;
@@ -22,6 +23,7 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
   const controllerRef = useRef<{ id: string; cancel: () => void } | null>(null);
   const sessionIdRef = useRef<string>(`redix-ai-${crypto.randomUUID()}`);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const streamHandlerRef = useRef(createStreamingHandler(`redix-${Date.now()}`));
 
   // Auto-scroll to bottom as response streams
   useEffect(() => {
@@ -42,6 +44,10 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
     setError(null);
     setIsStreaming(true);
 
+    // Reset streaming handler for new request
+    streamHandlerRef.current.reset();
+    streamHandlerRef.current = createStreamingHandler(`redix-${Date.now()}`);
+
     // Start streaming request
     controllerRef.current = requestRedix(query, {
       sessionId: sessionIdRef.current,
@@ -52,8 +58,11 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
         // Check for text tokens in the response
         if (payload.text) {
           setResponse(prev => prev + payload.text);
+          // Emit MODEL_CHUNK events for realtime panel
+          streamHandlerRef.current.onChunk(payload.text);
         } else if (payload.content) {
           setResponse(prev => prev + payload.content);
+          streamHandlerRef.current.onChunk(payload.content);
         } else if (payload.items && Array.isArray(payload.items)) {
           // Handle structured results
           const textContent = payload.items
@@ -63,6 +72,7 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
             setResponse(prev => {
               // Avoid duplicates
               if (!prev.includes(textContent)) {
+                streamHandlerRef.current.onChunk(textContent);
                 return prev + (prev ? '\n\n' : '') + textContent;
               }
               return prev;
@@ -77,16 +87,22 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
         // Final response might contain complete text
         if (payload.text) {
           setResponse(prev => prev + payload.text);
+          streamHandlerRef.current.onChunk(payload.text);
         } else if (payload.content) {
           setResponse(prev => prev + payload.content);
+          streamHandlerRef.current.onChunk(payload.content);
         } else if (payload.items && Array.isArray(payload.items)) {
           const textContent = payload.items
             .map((item: any) => item.text || item.content || item.snippet || '')
             .join('\n\n');
           if (textContent && !response.includes(textContent)) {
+            streamHandlerRef.current.onChunk(textContent);
             setResponse(prev => prev + (prev ? '\n\n' : '') + textContent);
           }
         }
+        
+        // Mark streaming complete
+        streamHandlerRef.current.onComplete();
       },
       onError: message => {
         setIsStreaming(false);
