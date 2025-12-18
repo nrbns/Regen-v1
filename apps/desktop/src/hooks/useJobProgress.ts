@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getSocketClient } from '../services/socket';
+import { tabManager } from '../services/tabManager';
 import type { JobState } from '../../../packages/shared/events';
 import { fetchJob } from '../services/jobs';
 
@@ -99,6 +100,11 @@ export function useJobProgress(
       setState(null);
       setStreamingText('');
       setIsStreaming(false);
+      try {
+        if (tabManager.getActiveJob() != null) {
+          tabManager.clearActiveJob();
+        }
+      } catch {}
       return;
     }
 
@@ -129,6 +135,11 @@ export function useJobProgress(
         } catch (fetchErr) {
           console.warn('[useJobProgress] Failed to bootstrap job state', fetchErr);
         }
+
+        // Set active job for this tab (session restore + isolation)
+        try {
+          tabManager.setActiveJob(jobId);
+        } catch {}
 
         // Subscribe to job
         unsubscribeRef.current = socket.subscribeToJob(
@@ -175,11 +186,21 @@ export function useJobProgress(
             );
             options.onComplete?.(completeData);
             setIsStreaming(false);
+            try {
+              if (tabManager.getActiveJob() === jobId) {
+                tabManager.clearActiveJob();
+              }
+            } catch {}
           },
           (error: string) => {
             setState(prev => (prev ? { ...prev, state: 'failed', error, isFailed: true } : null));
             options.onError?.(error);
             setIsStreaming(false);
+            try {
+              if (tabManager.getActiveJob() === jobId) {
+                tabManager.clearActiveJob();
+              }
+            } catch {}
           }
         );
 
@@ -202,6 +223,12 @@ export function useJobProgress(
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
+      // Clear active job if leaving subscription
+      try {
+        if (tabManager.getActiveJob() === jobId) {
+          tabManager.clearActiveJob();
+        }
+      } catch {}
       // Clean up job-specific socket listeners
       jobSocketListeners.current.forEach(fn => fn?.());
       jobSocketListeners.current = [];
@@ -217,6 +244,11 @@ export function useJobProgress(
       try {
         const socket = getSocketClient();
         socket.cancelJob(jobId);
+        try {
+          if (tabManager.getActiveJob() === jobId) {
+            tabManager.clearActiveJob();
+          }
+        } catch {}
       } catch (error) {
         console.error('[useJobProgress] Failed to cancel job:', error);
       }
