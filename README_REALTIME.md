@@ -113,6 +113,38 @@ The Job Timeline Panel automatically:
 - **Persists** state in sessionStorage across page reloads
 - **Displays** resume banner for paused/failed jobs
 
+### Using Session Restore
+
+```tsx
+import { useSessionRestore, SessionRestoreBanner } from '@/hooks/useSessionRestore';
+
+export function App() {
+  const restore = useSessionRestore({
+    autoSubscribe: true, // Auto-reconnect to jobs on recovery
+    onRestore: (session) => console.log('Recovered job:', session.jobId),
+  });
+
+  return (
+    <div>
+      {/* Shows "Reconnecting to job (45%)..." banner during recovery */}
+      <SessionRestoreBanner
+        message={restore.resumeBannerText}
+        onDismiss={restore.dismissBanner}
+        isRestoring={restore.isRestoring}
+      />
+    </div>
+  );
+}
+```
+
+Session Restore automatically:
+- **Saves** active job state (jobId, lastSequence, progress) every 2 seconds
+- **Detects** saved sessions on app startup
+- **Recovers** job streaming from lastSequence checkpoint
+- **Shows** "Resuming from X%" banner during reconnect
+- **Clears** session on job completion
+- **Expires** stale sessions after 1 hour
+
 ## Event Schema (Shared)
 
 All realtime events use the EVENTS constant from `packages/shared/events.ts`:
@@ -132,7 +164,6 @@ All realtime events use the EVENTS constant from `packages/shared/events.ts`:
 
 1. ✅ **Realtime Status Bar** (global connection indicator)
 2. ✅ **Job Timeline Panel** (shows running/completed jobs + resume)
-3. **Streaming Standardization** (all AI output uses `MODEL_CHUNK` events)
-4. **Step-based Progress** (Thinking → Searching → Writing states)
-5. **Session Restore** (recover ongoing jobs across page reloads)
-6. **Load Testing** (verify 100+ concurrent jobs)
+3. ✅ **Session Restore** (recover ongoing jobs across page reloads)
+4. **Streaming Standardization** (all AI output uses `MODEL_CHUNK` events)
+5. **Step-based Progress** (Thinking → Searching → Writing states)
