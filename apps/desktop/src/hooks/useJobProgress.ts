@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getSocketClient } from '../services/socket';
 import type { JobState } from '../../../packages/shared/events';
+import { fetchJob } from '../services/jobs';
 
 export interface JobProgressState {
   jobId: string;
@@ -41,6 +42,7 @@ export function useJobProgress(
   const [state, setState] = useState<JobProgressState | null>(null);
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [lastSequence, setLastSequence] = useState(0);
   const [connection, setConnection] = useState({
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     socketStatus: 'disconnected' as 'connected' | 'connecting' | 'disconnected',
@@ -102,53 +104,86 @@ export function useJobProgress(
     setStreamingText('');
     setIsStreaming(false);
 
-    try {
-      const socket = getSocketClient();
+    async function bootstrapJob() {
+      try {
+        const socket = getSocketClient();
 
-      // Subscribe to job
-      unsubscribeRef.current = socket.subscribeToJob(
-        jobId,
-        (progressData: any) => {
-          // Update progress
-          const newState: JobProgressState = {
+        // Fetch latest job state immediately for resume-after-refresh
+        try {
+          const jobDetails = await fetchJob(jobId);
+          const initialState: JobProgressState = {
             jobId,
-            state: progressData.state || 'running',
-            progress: progressData.progress || 0,
-            step: progressData.step || 'Processing...',
-            partial: progressData.partial,
-            isComplete: progressData.state === 'completed',
-            isFailed: progressData.state === 'failed',
+            state: jobDetails.state as JobState,
+            progress: jobDetails.progress ?? 0,
+            step: jobDetails.step ?? 'Processing...?',
+            isComplete: jobDetails.state === 'completed',
+            isFailed: jobDetails.state === 'failed',
+            error: jobDetails.error,
           };
-
-          setState(newState);
-
-          // Handle streaming text
-          if (progressData.partial) {
-            setStreamingText(prev => prev + progressData.partial);
-            setIsStreaming(true);
-          }
-
-          // Call user callback
-          options.onProgress?.(newState);
-        },
-        (completeData: any) => {
-          // Job completed
-          setState(prev =>
-            prev ? { ...prev, state: 'completed', progress: 100, isComplete: true } : null
-          );
-          options.onComplete?.(completeData);
+          setState(initialState);
+          // Reset streaming buffer on resume fetch
+          setStreamingText('');
           setIsStreaming(false);
-        },
-        (error: string) => {
-          // Job error
-          setState(prev => (prev ? { ...prev, state: 'failed', error, isFailed: true } : null));
-          options.onError?.(error);
-          setIsStreaming(false);
+        } catch (fetchErr) {
+          console.warn('[useJobProgress] Failed to bootstrap job state', fetchErr);
         }
-      );
-    } catch (error) {
-      console.error('[useJobProgress] Failed to subscribe:', error);
+
+        // Subscribe to job
+        unsubscribeRef.current = socket.subscribeToJob(
+          jobId,
+          (progressData: any) => {
+            const seq = progressData.sequence ?? lastSequence + 1;
+            setLastSequence(seq);
+
+            const newState: JobProgressState = {
+              jobId,
+              state: (progressData.state as JobState) || 'running',
+              progress: progressData.progress || progressData?.payload?.progress?.percentage || 0,
+              step: progressData.step || progressData?.payload?.progress?.message || 'Processing...',
+              partial: progressData.partial,
+              isComplete: progressData.state === 'completed',
+              isFailed: progressData.state === 'failed',
+            };
+
+            setState(newState);
+
+            // Handle streaming text
+            if (progressData.partial || progressData?.payload?.chunk) {
+              const chunk = progressData.partial || progressData?.payload?.chunk;
+              setStreamingText(prev => prev + chunk);
+              setIsStreaming(true);
+            }
+
+            options.onProgress?.(newState);
+          },
+          (completeData: any) => {
+            const seq = completeData?.sequence ?? lastSequence + 1;
+            setLastSequence(seq);
+            setState(prev =>
+              prev ? { ...prev, state: 'completed', progress: 100, isComplete: true } : null
+            );
+            options.onComplete?.(completeData);
+            setIsStreaming(false);
+          },
+          (error: string) => {
+            setState(prev => (prev ? { ...prev, state: 'failed', error, isFailed: true } : null));
+            options.onError?.(error);
+            setIsStreaming(false);
+          }
+        );
+
+        // Ask server to replay missed events after reconnect
+        socket.on('socket:connected', () => {
+          if (lastSequence > 0) {
+            socket.reconnectSync(jobId, lastSequence);
+          }
+        });
+      } catch (error) {
+        console.error('[useJobProgress] Failed to subscribe:', error);
+      }
     }
+
+    bootstrapJob();
 
     return () => {
       if (unsubscribeRef.current) {

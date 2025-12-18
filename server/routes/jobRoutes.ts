@@ -9,6 +9,7 @@ import { JobStateMachine, InMemoryJobStore, type JobRecord } from '../jobs/state
 import { CheckpointManager } from '../jobs/checkpoint';
 import { JobLogManager } from '../jobs/logManager';
 import type Redis from 'ioredis';
+import { EVENTS } from '../../packages/shared/events';
 
 interface AuthRequest extends Request {
   userId?: string;
@@ -18,6 +19,30 @@ interface AuthRequest extends Request {
 let jobStore: InMemoryJobStore | null = null;
 let checkpointManager: CheckpointManager | null = null;
 let logManager: JobLogManager | null = null;
+let redisClient: Redis | null = null;
+
+async function publishJobEvent(
+  jobId: string,
+  userId: string,
+  event: (typeof EVENTS)[keyof typeof EVENTS],
+  payload: Record<string, any>
+): Promise<void> {
+  if (!redisClient) return;
+
+  const sequenceKey = `job:seq:${jobId}`;
+  const sequence = await redisClient.incr(sequenceKey);
+
+  const message = {
+    event,
+    userId,
+    jobId,
+    payload,
+    sequence,
+    timestamp: Date.now(),
+  };
+
+  await redisClient.publish(`job:event:${jobId}`, JSON.stringify(message));
+}
 
 export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router {
   // Initialize with injected dependencies
@@ -25,6 +50,7 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
   if (redis) {
     checkpointManager = new CheckpointManager(redis);
     logManager = new JobLogManager(redis);
+    redisClient = redis;
   }
 
   // Fallback
@@ -56,6 +82,14 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       };
 
       jobStore!.create(job);
+
+      // Broadcast creation so UI can attach immediately
+      publishJobEvent(jobId, userId, EVENTS.JOB_CREATED, {
+        state: job.state,
+        progress: job.progress,
+        step: job.step,
+        createdAt: job.createdAt,
+      }).catch(err => console.error('[JobRoutes] Failed to publish creation event', err));
 
       res.status(201).json({
         jobId,
@@ -196,6 +230,12 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
         await checkpointManager.deleteCheckpoint(job.id);
       }
 
+      publishJobEvent(job.id, job.userId, EVENTS.JOB_CANCELLED, {
+        state: updated.state,
+        progress: updated.progress,
+        step: updated.step,
+      }).catch(err => console.error('[JobRoutes] Failed to publish cancel event', err));
+
       res.json({
         id: updated.id,
         state: updated.state,
@@ -237,6 +277,12 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
         state: updated.state,
         message: 'Job paused successfully',
       });
+
+      publishJobEvent(job.id, job.userId, EVENTS.JOB_PAUSED, {
+        state: updated.state,
+        progress: updated.progress,
+        step: updated.step,
+      }).catch(err => console.error('[JobRoutes] Failed to publish pause event', err));
     } catch (error) {
       console.error('[JobRoutes] Error pausing job:', error);
       res.status(500).json({ error: 'Failed to pause job' });
@@ -298,6 +344,13 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
         checkpointProgress: checkpoint?.progress,
         message: 'Job resumed successfully',
       });
+
+      publishJobEvent(job.id, job.userId, EVENTS.JOB_RESUMED, {
+        state: updated.state,
+        progress: updated.progress,
+        step: updated.step,
+        checkpointSequence: checkpoint?.sequence,
+      }).catch(err => console.error('[JobRoutes] Failed to publish resume event', err));
     } catch (error) {
       console.error('[JobRoutes] Error resuming job:', error);
       res.status(500).json({ error: 'Failed to resume job' });

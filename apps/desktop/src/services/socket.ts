@@ -11,14 +11,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-// Event constants imported from shared
-// Note: Using string literals instead to avoid cross-package build issues
-const EVENTS = {
-  JOB_PROGRESS: 'job:progress:v1',
-  JOB_COMPLETED: 'job:completed:v1',
-  JOB_FAILED: 'job:failed:v1',
-  MODEL_CHUNK: 'model:chunk:v1',
-} as const;
+import { EVENTS } from '../../../packages/shared/events';
 
 interface SocketConfig {
   url: string;
@@ -79,6 +72,8 @@ export class SocketClient {
           this.isConnected = true;
           this.reconnectCount = 0;
           this.flushBacklog();
+          // Re-subscribe to all jobs to recover after reconnect
+          this.resubscribeAll();
           this.emit('socket:connected', { timestamp: Date.now() });
           resolve();
         });
@@ -122,26 +117,30 @@ export class SocketClient {
   private setupEventListeners(): void {
     if (!this.socket) return;
 
-    // Job progress
-    this.socket.on('job:progress', (data: any) => {
+    const onAny = (names: string[], handler: (data: any) => void) => {
+      names.forEach(name => this.socket?.on(name, handler));
+    };
+
+    // Job progress (support v1 and legacy)
+    onAny(['job:progress', EVENTS.JOB_PROGRESS], (data: any) => {
       this.emit(EVENTS.JOB_PROGRESS, data);
       this.handleJobProgress(data);
     });
 
     // Job completed
-    this.socket.on('job:completed', (data: any) => {
+    onAny(['job:completed', EVENTS.JOB_COMPLETED], (data: any) => {
       this.emit(EVENTS.JOB_COMPLETED, data);
       this.handleJobComplete(data);
     });
 
-    // Job error
-    this.socket.on('job:failed', (data: any) => {
+    // Job error / failed
+    onAny(['job:failed', EVENTS.JOB_FAILED], (data: any) => {
       this.emit(EVENTS.JOB_FAILED, data);
       this.handleJobError(data);
     });
 
     // Job chunk (streaming)
-    this.socket.on('job:chunk', (data: any) => {
+    onAny(['job:chunk', EVENTS.MODEL_CHUNK], (data: any) => {
       this.emit(EVENTS.MODEL_CHUNK, data);
     });
 
@@ -314,6 +313,16 @@ export class SocketClient {
       });
       this.backlog = [];
     }
+  }
+
+  /**
+   * Re-subscribe to all active job rooms after reconnect
+   */
+  private resubscribeAll(): void {
+    if (!this.socket || this.jobSubscriptions.size === 0) return;
+    this.jobSubscriptions.forEach(sub => {
+      this.socket!.emit('subscribe:job', sub.jobId);
+    });
   }
 
   /**

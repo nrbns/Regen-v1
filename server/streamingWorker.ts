@@ -129,7 +129,6 @@ export class StreamingWorker {
     } finally {
       // Cleanup
       this.cancelledJobs.delete(jobId);
-      this.sequenceCounters.delete(jobId);
     }
   }
 
