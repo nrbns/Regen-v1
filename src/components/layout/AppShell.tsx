@@ -148,6 +148,7 @@ import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
 import { MobileDock } from '../../mobile';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
+import { GlobalAIStatusBar } from '../realtime/GlobalAIStatusBar';
 import RamSavedCounter from '../../components/RamSavedCounter';
 import { TabSummaryToast } from '../common/TabSummaryToast';
 import FirstRunModal from '../../ui/onboarding/FirstRunModal';
@@ -1879,6 +1880,14 @@ export function AppShell() {
       data-app-shell="true"
     >
       <NavigationProgress />
+
+      {/* Global AI Status Bar - Always visible at top */}
+      <Suspense fallback={null}>
+        <ErrorBoundary componentName="GlobalAIStatusBar">
+          {typeof window !== 'undefined' && <GlobalAIStatusBar />}
+        </ErrorBoundary>
+      </Suspense>
+
       {/* Safe Mode Indicator - Show at top if enabled */}
       {typeof window !== 'undefined' && (
         <Suspense fallback={null}>

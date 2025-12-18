@@ -1,24 +1,130 @@
-// Lightweight renderer-friendly useJobProgress stub
-// Provides connection + lastSequence for UI without desktop dependencies
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { initSocketClient, getSocketClient } from '../services/realtime/socketClient';
+import { EVENTS } from '../../packages/shared/events';
+
 export interface JobProgressConnection {
   isOnline: boolean;
   socketStatus: 'connected' | 'connecting' | 'disconnected';
   retryCount: number;
 }
 
-export function useJobProgress(_jobId: string | null) {
-  const connection: JobProgressConnection = {
+type ProgressState = {
+  jobId: string | null;
+  status: 'idle' | 'running' | 'completed' | 'failed';
+  error?: string;
+};
+
+export function useJobProgress(jobId: string | null) {
+  const [connection, setConnection] = useState<JobProgressConnection>({
     isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
-    socketStatus: 'connected',
+    socketStatus: 'disconnected',
     retryCount: 0,
+  });
+  const [state, setState] = useState<ProgressState>({ jobId, status: 'idle' });
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
+  const lastSequenceRef = useRef(0);
+
+  const token = useMemo(() => {
+    try {
+      return localStorage.getItem('auth:token');
+    } catch {
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    let offConnected: (() => void) | null = null;
+    let offReconnecting: (() => void) | null = null;
+    let offDisconnected: (() => void) | null = null;
+    let offChunk: (() => void) | null = null;
+
+    const setup = async () => {
+      try {
+        await initSocketClient({
+          url: (import.meta as any).env?.VITE_SOCKET_URL || 'http://localhost:3000',
+          token,
+          deviceId: `web-${Date.now()}`,
+        });
+        const client = getSocketClient();
+
+        // Connection status handlers
+        offConnected = client.on('socket:connected', () => {
+          setConnection(prev => ({ ...prev, socketStatus: 'connected', retryCount: 0 }));
+        });
+        offReconnecting = client.on('socket:reconnecting', (data: any) => {
+          setConnection(prev => ({
+            ...prev,
+            socketStatus: 'connecting',
+            retryCount: data?.attempt ?? prev.retryCount + 1,
+          }));
+        });
+        offDisconnected = client.on('socket:disconnected', () => {
+          setConnection(prev => ({ ...prev, socketStatus: 'disconnected' }));
+        });
+
+        // Streaming chunks
+        offChunk = client.on(EVENTS.MODEL_CHUNK, (data: any) => {
+          const text = typeof data?.chunk === 'string' ? data.chunk : (data?.text ?? '');
+          if (text) {
+            setIsStreaming(true);
+            setStreamingText(prev => (prev ? prev + text : text));
+          }
+          const seq =
+            typeof data?.sequence === 'number' ? data.sequence : lastSequenceRef.current + 1;
+          lastSequenceRef.current = seq;
+        });
+
+        if (jobId) {
+          setState({ jobId, status: 'running' });
+          unsub = client.subscribeToJob(
+            jobId,
+            (data: any) => {
+              const seq =
+                typeof data?.sequence === 'number' ? data.sequence : lastSequenceRef.current + 1;
+              lastSequenceRef.current = seq;
+            },
+            (data: any) => {
+              setState({ jobId, status: 'completed' });
+              setIsStreaming(false);
+            },
+            (err: string) => {
+              setState({ jobId, status: 'failed', error: err });
+              setIsStreaming(false);
+            }
+          );
+        }
+      } catch (error) {
+        // Optional realtime
+      }
+    };
+
+    setup();
+
+    return () => {
+      try {
+        unsub?.();
+        offConnected?.();
+        offReconnecting?.();
+        offDisconnected?.();
+        offChunk?.();
+      } catch {}
+    };
+  }, [jobId, token]);
+
+  const cancel = () => {
+    try {
+      if (jobId) getSocketClient().cancelJob(jobId);
+    } catch {}
   };
 
   return {
-    state: null as any,
-    cancel: () => {},
-    isStreaming: false,
-    streamingText: '',
+    state,
+    cancel,
+    isStreaming,
+    streamingText,
     connection,
-    lastSequence: 0,
+    lastSequence: lastSequenceRef.current,
   };
 }

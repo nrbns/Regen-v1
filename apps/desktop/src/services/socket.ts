@@ -11,7 +11,7 @@
  */
 
 import { io, Socket } from 'socket.io-client';
-import { EVENTS } from '../../../../packages/shared/events';
+import { EVENTS } from '@shared/events';
 
 interface SocketConfig {
   url: string;

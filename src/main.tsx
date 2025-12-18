@@ -55,30 +55,17 @@ initializeAgentSystem();
 // Initialize app connections
 import { initializeApp } from './lib/initialize-app';
 
-// Initialize Socket.IO for realtime job progress (only if available)
+// Initialize Socket.IO for realtime job progress (web renderer)
 const setupRealtimeSocket = async () => {
   try {
-    // Try to import Socket client - may not exist in desktop builds
-    // Use computed path to prevent Rollup static analysis
-    const socketModulePath = `../apps/desktop/src/services/socket`;
-    const { initSocketClient } = await import(/* @vite-ignore */ socketModulePath).catch(() => ({
-      initSocketClient: null,
-    }));
-
-    if (!initSocketClient) {
-      console.debug('[Socket] Realtime service not available in this build');
-      return;
-    }
-
-    const token = useSessionStore.getState().authToken || localStorage.getItem('auth:token');
-    if (token) {
-      await initSocketClient({
-        url: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000',
-        token,
-        deviceId: `desktop-${Date.now()}`,
-      });
-      console.log('[Socket] Realtime client initialized');
-    }
+    const { initSocketClient } = await import('./services/realtime/socketClient');
+    const token = localStorage.getItem('auth:token');
+    await initSocketClient({
+      url: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000',
+      token,
+      deviceId: `web-${Date.now()}`,
+    });
+    console.log('[Socket] Realtime client initialized');
   } catch (error) {
     console.warn('[Socket] Failed to initialize realtime client:', error);
   }
