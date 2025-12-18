@@ -48,6 +48,19 @@ tauri-migration/src-tauri/target/
 tauri-migration/src-tauri/Cargo.lock
 
 # Build artifacts
+
+# Old/Experimental Files (LAYER5 phase completed, archive old docs)
+LAYER5*.md
+Check_repo.js
+Makefile
+
+# Archive for reference
+docs/LAYER5*.md
+
+# Test files (layer5 deprecated, use realtime tests)
+src/utils/layer5-sync.ts
+src/utils/layer5-sync.test.ts
+src/utils/__tests__/layer5-sync.test.ts
 *.o
 *.a
 *.so
