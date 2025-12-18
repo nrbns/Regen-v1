@@ -1,34 +1,44 @@
-# 👨‍💻 Developer Guide - Regen Architecture
+# 👨‍💻 Developer Quick Start (5 minutes)
 
-Welcome to Regen's internals. This guide is for engineers who want to understand or contribute to the codebase.
+> Complete guide to understanding and contributing to Omnibrowser
+
+## 🚀 TL;DR - Start Here
+
+```bash
+# Install and run
+npm install
+npm run start:backend &
+npm run dev
+
+# Done! Open http://localhost:5173
+```
 
 ---
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture (1 min)
 
-Regen is built as a **three-layer AI browser**:
+Omnibrowser is a **3-layer intelligent browser** for research, trading, and development:
 
 ```
-┌─────────────────────────────────────────┐
-│ 🎨 UI Layer (React 18)                  │
-│ - Modes (WISPR, Research, Trade, Docs)  │
-│ - Components (JobTimeline, ActionLogs)  │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│ 🧠 AI Runtime (LangChain + LLM)         │
-│ - Agentic workflows (ReAct pattern)     │
-│ - Streaming callbacks                   │
-│ - Memory & context management           │
-└─────────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────────┐
-│ 🔧 Browser Shell (Electron + Tauri)    │
-│ - Tabs, history, storage                │
-│ - IPC bridges                           │
-│ - Offline fallback                      │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────┐
+│       React UI Layer                │
+│  (ModeTabs, JobTimelinePanel, etc)  │
+├─────────────────────────────────────┤
+│    Intelligence Layer               │
+│  (Socket.IO, ActionLog, Streaming)  │
+├─────────────────────────────────────┤
+│   Browser/Desktop Layer             │
+│  (Tauri, Socket relay, OS access)   │
+└─────────────────────────────────────┘
 ```
+
+**Key Components:**
+
+| Layer            | Tech                    | Purpose                                               |
+| ---------------- | ----------------------- | ----------------------------------------------------- |
+| **UI**           | React 18.3 + TypeScript | User interface, mode switching, job tracking          |
+| **Intelligence** | Socket.IO + LangChain   | Real-time streaming, AI reasoning, tool orchestration |
+| **Desktop**      | Tauri                   | Native application shell, cross-platform support      |
 
 ---
 
@@ -64,11 +74,13 @@ Regen is built as a **three-layer AI browser**:
 ## 🧠 How AI Works (Critical Path)
 
 ### 1. User speaks voice command
+
 ```
 WISPR hotkey (Ctrl+Space) → Voice recognition → Parse intent
 ```
 
 ### 2. Agent workflow starts
+
 ```
 getAgenticWorkflowEngine()
   ↓
@@ -82,6 +94,7 @@ LangChain ReAct loop:
 ```
 
 ### 3. Streaming to UI (Token-by-Token)
+
 ```
 Agent streaming callback
   ↓
@@ -99,21 +112,25 @@ JobTimelinePanel listens → Shows tokens + step progress
 ### Frontend
 
 **`src/components/realtime/JobTimelinePanel.tsx`**
+
 - Shows running AI jobs
 - Displays tokens as they stream in
 - Shows step progress (Thinking → Searching → Writing)
 
 **`src/hooks/useJobProgress.ts`**
+
 - Listens to Socket.IO `job:progress` events
 - Updates UI with streaming state
 - Auto-saves progress to sessionStorage
 
 **`src/hooks/useSessionRestore.tsx`**
+
 - Survives page reload
 - Persists job state + last sequence
 - 1-hour session timeout
 
 **`src/services/realtime/streamingBridge.ts`**
+
 - Standardizes token-by-token streaming
 - Exported helpers: `createStreamingHandler()`, `emitStreamChunk()`
 - Used by AIResponsePane, EnhancedAIPanel, ResearchPane
@@ -121,16 +138,19 @@ JobTimelinePanel listens → Shows tokens + step progress
 ### Backend
 
 **`server/langchain-agents.ts`**
+
 - Main agent orchestration
 - Workflows: `researchWorkflow()`, `multiAgentWorkflow()`, `ragWorkflow()`
 - Each workflow accepts `streamCallback?: StreamCallback`
 
 **`server/agentStreamingBridge.ts`**
+
 - Converts LangChain callbacks → Socket.IO events
 - Maps agent steps (thinking/searching/writing) to progress
 - Publishes to Redis for multi-server scaling
 
 **`server/redix-core.ts`**
+
 - API endpoint: `POST /api/agent/query`
 - Calls `getAgenticWorkflowEngine().runWorkflow()`
 - Wires streaming callback if Socket.IO present
@@ -202,6 +222,7 @@ interface ISearchProvider {
 ```
 
 **Why?** Swapping implementations is trivial. You can:
+
 - Use different LLMs (Ollama → OpenAI → Anthropic)
 - Use different memory stores (sessionStorage → IndexedDB → cloud)
 - Use different search (DuckDuckGo → Google → Bing)
@@ -211,6 +232,7 @@ interface ISearchProvider {
 ## 🐛 Debugging Tips
 
 ### See AI thinking in real-time
+
 ```bash
 # In browser console
 useJobProgressStore.getState()  # See current job + step
@@ -220,18 +242,20 @@ tail -f server.log | grep "Agent"  # Agent logs
 ```
 
 ### Check streaming events
+
 ```typescript
 // Add to JobTimelinePanel.tsx
-socket.on('model:chunk', (event) => {
+socket.on('model:chunk', event => {
   console.log('[STREAM]', event.chunk.slice(0, 100));
 });
 
-socket.on('job:progress', (event) => {
+socket.on('job:progress', event => {
   console.log('[STEP]', event.step);
 });
 ```
 
 ### Test agent locally
+
 ```bash
 # Direct invoke (no Socket.IO)
 const engine = getAgenticWorkflowEngine();
@@ -246,14 +270,15 @@ console.log(result);
 ### Example: Add new agent workflow
 
 1. **Create workflow** in `server/langchain-agents.ts`:
+
 ```typescript
 async myNewWorkflow(query: string, streamCallback?: StreamCallback) {
   if (streamCallback) {
     streamCallback({ type: 'step', content: 'thinking', ... });
   }
-  
+
   // Do work
-  
+
   if (streamCallback) {
     streamCallback({ type: 'token', content: result });
   }
@@ -261,6 +286,7 @@ async myNewWorkflow(query: string, streamCallback?: StreamCallback) {
 ```
 
 2. **Wire streaming** in `server/redix-core.ts`:
+
 ```typescript
 const callback = createAgentStreamCallback({ jobId, userId, io, redis });
 const result = await engine.myNewWorkflow(query, callback);
@@ -299,4 +325,3 @@ Look for `good-first-issue` label in GitHub Issues. Examples:
 - Pull requests get quick feedback
 
 Thanks for contributing to Regen! 🙏
-

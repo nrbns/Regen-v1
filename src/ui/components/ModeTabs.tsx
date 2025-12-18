@@ -10,6 +10,7 @@ import { useModeShift } from '../hooks/useModeShift';
 import { useAppStore } from '../../state/appStore';
 import { useTokens } from '../useTokens';
 import { type ModeId } from '../tokens-enhanced';
+import { getModeFlag } from '../../config/featureFlags';
 export interface ModeTabsProps {
   className?: string;
   compact?: boolean;
@@ -106,10 +107,11 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
         const Icon = mode.icon;
         const isActive = currentModeId === mode.id;
         const isHovered = hoveredMode === mode.id;
-        const isComingSoon = mode.comingSoon;
 
-        // Tier 1: Hide unfinished modes (only show Browse and Research)
-        if (isComingSoon && !isActive) {
+        // Check if mode is hidden by feature flags (production hides beta modes)
+        const modeFlag = getModeFlag(mode.id as any);
+        const isHidden = modeFlag.status === 'hidden';
+        if (isHidden && !isActive) {
           return null;
         }
 
@@ -125,7 +127,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
               if ((e.nativeEvent as any)?.stopImmediatePropagation) {
                 (e.nativeEvent as any).stopImmediatePropagation();
               }
-              if (isComingSoon) {
+              if (isHidden) {
                 // Show "Coming Soon" toast instead of switching
                 const { toast } = await import('../../utils/toast');
                 toast.info(`${mode.label} mode is coming soon!`);
@@ -142,19 +144,12 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
             onMouseLeave={() => {
               setHoveredMode(null);
             }}
-            disabled={isShifting || isComingSoon}
-            className={`
-              relative flex items-center gap-2 px-3 py-2 rounded-lg
-              transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-              ${
-                isActive
-                  ? 'bg-[var(--color-primary-600)] text-white shadow-md'
-                  : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-              }
-              ${isShifting ? 'opacity-50 cursor-wait' : isComingSoon ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}
-              ${compact ? 'px-2 py-1.5' : ''}
-            `}
+            disabled={isShifting || isHidden}
+            className={`relative flex items-center gap-2 rounded-lg px-3 py-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1 ${
+              isActive
+                ? 'bg-[var(--color-primary-600)] text-white shadow-md'
+                : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+            } ${isShifting ? 'cursor-wait opacity-50' : isHidden ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'} ${compact ? 'px-2 py-1.5' : ''} `}
             style={{
               fontSize: compact ? tokens.fontSize.xs : tokens.fontSize.sm,
             }}
@@ -162,7 +157,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
             aria-selected={isActive}
             aria-controls={`mode-${mode.id}`}
             title={
-              isComingSoon ? `${mode.label} (Coming Soon)` : `${mode.label} (Alt+${mode.shortcut})`
+              isHidden ? `${mode.label} (Coming Soon)` : `${mode.label} (Alt+${mode.shortcut})`
             }
           >
             <Icon
@@ -172,13 +167,13 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
             {!compact && (
               <span className="font-medium">
                 {mode.label}
-                {isComingSoon && <span className="ml-1 text-xs opacity-70">(Soon)</span>}
+                {isHidden && <span className="ml-1 text-xs opacity-70">(Soon)</span>}
               </span>
             )}
             {isActive && (
               <motion.div
                 layoutId="mode-indicator"
-                className="absolute inset-0 rounded-lg bg-[var(--color-primary-500)]/20"
+                className="bg-[var(--color-primary-500)]/20 absolute inset-0 rounded-lg"
                 initial={false}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
               />
@@ -197,13 +192,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
 
       {/* More button for additional modes */}
       <button
-        className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg
-          bg-[var(--surface-elevated)] text-[var(--text-secondary)]
-          hover:bg-[var(--surface-hover)] transition-colors
-          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-          ${compact ? 'px-2 py-1.5' : ''}
-        `}
+        className={`flex items-center gap-2 rounded-lg bg-[var(--surface-elevated)] px-3 py-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1 ${compact ? 'px-2 py-1.5' : ''} `}
         style={{
           fontSize: compact ? tokens.fontSize.xs : tokens.fontSize.sm,
         }}
@@ -219,7 +208,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="ml-2 text-[var(--text-muted)] text-xs"
+          className="ml-2 text-xs text-[var(--text-muted)]"
         >
           Switching...
         </motion.div>

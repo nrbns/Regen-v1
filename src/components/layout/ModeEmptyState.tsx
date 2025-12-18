@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { BookOpen, Globe2, Sparkles, TrendingUp } from 'lucide-react';
+import { BookOpen, Globe2, Sparkles, TrendingUp, ArrowRight, Brain } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import { useAppStore } from '../../state/appStore';
 
@@ -14,17 +14,24 @@ export function ModeEmptyState({ mode }: { mode: string }) {
       title: string;
       subtitle: string;
       accent: string;
+      cta?: { label: string; helper: string; primary: boolean };
       actions: Array<{ id: string; label: string; helper: string }>; // Helper text kept brief
     }
   > = {
     research: {
       badge: 'Research Mode',
-      title: 'Draft a research brief',
-      subtitle: 'Pick a question, we will gather sources and summarize for you.',
+      title: 'Research anything, get instant answers',
+      subtitle:
+        'Ask a question. Omnibrowser gathers sources, analyzes them, and shows you how it thinks.',
       accent: 'text-emerald-300',
+      cta: {
+        label: 'Start a research job',
+        helper: 'Ask about any topic',
+        primary: true,
+      },
       actions: [
         { id: 'sources', label: 'Run multi-source search', helper: 'News · papers · web' },
-        { id: 'summary', label: 'Ask AI for a quick summary', helper: 'One focused paragraph' },
+        { id: 'summary', label: 'Get a quick summary', helper: 'One focused paragraph' },
         { id: 'outline', label: 'Generate an outline', helper: 'Headlines and bullets' },
       ],
     },
@@ -54,8 +61,7 @@ export function ModeEmptyState({ mode }: { mode: string }) {
 
   const config = presets[normalized] ?? presets.browse;
 
-  const Icon =
-    normalized === 'research' ? BookOpen : normalized === 'trade' ? TrendingUp : Globe2;
+  const Icon = normalized === 'research' ? BookOpen : normalized === 'trade' ? TrendingUp : Globe2;
 
   const openTab = useCallback(async (url: string) => {
     try {
@@ -72,7 +78,9 @@ export function ModeEmptyState({ mode }: { mode: string }) {
           await setMode('Research');
           setResearchPaneOpen(true);
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('research:start', { detail: { intent: 'sources' } }));
+            window.dispatchEvent(
+              new CustomEvent('research:start', { detail: { intent: 'sources' } })
+            );
           }
           return;
         }
@@ -140,7 +148,20 @@ export function ModeEmptyState({ mode }: { mode: string }) {
         <h1 className="text-3xl font-semibold leading-tight text-slate-50">{config.title}</h1>
         <p className="mt-2 text-sm text-slate-400">{config.subtitle}</p>
 
-        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+        {/* Primary CTA for Research Mode */}
+        {config.cta && normalized === 'research' && (
+          <button
+            type="button"
+            onClick={() => handleAction('sources')}
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+          >
+            <Brain size={18} />
+            {config.cta.label}
+            <ArrowRight size={16} />
+          </button>
+        )}
+
+        <div className={`grid grid-cols-1 gap-3 ${config.cta ? 'mt-8' : 'mt-8'} md:grid-cols-3`}>
           {config.actions.map(action => (
             <button
               key={action.id}
