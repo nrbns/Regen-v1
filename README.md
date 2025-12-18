@@ -2,9 +2,12 @@
 
 **Built for India. Works Offline. Multilingual. Free Forever.**
 
+[![CI Status](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Made in India](https://img.shields.io/badge/Made%20in-India-orange)](https://github.com/nrbns/Regenbrowser)
 [![Open Source](https://img.shields.io/badge/Open%20Source-100%25-brightgreen)](https://github.com/nrbns/Regenbrowser)
+[![Node.js Version](https://img.shields.io/badge/Node-18%2B-green)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 
 > **An AI-powered browser designed specifically for Indian users** - with offline AI, multilingual support, and optimized for affordable devices.
 
@@ -244,6 +247,42 @@ cd tauri-migration && npm run tauri build
 **Target**: December 21-23, 2025 Beta Launch (pending Week 2 Phase 4-5 validation)
 
 ### 📚 Documentation
+
+---
+
+## 📖 Three-Layer Documentation
+
+### 🟢 For Users → [README.md](README.md) (You are here)
+- What is Regen?
+- How to install and use
+- Key features walkthrough
+- Troubleshooting
+
+### 🟡 For Developers → [DEVELOPERS.md](DEVELOPERS.md)
+- Architecture overview (3-layer AI browser)
+- Folder structure explained
+- How AI works (LangChain + Socket.IO streaming)
+- Quick development setup
+- Debugging tips
+- Adding new features (examples)
+
+### 🔵 For Contributors → [CONTRIBUTING.md](CONTRIBUTING.md)
+- How to contribute
+- Code style guidelines
+- Testing requirements
+- Pull request checklist
+- Good first issues
+
+---
+
+**Choose your path:**
+- I want to **use** Regen → You're in the right place ✅
+- I want to **understand how it works** → [DEVELOPERS.md](DEVELOPERS.md)
+- I want to **build a feature** → [CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
+**More Documentation:**
 
 **MVP Week 1-2 Docs:**
 
