@@ -436,6 +436,103 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
     }
   });
 
+  /**
+   * POST /api/jobs/:jobId/restart
+   * Restart a failed or cancelled job from scratch
+   */
+  router.post('/:jobId/restart', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (!['failed', 'cancelled'].includes(job.state)) {
+        return res.status(400).json({ error: `Cannot restart job in state ${job.state}. Expected 'failed' or 'cancelled'.` });
+      }
+
+      // Transition to created to allow restart
+      const result = JobStateMachine.transition(job, 'created');
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      const updated = result.job!;
+
+      // Clear error and result
+      updated.error = undefined;
+      updated.result = undefined;
+
+      // Reset progress
+      updated.progress = 0;
+      updated.step = 'Restarted';
+
+      jobStore!.update(updated);
+
+      res.json({
+        id: updated.id,
+        state: updated.state,
+        step: updated.step,
+        progress: updated.progress,
+        message: 'Job restarted successfully',
+      });
+
+      publishJobEvent(job.id, job.userId, EVENTS.JOB_PROGRESS, {
+        state: updated.state,
+        progress: updated.progress,
+        step: updated.step,
+      }).catch(err => console.error('[JobRoutes] Failed to publish restart event', err));
+    } catch (error) {
+      console.error('[JobRoutes] Error restarting job:', error);
+      res.status(500).json({ error: 'Failed to restart job' });
+    }
+  });
+
+  /**
+   * POST /api/jobs/:jobId/clearCheckpoint
+   * Clear checkpoint data for a job (discards recovery option)
+   */
+  router.post('/:jobId/clearCheckpoint', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      // Clear checkpoint from job record
+      job.checkpointData = undefined;
+      jobStore!.update(job);
+
+      // Clear from checkpoint manager if available
+      if (checkpointManager) {
+        try {
+          await checkpointManager.deleteCheckpoint(job.id);
+        } catch (err) {
+          console.warn('[JobRoutes] Failed to delete checkpoint from manager:', err);
+        }
+      }
+
+      res.json({
+        id: job.id,
+        message: 'Checkpoint cleared successfully',
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error clearing checkpoint:', error);
+      res.status(500).json({ error: 'Failed to clear checkpoint' });
+    }
+  });
+
   return router;
 }
 
