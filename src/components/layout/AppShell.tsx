@@ -149,6 +149,7 @@ import { MobileDock } from '../../mobile';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
 import { GlobalAIStatusBar } from '../realtime/GlobalAIStatusBar';
+import { JobTimelinePanel } from '../realtime/JobTimelinePanel';
 import RamSavedCounter from '../../components/RamSavedCounter';
 import { TabSummaryToast } from '../common/TabSummaryToast';
 import FirstRunModal from '../../ui/onboarding/FirstRunModal';
@@ -1885,6 +1886,13 @@ export function AppShell() {
       <Suspense fallback={null}>
         <ErrorBoundary componentName="GlobalAIStatusBar">
           {typeof window !== 'undefined' && <GlobalAIStatusBar />}
+        </ErrorBoundary>
+      </Suspense>
+
+      {/* Job Timeline Panel - Shows running/completed jobs */}
+      <Suspense fallback={null}>
+        <ErrorBoundary componentName="JobTimelinePanel">
+          {typeof window !== 'undefined' && <JobTimelinePanel />}
         </ErrorBoundary>
       </Suspense>
 
