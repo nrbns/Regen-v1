@@ -1289,6 +1289,16 @@ try {
     <React.StrictMode>
       <ThemeProvider>
         <GlobalErrorBoundary>
+          {/* Surface job recovery failures globally */}
+          {(() => {
+            try {
+              const { GlobalErrorBanner } = require('../apps/desktop/src/components/GlobalErrorBanner');
+              const Comp = (GlobalErrorBanner as any)?.default || GlobalErrorBanner;
+              return <Comp />;
+            } catch {
+              return null;
+            }
+          })()}
           <SettingsSync />
           <Suspense fallback={<LoadingFallback />}>
             <RouterProvider
