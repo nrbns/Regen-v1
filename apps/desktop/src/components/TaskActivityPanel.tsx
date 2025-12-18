@@ -6,6 +6,8 @@
 import React, { useEffect, useState } from 'react';
 import { useJobProgress } from '../hooks/useJobProgress';
 import StreamingText from './StreamingText';
+import RecoveryToast from './RecoveryToast';
+import { useRecoveryNotifications } from '../hooks/useRecoveryNotifications';
 import RetryPanel from './RetryPanel';
 import ConnectionBanner from './ConnectionBanner';
 import { JobErrorBoundary } from './JobErrorBoundary';
@@ -31,6 +33,7 @@ export const TaskActivityPanel: React.FC<TaskActivityPanelProps> = ({
   className = '',
 }) => {
   const { state, cancel, isStreaming, streamingText, connection } = useJobProgress(jobId || null);
+  const { notifications, clear } = useRecoveryNotifications(jobId || undefined);
   const [steps, setSteps] = useState<Step[]>([]);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
@@ -345,6 +348,24 @@ export const TaskActivityPanel: React.FC<TaskActivityPanelProps> = ({
           </button>
         </div>
       </div>
+      {/* Recovery Toasts */}
+      {notifications.map((n, idx) => (
+        <RecoveryToast
+          key={`${n.jobId}-${n.timestamp}-${idx}`}
+          notification={n}
+          onResume={async (jid) => {
+            try {
+              // Attempt resume via jobs service
+              const { resumeJob } = await import('../services/jobs');
+              await resumeJob(jid);
+              clear();
+            } catch (err) {
+              console.warn('[TaskActivityPanel] resume failed', err);
+            }
+          }}
+          onDismiss={() => clear()}
+        />
+      ))}
       <JobLogsModal
         open={logsOpen}
         onClose={() => setLogsOpen(false)}
