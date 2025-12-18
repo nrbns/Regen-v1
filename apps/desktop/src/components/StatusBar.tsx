@@ -10,6 +10,7 @@
 import React, { useEffect, useState } from 'react';
 import { getSocketClient } from '../services/socket';
 import { useJobProgress } from '../hooks/useJobProgress';
+import { useTabManager } from '../hooks/useTabManager';
 
 interface StatusBarProps {
   currentJobId?: string | null;
@@ -23,7 +24,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({ currentJobId, className = 
   );
   const [retryCount, setRetryCount] = useState(0);
 
-  const { state: jobState, isStreaming } = useJobProgress(currentJobId || null);
+  // Fallback to TabManager-provided active job id for session restore / tab isolation
+  const { activeJobId } = useTabManager();
+  const effectiveJobId = currentJobId ?? activeJobId ?? null;
+
+  const { state: jobState, isStreaming } = useJobProgress(effectiveJobId || null);
 
   // Monitor socket connection
   useEffect(() => {
