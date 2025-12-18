@@ -150,6 +150,7 @@ import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
 import { GlobalAIStatusBar } from '../realtime/GlobalAIStatusBar';
 import { JobTimelinePanel } from '../realtime/JobTimelinePanel';
+import { useSessionRestore, SessionRestoreBanner } from '../../hooks/useSessionRestore';
 import RamSavedCounter from '../../components/RamSavedCounter';
 import { TabSummaryToast } from '../common/TabSummaryToast';
 import FirstRunModal from '../../ui/onboarding/FirstRunModal';
@@ -408,6 +409,14 @@ export function AppShell() {
   const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
   const [showFirstRun, setShowFirstRun] = useState(false);
+  
+  // Session Restore - Recover jobs after page reload
+  const sessionRestore = useSessionRestore({
+    autoSubscribe: true,
+    onRestore: (session) => {
+      console.log('[AppShell] Restored job session:', session.jobId);
+    },
+  });
 
   // Layer 2: Initialize performance optimizers
   const _layoutOptimizer = React.useRef(getLayoutOptimizer());
@@ -1895,6 +1904,15 @@ export function AppShell() {
           {typeof window !== 'undefined' && <JobTimelinePanel />}
         </ErrorBoundary>
       </Suspense>
+
+      {/* Session Restore Banner - Recover from page reload */}
+      {typeof window !== 'undefined' && (
+        <SessionRestoreBanner
+          message={sessionRestore.resumeBannerText}
+          onDismiss={sessionRestore.dismissBanner}
+          isRestoring={sessionRestore.isRestoring}
+        />
+      )}
 
       {/* Safe Mode Indicator - Show at top if enabled */}
       {typeof window !== 'undefined' && (
