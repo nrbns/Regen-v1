@@ -1,8 +1,8 @@
 /**
  * Plan Execution Worker (Week 3 - Bull Worker)
- * 
+ *
  * Worker process that executes plans from the queue
- * 
+ *
  * Features:
  * - Parallel job processing (configurable concurrency)
  * - Progress updates
@@ -15,7 +15,7 @@ import { Worker, Job } from 'bullmq';
 import { createRedisConnection } from '../persistence/redisFactory.js';
 import { getPlanStore } from '../persistence/planStoreFactory.js';
 import { getTaskExecutor } from '../executor.js';
-import { getSentry } from '../../../server/monitoring/sentry.js';
+import { getSentry } from '../../monitoring/sentry';
 import { globalPermissionControl } from '../../../services/security/permissionControl.js';
 import type { PlanExecutionJob, JobResult } from '../queue/planQueue.js';
 
@@ -32,7 +32,7 @@ async function processPlanJob(job: Job<PlanExecutionJob, JobResult>): Promise<Jo
   console.log(`[PlanWorker] Processing plan ${planId} (job ${job.id})`);
 
   // Start Sentry span for distributed tracing
-  const span = sentry?.startSpan(`Execute Plan: ${planId}`, {
+  const span = sentry?.startSpan?.(`Execute Plan: ${planId}`, {
     planId,
     jobId: job.id,
     agentType: (plan as any).agentType || 'unknown',
@@ -52,23 +52,22 @@ async function processPlanJob(job: Job<PlanExecutionJob, JobResult>): Promise<Jo
 
     // Execute the plan
     const executor = getTaskExecutor();
-    
+
     // Execute with progress updates
     const tasks = plan.tasks;
-    
+
     for (let i = 0; i < tasks.length; i++) {
-      const progress = 10 + (80 * (i / tasks.length));
+      const progress = 10 + 80 * (i / tasks.length);
       await job.updateProgress(Math.round(progress));
 
       // Execute task (executor handles retries internally)
       console.log(`[PlanWorker] Executing task ${i + 1}/${tasks.length} for plan ${planId}`);
-      
+
       // Add breadcrumb for each task
-      sentry?.addBreadcrumb(
-        `Task ${i + 1}/${tasks.length} started`,
-        'orchestrator.task',
-        { planId, taskIndex: i }
-      );
+      sentry?.addBreadcrumb?.(`Task ${i + 1}/${tasks.length} started`, 'orchestrator.task', {
+        planId,
+        taskIndex: i,
+      });
     }
 
     // Use executor to run full plan
@@ -92,7 +91,7 @@ async function processPlanJob(job: Job<PlanExecutionJob, JobResult>): Promise<Jo
 
     // Track success metrics in Sentry
     if (sentry && executionResults) {
-      sentry.captureExecutionMetrics(planId, executionResults as any, {
+      sentry.captureExecutionMetrics?.(planId, executionResults as any, {
         userId: job.data.userId,
         agentType: (plan as any).agentType || 'unknown',
       });
@@ -112,7 +111,6 @@ async function processPlanJob(job: Job<PlanExecutionJob, JobResult>): Promise<Jo
       duration,
       completedAt: new Date().toISOString(),
     };
-
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -121,14 +119,14 @@ async function processPlanJob(job: Job<PlanExecutionJob, JobResult>): Promise<Jo
 
     // Capture error in Sentry
     if (sentry && error instanceof Error) {
-      sentry.captureExecutionError(planId, error, {
+      sentry.captureExecutionError?.(planId, error, {
         userId: job.data.userId,
         agentType: (plan as any).agentType || 'unknown',
         taskCount: plan.tasks.length,
       });
 
       // Also capture queue-specific error
-      sentry.captureQueueError(job.id!, error, {
+      sentry.captureQueueError?.(job.id!, error, {
         planId,
         attemptNumber: job.attemptsMade,
         queueName: 'plans:execute',
@@ -175,25 +173,21 @@ export function createPlanWorker(concurrency: number = 5): Worker<PlanExecutionJ
 
   const redis = createRedisConnection();
 
-  worker = new Worker<PlanExecutionJob, JobResult>(
-    'plans:execute',
-    processPlanJob,
-    {
-      connection: {
-        host: redis.options.host || 'localhost',
-        port: redis.options.port || 6379,
-        password: redis.options.password,
-        db: redis.options.db || 0,
+  worker = new Worker<PlanExecutionJob, JobResult>('plans:execute', processPlanJob, {
+    connection: {
+      host: redis.options.host || 'localhost',
+      port: redis.options.port || 6379,
+      password: redis.options.password,
+      db: redis.options.db || 0,
+    },
+    concurrency,
+    settings: {
+      backoffStrategy: (attemptsMade: number) => {
+        // Exponential backoff: 2s, 4s, 8s
+        return Math.min(2000 * Math.pow(2, attemptsMade - 1), 30000);
       },
-      concurrency,
-      settings: {
-        backoffStrategy: (attemptsMade: number) => {
-          // Exponential backoff: 2s, 4s, 8s
-          return Math.min(2000 * Math.pow(2, attemptsMade - 1), 30000);
-        },
-      },
-    }
-  );
+    },
+  });
 
   // Event handlers
   worker.on('completed', (job, result) => {
@@ -208,11 +202,11 @@ export function createPlanWorker(concurrency: number = 5): Worker<PlanExecutionJ
     console.error(`[PlanWorker] Job ${job?.id} failed:`, error.message);
   });
 
-  worker.on('error', (error) => {
+  worker.on('error', error => {
     console.error('[PlanWorker] Worker error:', error);
   });
 
-  worker.on('stalled', (jobId) => {
+  worker.on('stalled', jobId => {
     console.warn(`[PlanWorker] Job ${jobId} stalled, will be retried`);
   });
 

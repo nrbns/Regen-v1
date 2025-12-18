@@ -17,6 +17,8 @@ export interface GmailMessage {
   snippet: string;
   internalDate: string;
   headers: GmailHeader[];
+  from?: string;
+  to?: string;
   payload?: {
     partId: string;
     mimeType: string;
@@ -53,6 +55,7 @@ export interface EmailThread {
   snippet: string;
   fullText: string;
   isUnread: boolean;
+  messages?: GmailMessage[];
 }
 
 export interface EmailSummary {
@@ -63,6 +66,7 @@ export interface EmailSummary {
   sentiment: 'positive' | 'neutral' | 'negative';
   suggestedReplySnippet: string;
   isUrgent: boolean;
+  summary?: string;
 }
 
 export interface DraftReply {

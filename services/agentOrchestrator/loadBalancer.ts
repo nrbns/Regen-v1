@@ -3,7 +3,7 @@
  * Distributes plan execution across multiple agent instances with health monitoring
  */
 
-import { AgentType } from '../intentRouter.js';
+import { AgentType } from '../intentRouter';
 
 export interface AgentInstance {
   id: string;
@@ -100,9 +100,9 @@ export class AgentLoadBalancer {
    */
   private async performHealthChecks(): Promise<void> {
     const instances = Array.from(this.instances.values());
-    
+
     await Promise.all(
-      instances.map(async (instance) => {
+      instances.map(async instance => {
         try {
           const startTime = Date.now();
           await this.checkInstanceHealth(instance);
@@ -168,7 +168,7 @@ export class AgentLoadBalancer {
 
     this.instances.set(fullInstance.id, fullInstance);
     this.requestCounter.set(fullInstance.id, 0);
-    
+
     console.log(
       `[LoadBalancer] Registered ${fullInstance.type} instance: ${fullInstance.id} at ${fullInstance.endpoint}`
     );
@@ -180,11 +180,11 @@ export class AgentLoadBalancer {
   unregisterInstance(instanceId: string): boolean {
     const removed = this.instances.delete(instanceId);
     this.requestCounter.delete(instanceId);
-    
+
     if (removed) {
       console.log(`[LoadBalancer] Unregistered instance: ${instanceId}`);
     }
-    
+
     return removed;
   }
 
@@ -200,11 +200,11 @@ export class AgentLoadBalancer {
    */
   listInstances(agentType?: AgentType): AgentInstance[] {
     const instances = Array.from(this.instances.values());
-    
+
     if (agentType) {
       return instances.filter(i => i.type === agentType);
     }
-    
+
     return instances;
   }
 
@@ -281,7 +281,10 @@ export class AgentLoadBalancer {
       instance.healthStatus = 'unhealthy';
     } else if (instance.successRate < this.healthCheckConfig.degradedThreshold) {
       instance.healthStatus = 'degraded';
-    } else if (instance.failureCount === 0 && instance.successRate >= this.healthCheckConfig.degradedThreshold) {
+    } else if (
+      instance.failureCount === 0 &&
+      instance.successRate >= this.healthCheckConfig.degradedThreshold
+    ) {
       instance.healthStatus = 'healthy';
     }
   }
@@ -348,10 +351,8 @@ export class AgentLoadBalancer {
       totalCapacity,
       totalLoad,
       utilizationRate: totalCapacity > 0 ? totalLoad / totalCapacity : 0,
-      avgSuccessRate:
-        filtered.reduce((sum, i) => sum + i.successRate, 0) / filtered.length || 0,
-      avgResponseTime:
-        filtered.reduce((sum, i) => sum + i.responseTime, 0) / filtered.length || 0,
+      avgSuccessRate: filtered.reduce((sum, i) => sum + i.successRate, 0) / filtered.length || 0,
+      avgResponseTime: filtered.reduce((sum, i) => sum + i.responseTime, 0) / filtered.length || 0,
       requestsPerSecond,
     };
   }
@@ -369,7 +370,8 @@ export class AgentLoadBalancer {
 
     return filtered.map(instance => ({
       ...instance,
-      requestsPerSecond: timeDelta > 0 ? (this.requestCounter.get(instance.id) || 0) / timeDelta : 0,
+      requestsPerSecond:
+        timeDelta > 0 ? (this.requestCounter.get(instance.id) || 0) / timeDelta : 0,
     }));
   }
 
@@ -405,13 +407,13 @@ export class AgentLoadBalancer {
       const successScore = c.successRate * 0.6;
       const latencyScore = (1 - Math.min(c.responseTime / 1000, 1)) * 0.3; // Normalize to 0-1
       const utilizationScore = (1 - c.currentLoad / c.capacity) * 0.1;
-      
+
       return {
         instance: c,
         score: successScore + latencyScore + utilizationScore,
       };
     });
-    
+
     return scored.reduce((prev, curr) => (prev.score > curr.score ? prev : curr)).instance;
   }
 }

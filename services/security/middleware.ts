@@ -50,12 +50,12 @@ export async function requireAuth(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): Promise<void> {
+): Promise<Response | void> {
   if (!req.userId) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  next();
+  return next();
 }
 
 /**
@@ -86,21 +86,23 @@ export function rateLimit(action: string) {
     }
 
     // Check rate limit
-    const allowed = await globalRateLimiter.isRequestAllowed(req.userId, action);
+    const allowed = await globalRateLimiter.isRequestAllowed(req.userId, action as any);
     if (!allowed) {
-      const remaining = await globalRateLimiter.getRemainingRequests(req.userId, action);
-      return res.status(429).json({
+      const remaining = await globalRateLimiter.getRemainingRequests(req.userId, action as any);
+      res.status(429).json({
         error: 'Rate limit exceeded',
         remainingRequests: remaining,
       });
+      return;
     }
 
     // Check daily quota
-    const hasQuota = await globalRateLimiter.checkDailyQuota(req.userId, action);
+    const hasQuota = await globalRateLimiter.checkDailyQuota(req.userId, action as any);
     if (!hasQuota) {
-      return res.status(429).json({
+      res.status(429).json({
         error: 'Daily quota exceeded',
       });
+      return;
     }
 
     next();
@@ -116,14 +118,15 @@ export function require2FA(action: string) {
       return next();
     }
 
-    const needs2FA = await globalPermissionControl.requires2FA(req.userId, action);
+    const needs2FA = await globalPermissionControl.requires2FA(req.userId, action as any);
     if (!needs2FA) {
       return next();
     }
 
-    const has2FA = await globalTwoFactorAuth.isTwoFactorEnabled(req.userId);
+    const has2FA = await globalTwoFactorAuth.isTwoFactorEnabled(req.userId as any);
     if (!has2FA) {
-      return res.status(403).json({ error: '2FA required but not configured' });
+      res.status(403).json({ error: '2FA required but not configured' });
+      return;
     }
 
     // Create 2FA challenge
@@ -134,6 +137,7 @@ export function require2FA(action: string) {
       challengeId: challenge.challengeId,
       expiresIn: challenge.expiresAt.getTime() - Date.now(),
     });
+    return;
   };
 }
 
@@ -159,6 +163,7 @@ export async function auditAction(
   metadata?: Record<string, any>
 ): Promise<void> {
   await globalPermissionControl.auditAction(userId, action as any, resource, approved, metadata);
+  return;
 }
 
 /**

@@ -35,9 +35,11 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
         .map((task, index) => ({
           id: `step-${Date.now()}-${index}`,
           order: index + 1,
-          type: 'research' as const,
+          type: 'goal' as const,
           content: task.goal,
-          description: task.result ? `Result: ${String(task.result).substring(0, 50)}...` : undefined,
+          description: task.result
+            ? `Result: ${String(task.result).substring(0, 50)}...`
+            : undefined,
           timeout: 300,
         }));
 
@@ -89,7 +91,7 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
       );
 
       // Add extracted steps to the template
-      extractedSteps.forEach((step) => {
+      extractedSteps.forEach(step => {
         useWorkflowStore.getState().addStepToTemplate(templateId, {
           type: step.type,
           content: step.content,
@@ -100,7 +102,7 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
 
       setSaveStatus('success');
       toast.success(`Workflow "${name}" saved successfully!`);
-      
+
       setTimeout(() => {
         onSave?.();
         onClose();
@@ -137,10 +139,10 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
           </button>
         </header>
 
-        <div className="px-6 py-6 space-y-6 max-h-[70vh] overflow-y-auto">
+        <div className="max-h-[70vh] space-y-6 overflow-y-auto px-6 py-6">
           {/* Job Summary */}
           <div className="rounded-lg border border-slate-700/30 bg-slate-800/20 p-4">
-            <h3 className="text-sm font-semibold text-slate-300 mb-2">Batch Job Summary</h3>
+            <h3 className="mb-2 text-sm font-semibold text-slate-300">Batch Job Summary</h3>
             <div className="space-y-1 text-xs text-slate-400">
               <div className="flex justify-between">
                 <span>Job ID:</span>
@@ -158,16 +160,16 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
               </div>
               <div className="flex justify-between">
                 <span>Duration:</span>
-                <span>{job.totalDuration ? `${Math.round(job.totalDuration / 1000)}s` : 'N/A'}</span>
+                <span>
+                  {job.totalDuration ? `${Math.round(job.totalDuration / 1000)}s` : 'N/A'}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Workflow Name */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Workflow Name *
-            </label>
+            <label className="mb-2 block text-sm font-medium text-slate-300">Workflow Name *</label>
             <input
               type="text"
               value={name}
@@ -179,22 +181,20 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Description
-            </label>
+            <label className="mb-2 block text-sm font-medium text-slate-300">Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-gray-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+              className="w-full resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-gray-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               placeholder="What does this workflow accomplish?"
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Tags</label>
-            <div className="flex gap-2 mb-3">
+            <label className="mb-2 block text-sm font-medium text-slate-300">Tags</label>
+            <div className="mb-3 flex gap-2">
               <input
                 type="text"
                 value={tagInput}
@@ -232,10 +232,10 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
 
           {/* Extract Steps Section */}
           <div className="rounded-lg border border-slate-700/30 bg-slate-800/20 p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-300">Workflow Steps</h3>
               {extractedSteps.length > 0 && (
-                <span className="text-xs text-emerald-300 flex items-center gap-1">
+                <span className="flex items-center gap-1 text-xs text-emerald-300">
                   <CheckCircle size={12} />
                   {extractedSteps.length} steps extracted
                 </span>
@@ -245,21 +245,24 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
             {extractedSteps.length === 0 ? (
               <button
                 onClick={handleExtractSteps}
-                className="w-full rounded-lg border border-blue-700/50 bg-blue-900/20 px-3 py-2 text-sm text-blue-200 hover:bg-blue-900/30 transition-colors"
+                className="w-full rounded-lg border border-blue-700/50 bg-blue-900/20 px-3 py-2 text-sm text-blue-200 transition-colors hover:bg-blue-900/30"
               >
                 Extract Steps from Batch Job
               </button>
             ) : (
               <div className="space-y-2">
                 {extractedSteps.map((step, idx) => (
-                  <div key={step.id} className="rounded-lg border border-slate-700/20 bg-slate-800/50 p-3">
+                  <div
+                    key={step.id}
+                    className="rounded-lg border border-slate-700/20 bg-slate-800/50 p-3"
+                  >
                     <div className="flex items-start gap-2">
-                      <div className="flex-shrink-0 rounded-full bg-blue-500/20 h-6 w-6 flex items-center justify-center text-xs font-semibold text-blue-300">
+                      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-xs font-semibold text-blue-300">
                         {idx + 1}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-slate-400 mb-1">{step.type}</div>
-                        <div className="text-sm text-slate-200 break-words">{step.content}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 text-xs text-slate-400">{step.type}</div>
+                        <div className="break-words text-sm text-slate-200">{step.content}</div>
                       </div>
                     </div>
                   </div>
@@ -270,22 +273,22 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="rounded-lg border border-red-700/30 bg-red-900/20 p-3 flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 rounded-lg border border-red-700/30 bg-red-900/20 p-3">
+              <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-red-400" />
               <div className="text-sm text-red-200">{errorMessage}</div>
             </div>
           )}
 
           {/* Status Message */}
           {saveStatus === 'success' && (
-            <div className="rounded-lg border border-emerald-700/30 bg-emerald-900/20 p-3 flex items-start gap-2">
-              <CheckCircle size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 rounded-lg border border-emerald-700/30 bg-emerald-900/20 p-3">
+              <CheckCircle size={16} className="mt-0.5 flex-shrink-0 text-emerald-400" />
               <div className="text-sm text-emerald-200">Workflow saved successfully!</div>
             </div>
           )}
         </div>
 
-        <footer className="border-t border-slate-800/60 bg-slate-900/30 px-6 py-4 flex items-center justify-between">
+        <footer className="flex items-center justify-between border-t border-slate-800/60 bg-slate-900/30 px-6 py-4">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm text-slate-300 hover:text-slate-100"
@@ -295,7 +298,7 @@ export function WorkflowRecorder({ job, onClose, onSave }: WorkflowRecorderProps
           <button
             onClick={handleSaveWorkflow}
             disabled={saveStatus === 'saving' || extractedSteps.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saveStatus === 'saving' ? (
               <>

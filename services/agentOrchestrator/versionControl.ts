@@ -4,7 +4,7 @@
  */
 
 import { ExecutionPlan } from './planner.js';
-import { getSentry } from '../../server/monitoring/sentry.js';
+import { getSentry } from '../monitoring/sentry';
 
 export interface PlanVersion {
   versionId: string;
@@ -87,9 +87,7 @@ export class PlanVersionControl {
 
     // Calculate changes from previous version
     const previousVersion = this.getLatestVersion(planId);
-    const changes = previousVersion 
-      ? this.detectChanges(previousVersion.plan, plan)
-      : [];
+    const changes = previousVersion ? this.detectChanges(previousVersion.plan, plan) : [];
 
     // Calculate checksum for integrity
     const checksum = this.calculateChecksum(plan);
@@ -124,14 +122,14 @@ export class PlanVersionControl {
     }
 
     console.log(`[VersionControl] Saved version ${versionId} with ${changes.length} changes`);
-    
+
     // Track in Sentry
     const sentry = getSentry();
-    sentry?.addBreadcrumb(
-      `Saved plan version ${versionId}`,
-      'version-control',
-      { planId, version, changeCount: changes.length }
-    );
+    sentry?.addBreadcrumb(`Saved plan version ${versionId}`, 'version-control', {
+      planId,
+      version,
+      changeCount: changes.length,
+    });
 
     return planVersion;
   }
@@ -260,7 +258,7 @@ export class PlanVersionControl {
 
     // Compare each field
     const fields = ['description', 'agentType', 'status', 'priority', 'context'];
-    
+
     for (const field of fields) {
       if (JSON.stringify(oldTask[field]) !== JSON.stringify(newTask[field])) {
         changes.push({
@@ -277,7 +275,7 @@ export class PlanVersionControl {
     // Check dependencies
     const oldDeps = JSON.stringify(oldTask.dependencies || []);
     const newDeps = JSON.stringify(newTask.dependencies || []);
-    
+
     if (oldDeps !== newDeps) {
       changes.push({
         type: 'dependency-changed',
@@ -297,13 +295,13 @@ export class PlanVersionControl {
   private calculateChecksum(plan: ExecutionPlan): string {
     const planString = JSON.stringify(plan);
     let hash = 0;
-    
+
     for (let i = 0; i < planString.length; i++) {
       const char = planString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     return Math.abs(hash).toString(16);
   }
 
@@ -321,7 +319,11 @@ export class PlanVersionControl {
   /**
    * Rollback to previous version
    */
-  async rollback(planId: string, targetVersion: number, createdBy: string): Promise<RollbackResult> {
+  async rollback(
+    planId: string,
+    targetVersion: number,
+    createdBy: string
+  ): Promise<RollbackResult> {
     const version = this.getVersion(planId, targetVersion);
     const currentVersion = this.getLatestVersion(planId);
 
@@ -340,7 +342,7 @@ export class PlanVersionControl {
     if (!this.verifyIntegrity(planId, targetVersion)) {
       const sentry = getSentry();
       const error = new Error('Plan version integrity check failed');
-      sentry?.captureException(error, {
+      sentry?.captureException?.(error, {
         tags: { planId, version: targetVersion.toString() },
       });
 
@@ -354,7 +356,9 @@ export class PlanVersionControl {
       };
     }
 
-    console.log(`[VersionControl] Rolling back plan ${planId} from v${currentVersion?.version} to v${targetVersion}`);
+    console.log(
+      `[VersionControl] Rolling back plan ${planId} from v${currentVersion?.version} to v${targetVersion}`
+    );
 
     // Create rollback version (new version with old content)
     const rolledBackPlan = JSON.parse(JSON.stringify(version.plan));
@@ -368,11 +372,10 @@ export class PlanVersionControl {
     );
 
     const sentry = getSentry();
-    sentry?.addBreadcrumb(
-      `Rolled back plan ${planId}`,
-      'version-control',
-      { fromVersion: currentVersion?.version, toVersion: targetVersion }
-    );
+    sentry?.addBreadcrumb?.(`Rolled back plan ${planId}`, 'version-control', {
+      fromVersion: currentVersion?.version,
+      toVersion: targetVersion,
+    });
 
     return {
       success: true,
@@ -474,13 +477,15 @@ export class PlanVersionControl {
     try {
       this.versions.set(data.planId, data.versions);
       this.tags.set(data.planId, data.tags);
-      
+
       if (data.versions.length > 0) {
         const latestVersion = Math.max(...data.versions.map(v => v.version));
         this.versionCounter.set(data.planId, latestVersion);
       }
 
-      console.log(`[VersionControl] Imported ${data.versions.length} versions for plan ${data.planId}`);
+      console.log(
+        `[VersionControl] Imported ${data.versions.length} versions for plan ${data.planId}`
+      );
       return true;
     } catch (error) {
       console.error(`[VersionControl] Import failed:`, error);

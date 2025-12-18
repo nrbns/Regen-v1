@@ -5,11 +5,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Zap, 
-  Clock, 
-  Merge, 
-  ArrowDownUp, 
+import {
+  Zap,
+  Clock,
+  Merge,
+  ArrowDownUp,
   Copy,
   Check,
   X,
@@ -17,18 +17,18 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
-import { useOptimizerStore, type OptimizationSuggestion } from '@/core/agent/optimizer';
-import { useWorkflowStore } from '@/core/agent/workflows';
+import { useOptimizerStore, type OptimizationSuggestion } from '../../core/agent/optimizer';
+import { useWorkflowStore } from '../../core/agent/workflows';
 
-const IMPACT_COLORS = {
+const IMPACT_COLORS: Record<'high' | 'medium' | 'low', string> = {
   high: 'text-red-400 bg-red-400/10',
   medium: 'text-yellow-400 bg-yellow-400/10',
   low: 'text-blue-400 bg-blue-400/10',
 };
 
-const TYPE_ICONS = {
+const TYPE_ICONS: Record<OptimizationSuggestion['type'], React.ComponentType<any>> = {
   parallel_execution: Zap,
   timeout_adjustment: Clock,
   step_consolidation: Merge,
@@ -61,39 +61,37 @@ function SuggestionCard({ suggestion, onApply, onDismiss }: SuggestionCardProps)
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -100 }}
-      className="border border-gray-700 rounded-lg bg-gray-800/50 p-4 hover:border-gray-600 transition-colors"
+      className="rounded-lg border border-gray-700 bg-gray-800/50 p-4 transition-colors hover:border-gray-600"
     >
       <div className="flex items-start gap-3">
-        <div className={`p-2 rounded-lg ${IMPACT_COLORS[suggestion.impact]}`}>
-          <Icon className="w-5 h-5" />
+        <div className={`rounded-lg p-2 ${IMPACT_COLORS[suggestion.impact]}`}>
+          <Icon className="h-5 w-5" />
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-start justify-between gap-2">
             <div className="flex-1">
-              <h4 className="text-white font-medium mb-1">
-                {suggestion.description}
-              </h4>
-              <p className="text-sm text-gray-400">
-                {suggestion.templateName}
-              </p>
+              <h4 className="mb-1 font-medium text-white">{suggestion.description}</h4>
+              <p className="text-sm text-gray-400">{suggestion.templateName}</p>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`px-2 py-1 rounded text-xs font-medium ${IMPACT_COLORS[suggestion.impact]}`}>
+              <span
+                className={`rounded px-2 py-1 text-xs font-medium ${IMPACT_COLORS[suggestion.impact]}`}
+              >
                 {suggestion.impact.toUpperCase()}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm mb-3">
+          <div className="mb-3 flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1 text-green-400">
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="h-4 w-4" />
               <span>{suggestion.estimatedImprovement}</span>
             </div>
             {suggestion.autoApplicable && (
               <div className="flex items-center gap-1 text-blue-400">
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="h-4 w-4" />
                 <span>Auto-applicable</span>
               </div>
             )}
@@ -104,28 +102,28 @@ function SuggestionCard({ suggestion, onApply, onDismiss }: SuggestionCardProps)
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-3 pt-3 border-t border-gray-700"
+              className="mt-3 border-t border-gray-700 pt-3"
             >
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-400 mb-2 flex items-center gap-1">
-                    <X className="w-3 h-3" /> Before
+                  <p className="mb-2 flex items-center gap-1 text-gray-400">
+                    <X className="h-3 w-3" /> Before
                   </p>
-                  <div className="bg-gray-900 rounded p-2 space-y-1">
-                    {suggestion.changes.before.map((step, i) => (
-                      <div key={i} className="text-gray-300 text-xs truncate">
+                  <div className="space-y-1 rounded bg-gray-900 p-2">
+                    {suggestion.changes.before.map((step: any, i: number) => (
+                      <div key={i} className="truncate text-xs text-gray-300">
                         {step.content || `Step ${i + 1}`}
                       </div>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <p className="text-gray-400 mb-2 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> After
+                  <p className="mb-2 flex items-center gap-1 text-gray-400">
+                    <Check className="h-3 w-3" /> After
                   </p>
-                  <div className="bg-gray-900 rounded p-2 space-y-1">
-                    {suggestion.changes.after.map((step, i) => (
-                      <div key={i} className="text-green-400 text-xs truncate">
+                  <div className="space-y-1 rounded bg-gray-900 p-2">
+                    {suggestion.changes.after.map((step: any, i: number) => (
+                      <div key={i} className="truncate text-xs text-green-400">
                         {step.content || `Optimized ${i + 1}`}
                       </div>
                     ))}
@@ -135,31 +133,31 @@ function SuggestionCard({ suggestion, onApply, onDismiss }: SuggestionCardProps)
             </motion.div>
           )}
 
-          <div className="flex items-center gap-2 mt-3">
+          <div className="mt-3 flex items-center gap-2">
             <button
               onClick={handleApply}
               disabled={applying || !!suggestion.appliedAt}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
                 suggestion.appliedAt
-                  ? 'bg-green-500/20 text-green-400 cursor-not-allowed'
+                  ? 'cursor-not-allowed bg-green-500/20 text-green-400'
                   : applying
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
               }`}
             >
               {applying ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-transparent" />
                   Applying...
                 </>
               ) : suggestion.appliedAt ? (
                 <>
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
                   Applied
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4" />
+                  <Check className="h-4 w-4" />
                   Apply
                 </>
               )}
@@ -167,16 +165,16 @@ function SuggestionCard({ suggestion, onApply, onDismiss }: SuggestionCardProps)
 
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+              className="flex items-center gap-1 rounded px-3 py-1.5 text-sm text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
             >
               {expanded ? (
                 <>
-                  <ChevronUp className="w-4 h-4" />
+                  <ChevronUp className="h-4 w-4" />
                   Less
                 </>
               ) : (
                 <>
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="h-4 w-4" />
                   Details
                 </>
               )}
@@ -185,9 +183,9 @@ function SuggestionCard({ suggestion, onApply, onDismiss }: SuggestionCardProps)
             {!suggestion.appliedAt && (
               <button
                 onClick={onDismiss}
-                className="ml-auto flex items-center gap-1 px-3 py-1.5 rounded text-sm text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                className="ml-auto flex items-center gap-1 rounded px-3 py-1.5 text-sm text-gray-400 transition-colors hover:bg-red-400/10 hover:text-red-400"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
                 Dismiss
               </button>
             )}
@@ -238,11 +236,11 @@ export function WorkflowOptimizerPanel() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-            <Zap className="w-6 h-6 text-yellow-400" />
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+            <Zap className="h-6 w-6 text-yellow-400" />
             Workflow Optimizations
           </h2>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="mt-1 text-sm text-gray-400">
             AI-powered suggestions to improve workflow performance
           </p>
         </div>
@@ -250,9 +248,9 @@ export function WorkflowOptimizerPanel() {
         {stats.total > 0 && (
           <button
             onClick={handleApplyAll}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 text-white transition-all hover:from-blue-600 hover:to-purple-600"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="h-4 w-4" />
             Apply All Safe Optimizations
           </button>
         )}
@@ -262,7 +260,7 @@ export function WorkflowOptimizerPanel() {
       <div className="grid grid-cols-5 gap-4">
         <button
           onClick={() => setFilter('all')}
-          className={`p-4 rounded-lg border transition-colors ${
+          className={`rounded-lg border p-4 transition-colors ${
             filter === 'all'
               ? 'border-blue-500 bg-blue-500/10'
               : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
@@ -274,7 +272,7 @@ export function WorkflowOptimizerPanel() {
 
         <button
           onClick={() => setFilter('high')}
-          className={`p-4 rounded-lg border transition-colors ${
+          className={`rounded-lg border p-4 transition-colors ${
             filter === 'high'
               ? 'border-red-500 bg-red-500/10'
               : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
@@ -286,7 +284,7 @@ export function WorkflowOptimizerPanel() {
 
         <button
           onClick={() => setFilter('medium')}
-          className={`p-4 rounded-lg border transition-colors ${
+          className={`rounded-lg border p-4 transition-colors ${
             filter === 'medium'
               ? 'border-yellow-500 bg-yellow-500/10'
               : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
@@ -298,7 +296,7 @@ export function WorkflowOptimizerPanel() {
 
         <button
           onClick={() => setFilter('low')}
-          className={`p-4 rounded-lg border transition-colors ${
+          className={`rounded-lg border p-4 transition-colors ${
             filter === 'low'
               ? 'border-blue-500 bg-blue-500/10'
               : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
@@ -308,7 +306,7 @@ export function WorkflowOptimizerPanel() {
           <div className="text-sm text-gray-400">Low Impact</div>
         </button>
 
-        <div className="p-4 rounded-lg border border-gray-700 bg-gray-800/50">
+        <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
           <div className="text-2xl font-bold text-green-400">{stats.applied}</div>
           <div className="text-sm text-gray-400">Applied</div>
         </div>
@@ -317,8 +315,8 @@ export function WorkflowOptimizerPanel() {
       {/* Suggestions List */}
       <div>
         {filteredSuggestions.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-gray-700 rounded-lg">
-            <AlertCircle className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <div className="rounded-lg border border-dashed border-gray-700 py-12 text-center">
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-gray-600" />
             <p className="text-gray-400">
               {stats.total === 0
                 ? 'No optimization suggestions yet. Run analytics on your workflows to generate insights.'
@@ -343,21 +341,22 @@ export function WorkflowOptimizerPanel() {
 
       {/* History Summary */}
       {history.length > 0 && (
-        <div className="pt-6 border-t border-gray-700">
-          <h3 className="text-lg font-medium text-white mb-3">Recent Optimizations</h3>
+        <div className="border-t border-gray-700 pt-6">
+          <h3 className="mb-3 text-lg font-medium text-white">Recent Optimizations</h3>
           <div className="space-y-2">
-            {history.slice(-5).reverse().map((result, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/30 text-sm"
-              >
-                <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
-                <div className="flex-1 text-gray-300">
-                  {result.changes[0]}
+            {history
+              .slice(-5)
+              .reverse()
+              .map((result, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-lg bg-gray-800/30 p-3 text-sm"
+                >
+                  <Check className="h-4 w-4 flex-shrink-0 text-green-400" />
+                  <div className="flex-1 text-gray-300">{result.changes[0]}</div>
+                  <span className="text-xs text-gray-500">Just now</span>
                 </div>
-                <span className="text-gray-500 text-xs">Just now</span>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       )}

@@ -18,7 +18,6 @@ export type {
   GmailThread,
   GmailMessage,
   GmailToken,
-  EmailMessage,
 } from './types';
 
 export type { ExecutionContext, ApprovalRequest } from './executor';

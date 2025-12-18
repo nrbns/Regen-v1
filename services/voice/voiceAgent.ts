@@ -26,9 +26,9 @@ export interface VoiceCommandResult {
 export interface VoiceAgentConfig {
   userId: string;
   language?: string;
-  enableSpokenFeedback: boolean;
-  autoExecute: boolean; // Auto-execute low-risk commands
-  maxRetries: number;
+  enableSpokenFeedback?: boolean;
+  autoExecute?: boolean; // Auto-execute low-risk commands
+  maxRetries?: number;
 }
 
 /**
@@ -43,11 +43,11 @@ export class VoiceAgent {
 
   constructor(config: VoiceAgentConfig) {
     this.config = {
-      language: 'en-US',
-      enableSpokenFeedback: true,
-      autoExecute: false,
-      maxRetries: 3,
-      ...config,
+      userId: config.userId,
+      language: config.language ?? 'en-US',
+      enableSpokenFeedback: config.enableSpokenFeedback ?? true,
+      autoExecute: config.autoExecute ?? false,
+      maxRetries: config.maxRetries ?? 3,
     };
     this.planner = new AgentPlanner();
     this.executor = new AgentExecutor();
@@ -66,8 +66,8 @@ export class VoiceAgent {
       chunkDurationMs: 500,
       language: this.config.language,
       includePartial: true,
-      onChunk: (chunk) => this.onTranscriptionChunk(chunk),
-      onError: (error) => this.onTranscriptionError(error),
+      onChunk: chunk => this.onTranscriptionChunk(chunk),
+      onError: error => this.onTranscriptionError(error),
     };
 
     this.transcriber = new StreamingTranscriber(options);
@@ -136,7 +136,7 @@ export class VoiceAgent {
       // 2. Decide: auto-execute or ask for approval
       if (!this.config.autoExecute && plan.requiresApproval) {
         if (this.config.enableSpokenFeedback) {
-          const confirmText = `I found: ${plan.tasks.map((t) => t.type).join(', ')}. Shall I proceed?`;
+          const confirmText = `I found: ${plan.tasks.map(t => t.type).join(', ')}. Shall I proceed?`;
           await ttsService.play((await ttsService.synthesize(confirmText)).audioBlob);
         }
 
