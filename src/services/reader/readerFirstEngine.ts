@@ -20,18 +20,22 @@ export function extractReaderContent(html: string, _url?: string): ReaderContent
   const doc = parser.parseFromString(html, 'text/html');
 
   // Remove scripts, styles, and other non-content elements
-  const elementsToRemove = doc.querySelectorAll('script, style, nav, header, footer, aside, iframe, embed, object, video, audio, form, button, input, select, textarea');
+  const elementsToRemove = doc.querySelectorAll(
+    'script, style, nav, header, footer, aside, iframe, embed, object, video, audio, form, button, input, select, textarea'
+  );
   elementsToRemove.forEach(el => el.remove());
 
   // Extract title
   const title = doc.querySelector('h1, title')?.textContent?.trim() || 'Untitled';
 
   // Extract main content
-  const article = doc.querySelector('article, main, [role="main"], .content, .post, .entry-content, #content');
+  const article = doc.querySelector(
+    'article, main, [role="main"], .content, .post, .entry-content, #content'
+  );
   const contentElement = article || doc.body;
 
   // Convert to plain text, preserving paragraphs
-  const text = contentElement.innerText
+  const text = (contentElement as HTMLElement).innerText
     .replace(/\s+/g, ' ')
     .replace(/\n\s*\n/g, '\n\n')
     .trim();
@@ -79,13 +83,16 @@ export class ReaderTTS {
   /**
    * Speak text
    */
-  speak(text: string, options?: {
-    rate?: number;
-    pitch?: number;
-    volume?: number;
-    voice?: SpeechSynthesisVoice;
-    onEnd?: () => void;
-  }): void {
+  speak(
+    text: string,
+    options?: {
+      rate?: number;
+      pitch?: number;
+      volume?: number;
+      voice?: SpeechSynthesisVoice;
+      onEnd?: () => void;
+    }
+  ): void {
     if (!this.synthesis) {
       console.warn('[ReaderTTS] Speech synthesis not available');
       return;
@@ -112,7 +119,7 @@ export class ReaderTTS {
       this.onEndCallback?.();
     };
 
-    this.utterance.onerror = (error) => {
+    this.utterance.onerror = error => {
       console.error('[ReaderTTS] Speech synthesis error:', error);
       this.isPlaying = false;
       this.onEndCallback?.();
@@ -175,4 +182,3 @@ export function getReaderTTS(): ReaderTTS {
   }
   return readerTTSInstance;
 }
-

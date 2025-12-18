@@ -12,26 +12,26 @@ export function applyLowDataMode(enabled: boolean): void {
   if (typeof document === 'undefined') return;
 
   const html = document.documentElement;
-  
+
   if (enabled) {
     // Add low-data class to root element for CSS targeting
     html.classList.add('low-data-mode');
-    
+
     // Block images by default (can be unblocked by clicking)
     blockImages();
-    
+
     // Disable autoplay videos
     disableAutoplay();
-    
+
     // Request compressed resources via Accept headers (handled by fetch interceptor)
     // This is done via service worker or fetch wrapper
   } else {
     // Remove low-data class
     html.classList.remove('low-data-mode');
-    
+
     // Unblock images
     unblockImages();
-    
+
     // Re-enable autoplay (though browser policies may still restrict)
     enableAutoplay();
   }
@@ -42,16 +42,16 @@ export function applyLowDataMode(enabled: boolean): void {
  */
 function blockImages(): void {
   const images = document.querySelectorAll<HTMLImageElement>('img[src]');
-  
+
   images.forEach(img => {
     // Store original src
     if (!img.dataset.originalSrc) {
       img.dataset.originalSrc = img.src;
     }
-    
+
     // Replace with placeholder
     img.style.display = 'none';
-    
+
     // Create placeholder button
     const placeholder = document.createElement('button');
     placeholder.className = 'low-data-image-placeholder';
@@ -78,13 +78,13 @@ function blockImages(): void {
         <span style="margin-top: 8px;">Click to load image</span>
       </div>
     `;
-    
+
     placeholder.onclick = () => {
       img.src = img.dataset.originalSrc || '';
       img.style.display = '';
       placeholder.remove();
     };
-    
+
     img.parentNode?.insertBefore(placeholder, img);
   });
 }
@@ -94,14 +94,14 @@ function blockImages(): void {
  */
 function unblockImages(): void {
   const images = document.querySelectorAll<HTMLImageElement>('img[data-original-src]');
-  
+
   images.forEach(img => {
     if (img.dataset.originalSrc) {
       img.src = img.dataset.originalSrc;
       img.style.display = '';
     }
   });
-  
+
   // Remove placeholders
   document.querySelectorAll('.low-data-image-placeholder').forEach(placeholder => {
     placeholder.remove();
@@ -113,7 +113,7 @@ function unblockImages(): void {
  */
 function disableAutoplay(): void {
   const videos = document.querySelectorAll<HTMLVideoElement>('video[autoplay]');
-  
+
   videos.forEach(video => {
     video.removeAttribute('autoplay');
     video.pause();
@@ -147,10 +147,8 @@ export function setLowDataMode(enabled: boolean): void {
  * Hook to subscribe to low-data mode changes
  */
 export function subscribeToLowDataMode(callback: (enabled: boolean) => void): () => void {
-  return useSettingsStore.subscribe(
-    state => state.general.lowDataMode ?? false,
-    callback,
-    { equalityFn: (a, b) => a === b }
-  );
+  return useSettingsStore.subscribe(state => {
+    const enabled = state.general.lowDataMode ?? false;
+    callback(enabled);
+  });
 }
-

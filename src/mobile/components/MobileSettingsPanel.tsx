@@ -113,7 +113,12 @@ export function MobileSettingsPanel({ isOpen, onClose }: MobileSettingsPanelProp
 
 // Settings Components
 function AppearanceSettings() {
-  const { theme, setTheme } = useSettingsStore();
+  const theme = useSettingsStore(s => s.appearance.theme);
+  const setTheme = useSettingsStore(s => s.setAppearance);
+
+  const handleSetTheme = (newTheme: string) => {
+    setTheme({ theme: newTheme as any });
+  };
 
   return (
     <div className="space-y-4 p-4">

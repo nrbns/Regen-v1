@@ -4,7 +4,11 @@
  */
 
 import { useTabsStore, type Tab } from '../../state/tabsStore';
-import { saveScrollPosition, restoreScrollPosition, type HibernationState } from '../../core/tabs/hibernation';
+import {
+  saveScrollPosition,
+  restoreScrollPosition,
+  type HibernationState,
+} from '../../core/tabs/hibernation';
 
 // SPRINT 1: Configuration
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -39,7 +43,7 @@ export function getTabMemoryBudget(tab: Tab, isActive: boolean): number {
 export function trackTabActivity(tabId: string): void {
   const tabsState = useTabsStore.getState();
   const tab = tabsState.tabs.find(t => t.id === tabId);
-  
+
   if (!tab) return;
 
   // Update last active timestamp
@@ -73,7 +77,7 @@ export function startInactivityMonitoring(): void {
   inactivityTimers.clear();
 
   // Set inactivity timers for inactive tabs
-  tabs.forEach((tab) => {
+  tabs.forEach(tab => {
     if (tab.id === activeId || tab.pinned || tab.sleeping) {
       return; // Skip active, pinned, or already sleeping tabs
     }
@@ -169,11 +173,15 @@ export async function wakeTab(tabId: string): Promise<void> {
             restoreScrollPosition(tabId, iframe);
           }, 100);
         } else {
-          iframe.addEventListener('load', () => {
-            setTimeout(() => {
-              restoreScrollPosition(tabId, iframe);
-            }, 100);
-          }, { once: true });
+          iframe.addEventListener(
+            'load',
+            () => {
+              setTimeout(() => {
+                restoreScrollPosition(tabId, iframe);
+              }, 100);
+            },
+            { once: true }
+          );
         }
       };
 
@@ -189,7 +197,11 @@ export async function wakeTab(tabId: string): Promise<void> {
 /**
  * SPRINT 1: Create tab snapshot with thumbnail and state
  */
-async function createTabSnapshot(tabId: string, tab: Tab, iframe: HTMLIFrameElement): Promise<void> {
+async function createTabSnapshot(
+  tabId: string,
+  tab: Tab,
+  iframe: HTMLIFrameElement
+): Promise<void> {
   try {
     const snapshot = {
       tabId,
@@ -238,12 +250,12 @@ async function saveSnapshotToIndexedDB(snapshot: any): Promise<void> {
         const transaction = db.transaction([storeName], 'readwrite');
         const store = transaction.objectStore(storeName);
         const putRequest = store.put(snapshot, snapshot.tabId);
-        
+
         putRequest.onsuccess = () => resolve();
         putRequest.onerror = () => reject(putRequest.error);
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(storeName)) {
           db.createObjectStore(storeName, { keyPath: 'tabId' });
@@ -319,12 +331,11 @@ export function initializeHibernationManager(): () => void {
   startInactivityMonitoring();
 
   // Subscribe to tab changes to update timers
-  const unsubscribe = useTabsStore.subscribe(
-    state => ({ tabs: state.tabs, activeId: state.activeId }),
-    () => {
+  const unsubscribe = useTabsStore.subscribe((state, _prev) => {
+    if (state.tabs !== _prev.tabs || state.activeId !== _prev.activeId) {
       startInactivityMonitoring();
     }
-  );
+  });
 
   // Check periodically for tabs that should be hibernated
   const intervalId = setInterval(() => {
@@ -379,7 +390,10 @@ export function evictLRUTabs(count: number): void {
     });
 
   const toEvict = candidates.slice(0, count);
-  console.log(`[HibernationManager] Evicting ${toEvict.length} tabs:`, toEvict.map(t => t.title));
+  console.log(
+    `[HibernationManager] Evicting ${toEvict.length} tabs:`,
+    toEvict.map(t => t.title)
+  );
 
   // Hibernate each candidate
   toEvict.forEach(tab => {
@@ -388,4 +402,3 @@ export function evictLRUTabs(count: number): void {
     });
   });
 }
-

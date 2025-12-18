@@ -1,6 +1,6 @@
 /**
  * Layer 4: Search & Indexing
- * 
+ *
  * Local-first search infrastructure using IndexedDB
  * - Full-text search with Lunr.js
  * - Offline-capable indexing
@@ -75,7 +75,7 @@ class SearchDatabase {
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // Documents store
@@ -183,7 +183,7 @@ class SearchDatabase {
 
     await Promise.all(
       docs.map(
-        (doc) =>
+        doc =>
           new Promise<void>((resolve, reject) => {
             const request = store.put(doc);
             request.onsuccess = () => {
@@ -248,7 +248,7 @@ class SearchDatabase {
     await new Promise<void>((resolve, reject) => {
       const request = store.put({
         id: 'main',
-        data: this.index.toJSON(),
+        data: this.index!.toJSON(),
         timestamp: Date.now(),
       });
       request.onsuccess = () => resolve();
@@ -281,33 +281,37 @@ class SearchDatabase {
         // Add fuzzy matching with edit distance 1
         searchQuery = query
           .split(/\s+/)
-          .map((term) => `${term}~1`)
+          .map(term => `${term}~1`)
           .join(' ');
       }
 
-      const lunrResults = this.index.search(searchQuery);
+      const lunrResults = this.index!.search(searchQuery);
 
       // Convert to SearchResult format
-      let results: SearchResult[] = lunrResults
-        .map((result) => {
-          const doc = this.indexData.get(result.ref);
-          if (!doc) return null;
+      const mappedResults = lunrResults.map(result => {
+        const doc = this.indexData.get(result.ref);
+        if (!doc) return null;
 
-          return {
-            id: result.ref,
-            document: doc,
-            score: result.score,
-            matches: Object.entries(result.matchData.metadata).map(([_term, fields]) => ({
-              field: Object.keys(fields as object)[0] || '',
-              positions: [],
-            })),
-          };
-        })
-        .filter((r): r is SearchResult => r !== null);
+        const matches = Object.entries(result.matchData.metadata).map(([_term, fields]) => ({
+          field: Object.keys(fields as object)[0] || '',
+          positions: [] as number[],
+        }));
+
+        const mapped: SearchResult = {
+          id: result.ref,
+          document: doc,
+          score: result.score,
+          matches,
+        };
+
+        return mapped;
+      });
+
+      let results: SearchResult[] = mappedResults.filter((r): r is SearchResult => r !== null);
 
       // Filter by type
       if (options.types && options.types.length > 0) {
-        results = results.filter((r) => options.types!.includes(r.document.type));
+        results = results.filter(r => options.types!.includes(r.document.type));
       }
 
       // Apply limit and offset
@@ -341,7 +345,7 @@ class SearchDatabase {
       const transaction = this.db.transaction([STORES.cache], 'readonly');
       const store = transaction.objectStore(STORES.cache);
 
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         const request = store.get(cacheKey);
         request.onsuccess = () => {
           const cached = request.result;
@@ -415,18 +419,15 @@ class SearchDatabase {
     await this.init();
     if (!this.db) return { documents: 0, indexSize: 0, cacheSize: 0 };
 
-    const transaction = this.db.transaction(
-      [STORES.documents, STORES.cache],
-      'readonly'
-    );
+    const transaction = this.db.transaction([STORES.documents, STORES.cache], 'readonly');
 
-    const docCount = await new Promise<number>((resolve) => {
+    const docCount = await new Promise<number>(resolve => {
       const request = transaction.objectStore(STORES.documents).count();
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => resolve(0);
     });
 
-    const cacheCount = await new Promise<number>((resolve) => {
+    const cacheCount = await new Promise<number>(resolve => {
       const request = transaction.objectStore(STORES.cache).count();
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => resolve(0);
@@ -616,7 +617,7 @@ export async function hybridSearch(
       ]);
 
       // Merge results
-      meiliResults.results.forEach((indexResult) => {
+      meiliResults.results.forEach(indexResult => {
         indexResult.hits.forEach((hit: any) => {
           results.push({
             id: hit.id,
@@ -641,7 +642,7 @@ export async function hybridSearch(
 
   // Deduplicate by ID
   const seen = new Set<string>();
-  const deduplicated = results.filter((r) => {
+  const deduplicated = results.filter(r => {
     if (seen.has(r.id)) return false;
     seen.add(r.id);
     return true;
@@ -658,10 +659,7 @@ export async function hybridSearch(
 // 5. Search Suggestions
 // ============================================================================
 
-export async function getSearchSuggestions(
-  query: string,
-  limit: number = 5
-): Promise<string[]> {
+export async function getSearchSuggestions(query: string, limit: number = 5): Promise<string[]> {
   if (!query || query.length < 2) return [];
 
   // Get top results
@@ -669,9 +667,9 @@ export async function getSearchSuggestions(
 
   // Extract unique terms from titles
   const suggestions = new Set<string>();
-  results.forEach((result) => {
+  results.forEach(result => {
     const words = result.document.title.toLowerCase().split(/\s+/);
-    words.forEach((word) => {
+    words.forEach(word => {
       if (word.startsWith(query.toLowerCase()) && word.length > query.length) {
         suggestions.add(word);
       }

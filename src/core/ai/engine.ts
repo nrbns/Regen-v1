@@ -126,7 +126,7 @@ export class AIEngine {
         mode: shared?.mode,
         llm: {
           temperature: 0.1,
-          max_tokens: 100, // Even shorter for summary
+          maxTokens: 100, // Even shorter for summary
         },
       },
     ]);

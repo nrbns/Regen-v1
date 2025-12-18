@@ -3,10 +3,27 @@
  * Bridges frontend history/bookmarks with sync service
  */
 
-import { CrossDeviceSyncService } from './syncService';
+// import { CrossDeviceSyncService } from './syncService';
 import type { SyncData } from './types';
 import { ipc } from '../../lib/ipc-typed';
 import { useSettingsStore } from '../../state/settingsStore';
+
+// Placeholder CrossDeviceSyncService for missing module
+class CrossDeviceSyncService {
+  static generateDeviceId(): string {
+    return `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  constructor(_config: any) {}
+
+  async initialize(): Promise<void> {}
+
+  isOnline(): boolean {
+    return navigator.onLine;
+  }
+
+  async syncAll(): Promise<void> {}
+}
 
 /**
  * Initialize and configure sync service

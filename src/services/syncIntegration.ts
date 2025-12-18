@@ -1,6 +1,6 @@
 /**
  * Layer 5: Data Synchronization Integration Service
- * 
+ *
  * Integrates real-time sync with:
  * - TabsStore and content management
  * - Layer 3 offline queue
@@ -9,10 +9,15 @@
  * - Data consistency
  */
 
-import { ChangeTracker, RealtimeSyncEngine, ConflictResolver, DataValidator } from './layer5-sync';
+import {
+  ChangeTracker,
+  RealtimeSyncEngine,
+  ConflictResolver,
+  DataValidator,
+} from '../utils/layer5-sync';
 import type { Tab } from '../state/tabsStore';
-import { getOfflineQueue } from './layer3-network';
-import { indexTabs, removeTab } from '../services/searchIntegration';
+import { getOfflineQueue } from '../utils/layer3-network';
+import { indexTabs, removeTab } from './searchIntegration';
 
 // ============================================================================
 // 1. Sync Manager
@@ -46,7 +51,7 @@ class SyncManager {
     this.syncEngine.start(this.config.syncInterval || 5000);
 
     // Listen for sync state changes
-    this.syncEngine.subscribe((state) => {
+    this.syncEngine.subscribe(state => {
       if (state.status === 'conflict') {
         console.warn(`[SyncManager] Conflict detected: ${state.conflictCount} conflicts`);
         // Handle conflicts if auto-resolve configured
@@ -64,7 +69,9 @@ class SyncManager {
 
   private async autoResolveConflicts(): Promise<void> {
     // Implement auto-resolution based on strategy
-    console.log(`[SyncManager] Auto-resolving conflicts with ${this.config.autoResolveStrategy} strategy`);
+    console.log(
+      `[SyncManager] Auto-resolving conflicts with ${this.config.autoResolveStrategy} strategy`
+    );
   }
 
   getChangeTracker(): ChangeTracker {
@@ -102,14 +109,7 @@ export async function createTabWithSync(tab: Tab, _changeMetadata: any = {}): Pr
   const tracker = manager.getChangeTracker();
 
   // Record change locally
-  const change = tracker.recordChange(
-    'create',
-    tab.id,
-    'tab',
-    tab,
-    undefined,
-    []
-  );
+  const change = tracker.recordChange('create', tab.id, 'tab', tab, undefined, []);
 
   // Create snapshot
   tracker.snapshot(tab.id, tab, 'tab');
@@ -146,14 +146,7 @@ export async function updateTabWithSync(
   const updatedTab = { ...previousTab, ...updates };
 
   // Record change
-  const change = tracker.recordChange(
-    'update',
-    tabId,
-    'tab',
-    updatedTab,
-    previousTab,
-    []
-  );
+  const change = tracker.recordChange('update', tabId, 'tab', updatedTab, previousTab, []);
 
   // Create snapshot
   tracker.snapshot(tabId, updatedTab, 'tab');
@@ -228,7 +221,9 @@ export async function resolveConflict(request: ConflictResolutionRequest): Promi
 
   const result = ConflictResolver.merge(conflictContext);
 
-  console.log(`[SyncIntegration] Resolved conflict for ${request.resourceType}:${request.resourceId}`);
+  console.log(
+    `[SyncIntegration] Resolved conflict for ${request.resourceType}:${request.resourceId}`
+  );
   console.log(`  Conflicts found: ${result.conflicts.length}`);
   console.log(`  Applied changes: ${result.appliedChanges.length}`);
   console.log(`  Discarded changes: ${result.discardedChanges.length}`);
@@ -271,9 +266,7 @@ export async function verifyConsistency(): Promise<{
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        vectorClock: Object.fromEntries(
-          getSyncManager().getChangeTracker().getVectorClock()
-        ),
+        vectorClock: Object.fromEntries(getSyncManager().getChangeTracker().getVectorClock()),
       }),
     });
 
@@ -354,7 +347,7 @@ export async function getSyncStats(): Promise<{
 
   return {
     pendingChanges: tracker.getPendingChanges().length,
-    appliedChanges: tracker.getPendingChanges().filter((c) => c.appliedAt).length,
+    appliedChanges: tracker.getPendingChanges().filter(c => c.appliedAt).length,
     conflicts: status.conflictCount,
     lastSync: status.lastSync,
     syncError: status.syncError,
@@ -383,7 +376,7 @@ export async function resetSyncState(): Promise<void> {
   const tracker = manager.getChangeTracker();
 
   // Mark all changes as applied
-  tracker.getPendingChanges().forEach((change) => {
+  tracker.getPendingChanges().forEach(change => {
     tracker.markApplied(change.id);
   });
 

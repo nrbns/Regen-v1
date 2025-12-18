@@ -32,6 +32,17 @@ export const EVENTS = {
   TASK_COMPLETE: 'task:complete:v1',
   TASK_ERROR: 'task:error:v1',
 
+  // Job lifecycle (Realtime infrastructure)
+  JOB_CREATED: 'job:created:v1',
+  JOB_RUNNING: 'job:running:v1',
+  JOB_PROGRESS: 'job:progress:v1',
+  JOB_CHECKPOINTED: 'job:checkpointed:v1',
+  JOB_PAUSED: 'job:paused:v1',
+  JOB_RESUMED: 'job:resumed:v1',
+  JOB_CANCELLED: 'job:cancelled:v1',
+  JOB_COMPLETED: 'job:completed:v1',
+  JOB_FAILED: 'job:failed:v1',
+
   // Download events
   DOWNLOAD_PROGRESS: 'download:progress:v1',
   DOWNLOAD_COMPLETE: 'download:complete:v1',
@@ -99,4 +110,50 @@ export interface DownloadProgressEvent {
   bytesDownloaded: number;
   bytesTotal: number;
   speed?: number; // bytes/sec
+}
+/**
+ * Job Lifecycle Events (Realtime Infrastructure)
+ */
+export type JobState = 'created' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+
+export interface JobProgressEvent {
+  jobId: string;
+  userId: string;
+  state: JobState;
+  step: string;
+  progress: number; // 0-100
+  partial?: string; // Streaming text chunk
+  timestamp: number;
+}
+
+export interface JobCheckpointEvent {
+  jobId: string;
+  userId: string;
+  checkpoint: Record<string, any>;
+  progress: number;
+  timestamp: number;
+}
+
+export interface JobCompleteEvent {
+  jobId: string;
+  userId: string;
+  result: any;
+  duration: number; // ms
+  timestamp: number;
+}
+
+export interface JobErrorEvent {
+  jobId: string;
+  userId: string;
+  error: string;
+  code?: string;
+  recoverable: boolean;
+  timestamp: number;
+}
+
+export interface JobCancelledEvent {
+  jobId: string;
+  userId: string;
+  reason?: string;
+  timestamp: number;
 }

@@ -36,7 +36,13 @@ interface AuthToken {
 }
 
 interface JobEvent {
-  event: 'job:started' | 'job:chunk' | 'job:progress' | 'job:completed' | 'job:failed';
+  event:
+    | 'job:started'
+    | 'job:chunk'
+    | 'job:progress'
+    | 'job:checkpoint'
+    | 'job:completed'
+    | 'job:failed';
   userId: string;
   jobId: string;
   payload: any;
@@ -60,6 +66,21 @@ const DEFAULT_CONFIG: Partial<RealtimeConfig> = {
     credentials: true,
   },
 };
+
+// In-memory backlog per job for quick replay on reconnect
+const JOB_BACKLOG_LIMIT = 200;
+const jobBacklog = new Map<string, JobEvent[]>();
+
+function appendToBacklog(event: JobEvent): void {
+  const current = jobBacklog.get(event.jobId) || [];
+  const next = [...current, event].slice(-JOB_BACKLOG_LIMIT);
+  jobBacklog.set(event.jobId, next);
+}
+
+function getBacklog(jobId: string, afterSequence: number): JobEvent[] {
+  const events = jobBacklog.get(jobId) || [];
+  return events.filter(evt => evt.sequence > afterSequence);
+}
 
 /**
  * Initialize production-ready realtime server
@@ -143,6 +164,20 @@ export async function initRealtimeServer(
       console.log(`[Realtime] User ${userId} subscribing to job ${jobId}`);
       socket.join(`job:${jobId}`);
       socket.emit('subscribed', { jobId });
+
+      // Push recent backlog to subscriber for quick catch-up
+      const recent = getBacklog(jobId, 0).slice(-20);
+      if (recent.length) {
+        recent.forEach(evt => {
+          socket.emit(evt.event, {
+            jobId: evt.jobId,
+            payload: evt.payload,
+            sequence: evt.sequence,
+            timestamp: evt.timestamp,
+          });
+        });
+        socket.emit('sync:complete', { jobId, replayed: recent.length });
+      }
     });
 
     // Handle job unsubscription
@@ -174,9 +209,22 @@ export async function initRealtimeServer(
         `[Realtime] User ${userId} reconnecting, requesting sync from sequence ${data.lastSequence}`
       );
 
-      // TODO: Fetch missed events from persistence layer
-      // For now, client will re-subscribe
-      socket.emit('sync:ready', { jobId: data.jobId });
+      const replay = getBacklog(data.jobId, data.lastSequence);
+
+      replay.forEach(evt => {
+        socket.emit(evt.event, {
+          jobId: evt.jobId,
+          payload: evt.payload,
+          sequence: evt.sequence,
+          timestamp: evt.timestamp,
+        });
+      });
+
+      socket.emit('sync:complete', {
+        jobId: data.jobId,
+        replayed: replay.length,
+        lastSequence: data.lastSequence,
+      });
     });
 
     // Connection status
@@ -220,6 +268,8 @@ async function subscribeToJobEvents(redisClient: any, io: SocketIOServer): Promi
         return;
       }
 
+      appendToBacklog(event);
+
       // Forward event to user room and job room
       const rooms = [`user:${event.userId}`, `job:${event.jobId}`];
 
@@ -232,9 +282,7 @@ async function subscribeToJobEvents(redisClient: any, io: SocketIOServer): Promi
         });
       });
 
-      console.log(
-        `[Realtime] Forwarded ${event.event} for job ${jobId} (seq: ${event.sequence})`
-      );
+      console.log(`[Realtime] Forwarded ${event.event} for job ${jobId} (seq: ${event.sequence})`);
     } catch (error) {
       console.error('[Realtime] Failed to process job event:', error);
     }
@@ -246,10 +294,7 @@ async function subscribeToJobEvents(redisClient: any, io: SocketIOServer): Promi
 /**
  * Publish job event to Redis for broadcasting
  */
-export async function publishJobEvent(
-  redisClient: any,
-  event: JobEvent
-): Promise<void> {
+export async function publishJobEvent(redisClient: any, event: JobEvent): Promise<void> {
   try {
     const channel = `job:event:${event.jobId}`;
     await redisClient.publish(channel, JSON.stringify(event));

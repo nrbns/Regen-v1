@@ -14,7 +14,7 @@ export interface PageContext {
 }
 
 export function usePageContext(): PageContext | null {
-  const activeTab = useTabsStore(state => state.active);
+  const activeTab = useTabsStore(state => state.activeId);
   const tabs = useTabsStore(state => state.tabs);
   const [context, setContext] = useState<PageContext | null>(null);
 

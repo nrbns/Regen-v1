@@ -40,7 +40,7 @@ Provide only the translation, no explanations or additional text.`;
     });
 
     return result.text.trim();
-  } catch {
+  } catch (error: any) {
     throw new Error(`Failed to translate: ${error.message}`);
   }
 }
@@ -64,7 +64,8 @@ Text:
     });
 
     return result.text.trim();
-  } catch {
+  } catch (error: any) {
+    console.warn('[Translate] Language detection failed:', error);
     return 'Unknown';
   }
 }

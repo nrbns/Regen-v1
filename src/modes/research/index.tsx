@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResearchStagehandIntegration } from './stagehand-integration';
 import { Sparkles, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Progress } from '../../ui/progress';
 import { useSettingsStore } from '../../state/settingsStore';
 import { VoiceButton } from '../../components/voice';
 import { ipc } from '../../lib/ipc-typed';
@@ -98,6 +99,7 @@ export default function ResearchPanel() {
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
@@ -1183,6 +1185,7 @@ export default function ResearchPanel() {
 
       setLoading(true);
       setLoadingMessage('Researching...');
+      setProgress(0);
       toast.loading('Researching...', { duration: 0 }); // Persistent loading toast
       setError(null);
       setResult(null);
@@ -1214,6 +1217,7 @@ export default function ResearchPanel() {
         const context: any = await buildSearchContext(searchQuery);
 
         if (deepScanEnabled) {
+          setProgress(10);
           const deepScanResult = await runDeepScanFlow(searchQuery);
           aggregatedSources = deepScanResult.sources.map((source, idx) =>
             mapDeepScanSourceToResearchSource(source, idx)
@@ -1223,6 +1227,7 @@ export default function ResearchPanel() {
             created_at: deepScanResult.created_at,
             steps: deepScanResult.steps,
           };
+          setProgress(30);
         } else {
           // Try Tauri IPC first if available (real-time, streaming support)
           let backendResult: any = null;
@@ -1334,6 +1339,7 @@ export default function ResearchPanel() {
             try {
               console.log('[Research] Using fallback search (optimizedSearch)...');
               setLoadingMessage('Searching with fallback engines...');
+              setProgress(25);
 
               // OPTIMIZED SEARCH: Use optimized search service for better reliability
               const optimizedResults = await optimizedSearch(searchQuery, {
@@ -1347,6 +1353,7 @@ export default function ResearchPanel() {
                 optimizedResults.length,
                 'results'
               );
+              setProgress(40);
 
               // Convert optimized results to multi-source format
               const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
@@ -1916,6 +1923,7 @@ export default function ResearchPanel() {
           }
           setLoading(false);
           setLoadingMessage(null);
+          setProgress(100);
           toast.dismiss();
           toast.success('Research complete');
           return;
@@ -2840,6 +2848,10 @@ export default function ResearchPanel() {
                         Gathering sources and evaluating evidence…
                       </div>
                       <div className="w-full max-w-2xl space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-300">{progress}%</span>
+                          <Progress value={progress} className="flex-1" />
+                        </div>
                         <LoadingSkeleton variant="card" />
                         <LoadingSkeleton variant="list" lines={3} />
                         <LoadingSkeleton variant="text" lines={4} />

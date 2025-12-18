@@ -5,12 +5,16 @@
 
 import type { SkillContext } from '../types';
 
-export function extractPageContext(): SkillContext {
+export function extractPageContext(_context?: SkillContext): {
+  suggestedSubject?: string;
+  suggestedBody?: string;
+} {
+  const selectedText = getSelectedText();
+  const pageTitle = document.title;
+
   return {
-    selectedText: getSelectedText(),
-    pageTitle: document.title,
-    pageUrl: window.location.href,
-    pageContent: getPageContent(),
+    suggestedSubject: pageTitle || undefined,
+    suggestedBody: selectedText || undefined,
   };
 }
 

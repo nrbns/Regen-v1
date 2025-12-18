@@ -41,10 +41,25 @@
   "research": {
     "title": "Research",
     "startResearch": "Start Research",
-    "researching": "Researching...",
+    "researching": "Gathering sources and evaluating evidence...",
     "noResults": "No research results found",
     "sources": "Sources",
-    "summary": "Summary"
+    "summary": "Summary",
+    "progress": "Progress",
+    "complete": "Research complete"
+  },
+  "voice": {
+    "listening": "Listening...",
+    "thinking": "Thinking...",
+    "youSaid": "You said",
+    "agent": "Agent",
+    "error": "Voice recognition error",
+    "notSupported": "Voice recognition not supported in this browser"
+  },
+  "ui": {
+    "loadingRegen": "Loading Regen Browser...",
+    "tryQuestionsWithMultipleSources": "Try questions that need multiple independent sources.",
+    "dragToReorderTabs": "Drag to reorder tabs"
   },
   "settings": {
     "title": "Settings",
@@ -66,4 +81,3 @@
     "permissionDenied": "Permission denied"
   }
 }
-

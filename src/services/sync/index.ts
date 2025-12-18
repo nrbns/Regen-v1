@@ -3,5 +3,5 @@
  * Centralized export for sync functionality
  */
 
-export { getSyncService } from './tabSyncService';
+export { getTabSyncService, getTabSyncService as getSyncService } from './tabSyncService';
 export type { SyncEvent, SyncState } from './types';

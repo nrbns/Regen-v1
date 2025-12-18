@@ -4,15 +4,12 @@
  */
 
 import React, { useState } from 'react';
+import { Zap, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import {
-  Zap,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  AlertCircle,
-  Info,
-} from 'lucide-react';
-import { getMVPFeatureFlags, isMVPFeatureEnabled, toggleMVPFeature } from '../../config/mvpFeatureFlags';
+  getMVPFeatureFlags,
+  isMVPFeatureEnabled,
+  toggleMVPFeature,
+} from '../../config/mvpFeatureFlags';
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
 
@@ -51,7 +48,7 @@ function FeatureCard({
   return (
     <div
       className={`rounded-lg border ${colors.border} ${colors.bg} p-4 transition-all ${
-        expanded ? 'ring-2 ring-offset-2 ring-slate-500' : ''
+        expanded ? 'ring-2 ring-slate-500 ring-offset-2' : ''
       }`}
     >
       <div className="flex items-start gap-3">
@@ -73,11 +70,11 @@ function FeatureCard({
         </button>
 
         {/* Feature Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
             <h3 className="font-semibold text-slate-100">{name}</h3>
             <span
-              className={`inline-block px-2 py-1 text-xs rounded font-medium ${
+              className={`inline-block rounded px-2 py-1 text-xs font-medium ${
                 category === 'performance'
                   ? 'bg-blue-500/20 text-blue-300'
                   : category === 'ui'
@@ -94,18 +91,18 @@ function FeatureCard({
               </div>
             )}
           </div>
-          <p className="text-sm text-slate-400 mb-2">{description}</p>
+          <p className="mb-2 text-sm text-slate-400">{description}</p>
 
           {/* Status Badge */}
           {status && (
-            <div className="text-xs text-slate-300 bg-slate-800/50 rounded px-2 py-1 inline-block mb-2">
+            <div className="mb-2 inline-block rounded bg-slate-800/50 px-2 py-1 text-xs text-slate-300">
               Status: {status}
             </div>
           )}
 
           {/* Warning Badge */}
           {warning && (
-            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 rounded px-2 py-1 inline-block mb-2">
+            <div className="mb-2 inline-block flex items-center gap-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-400">
               <AlertCircle size={14} />
               {warning}
             </div>
@@ -115,7 +112,7 @@ function FeatureCard({
         {/* Expand Button */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-slate-400 hover:text-slate-200 transition-colors p-1"
+          className="p-1 text-slate-400 transition-colors hover:text-slate-200"
           aria-label={expanded ? 'Collapse' : 'Expand'}
         >
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -124,12 +121,12 @@ function FeatureCard({
 
       {/* Expandable Content */}
       {expanded && (
-        <div className="mt-3 ml-12 pt-3 border-t border-slate-600/50 text-xs text-slate-300 space-y-2">
-          <div className="bg-slate-800/30 rounded p-2">
+        <div className="ml-12 mt-3 space-y-2 border-t border-slate-600/50 pt-3 text-xs text-slate-300">
+          <div className="rounded bg-slate-800/30 p-2">
             <p className="font-mono text-slate-400">Feature ID: {id}</p>
           </div>
           <div className="flex items-start gap-2">
-            <Info size={14} className="flex-shrink-0 mt-0.5" />
+            <Info size={14} className="mt-0.5 flex-shrink-0" />
             <p>
               {id === 'tab-hibernation'
                 ? 'Automatically suspends inactive tabs after 30 minutes, reducing memory usage from ~50MB to ~2MB per tab.'
@@ -179,14 +176,15 @@ export function SettingsScreen() {
 
   React.useEffect(() => {
     const getBatteryStatus = async () => {
-      if ('getBattery' in navigator || ('battery' in navigator)) {
+      const nav: any = navigator as any;
+      if (typeof nav.getBattery === 'function' || nav.battery) {
         try {
-          const battery = await (navigator as any).getBattery?.() || navigator.battery;
+          const battery: any = (await nav.getBattery?.()) || nav.battery;
           if (battery) {
             const updateStatus = () => {
               setBatteryStatus({
-                charging: battery.charging,
-                level: Math.round(battery.level * 100),
+                charging: Boolean(battery.charging),
+                level: Math.round((battery.level || 0) * 100),
               });
             };
             updateStatus();
@@ -220,33 +218,35 @@ export function SettingsScreen() {
   const advancedFeatures = features.filter(f => !coreFeatureIds.includes(f.id));
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-slate-100">
+    <div className="flex h-full flex-col bg-slate-950 text-slate-100">
       {/* Header */}
       <div className="flex-shrink-0 border-b border-slate-800 bg-slate-900/50 px-6 py-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Zap size={24} className="text-amber-400" />
             <h1 className="text-2xl font-bold">Settings</h1>
           </div>
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
           >
             {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
             {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
         </div>
         <p className="text-sm text-slate-400">
-          {showAdvanced ? 'All features β€" advanced users' : 'Essential features only β€" simple & clean'}
+          {showAdvanced
+            ? 'All features β€" advanced users'
+            : 'Essential features only β€" simple & clean'}
         </p>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+        <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
           {/* Core Features - Always visible */}
           <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
               <Zap size={20} className="text-emerald-400" />
               Essential
             </h2>
@@ -261,9 +261,7 @@ export function SettingsScreen() {
                   enabled={isMVPFeatureEnabled(feature.id)}
                   onToggle={handleToggle}
                   status={
-                    feature.id === 'low-ram-mode'
-                      ? `Device: ${getDeviceRamGB()}GB RAM`
-                      : undefined
+                    feature.id === 'low-ram-mode' ? `Device: ${getDeviceRamGB()}GB RAM` : undefined
                   }
                 />
               ))}
@@ -273,7 +271,7 @@ export function SettingsScreen() {
           {/* Advanced Features - Hidden by default */}
           {showAdvanced && (
             <section className="space-y-3">
-              <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
                 <ChevronDown size={20} className="text-slate-400" />
                 Advanced
               </h2>
@@ -301,23 +299,31 @@ export function SettingsScreen() {
           )}
 
           {/* Info Box */}
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-2">
+          <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
             <div className="flex items-start gap-2">
-              <Info size={16} className="flex-shrink-0 mt-0.5 text-blue-400" />
+              <Info size={16} className="mt-0.5 flex-shrink-0 text-blue-400" />
               <div className="text-sm text-slate-300">
-                <p className="font-semibold text-blue-300 mb-1">💡 Tips</p>
-                <ul className="list-disc list-inside space-y-1 text-slate-400">
-                  <li>Hibernation is <strong>enabled by default</strong> and runs automatically</li>
-                  <li>Low-RAM mode <strong>detects your device</strong> and activates if needed</li>
-                  <li>Battery mode <strong>activates on battery power</strong> automatically</li>
-                  <li>All UI controls are <strong>always available</strong> regardless of toggles</li>
+                <p className="mb-1 font-semibold text-blue-300">💡 Tips</p>
+                <ul className="list-inside list-disc space-y-1 text-slate-400">
+                  <li>
+                    Hibernation is <strong>enabled by default</strong> and runs automatically
+                  </li>
+                  <li>
+                    Low-RAM mode <strong>detects your device</strong> and activates if needed
+                  </li>
+                  <li>
+                    Battery mode <strong>activates on battery power</strong> automatically
+                  </li>
+                  <li>
+                    All UI controls are <strong>always available</strong> regardless of toggles
+                  </li>
                 </ul>
               </div>
             </div>
           </div>
 
           {/* Reset Section */}
-          <div className="pt-4 border-t border-slate-800 flex gap-3">
+          <div className="flex gap-3 border-t border-slate-800 pt-4">
             <button
               onClick={() => {
                 // Reset all features to defaults
@@ -327,11 +333,11 @@ export function SettingsScreen() {
                   }
                 });
               }}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 rounded-lg text-sm font-medium transition-colors"
+              className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-600"
             >
               Reset to Defaults
             </button>
-            <div className="text-xs text-slate-500 flex items-center">
+            <div className="flex items-center text-xs text-slate-500">
               Changes are saved automatically to localStorage
             </div>
           </div>

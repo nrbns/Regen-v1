@@ -16,28 +16,32 @@ function initTabHibernation(): void {
   startInactivityMonitoring();
 
   // Watch active tab changes
-  const unsubscribeActive = useTabsStore.subscribe(
-    state => state.activeId,
-    activeId => {
-      if (activeId) {
-        trackTabActivity(activeId);
-      }
-      startInactivityMonitoring();
+  const unsubscribeActive = useTabsStore.subscribe((state, prev) => {
+    if (state.activeId && state.activeId !== prev?.activeId) {
+      trackTabActivity(state.activeId);
     }
-  );
+    startInactivityMonitoring();
+  });
 
   // Watch tab list changes (adds/removes/pins/sleeping state) and re-evaluate hibernation
-  const unsubscribeTabs = useTabsStore.subscribe(
-    state => state.tabs.map(tab => ({
-      id: tab.id,
-      sleeping: !!tab.sleeping,
-      pinned: !!tab.pinned,
-      lastActiveAt: tab.lastActiveAt ?? tab.createdAt ?? 0,
-    })),
-    () => {
+  const unsubscribeTabs = useTabsStore.subscribe((state, prev) => {
+    const prevSignature = prev?.tabs
+      ?.map(
+        tab =>
+          `${tab.id}:${tab.sleeping ? 1 : 0}:${tab.pinned ? 1 : 0}:${tab.lastActiveAt ?? tab.createdAt ?? 0}`
+      )
+      .join('|');
+    const currentSignature = state.tabs
+      .map(
+        tab =>
+          `${tab.id}:${tab.sleeping ? 1 : 0}:${tab.pinned ? 1 : 0}:${tab.lastActiveAt ?? tab.createdAt ?? 0}`
+      )
+      .join('|');
+
+    if (currentSignature !== prevSignature) {
       startInactivityMonitoring();
     }
-  );
+  });
 
   // On visibility change, refresh activity for active tab
   const onVisibilityChange = () => {

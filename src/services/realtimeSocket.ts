@@ -43,6 +43,7 @@ interface RealtimeSocketConfig {
 type StatusListener = (status: ConnectionStatus) => void;
 type JobChunkListener = (data: JobEventPayload) => void;
 type JobProgressListener = (data: JobEventPayload) => void;
+type JobCheckpointListener = (data: JobEventPayload) => void;
 type JobCompleteListener = (data: JobEventPayload) => void;
 type JobFailListener = (data: JobEventPayload) => void;
 
@@ -55,7 +56,7 @@ const DEFAULT_CONFIG: Partial<RealtimeSocketConfig> = {
 
 /**
  * Realtime Socket Service for Regen Browser
- * 
+ *
  * Handles WebSocket connection, job events, and reconnection logic
  */
 export class RealtimeSocketService {
@@ -63,17 +64,19 @@ export class RealtimeSocketService {
   private config: Required<RealtimeSocketConfig>;
   private token: string | null = null;
   private connectionStatus: ConnectionStatus = 'offline';
-  
+
   // Listeners
   private statusListeners = new Set<StatusListener>();
   private jobChunkListeners = new Map<string, Set<JobChunkListener>>();
   private jobProgressListeners = new Map<string, Set<JobProgressListener>>();
+  private jobCheckpointListeners = new Map<string, Set<JobCheckpointListener>>();
   private jobCompleteListeners = new Map<string, Set<JobCompleteListener>>();
   private jobFailListeners = new Map<string, Set<JobFailListener>>();
-  
+
   // Deduplication tracking
   private processedSequences = new Map<string, Set<number>>();
-  
+  private subscribedJobs = new Set<string>();
+
   constructor(config: RealtimeSocketConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config } as Required<RealtimeSocketConfig>;
   }
@@ -113,7 +116,7 @@ export class RealtimeSocketService {
           resolve();
         });
 
-        this.socket!.once('connect_error', (error) => {
+        this.socket!.once('connect_error', error => {
           clearTimeout(timeout);
           reject(error);
         });
@@ -178,6 +181,24 @@ export class RealtimeSocketService {
     console.log(`[RealtimeSocket] Cancelled job ${jobId}`);
   }
 
+  async resumeJob(jobId: string): Promise<void> {
+    if (!this.socket?.connected) {
+      throw new Error('Socket not connected');
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      this.socket!.emit('resume:job', jobId, (response: { ok?: boolean; error?: string }) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    console.log(`[RealtimeSocket] Resume requested for job ${jobId}`);
+  }
+
   /**
    * Subscribe to job events
    */
@@ -187,11 +208,15 @@ export class RealtimeSocketService {
     }
 
     this.socket.emit('subscribe:job', jobId);
-    
+    this.subscribedJobs.add(jobId);
+
     // Initialize deduplication tracking for this job
     if (!this.processedSequences.has(jobId)) {
       this.processedSequences.set(jobId, new Set());
     }
+
+    // Request a small backlog on initial subscribe for warm start
+    this.socket.emit('reconnect:sync', { jobId, lastSequence: this.getLastSequence(jobId) });
 
     console.log(`[RealtimeSocket] Subscribed to job ${jobId}`);
   }
@@ -203,7 +228,8 @@ export class RealtimeSocketService {
     if (!this.socket?.connected) return;
 
     this.socket.emit('unsubscribe:job', jobId);
-    
+    this.subscribedJobs.delete(jobId);
+
     // Clear deduplication tracking
     this.processedSequences.delete(jobId);
 
@@ -217,7 +243,7 @@ export class RealtimeSocketService {
     this.statusListeners.add(listener);
     // Immediately notify current status
     listener(this.connectionStatus);
-    
+
     // Return unsubscribe function
     return () => this.statusListeners.delete(listener);
   }
@@ -244,6 +270,15 @@ export class RealtimeSocketService {
     this.jobProgressListeners.get(jobId)!.add(listener);
 
     return () => this.jobProgressListeners.get(jobId)?.delete(listener);
+  }
+
+  onJobCheckpoint(jobId: string, listener: JobCheckpointListener): () => void {
+    if (!this.jobCheckpointListeners.has(jobId)) {
+      this.jobCheckpointListeners.set(jobId, new Set());
+    }
+    this.jobCheckpointListeners.get(jobId)!.add(listener);
+
+    return () => this.jobCheckpointListeners.get(jobId)?.delete(listener);
   }
 
   /**
@@ -296,12 +331,12 @@ export class RealtimeSocketService {
       this.setStatus('online');
     });
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', reason => {
       console.log(`[RealtimeSocket] Disconnected: ${reason}`);
       this.setStatus('offline');
     });
 
-    this.socket.on('connect_error', (error) => {
+    this.socket.on('connect_error', error => {
       console.error('[RealtimeSocket] Connection error:', error);
       this.setStatus('error');
     });
@@ -314,6 +349,7 @@ export class RealtimeSocketService {
     this.socket.io.on('reconnect', () => {
       console.log('[RealtimeSocket] Reconnected successfully');
       this.setStatus('online');
+      this.requestBacklog();
     });
 
     // Job events
@@ -327,10 +363,15 @@ export class RealtimeSocketService {
       this.emitToListeners(this.jobProgressListeners, data.jobId, data);
     });
 
+    this.socket.on('job:checkpoint', (data: JobEventPayload) => {
+      if (this.isDuplicate(data.jobId, data.sequence)) return;
+      this.emitToListeners(this.jobCheckpointListeners, data.jobId, data);
+    });
+
     this.socket.on('job:completed', (data: JobEventPayload) => {
       if (this.isDuplicate(data.jobId, data.sequence)) return;
       this.emitToListeners(this.jobCompleteListeners, data.jobId, data);
-      
+
       // Cleanup
       this.cleanupJobListeners(data.jobId);
     });
@@ -338,7 +379,7 @@ export class RealtimeSocketService {
     this.socket.on('job:failed', (data: JobEventPayload) => {
       if (this.isDuplicate(data.jobId, data.sequence)) return;
       this.emitToListeners(this.jobFailListeners, data.jobId, data);
-      
+
       // Cleanup
       this.cleanupJobListeners(data.jobId);
     });
@@ -347,6 +388,12 @@ export class RealtimeSocketService {
     this.socket.on('server:shutdown', (data: { message: string }) => {
       console.warn('[RealtimeSocket] Server shutting down:', data.message);
       this.setStatus('reconnecting');
+    });
+
+    this.socket.on('sync:complete', (data: { jobId: string; replayed: number }) => {
+      console.log(
+        `[RealtimeSocket] Sync complete for job ${data.jobId}, replayed ${data.replayed}`
+      );
     });
   }
 
@@ -392,9 +439,28 @@ export class RealtimeSocketService {
   private cleanupJobListeners(jobId: string): void {
     this.jobChunkListeners.delete(jobId);
     this.jobProgressListeners.delete(jobId);
+    this.jobCheckpointListeners.delete(jobId);
     this.jobCompleteListeners.delete(jobId);
     this.jobFailListeners.delete(jobId);
     this.processedSequences.delete(jobId);
+    this.subscribedJobs.delete(jobId);
+  }
+
+  private requestBacklog(): void {
+    if (!this.socket?.connected) return;
+
+    this.subscribedJobs.forEach(jobId => {
+      this.socket!.emit('reconnect:sync', {
+        jobId,
+        lastSequence: this.getLastSequence(jobId),
+      });
+    });
+  }
+
+  private getLastSequence(jobId: string): number {
+    const sequences = this.processedSequences.get(jobId);
+    if (!sequences || sequences.size === 0) return 0;
+    return Math.max(...Array.from(sequences.values()));
   }
 
   /**

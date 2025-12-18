@@ -27,6 +27,7 @@ import { publishJobEvent } from './realtime';
 interface WorkerConfig {
   redisUrl?: string;
   checkpointInterval?: number; // Checkpoint every N chunks (default: 10)
+  onCheckpoint?: (checkpoint: JobCheckpoint) => Promise<void>;
 }
 
 interface JobContext {
@@ -45,14 +46,18 @@ interface JobCheckpoint {
 
 export class StreamingWorker {
   private redis: RedisClientType;
-  private config: Required<WorkerConfig>;
+  private config: {
+    redisUrl: string;
+    checkpointInterval: number;
+    onCheckpoint?: (checkpoint: JobCheckpoint) => Promise<void>;
+  };
   private cancelledJobs = new Set<string>();
-  private sequenceCounters = new Map<string, number>();
 
   constructor(config: WorkerConfig = {}) {
     this.config = {
       redisUrl: config.redisUrl || process.env.REDIS_URL || 'redis://localhost:6379',
       checkpointInterval: config.checkpointInterval || 10,
+      onCheckpoint: config.onCheckpoint,
     };
 
     this.redis = createClient({ url: this.config.redisUrl }) as RedisClientType;
@@ -81,21 +86,23 @@ export class StreamingWorker {
    */
   async executeJob(
     context: JobContext,
-    processFn: (ctx: JobContext, streamer: JobStreamer) => Promise<any>
+    processFn: (ctx: JobContext, streamer: JobStreamer) => Promise<any>,
+    options?: { initialSequence?: number }
   ): Promise<void> {
     const { jobId, userId } = context;
 
     console.log(`[Worker] Starting job ${jobId} for user ${userId}`);
 
     // Initialize sequence counter
-    this.sequenceCounters.set(jobId, 0);
 
     // Create streamer for this job
     const streamer = new JobStreamer(
       this.redis,
       context,
       this.config.checkpointInterval,
-      () => this.cancelledJobs.has(jobId)
+      () => this.cancelledJobs.has(jobId),
+      this.config.onCheckpoint,
+      options?.initialSequence ?? 0
     );
 
     try {
@@ -127,16 +134,6 @@ export class StreamingWorker {
   }
 
   /**
-   * Get next sequence number for job
-   */
-  private getNextSequence(jobId: string): number {
-    const current = this.sequenceCounters.get(jobId) || 0;
-    const next = current + 1;
-    this.sequenceCounters.set(jobId, next);
-    return next;
-  }
-
-  /**
    * Graceful shutdown
    */
   async shutdown(): Promise<void> {
@@ -158,8 +155,12 @@ export class JobStreamer {
     private redis: RedisClientType,
     private context: JobContext,
     private checkpointInterval: number,
-    private isCancelled: () => boolean
-  ) {}
+    private isCancelled: () => boolean,
+    private onCheckpoint?: (checkpoint: JobCheckpoint) => Promise<void>,
+    initialSequence: number = 0
+  ) {
+    this.sequence = initialSequence;
+  }
 
   /**
    * Emit job started event
@@ -253,9 +254,13 @@ export class JobStreamer {
       JSON.stringify(checkpoint)
     );
 
-    console.log(
-      `[Worker] Checkpoint saved for job ${this.context.jobId} (seq: ${this.sequence})`
-    );
+    await this.emitEvent('job:checkpoint', { checkpoint });
+
+    if (this.onCheckpoint) {
+      await this.onCheckpoint(checkpoint);
+    }
+
+    console.log(`[Worker] Checkpoint saved for job ${this.context.jobId} (seq: ${this.sequence})`);
   }
 
   /**
@@ -294,9 +299,7 @@ export class JobStreamer {
   /**
    * Helper: Stream from async generator
    */
-  async *streamFromGenerator<T>(
-    generator: AsyncGenerator<T>
-  ): AsyncGenerator<T> {
+  async *streamFromGenerator<T>(generator: AsyncGenerator<T>): AsyncGenerator<T> {
     for await (const chunk of generator) {
       if (this.isCancelled()) {
         throw new Error('Job cancelled');
@@ -305,6 +308,10 @@ export class JobStreamer {
       await this.emitChunk(chunk as any);
       yield chunk;
     }
+  }
+
+  getSequence(): number {
+    return this.sequence;
   }
 }
 

@@ -314,11 +314,11 @@ class TabSyncService {
         createdAt: Date.now(),
       });
 
-      // LAG FIX #6: Keep queue bounded (oldest first) - cap at 150 to prevent 4s lag spikes
+      // LAG FIX: Exponential backoff + cap at 200 (was 150) to prevent offline spike lags
       const count = await this.db.pending.where({ sessionId }).count();
-      if (count > 150) {
+      if (count > 200) {
         const old = await this.db.pending.where({ sessionId }).sortBy('createdAt');
-        const dropCount = count - 75; // Keep last 75, drop older ones
+        const dropCount = count - 100; // Keep last 100, drop older ones
         const idsToDelete = old
           .slice(0, dropCount)
           .map(item => item.id!)

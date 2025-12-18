@@ -1,6 +1,6 @@
 /**
  * Realtime Server Integration
- * 
+ *
  * Wires together: Socket.IO server, Redis, Worker, Job State Machine
  */
 
@@ -11,6 +11,9 @@ import { fileURLToPath } from 'url';
 import { initRealtimeServer } from './realtime';
 import { StreamingWorker } from './streamingWorker';
 import { createInMemoryJobManager, JobStateManager } from './jobState';
+import { createJobRoutes, InMemoryJobStore } from './routes/jobRoutes';
+import { JobScheduler } from './jobs/scheduler';
+import { CheckpointManager } from './jobs/checkpoint';
 
 const app = express();
 const httpServer = createServer(app);
@@ -24,6 +27,9 @@ let io: any;
 let redisClient: any;
 let worker: StreamingWorker;
 let jobManager: JobStateManager;
+let jobStore: InMemoryJobStore;
+let jobScheduler: JobScheduler;
+let _checkpointManager: CheckpointManager;
 
 /**
  * Initialize and start realtime server
@@ -37,7 +43,24 @@ export async function startRealtimeServer() {
     await redisClient.connect();
     console.log('[Server] Redis connected');
 
-    // Initialize job manager (in-memory for server, can be replaced with DB)
+    // Initialize job store (PHASE B)
+    jobStore = new InMemoryJobStore();
+    console.log('[Server] Job store initialized');
+
+    // Initialize checkpoint manager (PHASE B)
+    _checkpointManager = new CheckpointManager(redisClient);
+    console.log('[Server] Checkpoint manager initialized');
+
+    // Initialize job scheduler (PHASE B)
+    jobScheduler = new JobScheduler(jobStore, redisClient, {
+      staleJobMaxAgeMins: 1440, // 24 hours
+      activeJobTimeoutMins: 60, // 1 hour
+      checkIntervalSecs: 300, // 5 minutes
+    });
+    jobScheduler.start();
+    console.log('[Server] Job scheduler started');
+
+    // Initialize job manager (legacy, keeping for compatibility)
     jobManager = createInMemoryJobManager();
     console.log('[Server] Job manager initialized');
 
@@ -49,12 +72,23 @@ export async function startRealtimeServer() {
     console.log('[Server] Realtime server initialized');
 
     // Initialize worker
-    worker = new StreamingWorker({ redisUrl: REDIS_URL });
+    worker = new StreamingWorker({
+      redisUrl: REDIS_URL,
+      onCheckpoint: async checkpoint => {
+        await jobManager.saveCheckpoint(checkpoint.jobId, {
+          sequence: checkpoint.sequence,
+          partialOutput: checkpoint.partialOutput,
+        });
+      },
+    });
     await worker.initialize();
     console.log('[Server] Worker initialized');
 
     // Setup job handlers
     setupJobHandlers();
+
+    // Register job routes with dependencies
+    app.use('/api/jobs', createJobRoutes(jobStore, redisClient));
 
     // Health check endpoint
     app.get('/health', (req, res) => {
@@ -92,32 +126,65 @@ function setupJobHandlers() {
     const userId = socket.data.userId;
 
     // Handle job start
-    socket.on('start:job', async (payload: any, callback: (response: { jobId?: string; error?: string }) => void) => {
-      try {
-        console.log(`[Server] User ${userId} starting job: ${payload.type}`);
+    socket.on(
+      'start:job',
+      async (payload: any, callback: (response: { jobId?: string; error?: string }) => void) => {
+        try {
+          console.log(`[Server] User ${userId} starting job: ${payload.type}`);
 
-        // Create job in state manager
-        const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        await jobManager.createJob({
-          id: jobId,
-          userId,
-          type: payload.type,
-          input: payload.input,
-        });
+          // Create job in state manager
+          const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Start job in background
-        executeJobInBackground(jobId, userId, payload);
+          await jobManager.createJob({
+            id: jobId,
+            userId,
+            type: payload.type,
+            input: payload.input,
+          });
 
-        // Acknowledge job start
-        callback({ jobId });
+          // Start job in background
+          executeJobInBackground(jobId, userId, payload);
 
-        console.log(`[Server] Job ${jobId} created for user ${userId}`);
-      } catch (error) {
-        console.error('[Server] Failed to start job:', error);
-        callback({ error: error instanceof Error ? error.message : 'Failed to start job' });
+          // Acknowledge job start
+          callback({ jobId });
+
+          console.log(`[Server] Job ${jobId} created for user ${userId}`);
+        } catch (error) {
+          console.error('[Server] Failed to start job:', error);
+          callback({ error: error instanceof Error ? error.message : 'Failed to start job' });
+        }
       }
-    });
+    );
+
+    socket.on(
+      'resume:job',
+      async (jobId: string, callback: (response: { ok?: boolean; error?: string }) => void) => {
+        try {
+          const job = await jobManager.getJob(jobId);
+          if (job.userId !== userId) {
+            throw new Error('Unauthorized resume request');
+          }
+
+          if (!job.checkpoint) {
+            throw new Error('No checkpoint available to resume');
+          }
+
+          await jobManager.resumeJob(jobId);
+
+          executeJobInBackground(jobId, userId, job, {
+            sequence: job.checkpoint.sequence,
+            partialOutput: job.checkpoint.partialOutput,
+            progress: job.progress,
+          });
+
+          callback({ ok: true });
+          console.log(`[Server] Job ${jobId} resumed for user ${userId}`);
+        } catch (error) {
+          console.error('[Server] Failed to resume job:', error);
+          callback({ error: error instanceof Error ? error.message : 'Failed to resume job' });
+        }
+      }
+    );
   });
 }
 
@@ -127,7 +194,12 @@ function setupJobHandlers() {
 async function executeJobInBackground(
   jobId: string,
   userId: string,
-  payload: { type: string; input: any }
+  payload: { type: string; input: any },
+  resumeFrom?: {
+    sequence: number;
+    partialOutput: any[];
+    progress?: { current: number; total: number };
+  }
 ) {
   try {
     // Mark job as started
@@ -147,9 +219,12 @@ async function executeJobInBackground(
         const chunkCount = ctx.input.chunks || 50;
         const chunkDelay = (duration * 1000) / chunkCount;
 
-        let output = '';
+        let output = Array.isArray(resumeFrom?.partialOutput)
+          ? resumeFrom!.partialOutput.join('')
+          : '';
+        const startIndex = resumeFrom?.progress?.current ?? 0;
 
-        for (let i = 0; i < chunkCount; i++) {
+        for (let i = startIndex; i < chunkCount; i++) {
           // Simulate chunk generation
           await new Promise(resolve => setTimeout(resolve, chunkDelay));
 
@@ -171,20 +246,26 @@ async function executeJobInBackground(
             current: i + 1,
             total: chunkCount,
           });
+
+          // Lightweight checkpoint every 10 chunks
+          if ((i + 1) % 10 === 0 || i === chunkCount - 1) {
+            await jobManager.saveCheckpoint(jobId, {
+              sequence: streamer.getSequence(),
+              partialOutput: output,
+            });
+          }
         }
 
         // Complete job
         await jobManager.completeJob(jobId, { output });
 
         return { output, chunks: chunkCount };
-      }
+      },
+      { initialSequence: resumeFrom?.sequence }
     );
   } catch (error) {
     console.error(`[Server] Job ${jobId} failed:`, error);
-    await jobManager.failJob(
-      jobId,
-      error instanceof Error ? error.message : 'Unknown error'
-    );
+    await jobManager.failJob(jobId, error instanceof Error ? error.message : 'Unknown error');
   }
 }
 
@@ -195,6 +276,12 @@ async function shutdown() {
   console.log('[Server] Shutting down gracefully...');
 
   try {
+    // Stop job scheduler
+    if (jobScheduler) {
+      jobScheduler.stop();
+      console.log('[Server] Job scheduler stopped');
+    }
+
     // Stop accepting new connections
     if (io) {
       await (io as any).close();

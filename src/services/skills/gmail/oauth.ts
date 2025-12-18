@@ -9,11 +9,18 @@ export class GmailOAuthManager {
   private clientId: string = '';
   private clientSecret: string = '';
   private redirectUri: string = '';
+  private scopes: string[] = [];
 
-  constructor(clientId: string = '', clientSecret: string = '', redirectUri: string = '') {
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
-    this.redirectUri = redirectUri;
+  constructor(config?: {
+    clientId?: string;
+    clientSecret?: string;
+    redirectUri?: string;
+    scopes?: string[];
+  }) {
+    this.clientId = config?.clientId || '';
+    this.clientSecret = config?.clientSecret || '';
+    this.redirectUri = config?.redirectUri || '';
+    this.scopes = config?.scopes || [];
   }
 
   /**
@@ -24,7 +31,10 @@ export class GmailOAuthManager {
     authUrl.searchParams.append('client_id', this.clientId);
     authUrl.searchParams.append('redirect_uri', this.redirectUri);
     authUrl.searchParams.append('response_type', 'code');
-    authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify');
+    authUrl.searchParams.append(
+      'scope',
+      'https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify'
+    );
     authUrl.searchParams.append('access_type', 'offline');
 
     window.location.href = authUrl.toString();
@@ -49,7 +59,15 @@ export class GmailOAuthManager {
    * Check if authorized
    */
   isAuthorized(): boolean {
-    return this.accessToken !== null;
+    return !!this.accessToken;
+  }
+
+  /**
+   * Revoke authorization
+   */
+  async revoke(): Promise<void> {
+    this.accessToken = null;
+    this.refreshToken = null;
   }
 
   /**

@@ -35,7 +35,7 @@ export async function initializeCalendarSkill(config?: {
   // Register action handlers
   const calendarSkill = getCalendarSkill();
 
-  engine.registerHandler('create_calendar_event', async (ctx: any) => {
+  engine.registerHandler('createEvent', async (ctx: any) => {
     const context: SkillContext = {
       skillId: CALENDAR_SKILL_MANIFEST.id,
       pageUrl: ctx.page?.url || window.location.href,
@@ -48,7 +48,7 @@ export async function initializeCalendarSkill(config?: {
     return calendarSkill.createEvent(context, ctx.data || {});
   });
 
-  engine.registerHandler('schedule_meeting', async (ctx: any) => {
+  engine.registerHandler('scheduleMeeting', async (ctx: any) => {
     const context: SkillContext = {
       skillId: CALENDAR_SKILL_MANIFEST.id,
       pageUrl: ctx.page?.url || window.location.href,
@@ -86,7 +86,7 @@ export async function createEvent(_data: {
   return engine.execute(CALENDAR_SKILL_MANIFEST.id, {
     ...context,
     action: {
-      type: 'create_calendar_event',
+      type: 'create_calendar',
       name: 'Create Calendar Event',
       description: 'Create calendar event',
       handler: 'createEvent',
@@ -114,7 +114,7 @@ export async function scheduleMeeting(_data?: {
   return engine.execute(CALENDAR_SKILL_MANIFEST.id, {
     ...context,
     action: {
-      type: 'create_calendar_event',
+      type: 'create_calendar',
       name: 'Schedule Meeting',
       description: 'Schedule meeting',
       handler: 'scheduleMeeting',

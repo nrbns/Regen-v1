@@ -1,6 +1,6 @@
 /**
  * React hook for realtime job execution
- * 
+ *
  * Makes it easy to start jobs and track their progress in React components
  */
 
@@ -26,6 +26,7 @@ interface JobState {
   result: any;
   error: string | null;
   isOnline: boolean;
+  lastCheckpoint?: { sequence: number; partialOutput: any } | null;
 }
 
 export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
@@ -37,6 +38,7 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
     result: null,
     error: null,
     isOnline: false,
+    lastCheckpoint: null,
   });
 
   // Initialize socket connection
@@ -118,11 +120,22 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
         }));
       });
 
+      const unsubCheckpoint = socketService.onJobCheckpoint(state.jobId, data => {
+        setState(prev => ({
+          ...prev,
+          lastCheckpoint: {
+            sequence: data.sequence,
+            partialOutput: data.payload.checkpoint?.partialOutput,
+          },
+        }));
+      });
+
       return () => {
         unsubChunk();
         unsubProgress();
         unsubComplete();
         unsubFail();
+        unsubCheckpoint();
         socketService.unsubscribeFromJob(state.jobId!);
       };
     } catch (error) {
@@ -131,45 +144,42 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
   }, [state.jobId]);
 
   // Start a new job
-  const startJob = useCallback(
-    async (payload: { type: string; input: any }) => {
-      try {
-        setState(prev => ({
-          ...prev,
-          status: 'connecting',
-          error: null,
-          chunks: [],
-          progress: null,
-          result: null,
-        }));
+  const startJob = useCallback(async (payload: { type: string; input: any }) => {
+    try {
+      setState(prev => ({
+        ...prev,
+        status: 'connecting',
+        error: null,
+        chunks: [],
+        progress: null,
+        result: null,
+      }));
 
-        const socketService = getSocketService();
+      const socketService = getSocketService();
 
-        if (!socketService.isConnected()) {
-          throw new Error('Not connected to server');
-        }
-
-        const jobId = await socketService.startJob(payload);
-
-        setState(prev => ({
-          ...prev,
-          jobId,
-          status: 'running',
-        }));
-
-        return jobId;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to start job';
-        setState(prev => ({
-          ...prev,
-          status: 'failed',
-          error: errorMessage,
-        }));
-        throw error;
+      if (!socketService.isConnected()) {
+        throw new Error('Not connected to server');
       }
-    },
-    []
-  );
+
+      const jobId = await socketService.startJob(payload);
+
+      setState(prev => ({
+        ...prev,
+        jobId,
+        status: 'running',
+      }));
+
+      return jobId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start job';
+      setState(prev => ({
+        ...prev,
+        status: 'failed',
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
 
   // Cancel current job
   const cancelJob = useCallback(async () => {
@@ -210,6 +220,7 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
     result: state.result,
     error: state.error,
     isOnline: state.isOnline,
+    lastCheckpoint: state.lastCheckpoint,
 
     // Actions
     startJob,
@@ -226,7 +237,7 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
 
 /**
  * Example usage:
- * 
+ *
  * ```tsx
  * function MyComponent() {
  *   const job = useRealtimeJob({
@@ -234,20 +245,20 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
  *     serverUrl: 'ws://localhost:3000',
  *     token: 'jwt-token',
  *   });
- * 
+ *
  *   const handleStart = async () => {
  *     await job.startJob({
  *       type: 'llm-completion',
  *       input: { prompt: 'Write a poem' },
  *     });
  *   };
- * 
+ *
  *   return (
  *     <div>
  *       <button onClick={handleStart} disabled={job.isRunning}>
  *         Start Job
  *       </button>
- *       
+ *
  *       {job.isRunning && (
  *         <>
  *           <div>Progress: {job.progress?.percentage}%</div>
@@ -255,7 +266,7 @@ export function useRealtimeJob(options: UseRealtimeJobOptions = {}) {
  *           <button onClick={job.cancelJob}>Cancel</button>
  *         </>
  *       )}
- *       
+ *
  *       {job.isComplete && <div>Result: {job.result}</div>}
  *       {job.isFailed && <div>Error: {job.error}</div>}
  *     </div>

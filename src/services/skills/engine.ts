@@ -4,6 +4,7 @@
  */
 
 import { getSkillRegistry } from './registry';
+import type { SkillContext, SkillResult } from './types';
 
 export interface SkillExecutionOptions {
   timeout?: number;
@@ -12,11 +13,16 @@ export interface SkillExecutionOptions {
 
 export class SkillsEngine {
   private registry = getSkillRegistry();
+  private handlers: Map<string, (context: SkillContext) => Promise<SkillResult>> = new Map();
 
   /**
    * Execute a skill by ID
    */
-  async executeSkill(skillId: string, context: any, _options?: SkillExecutionOptions): Promise<any> {
+  async executeSkill(
+    skillId: string,
+    context: SkillContext,
+    _options?: SkillExecutionOptions
+  ): Promise<SkillResult> {
     const skill = this.registry.get(skillId);
     if (!skill) {
       throw new Error(`Skill not found: ${skillId}`);
@@ -27,11 +33,33 @@ export class SkillsEngine {
     }
 
     try {
+      // If an action handler is provided, route to it
+      if (context.action?.handler) {
+        const handler = this.handlers.get(context.action.handler);
+        if (handler) {
+          return handler(context);
+        }
+      }
+
       return await skill.execute(context);
     } catch (error) {
       console.error(`[SkillsEngine] Skill execution failed: ${skillId}`, error);
       throw error;
     }
+  }
+
+  registerHandler(
+    actionId: string,
+    handler: (context: SkillContext) => Promise<SkillResult>
+  ): void {
+    this.handlers.set(actionId, handler);
+  }
+
+  /**
+   * Execute skill action (alias for executeSkill)
+   */
+  async execute(skillId: string, context: SkillContext): Promise<SkillResult> {
+    return this.executeSkill(skillId, context);
   }
 
   /**

@@ -30,7 +30,7 @@ export const CALENDAR_SKILL_MANIFEST: SkillManifest = {
   ],
   actions: [
     {
-      type: 'create_event',
+      type: 'create_calendar',
       name: 'Create Event',
       description: 'Create a calendar event',
       parameters: {
@@ -38,6 +38,7 @@ export const CALENDAR_SKILL_MANIFEST: SkillManifest = {
         date: 'string',
         time: 'string',
       },
+      handler: 'createEvent',
     },
   ],
 };
@@ -46,22 +47,48 @@ export const CALENDAR_SKILL_MANIFEST: SkillManifest = {
  * Calendar Skill
  */
 class CalendarSkill implements Skill {
+  id = CALENDAR_SKILL_MANIFEST.id;
   manifest = CALENDAR_SKILL_MANIFEST;
   enabled = true;
+  settings: Record<string, any> = {};
 
-  async execute(_context: SkillContext): Promise<SkillResult> {
+  async execute(context: SkillContext): Promise<SkillResult> {
+    if (context.action?.handler === 'createEvent') {
+      return this.createEvent(context, context.data || {});
+    }
+
+    if (context.action?.handler === 'scheduleMeeting') {
+      return this.scheduleMeeting(context, context.data || {});
+    }
+
+    return {
+      success: false,
+      error: 'Unknown calendar action',
+    };
+  }
+
+  async initialize(_config?: { clientId: string; redirectUri: string }): Promise<void> {
+    // OAuth initialization placeholder
+  }
+
+  async createEvent(_context: SkillContext, _data: Record<string, any>): Promise<SkillResult> {
     return {
       success: true,
-      data: {
-        message: 'Calendar event scheduled',
-      },
+      data: { message: 'Calendar event scheduled' },
+    };
+  }
+
+  async scheduleMeeting(_context: SkillContext, _data: Record<string, any>): Promise<SkillResult> {
+    return {
+      success: true,
+      data: { message: 'Meeting scheduled' },
     };
   }
 }
 
 let calendarSkill: CalendarSkill | null = null;
 
-export function getCalendarSkill(): Skill {
+export function getCalendarSkill(): CalendarSkill {
   if (!calendarSkill) {
     calendarSkill = new CalendarSkill();
     getSkillRegistry().register('regen-calendar', calendarSkill);

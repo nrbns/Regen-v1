@@ -33,6 +33,7 @@ export type Tab = {
   title: string;
   active?: boolean;
   url?: string;
+  favicon?: string;
   containerId?: string;
   containerColor?: string;
   containerName?: string;
@@ -117,7 +118,9 @@ const resolveMaxTabs = (): number => {
     // Lazy import to avoid breaking SSR/build if env differs
     const { getRedixConfig } = require('../lib/redix-mode');
     const cfg = getRedixConfig();
-    return cfg?.enabled ? Math.min(cfg.maxTabs ?? DEFAULT_MAX_TABS, DEFAULT_MAX_TABS) : DEFAULT_MAX_TABS;
+    return cfg?.enabled
+      ? Math.min(cfg.maxTabs ?? DEFAULT_MAX_TABS, DEFAULT_MAX_TABS)
+      : DEFAULT_MAX_TABS;
   } catch {
     return DEFAULT_MAX_TABS;
   }
@@ -616,11 +619,7 @@ export const useTabsStore = create<TabsState>()(
       storage: createJSONStorage(
         () =>
           isIndexedDBAvailable()
-            ? createIndexedDBStorage('regen:tabs-state', {
-                dbName: 'regen-tabs-storage',
-                storeName: 'tabs-state',
-                version: 1,
-              })
+            ? createIndexedDBStorage('regen-tabs-storage', 'tabs-state')
             : localStorage // Fallback to localStorage if IndexedDB unavailable
       ),
       partialize: state => ({

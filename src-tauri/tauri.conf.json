@@ -1,27 +1,174 @@
 {
-  "productName": "Omnibrowser",
-  "version": "0.1.0",
-  "identifier": "com.omnibrowser.app",
+  "productName": "Regen",
+  "version": "0.3.0",
+  "identifier": "com.regen.app",
   "build": {
     "beforeDevCommand": "npm run dev:web",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist-web"
+    "frontendDist": "../dist-web",
+    "devPath": "../dist-web",
+    "withGlobalTauri": false
   },
   "app": {
     "windows": [
       {
-        "title": "Omnibrowser",
+        "title": "Regen Browser",
         "width": 1400,
         "height": 900,
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "visible": true,
+        "focus": true,
+        "center": true,
+        "skipTaskbar": false
       }
     ],
     "security": {
       "csp": null
+    },
+    "mac": {
+      "minimizable": true,
+      "maximizable": true,
+      "closable": true,
+      "hideMenuBar": false,
+      "hideTitleBar": false
+    },
+    "linux": {
+      "pageTitle": "Regen Browser"
+    },
+    "windowsConfig": {
+      "allowUserInstall": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis", "dmg", "app", "deb", "AppImage"],
+    "identifier": "com.regen.app",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "Copyright © 2025 Regen Browser",
+    "category": "Utility",
+    "shortDescription": "Next-generation AI automation platform",
+    "longDescription": "Regen Browser: AI-powered web automation with voice, trade, and research modes",
+    "deb": {
+      "depends": [],
+      "useBootstrapper": true
+    },
+    "nsis": {
+      "template": null,
+      "license": null,
+      "headerImage": null,
+      "sidebarImage": null,
+      "installerIcon": null,
+      "basePath": null,
+      "artifactId": null,
+      "discardUninstaller": true,
+      "scope": "currentUser",
+      "customLanguageFiles": [],
+      "languages": null,
+      "installerLanguages": null,
+      "displayLanguageSelector": false,
+      "displayLicense": false,
+      "oneClick": false,
+      "allowToChangeInstallDirectory": true,
+      "installMode": "currentUser",
+      "prerelease": false,
+      "runner": "nsis"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "signingIdentity": null,
+      "timestampUrl": ""
+    },
+    "dmg": {
+      "background": null,
+      "format": "compressed"
+    },
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": null,
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlementsLaunchAgent": null
+    }
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true,
+        "execute": false,
+        "sidecar": false,
+        "kill": false,
+        "env": {
+          "allow": [],
+          "deny": []
+        }
+      },
+      "fs": {
+        "all": false,
+        "readDir": false,
+        "copyFile": false,
+        "createDir": false,
+        "removeDir": false,
+        "removeFile": false,
+        "renameFile": false,
+        "exists": false,
+        "metadata": false,
+        "readTextFile": false,
+        "readBinaryFile": false,
+        "writeFile": false,
+        "writeBinaryFile": false,
+        "readFileAsDataURL": false
+      },
+      "path": {
+        "all": false
+      },
+      "os": {
+        "all": false
+      },
+      "http": {
+        "all": false,
+        "request": false,
+        "fetch": true
+      },
+      "window": {
+        "all": true
+      },
+      "notification": {
+        "all": false
+      },
+      "dialog": {
+        "all": false,
+        "open": false,
+        "save": false,
+        "message": false,
+        "ask": false,
+        "confirm": false
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "endpoints": ["https://releases.regen.app/latest"]
     }
   }
 }

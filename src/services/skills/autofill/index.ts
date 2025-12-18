@@ -4,4 +4,12 @@
  */
 
 export { getAutofillSkill, AUTOFILL_SKILL_MANIFEST } from './skill';
-export type { AutofillData } from './types';
+export type {
+  AutofillData,
+  AutofillProfile,
+  FormField,
+  DetectedForm,
+  AutofillTemplate,
+  AutofillResult,
+  AutofillDataType,
+} from './types';

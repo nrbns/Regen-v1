@@ -8,7 +8,7 @@ import { getSkillRegistry } from '../registry';
 // import { getSkillEngine } from '../engine';
 import { GmailOAuthManager } from './oauth';
 import { GmailAPIClient, type ComposeEmailData } from './api';
-import type { SkillManifest, SkillContext, SkillResult } from '../types';
+import type { SkillManifest, Skill, SkillContext, SkillResult } from '../types';
 import { extractPageContext } from './contextExtractor';
 
 /**
@@ -77,7 +77,11 @@ export const GMAIL_SKILL_MANIFEST: SkillManifest = {
 /**
  * Gmail Skill Implementation
  */
-export class GmailSkill {
+export class GmailSkill implements Skill {
+  id = GMAIL_SKILL_MANIFEST.id;
+  manifest = GMAIL_SKILL_MANIFEST;
+  enabled = true;
+  settings: Record<string, any> = {};
   private oauthManager: GmailOAuthManager | null = null;
   private apiClient: GmailAPIClient | null = null;
 
@@ -123,6 +127,20 @@ export class GmailSkill {
     return this.oauthManager.isAuthorized();
   }
 
+  async execute(context: SkillContext): Promise<SkillResult> {
+    if (context.action?.handler === 'composeEmail') {
+      return this.composeEmail(context, context.data || {});
+    }
+    if (context.action?.handler === 'createDraft') {
+      return this.createDraft(context, context.data || {});
+    }
+
+    return {
+      success: false,
+      error: 'Unknown Gmail action',
+    };
+  }
+
   /**
    * Compose email action
    */
@@ -150,8 +168,8 @@ export class GmailSkill {
         const pageContext = await extractPageContext(context);
         emailData = {
           ...emailData,
-          subject: emailData.subject || pageContext.suggestedSubject,
-          body: emailData.body || pageContext.suggestedBody,
+          subject: emailData.subject || pageContext.suggestedSubject || '',
+          body: emailData.body || pageContext.suggestedBody || '',
         };
       }
 
@@ -199,8 +217,8 @@ export class GmailSkill {
         const pageContext = await extractPageContext(context);
         emailData = {
           ...emailData,
-          subject: emailData.subject || pageContext.suggestedSubject,
-          body: emailData.body || pageContext.suggestedBody,
+          subject: emailData.subject || pageContext.suggestedSubject || '',
+          body: emailData.body || pageContext.suggestedBody || '',
         };
       }
 
@@ -269,6 +287,7 @@ let gmailSkillInstance: GmailSkill | null = null;
 export function getGmailSkill(): GmailSkill {
   if (!gmailSkillInstance) {
     gmailSkillInstance = new GmailSkill();
+    getSkillRegistry().register(GMAIL_SKILL_MANIFEST.id, gmailSkillInstance);
   }
   return gmailSkillInstance;
 }

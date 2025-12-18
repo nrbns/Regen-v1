@@ -14,25 +14,24 @@ export function interceptFetch(): void {
 
   window.fetch = async function (...args) {
     const [resource, init] = args;
-    const url = typeof resource === 'string' ? resource : resource.url;
+    const urlStr = typeof resource === 'string' ? resource : (resource as any).url;
 
     const engine = getAdblockerEngine();
-    const request = engine.shouldBlock({
-      url,
-      type: init?.method || 'GET',
+    const shouldBlockRequest = engine.shouldBlock({
+      url: urlStr,
+      type: (init?.method as string) || 'GET',
     });
 
-    if (request.blocked) {
+    if (shouldBlockRequest.isBlocked) {
       // Record block in stats
       const storage = getAdblockerStorage();
       const stats = (await storage.loadStats()) || {
-        totalBlocked: 0,
-        blockedByType: {},
-        blockedByList: {},
+        blockedCount: 0,
+        lastUpdated: Date.now(),
       };
 
-      stats.totalBlocked++;
-      stats.blockedByType[request.type] = (stats.blockedByType[request.type] || 0) + 1;
+      stats.blockedCount++;
+      stats.lastUpdated = Date.now();
       await storage.saveStats(stats);
 
       // Return empty response instead of blocking
@@ -45,7 +44,7 @@ export function interceptFetch(): void {
       });
     }
 
-    return originalFetch.apply(this, args);
+    return originalFetch.apply(this, args as any);
   };
 }
 
@@ -56,29 +55,43 @@ export function interceptXHR(): void {
   const OriginalXHR = window.XMLHttpRequest;
 
   window.XMLHttpRequest = class extends OriginalXHR {
+    private _readyState = 0;
+    private _status = 0;
+    private _statusText = '';
+
+    get readyState() {
+      return this._readyState;
+    }
+    get status() {
+      return this._status;
+    }
+    get statusText() {
+      return this._statusText;
+    }
+
     open(method: string, url: string | URL, ...args: any[]): void {
       const urlString = typeof url === 'string' ? url : url.toString();
       const engine = getAdblockerEngine();
-      const request = engine.shouldBlock({
+      const shouldBlockRequest = engine.shouldBlock({
         url: urlString,
         type: method,
       });
 
-      if (request.blocked) {
+      if (shouldBlockRequest.isBlocked) {
         // Block the request by overriding send
         this.send = function () {
           // Request blocked - do nothing
-          this.readyState = 4;
-          this.status = 200;
-          this.statusText = 'OK';
-          if (this.onload) {
-            this.onload(new Event('load'));
+          (this as any)._readyState = 4;
+          (this as any)._status = 200;
+          (this as any)._statusText = 'OK';
+          if ((this as any).onload) {
+            (this as any).onload(new Event('load'));
           }
         };
         return;
       }
 
-      super.open(method, url, ...args);
+      super.open(method, url as any, ...args);
     }
   } as any;
 }
@@ -96,12 +109,12 @@ export function interceptScripts(): void {
 
           if (src) {
             const engine = getAdblockerEngine();
-            const request = engine.shouldBlock({
+            const shouldBlockRequest = engine.shouldBlock({
               url: src,
               type: 'script',
             });
 
-            if (request.blocked) {
+            if (shouldBlockRequest.isBlocked) {
               // Remove the script
               script.remove();
             }
@@ -112,12 +125,12 @@ export function interceptScripts(): void {
 
           if (src) {
             const engine = getAdblockerEngine();
-            const request = engine.shouldBlock({
+            const shouldBlockRequest = engine.shouldBlock({
               url: src,
               type: 'image',
             });
 
-            if (request.blocked) {
+            if (shouldBlockRequest.isBlocked) {
               // Replace with placeholder or remove
               img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg"%3E%3C/svg%3E';
               img.style.display = 'none';

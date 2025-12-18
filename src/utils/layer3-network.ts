@@ -1,6 +1,6 @@
 /**
  * Layer 3: Network & Offline Resilience
- * 
+ *
  * Implements:
  * 1. Offline detection and state management
  * 2. Request retry with exponential backoff
@@ -24,19 +24,24 @@ export interface NetworkState {
   downlink: number; // Mbps
   rtt: number; // ms
   saveData: boolean;
+  isOnline: boolean;
+  isSlow: boolean;
 }
 
 export class NetworkMonitor {
   private listeners = new Set<(state: NetworkState) => void>();
   private currentState: NetworkState;
-  private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private onlineHandler?: () => void;
+  private offlineHandler?: () => void;
+  private connectionChangeHandler?: () => void;
 
   constructor() {
     this.currentState = this.getCurrentNetworkState();
     this.startMonitoring();
   }
 
-  private getCurrentNetworkState(): NetworkState {
+  getCurrentNetworkState(): NetworkState {
     const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const connection = this.getConnectionInfo();
 
@@ -63,41 +68,47 @@ export class NetworkMonitor {
       downlink: connection?.downlink || 10,
       rtt: connection?.rtt || 0,
       saveData: connection?.saveData || false,
+      isOnline: status !== 'offline',
+      isSlow: quality === 'slow' || status === 'slow',
     };
   }
 
   private getConnectionInfo() {
     if (typeof navigator === 'undefined') return null;
-    
-    const connection = (navigator as any).connection ||
-                      (navigator as any).mozConnection ||
-                      (navigator as any).webkitConnection;
-    
+
+    const connection =
+      (navigator as any).connection ||
+      (navigator as any).mozConnection ||
+      (navigator as any).webkitConnection;
+
     return connection;
   }
 
-  private startMonitoring(): void {
+  startMonitoring(): void {
     // Listen to online/offline events
     if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => this.handleStateChange());
-      window.addEventListener('offline', () => this.handleStateChange());
+      this.onlineHandler = () => this.handleStateChange();
+      this.offlineHandler = () => this.handleStateChange();
+      window.addEventListener('online', this.onlineHandler);
+      window.addEventListener('offline', this.offlineHandler);
     }
 
     // Listen to connection changes
     const connection = this.getConnectionInfo();
-    if (connection) {
-      connection.addEventListener('change', () => this.handleStateChange());
+    if (connection && typeof connection.addEventListener === 'function') {
+      this.connectionChangeHandler = () => this.handleStateChange();
+      connection.addEventListener('change', this.connectionChangeHandler);
     }
 
     // Periodic check (every 30 seconds)
-    this.checkInterval = setInterval(() => {
+    this.intervalId = setInterval(() => {
       this.handleStateChange();
     }, 30000);
   }
 
   private handleStateChange(): void {
     const newState = this.getCurrentNetworkState();
-    
+
     // Only notify if state actually changed
     if (JSON.stringify(newState) !== JSON.stringify(this.currentState)) {
       this.currentState = newState;
@@ -113,7 +124,7 @@ export class NetworkMonitor {
     this.listeners.add(listener);
     // Immediately call with current state
     listener(this.currentState);
-    
+
     return () => {
       this.listeners.delete(listener);
     };
@@ -131,10 +142,29 @@ export class NetworkMonitor {
     return this.currentState.quality === 'fast' && this.currentState.status === 'online';
   }
 
-  cleanup(): void {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
+  stopMonitoring(): void {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
     }
+
+    if (typeof window !== 'undefined') {
+      if (this.onlineHandler) window.removeEventListener('online', this.onlineHandler);
+      if (this.offlineHandler) window.removeEventListener('offline', this.offlineHandler);
+    }
+
+    const connection = this.getConnectionInfo();
+    if (
+      connection &&
+      typeof connection.removeEventListener === 'function' &&
+      this.connectionChangeHandler
+    ) {
+      connection.removeEventListener('change', this.connectionChangeHandler);
+    }
+  }
+
+  cleanup(): void {
+    this.stopMonitoring();
     this.listeners.clear();
   }
 }
@@ -153,9 +183,7 @@ export function getNetworkMonitor(): NetworkMonitor {
  * React hook for network state
  */
 export function useNetworkState(): NetworkState {
-  const [state, setState] = useState<NetworkState>(() => 
-    getNetworkMonitor().getState()
-  );
+  const [state, setState] = useState<NetworkState>(() => getNetworkMonitor().getState());
 
   useEffect(() => {
     const monitor = getNetworkMonitor();
@@ -180,7 +208,7 @@ export interface RetryOptions {
 }
 
 const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
-  maxRetries: 3,
+  maxRetries: 2,
   initialDelay: 1000, // 1 second
   maxDelay: 30000, // 30 seconds
   backoffFactor: 2,
@@ -201,15 +229,30 @@ const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
 };
 
 export async function fetchWithRetry<T>(
-  fetchFn: () => Promise<T>,
-  options: RetryOptions = {}
+  fetchFnOrUrl: (() => Promise<T>) | RequestInfo,
+  options: RetryOptions = {},
+  fetchOptions?: RequestInit
 ): Promise<T> {
   const opts = { ...DEFAULT_RETRY_OPTIONS, ...options };
   let lastError: any;
 
+  const exec = async () => {
+    if (typeof fetchFnOrUrl === 'function') {
+      return await fetchFnOrUrl();
+    }
+
+    const response = await fetch(fetchFnOrUrl, fetchOptions);
+    if (response instanceof Response && !response.ok) {
+      const error: any = new Error(response.statusText || 'Request failed');
+      error.status = response.status;
+      throw error;
+    }
+    return response as unknown as T;
+  };
+
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     try {
-      return await fetchFn();
+      return await exec();
     } catch (error) {
       lastError = error;
 
@@ -252,21 +295,41 @@ export interface QueuedRequest {
   retryCount: number;
 }
 
+export interface OfflineQueueOptions {
+  maxSize?: number;
+  batchSize?: number;
+}
+
 export class OfflineRequestQueue {
   private queue: QueuedRequest[] = [];
   private processing = false;
   private storageKey = 'offline-request-queue';
+  private autoProcessInterval: ReturnType<typeof setInterval> | null = null;
+  private maxSize: number;
+  private batchSize: number;
+  private onlineListener?: () => void;
 
-  constructor() {
+  constructor(options: OfflineQueueOptions = {}) {
+    this.maxSize = options.maxSize ?? 50;
+    this.batchSize = options.batchSize ?? 10;
     this.loadFromStorage();
-    this.startProcessing();
+    this.startAutoProcess();
   }
 
   private loadFromStorage(): void {
     try {
       const stored = localStorage.getItem(this.storageKey);
       if (stored) {
-        this.queue = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        this.queue = (Array.isArray(parsed) ? parsed : []).map((item: any) => ({
+          id: item.id || Math.random().toString(36).substring(7),
+          url: item.url || item.options?.url || '',
+          method: item.method || item.options?.method || 'GET',
+          body: item.body ?? item.options?.body,
+          headers: item.headers || item.options?.headers,
+          timestamp: item.timestamp || Date.now(),
+          retryCount: item.retryCount ?? item.retries ?? 0,
+        }));
       }
     } catch (error) {
       console.error('[OfflineQueue] Failed to load from storage:', error);
@@ -281,38 +344,69 @@ export class OfflineRequestQueue {
     }
   }
 
-  add(request: Omit<QueuedRequest, 'id' | 'timestamp' | 'retryCount'>): void {
+  async add(
+    requestOrUrl: string | Omit<QueuedRequest, 'id' | 'timestamp' | 'retryCount'>,
+    options?: RequestInit
+  ): Promise<void> {
+    const base: Omit<QueuedRequest, 'id' | 'timestamp' | 'retryCount'> =
+      typeof requestOrUrl === 'string'
+        ? {
+            url: requestOrUrl,
+            method: options?.method || 'GET',
+            body: options?.body,
+            headers: options?.headers as Record<string, string> | undefined,
+          }
+        : requestOrUrl;
+
     const queuedRequest: QueuedRequest = {
-      ...request,
+      ...base,
       id: Math.random().toString(36).substring(7),
       timestamp: Date.now(),
       retryCount: 0,
     };
 
     this.queue.push(queuedRequest);
+
+    // Cap queue size - drop oldest first
+    if (this.queue.length > this.maxSize) {
+      this.queue = this.queue.slice(this.queue.length - this.maxSize);
+    }
+
     this.saveToStorage();
 
     // Try to process immediately if online
     if (getNetworkMonitor().isOnline()) {
-      this.processQueue();
+      await this.processQueue();
     }
   }
 
-  private startProcessing(): void {
-    // Listen for online events
+  startAutoProcess(intervalMs: number = 2000): void {
+    if (this.autoProcessInterval) return;
+
     if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => {
-        console.log('[OfflineQueue] Coming online, processing queue');
-        this.processQueue();
-      });
+      this.onlineListener = () => {
+        if (this.queue.length > 0) {
+          this.processQueue();
+        }
+      };
+      window.addEventListener('online', this.onlineListener);
     }
 
-    // Also subscribe to network monitor
-    getNetworkMonitor().subscribe(state => {
-      if (state.status === 'online' && this.queue.length > 0) {
+    this.autoProcessInterval = setInterval(() => {
+      if (this.queue.length > 0) {
         this.processQueue();
       }
-    });
+    }, intervalMs);
+  }
+
+  stopAutoProcess(): void {
+    if (this.autoProcessInterval) {
+      clearInterval(this.autoProcessInterval);
+      this.autoProcessInterval = null;
+    }
+    if (typeof window !== 'undefined' && this.onlineListener) {
+      window.removeEventListener('online', this.onlineListener);
+    }
   }
 
   async processQueue(): Promise<void> {
@@ -326,20 +420,20 @@ export class OfflineRequestQueue {
 
     this.processing = true;
 
-    while (this.queue.length > 0) {
-      const request = this.queue[0];
+    const batch = [...this.queue.slice(0, this.batchSize)];
 
+    for (const request of batch) {
       try {
         await this.executeRequest(request);
-        
+
         // Success - remove from queue
         this.queue.shift();
         this.saveToStorage();
       } catch (error) {
         console.error('[OfflineQueue] Failed to execute request:', error);
-        
+
         request.retryCount++;
-        
+
         // Max retries reached, remove from queue
         if (request.retryCount >= 5) {
           console.warn('[OfflineQueue] Max retries reached, discarding request:', request.id);
@@ -359,16 +453,27 @@ export class OfflineRequestQueue {
     const response = await fetch(request.url, {
       method: request.method,
       headers: request.headers,
-      body: request.body ? JSON.stringify(request.body) : undefined,
+      body:
+        typeof request.body === 'string'
+          ? request.body
+          : request.body
+            ? JSON.stringify(request.body)
+            : undefined,
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const error: any = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      (error as any).status = response.status;
+      throw error;
     }
   }
 
   getQueue(): QueuedRequest[] {
     return [...this.queue];
+  }
+
+  getPendingRequests(): QueuedRequest[] {
+    return this.getQueue();
   }
 
   clear(): void {
@@ -404,7 +509,8 @@ export interface SmartFetchOptions extends RequestInit {
 
 export async function smartFetch(
   url: string,
-  options: SmartFetchOptions = {}
+  options: SmartFetchOptions = {},
+  queue: OfflineRequestQueue = getOfflineQueue()
 ): Promise<Response> {
   const {
     retry,
@@ -420,13 +526,7 @@ export async function smartFetch(
   if (!monitor.isOnline()) {
     if (queueIfOffline && (fetchOptions.method === 'POST' || fetchOptions.method === 'PUT')) {
       // Queue for later execution
-      getOfflineQueue().add({
-        url,
-        method: fetchOptions.method || 'GET',
-        body: fetchOptions.body,
-        headers: fetchOptions.headers as Record<string, string>,
-      });
-      
+      await queue.add(url, fetchOptions);
       throw new Error('Offline: Request queued for later');
     }
 
@@ -458,27 +558,24 @@ export async function smartFetch(
   }
 
   // Execute with retry
-  const response = await fetchWithRetry(
-    () => fetch(url, fetchOptions),
-    retry
-  );
+  const response = await fetchWithRetry<Response>(url, retry, fetchOptions);
 
   // Cache response if requested
   if (cacheFirst && response.ok && 'caches' in window) {
     try {
       const cache = await caches.open('smart-fetch-cache');
       const clonedResponse = response.clone();
-      
+
       // Add cache timestamp
       const headers = new Headers(clonedResponse.headers);
       headers.set('x-cache-time', Date.now().toString());
-      
+
       const cachedResponse = new Response(clonedResponse.body, {
         status: clonedResponse.status,
         statusText: clonedResponse.statusText,
         headers,
       });
-      
+
       await cache.put(url, cachedResponse);
     } catch (error) {
       console.warn('[SmartFetch] Failed to cache response:', error);
@@ -536,7 +633,12 @@ export function useOfflineFetch<T>(
 
   // Refetch on reconnect
   useEffect(() => {
-    if (options.refetchOnReconnect && networkState.status === 'online' && data === null && !loading) {
+    if (
+      options.refetchOnReconnect &&
+      networkState.status === 'online' &&
+      data === null &&
+      !loading
+    ) {
       execute();
     }
   }, [networkState.status, options.refetchOnReconnect, data, loading, execute]);

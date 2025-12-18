@@ -101,10 +101,13 @@ export function createSandbox(skill: Skill, policy: SandboxPolicy = DEFAULT_POLI
  * Create secure fetch function
  */
 function createSecureFetch(skillId: string, policy: SandboxPolicy): typeof fetch {
-  return async (url: string, options?: RequestInit) => {
+  return async (input: RequestInfo | URL, options?: RequestInit) => {
     // Validate origin
+    const urlString =
+      typeof input === 'string' || input instanceof URL ? input.toString() : String(input);
+
     if (policy.allowedOrigins && policy.allowedOrigins.length > 0) {
-      const urlObj = new URL(url);
+      const urlObj = new URL(urlString);
       const isAllowed = policy.allowedOrigins.some(
         origin => urlObj.origin === origin || urlObj.origin.endsWith(origin)
       );
@@ -115,7 +118,7 @@ function createSecureFetch(skillId: string, policy: SandboxPolicy): typeof fetch
     }
 
     // Execute fetch
-    return fetch(url, options);
+    return fetch(urlString, options);
   };
 }
 

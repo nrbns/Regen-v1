@@ -32,16 +32,15 @@ export class AdblockerService {
       this.settings = {
         enabled: true,
         filterLists: DEFAULT_FILTER_LISTS,
-        allowAcceptableAds: false,
-        blockedDomains: [],
+        blockedRequests: [],
         whitelistedDomains: [],
-        customFilters: [],
+        blockedDomains: [],
       };
       await this.storage.saveSettings(this.settings);
     }
 
     // Initialize engine
-    if (this.settings.enabled) {
+    if (this.settings && this.settings.enabled) {
       await this.engine.initialize(this.settings.filterLists, this.settings);
 
       // Initialize request interceptors

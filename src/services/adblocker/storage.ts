@@ -4,7 +4,12 @@
  */
 
 import Dexie, { type Table } from 'dexie';
-import type { AdblockerSettings, AdblockerStats } from './types';
+import type { AdblockerSettings } from './types';
+
+interface AdblockerStats {
+  blockedCount: number;
+  lastUpdated: number;
+}
 
 interface SettingsRecord {
   id: string;

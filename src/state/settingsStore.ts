@@ -147,7 +147,7 @@ const dataKeys: Array<keyof SettingsData> = [
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set, _get) => ({
+    (set, get) => ({
       ...createDefaults(),
       setConsent: value => set({ videoDownloadConsent: value }),
       setSearchEngine: searchEngine => set({ searchEngine }),
@@ -161,8 +161,8 @@ export const useSettingsStore = create<SettingsState>()(
         const defaults = createDefaults();
         set(() => defaults);
       },
-      hasSeenOnboardingTour: () => {
-        const state = useSettingsStore.getState();
+      hasSeenOnboardingTour: (): boolean => {
+        const state = get();
         return state.general.hasSeenOnboardingTour ?? false;
       },
       setHasSeenOnboardingTour: (seen: boolean) => {

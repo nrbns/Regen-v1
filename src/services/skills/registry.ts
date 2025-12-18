@@ -51,8 +51,9 @@ export class SkillRegistry implements ISkillRegistry {
           enabled: record.enabled,
           settings: record.settings || {},
           permissions: record.manifest.permissions || [],
-          lastUsed: record.lastUsed,
+          lastUsed: record.lastUsed || Date.now(),
           useCount: record.useCount || 0,
+          execute: async () => ({ success: false, error: 'Not implemented' }),
         };
         this.skills.set(skill.id, skill);
       }
@@ -100,6 +101,7 @@ export class SkillRegistry implements ISkillRegistry {
       settings: this.getDefaultSettings(manifest),
       permissions: manifest.permissions || [],
       useCount: 0,
+      execute: async () => ({ success: false, error: 'Not implemented' }),
     };
 
     // Save to database
@@ -109,8 +111,7 @@ export class SkillRegistry implements ISkillRegistry {
       installedAt: skill.installedAt,
       enabled: skill.enabled,
       settings: skill.settings,
-      lastUsed: skill.lastUsed,
-      useCount: skill.useCount,
+      useCount: skill.useCount ?? 0,
     });
 
     this.skills.set(skill.id, skill);
@@ -188,6 +189,10 @@ export class SkillRegistry implements ISkillRegistry {
     return Array.from(this.skills.values()).filter(skill => skill.enabled);
   }
 
+  register(skillId: string, skill: Skill): void {
+    this.skills.set(skillId, skill);
+  }
+
   /**
    * Update skill manifest
    */
@@ -207,8 +212,7 @@ export class SkillRegistry implements ISkillRegistry {
 
     await this.db.skills.update(skillId, {
       manifest,
-      permissions: manifest.permissions || [],
-    });
+    } as any);
 
     this.emit('updated', skill);
   }
@@ -257,7 +261,7 @@ export class SkillRegistry implements ISkillRegistry {
   private async checkPermissions(skill: Skill): Promise<boolean> {
     // Check if permissions are granted
     // For now, return true - in production, check actual permission grants
-    const requiredPermissions = skill.manifest.permissions.filter(p => p.required);
+    const requiredPermissions = (skill.manifest.permissions || []).filter(p => p.required);
 
     if (requiredPermissions.length === 0) {
       return true;

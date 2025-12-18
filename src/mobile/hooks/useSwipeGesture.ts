@@ -13,7 +13,10 @@ export interface SwipeGestureConfig {
   threshold?: number;
 }
 
-export function useSwipeGesture(config: SwipeGestureConfig, elementRef?: React.RefObject<HTMLElement>) {
+export function useSwipeGesture(
+  config: SwipeGestureConfig,
+  elementRef?: React.RefObject<HTMLElement>
+) {
   const startX = useRef(0);
   const startY = useRef(0);
   const { threshold = 50, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown } = config;
@@ -50,12 +53,12 @@ export function useSwipeGesture(config: SwipeGestureConfig, elementRef?: React.R
       }
     };
 
-    element.addEventListener('touchstart', handleTouchStart);
-    element.addEventListener('touchend', handleTouchEnd);
+    element.addEventListener('touchstart', handleTouchStart as EventListener);
+    element.addEventListener('touchend', handleTouchEnd as EventListener);
 
     return () => {
-      element.removeEventListener('touchstart', handleTouchStart);
-      element.removeEventListener('touchend', handleTouchEnd);
+      element.removeEventListener('touchstart', handleTouchStart as EventListener);
+      element.removeEventListener('touchend', handleTouchEnd as EventListener);
     };
   }, [threshold, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown, elementRef]);
 }

@@ -35,7 +35,7 @@ export async function initializeGmailSkill(config?: {
   // Register action handlers
   const gmailSkill = getGmailSkill();
 
-  engine.registerHandler('compose_email', async (ctx: any) => {
+  engine.registerHandler('composeEmail', async (ctx: any) => {
     const context: SkillContext = {
       skillId: GMAIL_SKILL_MANIFEST.id,
       pageUrl: ctx.page?.url || window.location.href,
@@ -48,7 +48,7 @@ export async function initializeGmailSkill(config?: {
     return gmailSkill.composeEmail(context, ctx.data || {});
   });
 
-  engine.registerHandler('create_draft', async (ctx: any) => {
+  engine.registerHandler('createDraft', async (ctx: any) => {
     const context: SkillContext = {
       skillId: GMAIL_SKILL_MANIFEST.id,
       pageUrl: ctx.page?.url || window.location.href,

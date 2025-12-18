@@ -27,8 +27,9 @@ export function initAutoPowerMode(): void {
   // Subscribe for late battery availability (e.g., after async getBattery)
   const unsubscribeBattery = usePowerStore.subscribe(
     state => state.battery,
-    battery => {
-      if (!battery.supported) return;
+    () => {
+      const battery = usePowerStore.getState().battery;
+      if (!battery?.supported) return;
       const selected = usePowerStore.getState().selectedMode;
       if (selected === 'Balanced') {
         usePowerStore.getState().setMode('Auto');

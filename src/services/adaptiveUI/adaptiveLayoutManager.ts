@@ -4,7 +4,13 @@
  * Respects user preferences when overridden
  */
 
-import { getNetworkQuality, isLowBandwidth, supportsFullUI, onNetworkChange, type NetworkQuality } from './networkDetector';
+import {
+  getNetworkQuality,
+  isLowBandwidth,
+  supportsFullUI,
+  onNetworkChange,
+  type NetworkQuality,
+} from './networkDetector';
 
 export type LayoutMode = 'full' | 'compact' | 'minimal';
 
@@ -48,7 +54,7 @@ class AdaptiveLayoutManager {
       window.addEventListener('resize', () => this.updateScreenWidth());
 
       // Listen to network changes
-      this.networkUnsubscribe = onNetworkChange((quality) => {
+      this.networkUnsubscribe = onNetworkChange(quality => {
         this.updateNetworkQuality(quality);
       });
 
@@ -84,20 +90,22 @@ class AdaptiveLayoutManager {
           // Invalid JSON, fall through to async import
         }
       }
-      
+
       // Fallback: dynamically import to avoid circular dependencies
-      import('../../state/settingsStore').then(({ useSettingsStore }) => {
-        const settings = useSettingsStore.getState();
-        this.userPreferences = {
-          layoutModeOverride: settings.appearance.layoutModeOverride,
-          verticalTabsOverride: settings.appearance.verticalTabsOverride,
-          compactTabsOverride: settings.appearance.compactTabsOverride,
-          hideSidebarsOverride: settings.appearance.hideSidebarsOverride,
-        };
-        this.recalculateLayout();
-      }).catch((loadError) => {
-        console.warn('[AdaptiveLayout] Failed to load preferences:', loadError);
-      });
+      import('../../state/settingsStore')
+        .then(({ useSettingsStore }) => {
+          const settings = useSettingsStore.getState();
+          this.userPreferences = {
+            layoutModeOverride: settings.appearance.layoutModeOverride,
+            verticalTabsOverride: settings.appearance.verticalTabsOverride,
+            compactTabsOverride: settings.appearance.compactTabsOverride,
+            hideSidebarsOverride: settings.appearance.hideSidebarsOverride,
+          };
+          this.recalculateLayout();
+        })
+        .catch(loadError => {
+          console.warn('[AdaptiveLayout] Failed to load preferences:', loadError);
+        });
     } catch (error) {
       console.warn('[AdaptiveLayout] Failed to load preferences:', error);
     }
@@ -109,14 +117,14 @@ class AdaptiveLayoutManager {
   private setupPreferencesListener(): void {
     try {
       import('../../state/settingsStore').then(({ useSettingsStore }) => {
-        this.preferencesUnsubscribe = useSettingsStore.subscribe((state) => {
+        this.preferencesUnsubscribe = useSettingsStore.subscribe(state => {
           const newPrefs: LayoutPreferences = {
             layoutModeOverride: state.appearance.layoutModeOverride,
             verticalTabsOverride: state.appearance.verticalTabsOverride,
             compactTabsOverride: state.appearance.compactTabsOverride,
             hideSidebarsOverride: state.appearance.hideSidebarsOverride,
           };
-          
+
           // Only update if preferences actually changed
           if (
             newPrefs.layoutModeOverride !== this.userPreferences.layoutModeOverride ||
@@ -150,35 +158,41 @@ class AdaptiveLayoutManager {
     const wasOverride = this.state.isUserOverride;
 
     // Check if user has overridden layout mode
-    const hasLayoutOverride = this.userPreferences.layoutModeOverride && this.userPreferences.layoutModeOverride !== 'auto';
-    this.state.isUserOverride = hasLayoutOverride || 
-      this.userPreferences.verticalTabsOverride !== null ||
-      this.userPreferences.compactTabsOverride !== null ||
-      this.userPreferences.hideSidebarsOverride !== null;
+    const hasLayoutOverride =
+      this.userPreferences.layoutModeOverride && this.userPreferences.layoutModeOverride !== 'auto';
+    this.state.isUserOverride =
+      (hasLayoutOverride ||
+        this.userPreferences.verticalTabsOverride !== null ||
+        this.userPreferences.compactTabsOverride !== null ||
+        this.userPreferences.hideSidebarsOverride !== null) ??
+      false;
 
     // Determine layout mode based on user preferences or network/screen size
     if (hasLayoutOverride) {
       // User has explicitly set a layout mode
       this.state.layoutMode = this.userPreferences.layoutModeOverride as LayoutMode;
-      
+
       // Apply user overrides for individual settings, or use defaults for the mode
       if (this.userPreferences.hideSidebarsOverride !== null) {
         this.state.hideSidebars = this.userPreferences.hideSidebarsOverride;
       } else {
         // Default for the mode
-        this.state.hideSidebars = this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
+        this.state.hideSidebars =
+          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
       }
 
       if (this.userPreferences.compactTabsOverride !== null) {
         this.state.compactTabs = this.userPreferences.compactTabsOverride;
       } else {
-        this.state.compactTabs = this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
+        this.state.compactTabs =
+          this.state.layoutMode === 'minimal' || this.state.layoutMode === 'compact';
       }
 
       if (this.userPreferences.verticalTabsOverride !== null) {
         this.state.verticalTabs = this.userPreferences.verticalTabsOverride;
       } else {
-        this.state.verticalTabs = this.state.layoutMode === 'full' && this.state.screenWidth > 1400 && supportsFullUI();
+        this.state.verticalTabs =
+          this.state.layoutMode === 'full' && this.state.screenWidth > 1400 && supportsFullUI();
       }
     } else {
       // Auto mode: determine layout mode based on network and screen size
@@ -210,10 +224,11 @@ class AdaptiveLayoutManager {
     }
 
     // Notify listeners if layout changed
-    const layoutChanged = wasCompact !== (this.state.layoutMode === 'compact') || 
-                         wasMinimal !== (this.state.layoutMode === 'minimal') ||
-                         wasOverride !== this.state.isUserOverride;
-    
+    const layoutChanged =
+      wasCompact !== (this.state.layoutMode === 'compact') ||
+      wasMinimal !== (this.state.layoutMode === 'minimal') ||
+      wasOverride !== this.state.isUserOverride;
+
     if (layoutChanged) {
       this.notifyListeners();
     } else {
@@ -239,7 +254,7 @@ class AdaptiveLayoutManager {
     this.listeners.add(listener);
     // Immediately call with current state
     listener({ ...this.state });
-    
+
     return () => {
       this.listeners.delete(listener);
     };
@@ -293,4 +308,3 @@ export function initializeAdaptiveLayout(): () => void {
   const manager = getAdaptiveLayoutManager();
   return () => manager.destroy();
 }
-

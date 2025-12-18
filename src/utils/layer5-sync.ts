@@ -1,6 +1,6 @@
 /**
  * Layer 5: Data Synchronization
- * 
+ *
  * Implements:
  * 1. Change tracking and versioning
  * 2. Conflict resolution (3-way merge)
@@ -26,6 +26,7 @@ export interface Change<T = any> {
   userId: string;
   deviceId: string;
   version: number; // Vector clock version
+  vectorClock: Map<string, number>;
   appliedAt?: number;
   parentChangeIds: string[];
   hash: string; // For integrity check
@@ -35,8 +36,13 @@ export interface VersionedData<T> {
   id: string;
   data: T | undefined;
   version: number;
-  lastModified: number;
-  lastModifiedBy: string;
+  timestamp?: number;
+  lastModified?: number;
+  lastModifiedBy?: string;
+  userId?: string;
+  deviceId?: string;
+  hash?: string;
+  vectorClock?: Map<string, number>;
   changes: Change[];
   deleted: boolean;
   conflictResolved: boolean;
@@ -81,6 +87,7 @@ export class ChangeTracker {
       userId: this.userId,
       deviceId: this.deviceId,
       version: currentVersion,
+      vectorClock: new Map(this.vectorClock),
       parentChangeIds,
       hash: this.hashChange({
         operation,
@@ -114,8 +121,8 @@ export class ChangeTracker {
    * Create versioned snapshot
    */
   snapshot<T>(resourceId: string, data: T, resourceType: string): VersionedData<T> {
-    const version = (this.vectorClock.get(this.deviceId) || 0) + 1;
-    this.vectorClock.set(this.deviceId, version);
+    const history = this.getChangeHistory(resourceId, resourceType);
+    const version = history.length > 0 ? history.length : 1;
 
     const versioned: VersionedData<T> = {
       id: resourceId,
@@ -123,9 +130,7 @@ export class ChangeTracker {
       version,
       lastModified: Date.now(),
       lastModifiedBy: this.userId,
-      changes: Array.from(this.changes.values()).filter(
-        (c) => c.resourceId === resourceId && c.resourceType === resourceType
-      ),
+      changes: history,
       deleted: false,
       conflictResolved: false,
     };
@@ -139,7 +144,7 @@ export class ChangeTracker {
    */
   getChangeHistory(resourceId: string, resourceType: string): Change[] {
     return Array.from(this.changes.values()).filter(
-      (c) => c.resourceId === resourceId && c.resourceType === resourceType
+      c => c.resourceId === resourceId && c.resourceType === resourceType
     );
   }
 
@@ -147,7 +152,7 @@ export class ChangeTracker {
    * Get all pending changes (not yet applied)
    */
   getPendingChanges(): Change[] {
-    return Array.from(this.changes.values()).filter((c) => !c.appliedAt);
+    return Array.from(this.changes.values()).filter(c => !c.appliedAt);
   }
 
   /**
@@ -244,7 +249,7 @@ export class ConflictResolver {
       ...Object.keys(context.remote || {}),
     ]);
 
-    allKeys.forEach((field) => {
+    allKeys.forEach(field => {
       const baseValue = context.base?.[field];
       const localValue = context.local?.[field];
       const remoteValue = context.remote?.[field];
@@ -274,17 +279,17 @@ export class ConflictResolver {
         // Apply resolution strategy
         if (context.strategy === 'local') {
           merged[field as keyof T] = localValue as any;
-          appliedChanges.push(...context.localChanges.filter((c) => c.resourceId === field));
-          discardedChanges.push(...context.remoteChanges.filter((c) => c.resourceId === field));
+          appliedChanges.push(...context.localChanges.filter(c => c.resourceId === field));
+          discardedChanges.push(...context.remoteChanges.filter(c => c.resourceId === field));
         } else if (context.strategy === 'remote') {
           merged[field as keyof T] = remoteValue as any;
-          appliedChanges.push(...context.remoteChanges.filter((c) => c.resourceId === field));
-          discardedChanges.push(...context.localChanges.filter((c) => c.resourceId === field));
+          appliedChanges.push(...context.remoteChanges.filter(c => c.resourceId === field));
+          discardedChanges.push(...context.localChanges.filter(c => c.resourceId === field));
         } else {
           // 'merge' strategy - try smart merge
           merged[field as keyof T] = this.smartMerge(baseValue, localValue, remoteValue) as any;
-          appliedChanges.push(...context.localChanges.filter((c) => c.resourceId === field));
-          appliedChanges.push(...context.remoteChanges.filter((c) => c.resourceId === field));
+          appliedChanges.push(...context.localChanges.filter(c => c.resourceId === field));
+          appliedChanges.push(...context.remoteChanges.filter(c => c.resourceId === field));
         }
       }
     });
@@ -304,7 +309,7 @@ export class ConflictResolver {
     // For arrays, merge non-overlapping changes
     if (Array.isArray(base) && Array.isArray(local) && Array.isArray(remote)) {
       const merged = [...base];
-      
+
       // Add items from local not in base
       local.forEach((item, _i) => {
         if (!base.includes(item) && !merged.includes(item)) {
@@ -313,7 +318,7 @@ export class ConflictResolver {
       });
 
       // Add items from remote not in base
-      remote.forEach((item) => {
+      remote.forEach(item => {
         if (!base.includes(item) && !merged.includes(item)) {
           merged.push(item);
         }
@@ -332,13 +337,9 @@ export class ConflictResolver {
       remote !== null
     ) {
       const merged = { ...base };
-      const keys = new Set([
-        ...Object.keys(base),
-        ...Object.keys(local),
-        ...Object.keys(remote),
-      ]);
+      const keys = new Set([...Object.keys(base), ...Object.keys(local), ...Object.keys(remote)]);
 
-      keys.forEach((key) => {
+      keys.forEach(key => {
         if (local[key] === remote[key]) {
           merged[key] = local[key];
         } else if (local[key] === base[key]) {
@@ -414,7 +415,7 @@ export class RealtimeSyncEngine {
     this.updateState({ isOnline: navigator.onLine });
 
     // Emit initial state to subscribers by calling listeners
-    this.listeners.forEach((listener) => listener({ ...this.state }));
+    this.listeners.forEach(listener => listener({ ...this.state }));
 
     // Initial sync
     this.sync();
@@ -467,11 +468,11 @@ export class RealtimeSyncEngine {
 
       const pendingChanges = this.changeTracker.getPendingChanges();
       if (pendingChanges.length === 0) {
-        this.updateState({ 
-          status: 'idle', 
-          lastSync: Date.now(), 
+        this.updateState({
+          status: 'idle',
+          lastSync: Date.now(),
           pendingChanges: 0,
-          syncCount: this.state.syncCount + 1
+          syncCount: this.state.syncCount + 1,
         });
         return;
       }
@@ -499,12 +500,12 @@ export class RealtimeSyncEngine {
         this.updateState({
           status: 'conflict',
           conflictCount: result.conflicts.length,
-          syncCount: this.state.syncCount + 1
+          syncCount: this.state.syncCount + 1,
         });
         console.warn(`[SyncEngine] ${result.conflicts.length} conflicts detected`);
       } else {
         // Mark changes as applied
-        pendingChanges.forEach((change) => {
+        pendingChanges.forEach(change => {
           this.changeTracker.markApplied(change.id);
         });
 
@@ -518,7 +519,7 @@ export class RealtimeSyncEngine {
           lastSync: Date.now(),
           pendingChanges: 0,
           conflictCount: 0,
-          syncCount: this.state.syncCount + 1
+          syncCount: this.state.syncCount + 1,
         });
 
         console.log('[SyncEngine] Sync completed successfully');
@@ -527,7 +528,7 @@ export class RealtimeSyncEngine {
       this.updateState({
         status: 'error',
         syncError: error instanceof Error ? error.message : 'Unknown error',
-        syncCount: this.state.syncCount + 1
+        syncCount: this.state.syncCount + 1,
       });
       console.error('[SyncEngine] Sync failed:', error);
     } finally {
@@ -564,7 +565,7 @@ export class RealtimeSyncEngine {
 
   private updateState(partial: Partial<SyncState>): void {
     this.state = { ...this.state, ...partial };
-    this.listeners.forEach((listener) => listener({ ...this.state }));
+    this.listeners.forEach(listener => listener({ ...this.state }));
   }
 }
 
@@ -581,20 +582,32 @@ export class DataValidator {
     errors: string[];
   } {
     const errors: string[] = [];
+    const changes = data.changes || [];
+
+    if (!data.id) {
+      errors.push('Missing id');
+    }
+    if (data.version === undefined) {
+      errors.push('Missing version');
+    }
+    if (data.timestamp === undefined && data.lastModified === undefined) {
+      errors.push('Missing timestamp');
+    }
 
     // Check version consistency
-    if (data.version < 0) {
+    if (data.version !== undefined && data.version < 0) {
       errors.push('Invalid version: must be non-negative');
     }
 
     // Check timestamp consistency
-    if (data.lastModified > Date.now()) {
+    const lastModified = data.lastModified ?? data.timestamp ?? 0;
+    if (lastModified > Date.now()) {
       errors.push('Invalid lastModified: future timestamp');
     }
 
     // Check change history
     let expectedVersion = 1;
-    data.changes.forEach((change, index) => {
+    changes.forEach((change, index) => {
       if (change.version !== expectedVersion) {
         errors.push(`Change ${index}: expected version ${expectedVersion}, got ${change.version}`);
       }
@@ -603,7 +616,7 @@ export class DataValidator {
 
     // Check data consistency with changes
     let reconstructed: T | undefined = data.data;
-    data.changes.forEach((change) => {
+    changes.forEach(change => {
       if (change.operation === 'delete') {
         reconstructed = undefined;
       }
@@ -625,9 +638,10 @@ export class DataValidator {
   static repair<T>(versioned: VersionedData<T>): VersionedData<T> {
     let repaired = { ...versioned };
     let reconstructedData: T | undefined = versioned.data;
+    const changes = versioned.changes || [];
 
     // Replay changes in order
-    versioned.changes.forEach((change) => {
+    changes.forEach(change => {
       if (change.operation === 'create') {
         reconstructedData = change.newValue;
       } else if (change.operation === 'update') {
@@ -638,7 +652,7 @@ export class DataValidator {
     });
 
     repaired.data = reconstructedData;
-    repaired.version = versioned.changes.length + 1;
+    repaired.version = changes.length + 1;
 
     return repaired;
   }
@@ -652,7 +666,7 @@ export function useSyncState(syncEngine: RealtimeSyncEngine) {
   const [state, setState] = useState<SyncState>(syncEngine.getState());
 
   useEffect(() => {
-    return syncEngine.subscribe((newState) => {
+    return syncEngine.subscribe(newState => {
       setState(newState);
     });
   }, [syncEngine]);
@@ -671,7 +685,13 @@ export function useChangeTracking<T extends Record<string, any>>(
       newValue?: T,
       previousValue?: T
     ) => {
-      return changeTracker.recordChange(operation, resourceId, resourceType, newValue, previousValue);
+      return changeTracker.recordChange(
+        operation,
+        resourceId,
+        resourceType,
+        newValue,
+        previousValue
+      );
     },
     [changeTracker, resourceType]
   );
@@ -699,7 +719,7 @@ export function useLiveData<T>(data: T, changeTracker: ChangeTracker, resourceId
         changeTracker.recordChange('update', resourceId, 'data', newData, current);
 
         // Simulate server confirmation
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         // Revert on error
         setCurrent(current);

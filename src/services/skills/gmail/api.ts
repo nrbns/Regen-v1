@@ -25,8 +25,12 @@ export interface EmailMessage {
 }
 
 export class GmailAPIClient {
-  private oauthManager = getGmailOAuthManager();
+  private oauthManager: ReturnType<typeof getGmailOAuthManager>;
   private baseUrl = 'https://www.googleapis.com/gmail/v1/users/me';
+
+  constructor(oauthManager?: ReturnType<typeof getGmailOAuthManager>) {
+    this.oauthManager = oauthManager || getGmailOAuthManager();
+  }
 
   /**
    * Compose and send an email
@@ -38,7 +42,7 @@ export class GmailAPIClient {
     }
 
     const headers = new Headers({
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     });
 
@@ -69,6 +73,13 @@ export class GmailAPIClient {
   }
 
   /**
+   * Create draft email
+   */
+  async createDraft(data: ComposeEmailData): Promise<EmailMessage> {
+    return this.composeEmail({ ...data, isDraft: true });
+  }
+
+  /**
    * Get email messages
    */
   async getMessages(maxResults: number = 10): Promise<EmailMessage[]> {
@@ -78,7 +89,7 @@ export class GmailAPIClient {
     }
 
     const headers = new Headers({
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     });
 
     const response = await fetch(`${this.baseUrl}/messages?maxResults=${maxResults}`, {
@@ -90,15 +101,17 @@ export class GmailAPIClient {
     }
 
     const data = await response.json();
-    return data.messages?.map((msg: any) => ({
-      id: msg.id,
-      threadId: msg.threadId,
-      subject: 'Email',
-      from: 'sender@gmail.com',
-      to: 'user@gmail.com',
-      body: '',
-      date: new Date(),
-    })) || [];
+    return (
+      data.messages?.map((msg: any) => ({
+        id: msg.id,
+        threadId: msg.threadId,
+        subject: 'Email',
+        from: 'sender@gmail.com',
+        to: 'user@gmail.com',
+        body: '',
+        date: new Date(),
+      })) || []
+    );
   }
 
   /**
@@ -112,7 +125,9 @@ export class GmailAPIClient {
       `Subject: ${data.subject}`,
       '',
       data.body,
-    ].filter(Boolean).join('\r\n');
+    ]
+      .filter(Boolean)
+      .join('\r\n');
 
     return btoa(email).replace(/\+/g, '-').replace(/\//g, '_');
   }

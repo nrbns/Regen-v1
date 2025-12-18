@@ -155,7 +155,7 @@ function createActionFromType(actionType: string, _analysis: PageAnalysis): Sugg
       description: 'Compose email with page content',
       priority: 6,
       skillId: 'regen-gmail',
-      actionId: 'compose_email',
+      actionId: 'composeEmail',
     }),
     create_calendar: () => ({
       id: 'create-calendar',
@@ -164,7 +164,7 @@ function createActionFromType(actionType: string, _analysis: PageAnalysis): Sugg
       description: 'Schedule event from page',
       priority: 7,
       skillId: 'regen-calendar',
-      actionId: 'create_calendar_event',
+      actionId: 'createEvent',
     }),
     autofill: () => ({
       id: 'autofill',
@@ -173,7 +173,7 @@ function createActionFromType(actionType: string, _analysis: PageAnalysis): Sugg
       description: 'Fill form automatically',
       priority: 8,
       skillId: 'regen-autofill',
-      actionId: 'autofill_form',
+      actionId: 'autofillForm',
     }),
     save: () => ({
       id: 'save',
@@ -213,7 +213,7 @@ async function executeAction(action: SuggestedAction, analysis: PageAnalysis): P
   // If action has skill, execute through skill engine
   if (action.skillId && action.actionId) {
     const skill = registry.get(action.skillId);
-    if (skill && skill.enabled) {
+    if (skill && skill.enabled && skill.manifest.actions) {
       return engine.execute(action.skillId, {
         ...context,
         action: skill.manifest.actions.find(a => a.handler === action.actionId),

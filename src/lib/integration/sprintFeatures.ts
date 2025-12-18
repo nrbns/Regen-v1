@@ -27,16 +27,25 @@ export async function initializeSprintFeatures(): Promise<void> {
 
       // Register built-in skills (lazy load)
       try {
-        const { registerGmailSkill } = await import('../../services/skills/gmail/integration');
-        await registerGmailSkill();
+        const gmailModule = await import('../../services/skills/gmail/integration').catch(
+          () => null
+        );
+        const registerGmailSkill = (gmailModule as any)?.registerGmailSkill;
+        if (typeof registerGmailSkill === 'function') {
+          await registerGmailSkill();
+        }
       } catch (error) {
         console.warn('[Sprint Features] Gmail skill not available:', error);
       }
 
       try {
-        const { registerCalendarSkill } =
-          await import('../../services/skills/calendar/integration');
-        await registerCalendarSkill();
+        const calendarModule = await import('../../services/skills/calendar/integration').catch(
+          () => null
+        );
+        const registerCalendarSkill = (calendarModule as any)?.registerCalendarSkill;
+        if (typeof registerCalendarSkill === 'function') {
+          await registerCalendarSkill();
+        }
       } catch (error) {
         console.warn('[Sprint Features] Calendar skill not available:', error);
       }

@@ -55,6 +55,38 @@ initializeAgentSystem();
 // Initialize app connections
 import { initializeApp } from './lib/initialize-app';
 
+// Initialize Socket.IO for realtime job progress (only if available)
+const setupRealtimeSocket = async () => {
+  try {
+    // Try to import Socket client - may not exist in desktop builds
+    const { initSocketClient } = await import('../apps/desktop/src/services/socket').catch(() => ({
+      initSocketClient: null,
+    }));
+
+    if (!initSocketClient) {
+      console.debug('[Socket] Realtime service not available in this build');
+      return;
+    }
+
+    const token = useSessionStore.getState().authToken || localStorage.getItem('auth:token');
+    if (token) {
+      await initSocketClient({
+        url: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000',
+        token,
+        deviceId: `desktop-${Date.now()}`,
+      });
+      console.log('[Socket] Realtime client initialized');
+    }
+  } catch (error) {
+    console.warn('[Socket] Failed to initialize realtime client:', error);
+  }
+};
+
+// Call after app initializes
+setupRealtimeSocket().catch(() => {
+  // Silently fail - realtime is optional
+});
+
 // Import test utility in dev mode
 if (isDevEnv()) {
   import('./utils/testOmniDesk').catch(() => {
@@ -220,31 +252,12 @@ ensureCSPMeta();
 // Suppress known browser-native console warnings (Tracking Prevention, CSP violations, etc.)
 suppressBrowserWarnings();
 
+// LAG FIX #1: Import professional loading fallback with spinner
+import { AppLoadingFallback } from './components/common/AppLoadingFallback';
+
 // Ultra-lightweight loading component - minimal DOM for fast render
 function LoadingFallback() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: '#1A1D28',
-        color: '#94a3b8',
-        fontFamily: 'system-ui, sans-serif',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 1000,
-      }}
-    >
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌐</div>
-        <div style={{ fontSize: '14px' }}>Loading...</div>
-      </div>
-    </div>
-  );
+  return <AppLoadingFallback />;
 }
 
 // Router configuration with v7 future flags
@@ -486,11 +499,12 @@ try {
     const settingsState = useSettingsStore.getState();
     const sessionState = useSessionStore.getState();
     const startupBehavior = settingsState.general?.startupBehavior || 'newTab';
-    
+
     // If configured to restore last session and we have a snapshot, trigger restore
     if (startupBehavior === 'restore' && sessionState.snapshot) {
       console.log('[Layer1] Auto-restoring last session per startup settings');
-      sessionState.restoreFromSnapshot()
+      sessionState
+        .restoreFromSnapshot()
         .then(result => {
           console.log('[Layer1] Session restored successfully:', result);
         })

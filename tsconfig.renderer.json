@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "incremental": true
   },
-  "include": ["src", "src/**/*.json", "src/vite-env.d.ts", "services/**/*.ts"],
+  "include": ["src", "src/**/*.json", "src/vite-env.d.ts", "services/**/*.ts", "packages/**/*.ts"],
   "exclude": [
     "server",
     "node_modules",

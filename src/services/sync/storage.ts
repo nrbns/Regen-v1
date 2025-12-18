@@ -3,10 +3,41 @@
  * Persistent storage for sync data
  */
 
-import type { SyncEvent, SyncState } from './types';
+import type {
+  SyncBookmark,
+  SyncData,
+  SyncEvent,
+  SyncHistoryEntry,
+  SyncSetting,
+  SyncState,
+} from './types';
 
 export class SyncStorage {
   private readonly STORAGE_KEY = 'regen_sync_state';
+  private readonly DATA_KEY = 'regen_sync_data';
+
+  async initialize(_password?: string): Promise<void> {
+    // No-op for local storage implementation
+    return Promise.resolve();
+  }
+
+  private loadData(): SyncData {
+    try {
+      const raw = localStorage.getItem(this.DATA_KEY);
+      if (raw) return JSON.parse(raw) as SyncData;
+    } catch {
+      // fall back to defaults below
+    }
+
+    return {
+      history: [],
+      bookmarks: [],
+      bookmarkFolders: [],
+      settings: [],
+      lastSynced: 0,
+      version: 1,
+    };
+  }
 
   /**
    * Load sync state
@@ -35,6 +66,32 @@ export class SyncStorage {
    */
   async saveState(state: SyncState): Promise<void> {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
+  }
+
+  async getAllSyncData(): Promise<SyncData> {
+    return this.loadData();
+  }
+
+  async saveAllSyncData(data: SyncData): Promise<void> {
+    localStorage.setItem(this.DATA_KEY, JSON.stringify(data));
+  }
+
+  async saveHistory(history: SyncHistoryEntry[]): Promise<void> {
+    const data = this.loadData();
+    data.history = history;
+    await this.saveAllSyncData(data);
+  }
+
+  async saveBookmarks(bookmarks: SyncBookmark[]): Promise<void> {
+    const data = this.loadData();
+    data.bookmarks = bookmarks;
+    await this.saveAllSyncData(data);
+  }
+
+  async saveSettings(settings: SyncSetting[]): Promise<void> {
+    const data = this.loadData();
+    data.settings = settings;
+    await this.saveAllSyncData(data);
   }
 
   /**

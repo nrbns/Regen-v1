@@ -250,7 +250,9 @@ function parseLabelPattern(label: string): AutofillDataType | null {
 /**
  * Detect submit button
  */
-function detectSubmitButton(form: HTMLFormElement): DetectedForm['submitButton'] | undefined {
+function detectSubmitButton(
+  form: HTMLFormElement
+): { type: string; text?: string; selector: string } | undefined {
   const submitButton = form.querySelector('button[type="submit"], input[type="submit"]') as
     | HTMLButtonElement
     | HTMLInputElement
@@ -273,8 +275,8 @@ function getElementSelector(element: HTMLElement): string {
     return `#${element.id}`;
   }
 
-  if (element.name) {
-    return `[name="${element.name}"]`;
+  if ('name' in element && (element as any).name) {
+    return `[name="${(element as any).name}"]`;
   }
 
   // Fallback to tag and position

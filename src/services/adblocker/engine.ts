@@ -40,8 +40,10 @@ export class AdblockerEngine {
         if (response.ok) {
           const content = await response.text();
           filterContents.push(content);
-          const parsed = parseFilterList(content);
-          parsed.forEach(filter => this.filters.add(filter));
+          const parsed = await Promise.resolve(parseFilterList(content));
+          if (Array.isArray(parsed)) {
+            parsed.forEach((filter: any) => this.filters.add(filter));
+          }
 
           this.stats.blockedByList[list.id] = 0;
         }
@@ -51,13 +53,17 @@ export class AdblockerEngine {
     }
 
     // Add custom filters
-    if (settings?.customFilters) {
-      settings.customFilters.forEach(filter => {
+    if (settings && 'customFilters' in settings && Array.isArray(settings.customFilters)) {
+      settings.customFilters.forEach((filter: any) => {
         this.filters.add(filter);
       });
     }
 
     // Add blocked domains
+    const blockedDomainSet = new Set(this.blockedDomains);
+    const whitelistedSet = new Set(
+      settings && 'whitelistedDomains' in settings ? settings.whitelistedDomains || [] : []
+    );
     if (settings?.blockedDomains) {
       settings.blockedDomains.forEach(domain => {
         this.blockedDomains.add(domain.toLowerCase());
@@ -84,7 +90,8 @@ export class AdblockerEngine {
       return {
         url: request.url,
         type: (request.type as any) || 'other',
-        blocked: false,
+        timestamp: Date.now(),
+        isBlocked: false,
       };
     }
 
@@ -94,8 +101,8 @@ export class AdblockerEngine {
       return {
         url: request.url,
         type: (request.type as any) || 'other',
-        blocked: true,
-        reason: 'Blocked domain',
+        timestamp: Date.now(),
+        isBlocked: true,
       };
     }
 
@@ -106,15 +113,16 @@ export class AdblockerEngine {
       return {
         url: request.url,
         type: (request.type as any) || 'other',
-        blocked: true,
-        reason: 'Filter rule match',
+        timestamp: Date.now(),
+        isBlocked: true,
       };
     }
 
     return {
       url: request.url,
       type: (request.type as any) || 'other',
-      blocked: false,
+      timestamp: Date.now(),
+      isBlocked: false,
     };
   }
 

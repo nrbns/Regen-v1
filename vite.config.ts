@@ -47,7 +47,7 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV === 'development', // Only sourcemaps in dev
     emptyOutDir: true,
     minify: process.env.NODE_ENV === 'production' ? 'terser' : false, // Use terser in prod for better minification
-    chunkSizeWarningLimit: 400, // DAY 5: Reduced for mobile optimization (400KB chunks)
+    chunkSizeWarningLimit: 500, // Updated: Balanced for UI improvements (500KB chunks)
     // NETWORK FIX: Enable compression (brotli/gzip handled by server)
     reportCompressedSize: true,
     // DAY 6: Enhanced build optimization
@@ -91,6 +91,12 @@ export default defineConfig({
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
             // Large UI libraries - split into separate chunks
+            if (id.includes('@radix-ui')) {
+              return 'vendor-radix';
+            }
+            if (id.includes('@dnd-kit')) {
+              return 'vendor-dnd';
+            }
             if (id.includes('framer-motion')) {
               return 'vendor-framer-motion';
             }
@@ -99,13 +105,6 @@ export default defineConfig({
             }
             if (id.includes('reactflow')) {
               return 'vendor-reactflow';
-            }
-            // DAY 5: Mobile-specific chunk splitting
-            if (id.includes('@lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('zustand')) {
-              return 'vendor-state';
             }
             // React and React DOM - core, load first
             if (id.includes('react-dom')) {

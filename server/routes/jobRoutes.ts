@@ -1,0 +1,310 @@
+/**
+ * Job Routes (Updated with State Machine)
+ * REST API for job lifecycle management with state validation
+ */
+
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { JobStateMachine, InMemoryJobStore, type JobRecord } from '../jobs/stateMachine';
+import { CheckpointManager } from '../jobs/checkpoint';
+import { JobLogManager } from '../jobs/logManager';
+import type Redis from 'ioredis';
+
+interface AuthRequest extends Request {
+  userId?: string;
+}
+
+// Will be injected from server/index.ts
+let jobStore: InMemoryJobStore | null = null;
+let checkpointManager: CheckpointManager | null = null;
+let logManager: JobLogManager | null = null;
+
+export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router {
+  // Initialize with injected dependencies
+  if (store) jobStore = store;
+  if (redis) {
+    checkpointManager = new CheckpointManager(redis);
+    logManager = new JobLogManager(redis);
+  }
+
+  // Fallback
+  if (!jobStore) jobStore = new InMemoryJobStore();
+  if (!checkpointManager) checkpointManager = new CheckpointManager(null);
+  if (!logManager) logManager = new JobLogManager(null);
+
+  const router = Router();
+
+  /**
+   * POST /api/jobs
+   * Create a new job
+   */
+  router.post('/', (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId || 'anonymous';
+
+      const jobId = uuidv4();
+      const job: JobRecord = {
+        id: jobId,
+        userId,
+        type: req.body.type || 'generic',
+        query: req.body.query,
+        state: 'created',
+        progress: 0,
+        step: 'Initializing',
+        createdAt: Date.now(),
+        lastActivity: Date.now(),
+      };
+
+      jobStore!.create(job);
+
+      res.status(201).json({
+        jobId,
+        state: job.state,
+        progress: 0,
+        message: 'Job created successfully',
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error creating job:', error);
+      res.status(500).json({ error: 'Failed to create job' });
+    }
+  });
+
+  /**
+   * GET /api/jobs/:jobId
+   * Get job status
+   */
+  router.get('/:jobId', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      // Auth check
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const checkpoint = checkpointManager ? await checkpointManager.loadCheckpoint(job.id) : null;
+
+      res.json({
+        id: job.id,
+        state: job.state,
+        progress: job.progress,
+        step: job.step,
+        createdAt: job.createdAt,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+        error: job.error,
+        result: job.state === 'completed' ? job.result : null,
+        checkpointAvailable: Boolean(checkpoint),
+        checkpointSequence: checkpoint?.sequence,
+        checkpointStep: checkpoint?.step,
+        checkpointProgress: checkpoint?.progress,
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error getting job:', error);
+      res.status(500).json({ error: 'Failed to get job' });
+    }
+  });
+
+  /**
+   * GET /api/jobs/:jobId/logs
+   * Returns recent job logs (placeholder until persistent logging is added)
+   */
+  router.get('/:jobId/logs', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      // Get logs from log manager
+      const logs = logManager ? await logManager.getLogs(req.params.jobId) : [];
+
+      res.json({
+        logs,
+        message: logs.length === 0 ? 'No logs available yet' : undefined,
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error fetching job logs:', error);
+      res.status(500).json({ error: 'Failed to fetch job logs' });
+    }
+  });
+
+  /**
+   * GET /api/jobs
+   * List user's jobs
+   */
+  router.get('/', (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId || 'anonymous';
+      const jobs = jobStore!.getUserJobs(userId);
+
+      const filtered = jobs.map(j => ({
+        id: j.id,
+        type: j.type,
+        state: j.state,
+        progress: j.progress,
+        step: j.step,
+        createdAt: j.createdAt,
+        startedAt: j.startedAt,
+        completedAt: j.completedAt,
+      }));
+
+      res.json({ jobs: filtered });
+    } catch (error) {
+      console.error('[JobRoutes] Error listing jobs:', error);
+      res.status(500).json({ error: 'Failed to list jobs' });
+    }
+  });
+
+  /**
+   * PATCH /api/jobs/:jobId/cancel
+   * Cancel a job
+   */
+  router.patch('/:jobId/cancel', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      // Use state machine
+      const result = JobStateMachine.transition(job, 'cancelled');
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      const updated = result.job!;
+      jobStore!.update(updated);
+
+      // Clean up checkpoint
+      if (checkpointManager) {
+        await checkpointManager.deleteCheckpoint(job.id);
+      }
+
+      res.json({
+        id: updated.id,
+        state: updated.state,
+        message: 'Job cancelled successfully',
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error cancelling job:', error);
+      res.status(500).json({ error: 'Failed to cancel job' });
+    }
+  });
+
+  /**
+   * POST /api/jobs/:jobId/pause
+   * Pause a running job
+   */
+  router.post('/:jobId/pause', (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      const result = JobStateMachine.transition(job, 'paused');
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      const updated = result.job!;
+      jobStore!.update(updated);
+
+      res.json({
+        id: updated.id,
+        state: updated.state,
+        message: 'Job paused successfully',
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error pausing job:', error);
+      res.status(500).json({ error: 'Failed to pause job' });
+    }
+  });
+
+  /**
+   * POST /api/jobs/:jobId/resume
+   * Resume a paused job
+   */
+  router.post('/:jobId/resume', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      if (job.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (job.state !== 'paused') {
+        return res.status(400).json({ error: `Cannot resume job in state ${job.state}` });
+      }
+
+      // Load checkpoint
+      let checkpoint = null;
+      if (checkpointManager) {
+        checkpoint = await checkpointManager.loadCheckpoint(job.id);
+      }
+
+      const result = JobStateMachine.transition(job, 'running');
+
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+
+      const updated = result.job!;
+
+      // Restore from checkpoint
+      if (checkpoint) {
+        updated.step = checkpoint.step;
+        updated.progress = checkpoint.progress;
+        updated.checkpointData = checkpoint;
+      }
+
+      jobStore!.update(updated);
+
+      res.json({
+        id: updated.id,
+        state: updated.state,
+        step: updated.step,
+        progress: updated.progress,
+        checkpoint: checkpoint ? 'Restored' : 'No checkpoint',
+        checkpointAvailable: Boolean(checkpoint),
+        checkpointSequence: checkpoint?.sequence,
+        checkpointStep: checkpoint?.step,
+        checkpointProgress: checkpoint?.progress,
+        message: 'Job resumed successfully',
+      });
+    } catch (error) {
+      console.error('[JobRoutes] Error resuming job:', error);
+      res.status(500).json({ error: 'Failed to resume job' });
+    }
+  });
+
+  return router;
+}
+
+export { JobStateMachine, InMemoryJobStore, JobLogManager };

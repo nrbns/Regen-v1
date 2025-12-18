@@ -178,7 +178,7 @@ function generateActionsForIntent(intent: IntentType, _analysis: PageAnalysis): 
       break;
 
     case 'purchase_product':
-      actions.push('summarize', 'share', 'save');
+      actions.push('summarize', 'save');
       break;
 
     case 'fill_form':

@@ -10,7 +10,11 @@ import { cn } from '../../lib/utils';
 import { useMobileDetection } from '../hooks/useMobileDetection';
 
 export function MobileTabBar() {
-  const { tabs, activeTabId, setActiveTab, closeTab, createTab } = useTabsStore();
+  const tabs = useTabsStore(s => s.tabs);
+  const activeTabId = useTabsStore(s => s.activeId);
+  const setActiveTab = useTabsStore(s => s.setActive);
+  const closeTab = useTabsStore(s => s.close);
+  const createTab = useTabsStore(s => s.add);
   const { isMobile } = useMobileDetection();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);

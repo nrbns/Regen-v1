@@ -151,6 +151,7 @@ import { ConnectionStatus } from '../common/ConnectionStatus';
 import RamSavedCounter from '../../components/RamSavedCounter';
 import { TabSummaryToast } from '../common/TabSummaryToast';
 import FirstRunModal from '../../ui/onboarding/FirstRunModal';
+import { NavigationProgress } from '../common/NavigationProgress';
 
 declare global {
   interface Window {
@@ -409,6 +410,20 @@ export function AppShell() {
   // Layer 2: Initialize performance optimizers
   const _layoutOptimizer = React.useRef(getLayoutOptimizer());
   const navigationPreloader = React.useRef(getNavigationPreloader());
+
+  // LAG FIX: Toast feedback for network changes
+  useEffect(() => {
+    const handleOnline = () => toast.success('Back online. Resyncing...');
+    const handleOffline = () => toast.error('You are offline. Actions will queue.');
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Week 2 MVP: State declarations
 
@@ -1863,6 +1878,7 @@ export function AppShell() {
       className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
       data-app-shell="true"
     >
+      <NavigationProgress />
       {/* Safe Mode Indicator - Show at top if enabled */}
       {typeof window !== 'undefined' && (
         <Suspense fallback={null}>
