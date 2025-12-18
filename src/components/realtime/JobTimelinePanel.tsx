@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Play, Pause, CheckCircle, AlertCircle, Trash2, RotateCcw } from 'lucide-react';
 import { getSocketClient } from '../../services/realtime/socketClient';
+import { StepProgress, StepBadge, parseJobStep, type JobStep } from './StepProgress';
 
 interface TimelineJob {
   jobId: string;
@@ -11,6 +12,7 @@ interface TimelineJob {
   endTime?: number;
   error?: string;
   step?: string;
+  currentStep?: JobStep;
 }
 
 /**
@@ -62,13 +64,15 @@ export function JobTimelinePanel() {
 
     // Listen for job start
     const unsubJobStart = client.on?.('job:start', (data: any) => {
+      const stepString = data.step || 'Initializing';
       const newJob: TimelineJob = {
         jobId: data.jobId,
         status: 'running',
         progress: 0,
         streamingOutput: '',
         startTime: Date.now(),
-        step: data.step || 'Initializing',
+        step: stepString,
+        currentStep: parseJobStep(stepString),
       };
       setJobs((prev) => [newJob, ...prev]);
       setActiveJobId(data.jobId);
@@ -85,6 +89,7 @@ export function JobTimelinePanel() {
                 ...job,
                 progress: data.progress || 0,
                 step: data.step || job.step,
+                currentStep: parseJobStep(data.step || job.step),
               }
             : job
         )
@@ -208,9 +213,13 @@ export function JobTimelinePanel() {
               <div className="text-sm font-medium text-slate-200 truncate">
                 Job {currentJob.jobId.slice(0, 8)}
               </div>
-              {currentJob.step && (
+              {currentJob.currentStep && currentJob.currentStep !== 'idle' ? (
+                <div className="mt-1">
+                  <StepBadge currentStep={currentJob.currentStep} />
+                </div>
+              ) : currentJob.step ? (
                 <div className="text-xs text-slate-400">{currentJob.step}</div>
-              )}
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -236,6 +245,13 @@ export function JobTimelinePanel() {
                 style={{ width: `${currentJob.progress}%` }}
               />
             </div>
+            
+            {/* Step Progress Indicator */}
+            {currentJob.currentStep && currentJob.currentStep !== 'idle' && (
+              <div className="mt-3">
+                <StepProgress currentStep={currentJob.currentStep} size="sm" />
+              </div>
+            )}
           </div>
         )}
 
