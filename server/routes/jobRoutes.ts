@@ -200,6 +200,85 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
   });
 
   /**
+   * GET /api/jobs/recent
+   * Return user's recent jobs, sorted by activity
+   */
+  router.get('/recent', async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId || 'anonymous';
+      const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 25));
+
+      const jobs = jobStore!.getUserJobs(userId)
+        .sort((a, b) => (b.lastActivity || b.createdAt) - (a.lastActivity || a.createdAt))
+        .slice(0, limit)
+        .map(j => ({
+          id: j.id,
+          state: j.state,
+          progress: j.progress,
+          step: j.step,
+          updatedAt: j.lastActivity || j.createdAt,
+        }));
+
+      res.json(jobs);
+    } catch (error) {
+      console.error('[JobRoutes] Error listing recent jobs:', error);
+      res.status(500).json({ error: 'Failed to list recent jobs' });
+    }
+  });
+
+  /**
+   * GET /api/jobs/resumable
+   * Return user's jobs that can be resumed (paused/failed with checkpoint)
+   */
+  router.get('/resumable', async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.userId || 'anonymous';
+      const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 25));
+
+      const userJobs = jobStore!.getUserJobs(userId);
+
+      // Check checkpoint availability via manager if present
+      const result: Array<{ id: string; state: string; progress?: number; step?: string; updatedAt?: number }> = [];
+      for (const j of userJobs) {
+        const isCandidate = j.state === 'paused' || j.state === 'failed';
+        if (!isCandidate) continue;
+
+        let hasCheckpoint = false;
+        try {
+          if (checkpointManager) {
+            const cp = await checkpointManager.loadCheckpoint(j.id);
+            hasCheckpoint = Boolean(cp);
+          } else {
+            hasCheckpoint = Boolean(j.checkpointData);
+          }
+        } catch {
+          hasCheckpoint = Boolean(j.checkpointData);
+        }
+
+        if (hasCheckpoint) {
+          result.push({
+            id: j.id,
+            state: j.state,
+            progress: j.progress,
+            step: j.step,
+            updatedAt: j.lastActivity || j.createdAt,
+          });
+        }
+      }
+
+      // Sort and limit
+      const sorted = result
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .slice(0, limit);
+
+      res.json(sorted);
+    } catch (error) {
+      console.error('[JobRoutes] Error listing resumable jobs:', error);
+      res.status(500).json({ error: 'Failed to list resumable jobs' });
+    }
+  });
+
+  /**
    * PATCH /api/jobs/:jobId/cancel
    * Cancel a job
    */
