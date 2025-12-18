@@ -38,6 +38,15 @@ export interface JobLogsResponse {
   message?: string;
 }
 
+export interface JobSummary {
+  id: string;
+  state: string;
+  progress?: number;
+  step?: string;
+  error?: string;
+  updatedAt?: number;
+}
+
 async function request<T>(path: string, options: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
@@ -66,6 +75,25 @@ export async function fetchJob(jobId: string): Promise<JobDetailsResponse> {
 
 export async function fetchJobLogs(jobId: string): Promise<JobLogsResponse> {
   return request<JobLogsResponse>(`/api/jobs/${jobId}/logs`, { method: 'GET' });
+}
+
+// Optional endpoints: recent and resumable jobs. Gracefully fallback to [] if unavailable.
+export async function fetchRecentJobs(limit = 25): Promise<JobSummary[]> {
+  try {
+    return await request<JobSummary[]>(`/api/jobs/recent?limit=${limit}`, { method: 'GET' });
+  } catch (err) {
+    console.warn('[jobs:fetchRecentJobs] Endpoint unavailable, returning empty list');
+    return [];
+  }
+}
+
+export async function fetchResumableJobs(limit = 25): Promise<JobSummary[]> {
+  try {
+    return await request<JobSummary[]>(`/api/jobs/resumable?limit=${limit}`, { method: 'GET' });
+  } catch (err) {
+    console.warn('[jobs:fetchResumableJobs] Endpoint unavailable, returning empty list');
+    return [];
+  }
 }
 
 // Placeholder for reporting issues; hook up to real backend when available
