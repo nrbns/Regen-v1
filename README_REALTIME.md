@@ -92,10 +92,26 @@ export function MyAgent({ jobId }) {
 ### Using Realtime Status Indicator
 
 ```tsx
-import { RealtimeStatus } from '@/components/realtime/RealtimeStatus';
+import { GlobalAIStatusBar } from '@/components/realtime/GlobalAIStatusBar';
 
-<RealtimeStatus jobId={jobId} />; // Shows connection state automatically
+<GlobalAIStatusBar />; // Always-visible status bar (top of screen)
 ```
+
+### Using Job Timeline
+
+```tsx
+import { JobTimelinePanel } from '@/components/realtime/JobTimelinePanel';
+
+<JobTimelinePanel />; // Shows running/completed jobs (bottom-right corner)
+```
+
+The Job Timeline Panel automatically:
+- **Expands** when a new job starts
+- **Collapses** after 5s on completion
+- **Shows** job ID, status, progress %, streaming output, elapsed time
+- **Stores** recent job history (last 5 jobs)
+- **Persists** state in sessionStorage across page reloads
+- **Displays** resume banner for paused/failed jobs
 
 ## Event Schema (Shared)
 
@@ -114,7 +130,9 @@ All realtime events use the EVENTS constant from `packages/shared/events.ts`:
 
 ## Next Steps
 
-1. **Realtime Status Bar** (global connection indicator)
-2. **Job Timeline Panel** (resume-after-reconnect UI)
-3. **Streaming Standardization** (all AI output uses `MODEL_CHUNK`)
-4. **Load Testing** (verify 100+ concurrent jobs)
+1. ✅ **Realtime Status Bar** (global connection indicator)
+2. ✅ **Job Timeline Panel** (shows running/completed jobs + resume)
+3. **Streaming Standardization** (all AI output uses `MODEL_CHUNK` events)
+4. **Step-based Progress** (Thinking → Searching → Writing states)
+5. **Session Restore** (recover ongoing jobs across page reloads)
+6. **Load Testing** (verify 100+ concurrent jobs)

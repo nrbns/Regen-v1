@@ -46,11 +46,12 @@ When Regen **never surprises**, **never hides state**, and **never breaks flow**
 
 **What you MUST fix:**
 
-- [x] Realtime system built
-- [ ] Global "AI is thinking" indicator (always visible)
-- [ ] Token-by-token streaming (not text dumps)
+- [x] Realtime system built (Socket.IO web client + useJobProgress hook)
+- [x] Global "AI is thinking" indicator (GlobalAIStatusBar - always visible)
+- [x] Job Timeline panel (shows running/completed jobs + progress)
+- [ ] Token-by-token streaming (all outputs use MODEL_CHUNK events)
 - [ ] Step-based progress ("Thinking → Searching → Writing")
-- [ ] Resume after refresh/crash
+- [ ] Resume after refresh/crash (session restore from localStorage)
 - [ ] Clear source labels (Local / Web / Cached / Memory)
 - [ ] Cancel + Retry always visible
 
@@ -60,10 +61,16 @@ When Regen **never surprises**, **never hides state**, and **never breaks flow**
 **Implementation:**
 
 ```
-- Add GlobalAIStatus bar (top right)
-- Replace all agent outputs with streaming
-- Add Job Timeline panel (left sidebar)
-- Implement session restore for ongoing jobs
+✅ DONE (Days 1–3):
+- GlobalAIStatusBar (top bar, shows connection + job count + streaming state)
+- JobTimelinePanel (bottom-right, shows running/completed jobs + progress)
+- Socket.IO web client (auto-reconnect, event-driven)
+- useJobProgress hook (subscription + lifecycle management)
+
+NEXT (Days 4–5):
+- Streaming standardization (all outputs token-by-token via MODEL_CHUNK)
+- Step-based progress UI (show current step: Thinking/Searching/Writing)
+- Session restore (survive page reload with ongoing job state)
 ```
 
 ---
