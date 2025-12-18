@@ -12,6 +12,7 @@ import RetryPanel from './RetryPanel';
 import ConnectionBanner from './ConnectionBanner';
 import { JobErrorBoundary } from './JobErrorBoundary';
 import JobLogsModal from './JobLogsModal';
+import ErrorBanner from './ErrorBanner';
 import { resumeJob, fetchJob, fetchJobLogs, reportJobIssue } from '../services/jobs';
 
 interface Step {
@@ -162,6 +163,24 @@ export const TaskActivityPanel: React.FC<TaskActivityPanelProps> = ({
           <div className="rounded border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200">
             {toast}
           </div>
+        )}
+        {/* Global error banner when job has failed */}
+        {state?.isFailed && state.error && (
+          <ErrorBanner
+            message={state.error}
+            onResume={async () => {
+              if (!state?.jobId) return;
+              try {
+                const { resumeJob } = await import('../services/jobs');
+                await resumeJob(state.jobId);
+                setToast('Resuming from checkpoint…');
+              } catch (err: any) {
+                setToast(err?.message || 'Resume failed');
+              }
+            }}
+            // Restart action is optional until backend endpoint exists
+            onDismiss={() => setToast(null)}
+          />
         )}
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
