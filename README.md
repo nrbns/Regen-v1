@@ -1,6 +1,6 @@
-# 🌟 Regen - India's First AI Browser
+# 🌟 Regen - Your Private AI OS
 
-**Built for India. Works Offline. Multilingual. Free Forever.**
+**Built for India. Works Offline. Transparent. Free Forever.**
 
 [![CI Status](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +9,22 @@
 [![Node.js Version](https://img.shields.io/badge/Node-18%2B-green)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 
-> **An AI-powered browser designed specifically for Indian users** - with offline AI, multilingual support, and optimized for affordable devices.
+> **Regen is a private intelligence OS that works even without the internet.**
+>
+> Your data stays on your device. Your AI stays offline. And you see exactly how it thinks.
+
+## 🎯 Why Regen? (Not ChatGPT or Comet)
+
+| Feature                    | Regen | ChatGPT | Comet | Browser |
+|---------------------------|-------|---------|-------|---------|
+| **Works Offline**          | ✅    | ❌      | ❌    | ✅      |
+| **Data Stays Local**       | ✅    | ❌      | ❌    | ✅      |
+| **Shows Reasoning**        | ✅    | ❌      | ⚠️    | ❌      |
+| **Learns About You**       | ✅    | ❌      | ❌    | ✅      |
+| **100% Free**             | ✅    | ❌      | ❌    | ✅      |
+| **Open Source**           | ✅    | ❌      | ❌    | ✅      |
+
+**The key difference**: Regen is **AI you trust** because you can **audit, understand, and control** it completely.
 
 ## 🚀 Quick Start
 
