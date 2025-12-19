@@ -15,14 +15,14 @@
 
 ## 🎯 Why Regen? (Not ChatGPT or Comet)
 
-| Feature                    | Regen | ChatGPT | Comet | Browser |
-|---------------------------|-------|---------|-------|---------|
-| **Works Offline**          | ✅    | ❌      | ❌    | ✅      |
-| **Data Stays Local**       | ✅    | ❌      | ❌    | ✅      |
-| **Shows Reasoning**        | ✅    | ❌      | ⚠️    | ❌      |
-| **Learns About You**       | ✅    | ❌      | ❌    | ✅      |
-| **100% Free**             | ✅    | ❌      | ❌    | ✅      |
-| **Open Source**           | ✅    | ❌      | ❌    | ✅      |
+| Feature              | Regen | ChatGPT | Comet | Browser |
+| -------------------- | ----- | ------- | ----- | ------- |
+| **Works Offline**    | ✅    | ❌      | ❌    | ✅      |
+| **Data Stays Local** | ✅    | ❌      | ❌    | ✅      |
+| **Shows Reasoning**  | ✅    | ❌      | ⚠️    | ❌      |
+| **Learns About You** | ✅    | ❌      | ❌    | ✅      |
+| **100% Free**        | ✅    | ❌      | ❌    | ✅      |
+| **Open Source**      | ✅    | ❌      | ❌    | ✅      |
 
 **The key difference**: Regen is **AI you trust** because you can **audit, understand, and control** it completely.
 
@@ -110,7 +110,6 @@ cd Regenbrowser
 
 # Install dependencies
 npm install
-cd tauri-migration && npm install && cd ..
 
 # Setup environment (optional - for online AI features)
 cp example.env .env
@@ -149,7 +148,8 @@ npm run lint
 
 # Build production
 npm run build
-cd tauri-migration && npm run tauri build
+# Build desktop app (Tauri)
+npm run build:app
 ```
 
 ## 📊 System Requirements
@@ -213,7 +213,7 @@ cd tauri-migration && npm run tauri build
 - `src/modes/` - Trade, Research, Docs modes
 - `src/services/` - API clients, search, voice
 - `src/core/` - AI engine, agents, memory
-- `tauri-migration/` - Tauri desktop shell
+- `src-tauri/` - Tauri desktop shell
 
 ## 📈 Project Status
 
@@ -233,16 +233,16 @@ cd tauri-migration && npm run tauri build
 
 ### 📊 Testing Status
 
-| Test Type      | Status     | Details                        |
-| -------------- | ---------- | ------------------------------ |
-| Unit Tests     | ✅ Passing | 97 tests (up from 79)          |
-| MVP Features   | ✅ PASSED  | 8/8 features validated         |
-| Settings UI    | ✅ PASSED  | Feature toggles working        |
-| Performance    | ✅ PASSED  | Cold-start <3s, memory <200MB  |
-| Integration    | ✅ PASSED  | 3/3 flows working              |
-| Desktop Manual | ⏳ Pending | Week 2 Phase 4                 |
-| Cross-Platform | 📋 Ready   | Checklists prepared            |
-| Load (k6)      | ⏳ Pending | k6 installation required       |
+| Test Type      | Status     | Details                       |
+| -------------- | ---------- | ----------------------------- |
+| Unit Tests     | ✅ Passing | 97 tests (up from 79)         |
+| MVP Features   | ✅ PASSED  | 8/8 features validated        |
+| Settings UI    | ✅ PASSED  | Feature toggles working       |
+| Performance    | ✅ PASSED  | Cold-start <3s, memory <200MB |
+| Integration    | ✅ PASSED  | 3/3 flows working             |
+| Desktop Manual | ⏳ Pending | Week 2 Phase 4                |
+| Cross-Platform | 📋 Ready   | Checklists prepared           |
+| Load (k6)      | ⏳ Pending | k6 installation required      |
 
 **Week 1 Progress**: ✅ 100% (8/8 features complete)  
 **Week 2 Progress**: ⏳ 75% (Phases 1-3 complete, 4-5 remaining)
@@ -268,12 +268,14 @@ cd tauri-migration && npm run tauri build
 ## 📖 Three-Layer Documentation
 
 ### 🟢 For Users → [README.md](README.md) (You are here)
+
 - What is Regen?
 - How to install and use
 - Key features walkthrough
 - Troubleshooting
 
 ### 🟡 For Developers → [DEVELOPERS.md](DEVELOPERS.md)
+
 - Architecture overview (3-layer AI browser)
 - Folder structure explained
 - How AI works (LangChain + Socket.IO streaming)
@@ -282,6 +284,7 @@ cd tauri-migration && npm run tauri build
 - Adding new features (examples)
 
 ### 🔵 For Contributors → [CONTRIBUTING.md](CONTRIBUTING.md)
+
 - How to contribute
 - Code style guidelines
 - Testing requirements
@@ -291,6 +294,7 @@ cd tauri-migration && npm run tauri build
 ---
 
 **Choose your path:**
+
 - I want to **use** Regen → You're in the right place ✅
 - I want to **understand how it works** → [DEVELOPERS.md](DEVELOPERS.md)
 - I want to **build a feature** → [CONTRIBUTING.md](CONTRIBUTING.md)
