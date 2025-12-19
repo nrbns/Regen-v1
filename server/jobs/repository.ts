@@ -11,6 +11,7 @@
 
 import { IJobStore, jobStore } from './store';
 import type { JobRecord } from './stateMachine';
+import type { JobState } from '../../packages/shared/events';
 
 export interface CreateResearchJobRequest {
   userId: string;
@@ -47,7 +48,6 @@ export class JobRepository {
       state: 'created',
       progress: 0,
       step: 'Initializing',
-      lastActivity: Date.now(),
     });
   }
 
@@ -59,7 +59,6 @@ export class JobRepository {
       state: 'created',
       progress: 0,
       step: 'Connecting to market data',
-      lastActivity: Date.now(),
     });
   }
 
@@ -71,7 +70,6 @@ export class JobRepository {
       state: 'created',
       progress: 0,
       step: 'Preparing analysis',
-      lastActivity: Date.now(),
     });
   }
 
@@ -164,6 +162,13 @@ export class JobRepository {
     await this.store.heartbeat(jobId);
   }
 
+  /**
+   * Direct state transition wrapper (used by recovery logic)
+   */
+  async setState(jobId: string, state: JobState): Promise<void> {
+    await this.store.setState(jobId, state);
+  }
+
   // === Control ===
 
   /**
@@ -243,6 +248,13 @@ export class JobRepository {
       jobId,
       'Worker lost connection - no checkpoint available for recovery'
     );
+  }
+
+  /**
+   * Clear checkpoint data for a job
+   */
+  async clearCheckpoint(jobId: string): Promise<void> {
+    await this.store.clearCheckpoint(jobId);
   }
 
   /**

@@ -80,6 +80,11 @@ export interface IJobStore {
   checkpoint(jobId: string, data: Record<string, any>): Promise<void>;
 
   /**
+   * Clear checkpoint data (remove resume option)
+   */
+  clearCheckpoint(jobId: string): Promise<void>;
+
+  /**
    * Set final result and mark complete
    */
   setResult(jobId: string, result: Record<string, any>): Promise<void>;
@@ -234,6 +239,14 @@ export class InMemoryJobStore implements IJobStore {
     };
     job.lastActivity = Date.now();
 
+    this.jobs.set(jobId, job);
+  }
+
+  async clearCheckpoint(jobId: string): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error(`Job ${jobId} not found`);
+    job.checkpointData = undefined;
+    job.lastActivity = Date.now();
     this.jobs.set(jobId, job);
   }
 

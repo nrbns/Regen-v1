@@ -4,12 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import {
-  NetworkMonitor,
-  fetchWithRetry,
-  OfflineRequestQueue,
-  smartFetch,
-} from './layer3-network';
+import { NetworkMonitor, fetchWithRetry, OfflineRequestQueue, smartFetch } from './layer3-network';
 
 // Mock navigator.onLine
 let mockOnline = true;
@@ -170,9 +165,7 @@ describe('Layer 3: fetchWithRetry', () => {
   it('should give up after max retries', async () => {
     (global.fetch as any).mockRejectedValue(new Error('Network error'));
 
-    await expect(fetchWithRetry('https://api.example.com/data')).rejects.toThrow(
-      'Network error'
-    );
+    await expect(fetchWithRetry('https://api.example.com/data')).rejects.toThrow('Network error');
     expect(global.fetch).toHaveBeenCalledTimes(3); // Initial + 2 retries = 3
   });
 
@@ -200,6 +193,7 @@ describe('Layer 3: OfflineRequestQueue', () => {
     localStorageMock.clear();
     queue = new OfflineRequestQueue();
     mockOnline = true;
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
   });
 
   afterEach(() => {
@@ -333,11 +327,7 @@ describe('Layer 3: smartFetch', () => {
       open: vi.fn().mockResolvedValueOnce(mockCache),
     } as any;
 
-    const response = await smartFetch(
-      'https://api.example.com/data',
-      { cacheFirst: true },
-      queue
-    );
+    const response = await smartFetch('https://api.example.com/data', { cacheFirst: true }, queue);
 
     expect(response.status).toBe(200);
     const text = await response.text();

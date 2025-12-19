@@ -43,6 +43,36 @@ function getLocaleFromLanguage(lang?: string): string {
 // Search engines that allow iframe embedding (no X-Frame-Options blocking)
 const IFRAME_FRIENDLY_PROVIDERS = ['bing', 'yahoo', 'startpage', 'ecosia'];
 
+/**
+ * DAY 2 ENHANCEMENT: Fetch search results with proper headers
+ * This bypasses bot detection and enables search results in iframes
+ */
+export async function fetchSearchResults(
+  searchUrl: string,
+  signal?: AbortSignal
+): Promise<Response> {
+  try {
+    // Try to import the search headers config
+    const { getSearchRequestHeaders } = await import('../config/day2-search-unblock').catch(() => ({
+      getSearchRequestHeaders: () => ({
+        'User-Agent': typeof navigator !== 'undefined' ? navigator.userAgent : 'Mozilla/5.0',
+      }),
+    }));
+
+    return fetch(searchUrl, {
+      headers: getSearchRequestHeaders(),
+      signal,
+      mode: 'no-cors',
+    }).catch(error => {
+      console.error('[Search] Fetch failed:', error);
+      throw error;
+    });
+  } catch (error) {
+    console.error('[Search] Search request error:', error);
+    throw error;
+  }
+}
+
 export function buildSearchUrl(
   provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'startpage' | 'ecosia',
   q: string,

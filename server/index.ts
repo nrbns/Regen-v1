@@ -14,6 +14,7 @@ import { createInMemoryJobManager, JobStateManager } from './jobState';
 import { createJobRoutes, InMemoryJobStore } from './routes/jobRoutes';
 import { JobScheduler } from './jobs/scheduler';
 import { CheckpointManager } from './jobs/checkpoint';
+import { configureRecoveryPublisher } from './jobs/recovery';
 
 const app = express();
 const httpServer = createServer(app);
@@ -42,6 +43,9 @@ export async function startRealtimeServer() {
     redisClient = createClient({ url: REDIS_URL });
     await redisClient.connect();
     console.log('[Server] Redis connected');
+
+    // Inject Redis into recovery publisher
+    configureRecoveryPublisher(redisClient);
 
     // Initialize job store (PHASE B)
     jobStore = new InMemoryJobStore();

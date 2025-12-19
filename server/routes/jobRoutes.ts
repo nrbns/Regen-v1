@@ -10,6 +10,9 @@ import { CheckpointManager } from '../jobs/checkpoint';
 import { JobLogManager } from '../jobs/logManager';
 import type Redis from 'ioredis';
 import { EVENTS } from '../../packages/shared/events';
+import { jobRegistry, configureJobRegistry } from '../jobs/jobRegistry';
+import { ReasoningLogManager } from '../jobs/reasoningLogManager';
+import { configureRecoveryReasoning } from '../jobs/recovery';
 
 interface AuthRequest extends Request {
   userId?: string;
@@ -20,6 +23,7 @@ let jobStore: InMemoryJobStore | null = null;
 let checkpointManager: CheckpointManager | null = null;
 let logManager: JobLogManager | null = null;
 let redisClient: Redis | null = null;
+let reasoningLogManager: ReasoningLogManager | null = null;
 
 async function publishJobEvent(
   jobId: string,
@@ -50,6 +54,7 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
   if (redis) {
     checkpointManager = new CheckpointManager(redis);
     logManager = new JobLogManager(redis);
+    reasoningLogManager = new ReasoningLogManager(redis);
     redisClient = redis;
   }
 
@@ -57,6 +62,15 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
   if (!jobStore) jobStore = new InMemoryJobStore();
   if (!checkpointManager) checkpointManager = new CheckpointManager(null);
   if (!logManager) logManager = new JobLogManager(null);
+  if (!reasoningLogManager) reasoningLogManager = new ReasoningLogManager(null);
+
+  // Configure recovery reasoning
+  configureRecoveryReasoning(reasoningLogManager);
+
+  // Ensure the JobRegistry reads from the same store used by routes
+  configureJobRegistry({
+    get: async (jobId: string) => Promise.resolve(jobStore!.get(jobId)),
+  });
 
   const router = Router();
 
@@ -64,7 +78,7 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
    * POST /api/jobs
    * Create a new job
    */
-  router.post('/', (req: AuthRequest, res: Response) => {
+  router.post('/', async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.userId || 'anonymous';
 
@@ -83,6 +97,21 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
 
       jobStore!.create(job);
 
+      // Update registry
+      await jobRegistry.update(job);
+
+      // Append an initial structured reasoning entry
+      reasoningLogManager
+        ?.append(jobId, {
+          step: 'created',
+          decision: 'initialize-job',
+          reasoning: 'User requested new job creation',
+          confidence: 0.1,
+          timestamp: Date.now(),
+          metadata: { type: job.type },
+        })
+        .catch(() => undefined);
+
       // Broadcast creation so UI can attach immediately
       publishJobEvent(jobId, userId, EVENTS.JOB_CREATED, {
         state: job.state,
@@ -100,6 +129,31 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
     } catch (error) {
       console.error('[JobRoutes] Error creating job:', error);
       res.status(500).json({ error: 'Failed to create job' });
+    }
+  });
+
+  /**
+   * GET /api/jobs/:jobId/snapshot
+   * Returns authoritative snapshot for resume/rebuild
+   */
+  router.get('/:jobId/snapshot', async (req: AuthRequest, res: Response) => {
+    try {
+      const jobId = req.params.jobId;
+      const snapshot = await jobRegistry.getSnapshot(jobId);
+
+      if (!snapshot) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      // Basic auth check aligned with other routes
+      if (snapshot.userId !== (req.userId || 'anonymous')) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      res.json({ snapshot });
+    } catch (error) {
+      console.error('[JobRoutes] Error getting job snapshot:', error);
+      res.status(500).json({ error: 'Failed to get job snapshot' });
     }
   });
 
@@ -159,8 +213,15 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
         return res.status(403).json({ error: 'Forbidden' });
       }
 
-      // Get logs from log manager
-      const logs = logManager ? await logManager.getLogs(req.params.jobId) : [];
+      const structured = String(req.query.structured || '') === '1';
+      // Get logs from appropriate manager
+      const logs = structured
+        ? reasoningLogManager
+          ? await reasoningLogManager.get(req.params.jobId, 100)
+          : []
+        : logManager
+          ? await logManager.getLogs(req.params.jobId)
+          : [];
 
       res.json({
         logs,
@@ -169,6 +230,28 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
     } catch (error) {
       console.error('[JobRoutes] Error fetching job logs:', error);
       res.status(500).json({ error: 'Failed to fetch job logs' });
+    }
+  });
+
+  /**
+   * GET /api/jobs/:jobId/actionLog
+   * Returns structured reasoning/action log for the job
+   */
+  router.get('/:jobId/actionLog', async (req: AuthRequest, res: Response) => {
+    try {
+      const job = jobStore!.get(req.params.jobId);
+
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+      if (job.userId !== (req.userId || 'anonymous'))
+        return res.status(403).json({ error: 'Forbidden' });
+
+      const entries = reasoningLogManager
+        ? await reasoningLogManager.get(req.params.jobId, 200)
+        : [];
+      res.json({ entries });
+    } catch (error) {
+      console.error('[JobRoutes] Error fetching action log:', error);
+      res.status(500).json({ error: 'Failed to fetch action log' });
     }
   });
 
@@ -208,7 +291,8 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       const userId = req.userId || 'anonymous';
       const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 25));
 
-      const jobs = jobStore!.getUserJobs(userId)
+      const jobs = jobStore!
+        .getUserJobs(userId)
         .sort((a, b) => (b.lastActivity || b.createdAt) - (a.lastActivity || a.createdAt))
         .slice(0, limit)
         .map(j => ({
@@ -238,7 +322,13 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       const userJobs = jobStore!.getUserJobs(userId);
 
       // Check checkpoint availability via manager if present
-      const result: Array<{ id: string; state: string; progress?: number; step?: string; updatedAt?: number }> = [];
+      const result: Array<{
+        id: string;
+        state: string;
+        progress?: number;
+        step?: string;
+        updatedAt?: number;
+      }> = [];
       for (const j of userJobs) {
         const isCandidate = j.state === 'paused' || j.state === 'failed';
         if (!isCandidate) continue;
@@ -267,9 +357,7 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       }
 
       // Sort and limit
-      const sorted = result
-        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
-        .slice(0, limit);
+      const sorted = result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, limit);
 
       res.json(sorted);
     } catch (error) {
@@ -304,6 +392,9 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       const updated = result.job!;
       jobStore!.update(updated);
 
+      // Update registry
+      await jobRegistry.update(updated);
+
       // Clean up checkpoint
       if (checkpointManager) {
         await checkpointManager.deleteCheckpoint(job.id);
@@ -330,7 +421,7 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
    * POST /api/jobs/:jobId/pause
    * Pause a running job
    */
-  router.post('/:jobId/pause', (req: AuthRequest, res: Response) => {
+  router.post('/:jobId/pause', async (req: AuthRequest, res: Response) => {
     try {
       const job = jobStore!.get(req.params.jobId);
 
@@ -350,6 +441,9 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
 
       const updated = result.job!;
       jobStore!.update(updated);
+
+      // Update registry
+      await jobRegistry.update(updated);
 
       res.json({
         id: updated.id,
@@ -411,6 +505,9 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
 
       jobStore!.update(updated);
 
+      // Update registry
+      await jobRegistry.update(updated);
+
       res.json({
         id: updated.id,
         state: updated.state,
@@ -453,7 +550,11 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       }
 
       if (!['failed', 'cancelled'].includes(job.state)) {
-        return res.status(400).json({ error: `Cannot restart job in state ${job.state}. Expected 'failed' or 'cancelled'.` });
+        return res
+          .status(400)
+          .json({
+            error: `Cannot restart job in state ${job.state}. Expected 'failed' or 'cancelled'.`,
+          });
       }
 
       // Transition to created to allow restart
@@ -474,6 +575,9 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       updated.step = 'Restarted';
 
       jobStore!.update(updated);
+
+      // Update registry
+      await jobRegistry.update(updated);
 
       res.json({
         id: updated.id,

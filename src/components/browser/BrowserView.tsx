@@ -90,8 +90,26 @@ export default function BrowserView({
 
   // Build sandbox attributes based on mode and privacy
   const sandboxAttrs = privacyMode
-    ? ['allow-scripts', 'allow-forms', 'allow-popups', 'allow-same-origin']
-    : ['allow-scripts', 'allow-forms', 'allow-popups', 'allow-same-origin', 'allow-modals'];
+    ? [
+        'allow-same-origin',
+        'allow-scripts',
+        'allow-forms',
+        'allow-popups',
+        'allow-popups-to-escape-sandbox',
+        'allow-modals',
+        'allow-downloads',
+      ]
+    : [
+        'allow-same-origin',
+        'allow-scripts',
+        'allow-forms',
+        'allow-popups',
+        'allow-popups-to-escape-sandbox',
+        'allow-modals',
+        'allow-downloads',
+        'allow-top-navigation',
+        'allow-top-navigation-by-user-activation',
+      ];
 
   // WEEK 1 TASK 3: Wrap iframe in Suspense to prevent white screens
   const IframeContent = () => (

@@ -1,3 +1,51 @@
+import { invoke } from '@tauri-apps/api/core';
+
+/**
+ * Auto-start Ollama service on first app run
+ */
+export async function initializeOllama(): Promise<{ available: boolean; error?: string }> {
+  try {
+    // Check if already running
+    const existing = await checkOllamaAvailable();
+    if (existing.available) {
+      console.log('[OllamaCheck] Ollama already running');
+      return { available: true };
+    }
+
+    // Try to invoke backend initialization
+    try {
+      await invoke('initialize_backend');
+      console.log('[OllamaCheck] Backend initialization triggered');
+
+      // Wait for Ollama to start
+      for (let i = 0; i < 30; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const result = await checkOllamaAvailable();
+        if (result.available) {
+          console.log('[OllamaCheck] Ollama started successfully after', i, 'seconds');
+          return { available: true };
+        }
+      }
+
+      return {
+        available: false,
+        error: 'Ollama failed to start within timeout',
+      };
+    } catch (tauri_error) {
+      console.warn('[OllamaCheck] Backend invoke not available (web mode):', tauri_error);
+      return {
+        available: false,
+        error: 'Ollama not running. Installation required from https://ollama.com',
+      };
+    }
+  } catch (error) {
+    return {
+      available: false,
+      error: error instanceof Error ? error.message : 'Failed to initialize Ollama',
+    };
+  }
+}
+
 /**
  * Check if Ollama is available and running
  */

@@ -42,7 +42,18 @@
       "icons/icon.ico"
     ],
     "resources": [],
-    "externalBin": [],
+    "externalBin": [
+      {
+        "name": "ollama",
+        "path": "../bin/ollama",
+        "args": ["serve"]
+      },
+      {
+        "name": "meilisearch",
+        "path": "../bin/meilisearch",
+        "args": []
+      }
+    ],
     "copyright": "Copyright © 2025 Regen Browser",
     "category": "Utility",
     "shortDescription": "Next-generation AI automation platform",
@@ -73,6 +84,9 @@
   "plugins": {
     "shell": {
       "open": true
+    },
+    "global-shortcut": {
+      "enable": true
     }
   }
 }

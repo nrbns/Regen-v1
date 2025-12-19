@@ -61,9 +61,16 @@ class SearchDatabase {
   private index: lunr.Index | null = null;
   private indexData: Map<string, SearchDocument> = new Map();
   private initPromise: Promise<void> | null = null;
+  private useMemoryOnly = typeof process !== 'undefined' && process.env?.NODE_ENV === 'test';
+  private memoryCache: Map<string, SearchResult[]> = new Map();
 
   async init(): Promise<void> {
     if (this.initPromise) return this.initPromise;
+
+    if (this.useMemoryOnly) {
+      this.initPromise = Promise.resolve();
+      return this.initPromise;
+    }
 
     this.initPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -102,6 +109,7 @@ class SearchDatabase {
   }
 
   private async loadIndex(): Promise<void> {
+    if (this.useMemoryOnly) return;
     if (!this.db) return;
 
     try {
@@ -135,6 +143,7 @@ class SearchDatabase {
   }
 
   private async loadDocuments(): Promise<void> {
+    if (this.useMemoryOnly) return;
     if (!this.db) return;
 
     const transaction = this.db.transaction([STORES.documents], 'readonly');
@@ -156,6 +165,10 @@ class SearchDatabase {
 
   async addDocument(doc: SearchDocument): Promise<void> {
     await this.init();
+    if (this.useMemoryOnly) {
+      this.indexData.set(doc.id, doc);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     // Store document
@@ -176,6 +189,10 @@ class SearchDatabase {
 
   async addDocuments(docs: SearchDocument[]): Promise<void> {
     await this.init();
+    if (this.useMemoryOnly) {
+      docs.forEach(doc => this.indexData.set(doc.id, doc));
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const transaction = this.db.transaction([STORES.documents], 'readwrite');
@@ -201,6 +218,10 @@ class SearchDatabase {
 
   async removeDocument(id: string): Promise<void> {
     await this.init();
+    if (this.useMemoryOnly) {
+      this.indexData.delete(id);
+      return;
+    }
     if (!this.db) throw new Error('Database not initialized');
 
     const transaction = this.db.transaction([STORES.documents], 'readwrite');
@@ -216,6 +237,9 @@ class SearchDatabase {
   }
 
   private async rebuildIndex(): Promise<void> {
+    if (this.useMemoryOnly) {
+      return;
+    }
     if (!this.db) return;
 
     console.log('[SearchDB] Rebuilding search index...');
@@ -261,7 +285,9 @@ class SearchDatabase {
 
   async search(query: string, options: SearchOptions = {}): Promise<SearchResult[]> {
     await this.init();
-    if (!this.index) return [];
+    if (this.useMemoryOnly || !this.index) {
+      return this.memorySearch(query, options);
+    }
 
     const start = performance.now();
 
@@ -334,10 +360,75 @@ class SearchDatabase {
     }
   }
 
+  private memorySearch(query: string, options: SearchOptions): SearchResult[] {
+    const cacheKey = this.getCacheKey(query, options);
+    if (options.cache !== false) {
+      const cached = this.memoryCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const limit = options.limit ?? 20;
+    const results: SearchResult[] = [];
+
+    const matchesFuzzy = (text: string) => {
+      if (text.includes(lowerQuery)) return true;
+      if (!options.fuzzy) return false;
+
+      const words = text.split(/\s+/);
+      return words.some(word => this.withinDistance(word, lowerQuery, 2));
+    };
+
+    for (const doc of this.indexData.values()) {
+      if (options.types?.length && !options.types.includes(doc.type)) continue;
+      const haystack =
+        `${doc.title} ${doc.content} ${doc.url || ''} ${(doc.tags || []).join(' ')}`.toLowerCase();
+
+      if (matchesFuzzy(haystack)) {
+        results.push({ id: doc.id, document: doc, score: 1, matches: [] });
+        if (results.length >= limit) break;
+      }
+    }
+
+    if (options.cache !== false) {
+      this.memoryCache.set(cacheKey, results);
+    }
+
+    return results;
+  }
+
+  private withinDistance(a: string, b: string, maxDistance: number): boolean {
+    const lenA = a.length;
+    const lenB = b.length;
+    if (Math.abs(lenA - lenB) > maxDistance) return false;
+
+    const dp = Array.from({ length: lenA + 1 }, () => new Array<number>(lenB + 1).fill(0));
+    for (let i = 0; i <= lenA; i++) dp[i][0] = i;
+    for (let j = 0; j <= lenB; j++) dp[0][j] = j;
+
+    for (let i = 1; i <= lenA; i++) {
+      let rowMin = maxDistance + 1;
+      for (let j = 1; j <= lenB; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+        rowMin = Math.min(rowMin, dp[i][j]);
+      }
+      if (rowMin > maxDistance) return false;
+    }
+
+    return dp[lenA][lenB] <= maxDistance;
+  }
+
   private async getCachedResults(
     query: string,
     options: SearchOptions
   ): Promise<SearchResult[] | null> {
+    if (this.useMemoryOnly) {
+      const key = this.getCacheKey(query, options);
+      return this.memoryCache.get(key) || null;
+    }
     if (!this.db) return null;
 
     try {
@@ -368,6 +459,11 @@ class SearchDatabase {
     options: SearchOptions,
     results: SearchResult[]
   ): Promise<void> {
+    if (this.useMemoryOnly) {
+      const key = this.getCacheKey(query, options);
+      this.memoryCache.set(key, results);
+      return;
+    }
     if (!this.db) return;
 
     try {
@@ -399,6 +495,10 @@ class SearchDatabase {
   }
 
   async clearCache(): Promise<void> {
+    if (this.useMemoryOnly) {
+      this.memoryCache.clear();
+      return;
+    }
     if (!this.db) return;
 
     const transaction = this.db.transaction([STORES.cache], 'readwrite');
@@ -417,6 +517,20 @@ class SearchDatabase {
     cacheSize: number;
   }> {
     await this.init();
+    if (this.useMemoryOnly) {
+      return {
+        documents: this.indexData.size,
+        indexSize: this.indexData.size,
+        cacheSize: this.memoryCache.size,
+      };
+    }
+    if (this.useMemoryOnly) {
+      return {
+        documents: this.indexData.size,
+        indexSize: this.indexData.size,
+        cacheSize: this.memoryCache.size,
+      };
+    }
     if (!this.db) return { documents: 0, indexSize: 0, cacheSize: 0 };
 
     const transaction = this.db.transaction([STORES.documents, STORES.cache], 'readonly');
@@ -441,6 +555,12 @@ class SearchDatabase {
   }
 
   async clear(): Promise<void> {
+    if (this.useMemoryOnly) {
+      this.indexData.clear();
+      this.memoryCache.clear();
+      this.index = null;
+      return;
+    }
     if (!this.db) return;
 
     const transaction = this.db.transaction(

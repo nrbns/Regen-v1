@@ -105,10 +105,10 @@ class TabManager {
 
   private emit() {
     const snapshot = { ...this.info };
-    this.listeners.forEach((fn) => {
+    this.listeners.forEach(fn => {
       try {
         fn(snapshot);
-      } catch (e) {
+      } catch {
         // ignore
       }
     });

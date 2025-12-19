@@ -480,6 +480,34 @@ try {
   // DOGFOODING: Initialize safe mode crash detection
   initSafeMode();
 
+  // DAY 1 LAUNCH FIX: Initialize Ollama backend auto-start
+  const initOllama = async () => {
+    try {
+      const { initializeOllama } = await import('./utils/ollamaCheck');
+      const result = await initializeOllama();
+      if (result.available) {
+        console.log('[Main] ✅ Ollama backend initialized successfully');
+      } else {
+        console.warn('[Main] ⚠️ Ollama not available:', result.error);
+      }
+    } catch (error) {
+      console.warn('[Main] Ollama initialization deferred (web mode):', error);
+    }
+  };
+  initOllama();
+
+  // Initialize local Hugging Face server (offline AI)
+  const initHuggingFace = async () => {
+    try {
+      const { initializeLocalHF } = await import('./services/huggingface/localHFServer');
+      await initializeLocalHF();
+      console.log('[Main] ✅ Hugging Face local server initialized (offline mode)');
+    } catch (error) {
+      console.warn('[Main] HF initialization deferred:', error);
+    }
+  };
+  initHuggingFace();
+
   // =====================================================================
   // LAYER 1: Browser Core Stability - Auto-Restore & Low-RAM Watchdog
   // =====================================================================
@@ -1292,7 +1320,9 @@ try {
           {/* Surface job recovery failures globally */}
           {(() => {
             try {
-              const { GlobalErrorBanner } = require('../apps/desktop/src/components/GlobalErrorBanner');
+              const {
+                GlobalErrorBanner,
+              } = require('../apps/desktop/src/components/GlobalErrorBanner');
               const Comp = (GlobalErrorBanner as any)?.default || GlobalErrorBanner;
               return <Comp />;
             } catch {

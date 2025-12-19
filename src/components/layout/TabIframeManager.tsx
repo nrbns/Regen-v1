@@ -313,7 +313,11 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
               src={currentIframeUrl}
               title={tab.title ?? 'Tab content'}
               data-tab-id={tab.id}
-              sandbox={privacyMode ? 'allow-scripts allow-forms allow-popups' : SAFE_IFRAME_SANDBOX}
+              sandbox={
+                privacyMode
+                  ? 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads'
+                  : SAFE_IFRAME_SANDBOX
+              }
               allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access"
               referrerPolicy={privacyMode ? 'no-referrer' : 'no-referrer-when-downgrade'}
               loading={isActive ? 'eager' : 'lazy'}

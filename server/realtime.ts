@@ -28,7 +28,7 @@ import { Server as HttpServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 
 interface AuthToken {
   userId: string;
@@ -41,8 +41,13 @@ interface JobEvent {
     | 'job:chunk'
     | 'job:progress'
     | 'job:checkpoint'
+    | 'job:checkpointed'
     | 'job:completed'
-    | 'job:failed';
+    | 'job:failed'
+    | 'job:resumed'
+    | 'job:paused'
+    | 'job:cancelled'
+    | 'job:restarted';
   userId: string;
   jobId: string;
   payload: any;

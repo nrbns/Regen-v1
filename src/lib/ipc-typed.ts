@@ -256,14 +256,15 @@ const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
   'identity:list': () => [] as IdentityCredential[],
   'identity:add': () =>
     ({
-      id: 'demo',
+      id: crypto.randomUUID(),
       domain: 'example.com',
-      username: 'demo',
+      username: 'user',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }) satisfies IdentityCredential,
   'identity:remove': () => ({ success: false }),
-  'identity:reveal': () => ({ id: 'demo', secret: 'demo' }) satisfies IdentityRevealPayload,
+  'identity:reveal': () =>
+    ({ id: crypto.randomUUID(), secret: 'demo' }) satisfies IdentityRevealPayload,
   'consent:list': () => [],
   'shields:getStatus': () => ({
     adsBlocked: 0,
@@ -656,8 +657,8 @@ export async function ipcCall<TRequest, TResponse = unknown>(
   // If we have window.ipc or window.api, we're definitely in Electron (even if other checks fail)
   // Also, if we're NOT in a regular browser, assume Electron (more aggressive detection).
   // However, force Electron=false when running in Tauri to avoid misclassification.
-  const isElectron = !isTauri &&
-    (hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser);
+  const isElectron =
+    !isTauri && (hasElectronRuntime || userAgentHasElectron || hasWindowIpc || !isRegularBrowser);
 
   // Wait for IPC to be ready (with longer timeout for first call)
   const isReady = await waitForIPC(8000);

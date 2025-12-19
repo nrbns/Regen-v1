@@ -128,6 +128,7 @@ export class ChangeTracker {
       id: resourceId,
       data,
       version,
+      timestamp: Date.now(),
       lastModified: Date.now(),
       lastModifiedBy: this.userId,
       changes: history,
@@ -306,25 +307,43 @@ export class ConflictResolver {
    * Smart merge for arrays and objects
    */
   private static smartMerge(base: any, local: any, remote: any): any {
-    // For arrays, merge non-overlapping changes
+    // For arrays, merge non-overlapping changes (additions and deletions)
     if (Array.isArray(base) && Array.isArray(local) && Array.isArray(remote)) {
+      // Start with base items
       const merged = [...base];
 
-      // Add items from local not in base
-      local.forEach((item, _i) => {
+      // Add items from local that weren't in base
+      local.forEach((item) => {
         if (!base.includes(item) && !merged.includes(item)) {
           merged.push(item);
         }
       });
 
-      // Add items from remote not in base
+      // Add items from remote that weren't in base
       remote.forEach(item => {
         if (!base.includes(item) && !merged.includes(item)) {
           merged.push(item);
         }
       });
 
-      return merged;
+      // Remove items that were deleted in either local or remote
+      const finalMerged = merged.filter(item => {
+        // If item was in base
+        if (base.includes(item)) {
+          const inLocal = local.includes(item);
+          const inRemote = remote.includes(item);
+          
+          // If removed from either side, remove it (deletion wins)
+          if (!inLocal || !inRemote) return false;
+          
+          // Both kept it, keep it
+          return true;
+        }
+        // Item was added by one side, keep it
+        return true;
+      });
+
+      return finalMerged;
     }
 
     // For objects, recursively merge properties

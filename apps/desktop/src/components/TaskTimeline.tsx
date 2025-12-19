@@ -17,7 +17,11 @@ const stateColor: Record<string, string> = {
   completed: 'text-green-600',
 };
 
-export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFilter = 'recent', limit = 25 }) => {
+export const TaskTimeline: React.FC<TaskTimelineProps> = ({
+  onSelect,
+  initialFilter = 'recent',
+  limit = 25,
+}) => {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,8 +52,7 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, limit]);
+  }, [filter, limit, load]);
 
   async function handleResume(jobId: string) {
     try {
@@ -63,7 +66,10 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
   function renderItem(j: JobSummary) {
     const color = stateColor[j.state] || 'text-gray-700';
     return (
-      <div key={j.id} className="flex items-center justify-between px-3 py-2 border-b border-gray-200">
+      <div
+        key={j.id}
+        className="flex items-center justify-between border-b border-gray-200 px-3 py-2"
+      >
         <div className="flex-1">
           <div className="text-sm font-medium">{j.step || 'Untitled Task'}</div>
           <div className={clsx('text-xs', color)}>
@@ -73,11 +79,17 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
         </div>
         <div className="flex items-center gap-2">
           {j.state === 'failed' && (
-            <button className="px-2 py-1 text-xs rounded bg-yellow-100 hover:bg-yellow-200" onClick={() => handleResume(j.id)}>
+            <button
+              className="rounded bg-yellow-100 px-2 py-1 text-xs hover:bg-yellow-200"
+              onClick={() => handleResume(j.id)}
+            >
               Resume
             </button>
           )}
-          <button className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200" onClick={() => onSelect?.(j.id)}>
+          <button
+            className="rounded bg-gray-100 px-2 py-1 text-xs hover:bg-gray-200"
+            onClick={() => onSelect?.(j.id)}
+          >
             Open
           </button>
         </div>
@@ -86,13 +98,13 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex items-center gap-2 p-2 border-b border-gray-200">
+    <div className="flex h-full w-full flex-col">
+      <div className="flex items-center gap-2 border-b border-gray-200 p-2">
         {(['recent', 'resumable', 'running', 'failed', 'completed'] as Filter[]).map(f => (
           <button
             key={f}
             className={clsx(
-              'px-3 py-1 text-xs rounded',
+              'rounded px-3 py-1 text-xs',
               filter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
             )}
             onClick={() => setFilter(f)}
@@ -100,7 +112,10 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
             {f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
-        <button className="ml-auto px-3 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200" onClick={load}>
+        <button
+          className="ml-auto rounded bg-gray-100 px-3 py-1 text-xs hover:bg-gray-200"
+          onClick={load}
+        >
           Refresh
         </button>
       </div>
@@ -110,7 +125,9 @@ export const TaskTimeline: React.FC<TaskTimelineProps> = ({ onSelect, initialFil
         {!loading && jobs.length === 0 && (
           <div className="p-3 text-sm text-gray-600">No tasks to show.</div>
         )}
-        {!loading && jobs.length > 0 && <div className="divide-y divide-gray-200">{jobs.map(renderItem)}</div>}
+        {!loading && jobs.length > 0 && (
+          <div className="divide-y divide-gray-200">{jobs.map(renderItem)}</div>
+        )}
       </div>
     </div>
   );

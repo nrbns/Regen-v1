@@ -19,7 +19,7 @@ export type ConnectionStatus = 'online' | 'offline' | 'slow';
 
 export interface NetworkState {
   status: ConnectionStatus;
-  quality: 'fast' | 'medium' | 'slow';
+  quality: 'fast' | 'medium' | 'slow' | '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
   effectiveType: '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
   downlink: number; // Mbps
   rtt: number; // ms
@@ -45,19 +45,14 @@ export class NetworkMonitor {
     const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const connection = this.getConnectionInfo();
 
-    let quality: 'fast' | 'medium' | 'slow' = 'fast';
+    let quality: NetworkState['quality'] = connection?.effectiveType || 'unknown';
     let status: ConnectionStatus = online ? 'online' : 'offline';
 
     if (online && connection) {
-      if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
-        quality = 'slow';
+      const slowConnection =
+        connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g';
+      if (slowConnection || connection.saveData) {
         status = 'slow';
-      } else if (connection.effectiveType === '3g') {
-        quality = 'medium';
-      }
-
-      if (connection.saveData) {
-        quality = 'slow';
       }
     }
 
@@ -131,10 +126,12 @@ export class NetworkMonitor {
   }
 
   getState(): NetworkState {
+    this.currentState = this.getCurrentNetworkState();
     return this.currentState;
   }
 
   isOnline(): boolean {
+    this.currentState = this.getCurrentNetworkState();
     return this.currentState.status !== 'offline';
   }
 
@@ -213,8 +210,9 @@ const DEFAULT_RETRY_OPTIONS: Required<RetryOptions> = {
   maxDelay: 30000, // 30 seconds
   backoffFactor: 2,
   retryOn: (error: any) => {
+    const message = (error?.message || '').toLowerCase();
     // Retry on network errors or 5xx server errors
-    if (error?.name === 'TypeError' || error?.message?.includes('network')) {
+    if (error?.name === 'TypeError' || message.includes('network')) {
       return true;
     }
     if (error?.status >= 500 && error?.status < 600) {
@@ -243,6 +241,15 @@ export async function fetchWithRetry<T>(
 
     const response = await fetch(fetchFnOrUrl, fetchOptions);
     if (response instanceof Response && !response.ok) {
+      // Non-retryable client errors (other than 408/429) should bubble up as responses
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        ![408, 429].includes(response.status)
+      ) {
+        return response as unknown as T;
+      }
+
       const error: any = new Error(response.statusText || 'Request failed');
       error.status = response.status;
       throw error;
@@ -298,6 +305,7 @@ export interface QueuedRequest {
 export interface OfflineQueueOptions {
   maxSize?: number;
   batchSize?: number;
+  autoProcessOnAdd?: boolean;
 }
 
 export class OfflineRequestQueue {
@@ -308,10 +316,12 @@ export class OfflineRequestQueue {
   private maxSize: number;
   private batchSize: number;
   private onlineListener?: () => void;
+  private autoProcessOnAdd: boolean;
 
   constructor(options: OfflineQueueOptions = {}) {
-    this.maxSize = options.maxSize ?? 50;
+    this.maxSize = options.maxSize ?? 200;
     this.batchSize = options.batchSize ?? 10;
+    this.autoProcessOnAdd = options.autoProcessOnAdd ?? false;
     this.loadFromStorage();
     this.startAutoProcess();
   }
@@ -375,7 +385,7 @@ export class OfflineRequestQueue {
     this.saveToStorage();
 
     // Try to process immediately if online
-    if (getNetworkMonitor().isOnline()) {
+    if (this.autoProcessOnAdd && getNetworkMonitor().isOnline()) {
       await this.processQueue();
     }
   }
@@ -385,9 +395,7 @@ export class OfflineRequestQueue {
 
     if (typeof window !== 'undefined') {
       this.onlineListener = () => {
-        if (this.queue.length > 0) {
-          this.processQueue();
-        }
+        this.processQueue();
       };
       window.addEventListener('online', this.onlineListener);
     }
@@ -418,30 +426,37 @@ export class OfflineRequestQueue {
       return;
     }
 
+    if (typeof fetch !== 'function') {
+      return;
+    }
+
     this.processing = true;
 
-    const batch = [...this.queue.slice(0, this.batchSize)];
+    while (this.queue.length > 0) {
+      const batch = [...this.queue.slice(0, this.batchSize)];
 
-    for (const request of batch) {
-      try {
-        await this.executeRequest(request);
+      for (const request of batch) {
+        try {
+          await this.executeRequest(request);
 
-        // Success - remove from queue
-        this.queue.shift();
-        this.saveToStorage();
-      } catch (error) {
-        console.error('[OfflineQueue] Failed to execute request:', error);
-
-        request.retryCount++;
-
-        // Max retries reached, remove from queue
-        if (request.retryCount >= 5) {
-          console.warn('[OfflineQueue] Max retries reached, discarding request:', request.id);
+          // Success - remove from queue
           this.queue.shift();
           this.saveToStorage();
-        } else {
-          // Keep in queue, will retry later
-          break;
+        } catch (error) {
+          console.error('[OfflineQueue] Failed to execute request:', error);
+
+          request.retryCount++;
+
+          // Max retries reached, remove from queue
+          if (request.retryCount >= 5) {
+            console.warn('[OfflineQueue] Max retries reached, discarding request:', request.id);
+            this.queue.shift();
+            this.saveToStorage();
+          } else {
+            // Keep in queue, will retry later
+            this.processing = false;
+            return;
+          }
         }
       }
     }
@@ -460,6 +475,10 @@ export class OfflineRequestQueue {
             ? JSON.stringify(request.body)
             : undefined,
     });
+
+    if (!response || (response as any).ok === undefined) {
+      return;
+    }
 
     if (!response.ok) {
       const error: any = new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -512,38 +531,35 @@ export async function smartFetch(
   options: SmartFetchOptions = {},
   queue: OfflineRequestQueue = getOfflineQueue()
 ): Promise<Response> {
-  const {
-    retry,
-    queueIfOffline = false,
-    cacheFirst = false,
-    cacheDuration,
-    ...fetchOptions
-  } = options;
+  const { retry, queueIfOffline, cacheFirst = false, cacheDuration, ...fetchOptions } = options;
+
+  const shouldQueue =
+    queueIfOffline ?? (fetchOptions.method === 'POST' || fetchOptions.method === 'PUT');
 
   const monitor = getNetworkMonitor();
 
   // Check if offline
   if (!monitor.isOnline()) {
-    if (queueIfOffline && (fetchOptions.method === 'POST' || fetchOptions.method === 'PUT')) {
+    if (shouldQueue && (fetchOptions.method === 'POST' || fetchOptions.method === 'PUT')) {
       // Queue for later execution
       await queue.add(url, fetchOptions);
-      throw new Error('Offline: Request queued for later');
+      return new Response('queued', { status: 202 });
     }
 
     // Try cache
     if (cacheFirst && 'caches' in window) {
-      const cached = await caches.match(url);
-      if (cached) {
-        return cached;
-      }
+      const cache = await caches.open('smart-fetch-cache');
+      const cached = await cache.match(url);
+      if (cached) return cached;
     }
 
-    throw new Error('Offline: No cached response available');
+    throw new Error('Offline and no cached response available');
   }
 
   // Check cache first if requested
   if (cacheFirst && 'caches' in window) {
-    const cached = await caches.match(url);
+    const cache = await caches.open('smart-fetch-cache');
+    const cached = await cache.match(url);
     if (cached) {
       const cacheTime = cached.headers.get('x-cache-time');
       if (cacheTime && cacheDuration) {

@@ -7,45 +7,43 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 test.describe('Skeleton Components Visual Tests', () => {
-  const getPreviewLocator = async (page: Page) => {
+  const prepareStory = async (page: Page, storyPath: string) => {
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.goto(storyPath);
+    await page.waitForSelector('#storybook-root', { state: 'attached' });
+    await page.evaluate(() => {
+      const root = document.querySelector('#storybook-root') as HTMLElement | null;
+      if (root) {
+        root.style.minHeight = '720px';
+        root.style.width = '100%';
+        root.style.padding = '32px';
+        root.style.boxSizing = 'border-box';
+        root.style.background = 'var(--surface-body, #0b1224)';
+      }
+      document.body.style.minHeight = '720px';
+      document.body.style.background = 'var(--surface-body, #0b1224)';
+    });
+    await page.waitForTimeout(300);
     const root = page.locator('#storybook-root');
-    try {
-      await page.waitForSelector('#storybook-root', { state: 'attached' });
-      await page.waitForSelector('#storybook-root *', { state: 'attached', timeout: 5000 });
-      return root;
-    } catch {
-      return page.locator('body');
-    }
+    return (await root.count()) > 0 ? root : page.locator('body');
   };
 
   test('Skeleton default variant should match snapshot', async ({ page }) => {
-    await page.goto('/iframe.html?id=components-skeleton--default');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500); // Wait for animations
-
-    const preview = await getPreviewLocator(page);
+    const preview = await prepareStory(page, '/iframe.html?id=components-skeleton--default');
     await expect(preview).toHaveScreenshot('skeleton-default.png', {
       animations: 'disabled',
     });
   });
 
   test('SkeletonCard should match snapshot', async ({ page }) => {
-    await page.goto('/iframe.html?id=components-skeleton--card');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500);
-
-    const preview = await getPreviewLocator(page);
+    const preview = await prepareStory(page, '/iframe.html?id=components-skeleton--card');
     await expect(preview).toHaveScreenshot('skeleton-card.png', {
       animations: 'disabled',
     });
   });
 
   test('SkeletonText should match snapshot', async ({ page }) => {
-    await page.goto('/iframe.html?id=components-skeleton--text');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500);
-
-    const preview = await getPreviewLocator(page);
+    const preview = await prepareStory(page, '/iframe.html?id=components-skeleton--text');
     await expect(preview).toHaveScreenshot('skeleton-text.png', {
       animations: 'disabled',
     });

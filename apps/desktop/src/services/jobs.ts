@@ -81,7 +81,7 @@ export async function fetchJobLogs(jobId: string): Promise<JobLogsResponse> {
 export async function fetchRecentJobs(limit = 25): Promise<JobSummary[]> {
   try {
     return await request<JobSummary[]>(`/api/jobs/recent?limit=${limit}`, { method: 'GET' });
-  } catch (err) {
+  } catch {
     console.warn('[jobs:fetchRecentJobs] Endpoint unavailable, returning empty list');
     return [];
   }
@@ -90,7 +90,7 @@ export async function fetchRecentJobs(limit = 25): Promise<JobSummary[]> {
 export async function fetchResumableJobs(limit = 25): Promise<JobSummary[]> {
   try {
     return await request<JobSummary[]>(`/api/jobs/resumable?limit=${limit}`, { method: 'GET' });
-  } catch (err) {
+  } catch {
     console.warn('[jobs:fetchResumableJobs] Endpoint unavailable, returning empty list');
     return [];
   }

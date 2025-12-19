@@ -155,6 +155,30 @@ export class SocketClient {
       this.handleJobError(data);
     });
 
+    // Job resumed
+    onAny(['job:resumed', EVENTS.JOB_RESUMED], (data: any) => {
+      this.emit(EVENTS.JOB_RESUMED, data);
+      this.handleJobProgress(data);
+    });
+
+    // Job paused
+    onAny(['job:paused', EVENTS.JOB_PAUSED], (data: any) => {
+      this.emit(EVENTS.JOB_PAUSED, data);
+      this.handleJobProgress(data);
+    });
+
+    // Job cancelled
+    onAny(['job:cancelled', EVENTS.JOB_CANCELLED], (data: any) => {
+      this.emit(EVENTS.JOB_CANCELLED, data);
+      this.handleJobProgress(data);
+    });
+
+    // Job checkpointed
+    onAny(['job:checkpointed', EVENTS.JOB_CHECKPOINTED], (data: any) => {
+      this.emit(EVENTS.JOB_CHECKPOINTED, data);
+      this.handleJobProgress(data);
+    });
+
     // Job chunk (streaming)
     onAny(['job:chunk', EVENTS.MODEL_CHUNK], (data: any) => {
       this.emit(EVENTS.MODEL_CHUNK, data);

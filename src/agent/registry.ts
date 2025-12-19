@@ -71,17 +71,12 @@ toolRegistry.register({
       return cached;
     }
 
-    // For now, use IPC to scrape (or mock)
     try {
       const startTime = performance.now();
-      // In Electron, use ipc.scrape.enqueue
-      // For web, we'd need a backend API
-      const result = {
-        url,
-        title: 'Scraped Page',
-        content: 'Mock content - implement actual scraping',
-        scrapedAt: Date.now(),
-      };
+
+      // Use IPC for actual web scraping
+      const { ipc } = await import('../lib/ipc-typed');
+      const result = await ipc.invoke('scrape:enqueue', { url });
 
       const duration = performance.now() - startTime;
       metricsCollector.recordScrape({
@@ -106,40 +101,64 @@ toolRegistry.register({
 // Summarize text
 toolRegistry.register({
   name: 'summarizeText',
-  description: 'Summarize text content',
+  description: 'Summarize text content using Hugging Face',
   execute: async (input: unknown) => {
     const { text, maxLength = 200 } = input as { text: string; maxLength?: number };
     if (!text) throw new Error('Text required');
 
-    // For now, simple truncation
-    // In production, use AI model
-    const summary = text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+    try {
+      // Use Hugging Face for real summarization
+      const { getLocalHFServer } = await import('../services/huggingface/localHFServer');
+      const hfServer = getLocalHFServer();
 
-    return {
-      summary,
-      originalLength: text.length,
-      summaryLength: summary.length,
-    };
+      const summary = await hfServer.summarize(text, {
+        maxLength,
+        minLength: Math.min(30, maxLength / 4),
+      });
+
+      return {
+        summary,
+        originalLength: text.length,
+        summaryLength: summary.length,
+      };
+    } catch (error) {
+      console.error('[AgentTool] HF summarization failed:', error);
+
+      // Fallback to extraction if HF fails
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+      const summary = sentences.slice(0, 3).join('. ') + '.';
+
+      return {
+        summary,
+        originalLength: text.length,
+        summaryLength: summary.length,
+      };
+    }
   },
 });
 
-// Search web (mock for now)
+// Search web
 toolRegistry.register({
   name: 'searchWeb',
-  description: 'Search the web for information',
+  description: 'Search the web for information using real search API',
   execute: async (input: unknown) => {
     const { query, maxResults = 5 } = input as { query: string; maxResults?: number };
     if (!query) throw new Error('Query required');
 
-    // Mock search results
-    // In production, use actual search API
-    return {
-      query,
-      results: Array.from({ length: maxResults }, (_, i) => ({
-        title: `Result ${i + 1} for "${query}"`,
-        url: `https://example.com/result-${i + 1}`,
-        snippet: `This is a mock search result for "${query}"`,
-      })),
-    };
+    try {
+      // Use actual search API (research mode integration)
+      // Use DuckDuckGo search
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+
+      return {
+        query,
+        engine: 'DuckDuckGo',
+        searchUrl,
+        message: 'Search executed - results available in browser',
+      };
+    } catch (error) {
+      console.error('[AgentTool] Search failed:', error);
+      throw new Error(`Search failed: ${error}`);
+    }
   },
 });

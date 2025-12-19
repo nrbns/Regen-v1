@@ -12,9 +12,15 @@
 
 import { jobRepository } from '../jobs/repository';
 import type { JobRecord } from '../jobs/stateMachine';
-import { publishJobEvent } from '../realtime';
-import type { JobRealtimeEvent } from '../realtime';
+import { publishJobEvent as _publishJobEvent } from '../realtime';
+// Lazy-injected Redis client for event publishing
+let _redisClient: any = null;
 import { EVENTS } from '../../packages/shared/events';
+import { ReasoningLogManager } from './reasoningLogManager';
+import { jobRegistry } from './jobRegistry';
+
+// Lazy-injected reasoning log manager
+let _reasoningLogManager: ReasoningLogManager | null = null;
 
 /**
  * Recovery metadata
@@ -56,7 +62,7 @@ export class JobRecoveryHandler {
     }
 
     // Transition back to running
-    await jobRepository.jobRepository.store.setState(jobId, 'running', true); // Force transition
+    await jobRepository.setState(jobId, 'running');
 
     // Update activity
     await jobRepository.heartbeat(jobId);
@@ -74,13 +80,24 @@ export class JobRecoveryHandler {
 
     console.log(`[Recovery] Resumed job ${jobId} from checkpoint at ${recovery.resumedFrom.step}`);
 
+    // Log reasoning
+    await _reasoningLogManager?.append(jobId, {
+      step: 'resumed',
+      decision: 'resume-from-checkpoint',
+      reasoning: `Resumed job from ${recovery.resumedFrom.step} at ${recovery.resumedFrom.progress}% progress`,
+      confidence: 0.9,
+      timestamp: Date.now(),
+      metadata: { previousProgress: recovery.resumedFrom.progress },
+    });
+
+    // Update registry
+    const updatedJob = (await jobRepository.getJob(jobId)) as JobRecord;
+    await jobRegistry.update(updatedJob);
+
     // Emit event
     await this.emitRecoveryEvent(job.userId, jobId, 'resumed', recovery);
 
-    return {
-      job: await jobRepository.getJob(jobId) as JobRecord,
-      recovery,
-    };
+    return { job: updatedJob, recovery };
   }
 
   /**
@@ -88,7 +105,7 @@ export class JobRecoveryHandler {
    */
   static async restartJob(
     jobId: string,
-    modifications?: {
+    _modifications?: {
       query?: string;
       priority?: number;
     }
@@ -109,7 +126,7 @@ export class JobRecoveryHandler {
     }
 
     // Reset to created state
-    await jobRepository.jobRepository.store.setState(jobId, 'created', true);
+    await jobRepository.setState(jobId, 'created');
 
     // Clear error and result
     job.error = undefined;
@@ -135,13 +152,24 @@ export class JobRecoveryHandler {
 
     console.log(`[Recovery] Restarted job ${jobId}`);
 
+    // Log reasoning
+    await _reasoningLogManager?.append(jobId, {
+      step: 'restarted',
+      decision: 'restart-from-scratch',
+      reasoning: `Restarted job from ${job.state} state; clearing previous progress`,
+      confidence: 0.85,
+      timestamp: Date.now(),
+      metadata: { previousState: job.state },
+    });
+
+    // Update registry
+    const updatedJob = (await jobRepository.getJob(jobId)) as JobRecord;
+    await jobRegistry.update(updatedJob);
+
     // Emit event
     await this.emitRecoveryEvent(job.userId, jobId, 'restarted', recovery);
 
-    return {
-      job: await jobRepository.getJob(jobId) as JobRecord,
-      recovery,
-    };
+    return { job: updatedJob, recovery };
   }
 
   /**
@@ -157,7 +185,16 @@ export class JobRecoveryHandler {
     // Remove checkpoint
     job.checkpointData = undefined;
 
-    await jobRepository.jobRepository.store.setCheckpoint(jobId, undefined);
+    await jobRepository.clearCheckpoint(jobId);
+
+    // Log reasoning
+    await _reasoningLogManager?.append(jobId, {
+      step: 'checkpoint-cleared',
+      decision: 'discard-checkpoint',
+      reasoning: 'User requested checkpoint removal; job will not be resumable',
+      confidence: 1.0,
+      timestamp: Date.now(),
+    });
 
     console.log(`[Recovery] Cleared checkpoint for job ${jobId}`);
   }
@@ -301,22 +338,25 @@ export class JobRecoveryHandler {
     recovery: RecoveryMetadata
   ): Promise<void> {
     try {
-      const event: JobRealtimeEvent = {
-        type: EVENTS.JOB_PROGRESS,
-        jobId,
-        userId,
-        data: {
-          id: jobId,
+      // When Redis is available, publish a progress event so UI can sync
+      if (_redisClient) {
+        const event = {
+          event: EVENTS.JOB_PROGRESS,
           userId,
-          state: 'running',
-          progress: recovery.resumedFrom.progress,
-          step: recovery.resumedFrom.step,
-          recovery,
-        },
-        timestamp: Date.now(),
-      };
+          jobId,
+          payload: {
+            state: 'running',
+            progress: recovery.resumedFrom.progress,
+            step: recovery.resumedFrom.step,
+            recovery,
+          },
+          // Sequence will be assigned by publish in many flows; here we set timestamp only
+          sequence: Date.now(),
+          timestamp: Date.now(),
+        } as any;
+        await _publishJobEvent(_redisClient, event);
+      }
 
-      // Note: publishJobEvent would be called from server context
       console.log(`[Recovery] Emitted ${action} event for job ${jobId}`);
     } catch (error) {
       console.error('[Recovery] Failed to emit recovery event:', error);
@@ -328,6 +368,20 @@ export class JobRecoveryHandler {
  * Export handler
  */
 export const jobRecoveryHandler = JobRecoveryHandler;
+
+/**
+ * Inject Redis client for publishing recovery events
+ */
+export function configureRecoveryPublisher(redisClient: any) {
+  _redisClient = redisClient;
+}
+
+/**
+ * Inject reasoning log manager
+ */
+export function configureRecoveryReasoning(reasoningManager: ReasoningLogManager) {
+  _reasoningLogManager = reasoningManager;
+}
 
 /**
  * Convenience functions
