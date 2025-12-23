@@ -2,6 +2,7 @@ import { sendPrompt, type LLMOptions, type LLMResponse, type LLMProvider } from 
 import { trackAction } from '../supermemory/tracker';
 // @ts-ignore - p-queue types may not be available
 import PQueue from 'p-queue';
+import { eventBus, EVENTS as _CORE_EVENTS } from '../state/eventBus';
 
 export type AITaskKind = 'search' | 'agent' | 'chat' | 'summary';
 
@@ -34,15 +35,21 @@ type StreamHandler = (event: {
 /**
  * Enhanced AI Engine with provider chaining, rate limiting, and state persistence
  */
+/**
+ * Event-driven AI Engine: wakes on event, sleeps after task, emits all results via eventBus
+ */
 export class AIEngine {
   private readonly apiBase =
     import.meta.env.VITE_APP_API_URL ||
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' ? window.__OB_API_BASE__ : '');
 
-  // Rate limiting: max 4 concurrent AI requests for parallel execution
-  // Increased from 2 to 4 to support parallel reasoning + summarization
-  private readonly requestQueue = new PQueue({ concurrency: 4 });
+  // WEEK 1 TASK 2: Rate limiting optimized for parallel voice queries <1.5s
+  // Max 6 concurrent AI requests - allows reasoning + summary + other tasks simultaneously
+  private readonly requestQueue = new PQueue({
+    concurrency: 6, // Increased for better parallel performance
+    timeout: 2000, // 2s timeout per task to prevent hanging
+  });
 
   // Provider chain: try in order, fallback to next on failure
   private readonly providerChain: LLMProvider[] = ['openai', 'anthropic', 'ollama'];
@@ -50,76 +57,57 @@ export class AIEngine {
   // State persistence key
   private readonly STATE_KEY = 'regen:ai_engine_state';
 
-  async runTask(request: AITaskRequest, onStream?: StreamHandler): Promise<AITaskResult> {
-    if (!request.prompt?.trim()) {
-      throw new Error('Prompt is required for AI tasks');
-    }
-
-    // Save state before running
-    this.saveState(request);
-
-    // Use queue to limit concurrency (max 4 concurrent requests for parallel execution)
-    return (await this.requestQueue.add(async (): Promise<AITaskResult> => {
-      // Try backend first
-      const backendResult = await this.callBackendTask(request, onStream);
-      if (backendResult) {
-        this.saveState(request, backendResult);
-        return backendResult;
+  constructor() {
+    // Listen for AI task requests via eventBus
+    eventBus.on('ai:task:request', async (request: AITaskRequest) => {
+      if (!request.prompt?.trim()) {
+        eventBus.emit('ai:task:error', {
+          request,
+          error: 'Prompt is required for AI tasks',
+        });
+        return;
       }
-
-      // Fallback to local LLM with provider chaining
-      const localResult = await this.runLocalLLMWithFallback(request, onStream);
-      this.saveState(request, localResult);
-      return localResult;
-    })) as AITaskResult;
+      // Wake: process one task at a time (queue)
+      await this.requestQueue.add(async () => {
+        eventBus.emit('ai:task:start', request);
+        try {
+          // Try backend first
+          const backendResult = await this.callBackendTask(request, event => {
+            if (event.type === 'token') {
+              eventBus.emit('ai:task:token', { request, token: event.data });
+            }
+          });
+          if (backendResult) {
+            this.saveState(request, backendResult);
+            eventBus.emit('ai:task:done', { request, result: backendResult });
+            return;
+          }
+          // Fallback to local LLM
+          const localResult = await this.runLocalLLMWithFallback(request, event => {
+            if (event.type === 'token') {
+              eventBus.emit('ai:task:token', { request, token: event.data });
+            }
+          });
+          this.saveState(request, localResult);
+          eventBus.emit('ai:task:done', { request, result: localResult });
+        } catch (error: any) {
+          eventBus.emit('ai:task:error', {
+            request,
+            error: error?.message || 'AI task failed',
+          });
+        }
+        // Sleep: done after task
+      });
+    });
   }
+
+  // Remove imperative runTask entrypoint (enforced event-driven)
 
   /**
    * Run multiple AI tasks in parallel (e.g., reasoning + summarization)
    * This allows independent tasks to execute simultaneously for faster responses
    */
-  async runParallelTasks(
-    requests: AITaskRequest[],
-    onStream?: (index: number, event: Parameters<StreamHandler>[0]) => void
-  ): Promise<AITaskResult[]> {
-    if (!requests.length) {
-      return [];
-    }
-
-    // Execute all tasks in parallel (queue handles concurrency)
-    const promises = requests.map((request, index) =>
-      this.runTask(request, onStream ? event => onStream(index, event) : undefined)
-    );
-
-    return Promise.all(promises);
-  }
-
-  /**
-   * Convenience helper: run reasoning + summarization in parallel for faster UX.
-   */
-  async runReasonAndSummary(
-    prompt: string,
-    shared?: { context?: Record<string, unknown>; mode?: string }
-  ): Promise<{ reasoning: AITaskResult; summary: AITaskResult }> {
-    const [reasoning, summary] = await this.runParallelTasks([
-      {
-        kind: 'agent',
-        prompt: prompt,
-        context: shared?.context,
-        mode: shared?.mode,
-        llm: { temperature: 0.2 },
-      },
-      {
-        kind: 'summary',
-        prompt: `Summarize crisply:\n${prompt}`,
-        context: shared?.context,
-        mode: shared?.mode,
-        llm: { temperature: 0.1 },
-      },
-    ]);
-
-    return { reasoning, summary };
-  }
+  // Remove imperative runParallelTasks and runReasonAndSummary (enforced event-driven)
 
   private async callBackendTask(
     request: AITaskRequest,
@@ -146,19 +134,58 @@ export class AIEngine {
       : controller.signal;
 
     try {
+      // Determine provider from request or default to ollama
+      const provider = request.llm?.provider || 'ollama';
+      const model = request.llm?.model || (provider === 'ollama' ? 'phi3:mini' : 'gpt-4o-mini');
+
+      // Build payload based on provider
+      let payload: any;
+      if (provider === 'ollama') {
+        payload = {
+          model,
+          stream: request.stream ?? false,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+        };
+      } else if (provider === 'openai') {
+        payload = {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+          temperature: request.llm?.temperature ?? 0.2,
+          max_tokens: request.llm?.maxTokens ?? 800,
+          stream: request.stream ?? false,
+        };
+      } else {
+        // Anthropic or other
+        payload = {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: request.prompt,
+            },
+          ],
+          max_tokens: request.llm?.maxTokens ?? 800,
+        };
+      }
+
       const response = await fetch(`${base}/api/ai/task`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          kind: request.kind,
-          prompt: request.prompt,
-          context: request.context,
-          mode: request.mode,
-          metadata: request.metadata,
-          temperature: request.llm?.temperature ?? 0.2,
-          max_tokens: request.llm?.maxTokens ?? 800,
+          provider,
+          payload,
         }),
         signal: combinedSignal,
       });
@@ -169,6 +196,7 @@ export class AIEngine {
         return null;
       }
 
+      // Handle streaming response (SSE)
       if (response.headers.get('content-type')?.includes('text/event-stream')) {
         const reader = response.body?.getReader();
         if (!reader) {
@@ -220,7 +248,7 @@ export class AIEngine {
               } catch (error) {
                 console.warn('[AIEngine] Failed to parse done payload', error);
                 onStream?.({ type: 'done', data: tokens.join('') });
-                return { text: tokens.join(''), provider: 'openai', model: 'unknown' };
+                return { text: tokens.join(''), provider: provider, model: model };
               }
             } else if (event.startsWith('data:')) {
               const token = event.replace('data:', '').trim();
@@ -230,13 +258,43 @@ export class AIEngine {
           }
         }
         clearTimeout(timeoutId);
+        return { text: tokens.join(''), provider: provider, model: model };
       }
 
-      const data = (await response.json()) as AITaskResult;
+      // Handle JSON response
+      const responseData = await response.json();
       clearTimeout(timeoutId);
-      this.trackTelemetry(data, request);
-      onStream?.({ type: 'done', data: data });
-      return data;
+
+      // Parse response based on provider format
+      let result: AITaskResult;
+      if (provider === 'ollama') {
+        // Ollama response format
+        result = {
+          text: responseData.message?.content || responseData.response || '',
+          provider: 'ollama',
+          model: responseData.model || model,
+        };
+      } else if (provider === 'openai') {
+        // OpenAI response format
+        result = {
+          text: responseData.choices?.[0]?.message?.content || '',
+          provider: 'openai',
+          model: responseData.model || model,
+          usage: responseData.usage,
+        };
+      } else {
+        // Anthropic or other
+        result = {
+          text: responseData.content?.[0]?.text || responseData.content || '',
+          provider: provider,
+          model: responseData.model || model,
+          usage: responseData.usage,
+        };
+      }
+
+      this.trackTelemetry(result, request);
+      onStream?.({ type: 'done', data: result });
+      return result;
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {

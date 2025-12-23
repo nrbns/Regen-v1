@@ -203,6 +203,24 @@ export function CommandBar() {
         track('command_bar_opened');
       }
 
+      // '/' to open Command Bar (single AI entry point)
+      // Ignore if typing in input/textarea or contentEditable
+      const target = e.target as HTMLElement | null;
+      const isTypingTarget =
+        !!target &&
+        ((target.tagName === 'INPUT' && (target as HTMLInputElement).type !== 'checkbox') ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+      if (!open && e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (!isTypingTarget) {
+          e.preventDefault();
+          setOpen(true);
+          setQuery('');
+          track('command_bar_opened', { trigger: 'slash' });
+          return;
+        }
+      }
+
       if (open) {
         if (e.key === 'Escape') {
           setOpen(false);

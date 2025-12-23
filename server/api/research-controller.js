@@ -14,6 +14,7 @@ config({ path: resolve(__dirname, '../../.env') });
 import { enqueueResearchJob, getResearchJobStatus } from '../services/queue/researchQueue.js';
 import { generateResearchAnswer } from '../services/research/answer.js';
 import { generateEnhancedAnswer } from '../services/research/enhanced-answer.js';
+import { enhanceResearchResult } from './research-enhanced.js';
 
 /**
  * POST /api/research/run
@@ -58,7 +59,10 @@ export async function runResearch(req, reply) {
     } catch (queueError) {
       // Queue unavailable (Redis not running or connection failed)
       // Fallback to direct processing for immediate answers
-      console.warn('[ResearchController] Queue unavailable, processing directly:', queueError.message);
+      console.warn(
+        '[ResearchController] Queue unavailable, processing directly:',
+        queueError.message
+      );
 
       try {
         // Use enhanced answer generation (parallel agents + golden prompts)
@@ -75,7 +79,10 @@ export async function runResearch(req, reply) {
             language: lang === 'auto' ? undefined : lang,
           });
         } catch (enhancedError) {
-          console.warn('[ResearchController] Enhanced answer failed, using regular:', enhancedError.message);
+          console.warn(
+            '[ResearchController] Enhanced answer failed, using regular:',
+            enhancedError.message
+          );
           // Fallback to regular answer generation
           answer = await generateResearchAnswer({
             query: query.trim(),
@@ -85,14 +92,28 @@ export async function runResearch(req, reply) {
           });
         }
 
+        // Enhance with related questions
+        const enhanced = enhanceResearchResult(
+          {
+            answer: answer.answer,
+            citations: answer.citations,
+            model: answer.model,
+            query_id: answer.query_id,
+            sources: answer.documents || [],
+          },
+          query.trim(),
+          answer.documents || []
+        );
+
         // Return answer directly (no streaming, but immediate response)
         return reply.send({
           jobId: `direct-${Date.now()}`,
           status: 'completed',
-          answer: answer.answer,
-          citations: answer.citations,
-          model: answer.model,
-          query_id: answer.query_id,
+          answer: enhanced.answer,
+          citations: enhanced.citations,
+          model: enhanced.model,
+          query_id: enhanced.query_id,
+          relatedQuestions: enhanced.relatedQuestions,
           direct: true, // Indicates direct processing (no WebSocket streaming)
           message: 'Answer generated directly (queue unavailable)',
         });

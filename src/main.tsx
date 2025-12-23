@@ -5,7 +5,10 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './styles/mode-themes.css';
+// Mobile styles imported via mobile module
+import './mobile';
 import './lib/battery';
+import './services/tabHibernation/init';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './lib/env';
 import { setupClipperHandlers } from './lib/research/clipper-handler';
 import { syncRendererTelemetry } from './lib/monitoring/sentry-client';
@@ -14,14 +17,22 @@ import { ipc } from './lib/ipc-typed';
 import { ThemeProvider } from './ui/theme';
 import { CSP_DIRECTIVE } from './config/security';
 import { suppressBrowserWarnings } from './utils/suppressBrowserWarnings';
-import { SettingsSync } from './components/SettingsSync';
+import { SettingsSync } from './components/settings/SettingsSync';
 // Disable console logs in production for better performance
 import './utils/console';
+
+// DOGFOODING: Safe mode for crash recovery
+import { initSafeMode } from './services/safeMode';
+// Layer 1: Core stability imports
+import { useSessionStore } from './state/sessionStore';
+import { useSettingsStore } from './state/settingsStore';
+import { isMVPFeatureEnabled } from './config/mvpFeatureFlags';
+import { startMemoryMonitoring } from './utils/memoryLimits';
 
 // DAY 6: Register service worker for caching and offline support
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   import('./lib/service-worker').then(({ registerServiceWorker }) => {
-    registerServiceWorker().catch((error) => {
+    registerServiceWorker().catch(error => {
       console.warn('[ServiceWorker] Registration failed:', error);
     });
   });
@@ -34,10 +45,13 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Initialize agent client early
-import './lib/agent-client';
+// TIERED ARCHITECTURE: L0 Core - No agent system or Socket.IO at startup
+// These are now loaded on-demand when L2 layer is activated (Research/Trade modes)
 
-// Initialize app connections
+// Initialize layer manager first (handles all layer transitions)
+import { layerManager } from './core/layers/layerManager';
+
+// Initialize app connections (lightweight - no Socket.IO)
 import { initializeApp } from './lib/initialize-app';
 
 // Import test utility in dev mode
@@ -75,23 +89,29 @@ let getLRUCache: any = () => new Map();
 // Only load heavy services if not in Redix mode or if enabled in config
 if (!redixConfig.enabled || redixConfig.enableHeavyLibs) {
   // Dynamically import heavy services (ESM-compatible)
-  import('./services/prefetch/queryPrefetcher').then(module => {
-    initializePrefetcher = module.initializePrefetcher;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/prefetch/queryPrefetcher')
+    .then(module => {
+      initializePrefetcher = module.initializePrefetcher;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 
-  import('./services/vector/vectorWorkerService').then(module => {
-    getVectorWorkerService = module.getVectorWorkerService;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/vector/vectorWorkerService')
+    .then(module => {
+      getVectorWorkerService = module.getVectorWorkerService;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 
-  import('./services/embedding/lruCache').then(module => {
-    getLRUCache = module.getLRUCache;
-  }).catch(() => {
-    // Silently fail if module not available
-  });
+  import('./services/embedding/lruCache')
+    .then(module => {
+      getLRUCache = module.getLRUCache;
+    })
+    .catch(() => {
+      // Silently fail if module not available
+    });
 }
 // Migration functions available but not auto-run (call manually if needed)
 // import { migrateLocalStorageHistory } from './services/history';
@@ -149,7 +169,10 @@ const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'His
 const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
 const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
 const AIPanelRoute = lazyWithErrorHandling(() => import('./routes/AIPanelRoute'), 'AIPanelRoute');
-const OfflineDocuments = lazyWithErrorHandling(() => import('./routes/OfflineDocuments'), 'OfflineDocuments');
+const OfflineDocuments = lazyWithErrorHandling(
+  () => import('./routes/OfflineDocuments'),
+  'OfflineDocuments'
+);
 const DocumentEditorPage = lazyWithErrorHandling(
   () => import('./routes/DocumentEditor'),
   'DocumentEditorPage'
@@ -196,31 +219,12 @@ ensureCSPMeta();
 // Suppress known browser-native console warnings (Tracking Prevention, CSP violations, etc.)
 suppressBrowserWarnings();
 
+// LAG FIX #1: Import professional loading fallback with spinner
+import { AppLoadingFallback } from './components/common/AppLoadingFallback';
+
 // Ultra-lightweight loading component - minimal DOM for fast render
 function LoadingFallback() {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        width: '100vw',
-        backgroundColor: '#1A1D28',
-        color: '#94a3b8',
-        fontFamily: 'system-ui, sans-serif',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        zIndex: 1000,
-      }}
-    >
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌐</div>
-        <div style={{ fontSize: '14px' }}>Loading...</div>
-      </div>
-    </div>
-  );
+  return <AppLoadingFallback />;
 }
 
 // Router configuration with v7 future flags
@@ -451,14 +455,82 @@ try {
 
   const root = existingRoot || ReactDOM.createRoot(rootElement);
 
-  // Initialize app connections (AI, API, Browser)
-  initializeApp().then(status => {
-    if (isDevEnv()) {
-      console.log('[Main] App initialization status:', status);
+  // DOGFOODING: Initialize safe mode crash detection
+  initSafeMode();
+
+  // DAY 1 LAUNCH FIX: Initialize Ollama backend auto-start
+  const initOllama = async () => {
+    try {
+      const { initializeOllama } = await import('./utils/ollamaCheck');
+      const result = await initializeOllama();
+      if (result.available) {
+        console.log('[Main] ✅ Ollama backend initialized successfully');
+      } else {
+        console.warn('[Main] ⚠️ Ollama not available:', result.error);
+      }
+    } catch (error) {
+      console.warn('[Main] Ollama initialization deferred (web mode):', error);
     }
-  }).catch(error => {
-    console.warn('[Main] App initialization warning:', error);
-  });
+  };
+  initOllama();
+
+  // Initialize local Hugging Face server (offline AI)
+  const initHuggingFace = async () => {
+    try {
+      const { initializeLocalHF } = await import('./services/huggingface/localHFServer');
+      await initializeLocalHF();
+      console.log('[Main] ✅ Hugging Face local server initialized (offline mode)');
+    } catch (error) {
+      console.warn('[Main] HF initialization deferred:', error);
+    }
+  };
+  initHuggingFace();
+
+  // =====================================================================
+  // LAYER 1: Browser Core Stability - Auto-Restore & Low-RAM Watchdog
+  // =====================================================================
+  // Layer 1 Task 1: Wire session restore at startup based on settings
+  setTimeout(() => {
+    const settingsState = useSettingsStore.getState();
+    const sessionState = useSessionStore.getState();
+    const startupBehavior = settingsState.general?.startupBehavior || 'newTab';
+
+    // If configured to restore last session and we have a snapshot, trigger restore
+    if (startupBehavior === 'restore' && sessionState.snapshot) {
+      console.log('[Layer1] Auto-restoring last session per startup settings');
+      sessionState
+        .restoreFromSnapshot()
+        .then(result => {
+          console.log('[Layer1] Session restored successfully:', result);
+        })
+        .catch(err => {
+          console.warn('[Layer1] Session restore failed:', err);
+        });
+    } else {
+      console.log('[Layer1] Startup behavior:', startupBehavior, '(no auto-restore)');
+    }
+  }, 800); // After safe mode init but before heavy services
+
+  // Layer 1 Task 2: Start low-RAM memory watchdog if feature is enabled
+  setTimeout(() => {
+    if (isMVPFeatureEnabled('low-ram-mode')) {
+      console.log('[Layer1] Low-RAM mode enabled; starting memory monitoring watchdog');
+      startMemoryMonitoring();
+    } else {
+      console.log('[Layer1] Low-RAM mode disabled');
+    }
+  }, 1200); // Start watchdog after session restore
+
+  // Initialize app connections (AI, API, Browser)
+  initializeApp()
+    .then(status => {
+      if (isDevEnv()) {
+        console.log('[Main] App initialization status:', status);
+      }
+    })
+    .catch(error => {
+      console.warn('[Main] App initialization warning:', error);
+    });
 
   // Setup research clipper handlers
   setupClipperHandlers();
@@ -826,6 +898,34 @@ try {
       // Performance monitoring not critical
     });
 
+  // SPRINT FEATURES: Initialize all 15-day sprint features
+  import('./lib/integration/sprintFeatures')
+    .then(({ initializeSprintFeaturesDeferred }) => {
+      initializeSprintFeaturesDeferred();
+    })
+    .catch(() => {
+      // Sprint features initialization not critical for startup
+    });
+
+  // SPRINT 0: Initialize low-data mode based on settings
+  import('./services/lowDataMode')
+    .then(({ applyLowDataMode, isLowDataModeEnabled }) => {
+      applyLowDataMode(isLowDataModeEnabled());
+    })
+    .catch(() => {
+      // Low-data mode initialization not critical for startup
+    });
+
+  // SPRINT 2: Initialize adaptive layout manager
+  import('./services/adaptiveUI/adaptiveLayoutManager')
+    .then(({ initializeAdaptiveLayout }) => {
+      initializeAdaptiveLayout();
+      console.log('[Startup] Adaptive layout manager initialized');
+    })
+    .catch(error => {
+      console.warn('[Startup] Adaptive layout manager initialization failed:', error);
+    });
+
   // TELEMETRY FIX: Initialize telemetry metrics tracking
   import('./services/telemetryMetrics')
     .then(({ telemetryMetrics }) => {
@@ -1003,6 +1103,40 @@ try {
           });
       }, 2000); // Wait 2s after first paint
     }
+
+    // SPRINT 1: Initialize tab hibernation manager
+    setTimeout(() => {
+      Promise.all([
+        import('./services/tabHibernation/hibernationManager'),
+        import('./state/tabsStore'),
+      ])
+        .then(([{ initializeHibernationManager, trackTabActivity }, { useTabsStore }]) => {
+          const cleanup = initializeHibernationManager();
+          console.log('[Startup] Tab hibernation manager initialized');
+
+          // Track tab activity when tabs become active
+          const tabsStore = useTabsStore.getState();
+          const unsubscribe = tabsStore.subscribe(
+            state => ({ activeId: state.activeId }),
+            state => {
+              if (state.activeId) {
+                trackTabActivity(state.activeId);
+              }
+            }
+          );
+
+          // Cleanup on app shutdown (if needed)
+          if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', () => {
+              cleanup();
+              unsubscribe();
+            });
+          }
+        })
+        .catch(error => {
+          console.warn('[Startup] Tab hibernation manager initialization failed:', error);
+        });
+    }, 3000); // Wait 3s after first paint
   };
 
   // Wait for first paint, then defer services
@@ -1041,8 +1175,27 @@ try {
   }
 
   // Tier 2: Start session snapshotting - defer to avoid blocking
+  // L3: Only activate recovery snapshotting if jobs exist
   setTimeout(() => {
-    startSnapshotting();
+    // Check if we have any jobs before starting recovery system
+    import('./services/jobs')
+      .then(({ jobRepository }) => {
+        return jobRepository?.getActiveJobs?.() || Promise.resolve([]);
+      })
+      .then((jobs: any[]) => {
+        if (jobs && jobs.length > 0) {
+          // Jobs exist - activate L3 recovery system
+          layerManager.switchToMode('Research').catch(() => {
+            // Force L3 activation
+            (layerManager as any).activateLayer('L3').catch(() => {});
+          });
+          startSnapshotting();
+        }
+        // No jobs = recovery system stays dormant
+      })
+      .catch(() => {
+        // Job system not available - skip recovery initialization
+      });
   }, 1000);
 
   // Ensure root element is visible before rendering (redundant but safe)
@@ -1161,6 +1314,18 @@ try {
     <React.StrictMode>
       <ThemeProvider>
         <GlobalErrorBoundary>
+          {/* Surface job recovery failures globally */}
+          {(() => {
+            try {
+              const {
+                GlobalErrorBanner,
+              } = require('../apps/desktop/src/components/GlobalErrorBanner');
+              const Comp = (GlobalErrorBanner as any)?.default || GlobalErrorBanner;
+              return <Comp />;
+            } catch {
+              return null;
+            }
+          })()}
           <SettingsSync />
           <Suspense fallback={<LoadingFallback />}>
             <RouterProvider
@@ -1193,19 +1358,27 @@ try {
       // Try to serialize safely, avoiding circular references
       try {
         const seen = new WeakSet();
-        safeErrorText = JSON.stringify(error, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (seen.has(value)) {
-              return '[Circular]';
+        safeErrorText = JSON.stringify(
+          error,
+          (key, value) => {
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) {
+                return '[Circular]';
+              }
+              seen.add(value);
+              // Skip React elements and DOM nodes
+              if (
+                (value as any).$$typeof ||
+                (value as any).nodeType ||
+                (value as any)._reactInternalFiber
+              ) {
+                return '[React/DOM Element]';
+              }
             }
-            seen.add(value);
-            // Skip React elements and DOM nodes
-            if ((value as any).$$typeof || (value as any).nodeType || (value as any)._reactInternalFiber) {
-              return '[React/DOM Element]';
-            }
-          }
-          return value;
-        }, 2);
+            return value;
+          },
+          2
+        );
       } catch {
         safeErrorText = String(error);
       }

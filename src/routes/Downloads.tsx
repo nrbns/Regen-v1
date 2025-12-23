@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Download as DownloadIcon, FolderOpen, CheckCircle, XCircle, Clock, Loader, Pause, Play, X, PlayCircle, RotateCw, List } from 'lucide-react';
+import {
+  Download as DownloadIcon,
+  FolderOpen,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Loader,
+  Pause,
+  Play,
+  X,
+  PlayCircle,
+  RotateCw,
+  List,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ipc } from '../lib/ipc-typed';
 import { DownloadUpdate } from '../lib/ipc-events';
 import { ipcEvents } from '../lib/ipc-events';
-import { MediaPlayer, getMediaKind } from '../components/MediaPlayer';
+import { MediaPlayer, getMediaKind } from '../components/media';
 
 type DownloadSafety = {
   status: 'pending' | 'clean' | 'warning' | 'blocked' | 'unknown';
@@ -15,12 +28,20 @@ type DownloadSafety = {
   quarantinePath?: string;
 };
 
-type DownloadItem = { 
-  id: string; 
-  url: string; 
+type DownloadItem = {
+  id: string;
+  url: string;
   filename?: string;
-  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'blocked' | 'paused' | 'verifying'; 
-  path?: string; 
+  status:
+    | 'pending'
+    | 'downloading'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'blocked'
+    | 'paused'
+    | 'verifying';
+  path?: string;
   createdAt: number;
   progress?: number;
   receivedBytes?: number;
@@ -35,7 +56,11 @@ export default function DownloadsPage() {
   const [items, setItems] = useState<DownloadItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewItem, setPreviewItem] = useState<DownloadItem | null>(null);
-  const [queueStatus, setQueueStatus] = useState<{ active: number; queued: number; maxConcurrent: number } | null>(null);
+  const [queueStatus, setQueueStatus] = useState<{
+    active: number;
+    queued: number;
+    maxConcurrent: number;
+  } | null>(null);
 
   useEffect(() => {
     const loadDownloads = async () => {
@@ -101,8 +126,46 @@ export default function DownloadsPage() {
       });
     };
 
-    const progressUnsub = ipcEvents.on<DownloadUpdate>('downloads:progress', updateItem);
-    const doneUnsub = ipcEvents.on<DownloadUpdate>('downloads:done', updateItem);
+    const progressUnsub = ipcEvents.on<DownloadUpdate>('downloads:progress', update => {
+      updateItem(update);
+      // Persist to database when progress updates
+      if (update.id && update.status && update.url) {
+        ipc.downloads
+          .save({
+            id: update.id,
+            url: update.url,
+            filename: update.filename,
+            path: update.path,
+            status: update.status,
+            progress: update.progress || 0,
+            receivedBytes: update.receivedBytes || 0,
+            totalBytes: update.totalBytes,
+            checksum: update.checksum,
+            safetyStatus: update.safety?.status,
+          })
+          .catch(console.error);
+      }
+    });
+    const doneUnsub = ipcEvents.on<DownloadUpdate>('downloads:done', update => {
+      updateItem(update);
+      // Persist final state to database
+      if (update.id && update.status && update.url) {
+        ipc.downloads
+          .save({
+            id: update.id,
+            url: update.url,
+            filename: update.filename,
+            path: update.path,
+            status: update.status,
+            progress: update.progress || (update.status === 'completed' ? 1 : 0),
+            receivedBytes: update.receivedBytes || 0,
+            totalBytes: update.totalBytes,
+            checksum: update.checksum,
+            safetyStatus: update.safety?.status,
+          })
+          .catch(console.error);
+      }
+    });
 
     return () => {
       progressUnsub();
@@ -117,7 +180,7 @@ export default function DownloadsPage() {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
   const calcPercent = (item: DownloadItem) => {
@@ -167,7 +230,7 @@ export default function DownloadsPage() {
       case 'downloading':
       case 'paused':
       case 'verifying':
-        return <Loader size={16} className="text-blue-400 animate-spin" />;
+        return <Loader size={16} className="animate-spin text-blue-400" />;
       case 'cancelled':
         return <XCircle size={16} className="text-gray-500" />;
       default:
@@ -191,25 +254,46 @@ export default function DownloadsPage() {
 
   const renderSafetyBadge = (safety?: DownloadSafety) => {
     if (!safety) return null;
-    const base = 'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border';
+    const base =
+      'px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide border';
     switch (safety.status) {
       case 'clean':
-        return <span className={`${base} bg-emerald-500/15 border-emerald-500/30 text-emerald-200`}>Scanned Clean</span>;
+        return (
+          <span className={`${base} border-emerald-500/30 bg-emerald-500/15 text-emerald-200`}>
+            Scanned Clean
+          </span>
+        );
       case 'warning':
-        return <span className={`${base} bg-amber-500/15 border-amber-500/30 text-amber-200`}>Review Recommended</span>;
+        return (
+          <span className={`${base} border-amber-500/30 bg-amber-500/15 text-amber-200`}>
+            Review Recommended
+          </span>
+        );
       case 'blocked':
-        return <span className={`${base} bg-red-500/15 border-red-500/40 text-red-200`}>Quarantined</span>;
+        return (
+          <span className={`${base} border-red-500/40 bg-red-500/15 text-red-200`}>
+            Quarantined
+          </span>
+        );
       case 'pending':
-        return <span className={`${base} bg-blue-500/15 border-blue-500/30 text-blue-200`}>Scanning…</span>;
+        return (
+          <span className={`${base} border-blue-500/30 bg-blue-500/15 text-blue-200`}>
+            Scanning…
+          </span>
+        );
       default:
-        return <span className={`${base} bg-gray-500/15 border-gray-600/40 text-gray-300`}>Scan Unavailable</span>;
+        return (
+          <span className={`${base} border-gray-600/40 bg-gray-500/15 text-gray-300`}>
+            Scan Unavailable
+          </span>
+        );
     }
   };
 
   const renderSafetyDetails = (safety?: DownloadSafety) => {
     if (!safety) return null;
     return (
-      <div className="text-xs text-gray-500 space-y-1 mt-2">
+      <div className="mt-2 space-y-1 text-xs text-gray-500">
         <div className="flex items-center gap-2">
           {renderSafetyBadge(safety)}
           {safety.threatLevel && (
@@ -220,7 +304,7 @@ export default function DownloadsPage() {
         </div>
         {safety.details && <div>{safety.details}</div>}
         {safety.recommendations && safety.recommendations.length > 0 && (
-          <ul className="list-disc list-inside text-[11px] space-y-0.5">
+          <ul className="list-inside list-disc space-y-0.5 text-[11px]">
             {safety.recommendations.slice(0, 3).map((rec, idx) => (
               <li key={`${safety.scannedAt}-${idx}`}>{rec}</li>
             ))}
@@ -237,34 +321,36 @@ export default function DownloadsPage() {
 
   if (loading) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-[#1A1D28]">
-        <Loader size={24} className="text-blue-400 animate-spin" />
+      <div className="flex h-full w-full items-center justify-center bg-[#1A1D28]">
+        <Loader size={24} className="animate-spin text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full bg-[#1A1D28] text-gray-100 flex flex-col">
-      <div className="p-6 border-b border-gray-800/50">
+    <div className="flex h-full w-full flex-col bg-[#1A1D28] text-gray-100">
+      <div className="border-b border-gray-800/50 p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">Downloads</h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="mt-1 text-sm text-gray-400">
               {items.length} {items.length === 1 ? 'download' : 'downloads'}
             </p>
           </div>
           {queueStatus && (
             <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30">
-                <Loader size={14} className="text-blue-400 animate-spin" />
+              <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-1.5">
+                <Loader size={14} className="animate-spin text-blue-400" />
                 <span className="text-blue-300">Active:</span>
-                <span className="text-blue-200 font-semibold">{queueStatus.active}/{queueStatus.maxConcurrent}</span>
+                <span className="font-semibold text-blue-200">
+                  {queueStatus.active}/{queueStatus.maxConcurrent}
+                </span>
               </div>
               {queueStatus.queued > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5">
                   <List size={14} className="text-amber-400" />
                   <span className="text-amber-300">Queued:</span>
-                  <span className="text-amber-200 font-semibold">{queueStatus.queued}</span>
+                  <span className="font-semibold text-amber-200">{queueStatus.queued}</span>
                 </div>
               )}
             </div>
@@ -274,14 +360,14 @@ export default function DownloadsPage() {
 
       <div className="flex-1 overflow-y-auto p-6">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <DownloadIcon size={48} className="text-gray-600 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-300 mb-2">No downloads yet</h3>
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <DownloadIcon size={48} className="mb-4 text-gray-600" />
+            <h3 className="mb-2 text-lg font-semibold text-gray-300">No downloads yet</h3>
             <p className="text-sm text-gray-500">Files you download will appear here</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((d) => (
+            {items.map(d => (
               <motion.div
                 key={d.id}
                 data-testid="download-card"
@@ -289,26 +375,28 @@ export default function DownloadsPage() {
                 data-filename={d.filename || ''}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-gray-900/60 backdrop-blur-sm border border-gray-800/50 rounded-lg p-4 hover:bg-gray-900/80 transition-all"
+                className="rounded-lg border border-gray-800/50 bg-gray-900/60 p-4 backdrop-blur-sm transition-all hover:bg-gray-900/80"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex items-center gap-2">
                       {getStatusIcon(d.status)}
-                      <span className="font-medium text-gray-200 truncate">
+                      <span className="truncate font-medium text-gray-200">
                         {d.filename || d.url.split('/').pop() || 'Download'}
                       </span>
                       {renderSafetyBadge(d.safety)}
                     </div>
-                    
+
                     {/* Progress bar for active downloads */}
                     {d.status === 'downloading' || d.status === 'paused' ? (
                       <div className="mb-3">
-                        <div className="flex items-center justify-between text-xs text-gray-300 mb-1.5">
-                          <span className="font-medium">{formatBytes(d.receivedBytes)} / {formatBytes(d.totalBytes)}</span>
+                        <div className="mb-1.5 flex items-center justify-between text-xs text-gray-300">
+                          <span className="font-medium">
+                            {formatBytes(d.receivedBytes)} / {formatBytes(d.totalBytes)}
+                          </span>
                           <span className="font-semibold text-blue-400">{calcPercent(d)}%</span>
                         </div>
-                        <div className="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden mb-2">
+                        <div className="mb-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-800">
                           <motion.div
                             className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
                             initial={{ width: 0 }}
@@ -317,31 +405,35 @@ export default function DownloadsPage() {
                           />
                         </div>
                         <div className="flex items-center gap-4 text-xs font-medium">
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-blue-500/10 border border-blue-500/30">
+                          <div className="flex items-center gap-1.5 rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1">
                             <span className="text-blue-300">Speed:</span>
-                            <span className="text-blue-200 font-semibold">{formatSpeed(d.speedBytesPerSec)}</span>
+                            <span className="font-semibold text-blue-200">
+                              {formatSpeed(d.speedBytesPerSec)}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-purple-500/10 border border-purple-500/30">
+                          <div className="flex items-center gap-1.5 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1">
                             <Clock size={12} className="text-purple-300" />
                             <span className="text-purple-300">ETA:</span>
-                            <span className="text-purple-200 font-semibold">{formatEta(d.etaSeconds)}</span>
+                            <span className="font-semibold text-purple-200">
+                              {formatEta(d.etaSeconds)}
+                            </span>
                           </div>
                         </div>
                       </div>
                     ) : null}
 
                     {d.status === 'verifying' && (
-                      <div className="mb-2 text-xs text-blue-300 flex items-center gap-2">
+                      <div className="mb-2 flex items-center gap-2 text-xs text-blue-300">
                         <Loader className="h-4 w-4 animate-spin" />
                         <span>Verifying download integrity…</span>
                       </div>
                     )}
 
-                    <div className="text-xs text-gray-400 space-y-1">
+                    <div className="space-y-1 text-xs text-gray-400">
                       <div className="flex items-center gap-2">
                         <span className="truncate">{d.url}</span>
                         {d.totalBytes && d.totalBytes > 1024 * 1024 * 1024 && (
-                          <span className="px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-200 text-[10px] font-semibold">
+                          <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2 py-0.5 text-[10px] font-semibold text-purple-200">
                             Large File ({formatBytes(d.totalBytes)})
                           </span>
                         )}
@@ -350,13 +442,16 @@ export default function DownloadsPage() {
                         <span>{new Date(d.createdAt).toLocaleString()}</span>
                         <span className="capitalize">{d.status}</span>
                         {d.path && (
-                          <span className="truncate max-w-xs" title={d.path}>
+                          <span className="max-w-xs truncate" title={d.path}>
                             {d.path.replace(/^.*[\\\/]/, '')}
                           </span>
                         )}
                       </div>
                       {d.checksum && (
-                        <div className="text-xs text-gray-500 truncate" title={`SHA-256: ${d.checksum}`}>
+                        <div
+                          className="truncate text-xs text-gray-500"
+                          title={`SHA-256: ${d.checksum}`}
+                        >
                           SHA-256: {d.checksum.slice(0, 12)}…
                         </div>
                       )}
@@ -372,16 +467,18 @@ export default function DownloadsPage() {
                           onClick={async () => {
                             try {
                               await ipc.downloads.pause(d.id);
-                              setItems(prev => prev.map(item => 
-                                item.id === d.id ? { ...item, status: 'paused' as const } : item
-                              ));
+                              setItems(prev =>
+                                prev.map(item =>
+                                  item.id === d.id ? { ...item, status: 'paused' as const } : item
+                                )
+                              );
                             } catch (error) {
                               console.error('Failed to pause download:', error);
                             }
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-medium text-xs transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-500/30"
                           title="Pause download"
                         >
                           <Pause size={16} />
@@ -391,16 +488,20 @@ export default function DownloadsPage() {
                           onClick={async () => {
                             try {
                               await ipc.downloads.cancel(d.id);
-                              setItems(prev => prev.map(item => 
-                                item.id === d.id ? { ...item, status: 'cancelled' as const } : item
-                              ));
+                              setItems(prev =>
+                                prev.map(item =>
+                                  item.id === d.id
+                                    ? { ...item, status: 'cancelled' as const }
+                                    : item
+                                )
+                              );
                             } catch (error) {
                               console.error('Failed to stop download:', error);
                             }
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 font-medium text-xs transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-500/30"
                           title="Stop download"
                         >
                           <X size={16} />
@@ -414,16 +515,20 @@ export default function DownloadsPage() {
                           onClick={async () => {
                             try {
                               await ipc.downloads.resume(d.id);
-                              setItems(prev => prev.map(item => 
-                                item.id === d.id ? { ...item, status: 'downloading' as const } : item
-                              ));
+                              setItems(prev =>
+                                prev.map(item =>
+                                  item.id === d.id
+                                    ? { ...item, status: 'downloading' as const }
+                                    : item
+                                )
+                              );
                             } catch (error) {
                               console.error('Failed to resume download:', error);
                             }
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-200 font-medium text-xs transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg border border-green-500/40 bg-green-500/20 px-3 py-1.5 text-xs font-medium text-green-200 transition-colors hover:bg-green-500/30"
                           title="Resume download"
                         >
                           <Play size={16} />
@@ -433,16 +538,20 @@ export default function DownloadsPage() {
                           onClick={async () => {
                             try {
                               await ipc.downloads.cancel(d.id);
-                              setItems(prev => prev.map(item => 
-                                item.id === d.id ? { ...item, status: 'cancelled' as const } : item
-                              ));
+                              setItems(prev =>
+                                prev.map(item =>
+                                  item.id === d.id
+                                    ? { ...item, status: 'cancelled' as const }
+                                    : item
+                                )
+                              );
                             } catch (error) {
                               console.error('Failed to stop download:', error);
                             }
                           }}
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 font-medium text-xs transition-colors"
+                          className="flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-500/30"
                           title="Stop download"
                         >
                           <X size={16} />
@@ -455,9 +564,11 @@ export default function DownloadsPage() {
                         onClick={async () => {
                           try {
                             await ipc.downloads.retry?.(d.id);
-                            setItems(prev => prev.map(item => 
-                              item.id === d.id ? { ...item, status: 'pending' as const } : item
-                            ));
+                            setItems(prev =>
+                              prev.map(item =>
+                                item.id === d.id ? { ...item, status: 'pending' as const } : item
+                              )
+                            );
                             // Reload queue status
                             const status = await ipc.downloads.getQueue?.();
                             if (status) setQueueStatus(status);
@@ -467,48 +578,52 @@ export default function DownloadsPage() {
                         }}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 text-blue-200 font-medium text-xs transition-colors"
+                        className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/20 px-3 py-1.5 text-xs font-medium text-blue-200 transition-colors hover:bg-blue-500/30"
                         title="Retry download"
                       >
                         <RotateCw size={16} />
                         <span>Retry</span>
                       </motion.button>
                     )}
-                    {(d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled' || d.status === 'blocked') && d.path && (
-                      <>
-                        {d.status !== 'blocked' && d.status === 'completed' && (
+                    {(d.status === 'completed' ||
+                      d.status === 'failed' ||
+                      d.status === 'cancelled' ||
+                      d.status === 'blocked') &&
+                      d.path && (
+                        <>
+                          {d.status !== 'blocked' && d.status === 'completed' && (
+                            <motion.button
+                              onClick={() => handleOpenFile(d.path)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-blue-400"
+                              title="Open file"
+                            >
+                              <DownloadIcon size={18} />
+                            </motion.button>
+                          )}
+                          {d.status === 'completed' && d.path && isPreviewable(d) && (
+                            <motion.button
+                              onClick={() => setPreviewItem(d)}
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-purple-400"
+                              title="Preview media"
+                            >
+                              <PlayCircle size={18} />
+                            </motion.button>
+                          )}
                           <motion.button
-                            onClick={() => handleOpenFile(d.path)}
+                            onClick={() => handleOpenFolder(d.path)}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-colors"
-                            title="Open file"
+                            className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-blue-400"
+                            title="Show in folder"
                           >
-                            <DownloadIcon size={18} />
+                            <FolderOpen size={18} />
                           </motion.button>
-                        )}
-                        {d.status === 'completed' && d.path && isPreviewable(d) && (
-                          <motion.button
-                            onClick={() => setPreviewItem(d)}
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-purple-400 transition-colors"
-                            title="Preview media"
-                          >
-                            <PlayCircle size={18} />
-                          </motion.button>
-                        )}
-                        <motion.button
-                          onClick={() => handleOpenFolder(d.path)}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-colors"
-                          title="Show in folder"
-                        >
-                          <FolderOpen size={18} />
-                        </motion.button>
-                      </>
-                    )}
+                        </>
+                      )}
                   </div>
                 </div>
               </motion.div>
@@ -526,5 +641,3 @@ export default function DownloadsPage() {
     </div>
   );
 }
-
-

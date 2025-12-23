@@ -57,10 +57,10 @@ export function BookmarksPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-gray-200">
+    <div className="flex h-full flex-col bg-slate-950 text-gray-200">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="border-b border-gray-800 p-4">
+        <div className="mb-3 flex items-center gap-2">
           <Star size={20} className="text-yellow-400" />
           <h2 className="text-lg font-semibold">Bookmarks</h2>
         </div>
@@ -73,19 +73,19 @@ export function BookmarksPanel() {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search bookmarks..."
-            className="w-full pl-9 pr-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+            className="w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Folders */}
-        <div className="w-48 border-r border-gray-800 p-3 overflow-y-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-400 uppercase">Folders</span>
+        <div className="w-48 overflow-y-auto border-r border-gray-800 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase text-gray-400">Folders</span>
             <button
               onClick={() => setShowAddFolder(true)}
-              className="p-1 hover:bg-gray-800 rounded"
+              className="rounded p-1 hover:bg-gray-800"
               title="Add folder"
             >
               <Plus size={14} />
@@ -106,12 +106,12 @@ export function BookmarksPanel() {
                   }
                 }}
                 placeholder="Folder name"
-                className="flex-1 px-2 py-1 bg-gray-900 border border-gray-700 rounded text-xs focus:outline-none"
+                className="flex-1 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-xs focus:outline-none"
                 autoFocus
               />
               <button
                 onClick={handleAddFolder}
-                className="px-2 py-1 bg-blue-500 hover:bg-blue-600 rounded text-xs"
+                className="rounded bg-blue-500 px-2 py-1 text-xs hover:bg-blue-600"
               >
                 Add
               </button>
@@ -120,37 +120,36 @@ export function BookmarksPanel() {
 
           <button
             onClick={() => setSelectedFolder(null)}
-            className={`w-full text-left px-2 py-1.5 rounded text-sm mb-1 ${
+            className={`mb-1 flex min-h-[32px] w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
               selectedFolder === null ? 'bg-blue-500/20 text-blue-300' : 'hover:bg-gray-800'
             }`}
           >
-            All Bookmarks ({bookmarks.length})
+            <span className="flex-1">All Bookmarks</span>
+            <span className="text-xs text-gray-500">({bookmarks.length})</span>
           </button>
 
           {folders.map((folder: BookmarkFolder) => {
             const count = getBookmarksByFolder(folder.id).length;
             return (
-              <div key={folder.id} className="flex items-center group">
+              <div key={folder.id} className="group mb-1 flex items-center justify-between gap-1">
                 <button
                   onClick={() => setSelectedFolder(folder.id)}
-                  className={`flex-1 text-left px-2 py-1.5 rounded text-sm ${
+                  className={`flex min-h-[32px] flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm ${
                     selectedFolder === folder.id
                       ? 'bg-blue-500/20 text-blue-300'
                       : 'hover:bg-gray-800'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Folder size={14} />
-                    <span className="flex-1">{folder.name}</span>
-                    <span className="text-xs text-gray-500">({count})</span>
-                  </div>
+                  <Folder size={14} className="flex-shrink-0" />
+                  <span className="flex-1 truncate">{folder.name}</span>
+                  <span className="flex-shrink-0 text-xs text-gray-500">({count})</span>
                 </button>
                 {folder.name !== 'Favorites' &&
                   folder.name !== 'Work' &&
                   folder.name !== 'Personal' && (
                     <button
                       onClick={() => removeFolder(folder.id)}
-                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded"
+                      className="flex min-h-[24px] min-w-[24px] items-center justify-center rounded p-1.5 opacity-0 transition-opacity hover:bg-red-500/20 group-hover:opacity-100"
                       title="Delete folder"
                     >
                       <X size={12} />
@@ -164,7 +163,7 @@ export function BookmarksPanel() {
         {/* Main Content - Bookmarks List */}
         <div className="flex-1 overflow-y-auto p-4">
           {filteredBookmarks.length === 0 ? (
-            <div className="text-center text-gray-400 mt-8">
+            <div className="mt-8 text-center text-gray-400">
               {searchQuery ? 'No bookmarks found' : 'No bookmarks yet'}
             </div>
           ) : (
@@ -176,7 +175,7 @@ export function BookmarksPanel() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-gray-800 bg-gray-900/50 hover:bg-gray-900 group"
+                    className="group flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/50 p-3 hover:bg-gray-900"
                   >
                     {editingId === bookmark.id ? (
                       <BookmarkEditor
@@ -190,34 +189,34 @@ export function BookmarksPanel() {
                         <div className="flex-shrink-0">
                           <Star size={20} className="text-yellow-400" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{bookmark.title}</div>
-                          <div className="text-xs text-gray-400 truncate">{bookmark.url}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{bookmark.title}</div>
+                          <div className="truncate text-xs text-gray-400">{bookmark.url}</div>
                           {bookmark.folder && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              <Folder size={10} className="inline mr-1" />
+                            <div className="mt-1 text-xs text-gray-500">
+                              <Folder size={10} className="mr-1 inline" />
                               {bookmark.folder}
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           <button
                             onClick={() => handleOpenBookmark(bookmark.url)}
-                            className="p-1.5 hover:bg-gray-800 rounded"
+                            className="rounded p-1.5 hover:bg-gray-800"
                             title="Open bookmark"
                           >
                             <ExternalLink size={14} />
                           </button>
                           <button
                             onClick={() => handleEdit(bookmark.id)}
-                            className="p-1.5 hover:bg-gray-800 rounded"
+                            className="rounded p-1.5 hover:bg-gray-800"
                             title="Edit bookmark"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             onClick={() => removeBookmark(bookmark.id)}
-                            className="p-1.5 hover:bg-red-500/20 rounded"
+                            className="rounded p-1.5 hover:bg-red-500/20"
                             title="Delete bookmark"
                           >
                             <Trash2 size={14} />
@@ -251,18 +250,18 @@ function BookmarkEditor({
   const [folder, setFolder] = useState(bookmark.folder || '');
 
   return (
-    <div className="flex-1 flex items-center gap-2">
+    <div className="flex flex-1 items-center gap-2">
       <input
         type="text"
         value={title}
         onChange={e => setTitle(e.target.value)}
-        className="flex-1 px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none"
+        className="flex-1 rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm focus:outline-none"
         autoFocus
       />
       <select
         value={folder}
         onChange={e => setFolder(e.target.value)}
-        className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-sm focus:outline-none"
+        className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm focus:outline-none"
       >
         <option value="">No folder</option>
         {folders.map(f => (
@@ -273,13 +272,13 @@ function BookmarkEditor({
       </select>
       <button
         onClick={() => onSave({ title, folder: folder || undefined })}
-        className="px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm"
+        className="rounded bg-blue-500 px-3 py-1 text-sm hover:bg-blue-600"
       >
         Save
       </button>
       <button
         onClick={onCancel}
-        className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+        className="rounded bg-gray-700 px-3 py-1 text-sm hover:bg-gray-600"
       >
         Cancel
       </button>

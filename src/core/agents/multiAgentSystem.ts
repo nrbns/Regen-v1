@@ -491,6 +491,7 @@ class MultiAgentSystem {
 
   /**
    * Execute batch with multiple agents
+   * LAG FIX #2: Parallel execution for better performance
    */
   async executeBatch(
     tasks: Array<{ mode: AgentMode; query: string; context: AgentContext }>
@@ -499,6 +500,117 @@ class MultiAgentSystem {
       tasks.map(task => this.execute(task.mode, task.query, task.context))
     );
     return results;
+  }
+
+  /**
+   * LAG FIX #2: Execute parallel actions (reason + summarize + scrape)
+   * Enables multi-action chaining like "research + chart"
+   */
+  async executeParallel(
+    query: string,
+    context: AgentContext,
+    actions: Array<'reason' | 'summarize' | 'scrape' | 'chart'>
+  ): Promise<AgentResult> {
+    const tasks = actions.map(action => {
+      switch (action) {
+        case 'reason':
+          return this.execute(context.mode, query, context);
+        case 'summarize':
+          // Parallel summarize with DOM scrape
+          return this.executeWithScrape(context.mode, query, context, 'summarize');
+        case 'scrape':
+          return this.executeWithScrape(context.mode, query, context, 'extract');
+        case 'chart':
+          return this.execute('trade', `Create chart for: ${query}`, context);
+        default:
+          return Promise.resolve<AgentResult>({ success: false, error: 'Unknown action' });
+      }
+    });
+
+    const results = await Promise.all(tasks);
+
+    // Combine results
+    return {
+      success: results.every(r => r.success),
+      data: results.map(r => r.data),
+      actions: results.flatMap(r => r.actions || []),
+      runId: results[0]?.runId,
+    };
+  }
+
+  /**
+   * LAG FIX #2: Execute with DOM scrape tie-in
+   */
+  private async executeWithScrape(
+    mode: AgentMode,
+    query: string,
+    context: AgentContext,
+    action: 'summarize' | 'extract'
+  ): Promise<AgentResult> {
+    // Scrape DOM in parallel with agent execution
+    const [agentResult, scrapedContent] = await Promise.all([
+      this.execute(mode, query, context),
+      this.scrapeTabContent(context.tabId),
+    ]);
+
+    if (scrapedContent && action === 'summarize') {
+      // Use scraped content for better summarization
+      const summaryResult = await this.execute(
+        mode,
+        `Summarize: ${scrapedContent.substring(0, 5000)}`,
+        context
+      );
+      return {
+        ...summaryResult,
+        data: { ...(summaryResult.data ?? {}), scrapedContent },
+      };
+    }
+
+    return {
+      ...agentResult,
+      data: { ...(agentResult.data ?? {}), scrapedContent },
+    };
+  }
+
+  /**
+   * LAG FIX #2: Scrape tab content via IPC or postMessage
+   */
+  private async scrapeTabContent(tabId?: string | null): Promise<string | null> {
+    if (!tabId) return null;
+
+    try {
+      // Try IPC first (Electron/Tauri)
+      if (typeof window !== 'undefined' && (window as any).ipc) {
+        const { ipc } = await import('../../lib/ipc-typed');
+        const result = await ipc.tabs.scrape({ id: tabId });
+        return result?.content || null;
+      }
+
+      // Fallback: postMessage to iframe
+      const iframe = document.querySelector(`iframe[data-tab-id="${tabId}"]`) as HTMLIFrameElement;
+      if (iframe?.contentWindow) {
+        return new Promise<string | null>(resolve => {
+          const handler = (event: MessageEvent) => {
+            if (event.data.type === 'scrape-result' && event.data.tabId === tabId) {
+              window.removeEventListener('message', handler);
+              resolve(event.data.content);
+            }
+          };
+          window.addEventListener('message', handler);
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'scrape-request', tabId }, '*');
+          }
+          setTimeout(() => {
+            window.removeEventListener('message', handler);
+            resolve(null);
+          }, 3000);
+        });
+      }
+    } catch (error) {
+      console.warn('[MultiAgentSystem] Scrape failed:', error);
+    }
+
+    return null;
   }
 }
 

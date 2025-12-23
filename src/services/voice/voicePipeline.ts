@@ -7,6 +7,8 @@
 import { useSettingsStore } from '../../state/settingsStore';
 import { detectLanguage } from '../languageDetection';
 import { toast } from '../../utils/toast';
+import { debounce } from 'lodash-es';
+import { getSarvamService } from '../sarvamIntegration';
 
 export type VoiceLanguage = 'hi' | 'en' | 'auto';
 
@@ -41,6 +43,12 @@ class VoicePipelineService {
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private isListening = false;
   private isSpeaking = false;
+  private debouncedResultHandler:
+    | ((text: string, confidence: number, language: string) => void)
+    | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private usingSarvamFallback = false;
 
   // Language locale mapping for speech recognition
   private readonly RECOGNITION_LOCALES: Record<string, string> = {
@@ -109,15 +117,16 @@ class VoicePipelineService {
     if (!this.synthesis) return [];
 
     const allVoices = this.synthesis.getVoices();
-    const targetLocale = language === 'auto' 
-      ? this.SYNTHESIS_LOCALES[useSettingsStore.getState().language || 'en'] || 'en-US'
-      : this.SYNTHESIS_LOCALES[language] || 'en-US';
+    const targetLocale =
+      language === 'auto'
+        ? this.SYNTHESIS_LOCALES[useSettingsStore.getState().language || 'en'] || 'en-US'
+        : this.SYNTHESIS_LOCALES[language] || 'en-US';
 
     // Filter voices by language
     const filtered = allVoices.filter(voice => {
       const voiceLang = voice.lang.toLowerCase();
       const targetLang = targetLocale.toLowerCase();
-      
+
       // Match exact locale or language code
       return (
         voiceLang === targetLang ||
@@ -139,9 +148,10 @@ class VoicePipelineService {
     if (voices.length === 0) return null;
 
     // Prefer native voices, then local variants
-    const targetLocale = language === 'auto'
-      ? this.SYNTHESIS_LOCALES[useSettingsStore.getState().language || 'en'] || 'en-US'
-      : this.SYNTHESIS_LOCALES[language] || 'en-US';
+    const targetLocale =
+      language === 'auto'
+        ? this.SYNTHESIS_LOCALES[useSettingsStore.getState().language || 'en'] || 'en-US'
+        : this.SYNTHESIS_LOCALES[language] || 'en-US';
 
     // Try to find exact match first
     const exactMatch = voices.find(v => v.lang.toLowerCase() === targetLocale.toLowerCase());
@@ -160,6 +170,61 @@ class VoicePipelineService {
    * Phase 2, Day 4: Start voice recognition
    */
   async startRecognition(options: VoiceRecognitionOptions = {}): Promise<void> {
+    // LAG FIX: Try Sarvam for Hindi if browser recognition fails/weak
+    const settingsLanguage = useSettingsStore.getState().language || 'en';
+    const isHindi = settingsLanguage === 'hi' || options.language === 'hi';
+
+    // For Hindi, setup Sarvam fallback with MediaRecorder
+    if (isHindi && 'MediaRecorder' in window) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        this.mediaRecorder = new MediaRecorder(stream);
+        this.audioChunks = [];
+
+        this.mediaRecorder.ondataavailable = event => {
+          if (event.data.size > 0) {
+            this.audioChunks.push(event.data);
+          }
+        };
+
+        this.mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+
+          // LAG FIX: Try Sarvam if browser recognition confidence is low
+          if (this.usingSarvamFallback) {
+            try {
+              const sarvam = getSarvamService();
+              const result = await sarvam.transcribeHindi(audioBlob);
+              if (result.confidence > 0.5) {
+                if (this.debouncedResultHandler) {
+                  this.debouncedResultHandler(result.text, result.confidence, 'hi');
+                } else {
+                  options.onResult?.(result.text, result.confidence, 'hi');
+                }
+                console.log('[VoicePipeline] Sarvam fallback succeeded');
+              }
+            } catch (error) {
+              console.warn('[VoicePipeline] Sarvam fallback failed:', error);
+            }
+          }
+
+          this.audioChunks = [];
+        };
+
+        this.mediaRecorder.start();
+      } catch (error) {
+        console.warn('[VoicePipeline] MediaRecorder setup failed:', error);
+      }
+    }
+
+    // LAG FIX: Debounce result handler to prevent 1s agent queue lag
+    if (options.onResult && !this.debouncedResultHandler) {
+      this.debouncedResultHandler = debounce(options.onResult, 300, {
+        leading: false,
+        trailing: true,
+      });
+    }
+
     if (!this.recognition) {
       const error = 'Speech recognition not available';
       options.onError?.(error);
@@ -184,7 +249,7 @@ class VoicePipelineService {
       // Chrome/Edge support multiple languages separated by comma
       const _locale = this.RECOGNITION_LOCALES[targetLanguage] || 'en-US';
       const dualLocale = targetLanguage === 'hi' ? 'hi-IN,en-US' : 'en-US,hi-IN'; // Support both
-      
+
       this.recognition.lang = dualLocale;
       this.recognition.continuous = options.continuous ?? false;
       this.recognition.interimResults = options.interimResults ?? false;
@@ -197,6 +262,27 @@ class VoicePipelineService {
       };
 
       this.recognition.onresult = async (event: any) => {
+        const result = event.results[event.results.length - 1];
+        const transcript = result[0].transcript;
+        const confidence = result[0].confidence;
+
+        // Detect language from transcript
+        const detectionResult = await detectLanguage(transcript);
+        const detectedLang =
+          typeof detectionResult === 'string' ? detectionResult : detectionResult?.language || 'en';
+
+        // LAG FIX: Use debounced handler to batch rapid voice inputs
+        if (this.debouncedResultHandler) {
+          this.debouncedResultHandler(transcript, confidence, detectedLang);
+        } else {
+          options.onResult?.(transcript, confidence, detectedLang);
+
+          // LAG FIX: If Hindi and low confidence, trigger Sarvam fallback
+          if (detectedLang === 'hi' && confidence < 0.7 && this.mediaRecorder) {
+            console.log('[VoicePipeline] Low confidence, will try Sarvam fallback');
+            this.usingSarvamFallback = true;
+          }
+        }
         try {
           const results = Array.isArray(event.results) ? Array.from(event.results) : [];
           const transcripts = results
@@ -212,7 +298,10 @@ class VoicePipelineService {
           const firstResult = results[0] as any;
           const confidence = firstResult?.[0]?.confidence ?? 0.8;
 
-          options.onResult?.(text, confidence, detection.language);
+          const normalizedLanguage =
+            typeof detection === 'string' ? detection : detection?.language || 'en';
+
+          options.onResult?.(text, confidence, normalizedLanguage);
         } catch (error) {
           console.error('[VoicePipeline] Error processing recognition result:', error);
           options.onError?.('Failed to process speech recognition result');
@@ -224,7 +313,7 @@ class VoicePipelineService {
         const error = event.error || 'Unknown error';
         console.error('[VoicePipeline] Recognition error:', error);
         options.onError?.(error);
-        
+
         if (error === 'not-allowed') {
           toast.error('Microphone permission denied. Please enable it in your browser settings.');
         } else if (error === 'no-speech') {
@@ -256,6 +345,13 @@ class VoicePipelineService {
     if (this.recognition && this.isListening) {
       try {
         this.recognition.stop();
+
+        // Stop MediaRecorder for Sarvam fallback
+        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+          this.mediaRecorder.stop();
+          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        }
+        this.usingSarvamFallback = false;
       } catch (error) {
         console.error('[VoicePipeline] Error stopping recognition:', error);
       }
@@ -266,10 +362,7 @@ class VoicePipelineService {
   /**
    * Phase 2, Day 4: Speak text with language detection
    */
-  async speak(
-    text: string,
-    options: VoiceSynthesisOptions = {}
-  ): Promise<void> {
+  async speak(text: string, options: VoiceSynthesisOptions = {}): Promise<void> {
     if (!this.synthesis) {
       const error = 'Speech synthesis not available';
       options.onError?.(error);
@@ -399,4 +492,3 @@ export function getVoicePipeline(): VoicePipelineService {
   }
   return instance;
 }
-

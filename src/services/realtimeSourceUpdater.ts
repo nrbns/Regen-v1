@@ -4,7 +4,7 @@
  * Especially useful for dynamic content (NSE prices, news feeds, etc.)
  */
 
-import type { ResearchSource } from '../modes/research/types';
+import type { ResearchSource } from '../types/research';
 
 export interface SourceUpdate {
   sourceId: string;
@@ -89,13 +89,16 @@ export function subscribeToSourceUpdates(
 
             if (lastModifiedTime > sourceTime) {
               // Source updated - fetch new content (async, don't block)
+              const sourceUrl = source.url;
+              if (!sourceUrl) return;
+
               import('./liveTabScraper')
-                .then(({ scrapeUrl }) => scrapeUrl(source.url!))
+                .then(({ scrapeUrl }) => scrapeUrl(sourceUrl))
                 .then(updated => {
                   if (updated) {
                     callback({
-                      sourceId: source.id,
-                      url: source.url!,
+                      sourceId: source.id || sourceUrl,
+                      url: sourceUrl,
                       updates: {
                         title: updated.title,
                         snippet: updated.text?.substring(0, 300),

@@ -4,23 +4,8 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Send,
-  Cpu,
-  MemoryStick,
-  Network,
-  Brain,
-  Shield,
-  Activity,
-  AlertTriangle,
-  X,
-  RefreshCw,
-  Wifi,
-  Loader2,
-  MoreHorizontal,
-} from 'lucide-react';
+import { Send, Brain, Shield, Activity, AlertTriangle, X, Wifi, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { EcoBadgeCompact } from '../EcoBadge';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import {
@@ -30,7 +15,7 @@ import {
   EfficiencyAlertAction,
 } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
-import { PrivacySwitch } from '../PrivacySwitch';
+import { PrivacySwitch } from '../privacy/PrivacySwitch';
 import { useEfficiencyStore } from '../../state/efficiencyStore';
 import { usePrivacyStore } from '../../state/privacyStore';
 // Voice components disabled by user request
@@ -40,6 +25,7 @@ import { getEnvVar, isElectronRuntime, isWebMode } from '../../lib/env';
 import { isBackendAvailable, onBackendStatusChange } from '../../lib/backend-status';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 import { useSettingsStore } from '../../state/settingsStore';
+import RamSavedCounter from '../RamSavedCounter';
 
 type PrivacyEventEntry = {
   id: string;
@@ -90,18 +76,16 @@ export function BottomStatus() {
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   );
-  const [promptResponse, setPromptResponse] = useState('');
-  const [promptError, setPromptError] = useState<string | null>(null);
-  const [promptEcoScore, setPromptEcoScore] = useState<{
+  const [_promptResponse, setPromptResponse] = useState('');
+  const [_promptError, setPromptError] = useState<string | null>(null);
+  const [_promptEcoScore, setPromptEcoScore] = useState<{
     score: number;
     tier: string;
     co2Saved: number;
   } | null>(null);
   // const promptSessionRef = useRef<string | null>(null); // Unused for now
   const [extraOpen, setExtraOpen] = useState(false);
-  const [trendOpen, setTrendOpen] = useState(false);
   const extraRef = useRef<HTMLDivElement | null>(null);
-  const trendRef = useRef<HTMLDivElement | null>(null);
   const [dohStatus, setDohStatus] = useState({ enabled: false, provider: 'cloudflare' });
   const latestSample = useMetricsStore(state => state.latest);
   // Use metrics store for real-time CPU/memory updates
@@ -121,29 +105,29 @@ export function BottomStatus() {
   const vpnStatus = usePrivacyStore(state => state.vpn);
   const refreshTor = usePrivacyStore(state => state.refreshTor);
   const refreshVpn = usePrivacyStore(state => state.refreshVpn);
-  const startTor = usePrivacyStore(state => state.startTor);
-  const stopTor = usePrivacyStore(state => state.stopTor);
-  const newTorIdentity = usePrivacyStore(state => state.newTorIdentity);
+  const _startTor = usePrivacyStore(state => state.startTor);
+  const _stopTor = usePrivacyStore(state => state.stopTor);
+  const _newTorIdentity = usePrivacyStore(state => state.newTorIdentity);
   const checkVpn = usePrivacyStore(state => state.checkVpn);
   const metricsHistory = useMetricsStore(state => state.history);
   const dailyCarbon = useMetricsStore(state => state.dailyTotalCarbon);
   const highCpuRef = useRef<MetricSample[]>([]);
   const highRamRef = useRef<MetricSample[]>([]);
-  const [metricsAlert, setMetricsAlert] = useState<{
+  const [_metricsAlert, setMetricsAlert] = useState<{
     title: string;
     message: string;
     severity: 'info' | 'warning' | 'critical';
   } | null>(null);
-  const [vpnProfiles, setVpnProfiles] = useState<
+  const [_vpnProfiles, setVpnProfiles] = useState<
     Array<{ id: string; name: string; type: string; server?: string }>
   >([]);
   const vpnProfilesRef = useRef<Array<{ id: string; name: string; type: string; server?: string }>>(
     []
   );
-  const [vpnActiveId, setVpnActiveId] = useState<string | null>(null);
+  const [_vpnActiveId, setVpnActiveId] = useState<string | null>(null);
   const [vpnBusy, setVpnBusy] = useState(false);
-  const [vpnError, setVpnError] = useState<string | null>(null);
-  const [privacyEvents, setPrivacyEvents] = useState<PrivacyEventEntry[]>([]);
+  const [_vpnError, setVpnError] = useState<string | null>(null);
+  const [_privacyEvents, setPrivacyEvents] = useState<PrivacyEventEntry[]>([]);
   const [privacyToast, setPrivacyToast] = useState<PrivacyEventEntry | null>(null);
   const [shieldsStats, setShieldsStats] = useState<{ trackersBlocked: number; adsBlocked: number }>(
     { trackersBlocked: 0, adsBlocked: 0 }
@@ -172,11 +156,13 @@ export function BottomStatus() {
   const isElectron = useMemo(() => isElectronRuntime(), []);
   const apiBaseUrl = useMemo(() => {
     return (
-      getEnvVar('API_BASE_URL') ??
-      getEnvVar('OMNIBROWSER_API_URL') ??
-      getEnvVar('OB_API_BASE_URL') ??
-      getEnvVar('VITE_REDIX_HTTP_URL') ??
-      'http://localhost:4000'
+      getEnvVar('VITE_API_BASE_URL') ||
+      getEnvVar('VITE_APP_API_URL') ||
+      getEnvVar('API_BASE_URL') ||
+      getEnvVar('OMNIBROWSER_API_URL') ||
+      getEnvVar('OB_API_BASE_URL') ||
+      getEnvVar('VITE_REDIX_HTTP_URL') ||
+      'http://127.0.0.1:4000' // Default to match .env specification
     );
   }, []);
   const metricsSocketRef = useRef<WebSocket | EventSource | null>(null);
@@ -462,21 +448,47 @@ export function BottomStatus() {
       let reconnectAttempts = 0;
       const maxReconnectAttempts = 10;
       const reconnectDelay = 3000; // Start with 3 seconds
+      const pollingIntervalMs = 2000; // Fallback polling interval (rate limit)
+      let pollingFallbackActive = false;
+      let pollInterval: NodeJS.Timeout | null = null;
+
+      const showDegradedStatus = () => {
+        setMetricsAlert({
+          title: 'Realtime metrics degraded',
+          message: 'Falling back to polling. Live updates unavailable.',
+          severity: 'warning',
+        });
+      };
+
+      const startPollingFallback = () => {
+        if (pollingFallbackActive) return;
+        pollingFallbackActive = true;
+        showDegradedStatus();
+        pollInterval = setInterval(async () => {
+          try {
+            const response = await fetch(`${apiBaseUrl}/metrics`);
+            if (response.ok) {
+              const data = await response.json();
+              pushMetricSample({
+                timestamp: Date.now(),
+                cpu: data.cpu || 0,
+                memory: data.memory || 0,
+                carbonIntensity: data.carbon_intensity,
+              });
+            }
+          } catch (error) {
+            console.debug('[metrics] Polling fallback failed:', error);
+          }
+        }, pollingIntervalMs);
+      };
 
       const connectWebSocket = () => {
-        // Skip WebSocket connections in web mode - no backend available
-        if (isWebMode()) {
-          // In web mode, never attempt WebSocket connection
-          return;
-        }
-
+        if (isWebMode()) return;
         if (socket?.readyState === WebSocket.OPEN) return;
-
         try {
           const wsUrl = `${apiBaseUrl.replace(/^http/, 'ws')}/ws/metrics`;
           socket = new WebSocket(wsUrl);
           metricsSocketRef.current = socket;
-
           socket.onmessage = event => {
             try {
               const data = JSON.parse(event.data);
@@ -489,41 +501,38 @@ export function BottomStatus() {
                   typeof data.carbon_intensity === 'number' ? data.carbon_intensity : undefined,
               };
               pushMetricSample(sample);
-              reconnectAttempts = 0; // Reset on successful message
+              reconnectAttempts = 0;
+              if (pollingFallbackActive) {
+                pollingFallbackActive = false;
+                setMetricsAlert(null);
+                if (pollInterval) clearInterval(pollInterval);
+              }
             } catch (error) {
               console.warn('[metrics] Failed to parse message', error);
             }
           };
-
           socket.onopen = () => {
             reconnectAttempts = 0;
-            // Don't log - WebSocket connection is expected in Electron/Tauri
           };
-
           socket.onerror = event => {
-            // Suppress error logging completely - metrics WebSocket is optional
             event.stopPropagation();
             event.preventDefault();
-            // Don't log - backend is optional in web mode
           };
-
           socket.onclose = () => {
             socket = null;
             metricsSocketRef.current = null;
-
-            // Auto-reconnect with exponential backoff (skip in web mode)
             if (!isWebMode() && reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
-              const delay = reconnectDelay * Math.min(reconnectAttempts, 5); // Cap at 5x delay
+              const delay = reconnectDelay * Math.min(reconnectAttempts, 5);
               reconnectTimeout = setTimeout(() => {
                 connectWebSocket();
               }, delay);
+            } else if (!isWebMode() && reconnectAttempts >= maxReconnectAttempts) {
+              // Fallback to polling after max reconnect attempts
+              startPollingFallback();
             }
-            // Don't log warnings or attempt fallback polling in web mode
           };
         } catch (error) {
-          // Suppress all WebSocket creation errors - backend is optional
-          // Only log if we're in Electron/Tauri (backend expected)
           if (!isWebMode()) {
             console.error('[metrics] Failed to create websocket:', error);
           }
@@ -533,24 +542,21 @@ export function BottomStatus() {
       connectWebSocket();
 
       return () => {
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout);
-        }
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        if (pollInterval) clearInterval(pollInterval);
         if (socket) {
           try {
-            // Only close if WebSocket is in a valid state to prevent browser errors
             if (
               socket.readyState === WebSocket.OPEN ||
               socket.readyState === WebSocket.CONNECTING
             ) {
               socket.close();
             }
-          } catch {
-            // ignore - WebSocket errors are expected if server isn't running
-          }
+          } catch {}
           socket = null;
         }
         metricsSocketRef.current = null;
+        pollingFallbackActive = false;
       };
     }
   }, [isElectron, apiBaseUrl, pushMetricSample, backendOnline]);
@@ -633,15 +639,15 @@ export function BottomStatus() {
     };
   }, []);
 
-  const privacyModeColors = {
+  const _privacyModeColors = {
     Normal: 'text-gray-400',
     Ghost: 'text-blue-400',
     Tor: 'text-purple-400',
   };
 
-  const trustVariant =
+  const _trustVariant =
     trustBadgeData.pending > 0 ? 'warning' : trustBadgeData.blocked > 0 ? 'info' : 'default';
-  const trustDescription =
+  const _trustDescription =
     trustBadgeData.pending > 0
       ? `${trustBadgeData.pending} pending`
       : trustBadgeData.blocked > 0
@@ -655,7 +661,7 @@ export function BottomStatus() {
         ? 'Tor: On'
         : `Tor: ${Math.round(torStatus.progress)}%`
       : 'Tor: Off';
-  const torTooltip = torStatus.stub
+  const _torTooltip = torStatus.stub
     ? 'Tor is optional and not installed. Privacy features work without it.'
     : torStatus.error && !torStatus.stub
       ? `Tor warning: ${torStatus.error}`
@@ -665,145 +671,9 @@ export function BottomStatus() {
           : 'Tor starting up. Click to stop.'
         : 'Route traffic through Tor. Click to enable.';
 
-  const vpnTooltip = vpnStatus.connected
+  const _vpnTooltip = vpnStatus.connected
     ? `VPN connected${vpnStatus.name ? ` (${vpnStatus.name})` : ''}. Click to re-check.`
     : 'Check whether a system VPN is active.';
-
-  const severityStyles: Record<'info' | 'warning' | 'critical', string> = {
-    info: 'bg-blue-500/10 border-blue-400/40 text-blue-100',
-    warning: 'bg-amber-500/10 border-amber-400/40 text-amber-100',
-    critical: 'bg-red-500/10 border-red-400/40 text-red-100',
-  };
-
-  const clampPercent = (value?: number | null) => {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      return 0;
-    }
-    return Math.max(0, Math.min(100, Math.round(value)));
-  };
-
-  // const smoothValue = (previous: number, next: number, factor = 0.35) => {
-  //   if (!Number.isFinite(previous)) return next;
-  //   return previous + (next - previous) * factor;
-  // }; // Unused for now
-
-  const TrendChart = ({
-    label,
-    points,
-    color,
-    labels,
-  }: {
-    label: string;
-    points: number[];
-    color: string;
-    labels: number[];
-  }) => {
-    const recent = points.length > 0 ? points : [0];
-    const path = recent
-      .map((value, index, arr) => {
-        const x = (index / Math.max(arr.length - 1, 1)) * 200;
-        const y = 80 - (value / 100) * 80;
-        return `${index === 0 ? 'M' : 'L'}${x},${y}`;
-      })
-      .join(' ');
-    const spanMs = labels.length >= 2 ? labels[labels.length - 1] - labels[0] : 0;
-    const spanMinutes = Math.max(Math.round(spanMs / 60000), 0);
-    const spanLabel = spanMinutes > 0 ? `${spanMinutes}m window` : 'Live';
-
-    return (
-      <div className="space-y-1">
-        <div className="flex items-center justify-between text-[11px] text-gray-300">
-          <span>{label}</span>
-          <span className="opacity-70">{spanLabel}</span>
-        </div>
-        <svg viewBox="0 0 200 80" className="h-20 w-full rounded-md bg-gray-900/70 p-1">
-          <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </div>
-    );
-  };
-
-  const sparklinePoints = useMemo(
-    () => metricsHistory.map(sample => clampPercent(sample.cpu)),
-    [metricsHistory]
-  );
-  const trendSamples = useMemo(() => metricsHistory.slice(-180), [metricsHistory]);
-  const trendCpuPoints = useMemo(
-    () => trendSamples.map(sample => clampPercent(sample.cpu)),
-    [trendSamples]
-  );
-  const trendRamPoints = useMemo(
-    () => trendSamples.map(sample => clampPercent(sample.memory)),
-    [trendSamples]
-  );
-  const trendLabels = useMemo(() => trendSamples.map(sample => sample.timestamp), [trendSamples]);
-
-  const StatusMeter = ({
-    icon: Icon,
-    label,
-    value,
-    percent,
-    gradient = 'from-blue-500 via-cyan-500 to-blue-500',
-    title,
-    onClick,
-    sparklinePoints,
-  }: {
-    icon: LucideIcon;
-    label: string;
-    value: string;
-    percent?: number;
-    gradient?: string;
-    title?: string;
-    onClick?: () => void;
-    sparklinePoints?: number[];
-  }) => {
-    const Component = onClick ? 'button' : 'div';
-    const pct = clampPercent(percent);
-
-    return (
-      <Component
-        type={onClick ? 'button' : undefined}
-        onClick={onClick}
-        title={title}
-        className={`flex items-center gap-1.5 rounded-full border border-gray-700/60 bg-gray-800/60 px-2 py-1 text-xs text-gray-200 ${
-          onClick
-            ? 'cursor-pointer transition-colors hover:border-gray-500/70 focus:outline-none focus:ring-1 focus:ring-blue-400/40'
-            : ''
-        }`}
-      >
-        <Icon size={12} className="text-gray-400" />
-        <span className="font-semibold text-gray-100">{label}</span>
-        <span className="text-[11px] opacity-75">{value}</span>
-        <div className="h-1.5 w-14 overflow-hidden rounded-full bg-gray-700">
-          <motion.div
-            className={`h-full bg-gradient-to-r ${gradient}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
-        </div>
-        {sparklinePoints && sparklinePoints.length > 4 && (
-          <svg viewBox="0 0 40 12" className="ml-2 h-3 w-10 text-blue-400/70">
-            <polyline
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              points={sparklinePoints
-                .slice(-12)
-                .map((value, index, arr) => {
-                  const x = (index / Math.max(arr.length - 1, 1)) * 40;
-                  const y = 12 - (value / 100) * 12;
-                  return `${x},${y}`;
-                })
-                .join(' ')}
-            />
-          </svg>
-        )}
-      </Component>
-    );
-  };
 
   const StatusBadge = ({
     icon: Icon,
@@ -900,7 +770,7 @@ export function BottomStatus() {
     return () => window.clearTimeout(timer);
   }, [privacyToast]);
 
-  const handleEfficiencyAction = async (action: EfficiencyAlertAction) => {
+  const _handleEfficiencyAction = async (action: EfficiencyAlertAction) => {
     try {
       if (action.type === 'mode' && action.mode) {
         await ipc.efficiency.applyMode(action.mode);
@@ -1021,20 +891,18 @@ export function BottomStatus() {
   // This can be removed once IPC redix.stream is fully deprecated
 
   useEffect(() => {
-    if (!extraOpen && !trendOpen) return;
+    if (!extraOpen) return;
     const listenerOptions: AddEventListenerOptions = { capture: true };
     const handleOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (extraOpen && extraRef.current && extraRef.current.contains(target)) return;
-      if (trendOpen && trendRef.current && trendRef.current.contains(target)) return;
       setExtraOpen(false);
-      setTrendOpen(false);
     };
     document.addEventListener('mousedown', handleOutside, listenerOptions);
     return () => document.removeEventListener('mousedown', handleOutside, listenerOptions);
-  }, [extraOpen, trendOpen]);
+  }, [extraOpen]);
 
-  const handleDoHToggle = async () => {
+  const _handleDoHToggle = async () => {
     try {
       if (dohStatus.enabled) {
         await ipc.dns.disableDoH();
@@ -1048,7 +916,7 @@ export function BottomStatus() {
     }
   };
 
-  const handleVpnConnect = useCallback(
+  const _handleVpnConnect = useCallback(
     async (profileId: string) => {
       if (!profileId || vpnBusy) {
         return;
@@ -1084,7 +952,7 @@ export function BottomStatus() {
     [checkVpn, addPrivacyEvent, vpnBusy]
   );
 
-  const handleVpnDisconnect = useCallback(async () => {
+  const _handleVpnDisconnect = useCallback(async () => {
     if (vpnBusy) {
       return;
     }
@@ -1104,7 +972,7 @@ export function BottomStatus() {
     }
   }, [checkVpn, addPrivacyEvent, vpnBusy]);
 
-  const efficiencyDetails = [
+  const _efficiencyDetails = [
     efficiencyBadge || null,
     typeof efficiencySnapshot.batteryPct === 'number'
       ? `${Math.round(efficiencySnapshot.batteryPct)}%`
@@ -1115,15 +983,15 @@ export function BottomStatus() {
     .filter(Boolean)
     .join(' · ');
 
-  const efficiencyVariant: 'default' | 'positive' | 'info' = efficiencyLabel.includes('Regen')
+  const _efficiencyVariant: 'default' | 'positive' | 'info' = efficiencyLabel.includes('Regen')
     ? 'positive'
     : efficiencyLabel.includes('Battery')
       ? 'info'
       : 'default';
 
-  const torBadgeDescription = torStatusLabel.replace(/^Tor:?\s*/i, '');
+  const _torBadgeDescription = torStatusLabel.replace(/^Tor:?\s*/i, '');
   // Don't show warning badge for stub mode (Tor not installed is fine)
-  const torBadgeVariant: 'default' | 'positive' | 'warning' | 'info' = torStatus.stub
+  const _torBadgeVariant: 'default' | 'positive' | 'warning' | 'info' = torStatus.stub
     ? 'default' // Changed from 'warning' - stub mode is normal, not an error
     : torStatus.running
       ? 'info'
@@ -1162,13 +1030,20 @@ export function BottomStatus() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.2 }}
-            className={`fixed bottom-20 right-6 z-50 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-lg shadow-black/40 ${
+            className={`fixed right-6 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-lg shadow-black/40 ${
               privacyToast.status === 'success'
                 ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-100'
                 : privacyToast.status === 'warning'
                   ? 'border-amber-500/40 bg-amber-500/15 text-amber-100'
                   : 'border-sky-500/40 bg-sky-500/15 text-sky-100'
             }`}
+            style={{
+              bottom:
+                typeof window !== 'undefined' && window.innerWidth <= 768
+                  ? 'calc(80px + env(safe-area-inset-bottom, 0px) + 16px)'
+                  : '80px',
+              zIndex: 105,
+            }}
           >
             {privacyToast.kind === 'tor' ? (
               <Shield size={16} aria-hidden="true" />
@@ -1193,79 +1068,24 @@ export function BottomStatus() {
         )}
       </AnimatePresence>
       <div
-        className="hidden flex-col gap-2 border-t border-slate-800/60 bg-slate-950/90 px-4 py-2.5 text-xs text-gray-300 md:flex"
+        className="hidden flex-row items-center justify-between border-t border-slate-800/60 bg-slate-950/95 px-4 py-2 text-xs text-gray-300 md:flex"
         data-onboarding="status-bar"
       >
-        <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-300 sm:gap-2 sm:text-sm md:gap-3">
+        {/* LEFT ZONE: Privacy Mode */}
+        <div className="flex items-center gap-2">
           <PrivacySwitch />
+          <span className="ml-2 text-[11px] text-gray-400">{privacyMode} mode</span>
+        </div>
 
-          <StatusMeter
-            icon={Cpu}
-            label="CPU"
-            value={`${cpuUsage}%`}
-            percent={cpuUsage}
-            gradient="from-blue-500 via-cyan-500 to-blue-500"
-            title="CPU usage"
-            sparklinePoints={sparklinePoints}
-          />
-
-          <StatusMeter
-            icon={MemoryStick}
-            label="RAM"
-            value={`${memoryUsage}%`}
-            percent={memoryUsage}
-            title="System memory usage"
-            gradient="from-green-500 via-emerald-500 to-green-500"
-          />
-
-          <StatusBadge
-            icon={Activity}
-            label={efficiencyLabel}
-            description={efficiencyDetails || undefined}
-            variant={efficiencyVariant}
-            title={efficiencyBadge ?? efficiencyLabel}
-          />
-
-          <StatusBadge
-            icon={Network}
-            label="Mode"
-            description={privacyMode}
-            className={privacyModeColors[privacyMode]}
-            title={`Privacy mode: ${privacyMode}`}
-          />
-
-          <StatusBadge
-            icon={Shield}
-            label="Trust"
-            description={trustDescription}
-            variant={trustVariant}
-            onClick={() => void openTrustDashboard()}
-            title="Open trust & ethics dashboard"
-            loading={trustBadgeData.loading}
-          />
-
-          {isOffline && (
-            <StatusBadge
-              icon={AlertTriangle}
-              label="Offline"
-              description="Local mode"
-              variant="warning"
-              title="Offline mode: remote services paused"
-            />
-          )}
-
-          {/* Privacy Scorecard - Always visible showing blocked trackers from Redix/Shields */}
+        {/* CENTER ZONE: Key Stats */}
+        <div className="flex items-center gap-3">
           <StatusBadge
             icon={Shield}
             label="Blocked"
             description={
               shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
-                ? shieldsStats.trackersBlocked > 0 && shieldsStats.adsBlocked > 0
-                  ? `${shieldsStats.trackersBlocked} trackers, ${shieldsStats.adsBlocked} ads`
-                  : shieldsStats.trackersBlocked > 0
-                    ? `${shieldsStats.trackersBlocked} trackers`
-                    : `${shieldsStats.adsBlocked} ads`
-                : '0 trackers'
+                ? `${shieldsStats.trackersBlocked + shieldsStats.adsBlocked}`
+                : '0'
             }
             variant={
               shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
@@ -1275,463 +1095,135 @@ export function BottomStatus() {
             onClick={() => void openTrustDashboard()}
             title={
               shieldsStats.trackersBlocked > 0 || shieldsStats.adsBlocked > 0
-                ? `Privacy shields active: ${shieldsStats.trackersBlocked} tracker${shieldsStats.trackersBlocked === 1 ? '' : 's'} and ${shieldsStats.adsBlocked} ad${shieldsStats.adsBlocked === 1 ? '' : 's'} blocked. Click to view details.`
-                : 'Privacy shields: No trackers or ads blocked yet. Click to view privacy dashboard.'
+                ? `${shieldsStats.trackersBlocked} trackers, ${shieldsStats.adsBlocked} ads blocked`
+                : 'No trackers blocked'
             }
           />
-
-          <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
+          {isOffline && (
             <StatusBadge
-              icon={Brain}
-              label="Model"
-              description={modelReady ? 'Ready' : 'Loading'}
-              variant={modelReady ? 'positive' : 'default'}
-              pulse={modelReady}
-              loading={!modelReady}
-              title="Local model status"
+              icon={AlertTriangle}
+              label="Offline"
+              variant="warning"
+              title="Offline mode"
             />
-
-            <button
-              type="button"
-              className="hidden items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-2 py-1 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white sm:px-3 sm:py-1.5 md:flex"
-              onClick={() => setTrendOpen(prev => !prev)}
-              title="View detailed performance trends"
-            >
-              <Activity size={14} />
-              <span className="hidden lg:inline">Trends</span>
-            </button>
-
-            <div className="relative hidden w-32 sm:block sm:w-48 md:w-60">
-              <input
-                type="text"
-                value={prompt}
-                onChange={e => setPrompt(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    void handlePromptSubmit();
-                  }
-                }}
-                placeholder="Prompt agent (e.g., 'summarize this page')..."
-                disabled={promptLoading || isOffline}
-                className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${
-                  promptLoading || isOffline ? 'cursor-not-allowed opacity-70' : ''
-                }`}
-              />
-              {promptLoading ? (
-                <Loader2
-                  className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-blue-300"
-                  aria-label="Sending prompt"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handlePromptSubmit()}
-                  disabled={isOffline}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200 disabled:opacity-50"
-                  title="Send prompt"
-                >
-                  <Send size={14} />
-                </button>
-              )}
-            </div>
-
-            {(promptResponse || promptError || promptLoading) && (
-              <div className="hidden w-full space-y-2 sm:block">
-                <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-3 text-left text-xs text-gray-200">
-                  {promptError ? (
-                    <span className="text-red-400">{promptError}</span>
-                  ) : (
-                    <span className="whitespace-pre-wrap">
-                      {promptResponse || (promptLoading ? 'Redix is thinking…' : '')}
-                    </span>
-                  )}
-                </div>
-                {promptEcoScore && !promptLoading && (
-                  <div className="flex items-center justify-end">
-                    <EcoBadgeCompact
-                      score={promptEcoScore.score}
-                      tier={promptEcoScore.tier as 'Ultra Green' | 'Green' | 'Yellow' | 'Red'}
-                      co2SavedG={promptEcoScore.co2Saved}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Voice components removed by user request */}
-
-            <div className="relative" ref={extraRef}>
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-full border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-gray-600 hover:text-white"
-                onClick={() => setExtraOpen(prev => !prev)}
-                title="Security & network controls"
-              >
-                <MoreHorizontal size={14} />
-                More
-              </button>
-              <AnimatePresence>
-                {extraOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.16 }}
-                    className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-800 bg-slate-950/95 p-3 shadow-xl"
-                  >
-                    <div className="grid gap-2">
-                      <StatusBadge
-                        icon={Shield}
-                        label="Tor"
-                        description={torBadgeDescription}
-                        variant={torBadgeVariant}
-                        onClick={
-                          !torStatus.loading
-                            ? async () => {
-                                if (torStatus.running) {
-                                  addPrivacyEvent({
-                                    kind: 'tor',
-                                    status: 'info',
-                                    message: 'Stopping Tor…',
-                                  });
-                                  await stopTor();
-                                  // Verify status after stopping
-                                  setTimeout(async () => {
-                                    await refreshTor();
-                                    const status = (await ipc.proxy.status()) as any;
-                                    if (status?.tor?.enabled === false) {
-                                      addPrivacyEvent({
-                                        kind: 'tor',
-                                        status: 'success',
-                                        message: 'Tor stopped. Proxy disabled.',
-                                      });
-                                    }
-                                  }, 1000);
-                                } else {
-                                  addPrivacyEvent({
-                                    kind: 'tor',
-                                    status: 'info',
-                                    message: 'Starting Tor…',
-                                  });
-                                  await startTor();
-                                  // Verify status after starting
-                                  setTimeout(async () => {
-                                    await refreshTor();
-                                    const status = (await ipc.proxy.status()) as any;
-                                    if (status?.tor?.enabled && status?.tor?.circuitEstablished) {
-                                      addPrivacyEvent({
-                                        kind: 'tor',
-                                        status: 'success',
-                                        message: `Tor active. Circuit: ${status.tor.circuitId || 'established'}`,
-                                      });
-                                    } else if (status?.tor?.enabled) {
-                                      addPrivacyEvent({
-                                        kind: 'tor',
-                                        status: 'info',
-                                        message: 'Tor starting, circuit establishing…',
-                                      });
-                                    }
-                                  }, 2000);
-                                }
-                              }
-                            : undefined
-                        }
-                        loading={torStatus.loading}
-                        title={torTooltip}
-                        className={`justify-start ${torStatus.loading ? 'cursor-not-allowed opacity-60' : ''}`}
-                      />
-                      {torStatus.running && !torStatus.stub && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (torStatus.loading) return;
-                            addPrivacyEvent({
-                              kind: 'tor',
-                              status: 'info',
-                              message: 'Requesting new Tor identity…',
-                            });
-                            void newTorIdentity()
-                              .then(() => {
-                                addPrivacyEvent({
-                                  kind: 'tor',
-                                  status: 'success',
-                                  message: 'Tor identity refreshed',
-                                });
-                              })
-                              .catch(error => {
-                                const message =
-                                  error instanceof Error ? error.message : String(error);
-                                addPrivacyEvent({
-                                  kind: 'tor',
-                                  status: 'warning',
-                                  message: `Tor identity error: ${message}`,
-                                });
-                              });
-                          }}
-                          className="flex items-center gap-2 rounded-md border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] text-purple-100 transition-colors hover:border-purple-400/60"
-                        >
-                          <RefreshCw size={12} />
-                          Request new Tor identity
-                        </button>
-                      )}
-                      <StatusBadge
-                        icon={Wifi}
-                        label="VPN"
-                        description={vpnBadgeDescription}
-                        variant={vpnStatus.connected ? 'positive' : 'default'}
-                        onClick={!vpnStatus.loading ? () => void checkVpn() : undefined}
-                        loading={vpnStatus.loading}
-                        title={vpnTooltip}
-                        className={`justify-start ${vpnStatus.loading ? 'cursor-not-allowed opacity-60' : ''}`}
-                      />
-                      {vpnProfiles.length > 0 && (
-                        <div className="space-y-2 rounded-md border border-gray-800/60 bg-gray-900/40 p-2">
-                          <span className="text-[10px] uppercase text-gray-400">VPN Profiles</span>
-                          <div className="space-y-1">
-                            {vpnProfiles.map(profile => {
-                              const isActive = vpnActiveId === profile.id;
-                              return (
-                                <button
-                                  key={profile.id}
-                                  type="button"
-                                  onClick={() => handleVpnConnect(profile.id)}
-                                  disabled={vpnBusy}
-                                  className={`w-full rounded-md px-2 py-1 text-left text-[11px] transition-colors ${
-                                    isActive
-                                      ? 'border border-emerald-400/40 bg-emerald-500/20 text-emerald-100'
-                                      : 'border border-transparent text-gray-300 hover:border-gray-700'
-                                  } ${vpnBusy ? 'cursor-wait opacity-70' : ''}`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span>{profile.name}</span>
-                                    {isActive && (
-                                      <span className="text-[10px] opacity-70">Active</span>
-                                    )}
-                                  </div>
-                                  {profile.server && (
-                                    <div className="text-[10px] opacity-60">{profile.server}</div>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleVpnDisconnect()}
-                              disabled={!vpnActiveId || vpnBusy}
-                              className="flex-1 rounded-md border border-gray-700/50 px-2 py-1 text-[10px] text-gray-300 transition-colors hover:border-gray-600 disabled:opacity-50"
-                            >
-                              Disconnect
-                            </button>
-                            {vpnBusy && (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-300" />
-                            )}
-                          </div>
-                          {vpnError && (
-                            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-200">
-                              {vpnError}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {privacyEvents.length > 0 && (
-                        <div className="space-y-2 rounded-md border border-gray-800/60 bg-gray-900/40 p-2">
-                          <div className="flex items-center justify-between text-[10px] uppercase text-gray-400">
-                            <span>Privacy activity</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPrivacyEvents([]);
-                                setPrivacyToast(null);
-                              }}
-                              className="rounded px-1.5 py-0.5 text-[9px] text-gray-400 transition-colors hover:text-gray-200"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                          <div className="max-h-32 space-y-1 overflow-auto">
-                            {privacyEvents
-                              .slice()
-                              .reverse()
-                              .map(event => {
-                                const dotColor =
-                                  event.status === 'success'
-                                    ? 'bg-emerald-400'
-                                    : event.status === 'warning'
-                                      ? 'bg-amber-400'
-                                      : 'bg-sky-400';
-                                return (
-                                  <div
-                                    key={event.id}
-                                    className="flex items-start gap-2 text-[11px] text-gray-300"
-                                  >
-                                    <span
-                                      className={`mt-1 h-2 w-2 rounded-full ${dotColor}`}
-                                      aria-hidden="true"
-                                    />
-                                    <div className="space-y-0.5">
-                                      <div className="flex items-center gap-1">
-                                        {event.kind === 'tor' ? (
-                                          <Shield size={12} className="text-purple-300" />
-                                        ) : (
-                                          <Wifi size={12} className="text-emerald-300" />
-                                        )}
-                                        <span>{event.message}</span>
-                                      </div>
-                                      <div className="text-[9px] text-gray-500">
-                                        {formatRelativeTime(event.timestamp)}
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      )}
-                      <StatusBadge
-                        icon={Shield}
-                        label="DoH"
-                        description={dohStatus.enabled ? dohStatus.provider : 'Disabled'}
-                        variant={dohStatus.enabled ? 'info' : 'default'}
-                        onClick={handleDoHToggle}
-                        title="Toggle DNS-over-HTTPS"
-                        className="justify-start"
-                      />
-                      <StatusBadge
-                        icon={Activity}
-                        label="Efficiency"
-                        description={efficiencyLabel || 'Normal'}
-                        variant="default"
-                        className="justify-start"
-                      />
-                      <StatusBadge
-                        icon={Cpu}
-                        label="CPU"
-                        description={`${cpuUsage}%`}
-                        variant={cpuUsage > 70 ? 'warning' : 'default'}
-                        title="CPU usage"
-                        className="justify-start"
-                      />
-                      <StatusBadge
-                        icon={MemoryStick}
-                        label="RAM"
-                        description={`${memoryUsage}%`}
-                        variant={memoryUsage > 75 ? 'warning' : 'default'}
-                        title="Memory usage"
-                        className="justify-start"
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <AnimatePresence>
-              {trendOpen && (
-                <motion.div
-                  ref={trendRef}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.16 }}
-                  className="absolute right-0 top-12 w-72 rounded-lg border border-gray-800 bg-slate-950/95 p-4 shadow-xl"
-                >
-                  <div className="mb-2 flex items-center justify-between text-xs text-gray-300">
-                    <span className="font-semibold uppercase tracking-wide">
-                      Performance Trends
-                    </span>
-                    <button
-                      className="text-xs opacity-70 transition-opacity hover:opacity-100"
-                      onClick={() => setTrendOpen(false)}
-                      aria-label="Close trends panel"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                  <TrendChart
-                    label="CPU %"
-                    points={trendCpuPoints}
-                    color="#38bdf8"
-                    labels={trendLabels}
-                  />
-                  <TrendChart
-                    label="RAM %"
-                    points={trendRamPoints}
-                    color="#22d3ee"
-                    labels={trendLabels}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-start gap-3">
+        {/* RIGHT ZONE: Performance Drawer */}
+        <div className="relative flex flex-shrink-0 items-center gap-2" ref={extraRef}>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded border border-gray-700/50 bg-gray-800/60 px-2.5 py-1.5 text-[11px] text-gray-300 transition-colors hover:border-gray-600 hover:bg-gray-800"
+            onClick={() => setExtraOpen(prev => !prev)}
+            title="Performance & System"
+            aria-expanded={extraOpen}
+          >
+            <Activity size={13} />
+            <span>Performance</span>
+          </button>
+          <StatusBadge
+            icon={Brain}
+            label="AI"
+            description={modelReady ? 'Ready' : 'Loading'}
+            variant={modelReady ? 'positive' : 'default'}
+            loading={!modelReady}
+            title="AI Model status"
+          />
           <AnimatePresence>
-            {efficiencyAlert && (
+            {extraOpen && (
               <motion.div
-                key="efficiency-alert"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 6 }}
-                className={`flex w-full max-w-xl items-center gap-3 rounded-lg border px-3 py-2 shadow-inner ${severityStyles[efficiencyAlert.severity]}`}
+                transition={{ duration: 0.16 }}
+                className="absolute right-0 top-12 w-72 rounded-lg border border-gray-800 bg-slate-950/95 p-3 text-[12px] text-gray-200 shadow-xl"
               >
-                <AlertTriangle size={14} />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-semibold">{efficiencyAlert.title}</span>
-                  <span className="text-[11px] opacity-80">{efficiencyAlert.message}</span>
-                </div>
-                <div className="ml-auto flex items-center gap-2">
-                  {efficiencyAlert.actions.map(action => (
-                    <button
-                      key={action.id}
-                      onClick={() => handleEfficiencyAction(action)}
-                      className="rounded bg-gray-900/60 px-2 py-1 text-[11px] font-medium transition-colors hover:bg-gray-900/80"
-                    >
-                      {action.label}
-                    </button>
-                  ))}
+                <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-wide text-gray-400">
+                  <span>System snapshot</span>
                   <button
-                    onClick={() => setEfficiencyAlert(null)}
-                    className="p-1 text-xs opacity-70 transition-opacity hover:opacity-100"
-                    aria-label="Dismiss efficiency alert"
+                    type="button"
+                    onClick={() => setExtraOpen(false)}
+                    className="text-gray-500 transition hover:text-gray-200"
+                    aria-label="Close performance drawer"
                   >
                     <X size={12} />
                   </button>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {metricsAlert && (
-              <motion.div
-                key="metrics-alert"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 6 }}
-                className={`flex w-full max-w-xl items-center gap-3 rounded-lg border px-3 py-2 shadow-inner ${severityStyles[metricsAlert.severity]}`}
-              >
-                <Activity size={14} />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-xs font-semibold">{metricsAlert.title}</span>
-                  <span className="text-[11px] opacity-80">{metricsAlert.message}</span>
-                </div>
-                <div className="ml-auto">
-                  <button
-                    onClick={() => setMetricsAlert(null)}
-                    className="p-1 text-xs opacity-70 transition-opacity hover:opacity-100"
-                    aria-label="Dismiss metrics alert"
-                  >
-                    <X size={12} />
-                  </button>
+                <div className="space-y-2">
+                  <div className="rounded-md border border-gray-800/80 bg-gray-900/60 px-3 py-2">
+                    <div className="text-[11px] text-gray-400">RAM saver</div>
+                    <div className="text-sm text-gray-100">
+                      {efficiencySnapshot.ramMb
+                        ? `${Math.max(0, Math.round(efficiencySnapshot.ramMb))} MB in use; sleeping idle tabs automatically`
+                        : 'Keeping memory lean; sleeping idle tabs automatically'}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-gray-800/80 bg-gray-900/60 px-3 py-2">
+                    <div className="text-[11px] text-gray-400">RAM saved today</div>
+                    <div className="mt-1 text-sm text-gray-100">
+                      <RamSavedCounter variant="inline" />
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-gray-800/80 bg-gray-900/60 px-3 py-2">
+                    <div className="text-[11px] text-gray-400">Tabs sleeping</div>
+                    <div className="text-sm text-gray-100">
+                      {efficiencySnapshot.activeTabs > 0
+                        ? `${efficiencySnapshot.activeTabs} tabs awake; idle ones will nap to save RAM`
+                        : 'No active tabs; sleep manager on standby'}
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-gray-800/80 bg-gray-900/60 px-3 py-2">
+                    <div className="text-[11px] text-gray-400">Battery saved</div>
+                    <div className="text-sm text-gray-100">
+                      {efficiencyBadge || efficiencyLabel || 'Battery steady'}
+                      {carbonIntensity ? ` • Grid ${Math.round(carbonIntensity)} gCO₂/kWh` : ''}
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
       </div>
+
+      {/* HIDDEN SECTION: Prompt input moved to expandable panel */}
+      <div className="hidden">
+        <div className="relative w-60">
+          <input
+            type="text"
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                void handlePromptSubmit();
+              }
+            }}
+            placeholder="Prompt agent (e.g., 'summarize this page')..."
+            disabled={promptLoading || isOffline}
+            className={`h-8 w-full rounded-full border border-gray-700/60 bg-gray-800/70 pl-3 pr-9 text-xs text-gray-200 placeholder-gray-400 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${
+              promptLoading || isOffline ? 'cursor-not-allowed opacity-70' : ''
+            }`}
+          />
+          {promptLoading ? (
+            <Loader2
+              className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-blue-300"
+              aria-label="Sending prompt"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handlePromptSubmit()}
+              disabled={isOffline}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-200 disabled:opacity-50"
+              title="Send prompt"
+            >
+              <Send size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Voice components removed by user request */}
       <div className="flex items-center justify-between border-t border-slate-900/70 bg-slate-950/95 px-4 py-3 text-xs text-gray-200 md:hidden">
         <div className="flex flex-col">
           <span className="text-[11px] text-gray-400">

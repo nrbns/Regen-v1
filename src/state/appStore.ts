@@ -2,8 +2,32 @@ import { create } from 'zustand';
 import { ModeManager } from '../core/modes/manager';
 import { MODES, isModeEnabled, type ModeId } from '../config/modes';
 import { toast } from '../utils/toast';
+import { layerManager } from '../core/layers/layerManager';
 
 export type AppState = {
+  // Page AI Panel
+  isPageAIPanelOpen: boolean;
+  setPageAIPanelOpen: (open: boolean) => void;
+
+  // Adblocker
+  isAdblockerEnabled: boolean;
+  setAdblockerEnabled: (enabled: boolean) => void;
+
+  // Sync Status
+  syncStatus: 'idle' | 'syncing' | 'error' | 'success';
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'success') => void;
+
+  // Realtime heartbeat + system state
+  networkStatus: 'online' | 'offline' | 'reconnecting';
+  aiStatus: 'idle' | 'thinking' | 'streaming';
+  marketStatus: 'live' | 'cached' | 'closed';
+  lastUpdateTs: number;
+  setNetworkStatus: (s: AppState['networkStatus']) => void;
+  setAIStatus: (s: AppState['aiStatus']) => void;
+  setMarketStatus: (s: AppState['marketStatus']) => void;
+  setHeartbeat: () => void;
+
+  // Original state
   mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
   graphDockOpen: boolean;
@@ -18,9 +42,20 @@ export type AppState = {
   regenSidebarOpen: boolean;
   setRegenSidebarOpen: (open: boolean) => void;
   toggleRegenSidebar: () => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarCollapsed: () => void;
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
+  networkStatus: 'online',
+  aiStatus: 'idle',
+  marketStatus: 'cached',
+  lastUpdateTs: Date.now(),
+  setNetworkStatus: networkStatus => set({ networkStatus, lastUpdateTs: Date.now() }),
+  setAIStatus: aiStatus => set({ aiStatus, lastUpdateTs: Date.now() }),
+  setMarketStatus: marketStatus => set({ marketStatus, lastUpdateTs: Date.now() }),
+  setHeartbeat: () => set({ lastUpdateTs: Date.now() }),
   mode: 'Research',
   setMode: async mode => {
     const currentMode = get().mode;
@@ -42,6 +77,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       const modeConfig = MODES[mode as ModeId];
       toast.info(modeConfig?.description || `${mode} mode is coming soon!`);
       return;
+    }
+
+    // TIERED ARCHITECTURE: Switch to appropriate execution layer
+    try {
+      await layerManager.switchToMode(mode);
+      console.log(`[AppStore] Switched to mode ${mode} (Layer: ${layerManager.getCurrentLayer()})`);
+    } catch (error) {
+      console.error('[AppStore] Layer switch error:', error);
+      toast.error('Failed to activate mode - some features may be unavailable');
     }
 
     set({ mode });
@@ -134,5 +178,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleRegenSidebar: () => {
     const next = !get().regenSidebarOpen;
     get().setRegenSidebarOpen(next);
+  },
+  sidebarCollapsed: false,
+  setSidebarCollapsed: (collapsed: boolean) => set({ sidebarCollapsed: collapsed }),
+  toggleSidebarCollapsed: () => set(state => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  // Sprint Features State
+  isPageAIPanelOpen: false,
+  setPageAIPanelOpen: (open: boolean) => {
+    set({ isPageAIPanelOpen: open });
+  },
+  isAdblockerEnabled: true,
+  setAdblockerEnabled: (enabled: boolean) => {
+    set({ isAdblockerEnabled: enabled });
+  },
+  syncStatus: 'idle' as 'idle' | 'syncing' | 'error' | 'success',
+  setSyncStatus: (status: 'idle' | 'syncing' | 'error' | 'success') => {
+    set({ syncStatus: status });
   },
 }));

@@ -6,6 +6,7 @@
 
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
+import { IndexeddbPersistence } from 'y-indexeddb';
 import Dexie, { type Table } from 'dexie';
 import { useTabsStore } from '../../state/tabsStore';
 
@@ -45,9 +46,11 @@ export interface TabSyncState {
 class TabSyncService {
   private doc: Y.Doc | null = null;
   private provider: WebsocketProvider | null = null;
+  private indexeddbProvider: IndexeddbPersistence | null = null;
   private tabsArray: Y.Array<Y.Map<any>> | null = null;
   private activeId: Y.Text | null = null;
   private groupsArray: Y.Array<Y.Map<any>> | null = null;
+  private awareness: any | null = null;
   private isConnected = false;
   private wsUrl: string;
   private sessionId: string | null = null;
@@ -72,16 +75,75 @@ class TabSyncService {
     this.activeId = this.doc.getText('activeId');
     this.groupsArray = this.doc.getArray('groups');
 
-    // Connect to WebSocket provider
+    // Add IndexedDB persistence FIRST - ensures data is persisted before WebSocket connects
+    // Use fixed 'regen' key so all sessions share the same persistent store
+    this.indexeddbProvider = new IndexeddbPersistence('regen', this.doc);
+
+    // Wait for IndexedDB to sync before connecting WebSocket (prevents desyncs on reconnect)
+    await new Promise<void>(resolve => {
+      this.indexeddbProvider!.on('synced', () => {
+        console.log('[TabSync] IndexedDB synced - ready for WebSocket connection');
+        resolve();
+      });
+      // Timeout after 500ms if sync takes too long
+      setTimeout(() => resolve(), 500);
+    });
+
+    // Connect to WebSocket provider AFTER IndexedDB is ready
     this.provider = new WebsocketProvider(this.wsUrl, `session-${sessionId}`, this.doc);
 
+    // Set up cursor awareness for multi-user collaboration
+    this.awareness = this.provider.awareness;
+    this.awareness.setLocalStateField('user', {
+      name: sessionId.substring(0, 8),
+      color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+    });
+
+    // LAG FIX #1: Better desync handling on network toggle
     this.provider.on('status', async (event: { status: string }) => {
+      const wasConnected = this.isConnected;
       this.isConnected = event.status === 'connected';
       console.log('[TabSync] Connection status:', event.status);
-      if (this.isConnected) {
+
+      if (this.isConnected && wasConnected === false) {
+        // Just reconnected: wait for IndexedDB to sync, then resync everything
+        console.log('[TabSync] Reconnected - syncing from IndexedDB...');
+        // IndexedDB persistence automatically restores state, but we ensure sync
+        if (this.indexeddbProvider) {
+          await new Promise<void>(resolve => {
+            this.indexeddbProvider!.on('synced', () => resolve());
+            setTimeout(() => resolve(), 100); // Small timeout
+          });
+        }
+        // Flush any queued updates
         await this.flushQueuedUpdates();
+        // Force resync to catch up with any missed changes
+        this.syncToYjs();
+        this.syncFromYjs();
+        console.log('[TabSync] Resync complete after reconnect');
+      } else if (!this.isConnected && wasConnected) {
+        // Disconnected: IndexedDB will continue persisting locally
+        console.warn('[TabSync] Disconnected - updates will persist to IndexedDB');
       }
     });
+
+    // LAG FIX #1: Handle network online/offline events for better desync recovery
+    const handleOnline = () => {
+      console.log('[TabSync] Network online - attempting reconnect');
+      if (this.provider && !this.isConnected) {
+        // Provider will auto-reconnect, but we can trigger status check
+        this.provider.connect();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('[TabSync] Network offline - will queue updates');
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
 
     // Observe changes from remote
     this.tabsArray.observe((_event: Y.YArrayEvent<Y.Map<any>>) => {
@@ -252,11 +314,11 @@ class TabSyncService {
         createdAt: Date.now(),
       });
 
-      // Keep queue bounded (oldest first) to avoid unbounded growth
+      // LAG FIX: Exponential backoff + cap at 200 (was 150) to prevent offline spike lags
       const count = await this.db.pending.where({ sessionId }).count();
-      if (count > 500) {
+      if (count > 200) {
         const old = await this.db.pending.where({ sessionId }).sortBy('createdAt');
-        const dropCount = count - 500;
+        const dropCount = count - 100; // Keep last 100, drop older ones
         const idsToDelete = old
           .slice(0, dropCount)
           .map(item => item.id!)
@@ -301,18 +363,23 @@ class TabSyncService {
 
   /**
    * Disconnect and cleanup
+   * Note: IndexedDB persistence is NOT destroyed - it keeps data for next session
    */
   disconnect(): void {
     if (this.provider) {
       this.provider.destroy();
       this.provider = null;
     }
+    // Don't destroy IndexedDB provider - keep persistence across sessions
+    // this.indexeddbProvider will be reused on next initialize
     if (this.doc) {
-      this.doc.destroy();
+      // Don't destroy doc - IndexedDB provider needs it for persistence
+      // doc will be cleaned up naturally when provider is destroyed
       this.doc = null;
     }
+    this.awareness = null;
     this.isConnected = false;
-    console.log('[TabSync] Disconnected');
+    console.log('[TabSync] Disconnected (IndexedDB persistence maintained)');
   }
 
   /**

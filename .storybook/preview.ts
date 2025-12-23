@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/react';
-import '../tauri-migration/src/styles/globals.css';
-import '../tauri-migration/src/styles/mode-themes.css';
+import '../src/styles/globals.css';
+import '../src/styles/mode-themes.css';
 
 const preview: Preview = {
   parameters: {

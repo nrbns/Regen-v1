@@ -23,6 +23,10 @@ let stabilityMetrics: StabilityMetrics = {
   cpuUsage: [],
 };
 
+// Store cleanup handlers
+let activeIntervals: Array<NodeJS.Timeout> = [];
+let activeTimeout: NodeJS.Timeout | null = null;
+
 /**
  * Start stability test (run for specified duration)
  */
@@ -71,20 +75,12 @@ export function startStabilityTest(durationMinutes: number = 60): void {
     }
   }, 60000); // Every minute
 
+  // Store intervals for cleanup
+  activeIntervals = [memoryInterval, tabInterval];
+
   // Stop test after duration
-  setTimeout(() => {
-    clearInterval(memoryInterval);
-    clearInterval(tabInterval);
-    stabilityTestRunning = false;
-    stabilityMetrics.duration = Date.now() - stabilityMetrics.startTime;
-    console.log('[StabilityTest] Test completed:', stabilityMetrics);
-    
-    // Report results
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('stability-test-complete', { detail: stabilityMetrics })
-      );
-    }
+  activeTimeout = setTimeout(() => {
+    stopStabilityTest();
   }, durationMinutes * 60 * 1000);
 }
 
@@ -93,6 +89,36 @@ export function startStabilityTest(durationMinutes: number = 60): void {
  */
 export function getStabilityMetrics(): StabilityMetrics {
   return { ...stabilityMetrics };
+}
+
+/**
+ * Stop stability test and cleanup resources
+ */
+export function stopStabilityTest(): void {
+  if (!stabilityTestRunning) {
+    return;
+  }
+
+  // Clean up all intervals
+  activeIntervals.forEach(interval => clearInterval(interval));
+  activeIntervals = [];
+
+  // Clean up timeout
+  if (activeTimeout) {
+    clearTimeout(activeTimeout);
+    activeTimeout = null;
+  }
+
+  stabilityTestRunning = false;
+  stabilityMetrics.duration = Date.now() - stabilityMetrics.startTime;
+  console.log('[StabilityTest] Test stopped:', stabilityMetrics);
+  
+  // Report results
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('stability-test-complete', { detail: stabilityMetrics })
+    );
+  }
 }
 
 /**

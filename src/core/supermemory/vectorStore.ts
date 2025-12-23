@@ -24,6 +24,8 @@ class VectorStore {
   private cache: Map<string, Embedding> = new Map();
   private cacheSizeLimit = 1000; // Keep top 1000 most recent in memory
   private isInitialized = false;
+  private insertCount = 0; // LAG FIX: Track inserts for pruning
+  private readonly PRUNE_INTERVAL = 100; // Prune every 100 inserts to prevent OOM
 
   /**
    * Initialize vector store
@@ -48,6 +50,12 @@ class VectorStore {
    * Save embedding to store
    */
   async save(embedding: Embedding): Promise<void> {
+    // LAG FIX: Increment insert counter and prune if needed
+    this.insertCount++;
+    if (this.insertCount % this.PRUNE_INTERVAL === 0) {
+      await this.pruneOldEmbeddings();
+    }
+
     // Update cache
     this.cache.set(embedding.id, embedding);
 
@@ -56,7 +64,7 @@ class VectorStore {
       // Remove oldest entries (FIFO)
       const entries = Array.from(this.cache.entries());
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      
+
       const toRemove = entries.slice(0, this.cache.size - this.cacheSizeLimit);
       for (const [id] of toRemove) {
         this.cache.delete(id);
@@ -99,7 +107,7 @@ class VectorStore {
           metadata: dbEmbedding.metadata,
           timestamp: dbEmbedding.timestamp,
         };
-        
+
         // Cache it
         this.cache.set(id, embedding);
         return embedding;
@@ -125,6 +133,37 @@ class VectorStore {
     } catch (error) {
       console.error('[VectorStore] Failed to delete embedding:', error);
       return false;
+    }
+  }
+
+  /**
+   * LAG FIX: Prune old embeddings to prevent OOM at scale (400+ tabs)
+   * Keeps most recent 5000 embeddings, deletes older ones
+   */
+  private async pruneOldEmbeddings(): Promise<void> {
+    try {
+      const MAX_EMBEDDINGS = 5000;
+      const count = await superMemoryDB.getEmbeddingCount();
+
+      if (count > MAX_EMBEDDINGS) {
+        const toDelete = count - MAX_EMBEDDINGS;
+        console.log(`[VectorStore] Pruning ${toDelete} old embeddings (count: ${count})`);
+
+        // Get oldest embeddings by timestamp
+        const allEmbeddings = await superMemoryDB.getAllEmbeddings();
+        allEmbeddings.sort((a, b) => a.timestamp - b.timestamp);
+        const oldestIds = allEmbeddings.slice(0, toDelete).map(e => e.id);
+
+        // Delete in batches
+        for (let i = 0; i < oldestIds.length; i += 50) {
+          const batch = oldestIds.slice(i, i + 50);
+          await Promise.all(batch.map(id => superMemoryDB.deleteEmbedding(id)));
+        }
+
+        console.log(`[VectorStore] Pruned ${toDelete} embeddings, remaining: ${MAX_EMBEDDINGS}`);
+      }
+    } catch (error) {
+      console.warn('[VectorStore] Pruning failed:', error);
     }
   }
 
@@ -214,7 +253,7 @@ class VectorStore {
     }
 
     // Calculate similarities
-    const results: VectorSearchResult[] = allEmbeddings.map((embedding) => {
+    const results: VectorSearchResult[] = allEmbeddings.map(embedding => {
       const similarity = this.cosineSimilarity(queryVector, embedding.vector);
       return {
         embedding,
@@ -225,7 +264,7 @@ class VectorStore {
 
     // Filter by minimum similarity and sort
     const filtered = results
-      .filter((r) => r.similarity >= minSimilarity)
+      .filter(r => r.similarity >= minSimilarity)
       .sort((a, b) => b.similarity - a.similarity);
 
     return filtered;
@@ -335,13 +374,10 @@ export const vectorStore = new VectorStore();
 vectorStore.init().catch(console.warn);
 
 // Export convenience functions
-export const searchVectors = (
-  query: string | number[],
-  options?: VectorStoreOptions
-) => vectorStore.search(query, options);
+export const searchVectors = (query: string | number[], options?: VectorStoreOptions) =>
+  vectorStore.search(query, options);
 export const saveVector = (embedding: Embedding) => vectorStore.save(embedding);
 export const getVector = (id: string) => vectorStore.get(id);
 export const deleteVector = (id: string) => vectorStore.delete(id);
 export const getVectorCount = () => vectorStore.count();
 export const getVectorStats = () => vectorStore.getStats();
-

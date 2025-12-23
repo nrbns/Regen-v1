@@ -9,7 +9,8 @@ import { Sparkles, Send, X, Loader2, Copy, Check } from 'lucide-react';
 import { SmartActionGroup, type SmartAction } from './SmartActionButton';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
-import VoiceButton from '../VoiceButton';
+import { VoiceButton } from '../voice';
+import { createStreamingHandler } from '../../services/realtime/streamingBridge';
 
 export interface EnhancedAIPanelProps {
   onClose?: () => void;
@@ -24,6 +25,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
   const [copied, setCopied] = useState(false);
   const [smartActions, setSmartActions] = useState<SmartAction[]>([]);
   const responseEndRef = useRef<HTMLDivElement>(null);
+  const streamHandlerRef = useRef(createStreamingHandler(`ai-panel-${Date.now()}`));
   const { activeId, tabs } = useTabsStore();
   const activeTab = tabs.find(t => t.id === activeId);
 
@@ -99,6 +101,10 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
     setIsStreaming(true);
     setSmartActions([]);
 
+    // Reset streaming handler for new request
+    streamHandlerRef.current.reset();
+    streamHandlerRef.current = createStreamingHandler(`ai-panel-${Date.now()}`);
+
     try {
       // Stream AI response
       await ipc.redix.stream(
@@ -109,8 +115,12 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
         (chunk: any) => {
           if (chunk.type === 'token' && chunk.text) {
             setResponse(prev => prev + chunk.text);
+            // Emit MODEL_CHUNK events for realtime panel
+            streamHandlerRef.current.onChunk(chunk.text);
           } else if (chunk.type === 'done') {
             setIsStreaming(false);
+            // Mark streaming complete
+            streamHandlerRef.current.onComplete();
           } else if (chunk.type === 'error') {
             setIsStreaming(false);
             setError(chunk.error || 'Failed to get AI response');
@@ -140,11 +150,11 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900/95 backdrop-blur-xl">
+    <div className="flex h-full flex-col bg-gray-900/95 backdrop-blur-xl">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800/50">
+      <div className="flex items-center justify-between border-b border-gray-800/50 p-4">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/20">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20">
             <Sparkles size={16} className="text-emerald-400" />
           </div>
           <h3 className="text-sm font-semibold text-gray-100">AI Assistant</h3>
@@ -152,7 +162,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
         {onClose && (
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 transition-colors"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-200"
           >
             <X size={16} />
           </button>
@@ -160,15 +170,15 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-b border-gray-800/50 space-y-3">
+      <div className="space-y-3 border-b border-gray-800/50 p-4">
         <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
+          <div className="relative flex-1">
             <textarea
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask AI assistant... (or use voice input)"
-              className="w-full px-4 py-3 pr-12 bg-gray-800/60 border border-gray-700/50 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 resize-none"
+              className="w-full resize-none rounded-lg border border-gray-700/50 bg-gray-800/60 px-4 py-3 pr-12 text-sm text-gray-200 placeholder-gray-500 focus:border-emerald-500/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
               rows={3}
               disabled={isStreaming}
             />
@@ -177,7 +187,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
                 <button
                   onClick={handleSubmit}
                   disabled={isStreaming || !query.trim()}
-                  className="p-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-lg border border-emerald-500/40 bg-emerald-500/20 p-1.5 text-emerald-200 transition-colors hover:bg-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                   title="Send (Enter)"
                 >
                   {isStreaming ? (
@@ -196,9 +206,9 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
 
         {/* Context Display */}
         {activeTab && (
-          <div className="text-xs text-gray-500 flex items-center gap-2 px-2">
+          <div className="flex items-center gap-2 px-2 text-xs text-gray-500">
             <span>Context:</span>
-            <span className="text-gray-400 truncate">{activeTab.title || activeTab.url}</span>
+            <span className="truncate text-gray-400">{activeTab.title || activeTab.url}</span>
           </div>
         )}
       </div>
@@ -206,7 +216,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
       {/* Response Area */}
       <div className="flex-1 overflow-y-auto p-4">
         {isStreaming && !response && (
-          <div className="flex items-center gap-3 text-gray-400 py-8">
+          <div className="flex items-center gap-3 py-8 text-gray-400">
             <Loader2 size={16} className="animate-spin text-emerald-400" />
             <span className="text-sm">AI is thinking...</span>
           </div>
@@ -229,7 +239,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
               <div className="whitespace-pre-wrap break-words">
                 {response}
                 {isStreaming && (
-                  <span className="inline-block w-2 h-4 ml-1 bg-emerald-400 animate-pulse" />
+                  <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-emerald-400" />
                 )}
               </div>
               <div ref={responseEndRef} />
@@ -237,8 +247,8 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
 
             {/* Smart Actions */}
             {smartActions.length > 0 && (
-              <div className="pt-4 border-t border-gray-800/50">
-                <div className="text-xs font-semibold text-gray-400 mb-3 uppercase tracking-wide">
+              <div className="border-t border-gray-800/50 pt-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Quick Actions
                 </div>
                 <SmartActionGroup actions={smartActions} />
@@ -254,7 +264,7 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-gray-100 transition-colors"
+                  className="flex items-center gap-2 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-800 hover:text-gray-100"
                 >
                   {copied ? (
                     <>
@@ -274,9 +284,9 @@ export function EnhancedAIPanel({ onClose, initialQuery = '' }: EnhancedAIPanelP
         )}
 
         {!response && !isStreaming && !error && (
-          <div className="text-center py-12 text-gray-400">
+          <div className="py-12 text-center text-gray-400">
             <Sparkles size={32} className="mx-auto mb-3 opacity-50" />
-            <p className="text-sm mb-1">Ask me anything</p>
+            <p className="mb-1 text-sm">Ask me anything</p>
             <p className="text-xs text-gray-500">
               I can help with research, explanations, navigation, and more
             </p>

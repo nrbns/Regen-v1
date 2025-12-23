@@ -36,21 +36,19 @@ export class GhostMode {
     this.torDetector = new TorDetector();
     this.deviceDetector = new DeviceDetector();
 
-    // Auto-detect Tor and enable Ghost Mode if detected
+    // Ghost mode disabled - always use normal mode
     const torDetection = detectTorBrowser();
-    // const deviceCaps = detectDeviceCapabilities(); // Unused for now
 
-    // Don't auto-enable Ghost Mode - let user control it via PrivacySwitch
     this.config = {
-      enabled: false, // User must manually enable via PrivacySwitch
+      enabled: false, // Ghost mode disabled by default - use normal mode
       localAIOnly: false, // Allow cloud APIs for functionality
       noCloudAPIs: false, // Allow cloud APIs for functionality
-      noStorage: false, // Allow storage for functionality (but block tracking)
-      noScripts: false, // Allow scripts for functionality (but block tracking scripts)
-      noTracking: true, // Block all tracking - this is the key feature
+      noStorage: false, // Allow storage for functionality
+      noScripts: false, // Allow scripts for functionality
+      noTracking: false, // Allow tracking (normal mode behavior)
       ephemeralSession: false, // Allow persistence for functionality
       torDetected: torDetection.isTorBrowser,
-      securityLevel: torDetection.isTorBrowser ? 'maximum' : 'high',
+      securityLevel: 'standard', // Always use standard security in normal mode
     };
 
     // Don't auto-activate - user controls via PrivacySwitch
@@ -179,29 +177,12 @@ export class GhostMode {
 
   /**
    * Enable Ghost Mode manually
+   * Note: Ghost mode is disabled - this method does nothing
    */
   enable(): void {
-    if (this.config.enabled) {
-      return; // Already enabled
-    }
-
-    // Check if we can enable (need Tor or user consent)
-    const torDetection = detectTorBrowser();
-    if (!torDetection.isTorBrowser) {
-      // Show warning - Ghost Mode is most secure in Tor Browser
-      const confirmed = confirm(
-        '⚠️ Ghost Mode is most secure when running inside Tor Browser.\n\n' +
-          'Without Tor Browser, some security features may be limited.\n\n' +
-          'Enable Ghost Mode anyway?'
-      );
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    this.config.enabled = true;
-    this.config.securityLevel = torDetection.isTorBrowser ? 'maximum' : 'high';
-    this.activateGhostMode();
+    // Ghost mode is disabled - do nothing
+    console.log('[Ghost Mode] Ghost mode is disabled. Using normal mode.');
+    return;
   }
 
   /**

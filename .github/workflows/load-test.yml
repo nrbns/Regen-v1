@@ -1,0 +1,108 @@
+name: Load Test (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_users:
+        description: 'Target concurrent users'
+        required: false
+        default: '100'
+      duration:
+        description: 'Test duration (e.g., 5m)'
+        required: false
+        default: '5m'
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches:
+      - main
+      - audit-fixes-complete
+    paths:
+      - 'server/**'
+      - 'tests/load/**'
+      - '.github/workflows/load-test.yml'
+
+jobs:
+  load-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start server
+        run: |
+          npm run dev:server &
+          sleep 10
+        env:
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+
+      - name: Wait for server
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:4000/api/ping; do sleep 2; done'
+
+      - name: Run k6 load test
+        uses: grafana/k6-action@v0.3.0
+        with:
+          filename: tests/load/k6-load-test.js
+          cloud: false
+          quiet: false
+        env:
+          BASE_URL: http://localhost:4000
+          WS_URL: ws://localhost:4000
+          K6_OUT: json=results.json
+
+      - name: Parse k6 results
+        run: |
+          if [ -f results.json ]; then
+            echo "## Load Test Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Metrics" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat results.json | jq '.metrics' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            
+            # Check p95 latency
+            P95=$(cat results.json | jq '.metrics.http_req_duration.values.p95')
+            if (( $(echo "$P95 > 500" | bc -l) )); then
+              echo "❌ p95 latency ($P95 ms) exceeds 500ms threshold"
+              exit 1
+            fi
+            
+            # Check memory
+            MEMORY=$(cat results.json | jq '.metrics.vus_max.values.value')
+            if (( $(echo "$MEMORY > 1000" | bc -l) )); then
+              echo "⚠️ High memory usage: $MEMORY"
+            fi
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results
+          path: results.json
+          retention-days: 7

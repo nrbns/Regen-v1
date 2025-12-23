@@ -21,8 +21,8 @@ import {
   AssumptionHighlight,
   AuditTrailEntry,
 } from '../../types/document-review';
-import { PDFViewer } from '../../components/DocumentViewer/PDFViewer';
-import { CommentsPanel, Comment } from '../../components/DocumentViewer/CommentsPanel';
+import { PDFViewer } from '../../components/pdf/PDFViewer';
+import { CommentsPanel, Comment } from '../../components/pdf/CommentsPanel';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import { DocumentEditor } from '../../components/docs/DocumentEditor';
@@ -150,7 +150,7 @@ export default function DocsPanel() {
   };
 
   return (
-    <div className="flex h-full bg-[#1A1D28] text-gray-100 overflow-hidden">
+    <div className="flex h-full overflow-hidden bg-[#1A1D28] text-gray-100">
       <Sidebar
         reviews={reviews}
         activeReview={activeReview}
@@ -162,7 +162,7 @@ export default function DocsPanel() {
         {showOCR && ocrFile ? (
           <OCRProcessor
             file={ocrFile}
-            onComplete={(result) => {
+            onComplete={result => {
               // Phase 2, Day 2: OCR completed
               console.log('[Docs] OCR completed:', result);
             }}
@@ -174,7 +174,7 @@ export default function DocsPanel() {
         ) : showEditor && editorFile ? (
           <DocumentEditor
             file={editorFile}
-            onSave={async (editedContent) => {
+            onSave={async editedContent => {
               // Phase 2, Day 1: Save edited content
               try {
                 const blob = new Blob([editedContent], { type: 'text/plain' });
@@ -212,12 +212,12 @@ export default function DocsPanel() {
                 onFileSelect={handleFileSelect}
                 onSubmit={handleIngest}
                 onCancel={handleIngestCancel}
-                onEdit={(file) => {
+                onEdit={file => {
                   // Phase 2, Day 1: Open editor for file
                   setEditorFile(file);
                   setShowEditor(true);
                 }}
-                onOCR={(file) => {
+                onOCR={file => {
                   // Phase 2, Day 2: Open OCR processor for file
                   setOcrFile(file);
                   setShowOCR(true);
@@ -225,41 +225,41 @@ export default function DocsPanel() {
               />
             )}
 
-        {viewMode === 'review' && activeReview && (
-          <DocumentReviewView
-            review={activeReview}
-            onReverify={async () => {
-              try {
-                setLoading(true);
-                const updated = await ipc.document.reverify({ id: activeReview.id });
-                const newReview = updated as DocumentReview;
-                setActiveReview(newReview);
-                setReviews(prev => prev.map(r => (r.id === newReview.id ? newReview : r)));
-              } catch (err) {
-                console.error('Reverify failed', err);
-              } finally {
-                setLoading(false);
-              }
-            }}
-            onExport={async (format, style) => {
-              try {
-                setLoading(true);
-                const outputPath = window.prompt(
-                  'Save to path',
-                  `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`
-                );
-                if (!outputPath) return;
-                await ipc.document.export(activeReview.id, format, outputPath, style);
-                alert('Export completed successfully');
-              } catch (err) {
-                console.error('Export failed', err);
-                alert('Export failed. Check console for details.');
-              } finally {
-                setLoading(false);
-              }
-            }}
-            onDelete={() => activeReview && handleDeleteReview(activeReview)}
-          />
+            {viewMode === 'review' && activeReview && (
+              <DocumentReviewView
+                review={activeReview}
+                onReverify={async () => {
+                  try {
+                    setLoading(true);
+                    const updated = await ipc.document.reverify({ id: activeReview.id });
+                    const newReview = updated as DocumentReview;
+                    setActiveReview(newReview);
+                    setReviews(prev => prev.map(r => (r.id === newReview.id ? newReview : r)));
+                  } catch (err) {
+                    console.error('Reverify failed', err);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                onExport={async (format, style) => {
+                  try {
+                    setLoading(true);
+                    const outputPath = window.prompt(
+                      'Save to path',
+                      `~/Documents/${activeReview.title}.${format === 'markdown' ? 'md' : 'html'}`
+                    );
+                    if (!outputPath) return;
+                    await ipc.document.export(activeReview.id, format, outputPath, style);
+                    alert('Export completed successfully');
+                  } catch (err) {
+                    console.error('Export failed', err);
+                    alert('Export failed. Check console for details.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                onDelete={() => activeReview && handleDeleteReview(activeReview)}
+              />
             )}
           </>
         )}
@@ -277,8 +277,8 @@ interface SidebarProps {
 
 function Sidebar({ reviews, activeReview, onSelectReview, onCreate }: SidebarProps) {
   return (
-    <aside className="w-80 border-r border-gray-800/40 bg-[#161924] flex flex-col">
-      <div className="p-4 border-b border-gray-800/40">
+    <aside className="flex w-80 flex-col border-r border-gray-800/40 bg-[#161924]">
+      <div className="border-b border-gray-800/40 p-4">
         <h1 className="text-lg font-semibold">Document Review</h1>
         <p className="text-xs text-gray-500">Ingest, analyze, and verify documents</p>
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
@@ -317,15 +317,15 @@ function Sidebar({ reviews, activeReview, onSelectReview, onCreate }: SidebarPro
               <li key={review.id}>
                 <button
                   onClick={() => onSelectReview(review)}
-                  className={`w-full text-left px-4 py-3 border-b border-gray-800/40 hover:bg-gray-800/30 transition-colors ${activeReview?.id === review.id ? 'bg-gray-800/50' : ''}`}
+                  className={`w-full border-b border-gray-800/40 px-4 py-3 text-left transition-colors hover:bg-gray-800/30 ${activeReview?.id === review.id ? 'bg-gray-800/50' : ''}`}
                 >
                   <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span className="uppercase tracking-wide text-[10px] text-gray-500">
+                    <span className="text-[10px] uppercase tracking-wide text-gray-500">
                       {review.type}
                     </span>
                     <span>{formatDistanceToNow(review.updatedAt, { addSuffix: true })}</span>
                   </div>
-                  <div className="mt-1 font-medium text-sm text-gray-100 line-clamp-2">
+                  <div className="mt-1 line-clamp-2 text-sm font-medium text-gray-100">
                     {review.title}
                   </div>
                   <div className="mt-2 text-[11px] text-gray-500">
@@ -358,7 +358,7 @@ function EmptyState({ onCreate }: EmptyStateProps) {
       <div className="flex gap-3">
         <button
           onClick={() => onCreate('pdf')}
-          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-indigo-500 transition-colors"
+          className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-indigo-500"
         >
           Upload document
         </button>
@@ -458,7 +458,7 @@ function IngestForm({
         </div>
       ) : (
         <div className="rounded border border-dashed border-gray-700 bg-gray-900/30 p-6 text-center">
-          <label className="block text-sm font-medium text-gray-300 mb-3">
+          <label className="mb-3 block text-sm font-medium text-gray-300">
             Upload {ingestType.toUpperCase()} file
           </label>
           <input
@@ -632,7 +632,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="w-72 border-r border-gray-800/40 bg-[#181C27] overflow-y-auto">
+        <aside className="w-72 overflow-y-auto border-r border-gray-800/40 bg-[#181C27]">
           <section className="border-b border-gray-800/40 p-4">
             <span className="block text-xs uppercase tracking-wide text-gray-500">
               Verification summary
@@ -675,7 +675,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
                   <h3 className={`font-semibold text-gray-100 text-${headingSize}xl`}>
                     {section.title}
                   </h3>
-                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
                     {renderSectionContent(section, sectionHighlights, selectedClaimId)}
                   </p>
                 </div>
@@ -688,7 +688,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
           )}
         </section>
 
-        <aside className="w-96 border-l border-gray-800/40 bg-[#181C27] flex flex-col">
+        <aside className="flex w-96 flex-col border-l border-gray-800/40 bg-[#181C27]">
           <header className="flex items-center justify-between border-b border-gray-800/40 px-5 py-3">
             <h3 className="text-sm font-semibold text-gray-100">Claim verification</h3>
             <button
@@ -705,7 +705,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
                 <motion.li
                   key={claim.id}
                   layout
-                  className={`cursor-pointer px-5 py-4 hover:bg-gray-800/30 transition-colors ${
+                  className={`cursor-pointer px-5 py-4 transition-colors hover:bg-gray-800/30 ${
                     selectedClaimId === claim.id ? 'bg-gray-800/50' : ''
                   }`}
                   onClick={() => setSelectedClaimId(claim.id)}
@@ -714,7 +714,7 @@ function DocumentReviewView({ review, onReverify, onExport, onDelete }: Document
                     <span className="text-xs uppercase tracking-wide text-gray-500">Claim</span>
                     <StatusPill status={claim.verification.status} />
                   </div>
-                  <p className="mt-2 text-sm text-gray-200 leading-relaxed line-clamp-3">
+                  <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-200">
                     {claim.text}
                   </p>
                   <div className="mt-2 text-[11px] text-gray-500">
@@ -879,7 +879,7 @@ function FactHighlightsPanel({
   });
 
   return (
-    <section className="border-b border-gray-800/40 p-4 space-y-3">
+    <section className="space-y-3 border-b border-gray-800/40 p-4">
       <div className="flex items-center gap-2 text-emerald-200">
         <Highlighter size={14} />
         <span className="text-xs uppercase tracking-wide">Fact highlights</span>
@@ -899,7 +899,7 @@ function FactHighlightsPanel({
                 <span className="font-semibold">{highlight.section || 'Document'}</span>
                 <span className="text-[10px] uppercase tracking-wide">{highlight.importance}</span>
               </div>
-              <p className="mt-1 text-[11px] text-emerald-100/90 line-clamp-3">{highlight.text}</p>
+              <p className="mt-1 line-clamp-3 text-[11px] text-emerald-100/90">{highlight.text}</p>
             </button>
           </li>
         ))}
@@ -922,7 +922,7 @@ function AssumptionsPanel({
   onSelect(id: string): void;
 }) {
   return (
-    <section className="border-b border-gray-800/40 p-4 space-y-3">
+    <section className="space-y-3 border-b border-gray-800/40 p-4">
       <div className="flex items-center gap-2 text-amber-200">
         <AlertTriangle size={14} />
         <span className="text-xs uppercase tracking-wide">Assumptions & gaps</span>
@@ -932,7 +932,7 @@ function AssumptionsPanel({
           <li key={assumption.claimId}>
             <button
               onClick={() => onSelect(assumption.claimId)}
-              className={`w-full rounded border px-2 py-2 text-left ${assumptionTone[assumption.severity]} hover:opacity-90 transition-opacity`}
+              className={`w-full rounded border px-2 py-2 text-left ${assumptionTone[assumption.severity]} transition-opacity hover:opacity-90`}
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{assumption.section || 'Document'}</span>
@@ -956,7 +956,7 @@ function EntityGraphPanel({
   onSelect(id: string): void;
 }) {
   return (
-    <section className="border-b border-gray-800/40 p-4 space-y-3">
+    <section className="space-y-3 border-b border-gray-800/40 p-4">
       <div className="flex items-center gap-2 text-blue-200">
         <GitBranch size={14} />
         <span className="text-xs uppercase tracking-wide">Entity graph</span>
@@ -992,7 +992,7 @@ function EntityGraphPanel({
 
 function TimelinePanel({ timeline }: { timeline: DocumentReview['timeline'] }) {
   return (
-    <section className="p-4 space-y-3">
+    <section className="space-y-3 p-4">
       <div className="flex items-center gap-2 text-gray-300">
         <Clock3 size={14} />
         <span className="text-xs uppercase tracking-wide">Timeline events</span>

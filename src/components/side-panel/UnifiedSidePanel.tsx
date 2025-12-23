@@ -8,7 +8,7 @@ import { Clock, Star, Download, X, Search, FolderOpen, ChevronRight } from 'luci
 import { motion, AnimatePresence } from 'framer-motion';
 // Use existing BookmarksPanel from bookmarks folder (has folders support)
 import { BookmarksPanel } from '../bookmarks/BookmarksPanel';
-import { WorkspacesPanel } from '../WorkspacesPanel';
+import { WorkspacesPanel } from '../workspace/WorkspacesPanel';
 import HistoryPage from '../../routes/History';
 import DownloadsPage from '../../routes/Downloads';
 
@@ -65,7 +65,7 @@ export function UnifiedSidePanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             aria-hidden="true"
           />
 
@@ -79,7 +79,7 @@ export function UnifiedSidePanel({
               damping: 25,
               stiffness: 200,
             }}
-            className={`fixed right-0 top-0 bottom-0 z-50 bg-[#1A1D28] border-l border-gray-800/60 flex flex-col shadow-2xl transition-all duration-300 ${
+            className={`fixed bottom-0 right-0 top-0 z-50 flex flex-col border-l border-gray-800/60 bg-[#1A1D28] shadow-2xl transition-all duration-300 ${
               isMobile ? 'w-full' : ''
             }`}
             style={{ width: typeof panelWidth === 'string' ? panelWidth : `${panelWidth}px` }}
@@ -94,11 +94,11 @@ export function UnifiedSidePanel({
                   <h2 className="text-lg font-semibold text-gray-100">Library</h2>
                 </div>
               )}
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="ml-auto flex items-center gap-2">
                 {!isMobile && (
                   <button
                     onClick={() => setCollapsed(!collapsed)}
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800/60 transition-colors"
+                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-100"
                     title={collapsed ? 'Expand' : 'Collapse'}
                   >
                     <ChevronRight
@@ -117,7 +117,7 @@ export function UnifiedSidePanel({
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800/60 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close panel"
                 >
@@ -128,7 +128,7 @@ export function UnifiedSidePanel({
 
             {/* Tabs */}
             {!collapsed && (
-              <div className="flex items-center border-b border-gray-800/60 px-4 bg-gray-900/30">
+              <div className="flex items-center border-b border-gray-800/60 bg-gray-900/30 px-4">
                 {tabs
                   .filter(tab => tab && tab.id)
                   .map(tab => (
@@ -143,10 +143,7 @@ export function UnifiedSidePanel({
                         (e as any).stopImmediatePropagation();
                         e.stopPropagation();
                       }}
-                      className={`
-                    relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors
-                    ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'}
-                  `}
+                      className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === tab.id ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'} `}
                       style={{ zIndex: 10011, isolation: 'isolate' }}
                       aria-selected={activeTab === tab.id}
                       role="tab"
@@ -170,7 +167,7 @@ export function UnifiedSidePanel({
               (activeTab === 'history' ||
                 activeTab === 'bookmarks' ||
                 activeTab === 'workspaces') && (
-                <div className="px-4 py-3 border-b border-gray-800/60">
+                <div className="border-b border-gray-800/60 px-4 py-3">
                   <div className="relative">
                     <Search
                       size={16}
@@ -181,7 +178,7 @@ export function UnifiedSidePanel({
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       placeholder={`Search ${activeTab}...`}
-                      className="w-full pl-9 pr-3 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40"
+                      className="w-full rounded-lg border border-gray-700/50 bg-gray-900/60 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500/40 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                     />
                   </div>
                 </div>

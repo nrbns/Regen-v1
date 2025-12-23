@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Regen Browser",
+    "description": "AI-powered browser with offline-first architecture"
+  },
+  "tabs": {
+    "newTab": "New Tab",
+    "closeTab": "Close Tab",
+    "reloadTab": "Reload Tab",
+    "duplicateTab": "Duplicate Tab"
+  },
+  "modes": {
+    "browse": "Browse",
+    "research": "Research",
+    "trade": "Trade",
+    "games": "Games",
+    "docs": "Docs",
+    "images": "Images",
+    "threats": "Threats",
+    "graphMind": "GraphMind"
+  },
+  "privacy": {
+    "normal": "Normal",
+    "private": "Private",
+    "ghost": "Ghost",
+    "description": {
+      "normal": "Standard browsing with history and cache",
+      "private": "Session-only storage, no persistent history",
+      "ghost": "No disk writes, TOR routing, maximum privacy"
+    }
+  },
+  "settings": {
+    "language": "Language",
+    "privacyMode": "Privacy Mode",
+    "lowRamMode": "Low RAM Mode",
+    "startupBehavior": "Startup Behavior"
+  },
+  "errors": {
+    "tabLimitReached": "Tab limit reached (max {max} tabs in current mode)",
+    "rustUnavailable": "Rust backend unavailable. Please restart the app.",
+    "webviewFailed": "Failed to load page. Please check your connection."
+  }
+}

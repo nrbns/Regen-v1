@@ -5,12 +5,14 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Tab } from '../../state/tabsStore';
 import { isElectronRuntime, isTauriRuntime } from '../../lib/env';
-import { OmniDesk } from '../OmniDesk';
+import { OmniDesk } from '../omni-mode/OmniDesk';
 import NewTabPage from '../Browse/NewTabPage';
+import { ModeEmptyState } from './ModeEmptyState';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useSettingsStore } from '../../state/settingsStore';
 import { useAppStore } from '../../state/appStore';
+import { useTabLoadingStore } from '../../state/tabLoadingStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
 import { useOptimizedView } from '../../hooks/useOptimizedView';
@@ -36,6 +38,8 @@ function isInternalUrl(url?: string | null): boolean {
   return INTERNAL_PROTOCOLS.some(prefix => url.startsWith(prefix));
 }
 
+// Loading spinner component for Suspense (removed - using Suspense fallback directly)
+
 export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   // const webviewRef = useRef<any>(null); // Used for Tauri webview (currently unused)
@@ -43,13 +47,18 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const isElectron = isElectronRuntime();
   const isTauri = isTauriRuntime();
   const language = useSettingsStore(state => state.language || 'auto');
-  const [loading, setLoading] = useState(false);
-  const [loadProgress] = useState(0);
+  const [loading, setLoading] = useState(true); // Start with loading true to show spinner
+  const [loadProgress, setLoadProgress] = useState<number | undefined>(undefined);
+  const setTabLoading = useTabLoadingStore(state => state.setLoading);
   const [error, setError] = useState<{ code?: string; message?: string; url?: string } | null>(
     null
   );
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
+
+  // Refs for intervals that need to be cleaned up across different useEffect blocks
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressInterval2Ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // GVE Optimization: Use optimized view hook
   const { queueUpdate: _queueUpdate } = useOptimizedView({
@@ -77,12 +86,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // If URL doesn't start with http/https, treat as search query
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       // Convert to search in user's language
-      // Use DuckDuckGo (privacy-friendly) instead of Bing
+      // Use Startpage (privacy-friendly AND iframe-friendly) as default
       const searchUrl = normalizeInputToUrlOrSearch(
         url,
-        'duckduckgo', // Use DuckDuckGo - privacy-friendly and works well
+        'startpage', // Use Startpage - privacy-friendly and iframe-friendly
         language !== 'auto' ? language : undefined,
-        false // Don't force iframe-friendly - let real sites load
+        true // Prefer iframe-friendly for better compatibility
       );
       if (searchUrl) {
         return searchUrl;
@@ -96,10 +105,12 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       const embedUrl = convertToYouTubeEmbed(url);
       if (embedUrl) {
         // It's a video URL, use embed format
+        console.log('[TabContentSurface] Converting YouTube URL to embed:', url, '->', embedUrl);
         return embedUrl;
       }
-      // It's not a video URL (e.g., youtube.com homepage), keep original
-      // Will be handled by X-Frame-Options error handler
+      // It's not a video URL (e.g., youtube.com homepage) - keep original
+      // YouTube homepage will be blocked by X-Frame-Options, which is expected
+      console.log('[TabContentSurface] YouTube homepage detected, using original URL');
     }
 
     return url;
@@ -139,6 +150,170 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     let isMounted = true;
     const LOADING_TIMEOUT_MS = 30000; // 30 seconds
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // Intercept link clicks in iframe to create new tabs
+    const handleIframeLinkClick = async (event: MessageEvent) => {
+      try {
+        // Listen for link clicks from iframe content
+        if (event.data?.type === 'link-click' && event.data?.url) {
+          const url = event.data.url;
+
+          // Validate URL
+          if (!url || url.startsWith('javascript:') || url.startsWith('#')) {
+            return;
+          }
+
+          // Normalize URL (handle relative URLs)
+          let normalizedUrl = url;
+          try {
+            // If it's not a full URL, try to make it one
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              // Try to resolve relative to current page
+              if (targetUrl) {
+                normalizedUrl = new URL(url, targetUrl).href;
+              } else {
+                normalizedUrl = url.startsWith('//') ? `https:${url}` : `https://${url}`;
+              }
+            }
+
+            // Validate the final URL
+            const urlObj = new URL(normalizedUrl);
+            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+              console.warn('[TabContentSurface] Invalid protocol:', normalizedUrl);
+              return;
+            }
+          } catch (urlError) {
+            console.warn('[TabContentSurface] Invalid URL:', url, urlError);
+            return;
+          }
+
+          // Don't create new tab for same URL (refresh)
+          if (normalizedUrl === targetUrl) {
+            console.log('[TabContentSurface] Same URL, skipping tab creation');
+            return;
+          }
+
+          console.log('[TabContentSurface] Intercepted link click:', normalizedUrl);
+
+          // Create new tab for the link
+          try {
+            if (isElectron || isTauri) {
+              await ipc.tabs.create(normalizedUrl);
+            } else {
+              // Web mode fallback: open in new window
+              window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+            }
+          } catch (error) {
+            console.warn('[TabContentSurface] Failed to create tab for link:', error);
+            // Fallback: open in new window
+            window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+          }
+        }
+      } catch (error) {
+        console.warn('[TabContentSurface] Error handling link click:', error);
+      }
+    };
+
+    window.addEventListener('message', handleIframeLinkClick);
+
+    // Inject script to intercept link clicks in iframe
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const injectLinkInterceptor = () => {
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iframeDoc) return; // Cross-origin, can't inject
+
+        // Remove existing interceptor if any
+        const existingScript = iframeDoc.getElementById('regen-link-interceptor');
+        if (existingScript) existingScript.remove();
+
+        // Inject comprehensive link click interceptor
+        const script = iframeDoc.createElement('script');
+        script.id = 'regen-link-interceptor';
+        script.textContent = `
+          (function() {
+            // Intercept all link clicks - both same-origin and external
+            document.addEventListener('click', function(e) {
+              const link = e.target.closest('a');
+              if (link && link.href) {
+                const url = link.href;
+                const currentUrl = window.location.href;
+                
+                // Skip javascript: and anchor links
+                if (!url || url.startsWith('javascript:') || url.startsWith('#')) {
+                  return;
+                }
+                
+                try {
+                  // Parse URLs to check if external
+                  const linkUrl = new URL(url, currentUrl);
+                  const currentOrigin = new URL(currentUrl).origin;
+                  const isExternal = linkUrl.origin !== currentOrigin;
+                  
+                  // Intercept if:
+                  // 1. Link has _blank target (always open in new tab)
+                  // 2. Link is external (different origin)
+                  // 3. Link has _parent target
+                  // 4. It's a search result link (common patterns)
+                  const isSearchResult = linkUrl.pathname.includes('/search') || 
+                                         linkUrl.pathname.includes('/results') ||
+                                         linkUrl.pathname.includes('/url') ||
+                                         link.closest('.result') !== null ||
+                                         link.closest('[class*="result"]') !== null ||
+                                         link.closest('[class*="search"]') !== null;
+                  
+                  if (link.target === '_blank' || link.target === '_parent' || isExternal || isSearchResult) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.parent.postMessage({ type: 'link-click', url: linkUrl.href }, '*');
+                    return false;
+                  }
+                } catch (urlError) {
+                  // If URL parsing fails, still try to send it (might be relative URL)
+                  if (link.target === '_blank' || link.target === '_parent') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.parent.postMessage({ type: 'link-click', url: url }, '*');
+                    return false;
+                  }
+                }
+              }
+            }, true);
+            
+            // Also intercept middle-click and Ctrl+click
+            document.addEventListener('auxclick', function(e) {
+              if (e.button === 1) { // Middle click
+                const link = e.target.closest('a');
+                if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.parent.postMessage({ type: 'link-click', url: link.href }, '*');
+                  return false;
+                }
+              }
+            }, true);
+            
+            // Intercept Ctrl+Click (Cmd+Click on Mac)
+            document.addEventListener('click', function(e) {
+              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                const link = e.target.closest('a');
+                if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.parent.postMessage({ type: 'link-click', url: link.href }, '*');
+                  return false;
+                }
+              }
+            }, true);
+          })();
+        `;
+        iframeDoc.head.appendChild(script);
+        console.log('[TabContentSurface] Link interceptor injected successfully');
+      } catch (error) {
+        // Cross-origin - can't inject, but that's OK, we'll handle via postMessage
+        console.debug('[TabContentSurface] Cannot inject link interceptor (cross-origin):', error);
+      }
+    };
 
     const handleLoad = () => {
       if (!isMounted) return; // Don't update state if unmounted
@@ -207,17 +382,20 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             const urlObj = new URL(targetUrl);
             const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
             if (query) {
-              // Convert to Bing search URL
-              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              // Convert to Startpage search URL (iframe-friendly and privacy-focused)
+              const startpageUrl = `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+              console.log(
+                '[TabContentSurface] Converting iframe-blocked search to Startpage:',
+                startpageUrl
+              );
               setTimeout(() => {
                 if (iframeRef.current) {
-                  iframeRef.current.src = bingUrl;
+                  iframeRef.current.src = startpageUrl;
                   setLoading(true);
                   setFailedMessage(null);
                 }
               }, 100);
-              return; // Don't set error, we're retrying with Bing
+              return; // Don't set error, we're retrying with Startpage
             }
           } catch {
             // URL parsing failed, continue with error handling
@@ -258,16 +436,24 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     // Cleanup function to prevent memory leaks on tab hibernation/close
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
+      window.removeEventListener('message', handleIframeLinkClick);
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
       if (iframe && iframeRef.current) {
         iframe.removeEventListener('load', handleLoad);
-        iframe.removeEventListener('error', handleError);
+        iframe.removeEventListener('error', handleError as EventListener);
       }
       // Clear state to prevent memory leaks
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
       setFailedMessage(null);
       setBlockedExternal(false);
     };
@@ -450,17 +636,20 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             const urlObj = new URL(targetUrl);
             const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query') || '';
             if (query) {
-              // Convert to Bing search URL
-              const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}`;
-              console.log('[TabContentSurface] Converting iframe-blocked search to Bing:', bingUrl);
+              // Convert to Startpage search URL (iframe-friendly and privacy-focused)
+              const startpageUrl = `https://www.startpage.com/sp/search?query=${encodeURIComponent(query)}`;
+              console.log(
+                '[TabContentSurface] Converting iframe-blocked search to Startpage:',
+                startpageUrl
+              );
               setTimeout(() => {
                 if (iframeRef.current) {
-                  iframeRef.current.src = bingUrl;
+                  iframeRef.current.src = startpageUrl;
                   setLoading(true);
                   setFailedMessage(null);
                 }
               }, 100);
-              return; // Don't set error, we're retrying with Bing
+              return; // Don't set error, we're retrying with Startpage
             }
           } catch {
             // URL parsing failed, continue with error handling
@@ -485,18 +674,47 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       }
     };
 
+    // SPRINT 0: Simulate progress during load (second useEffect)
+    if (tab?.id) {
+      setTabLoading(tab.id, true, 0);
+      let progress = 0;
+      progressIntervalRef.current = setInterval(() => {
+        if (!isMounted || !iframeRef.current) {
+          if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+          return;
+        }
+        progress = Math.min(progress + Math.random() * 30, 90);
+        setLoadProgress(progress);
+        setTabLoading(tab.id!, true, progress);
+      }, 200);
+    }
+
     // Set loading timeout
     timeoutId = setTimeout(() => {
       if (!isMounted) return; // Don't update state if unmounted
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setFailedMessage(
         'This page is taking too long to load. Check your connection or try refreshing.'
       );
       timeoutId = null;
     }, LOADING_TIMEOUT_MS);
 
-    iframe.addEventListener('load', handleLoad);
-    iframe.addEventListener('error', handleError as EventListener);
+    const wrappedHandleLoad = () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      handleLoad();
+    };
+
+    const wrappedHandleError = (e: ErrorEvent | Event) => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      handleError(e);
+    };
+
+    iframe.addEventListener('load', wrappedHandleLoad);
+    iframe.addEventListener('error', wrappedHandleError as EventListener);
 
     // MEMORY LEAK FIX: Listen for tab close event to cleanup
     const handleTabClose = ((e: CustomEvent) => {
@@ -521,18 +739,26 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
     return () => {
       isMounted = false; // Mark as unmounted to prevent state updates
       window.removeEventListener('tab-closed', handleTabClose);
+      // Note: handleIframeLinkClick cleanup is handled in the first useEffect
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+      if (progressInterval2Ref.current) {
+        clearInterval(progressInterval2Ref.current);
+        progressInterval2Ref.current = null;
+      }
       if (iframe && iframeRef.current) {
         iframe.removeEventListener('load', handleLoad);
-        iframe.removeEventListener('error', handleError);
+        iframe.removeEventListener('error', handleError as EventListener);
         // Clear iframe src to release resources
         iframe.src = 'about:blank';
       }
       // Clear state to prevent memory leaks
       setLoading(false);
+      if (tab?.id) {
+        setTabLoading(tab.id, false);
+      }
       setFailedMessage(null);
       setBlockedExternal(false);
     };
@@ -565,6 +791,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       if (!iframe) return;
       if (iframe.src !== targetUrl) {
         setLoading(true);
+        setLoadProgress(0);
+        // SPRINT 0: Update tab loading store
+        if (tab?.id) {
+          setTabLoading(tab.id, true, 0);
+        }
         iframe.src = targetUrl;
       }
       setBlockedExternal(false);
@@ -575,10 +806,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   const labelledById = tab?.id ? `tab-${tab.id}` : undefined;
   const isInactive = !tab || !tab.active;
 
-  // Show NewTabPage for about:blank or internal URLs in Browse mode
-  // Show OmniDesk for other modes
+  // Show mode-specific empty states when no URL is present
   const currentMode = useAppStore(state => state.mode ?? 'Browse');
   const isBrowseMode = currentMode === 'Browse' || !currentMode;
+  const isResearchMode = currentMode === 'Research';
+  const isTradeMode = currentMode === 'Trade';
 
   if (!targetUrl) {
     return (
@@ -598,7 +830,13 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
           pointerEvents: 'auto',
         }}
       >
-        {isBrowseMode ? <NewTabPage /> : <OmniDesk variant="split" forceShow />}
+        {isBrowseMode ? (
+          <NewTabPage />
+        ) : isResearchMode || isTradeMode ? (
+          <ModeEmptyState mode={currentMode} />
+        ) : (
+          <OmniDesk variant="split" forceShow />
+        )}
       </motion.div>
     );
   }
@@ -671,7 +909,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               contentVisibility: tab?.active ? 'auto' : 'hidden',
               contain: 'layout style paint',
             }}
-            src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
+            src={
+              targetUrl && targetUrl !== 'about:blank' && !targetUrl.startsWith('regen://')
+                ? targetUrl
+                : undefined
+            }
             sandbox={SAFE_IFRAME_SANDBOX}
             allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture"
             referrerPolicy="no-referrer"
@@ -688,7 +930,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             aria-live="off"
             onError={e => {
               // Additional error handling for iframe
-              console.warn('[TabContentSurface] Iframe error event:', e);
+              if (import.meta.env.DEV) {
+                console.warn('[TabContentSurface] Iframe error event:', e);
+              }
               // Check if it's a blocked iframe
               const iframe = e.currentTarget;
               if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
@@ -701,7 +945,16 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 } else {
                   setFailedMessage('This site blocks embedded views (X-Frame-Options).');
                 }
+              } else {
+                // Generic error - might be network issue
+                setFailedMessage('Failed to load this page. Please check your connection.');
               }
+            }}
+            onLoad={() => {
+              // Clear any error states on successful load
+              setFailedMessage(null);
+              setBlockedExternal(false);
+              setLoading(false);
             }}
           />
         </Suspense>

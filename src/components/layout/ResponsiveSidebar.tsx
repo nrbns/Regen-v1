@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 import { cn } from '../../lib/utils';
 
 export interface ResponsiveSidebarProps {
@@ -25,7 +25,9 @@ export function ResponsiveSidebar({
   width = '320px',
   className,
 }: ResponsiveSidebarProps) {
-  const { isMobile, isTablet } = useMobileDetection();
+  const detection = useMobileDetection() as any;
+  const isMobile = detection?.isMobile ?? false;
+  const isTablet = detection?.isTablet ?? false;
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [_isDragging, _setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
@@ -156,7 +158,7 @@ export function ResponsiveSidebar({
       <div
         ref={sidebarRef}
         className={cn(
-          'fixed top-0 z-50 h-full bg-slate-900 border-r border-slate-800 transition-transform duration-300 ease-in-out',
+          'fixed top-0 z-50 h-full border-r border-slate-800 bg-slate-900 transition-transform duration-300 ease-in-out',
           position === 'left' ? 'left-0' : 'right-0',
           className
         )}
@@ -183,5 +185,3 @@ export function ResponsiveSidebar({
     </>
   );
 }
-
-

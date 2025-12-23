@@ -28,7 +28,13 @@ const timeframes = [
   { value: '1D', label: '1D' },
 ];
 
-export default function TradingChart({ symbol, timeframe, data, onTimeframeChange, height = 500 }: TradingChartProps) {
+export default function TradingChart({
+  symbol,
+  timeframe,
+  data,
+  onTimeframeChange,
+  height = 500,
+}: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -65,7 +71,10 @@ export default function TradingChart({ symbol, timeframe, data, onTimeframeChang
     const addSeries = chart.addCandlestickSeries ?? (chart as any).addCandlestickSeries;
 
     if (typeof addSeries !== 'function') {
-      console.error('[TradingChart] addCandlestickSeries is not available on chart instance', chart);
+      console.error(
+        '[TradingChart] addCandlestickSeries is not available on chart instance',
+        chart
+      );
       return () => {
         chart.remove();
       };
@@ -100,9 +109,9 @@ export default function TradingChart({ symbol, timeframe, data, onTimeframeChang
     if (!seriesRef.current || !data || data.length === 0) return;
 
     setIsLoading(false);
-    
+
     // Convert data to chart format
-    const chartData = data.map((candle) => ({
+    const chartData = data.map(candle => ({
       time: candle.time as UTCTimestamp,
       open: candle.open,
       high: candle.high,
@@ -113,58 +122,18 @@ export default function TradingChart({ symbol, timeframe, data, onTimeframeChang
     seriesRef.current.setData(chartData);
   }, [data]);
 
-  // Mock data generator for demo (remove when real data is available)
-  useEffect(() => {
-    if (!data || data.length === 0) {
-      // Generate mock data
-      const mockData: CandleData[] = [];
-      const now = Math.floor(Date.now() / 1000);
-      let price = 150;
-      
-      for (let i = 100; i >= 0; i--) {
-        const change = (Math.random() - 0.5) * 2;
-        price += change;
-        const open = price;
-        const close = price + (Math.random() - 0.5) * 1;
-        const high = Math.max(open, close) + Math.random() * 0.5;
-        const low = Math.min(open, close) - Math.random() * 0.5;
-        
-        mockData.push({
-          time: (now - i * 60) as UTCTimestamp,
-          open,
-          high,
-          low,
-          close,
-          volume: Math.floor(Math.random() * 1000000),
-        });
-      }
-      
-      if (seriesRef.current) {
-        const chartData = mockData.map((candle) => ({
-          time: candle.time as UTCTimestamp,
-          open: candle.open,
-          high: candle.high,
-          low: candle.low,
-          close: candle.close,
-        }));
-        seriesRef.current.setData(chartData);
-        setIsLoading(false);
-      }
-    }
-  }, [symbol, timeframe]);
-
   return (
-    <div className="bg-neutral-900 rounded-lg border border-neutral-700 overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900">
       {/* Chart Header */}
-      <div className="flex items-center justify-between p-3 border-b border-neutral-700">
+      <div className="flex items-center justify-between border-b border-neutral-700 p-3">
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-lg">{symbol}</h3>
+          <h3 className="text-lg font-semibold">{symbol}</h3>
           <div className="flex gap-1">
-            {timeframes.map((tf) => (
+            {timeframes.map(tf => (
               <button
                 key={tf.value}
                 onClick={() => onTimeframeChange?.(tf.value)}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
+                className={`rounded px-2 py-1 text-xs transition-colors ${
                   timeframe === tf.value
                     ? 'bg-indigo-600 text-white'
                     : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
@@ -185,4 +154,3 @@ export default function TradingChart({ symbol, timeframe, data, onTimeframeChang
     </div>
   );
 }
-

@@ -3,24 +3,29 @@
  */
 
 import React, { useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react';
-import { AlertTriangle, PanelsTopLeft, PanelRightOpen } from 'lucide-react';
+import { AlertTriangle as _AlertTriangle } from 'lucide-react';
+import { ErrorBoundary } from '../../core/errors/ErrorBoundary';
+import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 // RotateCcw, Loader2, X - unused (restore banner removed)
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { PermissionRequest, ConsentRequest, ipcEvents } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
 import { useTabsStore, type Tab } from '../../state/tabsStore';
 import { ipc } from '../../lib/ipc-typed';
 import { ResearchHighlight } from '../../types/research';
 import { Portal } from '../common/Portal';
-import { VoiceControl } from '../VoiceControl';
+import { VoiceControl } from '../voice/VoiceControl';
 import { formatDistanceToNow } from 'date-fns';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from '../../lib/env';
+import { getLayoutOptimizer, getNavigationPreloader } from '../../utils/layer2-optimizer';
 import { TabContentSurface } from './TabContentSurface';
 import { TabIframeManager } from './TabIframeManager';
 import { GlobalSearch } from '../search/GlobalSearch';
 import { setupIframeBlockedListener } from '../../utils/iframeBlockedFallback';
 // Voice components removed by user request
+// DOGFOODING: Safe mode indicator
+// import { SafeModeIndicator } from '../SafeModeIndicator'; // Reserved for future use
 // Lazy load heavy Redix services - DEFER until after first render
 const initializeOptimizer = () =>
   new Promise(resolve =>
@@ -74,11 +79,14 @@ import { useRedixTabEviction } from '../../hooks/useRedixTabEviction';
 import { RedixModeToggle } from '../redix/RedixModeToggle';
 import { useI18nSync } from '../../hooks/useI18nSync';
 import { initializeRedixMode } from '../../lib/redix-mode/integration';
+import { OnboardingTour } from '../Onboarding/OnboardingTour';
+import { AwarenessCursors } from '../collaboration/AwarenessCursors';
+import { BookmarksBar } from '../bookmarks/BookmarksBar';
 const updatePolicyMetrics = () =>
   import('../../core/redix/policies').then(m => m.updatePolicyMetrics);
 const getPolicyRecommendations = () =>
   import('../../core/redix/policies').then(m => m.getPolicyRecommendations);
-import { CrashRecoveryDialog, useCrashRecovery } from '../CrashRecoveryDialog';
+import { CrashRecoveryDialog, useCrashRecovery } from '../common/CrashRecoveryDialog';
 import { ResearchMemoryPanel } from '../research/ResearchMemoryPanel';
 import { trackVisit } from '../../core/supermemory/tracker';
 // Lazy load heavy summarization service - DEFER significantly
@@ -100,14 +108,13 @@ import { SuspensionIndicator } from '../redix/SuspensionIndicator';
 import { BatteryIndicator } from '../redix/BatteryIndicator';
 import { MemoryMonitor } from '../redix/MemoryMonitor';
 import { MiniHoverAI } from '../interaction/MiniHoverAI';
-import { WisprOrb } from '../WisprOrb';
 import { UnifiedSidePanel } from '../side-panel/UnifiedSidePanel';
 import { CommandBar } from '../command-bar/CommandBar';
 import { OmniModeSwitcher } from '../omni-mode/OmniModeSwitcher';
-import { CommandPalette as QuickCommandPalette } from '../CommandPalette';
+import { CommandPalette as QuickCommandPalette } from '../command-palette/CommandPalette';
 // import { WorkspaceTabs } from '../tabs/WorkspaceTabs'; // Reserved for future use
-import { SessionRestorePrompt } from '../SessionRestorePrompt';
-const SessionRestoreModal = React.lazy(() => import('../SessionRestoreModal'));
+import { SessionRestorePrompt } from '../common/SessionRestorePrompt';
+const SessionRestoreModal = React.lazy(() => import('../common/SessionRestoreModal'));
 import { autoTogglePrivacy } from '../../core/privacy/auto-toggle';
 import { useAppStore } from '../../state/appStore';
 import { useSessionStore } from '../../state/sessionStore';
@@ -122,6 +129,7 @@ import {
   CookieConsent,
   useCookieConsent,
   type CookiePreferences,
+  getCookiePreferences,
 } from '../Onboarding/CookieConsent';
 import { useResearchHotkeys } from '../../hooks/useResearchHotkeys';
 import { ToastHost } from '../common/ToastHost';
@@ -140,9 +148,25 @@ import { useAppError } from '../../hooks/useAppError';
 import { LoopResumeModal } from '../agents/LoopResumeModal';
 import { checkForCrashedLoops } from '../../core/agents/loopResume';
 import { WorkflowMarketplace } from '../workflows/WorkflowMarketplace';
-import { MobileDock } from './MobileDock';
+import { MobileDock } from '../../mobile';
 import { InstallProgressModal } from '../installer/InstallProgressModal';
 import { ConnectionStatus } from '../common/ConnectionStatus';
+import { JobTimelinePanel } from '../realtime/JobTimelinePanel';
+import { ActionLog } from '../realtime/ActionLog';
+import { useState } from 'react';
+import { KeyboardShortcutsModal } from '../KeyboardShortcutsModal';
+// ...existing code...
+{
+  /* ...existing code... */
+}
+import { TabSummaryToast } from '../common/TabSummaryToast';
+import FirstRunModal from '../../ui/onboarding/FirstRunModal';
+import { NavigationProgress } from '../common/NavigationProgress';
+import { GlobalStatusBar } from '../status/GlobalStatusBar';
+import { CrashRecoveryBanner } from '../recovery/CrashRecoveryBanner';
+import { GlobalJobTimeline } from '../jobs/GlobalJobTimeline';
+import { ContextStrip } from '../context/ContextStrip';
+import { ResourceMonitor } from '../resource/ResourceMonitor';
 
 declare global {
   interface Window {
@@ -151,183 +175,11 @@ declare global {
   }
 }
 
-type ErrorBoundaryState = {
-  hasError: boolean;
-  error?: Error;
-  errorInfo?: string;
-  copyStatus: 'success' | 'error' | null;
-  copyMessage?: string;
-  copying: boolean;
-};
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback?: React.ReactNode; componentName?: string },
-  ErrorBoundaryState
-> {
-  constructor(props: {
-    children: React.ReactNode;
-    fallback?: React.ReactNode;
-    componentName?: string;
-  }) {
-    super(props);
-    this.state = { hasError: false, copyStatus: null, copying: false };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error(
-      `ErrorBoundary caught error${this.props.componentName ? ` in ${this.props.componentName}` : ''}:`,
-      error,
-      errorInfo
-    );
-    this.setState({ error, errorInfo: errorInfo.componentStack ?? undefined });
-
-    // Optional: Send to error tracking service (e.g., Sentry)
-    if (import.meta.env.PROD) {
-      // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
-    }
-  }
-
-  private handleReload = () => {
-    window.location.reload();
-  };
-
-  private handleOpenLogs = async () => {
-    try {
-      const result = await ipc.diagnostics.openLogs();
-      this.setState({
-        copyStatus: result?.success ? 'success' : 'error',
-        copyMessage: result?.success ? 'Logs folder opened.' : 'Unable to open logs folder.',
-        copying: false,
-      });
-    } catch (error) {
-      console.error('Failed to open logs folder from error boundary:', error);
-      this.setState({
-        copyStatus: 'error',
-        copyMessage: 'Failed to open logs folder.',
-        copying: false,
-      });
-    }
-  };
-
-  private handleCopyDiagnostics = async () => {
-    if (this.state.copying) return;
-    this.setState({ copying: true, copyStatus: null, copyMessage: undefined });
-    try {
-      const result = await ipc.diagnostics.copyDiagnostics();
-      if (result?.diagnostics && navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(result.diagnostics);
-        this.setState({
-          copyStatus: 'success',
-          copyMessage: 'Diagnostics copied to clipboard.',
-          copying: false,
-        });
-      } else {
-        this.setState({
-          copyStatus: 'error',
-          copyMessage: 'Clipboard unavailable. Diagnostics logged to console.',
-          copying: false,
-        });
-        // Diagnostics summary available
-      }
-    } catch (error) {
-      console.error('Failed to copy diagnostics from error boundary:', error);
-      this.setState({
-        copyStatus: 'error',
-        copyMessage: 'Failed to copy diagnostics.',
-        copying: false,
-      });
-    }
-  };
-
-  render() {
-    if (this.state.hasError) {
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      return (
-        <div className="flex min-h-screen w-full items-center justify-center bg-slate-950 px-6 py-12 text-gray-100">
-          <div className="w-full max-w-xl space-y-5 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-lg">
-            <div className="flex items-start gap-3">
-              <div className="rounded-full bg-red-500/20 p-2 text-red-200">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-red-200">
-                  Something went wrong
-                  {this.props.componentName ? ` inside ${this.props.componentName}` : ''}.
-                </h1>
-                {this.state.error?.message && (
-                  <p className="mt-2 text-sm text-red-100/80">{this.state.error.message}</p>
-                )}
-                <p className="mt-2 text-sm text-gray-400">
-                  Try reloading the interface. You can also copy diagnostics or inspect the latest
-                  logs to share with the team.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={this.handleReload}
-                className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:border-blue-500/70"
-              >
-                Reload app
-              </button>
-              <button
-                onClick={this.handleCopyDiagnostics}
-                disabled={this.state.copying}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                  this.state.copying
-                    ? 'cursor-wait border-indigo-500/30 bg-indigo-500/10 text-indigo-200/60'
-                    : 'border-indigo-500/50 bg-indigo-500/10 text-indigo-100 hover:border-indigo-500/70'
-                }`}
-              >
-                {this.state.copying ? 'Copying…' : 'Copy diagnostics'}
-              </button>
-              <button
-                onClick={this.handleOpenLogs}
-                className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition-colors hover:border-emerald-500/70"
-              >
-                Open logs folder
-              </button>
-            </div>
-
-            {this.state.copyMessage && (
-              <div
-                className={`text-sm ${
-                  this.state.copyStatus === 'success' ? 'text-emerald-300' : 'text-red-300'
-                }`}
-              >
-                {this.state.copyMessage}
-              </div>
-            )}
-
-            {isDevEnv() && this.state.errorInfo && (
-              <details className="text-xs text-gray-400">
-                <summary className="cursor-pointer text-gray-300">Stack trace</summary>
-                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-black/40 p-3">
-                  {this.state.errorInfo}
-                </pre>
-              </details>
-            )}
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 // Lazy load heavy components
 const TopBar = React.lazy(() =>
   import('../../ui/components/TopBar').then(m => ({ default: m.TopBar }))
 );
-const TabStrip = React.lazy(() => import('./TabStrip').then(m => ({ default: m.TabStrip })));
+// const TabStrip = React.lazy(() => import('./TabStrip').then(m => ({ default: m.TabStrip }))); // Reserved for future use
 const RightPanel = React.lazy(() => import('./RightPanel').then(m => ({ default: m.RightPanel })));
 const BottomStatus = React.lazy(() =>
   import('./BottomStatus').then(m => ({ default: m.BottomStatus }))
@@ -342,7 +194,7 @@ const ConsentPrompt = React.lazy(() =>
   import('../Overlays/ConsentPrompt').then(m => ({ default: m.ConsentPrompt }))
 );
 const AgentOverlay = React.lazy(() =>
-  import('../AgentOverlay').then(m => ({ default: m.AgentOverlay }))
+  import('../agent/AgentOverlay').then(m => ({ default: m.AgentOverlay }))
 );
 const RegenSidebar = React.lazy(() =>
   import('../regen/RegenSidebar').then(m => ({ default: m.RegenSidebar }))
@@ -376,13 +228,48 @@ import { useOnboardingStore, onboardingStorage } from '../../state/onboardingSto
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 
+import { getSocketService, RealtimeHealthContract } from '../../services/realtimeSocket';
+
 export function AppShell() {
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Global '?' hotkey to open shortcuts modal
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.key === '?' || e.key === '/') && (e.shiftKey || e.key === '?')) {
+        // '?' is Shift + '/'
+        if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+          e.preventDefault();
+          setShortcutsOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+  const location = useLocation();
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  // Realtime Health State
+  const [_realtimeHealth, setRealtimeHealth] = useState<RealtimeHealthContract | null>(null);
+
+  useEffect(() => {
+    let socket: ReturnType<typeof getSocketService> | null = null;
+    try {
+      socket = getSocketService();
+      // Listen for status changes and update health
+      const unsub = socket.onStatusChange(() => {
+        setRealtimeHealth(socket!.getHealth());
+      });
+      // Initial health
+      setRealtimeHealth(socket.getHealth());
+      return unsub;
+    } catch {}
+  }, []);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [unifiedSidePanelOpen, setUnifiedSidePanelOpen] = useState(false);
   const [permissionRequest, setPermissionRequest] = useState<PermissionRequest | null>(null);
   const [consentRequest, setConsentRequest] = useState<ConsentRequest | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // ...existing code...
   const memorySidebarOpen = useAppStore(state => state.memorySidebarOpen);
   const setMemorySidebarOpen = useAppStore(state => state.setMemorySidebarOpen);
   const setMode = useAppStore(state => state.setMode);
@@ -394,12 +281,106 @@ export function AppShell() {
   const themePreference = useSettingsStore(state => state.appearance.theme);
   const compactUI = useSettingsStore(state => state.appearance.compactUI);
   const clearOnExit = useSettingsStore(state => state.privacy.clearOnExit);
+  const lowRamMode = useSettingsStore(state => state.general.lowRamMode ?? false);
   const { crashedTab, setCrashedTab, handleReload } = useCrashRecovery();
+  const [showFirstRun, setShowFirstRun] = useState(false);
+  const currentMode = useAppStore(s => s.mode);
+  const setHeartbeat = useAppStore(s => s.setHeartbeat);
+  const setNetworkStatus = useAppStore(s => s.setNetworkStatus);
+
+  // Apply mode-themed backgrounds globally for strong mode dominance
+  useEffect(() => {
+    const root = document.documentElement;
+    const theme =
+      currentMode === 'Research' ? 'research' : currentMode === 'Trade' ? 'trade' : undefined;
+    if (theme) {
+      root.setAttribute('data-mode-theme', theme);
+    } else {
+      root.removeAttribute('data-mode-theme');
+    }
+  }, [currentMode]);
+
+  // Realtime heartbeat + network watcher
+  useEffect(() => {
+    const interval = setInterval(() => setHeartbeat(), 1000);
+    const onOnline = () => setNetworkStatus('online');
+    const onOffline = () => setNetworkStatus('offline');
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [setHeartbeat, setNetworkStatus]);
+
+  // Sync tabs from Rust (source of truth)
+  useTabsSync();
+
+  // Sync settings from Rust (source of truth)
+  useSettingsSync();
+
+  // Session Restore - Recover jobs after page reload
+  const _sessionRestore = useSessionRestore({
+    autoSubscribe: true,
+    onRestore: session => {
+      console.log('[AppShell] Restored job session:', session.jobId);
+    },
+  });
+
+  // Layer 2: Initialize performance optimizers
+  const _layoutOptimizer = React.useRef(getLayoutOptimizer());
+  const navigationPreloader = React.useRef(getNavigationPreloader());
+
+  // LAG FIX: Toast feedback for network changes
+  useEffect(() => {
+    const handleOnline = () => toast.success('Back online. Resyncing...');
+    const handleOffline = () => toast.error('You are offline. Actions will queue.');
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Week 2 MVP: State declarations
+
+  // Layer 2: Prefetch likely navigation paths on location change
+  useEffect(() => {
+    navigationPreloader.current.prefetchLikelyPages(location.pathname);
+  }, [location.pathname]);
 
   // PR: Fix layout overlap - Initialize layout sync
   useEffect(() => {
     const cleanup = initLayoutSync();
     return cleanup;
+  }, []);
+
+  // Week 2 MVP: Initialize telemetry service
+  useEffect(() => {
+    import('../../services/telemetry')
+      .then(({ initializeTelemetry }) => {
+        initializeTelemetry();
+        console.log('[AppShell] Telemetry initialized');
+      })
+      .catch(error => {
+        console.warn('[AppShell] Telemetry initialization failed:', error);
+      });
+  }, []);
+
+  // First-run onboarding: show after consent accepted, only once
+  useEffect(() => {
+    try {
+      const consent = getCookiePreferences();
+      const consentOk = consent?.essential === true;
+      const hasSeen = window.localStorage.getItem('omnibrowser:first-run:seen') === 'true';
+      if (consentOk && !hasSeen) {
+        setShowFirstRun(true);
+      }
+    } catch {}
   }, []);
 
   // PR: Fix tab switch - Setup iframe blocked fallback handler
@@ -474,6 +455,69 @@ export function AppShell() {
         setLoopResumeModalOpen(true);
       }, 2000);
     }
+  }, []);
+
+  // Predictive actions: Listen for dom-ready events to auto-summarize pages
+  useEffect(() => {
+    const handleDomReady = async (event: Event) => {
+      const { url, text } =
+        (event as CustomEvent<{ tabId?: string; url?: string; text?: string }>).detail || {};
+      if (!url || !text || text.length < 100) return;
+
+      // Only auto-predict if user hasn't disabled it
+      const settings = useSettingsStore.getState();
+      if (settings.general.disableAutoActions) return;
+
+      try {
+        // Import zero-prompt prediction service
+        const { predictZeroPromptActions } = await import('../../services/zeroPromptPrediction');
+        const predictions = await predictZeroPromptActions(1);
+
+        if (predictions.length > 0 && predictions[0].intent === 'summarize') {
+          // Auto-summarize page content
+          const { aiEngine } = await import('../../core/ai');
+          const summary = await aiEngine.runTask({
+            kind: 'summary',
+            prompt: `Summarize this page content:\n${text.substring(0, 2000)}`,
+          });
+
+          // Store summary for later use (don't show intrusive UI)
+          localStorage.setItem(
+            `regen:page_summary:${url}`,
+            JSON.stringify({
+              summary: summary.text,
+              timestamp: Date.now(),
+            })
+          );
+        }
+      } catch (error) {
+        // Silently fail - predictive actions are optional
+        if (import.meta.env.DEV) {
+          console.debug('[AppShell] Predictive action failed:', error);
+        }
+      }
+    };
+
+    window.addEventListener('dom-ready', handleDomReady as EventListener);
+    return () => {
+      window.removeEventListener('dom-ready', handleDomReady as EventListener);
+    };
+  }, []);
+
+  // Keyboard shortcuts: toggle Regen sidebar (minimal UI requirement)
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      // Ctrl+B (or Cmd+B on macOS) toggles sidebar visibility
+      const isMeta = event.metaKey || event.ctrlKey;
+      if (isMeta && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        const { toggleRegenSidebar } = useAppStore.getState();
+        toggleRegenSidebar();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
   }, []);
 
   // Memory monitoring - auto-unload tabs when memory is low
@@ -558,7 +602,7 @@ export function AppShell() {
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   );
-  const [ollamaAvailable, setOllamaAvailable] = useState(false);
+  const [_ollamaAvailable, setOllamaAvailable] = useState(false);
   const onboardingVisible = useOnboardingStore(state => state.visible);
   const startOnboarding = useOnboardingStore(state => state.start);
   const _finishOnboarding = useOnboardingStore(state => state.finish);
@@ -778,6 +822,34 @@ export function AppShell() {
   // Initialize Redix mode on mount
   useEffect(() => {
     initializeRedixMode();
+  }, []);
+
+  // Initialize model manager and agent queue on mount
+  useEffect(() => {
+    const initResourceManagement = async () => {
+      try {
+        const { modelManager } = await import('../../core/ai/modelManager');
+        const { agentQueue } = await import('../../core/agents/agentQueue');
+
+        // Detect system resources
+        const resources = await modelManager.detectSystemResources();
+        const recommendedModel = await modelManager.getRecommendedModel();
+        const maxAgents = await modelManager.getMaxConcurrentAgents();
+
+        // Configure agent queue
+        agentQueue.setMaxParallel(maxAgents);
+
+        console.log('[AppShell] Resource management initialized:', {
+          ram: `${resources.totalRAMGB}GB`,
+          model: recommendedModel,
+          maxAgents,
+        });
+      } catch (error) {
+        console.warn('[AppShell] Resource management init failed:', error);
+      }
+    };
+
+    initResourceManagement();
   }, []);
   const [showTOS, setShowTOS] = useState(false);
   const [showCookieConsent, setShowCookieConsent] = useState(false);
@@ -1045,23 +1117,19 @@ export function AppShell() {
 
     return found || undefined;
   }, [tabsState.tabs, tabsState.activeId]);
-  const mode = useAppStore(state => state.mode);
-  const currentMode = mode ?? 'Browse';
-
   useEffect(() => {
     if (typeof document === 'undefined') return;
-    const nextMode = (mode ?? 'browse').toLowerCase();
+    const nextMode = (currentMode ?? 'browse').toLowerCase();
     document.documentElement.dataset.modeTheme = nextMode;
     return () => {
       document.documentElement.dataset.modeTheme = nextMode;
     };
-  }, [mode]);
+  }, [currentMode]);
   const researchPaneOpen = useAppStore(state => state.researchPaneOpen);
   const setResearchPaneOpen = useAppStore(state => state.setResearchPaneOpen);
   const tradeSidebarOpen = useTradeStore(state => state.sidebarOpen);
   const setTradeSidebarOpen = useTradeStore(state => state.setSidebarOpen);
   const regenSidebarOpen = useAppStore(state => state.regenSidebarOpen);
-  const setRegenSidebarOpen = useAppStore(state => state.setRegenSidebarOpen);
   const [_contentSplit, setContentSplit] = useState(0.62);
 
   // Track visits when active tab URL changes
@@ -1164,7 +1232,7 @@ export function AppShell() {
   // Auto-open mode-specific panels (mode manager handles this via onActivate hooks, but we keep this as a fallback)
   useEffect(() => {
     // Mode manager's onActivate hooks handle most of this, but we ensure UI stays in sync
-    if (mode === 'Research') {
+    if (currentMode === 'Research') {
       // Don't auto-open memory sidebar in Research Mode - let users toggle it to avoid overlapping the gradient UI
       // if (!memorySidebarOpen) {
       //   setMemorySidebarOpen(true);
@@ -1175,7 +1243,7 @@ export function AppShell() {
       if (tradeSidebarOpen) {
         setTradeSidebarOpen(false);
       }
-    } else if (mode === 'Trade') {
+    } else if (currentMode === 'Trade') {
       if (!tradeSidebarOpen) {
         setTradeSidebarOpen(true);
       }
@@ -1185,7 +1253,7 @@ export function AppShell() {
       if (memorySidebarOpen) {
         setMemorySidebarOpen(false);
       }
-    } else if (mode === 'GraphMind') {
+    } else if (currentMode === 'GraphMind') {
       const graphDockOpen = useAppStore.getState().graphDockOpen;
       if (!graphDockOpen) {
         useAppStore.getState().toggleGraphDock();
@@ -1211,7 +1279,7 @@ export function AppShell() {
       // Keep memory sidebar open in Browse mode if user wants it
     }
   }, [
-    mode,
+    currentMode,
     memorySidebarOpen,
     researchPaneOpen,
     setResearchPaneOpen,
@@ -1265,6 +1333,11 @@ export function AppShell() {
         initPowerModes().catch(err => {
           if (isDevEnv()) console.warn('[AppShell] Power modes init failed:', err);
         }),
+        import('../../core/redix/power-auto')
+          .then(m => m.initAutoPowerMode())
+          .catch(err => {
+            if (isDevEnv()) console.warn('[AppShell] Auto power mode init failed:', err);
+          }),
         initMemoryManager().catch(err => {
           if (isDevEnv()) console.warn('[AppShell] Memory manager init failed:', err);
         }),
@@ -1354,7 +1427,7 @@ export function AppShell() {
 
   // Privacy auto-toggle: Auto-enable Private/Ghost mode on sensitive sites (Browse mode only)
   useEffect(() => {
-    if (mode !== 'Browse' || !activeTab?.url) return;
+    if (currentMode !== 'Browse' || !activeTab?.url) return;
 
     const checkAndToggle = async () => {
       try {
@@ -1372,7 +1445,7 @@ export function AppShell() {
     // Debounce to avoid excessive checks
     const timer = setTimeout(checkAndToggle, 1000);
     return () => clearTimeout(timer);
-  }, [activeTab?.url, mode]);
+  }, [activeTab?.url, currentMode]);
 
   useEffect(() => {
     if (!sessionSnapshot) {
@@ -1520,6 +1593,11 @@ export function AppShell() {
           if (isDevEnv()) {
             console.error('[AppShell] Failed to create tab:', error);
           }
+          // Error handling for tab creation failures (including tab limit)
+          const errorMessage = error?.message || error?.toString() || 'Unknown error';
+          if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+            toast.warning(errorMessage);
+          }
         });
         return;
       }
@@ -1566,7 +1644,8 @@ export function AppShell() {
       // ⌘⇧R / Ctrl+Shift+R: Toggle Regen Sidebar
       if (modifier && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'r') {
         e.preventDefault();
-        setRegenSidebarOpen(!regenSidebarOpen);
+        const { toggleRegenSidebar } = useAppStore.getState();
+        toggleRegenSidebar();
         return;
       }
 
@@ -1747,192 +1826,93 @@ export function AppShell() {
 
   return (
     <div
-      className="flex w-screen flex-col overflow-hidden bg-slate-950 text-slate-100"
-      style={{ height: 'calc(100vh - var(--bottom-bar-height, 80px))' }}
+      className={`flex h-screen w-screen flex-col overflow-hidden bg-slate-950 text-slate-100 ${lowRamMode ? 'low-ram-mode' : ''}`}
       data-app-shell="true"
     >
-      {/* Top Chrome Elements - Fixed header, never scrolls */}
-      <div
-        ref={topChromeRef}
-        data-top-chrome
-        className="flex-none shrink-0 border-b border-slate-800 bg-slate-950"
-      >
-        {/* Top Navigation - Hidden in fullscreen */}
-        {!isFullscreen && (
-          <Suspense fallback={<div style={{ height: '40px', backgroundColor: '#0f172a' }} />}>
-            <ErrorBoundary
-              componentName="TopBar"
-              fallback={
-                <div
-                  style={{
-                    height: '40px',
-                    backgroundColor: '#0f172a',
-                    padding: '8px',
-                    color: '#94a3b8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    fontSize: '12px',
-                  }}
-                >
-                  <span>Loading navigation...</span>
-                </div>
+      {/* Network Status Banner: visually loud offline/online transitions */}
+      <NetworkStatusBanner />
+      {/* Global Status Bar: always visible, top of app - consolidated */}
+      <ErrorBoundary componentName="GlobalStatusBar" level="global">
+        <div className="sticky left-0 top-0 z-[200] w-full">
+          <GlobalStatusBar />
+        </div>
+      </ErrorBoundary>
+      {/* Crash Recovery Banner - Shows when crashed jobs are detected */}
+      <ErrorBoundary componentName="CrashRecoveryBanner" level="global">
+        <CrashRecoveryBanner
+          onResume={jobId => {
+            console.log('[AppShell] Resuming job:', jobId);
+            // Job will be resumed by JobTimelinePanel
+          }}
+          onDismiss={jobId => {
+            console.log('[AppShell] Dismissed recovery for job:', jobId);
+          }}
+        />
+      </ErrorBoundary>
+      <ErrorBoundary componentName="NavigationProgress" level="global">
+        <NavigationProgress />
+      </ErrorBoundary>
+      {/* TopBar wrapper with ref for chrome offset calculations */}
+      <div ref={topChromeRef}>
+        <Suspense fallback={null}>
+          <TopBar
+            onAddressBarSubmit={async query => {
+              // Handle address bar navigation/search
+              try {
+                const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
+                const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url;
+
+                // Use normalizeInputToUrlOrSearch to properly handle URLs vs search queries
+                const { normalizeInputToUrlOrSearch } = await import('../../lib/search');
+                const settings = useSettingsStore.getState();
+                const language = settings.language || 'auto';
+                const searchEngine = settings.searchEngine || 'google';
+
+                // Normalize search engine type to match function signature
+                let searchProvider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' = 'google';
+                if (
+                  searchEngine === 'duckduckgo' ||
+                  searchEngine === 'bing' ||
+                  searchEngine === 'yahoo'
+                ) {
+                  searchProvider = searchEngine;
+                } else if (searchEngine === 'all' || searchEngine === 'mock') {
+                  searchProvider = 'google'; // Default to Google for 'all' or 'mock'
+                }
+
+                // Normalize the query to a URL or search URL
+                const targetUrl = normalizeInputToUrlOrSearch(
+                  query,
+                  searchProvider,
+                  language !== 'auto' ? language : undefined
+                );
+
+                if (isAboutBlank && activeTab) {
+                  await ipc.tabs.navigate(activeTab.id, targetUrl);
+                } else {
+                  await ipc.tabs.create(targetUrl);
+                }
+              } catch (error: any) {
+                console.error('[TopBar] Failed to navigate:', error);
+                const errorMessage = error?.message || error?.toString() || 'Unknown error';
+                // Show specific message if tab limit exceeded, otherwise generic message
+                if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+                  toast.warning(errorMessage);
+                } else {
+                  toast.error('Failed to navigate');
+                }
               }
-            >
-              {/* Hide TopBar in Research and Trade modes - they have their own UI */}
-              {currentMode !== 'Research' && currentMode !== 'Trade' && (
-                <TopBar
-                  showAddressBar={true}
-                  showQuickActions={true}
-                  currentUrl={tabsState.tabs.find(t => t.id === tabsState.activeId)?.url}
-                  onModeChange={async (mode: string) => {
-                    // Map mode string to AppState mode
-                    const modeMap: Record<string, 'Browse' | 'Research' | 'Trade'> = {
-                      browse: 'Browse',
-                      research: 'Research',
-                      trade: 'Trade',
-                      dev: 'Browse', // Dev maps to Browse for now
-                    };
-                    const targetMode = modeMap[mode] || 'Browse';
-                    const currentMode = useAppStore.getState().mode;
-                    if (targetMode !== currentMode) {
-                      // Initialize mode in backend and launch browser if needed
-                      try {
-                        const { ipc } = await import('../../lib/ipc-typed');
-
-                        // Initialize mode
-                        await (ipc as any).invoke('wispr_command', {
-                          input: `Init ${targetMode} mode`,
-                          mode: mode.toLowerCase(),
-                        });
-
-                        // Launch browser for mode-specific URLs
-                        if (targetMode === 'Trade') {
-                          await (ipc as any).invoke('regen_launch', {
-                            url: 'https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT',
-                            mode: 'trade',
-                          });
-                        } else if (targetMode === 'Research') {
-                          await (ipc as any).invoke('regen_launch', {
-                            url: 'https://www.google.com',
-                            mode: 'research',
-                          });
-                        }
-                      } catch (error) {
-                        console.warn('[AppShell] Mode init failed:', error);
-                      }
-                      await setMode(targetMode);
-                    }
-                  }}
-                  onAddressBarSubmit={async query => {
-                    // Handle address bar navigation/search
-                    try {
-                      const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
-                      const isAboutBlank = activeTab?.url === 'about:blank' || !activeTab?.url;
-
-                      // Use normalizeInputToUrlOrSearch to properly handle URLs vs search queries
-                      const { normalizeInputToUrlOrSearch } = await import('../../lib/search');
-                      const settings = useSettingsStore.getState();
-                      const language = settings.language || 'auto';
-                      const searchEngine = settings.searchEngine || 'google';
-
-                      // Normalize search engine type to match function signature
-                      let searchProvider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' = 'google';
-                      if (
-                        searchEngine === 'duckduckgo' ||
-                        searchEngine === 'bing' ||
-                        searchEngine === 'yahoo'
-                      ) {
-                        searchProvider = searchEngine;
-                      } else if (searchEngine === 'all' || searchEngine === 'mock') {
-                        searchProvider = 'google'; // Default to Google for 'all' or 'mock'
-                      }
-
-                      // Normalize the query to a URL or search URL
-                      const targetUrl = normalizeInputToUrlOrSearch(
-                        query,
-                        searchProvider,
-                        language !== 'auto' ? language : undefined
-                      );
-
-                      if (isAboutBlank && activeTab) {
-                        await ipc.tabs.navigate(activeTab.id, targetUrl);
-                      } else {
-                        await ipc.tabs.create(targetUrl);
-                      }
-                    } catch (error) {
-                      console.error('[TopBar] Failed to navigate:', error);
-                      toast.error('Failed to navigate');
-                    }
-                  }}
-                />
-              )}
-            </ErrorBoundary>
-          </Suspense>
-        )}
-
-        {isOffline && (
-          <div className="flex items-center justify-between gap-3 border-b border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs text-amber-100 sm:text-sm">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={14} className="flex-shrink-0 text-amber-300" />
-              <span>
-                Offline mode: remote AI and sync are paused. Local actions remain available.
-              </span>
-            </div>
-            {ollamaAvailable && (
-              <button
-                type="button"
-                onClick={() => {
-                  const settingsButton = document.querySelector(
-                    '[data-settings-button]'
-                  ) as HTMLElement;
-                  settingsButton?.click();
-                }}
-                className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:border-amber-400/60 hover:bg-amber-500/30"
-              >
-                <span>Try Local AI</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Restore Banner and TabStrip */}
-        {!isFullscreen && (
-          <>
-            {/* HIDDEN: Restore session banner (kills premium feel - Chrome 2015 vibes) */}
-            {/* Banner removed - it looked like Chrome 2015 and killed the premium feel */}
-            {/* Hide TabStrip in Research and Trade modes - they have their own UI */}
-            {currentMode !== 'Research' && currentMode !== 'Trade' && (
-              <Suspense fallback={null}>
-                <ErrorBoundary componentName="TabStrip">
-                  <div className="relative z-50 w-full" style={{ pointerEvents: 'auto' }}>
-                    <TabStrip />
-                  </div>
-                </ErrorBoundary>
-              </Suspense>
-            )}
-            {showWebContent && !isDesktopLayout && (
-              <div className="flex items-center justify-end gap-2 px-3 py-2 text-xs text-slate-300 sm:px-4">
-                <button
-                  type="button"
-                  onClick={() => setToolsDrawerOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
-                >
-                  <PanelsTopLeft size={14} />
-                  <span>Workspace tools</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRightPanelOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-full border border-slate-700/60 bg-slate-900/70 px-3 py-1.5 font-medium text-slate-100 shadow-sm transition hover:border-slate-500/70"
-                >
-                  <PanelRightOpen size={14} />
-                  <span>Agent console</span>
-                </button>
-              </div>
-            )}
-          </>
-        )}
+            }}
+          />
+        </Suspense>
       </div>
+
+      {/* Bookmarks Bar - Chrome-style, visible in browser mode */}
+      {showWebContent && (
+        <Suspense fallback={null}>
+          <BookmarksBar />
+        </Suspense>
+      )}
 
       {/* Main Layout - Content area that fills remaining space */}
       <div className="flex min-h-0 w-full flex-1 overflow-hidden bg-slate-950">
@@ -1947,7 +1927,10 @@ export function AppShell() {
                 className="webview-container relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-slate-950"
                 style={{ zIndex: 0, position: 'relative' }}
               >
-                {/* PR: Fix tab switch - use iframe-per-tab manager for Tauri, TabContentSurface for Electron */}
+                {/* Browser Mode: Use iframe-per-tab manager for Tauri, TabContentSurface for Electron/Web */}
+                {/* Tauri: Better iframe management with state preservation */}
+                {/* Electron: Uses BrowserView (native webview) */}
+                {/* Web: Uses iframe with fallbacks */}
                 {isTauriRuntime() ? (
                   <TabIframeManager tabs={tabsState.tabs} activeTabId={tabsState.activeId} />
                 ) : (
@@ -1977,6 +1960,9 @@ export function AppShell() {
               {/* Route content - fills remaining space, scrollable */}
               <div
                 className={`h-full w-full overflow-auto bg-slate-950 ${overlayActive ? 'webview--masked' : ''}`}
+                style={{
+                  paddingRight: !isFullscreen && isDesktopLayout && rightPanelOpen ? '340px' : '0',
+                }}
               >
                 <Outlet />
               </div>
@@ -1989,7 +1975,7 @@ export function AppShell() {
           <Suspense fallback={null}>
             <ErrorBoundary componentName="RightPanel">
               <div
-                className="h-full min-h-0 w-[340px] max-w-[380px] overflow-y-auto border-l border-slate-800/60"
+                className="h-full min-h-0 w-[340px] max-w-[380px] flex-shrink-0 overflow-y-auto border-l border-slate-800/60 bg-slate-950"
                 data-sidebar
               >
                 <RightPanel open={rightPanelOpen} onClose={() => setRightPanelOpen(false)} />
@@ -1999,26 +1985,62 @@ export function AppShell() {
         )}
       </div>
 
-      {/* Bottom Chrome - Fixed footer, never scrolls */}
+      {/* Global Job Timeline Panel - always accessible overlay */}
+      {!isFullscreen && (
+        <ErrorBoundary componentName="JobTimelinePanel" level="global">
+          <div className="fixed bottom-24 right-4 z-[300] max-w-sm">
+            <JobTimelinePanel onStepSelect={setSelectedStep} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {/* Global ActionLog Overlay - always visible, right sidebar */}
+      {!isFullscreen && (
+        <ErrorBoundary componentName="ActionLog" level="global">
+          <div className="pointer-events-auto fixed right-0 top-16 z-[301] h-[calc(100vh-64px)] w-[380px]">
+            <ActionLog entries={globalActionLogEntries} selectedStep={selectedStep} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {/* Bottom Chrome - Footer participates in flex layout */}
       <div
         ref={bottomChromeRef}
         id="bottomBar"
-        className="fixed bottom-0 left-0 right-0 z-50 flex-none shrink-0 border-t border-slate-800 bg-slate-950"
-        style={{
-          boxShadow: '0 -6px 24px rgba(0,0,0,0.35)',
-          background: 'linear-gradient(180deg, rgba(15,23,42,0.96), rgba(10,12,16,0.96))',
-        }}
+        className="flex-none shrink-0 border-t border-slate-800 bg-slate-950"
       >
-        {!isFullscreen && currentMode === 'Browse' && (
+        {!isFullscreen && isDesktopLayout && (
           <Suspense fallback={null}>
             <ErrorBoundary componentName="BottomStatus">
+              {/* Omni button - Hidden in Research/Trade modes per UI audit (use Cmd/Ctrl+K instead) */}
+              {/* Only show in browser mode */}
+              {currentMode !== 'Research' && currentMode !== 'Trade' && (
+                <div className="flex w-full items-center justify-center">
+                  <OmniModeSwitcher variant="inline" />
+                </div>
+              )}
               <BottomStatus />
             </ErrorBoundary>
           </Suspense>
         )}
       </div>
 
-      {!isFullscreen && !isDesktopLayout && showWebContent && (
+      {/* Context Strip - Persistent Context Awareness (always visible when context exists) */}
+      {!isFullscreen && (
+        <ErrorBoundary componentName="ContextStrip" level="global">
+          <ContextStrip />
+        </ErrorBoundary>
+      )}
+
+      {/* Global Job Timeline - Floating drawer for jobs (accessible across all modes) */}
+      {!isFullscreen && (
+        <ErrorBoundary componentName="GlobalJobTimeline">
+          <GlobalJobTimeline />
+        </ErrorBoundary>
+      )}
+
+      {/* Mobile Dock - Bottom navigation for mobile devices */}
+      {!isFullscreen && !isDesktopLayout && (
         <MobileDock
           activeMode={currentMode}
           onSelectMode={setMode}
@@ -2163,16 +2185,6 @@ export function AppShell() {
           </Portal>
         </Suspense>
       )}
-      {/* Crash Recovery Dialog */}
-      {crashedTab && (
-        <CrashRecoveryDialog
-          tabId={crashedTab.tabId}
-          reason={crashedTab.reason}
-          exitCode={crashedTab.exitCode}
-          onClose={() => setCrashedTab(null)}
-          onReload={handleReload}
-        />
-      )}
 
       {/* Memory Sidebar - Collapsible in Research Mode, hidden in other modes */}
       {currentMode === 'Research' && (
@@ -2205,16 +2217,23 @@ export function AppShell() {
       )}
 
       {/* Redix Debug Panel - Dev Only */}
-      {isDev && RedixDebugPanel && (
+      {isDev && RedixDebugPanel !== null && (
         <Suspense fallback={null}>
-          <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
+          {RedixDebugPanel && (
+            <RedixDebugPanel open={redixDebugOpen} onClose={() => setRedixDebugOpen(false)} />
+          )}
         </Suspense>
       )}
       <SuspensionIndicator />
       <BatteryIndicator />
-      <div className="fixed bottom-6 left-1/2 z-[105] w-full max-w-3xl -translate-x-1/2 px-4">
-        <MemoryMonitor />
-      </div>
+      {/* Memory Monitor - Centered bottom, above SuspensionIndicator and ResourceMonitor */}
+      {!isFullscreen && (
+        <div className="fixed bottom-28 left-1/2 z-[105] w-full max-w-2xl -translate-x-1/2 px-4">
+          <ErrorBoundary componentName="MemoryMonitor">
+            <MemoryMonitor />
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* Agent action handlers */}
       <Suspense fallback={null}>
@@ -2225,131 +2244,208 @@ export function AppShell() {
 
       {restoreToast && (
         <Portal>
-          <div className="fixed bottom-6 right-6 z-50">
+          <div className="fixed bottom-52 right-6 z-[250]">
             <div
               className={`rounded-xl border px-4 py-3 text-sm shadow-xl shadow-black/40 ${
-                restoreToast.variant === 'success'
+                restoreToast?.variant === 'success'
                   ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100'
                   : 'border-amber-400/40 bg-amber-500/15 text-amber-100'
               }`}
             >
-              {restoreToast.message}
+              {restoreToast?.message}
             </div>
           </div>
         </Portal>
       )}
 
-      {/* Terms of Service Acceptance */}
-      {showTOS && <TermsAcceptance onAccept={handleTOSAccept} onDecline={handleTOSDecline} />}
+      {/* Main content with top padding to avoid overlap */}
+      <div style={{ paddingTop: 44 }}>
+        {/* Terms of Service Acceptance */}
+        {showTOS && <TermsAcceptance onAccept={handleTOSAccept} onDecline={handleTOSDecline} />}
 
-      {/* Cookie Consent Banner - Only show if TOS is not showing and onboarding is not active */}
-      {showCookieConsent && !showTOS && !onboardingVisible && (
-        <CookieConsent
-          onAccept={preferences => {
-            // Cookie consent accepted
-            localStorage.setItem('regen:cookie-consent', JSON.stringify(preferences));
-            // Force a small delay to ensure localStorage is written and state updates
-            setTimeout(() => {
-              setShowCookieConsent(false);
-              // Cookie consent modal closed, onboarding should start now
-              // Force a re-check of onboarding after cookie consent is closed
-              // The useEffect should trigger automatically
-              // State after cookie consent tracked internally
-            }, 100);
-          }}
-          onDecline={() => {
-            // Cookie consent declined
-            // Save minimal consent (essential only)
-            const minimal: CookiePreferences = {
-              essential: true,
-              analytics: false,
-              functional: false,
-              advertising: false,
-              timestamp: Date.now(),
-              version: '2025-12-17',
-            };
-            localStorage.setItem('regen:cookie-consent', JSON.stringify(minimal));
-            setTimeout(() => {
-              setShowCookieConsent(false);
-              // Cookie consent modal closed, onboarding should start now
-            }, 100);
-          }}
+        {/* Cookie Consent Banner - Only show if TOS is not showing and onboarding is not active */}
+        {showCookieConsent && !showTOS && !onboardingVisible && (
+          <CookieConsent
+            onAccept={preferences => {
+              // Cookie consent accepted
+              localStorage.setItem('regen:cookie-consent', JSON.stringify(preferences));
+              // Force a small delay to ensure localStorage is written and state updates
+              setTimeout(() => {
+                setShowCookieConsent(false);
+                // Cookie consent modal closed, onboarding should start now
+                // Force a re-check of onboarding after cookie consent is closed
+                // The useEffect should trigger automatically
+                // State after cookie consent tracked internally
+              }, 100);
+            }}
+            onDecline={() => {
+              // Cookie consent declined
+              // Save minimal consent (essential only)
+              const minimal: CookiePreferences = {
+                essential: true,
+                analytics: false,
+                functional: false,
+                advertising: false,
+                timestamp: Date.now(),
+                version: '2025-12-17',
+              };
+              localStorage.setItem('regen:cookie-consent', JSON.stringify(minimal));
+              setTimeout(() => {
+                setShowCookieConsent(false);
+                // Cookie consent modal closed, onboarding should start now
+              }, 100);
+            }}
+          />
+        )}
+
+        <ToastHost />
+
+        {/* Tier 1: Session Restore Modal */}
+        <Suspense fallback={null}>
+          <SessionRestoreModal />
+        </Suspense>
+        {/* Crash Recovery Dialog (always-on, global) */}
+        {crashedTab && (
+          <CrashRecoveryDialog
+            tabId={crashedTab.tabId}
+            reason={crashedTab.reason || ''}
+            exitCode={crashedTab.exitCode || 0}
+            onClose={() => setCrashedTab(null)}
+            onReload={() => handleReload()}
+          />
+        )}
+        <LoopResumeModal open={loopResumeModalOpen} onClose={() => setLoopResumeModalOpen(false)} />
+
+        {/* Workflow Marketplace */}
+        <WorkflowMarketplace
+          open={workflowMarketplaceOpen}
+          onClose={() => setWorkflowMarketplaceOpen(false)}
         />
-      )}
-      <ToastHost />
 
-      {/* Tier 1: Session Restore Modal */}
-      <Suspense fallback={null}>
-        <SessionRestoreModal />
-      </Suspense>
+        <GlobalSearch />
+        {/* OmniModeSwitcher moved inline into bottom bar for proper anchoring */}
+        {/* LAG FIX #1: Collaborative cursors for multi-user editing */}
+        <AwarenessCursors />
 
-      {/* Loop Resume Modal */}
-      <LoopResumeModal open={loopResumeModalOpen} onClose={() => setLoopResumeModalOpen(false)} />
+        {/* REDIX MODE: Toggle for Redix mode (dev mode only, top-right corner) */}
+        {isDevEnv() && (
+          <div className="fixed right-4 top-16 z-[55]">
+            <RedixModeToggle compact={true} showLabel={false} />
+          </div>
+        )}
 
-      {/* Workflow Marketplace */}
-      <WorkflowMarketplace
-        open={workflowMarketplaceOpen}
-        onClose={() => setWorkflowMarketplaceOpen(false)}
-      />
+        {/* Resource Monitor - Shows RAM, agents, optimization status */}
+        {!isFullscreen && <ResourceMonitor />}
 
-      <GlobalSearch />
-      <WisprOrb />
-      <OmniModeSwitcher />
+        {/* Mini Hover AI - Text selection assistant */}
+        <MiniHoverAI enabled={!overlayActive && showWebContent} />
 
-      {/* REDIX MODE: Toggle for Redix mode (dev mode only, bottom-right) */}
-      {isDevEnv() && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <RedixModeToggle compact={true} showLabel={false} />
-        </div>
-      )}
+        {/* Unified Side Panel - History, Bookmarks, Downloads */}
+        {!isFullscreen && isDesktopLayout && (
+          <UnifiedSidePanel
+            open={unifiedSidePanelOpen}
+            onClose={() => setUnifiedSidePanelOpen(false)}
+          />
+        )}
 
-      {/* Mini Hover AI - Text selection assistant */}
-      <MiniHoverAI enabled={!overlayActive && showWebContent} />
+        {/* Tier 3: Global Command Bar */}
+        <CommandBar />
 
-      {/* Unified Side Panel - History, Bookmarks, Downloads */}
-      {!isFullscreen && isDesktopLayout && (
-        <UnifiedSidePanel
-          open={unifiedSidePanelOpen}
-          onClose={() => setUnifiedSidePanelOpen(false)}
-        />
-      )}
+        {/* Quick Command Palette (Cmd+K / Ctrl+K) */}
+        <QuickCommandPalette />
 
-      {/* Tier 3: Global Command Bar */}
-      <CommandBar />
+        {/* Tier 3: Onboarding Flow - Legacy fallback, only if ResearchTour is not available */}
+        {/* ResearchTour is the primary onboarding component, so this is kept as fallback only */}
 
-      {/* Quick Command Palette (Cmd+K / Ctrl+K) */}
-      <QuickCommandPalette />
+        {/* Session Restore Prompt - Hidden in Browse mode (shows as toast instead) */}
+        {currentMode !== 'Browse' && <SessionRestorePrompt />}
 
-      {/* Tier 3: Onboarding Flow - Legacy fallback, only if ResearchTour is not available */}
-      {/* ResearchTour is the primary onboarding component, so this is kept as fallback only */}
+        {/* First Launch Installer */}
+        {showInstaller && (
+          <InstallProgressModal
+            onComplete={async () => {
+              const { markSetupComplete } = await import('../../core/installer/firstLaunch');
+              markSetupComplete();
+              setShowInstaller(false);
+              toast.success('Setup complete! Your AI brain is ready.');
+            }}
+            onError={error => {
+              console.error('[AppShell] Installer error:', error);
+              toast.error(
+                `Setup failed: ${error.message}. You can install Ollama manually from ollama.com`
+              );
+              // Don't close installer - let user retry or skip
+            }}
+          />
+        )}
 
-      {/* Session Restore Prompt - Hidden in Browse mode (shows as toast instead) */}
-      {currentMode !== 'Browse' && <SessionRestorePrompt />}
+        {/* Connection Status Indicator */}
+        <ConnectionStatus />
 
-      {/* First Launch Installer */}
-      {showInstaller && (
-        <InstallProgressModal
-          onComplete={async () => {
-            const { markSetupComplete } = await import('../../core/installer/firstLaunch');
-            markSetupComplete();
-            setShowInstaller(false);
-            toast.success('Setup complete! Your AI brain is ready.');
-          }}
-          onError={error => {
-            console.error('[AppShell] Installer error:', error);
-            toast.error(
-              `Setup failed: ${error.message}. You can install Ollama manually from ollama.com`
-            );
-            // Don't close installer - let user retry or skip
-          }}
-        />
-      )}
+        {/* RAM Saved Counter — lightweight brag + visibility */}
+        <Portal>
+          <div
+            className={`fixed top-12 z-[210] ${rightPanelOpen && !isFullscreen ? 'right-[360px]' : 'right-4'} transition-right duration-200`}
+          >
+            <ErrorBoundary componentName="RamSavedCounter">
+              <RamSavedCounter />
+            </ErrorBoundary>
+          </div>
+        </Portal>
 
-      {/* Connection Status Indicator */}
-      <ConnectionStatus />
+        {/* AI Summary Toast */}
+        <TabSummaryToast />
+
+        {showFirstRun && (
+          <FirstRunModal
+            onClose={() => {
+              setShowFirstRun(false);
+              try {
+                window.localStorage.setItem('omnibrowser:first-run:seen', 'true');
+              } catch {}
+            }}
+            onEnableLowRam={() => {
+              try {
+                import('../../config/mvpFeatureFlags').then(m => {
+                  if (typeof (m as any).setMVPFeatureEnabled === 'function') {
+                    (m as any).setMVPFeatureEnabled('low-ram-mode', true);
+                  }
+                });
+              } catch {}
+            }}
+          />
+        )}
+
+        {/* AUDIT FIX #6: Onboarding Tour */}
+        <OnboardingTour />
+      </div>
     </div>
   );
+  // ...existing code...
+
+  return (
+    <>
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Floating '?' button for shortcuts */}
+      {!isFullscreen && (
+        <button
+          className="fixed bottom-8 right-8 z-[1000] flex h-12 w-12 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-2xl text-slate-300 shadow-lg transition hover:bg-slate-800 hover:text-white"
+          style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.18)' }}
+          onClick={() => setShortcutsOpen(true)}
+          aria-label="Show keyboard shortcuts"
+        >
+          ?
+        </button>
+      )}
+
+      {/* ...rest of AppShell's JSX... */}
+    </>
+  );
 }
+
+export default AppShell;
 
 // Enable HMR for this component (must be after export)
 if (import.meta.hot) {

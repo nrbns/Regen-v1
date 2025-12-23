@@ -10,7 +10,7 @@ import { QuickFactsPanel, type QuickFact } from './QuickFactsPanel';
 import { TrendingResults } from './TrendingResults';
 import { ArticleView } from './ArticleView';
 // import { ResponsiveCard } from '../common/ResponsiveCard'; // Unused
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 
 export interface EnhancedSearchResult extends AIResultBlockProps {
   id: string;
@@ -67,7 +67,7 @@ export function EnhancedSearchResults({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 text-purple-400 animate-spin mb-4" />
+        <Loader2 className="mb-4 h-8 w-8 animate-spin text-purple-400" />
         <p className="text-slate-400">Searching...</p>
       </div>
     );
@@ -76,7 +76,7 @@ export function EnhancedSearchResults({
   if (results.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Sparkles className="h-12 w-12 text-slate-600 mb-4" />
+        <Sparkles className="mb-4 h-12 w-12 text-slate-600" />
         <p className="text-slate-400">No results found</p>
       </div>
     );
@@ -93,7 +93,7 @@ export function EnhancedSearchResults({
         )}
 
         {/* Main Results Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+        <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {results.map((result, idx) => (
             <AIResultBlock
               key={result.id || idx}
@@ -136,4 +136,3 @@ export function EnhancedSearchResults({
     </>
   );
 }
-

@@ -18,7 +18,9 @@ import { useHistoryStore } from '../../state/historyStore';
 import { useTabsStore } from '../../state/tabsStore';
 // import { normalizeInputToUrlOrSearch } from '../../lib/search'; // Unused
 import { cn } from '../../lib/utils';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
+import { URLBarProgress } from './URLBarProgress';
+import { useTabLoadingStore } from '../../state/tabLoadingStore';
 
 export interface EnhancedURLBarProps {
   tabId: string | null;
@@ -27,6 +29,8 @@ export interface EnhancedURLBarProps {
   onSubmit?: (url: string) => void;
   placeholder?: string;
   className?: string;
+  isLoading?: boolean; // SPRINT 0: Page loading state for progress bar
+  loadProgress?: number; // SPRINT 0: Load progress (0-100)
 }
 
 export function EnhancedURLBar({
@@ -36,18 +40,31 @@ export function EnhancedURLBar({
   onSubmit,
   placeholder = 'Search or enter URL',
   className,
+  isLoading: isLoadingProp = false, // SPRINT 0: Page loading state
+  loadProgress: loadProgressProp, // SPRINT 0: Load progress
 }: EnhancedURLBarProps) {
   const { isMobile } = useMobileDetection();
   const [localValue, setLocalValue] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [_historyResults, setHistoryResults] = useState<Array<{ id: string; url: string; title: string; timestamp: number }>>([]);
+  const [_historyResults, setHistoryResults] = useState<
+    Array<{ id: string; url: string; title: string; timestamp: number }>
+  >([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  const tab = useTabsStore(state => tabId ? state.tabs.find(t => t.id === tabId) : null);
+
+  const tab = useTabsStore(state => (tabId ? state.tabs.find(t => t.id === tabId) : null));
   const historyEntries = useHistoryStore(state => state.getRecent(20));
   const { navigateTab } = useTabsStore();
+  
+  // SPRINT 0: Get loading state from store
+  const tabLoadingState = useTabLoadingStore(state => 
+    tabId ? state.getLoading(tabId) : { isLoading: false }
+  );
+  
+  // Use provided props or fallback to store state
+  const finalIsLoading = isLoadingProp !== undefined ? isLoadingProp : tabLoadingState.isLoading;
+  const finalLoadProgress = loadProgressProp !== undefined ? loadProgressProp : tabLoadingState.progress;
 
   const displayValue = controlledValue !== undefined ? controlledValue : localValue;
   const currentUrl = tab?.url || '';
@@ -114,7 +131,9 @@ export function EnhancedURLBar({
       setLocalValue(newValue);
     }
     if (newValue.length >= 1) {
-      setHistoryResults(filteredHistory as Array<{ id: string; url: string; title: string; timestamp: number }>);
+      setHistoryResults(
+        filteredHistory as Array<{ id: string; url: string; title: string; timestamp: number }>
+      );
     }
   };
 
@@ -164,7 +183,8 @@ export function EnhancedURLBar({
   const getUrlIcon = () => {
     if (!currentUrl || currentUrl === 'about:blank') return <Search size={16} />;
     if (currentUrl.startsWith('https://')) return <Lock size={16} className="text-emerald-400" />;
-    if (currentUrl.startsWith('http://')) return <AlertTriangle size={16} className="text-amber-400" />;
+    if (currentUrl.startsWith('http://'))
+      return <AlertTriangle size={16} className="text-amber-400" />;
     return <Globe size={16} />;
   };
 
@@ -176,13 +196,12 @@ export function EnhancedURLBar({
             'flex items-center gap-2 rounded-lg border bg-slate-900/50 transition-all',
             'border-slate-700 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/20',
             isMobile ? 'px-3 py-2.5' : 'px-4 py-2',
-            isFocused && 'shadow-lg shadow-purple-500/10'
+            isFocused && 'shadow-lg shadow-purple-500/10',
+            'overflow-hidden' // SPRINT 0: For progress bar overflow
           )}
         >
           {/* URL Icon */}
-          <div className="flex-shrink-0 text-slate-400">
-            {getUrlIcon()}
-          </div>
+          <div className="flex-shrink-0 text-slate-400">{getUrlIcon()}</div>
 
           {/* Input */}
           <input
@@ -210,41 +229,51 @@ export function EnhancedURLBar({
             <button
               type="button"
               onClick={handleClear}
-              className="flex-shrink-0 p-1 text-slate-400 hover:text-white transition-colors"
+              className="flex-shrink-0 p-1 text-slate-400 transition-colors hover:text-white"
               aria-label="Clear"
             >
               <X size={16} />
             </button>
           )}
+          
+          {/* SPRINT 0: Page load progress bar */}
+          <URLBarProgress isLoading={finalIsLoading} progress={finalLoadProgress} />
         </div>
       </form>
 
       {/* History Dropdown */}
       {showHistory && filteredHistory.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700 rounded-lg shadow-xl max-h-80 overflow-y-auto z-50">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-80 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
           <div className="p-2">
-            <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
               <Clock size={12} />
               Recent History
             </div>
             {filteredHistory.map(entry => {
-              const entryUrl = 'url' in entry ? (entry.url || '') : (entry.url || entry.value || '');
-              const entryTitle = 'title' in entry ? entry.title : (entry.type === 'url' ? entry.value : entry.value);
+              const entryUrl = 'url' in entry ? entry.url || '' : entry.url || entry.value || '';
+              const entryTitle =
+                'title' in entry ? entry.title : entry.type === 'url' ? entry.value : entry.value;
               const safeUrl = entryUrl || '';
               return (
                 <button
                   key={entry.id}
                   onClick={() => handleHistorySelect({ url: safeUrl, title: entryTitle })}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-lg transition-colors flex items-start gap-3 group"
+                  className="group flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-800"
                 >
-                  <Globe size={16} className="text-slate-500 mt-0.5 flex-shrink-0 group-hover:text-slate-400" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate group-hover:text-purple-300 transition-colors">
+                  <Globe
+                    size={16}
+                    className="mt-0.5 flex-shrink-0 text-slate-500 group-hover:text-slate-400"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-white transition-colors group-hover:text-purple-300">
                       {entryTitle || entryUrl || 'Untitled'}
                     </p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{entryUrl}</p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{entryUrl}</p>
                   </div>
-                  <ArrowUp size={14} className="text-slate-600 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ArrowUp
+                    size={14}
+                    className="flex-shrink-0 text-slate-600 opacity-0 transition-opacity group-hover:opacity-100"
+                  />
                 </button>
               );
             })}
@@ -254,5 +283,3 @@ export function EnhancedURLBar({
     </div>
   );
 }
-
-

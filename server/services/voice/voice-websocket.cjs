@@ -43,6 +43,9 @@ function createVoiceWebSocket(server) {
       message: 'Connected to voice stream',
     }));
 
+    // DESI POLISH: Track language preference per session
+    let sessionLanguage = 'auto';
+
     // Handle incoming messages
     ws.on('message', async (message) => {
       try {
@@ -56,7 +59,8 @@ function createVoiceWebSocket(server) {
             // Send partial transcript if buffer is large enough
             if (audioBuffer.length >= 8000) { // ~0.5 seconds at 16kHz
               try {
-                const result = await whisperService.transcribe(audioBuffer);
+                // DESI POLISH: Pass language to Whisper
+                const result = await whisperService.transcribe(audioBuffer, { language: sessionLanguage });
                 if (result.text && result.text !== transcriptBuffer) {
                   transcriptBuffer = result.text;
                   ws.send(JSON.stringify({
@@ -75,16 +79,26 @@ function createVoiceWebSocket(server) {
         } else {
           // Control message
           const data = JSON.parse(message.toString());
-          const { type, action } = data;
+          const { type, action, language } = data;
+
+          // DESI POLISH: Update session language if provided
+          if (language) {
+            sessionLanguage = language;
+          }
 
           switch (type) {
             case 'start':
               isRecording = true;
               audioBuffer = Buffer.alloc(0);
               transcriptBuffer = '';
+              // DESI POLISH: Update language from start message
+              if (language) {
+                sessionLanguage = language;
+              }
               ws.send(JSON.stringify({
                 type: 'recording:started',
                 sessionId,
+                language: sessionLanguage,
               }));
               break;
 
@@ -94,11 +108,12 @@ function createVoiceWebSocket(server) {
               // Final transcription
               if (audioBuffer.length > 0) {
                 try {
-                  const result = await whisperService.transcribe(audioBuffer);
+                  // DESI POLISH: Pass language to Whisper
+                  const result = await whisperService.transcribe(audioBuffer, { language: sessionLanguage });
                   ws.send(JSON.stringify({
                     type: 'transcript:final',
                     text: result.text,
-                    language: result.language,
+                    language: result.language || sessionLanguage,
                     timestamp: Date.now(),
                   }));
 

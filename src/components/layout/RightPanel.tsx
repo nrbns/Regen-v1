@@ -21,7 +21,7 @@ import {
 import { useState, useEffect, useRef } from 'react';
 import { AgentPlan, AgentStep, ConsentRequest } from '../../lib/ipc-events';
 import { useIPCEvent } from '../../lib/use-ipc-event';
-import { AgentPlanner } from '../AgentPlanner';
+import { AgentPlanner } from '../agent/AgentPlanner';
 import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { PrivacyDashboard } from '../integrations/PrivacyDashboard';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';

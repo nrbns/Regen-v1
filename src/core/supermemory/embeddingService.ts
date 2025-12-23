@@ -207,15 +207,19 @@ export class EmbeddingService {
     _signal?: AbortSignal
   ): Promise<number[]> {
     try {
-      const { generateHuggingFaceEmbedding, checkHuggingFaceAvailable } =
-        await import('./huggingface-embedding');
-      const available = await checkHuggingFaceAvailable();
-      if (!available) {
-        throw new Error('HuggingFace inference unavailable');
+      // Use browser-based Transformers.js (offline)
+      const { getLocalHFServer } = await import('../../services/huggingface/localHFServer');
+      const hfServer = getLocalHFServer();
+
+      // Generate embeddings using local HF server
+      const embeddings = await hfServer.generateEmbeddings([text]);
+      if (embeddings && embeddings.length > 0) {
+        return embeddings[0];
       }
-      const vector = await generateHuggingFaceEmbedding(text);
-      return vector;
+
+      throw new Error('HF embeddings returned empty');
     } catch (error) {
+      console.warn('[EmbeddingService] HF failed, falling back to local:', error);
       this.statusCache.huggingface = {
         provider: 'huggingface',
         available: false,

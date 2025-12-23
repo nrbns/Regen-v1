@@ -3,9 +3,9 @@
  * Automatically translates search queries between languages
  */
 
-import { translateOnDevice } from './onDeviceAI';
 import { detectLanguage } from '../services/languageDetection';
 import { useSettingsStore } from '../state/settingsStore';
+import { getLocalHFServer } from './huggingface/localHFServer';
 
 export interface TranslationOptions {
   sourceLanguage?: string;
@@ -44,21 +44,22 @@ export async function translateQuery(
     return query;
   }
 
-  // Translate using on-device AI (with cloud fallback)
+  // Use Hugging Face local translation (offline)
   try {
-    const result = await translateOnDevice(query, {
-      targetLanguage,
-      sourceLanguage,
+    const hfServer = getLocalHFServer();
+    const translated = await hfServer.translate(query, {
+      from: sourceLanguage,
+      to: targetLanguage,
     });
 
-    if (result.translated && result.translated !== query) {
-      return result.translated;
+    if (translated && translated !== query) {
+      return translated;
     }
 
     // If translation failed or same, return original
     return query;
   } catch (error) {
-    console.warn('[QueryTranslation] Translation failed:', error);
+    console.warn('[QueryTranslation] HF translation failed:', error);
     return query; // Return original on error
   }
 }

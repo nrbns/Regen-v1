@@ -94,15 +94,48 @@ function injectCitations(text: string): string {
     .replace(/\n/g, '<br/>');
 }
 
-// Skeleton loader component
-function AnswerSkeleton() {
+// Shimmer overlay component for loading states
+function ShimmerOverlay() {
   return (
-    <div className="animate-pulse space-y-3">
-      <div className="h-4 w-full rounded bg-gray-200"></div>
-      <div className="h-4 w-5/6 rounded bg-gray-200"></div>
-      <div className="h-4 w-4/6 rounded bg-gray-200"></div>
-      <div className="mt-4 h-4 w-3/4 rounded bg-gray-200"></div>
-      <div className="h-4 w-full rounded bg-gray-200"></div>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        style={{
+          animation: 'shimmer 2s infinite',
+        }}
+      />
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Animated, semantic skeleton with stage labels
+function AnswerSkeleton({ stage }: { stage: 'searching' | 'reading' | 'synthesizing' }) {
+  const stageLabel =
+    stage === 'searching'
+      ? 'Searching web…'
+      : stage === 'reading'
+        ? 'Reading sources…'
+        : 'Synthesizing answer…';
+  return (
+    <div className="relative space-y-3 overflow-hidden">
+      <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-[12px] font-semibold text-indigo-700">
+        <span className="h-2 w-2 animate-ping rounded-full bg-indigo-500" />
+        {stageLabel}
+      </div>
+      <div className="animate-pulse space-y-2">
+        <div className="h-4 w-full rounded bg-gray-200"></div>
+        <div className="h-4 w-5/6 rounded bg-gray-200"></div>
+        <div className="h-4 w-4/6 rounded bg-gray-200"></div>
+        <div className="mt-4 h-4 w-3/4 rounded bg-gray-200"></div>
+        <div className="h-4 w-full rounded bg-gray-200"></div>
+      </div>
+      <ShimmerOverlay />
     </div>
   );
 }
@@ -129,6 +162,12 @@ export function RegenResearchPanel() {
     'web-search'
   );
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [stage, setStage] = useState<'searching' | 'reading' | 'synthesizing' | 'done'>(
+    'searching'
+  );
+  const [doneToastVisible, setDoneToastVisible] = useState(false);
+  const [showUpdating, setShowUpdating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const answerRef = useRef<HTMLDivElement>(null);
   const sourcesEndRef = useRef<HTMLDivElement>(null);
 
@@ -139,8 +178,93 @@ export function RegenResearchPanel() {
   // Use the research WebSocket hook
   const wsState = useResearchWS(state.jobId || null);
 
+  const StageChips = ({
+    stage,
+    done,
+    streaming,
+  }: {
+    stage: 'searching' | 'reading' | 'synthesizing' | 'done';
+    done: boolean;
+    streaming: boolean;
+  }) => {
+    const chips = [
+      {
+        key: 'searching',
+        label: 'Web Search',
+        active: stage === 'searching',
+        complete: stage !== 'searching',
+      },
+      {
+        key: 'reading',
+        label: 'Reading Sources',
+        active: stage === 'reading',
+        complete: stage === 'synthesizing' || stage === 'done',
+      },
+      {
+        key: 'synthesizing',
+        label: streaming ? 'Synthesizing…' : 'Synthesizing',
+        active: stage === 'synthesizing',
+        complete: stage === 'done',
+      },
+      {
+        key: 'done',
+        label: done ? 'Complete' : 'Waiting',
+        active: stage === 'done',
+        complete: done,
+      },
+    ];
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {chips.map(chip => (
+          <div
+            key={chip.key}
+            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-semibold transition ${
+              chip.active
+                ? 'border-indigo-400 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-200'
+                : chip.complete
+                  ? 'border-emerald-400/50 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-200 bg-slate-100 text-slate-600'
+            } ${chip.active && chip.key === 'done' && done ? 'ring-2 ring-emerald-300' : ''}`}
+          >
+            <span
+              className={`h-2 w-2 rounded-full ${
+                chip.active
+                  ? 'animate-ping bg-indigo-500'
+                  : chip.complete
+                    ? 'bg-emerald-500'
+                    : 'bg-slate-300'
+              }`}
+            />
+            {chip.label}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Inject shimmer keyframes once
+  useEffect(() => {
+    const id = 'regen-shimmer-keyframes';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `@keyframes shimmer { 100% { transform: translateX(200%); } } @keyframes blink { 50% { opacity: 0; } }`;
+    document.head.appendChild(style);
+    return () => {
+      style.remove();
+    };
+  }, []);
+
+  const ShimmerOverlay = () => (
+    <span className="pointer-events-none absolute inset-0 overflow-hidden">
+      <span className="absolute inset-y-0 left-[-40%] w-1/2 animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></span>
+    </span>
+  );
+
   // Sync WebSocket state to local state with real-time updates
   useEffect(() => {
+    let cleanupTimer: number | undefined;
     if (wsState.streamedAnswer) {
       setState(prev => ({
         ...prev,
@@ -148,6 +272,7 @@ export function RegenResearchPanel() {
         isStreaming: !wsState.done,
       }));
       setIsInitialLoad(false);
+      setStage(wsState.done ? 'done' : 'synthesizing');
     }
 
     if (wsState.sources.length > 0) {
@@ -167,6 +292,10 @@ export function RegenResearchPanel() {
       setTimeout(() => {
         sourcesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
+
+      if (!wsState.done) {
+        setStage('reading');
+      }
     }
 
     if (wsState.reasoningSteps.length > 0) {
@@ -197,6 +326,9 @@ export function RegenResearchPanel() {
     if (wsState.done) {
       setState(prev => ({ ...prev, done: true, isStreaming: false }));
       setIsInitialLoad(false);
+      setStage('done');
+      setDoneToastVisible(true);
+      cleanupTimer = window.setTimeout(() => setDoneToastVisible(false), 2500);
 
       // Generate follow-up suggestions when done
       if (state.query && state.answer) {
@@ -208,6 +340,9 @@ export function RegenResearchPanel() {
       setState(prev => ({ ...prev, error: wsState.error || null, isStreaming: false }));
       setIsInitialLoad(false);
     }
+    return () => {
+      if (cleanupTimer) window.clearTimeout(cleanupTimer);
+    };
   }, [wsState, state.query, state.answer]);
 
   // Auto-scroll answer as it streams
@@ -216,6 +351,16 @@ export function RegenResearchPanel() {
       answerRef.current.scrollTop = answerRef.current.scrollHeight;
     }
   }, [state.answer, state.isStreaming]);
+
+  // Keep updating label visible briefly after streaming stops
+  useEffect(() => {
+    if (state.isStreaming) {
+      setShowUpdating(true);
+      return;
+    }
+    const t = window.setTimeout(() => setShowUpdating(false), 600);
+    return () => window.clearTimeout(t);
+  }, [state.isStreaming]);
 
   const handleSearch = async (query: string) => {
     if (!query.trim()) return;
@@ -233,6 +378,8 @@ export function RegenResearchPanel() {
       selectedSource: null,
       isStreaming: true,
     }));
+
+    setStage('searching');
 
     setFollowUpSuggestions([]);
     setIsInitialLoad(true);
@@ -277,7 +424,7 @@ export function RegenResearchPanel() {
           isStreaming: false,
         }));
         setIsInitialLoad(false);
-        
+
         // Generate follow-up suggestions
         if (responseAny.answer) {
           setFollowUpSuggestions(generateFollowUpSuggestions(query, responseAny.answer));
@@ -290,17 +437,88 @@ export function RegenResearchPanel() {
       }
     } catch (error: any) {
       console.error('[RegenResearch] Failed to start research:', error);
-      
+
       // Provide user-friendly error messages
       let errorMessage = 'Failed to start research';
       if (error?.message?.includes('Backend server is not running')) {
         errorMessage = 'Backend server is not running. Please start it with: npm run dev:server';
-      } else if (error?.message?.includes('ConnectionError') || error?.message?.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to backend server. Make sure the server is running on port 4000.';
+      } else if (
+        error?.message?.includes('ConnectionError') ||
+        error?.message?.includes('Failed to fetch')
+      ) {
+        errorMessage =
+          'Cannot connect to backend server. Make sure the server is running on port 4000.';
       } else if (error?.message) {
         errorMessage = error.message;
       }
-      
+
+      // Demo mode fallback: show UI features without backend
+      if (errorMessage.includes('Cannot connect') || errorMessage.includes('Backend server')) {
+        console.log('[RegenResearch] Enabling demo mode - no backend available');
+        // Simulate a research response with stage progression for UI testing
+        setStage('reading');
+        setTimeout(() => setStage('synthesizing'), 800);
+
+        const demoAnswer = `This is a demo answer showing the Research mode UI/UX features. The answer is streaming in real-time with a blinking caret at the end.
+
+Key features demonstrated:
+• Stage chips tracking progress (Searching → Reading → Synthesizing → Done)
+• Shimmer overlays on the answer and sources while streaming
+• Blinking caret after the answer text
+• Copy button with clipboard feedback
+• Sources panel with "Updating" badge
+• Completion toast when done
+• Follow-up suggestions
+
+Backend server not available. To enable real research, start the backend with: npm run dev:server`;
+
+        const demoSources = [
+          {
+            id: 'demo-1',
+            url: 'https://example.com/article1',
+            title: 'Demo Source 1: Understanding UI/UX',
+            snippet: 'Learn about modern UI patterns and best practices...',
+            score: 0.95,
+            source: 'example.com',
+          },
+          {
+            id: 'demo-2',
+            url: 'https://example.com/article2',
+            title: 'Demo Source 2: Streaming Data Visualization',
+            snippet: 'Real-time data updates and shimmer animations...',
+            score: 0.87,
+            source: 'example.com',
+          },
+        ];
+
+        setState(prev => ({
+          ...prev,
+          jobId: `demo-${Date.now()}`,
+          answer: demoAnswer,
+          sources: demoSources,
+          citations: demoSources.map((s, idx) => ({
+            id: String(idx + 1),
+            url: s.url,
+            title: s.title,
+          })),
+          done: false,
+          isStreaming: true,
+        }));
+        setIsInitialLoad(false);
+
+        // Simulate completion after 3 seconds
+        setTimeout(() => {
+          setState(prev => ({ ...prev, done: true, isStreaming: false }));
+          setStage('done');
+          setFollowUpSuggestions([
+            'Tell me more about shimmer animations',
+            'How do stage chips work?',
+            'What other UI features are available?',
+          ]);
+        }, 3000);
+        return;
+      }
+
       setState(prev => ({
         ...prev,
         error: errorMessage,
@@ -321,6 +539,20 @@ export function RegenResearchPanel() {
 
   const handleSourceClick = (source: Source) => {
     setState(prev => ({ ...prev, selectedSource: source }));
+  };
+
+  const handleCopyAnswer = async () => {
+    if (!state.answer) return;
+    try {
+      const temp = document.createElement('div');
+      temp.innerHTML = injectCitations(state.answer);
+      const text = temp.textContent || temp.innerText || '';
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch (err) {
+      console.error('Copy failed', err);
+    }
   };
 
   return (
@@ -528,7 +760,8 @@ export function RegenResearchPanel() {
                     <div className="font-medium text-red-800">Error: {state.error}</div>
                     {state.error.includes('Backend server is not running') && (
                       <div className="mt-2 text-xs text-red-600">
-                        💡 Tip: Open a terminal and run: <code className="bg-red-100 px-1 py-0.5 rounded">npm run dev:server</code>
+                        💡 Tip: Open a terminal and run:{' '}
+                        <code className="rounded bg-red-100 px-1 py-0.5">npm run dev:server</code>
                       </div>
                     )}
                   </div>
@@ -543,44 +776,63 @@ export function RegenResearchPanel() {
           <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-100 bg-white p-6 shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-[20px] font-semibold text-gray-800">Answer</h2>
-              {state.reasoningSteps.length > 0 && (
-                <button
-                  onClick={() =>
-                    setState(prev => ({ ...prev, showReasoning: !prev.showReasoning }))
-                  }
-                  className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-200"
-                >
-                  <Brain className="h-4 w-4" />
-                  {state.showReasoning ? 'Hide' : 'Show'} Reasoning
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {state.answer && (
+                  <button
+                    onClick={handleCopyAnswer}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      copied
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Copy answer"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-current opacity-70" />
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
+                )}
+                {state.reasoningSteps.length > 0 && (
+                  <button
+                    onClick={() =>
+                      setState(prev => ({ ...prev, showReasoning: !prev.showReasoning }))
+                    }
+                    className="flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 transition hover:bg-gray-200"
+                  >
+                    <Brain className="h-4 w-4" />
+                    {state.showReasoning ? 'Hide' : 'Show'} Reasoning
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Streaming Indicator */}
-            {state.isStreaming && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-green-500"></div>
-                <span>Generating answer…</span>
-              </div>
-            )}
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+              <StageChips stage={stage} done={state.done} streaming={state.isStreaming} />
+            </div>
 
             {/* Answer Content - With Skeleton or Streaming */}
             <div
               ref={answerRef}
-              className="flex-1 overflow-y-auto text-[15px] leading-relaxed text-gray-900"
+              className="relative flex-1 overflow-y-auto text-[15px] leading-relaxed text-gray-900"
             >
               {isInitialLoad && !state.answer ? (
-                <AnswerSkeleton />
+                <AnswerSkeleton stage={stage === 'reading' ? 'reading' : 'searching'} />
               ) : state.answer ? (
-                <div
-                  className="animate-fadeIn whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{
-                    __html: injectCitations(state.answer),
-                  }}
-                />
+                <>
+                  <div
+                    className="animate-fadeIn whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{
+                      __html: injectCitations(state.answer),
+                    }}
+                  />
+                  {state.isStreaming && (
+                    <span className="ml-1 inline-block h-4 w-0.5 animate-[blink_1s_infinite] bg-gray-500 align-[-2px]"></span>
+                  )}
+                </>
               ) : (
                 <div className="italic text-gray-400">Waiting for answer...</div>
               )}
+              {state.isStreaming && state.answer && <ShimmerOverlay />}
             </div>
 
             {/* Follow-up Questions - Auto-suggested */}
@@ -657,7 +909,15 @@ export function RegenResearchPanel() {
         <div className="flex flex-col gap-4 lg:col-span-3">
           {/* Sources List */}
           <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-100 bg-white p-4 shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
-            <h4 className="mb-3 text-sm font-semibold text-gray-800">Sources</h4>
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+              Sources
+              {showUpdating && (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 transition-opacity duration-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500"></span>
+                  Updating
+                </span>
+              )}
+            </h4>
             <div className="flex-1 space-y-2 overflow-y-auto">
               {state.sources.length === 0 ? (
                 <div className="py-8 text-center text-xs text-gray-400">
@@ -677,13 +937,14 @@ export function RegenResearchPanel() {
                     <div
                       key={source.id || idx}
                       onClick={() => handleSourceClick(source)}
-                      className={`animate-fadeIn group cursor-pointer rounded-lg border p-3 transition ${
+                      className={`animate-fadeIn group relative cursor-pointer rounded-lg border p-3 transition ${
                         state.selectedSource?.url === source.url
                           ? 'border-indigo-500 bg-indigo-50'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                       style={{ animationDelay: `${idx * 0.05}s` }}
                     >
+                      {state.isStreaming && <ShimmerOverlay />}
                       <p className="line-clamp-2 text-sm font-medium text-gray-800 transition-colors group-hover:text-indigo-600">
                         {source.title || 'Untitled'}
                       </p>
@@ -737,6 +998,14 @@ export function RegenResearchPanel() {
           reveal chain-of-thought for transparency.
         </div>
       </div>
+
+      {/* Completion Toast */}
+      {doneToastVisible && !state.error && (
+        <div className="animate-fadeIn fixed bottom-6 right-6 z-50 rounded-lg bg-emerald-600 px-4 py-3 text-white shadow-lg">
+          <span className="font-semibold">Answer ready</span>
+          <span className="ml-2 text-emerald-100">— {state.sources.length} sources</span>
+        </div>
+      )}
     </div>
   );
 }

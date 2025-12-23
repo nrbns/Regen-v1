@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResearchStagehandIntegration } from './stagehand-integration';
 import { Sparkles, RefreshCcw, ChevronRight, Search, Upload, FileText, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Progress } from '../../ui/progress';
 import { useSettingsStore } from '../../state/settingsStore';
-import VoiceButton from '../../components/VoiceButton';
+import { VoiceButton } from '../../components/voice';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useDebounce } from '../../utils/useDebounce';
@@ -16,9 +17,16 @@ import { optimizedSearch } from '../../services/optimizedSearch';
 import { scrapeResearchSources, type ScrapedSourceResult } from '../../services/researchScraper';
 import { searchLocal } from '../../utils/lunrIndex';
 // import { useOfflineRAG } from '../../hooks/useOfflineRAG'; // Unused
-// import { searchOfflineDocuments } from '../../services/offlineRAG'; // Unused
+import { searchOfflineDocuments } from '../../services/offlineRAG';
 // import { SavePageButton } from '../../components/offline/SavePageButton'; // Unused
 import { aiEngine, type AITaskResult } from '../../core/ai';
+import {
+  withDeterminism,
+  extractConfidence as _extractConfidence,
+  extractSources as _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
+import { jobAuthority } from '../../core/jobAuthority';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
 import { parseDocxFile } from '../docs/parsers/docx';
@@ -26,7 +34,14 @@ import { LoadingSkeleton } from '../../components/common/LoadingSkeleton';
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
-import { ZeroPromptSuggestions } from '../../components/ZeroPromptSuggestions';
+import { ZeroPromptSuggestions } from '../../components/search/ZeroPromptSuggestions';
+import { useImmediateFeedback } from '../../hooks/useImmediateFeedback';
+import {
+  RelatedQuestions,
+  generateRelatedQuestions,
+} from '../../components/research/RelatedQuestions';
+// LAG FIX #8: Hindi defaults for Research mode
+import { getModeDefaults } from '../../config/modeDefaults';
 import {
   ResearchResult,
   ResearchSource,
@@ -43,18 +58,26 @@ import { AnswerWithCitations } from '../../components/research/AnswerWithCitatio
 import { EvidenceOverlay } from '../../components/research/EvidenceOverlay';
 import { CompareAnswersPanel } from '../../components/research/CompareAnswers';
 import { LayoutEngine, LayoutHeader, LayoutBody } from '../../ui/layout-engine';
-import BrowserView from '../../components/BrowserView';
+import BrowserView from '../../components/browser/BrowserView';
 import { useResearchCompareStore } from '../../state/researchCompareStore';
 import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
-import { OmniAgentInput } from '../../components/OmniAgentInput';
+import { OmniAgentInput as _OmniAgentInput } from '../../components/omni-mode/OmniAgentInput';
 import { executeAgentActions } from '../../services/agenticActions';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
 import { getLanguageMeta } from '../../constants/languageMeta';
 import { getSearchHealth } from '../../services/searchHealth';
 import { multiLanguageAI, type SupportedLanguage } from '../../core/language/multiLanguageAI';
+import { checkResearchBackend } from '../../utils/checkBackendConnection';
+import { layerManager } from '../../core/layers/layerManager';
+import { downloadResearchExport } from '../../core/research/researchExport';
+import {
+  calculateCredibility,
+  getCredibilityColor,
+  getCredibilityLabel,
+} from '../../core/research/sourceCredibility';
 
 type UploadedDocument = {
   id: string;
@@ -95,8 +118,28 @@ export default function ResearchPanel() {
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
+
+  // TIERED ARCHITECTURE: Activate L2 layer when Research mode mounts
+  useEffect(() => {
+    layerManager.switchToMode('Research').catch(console.error);
+
+    return () => {
+      // Deactivate L2 when component unmounts (if switching away from Research)
+      layerManager.exitMode('Research').catch(console.error);
+    };
+  }, []);
+
+  // LAG FIX #8: Apply Hindi defaults for Research mode
+  useEffect(() => {
+    const defaults = getModeDefaults('Research');
+    const settings = useSettingsStore.getState();
+    if (!settings.language || settings.language === 'auto') {
+      settings.setLanguage(defaults.language);
+    }
+  }, []);
   const { activeId, tabs } = useTabsStore();
   const useHybridSearch = useSettingsStore(s => s.searchEngine !== 'mock');
   const { containers, activeContainerId, setContainers } = useContainerStore();
@@ -111,7 +154,11 @@ export default function ResearchPanel() {
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
   const [cursorPanelOpen, setCursorPanelOpen] = useState(false);
   const aiMetaRef = useRef<{ provider?: string; model?: string }>({});
+  const handleSearchRef = useRef<((input?: string) => Promise<void>) | null>(null);
   const [deepScanEnabled, setDeepScanEnabled] = useState(false);
+
+  // <300ms Reaction Rule: Immediate feedback for search
+  const searchFeedback = useImmediateFeedback({ type: 'understanding' });
   const [deepScanLoading, setDeepScanLoading] = useState(false);
   const [deepScanSteps, setDeepScanSteps] = useState<DeepScanStep[]>([]);
   const [deepScanError, setDeepScanError] = useState<string | null>(null);
@@ -132,6 +179,27 @@ export default function ResearchPanel() {
         });
     }
   }, [containers.length, setContainers]);
+
+  // Check backend connection on mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const status = await checkResearchBackend();
+        if (status.connected) {
+          console.log('[Research] Backend connected:', status.endpoint, `(${status.latency}ms)`);
+        } else {
+          console.warn('[Research] Backend not connected:', status.error);
+          toast.info(`Research backend offline: ${status.error}`, { duration: 5000 });
+        }
+      } catch (error) {
+        console.error('[Research] Failed to check backend connection:', error);
+      }
+    };
+
+    // Check after a short delay to avoid blocking initial render
+    const timer = setTimeout(checkConnection, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Listen for handoff events from Trade mode
   // WISPR Research Command Handler
@@ -155,7 +223,7 @@ export default function ResearchPanel() {
     return () => window.removeEventListener('wispr:research', handleWisprResearch as EventListener);
   }, []);
 
-  // Voice agent intents: open/scrape URLs for research.
+  // AUDIT FIX #4: IPC scrape integration - enhanced voice agent handlers
   useEffect(() => {
     const handleAgentOpen = (event: CustomEvent<{ url?: string }>) => {
       const url = event?.detail?.url;
@@ -163,7 +231,7 @@ export default function ResearchPanel() {
       toast.success('Opening for research…');
       void executeAgentActions([`[OPEN ${url}]`]);
     };
-    const handleAgentScraped = (event: CustomEvent<{ url?: string; results?: any }>) => {
+    const handleAgentScraped = async (event: CustomEvent<{ url?: string; results?: any }>) => {
       const { url, results } = event.detail;
       if (!url || !results) return;
       toast.success(`Scraped: ${results.title || url}`);
@@ -184,6 +252,77 @@ export default function ResearchPanel() {
             sources: [...(result.sources || []), source],
           });
         }
+      }
+    };
+
+    // AUDIT FIX #4: Enhanced scrape handler with IPC fallback
+    const _handleScrapeCommand = async (event: CustomEvent<{ command?: string }>) => {
+      const command = event.detail?.command?.toLowerCase();
+      if (!command || !command.includes('scrape')) return;
+
+      const activeTab = tabs.find(t => t.id === activeId);
+      if (!activeTab?.url || !activeTab.url.startsWith('http')) {
+        toast.error('No active page to scrape');
+        return;
+      }
+
+      try {
+        toast.info('Scraping current page…');
+
+        // Try IPC scrape first (Tauri/Electron)
+        let scrapedContent: string | null = null;
+        try {
+          if (isElectronRuntime() || isTauriRuntime()) {
+            // Use IPC to execute script in webview
+            const script = `document.body.innerText || document.body.textContent || ''`;
+            const result = await ipc.tabs.executeScript?.(activeId, script);
+            if (result) {
+              scrapedContent = typeof result === 'string' ? result : JSON.stringify(result);
+            }
+          }
+        } catch (ipcError) {
+          console.warn('[Research] IPC scrape failed, using fallback:', ipcError);
+        }
+
+        // Fallback to iframe postMessage scraping
+        if (!scrapedContent) {
+          const { scrapeActiveTab } = await import('../../services/liveTabScraper');
+          const scraped = await scrapeActiveTab();
+          scrapedContent = scraped?.content || scraped?.text || null;
+        }
+
+        if (scrapedContent) {
+          // Send to LLM for analysis
+          const analysis = await aiEngine.generate(
+            `Analyze this page content and provide key insights:\n\n${scrapedContent.substring(0, 10000)}`
+          );
+
+          // Add as research source
+          const source: ResearchSource = {
+            id: `scrape-${Date.now()}`,
+            url: activeTab.url,
+            title: activeTab.title || activeTab.url,
+            snippet: analysis.substring(0, 200),
+            type: 'web' as ResearchSourceType,
+            credibility: 'high',
+            timestamp: Date.now(),
+          };
+
+          setResult(prev => ({
+            ...prev,
+            query: prev?.query || `Analysis of ${activeTab.url}`,
+            answer: analysis,
+            sources: [...(prev?.sources || []), source],
+            timestamp: Date.now(),
+          }));
+
+          toast.success('Page scraped and analyzed');
+        } else {
+          toast.error('Failed to scrape page content');
+        }
+      } catch (error) {
+        console.error('[Research] Scrape command failed:', error);
+        toast.error('Scraping failed');
       }
     };
     const handleAgentSummarize = async (event: CustomEvent<{ url?: string | null }>) => {
@@ -276,7 +415,9 @@ export default function ResearchPanel() {
         setQuery(handoffQuery);
         // Trigger search after a short delay to allow mode switch
         setTimeout(() => {
-          handleSearch(handoffQuery);
+          if (handleSearchRef.current) {
+            handleSearchRef.current(handoffQuery);
+          }
         }, 500);
         toast.success(`Researching: ${handoffQuery}`, {
           duration: 3000,
@@ -285,7 +426,9 @@ export default function ResearchPanel() {
         const researchQuery = `${symbol} fundamentals and recent news`;
         setQuery(researchQuery);
         setTimeout(() => {
-          handleSearch(researchQuery);
+          if (handleSearchRef.current) {
+            handleSearchRef.current(researchQuery);
+          }
         }, 500);
         toast.success(`Researching ${symbol}...`, {
           duration: 3000,
@@ -300,7 +443,9 @@ export default function ResearchPanel() {
         // Always handle browser search in research mode (we're already in research panel)
         setQuery(browserQuery);
         setTimeout(() => {
-          handleSearch(browserQuery);
+          if (handleSearchRef.current) {
+            handleSearchRef.current(browserQuery);
+          }
         }, 200);
         toast.info(`Researching from browser: ${browserQuery}`);
       }
@@ -312,7 +457,7 @@ export default function ResearchPanel() {
       window.removeEventListener('handoff:research', handleHandoff as EventListener);
       window.removeEventListener('browser:search', handleBrowserSearch as EventListener);
     };
-  }, [handleSearch]);
+  }, []);
 
   useEffect(() => {
     setCompareSelection(prev => prev.filter(id => compareEntries.some(entry => entry.id === id)));
@@ -356,8 +501,23 @@ export default function ResearchPanel() {
 
         // v0.4: Parallel AI execution (reason + summarize) for faster responses
         // Also scrape active tab in parallel if available
-        const [aiResult, liveScrapeResult] = await Promise.all([
-          aiEngine.runTask(
+
+        // DETERMINISM: Wrap AI operation with determinism (job creation, Event Ledger logging)
+        const userId = getUserId();
+        let currentJobId: string | null = null;
+        const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+          userId,
+          type: 'research',
+          query: searchQuery,
+          reasoning: `Research query: ${searchQuery.substring(0, 100)}`,
+          sources: aggregatedSources.slice(0, 10).map(s => s.url),
+        });
+
+        // Create checkpoint after sources are aggregated (before AI analysis)
+        // Note: Job is created when deterministicRunner is called, so we'll create checkpoint after
+
+        const [_aiResultWithJob, liveScrapeResult] = await Promise.all([
+          deterministicRunner(
             {
               kind: 'search',
               prompt: searchQuery,
@@ -380,6 +540,13 @@ export default function ResearchPanel() {
                 streamedText += event.data;
               } else if (event.type === 'done' && typeof event.data !== 'string') {
                 streamedResult = event.data as AITaskResult;
+
+                // Update confidence and sources from result
+                if (event.data) {
+                  const _result = event.data as AITaskResult;
+                  // Confidence and sources are already logged by withDeterminism
+                  // But we can enhance with extracted values if needed
+                }
               }
             }
           ),
@@ -405,6 +572,43 @@ export default function ResearchPanel() {
           model: finalResult?.model,
         };
         let finalAnswer = streamedText || finalResult?.text || '';
+
+        // Create checkpoint after sources are aggregated (before AI analysis completes)
+        if (currentJobId && aggregatedSources.length > 0) {
+          try {
+            await jobAuthority.checkpoint({
+              jobId: currentJobId,
+              progress: 30,
+              step: `Found ${aggregatedSources.length} sources, analyzing...`,
+              data: {
+                sources: aggregatedSources.slice(0, 5).map(s => ({ url: s.url, title: s.title })),
+                sourceCount: aggregatedSources.length,
+                query: searchQuery,
+              },
+            });
+          } catch (error) {
+            console.warn('[Research] Failed to create checkpoint after sources:', error);
+          }
+        }
+
+        // Create checkpoint after AI analysis completes
+        if (currentJobId && finalAnswer) {
+          try {
+            await jobAuthority.checkpoint({
+              jobId: currentJobId,
+              progress: 70,
+              step: 'Analysis complete, processing results...',
+              data: {
+                answer: finalAnswer.substring(0, 500),
+                sourceCount: aggregatedSources.length,
+                provider: finalResult?.provider,
+                model: finalResult?.model,
+              },
+            });
+          } catch (error) {
+            console.warn('[Research] Failed to create checkpoint after analysis:', error);
+          }
+        }
 
         // v0.4: Parse and execute agentic actions from AI response
         if (finalAnswer) {
@@ -1006,986 +1210,995 @@ export default function ResearchPanel() {
     setUploadedDocuments(prev => prev.filter(doc => doc.id !== id));
   };
 
-  const handleSearch = async (input?: string) => {
-    const searchQuery = typeof input === 'string' ? input : query;
-    if (!searchQuery.trim()) return;
+  const handleSearch = useCallback(
+    async (input?: string) => {
+      const searchQuery = typeof input === 'string' ? input : query;
+      if (!searchQuery.trim()) return;
 
-    // TELEMETRY FIX: Track search feature usage
-    import('../../services/telemetryMetrics')
-      .then(({ telemetryMetrics }) => {
-        telemetryMetrics.trackFeature('search_executed', { mode: 'research' });
-      })
-      .catch(() => {
-        // Telemetry not available
-      });
+      // <300ms Reaction Rule: Show immediate feedback
+      searchFeedback.show('Understanding your intent...');
 
-    const searchStartTime = performance.now();
+      // Dispatch context update event for ContextStrip
+      window.dispatchEvent(
+        new CustomEvent('research:query', {
+          detail: { query: searchQuery },
+        })
+      );
 
-    // Phase 2: Auto-detect language using multi-language AI
-    if (language === 'auto' && searchQuery.trim().length > 2) {
-      try {
-        // Use new multi-language AI for detection
-        const detectedLang = await multiLanguageAI.detectLanguage(searchQuery);
-        setDetectedLang(detectedLang);
+      // Update loading state immediately
+      setLoading(true);
+      setError(null);
 
-        if (detectedLang !== 'en') {
-          useSettingsStore.getState().setLanguage(detectedLang);
-          console.log('[Research] Auto-detected language:', detectedLang);
-        }
-      } catch {
-        // Fallback to old detection
+      // TELEMETRY FIX: Track search feature usage
+      import('../../services/telemetryMetrics')
+        .then(({ telemetryMetrics }) => {
+          telemetryMetrics.trackFeature('search_executed', { mode: 'research' });
+        })
+        .catch(() => {
+          // Telemetry not available
+        });
+
+      const searchStartTime = performance.now();
+
+      // Phase 2: Auto-detect language using multi-language AI
+      if (language === 'auto' && searchQuery.trim().length > 2) {
         try {
-          const detection = await detectLanguage(searchQuery, {
-            preferIndic: true,
-            useBackend: true,
-          });
-          if (detection.confidence > 0.7) {
-            const detectedLang = detection.language;
-            if (detectedLang !== 'en' || detection.isIndic) {
-              useSettingsStore.getState().setLanguage(detectedLang);
-              setDetectedLang(detectedLang);
-            }
+          // Use new multi-language AI for detection
+          const detectedLang = await multiLanguageAI.detectLanguage(searchQuery);
+          setDetectedLang(detectedLang);
+
+          if (detectedLang !== 'en') {
+            useSettingsStore.getState().setLanguage(detectedLang);
+            console.log('[Research] Auto-detected language:', detectedLang);
           }
-        } catch (fallbackError) {
-          console.warn('[Research] Language auto-detection failed:', fallbackError);
+        } catch {
+          // Fallback to old detection
+          try {
+            const detection = await detectLanguage(searchQuery, {
+              preferIndic: true,
+              useBackend: true,
+            });
+            if (detection.confidence > 0.7) {
+              const detectedLang = detection.language;
+              if (detectedLang !== 'en' || detection.isIndic) {
+                useSettingsStore.getState().setLanguage(detectedLang);
+                setDetectedLang(detectedLang);
+              }
+            }
+          } catch (fallbackError) {
+            console.warn('[Research] Language auto-detection failed:', fallbackError);
+          }
         }
       }
-    }
 
-    // Phase 2: Translate query if needed (for multi-language search)
-    const currentLang = language !== 'auto' ? language : detectedLang;
-    if (currentLang && currentLang !== 'en') {
-      try {
-        // Search in original language, but also prepare English version for backend
-        const englishQuery = await multiLanguageAI.translate(
-          searchQuery,
-          'en',
-          currentLang as SupportedLanguage
-        );
-        // Use both queries for better results
-        console.log('[Research] Original query:', searchQuery, 'English:', englishQuery);
-      } catch (error) {
-        console.warn('[Research] Query translation failed:', error);
+      // Phase 2: Translate query if needed (for multi-language search)
+      const currentLang = language !== 'auto' ? language : detectedLang;
+      if (currentLang && currentLang !== 'en') {
+        try {
+          // Search in original language, but also prepare English version for backend
+          const englishQuery = await multiLanguageAI.translate(
+            searchQuery,
+            'en',
+            currentLang as SupportedLanguage
+          );
+          // Use both queries for better results
+          console.log('[Research] Original query:', searchQuery, 'English:', englishQuery);
+        } catch (error) {
+          console.warn('[Research] Query translation failed:', error);
+        }
       }
-    }
 
-    setLoading(true);
-    setLoadingMessage('Researching...');
-    toast.loading('Researching...', { duration: 0 }); // Persistent loading toast
-    setError(null);
-    setResult(null);
-    setActiveSourceId(null);
+      setLoading(true);
+      setLoadingMessage('Researching...');
+      setProgress(0);
+      toast.loading('Researching...', { duration: 0 }); // Persistent loading toast
+      setError(null);
+      setResult(null);
+      setActiveSourceId(null);
 
-    // SEARCH SYSTEM VERIFICATION: Check search health before proceeding
-    const searchHealth = getSearchHealth();
-    if (searchHealth && searchHealth.status === 'offline') {
-      setError('Search system is offline. Please check your connection.');
-      setLoading(false);
-      toast.error('Search system offline');
-      return;
-    }
-
-    let aggregatedSources: ResearchSource[] = [];
-    let aggregatedProviderNames: string[] = [];
-    let scrapedSnapshots: ScrapedSourceResult[] = [];
-
-    try {
-      if (!useHybridSearch) {
-        aiMetaRef.current = {
-          provider: 'mock',
-          model: 'offline',
-        };
-        setResult(generateMockResult(searchQuery));
+      // SEARCH SYSTEM VERIFICATION: Check search health before proceeding
+      const searchHealth = getSearchHealth();
+      if (searchHealth && searchHealth.status === 'offline') {
+        setError('Search system is offline. Please check your connection.');
+        setLoading(false);
+        toast.error('Search system offline');
         return;
       }
 
-      const context: any = await buildSearchContext(searchQuery);
+      let aggregatedSources: ResearchSource[] = [];
+      let aggregatedProviderNames: string[] = [];
+      let scrapedSnapshots: ScrapedSourceResult[] = [];
 
-      if (deepScanEnabled) {
-        const deepScanResult = await runDeepScanFlow(searchQuery);
-        aggregatedSources = deepScanResult.sources.map((source, idx) =>
-          mapDeepScanSourceToResearchSource(source, idx)
-        );
-        aggregatedProviderNames = ['deep-scan'];
-        context.deep_scan = {
-          created_at: deepScanResult.created_at,
-          steps: deepScanResult.steps,
-        };
-      } else {
-        // Try Tauri IPC first if available (real-time, streaming support)
-        let backendResult: any = null;
-        const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
-
-        if (isTauri && ipc) {
-          try {
-            // Try research_api command (combines search + Ollama)
-            const tauriResult = await (ipc as any).invoke('research_api', { query: searchQuery });
-            if (tauriResult) {
-              backendResult = {
-                summary: tauriResult.summary || tauriResult.answer || '',
-                sources: (tauriResult.sources || []).map((s: any, idx: number) => ({
-                  title: s.Text || s.title || `Source ${idx + 1}`,
-                  url: s.FirstURL || s.url || '',
-                  snippet: s.Text || s.snippet || '',
-                  sourceType: 'web',
-                })),
-                citations: tauriResult.citations || 0,
-                hallucination: tauriResult.hallucination || 'medium',
-              };
-              console.log('[Research] Tauri IPC returned result:', backendResult);
-            }
-          } catch (tauriError) {
-            console.warn('[Research] Tauri IPC failed, trying HTTP API:', tauriError);
-          }
-        }
-
-        // Fallback to HTTP API if Tauri IPC not available or failed
-        // Always try backend API - it may be running even in web mode
-        if (!backendResult) {
-          try {
-            console.log('[Research] Attempting HTTP API call to backend...');
-            backendResult = await researchApi.queryEnhanced({
-              query: searchQuery,
-              maxSources: 12,
-              includeCounterpoints,
-              recencyWeight,
-              authorityWeight,
-              language: language !== 'auto' ? language : undefined,
-            });
-            console.log(
-              '[Research] Backend API returned result:',
-              backendResult ? 'success' : 'empty'
-            );
-          } catch (apiError) {
-            // Log the error for debugging
-            const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
-            console.warn('[Research] Backend API call failed (will use fallback):', errorMsg);
-
-            // Show user-friendly message if backend is clearly offline
-            if (
-              errorMsg.includes('fetch') ||
-              errorMsg.includes('network') ||
-              errorMsg.includes('ECONNREFUSED') ||
-              errorMsg.includes('Failed to fetch')
-            ) {
-              toast.info('Backend server is offline. Using fallback search engines...', {
-                duration: 3000,
-              });
-            }
-
-            // Continue with fallback - backend is optional
-            backendResult = null;
-          }
-        }
-
-        if (backendResult) {
-          // Map sources
-          if (backendResult.sources && backendResult.sources.length > 0) {
-            aggregatedSources = backendResult.sources.map((source: any, idx: number) => ({
-              id: `backend-${idx}`,
-              title: source.title || 'Untitled',
-              url: source.url || '',
-              domain: source.domain || new URL(source.url || 'http://example.com').hostname,
-              snippet: source.snippet || '',
-              text: source.snippet || '',
-              type: source.sourceType || 'other',
-              sourceType: source.sourceType || 'other',
-              relevanceScore: Math.round((source.relevanceScore || 0.5) * 100),
-              timestamp: source.timestamp || Date.now(),
-              metadata: {
-                provider: 'backend-api',
-              },
-            }));
-            aggregatedProviderNames = ['backend-api'];
-          }
-
-          // Use backend summary if available
-          if (backendResult.summary) {
-            context.backend_summary = backendResult.summary;
-          }
-
-          // Store metrics for verification
-          if (backendResult.citations !== undefined || backendResult.hallucination) {
-            context.backend_metrics = {
-              citations: backendResult.citations || 0,
-              hallucination: backendResult.hallucination || 'medium',
-            };
-          }
-
-          console.log(
-            `[Research] Backend API returned ${aggregatedSources.length} results with summary and metrics`
-          );
-        }
-
-        // Fallback to multi-source search if backend API failed or returned no results
-        if (aggregatedSources.length === 0) {
-          try {
-            console.log('[Research] Using fallback search (optimizedSearch)...');
-            setLoadingMessage('Searching with fallback engines...');
-
-            // OPTIMIZED SEARCH: Use optimized search service for better reliability
-            const optimizedResults = await optimizedSearch(searchQuery, {
-              count: 20,
-              language,
-              timeout: 10000,
-            });
-
-            console.log('[Research] Fallback search returned', optimizedResults.length, 'results');
-
-            // Convert optimized results to multi-source format
-            const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
-              title: r.title,
-              url: r.url,
-              snippet: r.snippet,
-              source: r.provider,
-              score: r.score,
-              domain: r.domain,
-            }));
-            if (multiSourceResults.length > 0) {
-              aggregatedSources = multiSourceResults.map((hit, idx) =>
-                mapMultiSourceResultToSource(hit, idx)
-              );
-              aggregatedProviderNames = Array.from(
-                new Set(
-                  multiSourceResults.map(hit =>
-                    typeof hit.source === 'string' ? hit.source.toLowerCase() : 'web'
-                  )
-                )
-              );
-              context.multi_source_results = multiSourceResults.slice(0, 8).map(hit => ({
-                title: hit.title,
-                url: hit.url,
-                snippet: hit.snippet.slice(0, 300),
-                provider: hit.source,
-                score: hit.score,
-              }));
-
-              const urlsToScrape = aggregatedSources
-                .filter(source => Boolean(source.url))
-                .slice(0, 4)
-                .map(source => source.url as string);
-              if (urlsToScrape.length > 0) {
-                scrapedSnapshots = await scrapeResearchSources(urlsToScrape, {
-                  max_chars: 12000,
-                  allow_render: true,
-                });
-                if (scrapedSnapshots.length > 0) {
-                  aggregatedSources = mergeScrapedSnapshots(aggregatedSources, scrapedSnapshots);
-                  context.scraped_sources = scrapedSnapshots.slice(0, 3).map(snapshot => ({
-                    url: snapshot.finalUrl ?? snapshot.url,
-                    title: snapshot.title,
-                    excerpt: snapshot.excerpt?.slice(0, 400),
-                    word_count: snapshot.wordCount,
-                    rendered: snapshot.rendered,
-                  }));
-                }
-              }
-            }
-          } catch (multiSourceError) {
-            console.warn('[Research] Multi-source search failed:', multiSourceError);
-            // Don't give up - try next fallback
-            if (aggregatedSources.length === 0) {
-              toast.info('Primary search failed, trying alternative engines...', {
-                duration: 2000,
-              });
-            }
-          }
-        }
-
-        // Final fallback to live web search if all else fails
-        if (aggregatedSources.length === 0) {
-          console.log('[Research] No results from optimizedSearch, trying live web search...');
-          toast.info('Using alternative search engine...', { duration: 2000 });
-          try {
-            const liveResults = await performLiveWebSearch(searchQuery, {
-              count: 15,
-              language: language !== 'auto' ? language : undefined,
-            });
-
-            if (liveResults.length > 0) {
-              aggregatedSources = liveResults.map((hit, idx) => ({
-                id: `live-${hit.provider}-${idx}`,
-                title: hit.title,
-                url: hit.url,
-                domain: hit.domain,
-                snippet: hit.snippet,
-                text: hit.snippet,
-                type: inferSourceType(hit.domain),
-                sourceType: inferSourceType(hit.domain),
-                relevanceScore: Math.round(hit.score * 100),
-                timestamp: Date.now(),
-                metadata: {
-                  provider: hit.provider,
-                },
-              }));
-              aggregatedProviderNames = Array.from(new Set(liveResults.map(r => r.provider)));
-
-              console.log(
-                `[Research] Live web search returned ${liveResults.length} results from ${aggregatedProviderNames.join(', ')}`
-              );
-            }
-          } catch (liveSearchError) {
-            console.warn('[Research] Live web search failed:', liveSearchError);
-          }
-        }
-
-        // If we got a backend result with summary, use it directly
-        if (
-          backendResult &&
-          (backendResult.summary || backendResult.answer) &&
-          aggregatedSources.length > 0
-        ) {
-          const dedupedSources = dedupeResearchSources(aggregatedSources);
-
-          // Map backend metrics to verification
-          const citations = backendResult.citations || aggregatedSources.length || 0;
-          const hallucination = backendResult.hallucination || 'medium';
-          const hallucinationRisk =
-            hallucination === 'low' ? 0.2 : hallucination === 'medium' ? 0.5 : 0.8;
-          const citationCoverage = Math.min(
-            (citations / Math.max(aggregatedSources.length, 1)) * 100,
-            100
-          );
-
-          // TELEMETRY FIX: Track successful search latency
-          const searchLatency = performance.now() - searchStartTime;
-          import('../../services/telemetryMetrics')
-            .then(({ telemetryMetrics }) => {
-              telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
-                provider: 'backend',
-                resultCount: dedupedSources.length,
-              });
-            })
-            .catch(() => {
-              // Telemetry not available
-            });
-
-          setResult({
-            query: searchQuery,
-            summary: backendResult.summary || backendResult.answer || '',
-            sources: dedupedSources.slice(0, 16),
-            citations: backendResult.citations || [],
-            inlineEvidence: [],
-            contradictions: backendResult.contradictions || [],
-            verification: {
-              verified: hallucination === 'low',
-              claimDensity: aggregatedSources.length,
-              citationCoverage: citationCoverage,
-              ungroundedClaims: [],
-              hallucinationRisk: hallucinationRisk,
-              suggestions:
-                hallucination === 'high' ? ['Consider verifying with additional sources'] : [],
-            },
-            confidence: backendResult.confidence || (hallucination === 'low' ? 0.8 : 0.6),
-            language: backendResult.language || language,
-            languageLabel: backendResult.languageLabel || getLanguageMeta(language).nativeName,
-            languageConfidence: backendResult.languageConfidence || 0.9,
-          });
-          setLoading(false);
-          setLoadingMessage(null);
-          toast.dismiss();
+      try {
+        if (!useHybridSearch) {
+          aiMetaRef.current = {
+            provider: 'mock',
+            model: 'offline',
+          };
+          setResult(generateMockResult(searchQuery));
           return;
         }
 
-        // Try Tauri streaming if available and no result yet
-        // Reuse isTauri from above (line 835) - no need to redeclare
-        if (isTauri && ipc && aggregatedSources.length === 0) {
-          try {
-            // Set up streaming listeners
-            let streamedText = '';
-            let streamCitations = 0;
-            let streamHallucination = 'medium';
+        const context: any = await buildSearchContext(searchQuery);
 
-            const handleToken = (e: CustomEvent) => {
-              if (typeof e.detail === 'string') {
-                streamedText += e.detail;
-                // Update result in real-time
-                setResult(prev => ({
-                  ...prev,
-                  query: searchQuery,
-                  summary: streamedText,
-                  sources: prev?.sources || [],
-                  citations: prev?.citations || [],
-                  inlineEvidence: [],
-                  contradictions: [],
-                  verification: {
-                    verified: streamHallucination === 'low',
-                    claimDensity: aggregatedSources.length,
-                    citationCoverage:
-                      streamCitations > 0
-                        ? Math.min(
-                            (streamCitations / Math.max(aggregatedSources.length, 1)) * 100,
-                            100
-                          )
-                        : 0,
-                    ungroundedClaims: [],
-                    hallucinationRisk:
-                      streamHallucination === 'low'
-                        ? 0.2
-                        : streamHallucination === 'medium'
-                          ? 0.5
-                          : 0.8,
-                    suggestions:
-                      streamHallucination === 'high'
-                        ? ['Consider verifying with additional sources']
-                        : [],
-                  },
-                  confidence: streamHallucination === 'low' ? 0.8 : 0.6,
-                  language: language,
-                  languageLabel: getLanguageMeta(language).nativeName,
-                  languageConfidence: 0.9,
-                }));
+        if (deepScanEnabled) {
+          setProgress(10);
+          const deepScanResult = await runDeepScanFlow(searchQuery);
+          aggregatedSources = deepScanResult.sources.map((source, idx) =>
+            mapDeepScanSourceToResearchSource(source, idx)
+          );
+          aggregatedProviderNames = ['deep-scan'];
+          context.deep_scan = {
+            created_at: deepScanResult.created_at,
+            steps: deepScanResult.steps,
+          };
+          setProgress(30);
+        } else {
+          // Try Tauri IPC first if available (real-time, streaming support)
+          let backendResult: any = null;
+          const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__;
+
+          if (isTauri && ipc) {
+            try {
+              // Try research_api command (combines search + Ollama)
+              const tauriResult = await (ipc as any).invoke('research_api', { query: searchQuery });
+              if (tauriResult) {
+                backendResult = {
+                  summary: tauriResult.summary || tauriResult.answer || '',
+                  sources: (tauriResult.sources || []).map((s: any, idx: number) => ({
+                    title: s.Text || s.title || `Source ${idx + 1}`,
+                    url: s.FirstURL || s.url || '',
+                    snippet: s.Text || s.snippet || '',
+                    sourceType: 'web',
+                  })),
+                  citations: tauriResult.citations || 0,
+                  hallucination: tauriResult.hallucination || 'medium',
+                };
+                console.log('[Research] Tauri IPC returned result:', backendResult);
               }
-            };
-
-            const handleMetrics = (e: CustomEvent) => {
-              if (e.detail) {
-                streamCitations = e.detail.citations || 0;
-                streamHallucination = e.detail.hallucination || 'medium';
-              }
-            };
-
-            const handleEnd = (e: CustomEvent) => {
-              if (e.detail) {
-                streamedText = e.detail.response || streamedText;
-                streamCitations = e.detail.citations || streamCitations;
-                streamHallucination = e.detail.hallucination || streamHallucination;
-              }
-              // Remove listeners
-              window.removeEventListener('research-token', handleToken as EventListener);
-              window.removeEventListener('research-metrics', handleMetrics as EventListener);
-              window.removeEventListener('research-end', handleEnd as EventListener);
-              setLoading(false);
-              setLoadingMessage(null);
-              toast.dismiss();
-            };
-
-            // Add listeners
-            window.addEventListener('research-token', handleToken as EventListener);
-            window.addEventListener('research-metrics', handleMetrics as EventListener);
-            window.addEventListener('research-end', handleEnd as EventListener);
-
-            // Start streaming (Tauri command expects query as first parameter, window is auto-injected)
-            await (ipc as any).invoke('research_stream', { query: searchQuery });
-
-            // Set initial result
-            setResult({
-              query: searchQuery,
-              summary: '',
-              sources: [],
-              citations: [],
-              inlineEvidence: [],
-              contradictions: [],
-              verification: {
-                verified: false,
-                claimDensity: 0,
-                citationCoverage: 0,
-                ungroundedClaims: [],
-                hallucinationRisk: 0.5,
-                suggestions: [],
-              },
-              confidence: 0.5,
-              language: language,
-              languageLabel: getLanguageMeta(language).nativeName,
-              languageConfidence: 0.9,
-            });
-
-            return; // Exit early, streaming will update result
-          } catch (streamError) {
-            console.warn('[Research] Tauri streaming failed:', streamError);
-            // Continue to fallback
-          }
-        }
-      }
-
-      // Use unified AI engine for research queries
-      try {
-        let streamedText = '';
-        let streamedResult: AITaskResult | null = null;
-
-        // Build a comprehensive prompt that includes sources if available
-        let researchPrompt = searchQuery;
-        if (aggregatedSources.length > 0) {
-          // Include top sources in the prompt for better context
-          const topSources = aggregatedSources
-            .slice(0, 8)
-            .map((source, idx) => {
-              return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
-            })
-            .join('\n\n');
-
-          researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following sources, provide a comprehensive answer:\n\n${topSources}\n\nAnswer:`;
-        } else if (scrapedSnapshots.length > 0) {
-          // Use scraped content if available
-          const scrapedContent = scrapedSnapshots
-            .slice(0, 3)
-            .map((snapshot, idx) => {
-              return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
-            })
-            .join('\n\n');
-
-          researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
-        }
-
-        const aiResult = await aiEngine.runTask(
-          {
-            kind: 'search',
-            prompt: researchPrompt,
-            context: {
-              ...context,
-              sources: aggregatedSources.slice(0, 10).map(s => ({
-                title: s.title,
-                url: s.url,
-                snippet: s.snippet || s.text,
-              })),
-              query: searchQuery,
-            },
-            mode: 'research',
-            metadata: {
-              includeCounterpoints,
-              region: region !== 'global' ? region : undefined,
-              recencyWeight,
-              authorityWeight,
-              language: language !== 'auto' ? language : undefined,
-              sourceCount: aggregatedSources.length,
-            },
-            llm: {
-              temperature: 0.2,
-              maxTokens: 1500, // Increased for better answers
-              systemPrompt:
-                "You are ReGen's research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.",
-            },
-          },
-          event => {
-            if (event.type === 'token' && typeof event.data === 'string') {
-              streamedText += event.data;
-              // Update result with streaming text in real-time
-              if (streamedText.length > 50) {
-                setResult(prev => ({
-                  ...prev,
-                  query: searchQuery,
-                  summary: streamedText,
-                  sources: prev?.sources || aggregatedSources.slice(0, 16),
-                  citations: prev?.citations || [],
-                  inlineEvidence: [],
-                  contradictions: [],
-                  verification: prev?.verification || {
-                    score: 0.7,
-                    confidence: 'medium',
-                    suggestions: [],
-                  },
-                  confidence: 0.75,
-                }));
-              }
-            } else if (event.type === 'done' && typeof event.data !== 'string') {
-              streamedResult = event.data as AITaskResult;
-            } else if (event.type === 'error') {
-              console.error('[Research] AI engine error:', event.data);
-              throw new Error(typeof event.data === 'string' ? event.data : 'AI engine error');
+            } catch (tauriError) {
+              console.warn('[Research] Tauri IPC failed, trying HTTP API:', tauriError);
             }
           }
-        );
 
-        const finalResult = streamedResult ?? aiResult;
-        aiMetaRef.current = {
-          provider: finalResult?.provider || 'ai',
-          model: finalResult?.model,
-        };
-        const finalAnswer = streamedText || finalResult?.text || '';
+          // Fallback to HTTP API if Tauri IPC not available or failed
+          // Always try backend API - it may be running even in web mode
+          if (!backendResult) {
+            try {
+              console.log('[Research] Attempting HTTP API call to backend...');
+              backendResult = await researchApi.queryEnhanced({
+                query: searchQuery,
+                maxSources: 12,
+                includeCounterpoints,
+                recencyWeight,
+                authorityWeight,
+                language: language !== 'auto' ? language : undefined,
+              });
+              console.log(
+                '[Research] Backend API returned result:',
+                backendResult ? 'success' : 'empty'
+              );
+            } catch (apiError) {
+              // Log the error for debugging
+              const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
+              console.warn('[Research] Backend API call failed (will use fallback):', errorMsg);
 
-        // Auto-generate graph from AI response if available
-        if (finalAnswer && typeof window !== 'undefined' && window.graph) {
-          try {
-            // Extract key concepts from AI response
-            const concepts = finalAnswer.split(/[.,;]/).slice(0, 5);
-            for (const concept of concepts) {
-              const trimmed = concept.trim();
-              if (trimmed.length > 3 && trimmed.length < 50) {
-                await window.graph.add({
-                  id: `research-${Date.now()}-${Math.random()}`,
-                  label: trimmed,
-                  type: 'research-concept',
+              // Show user-friendly message if backend is clearly offline
+              if (
+                errorMsg.includes('fetch') ||
+                errorMsg.includes('network') ||
+                errorMsg.includes('ECONNREFUSED') ||
+                errorMsg.includes('Failed to fetch')
+              ) {
+                toast.info('Backend server is offline. Using fallback search engines...', {
+                  duration: 3000,
+                });
+              }
+
+              // Continue with fallback - backend is optional
+              backendResult = null;
+            }
+          }
+
+          if (backendResult) {
+            // Map sources
+            if (backendResult.sources && backendResult.sources.length > 0) {
+              aggregatedSources = backendResult.sources.map((source: any, idx: number) => ({
+                id: `backend-${idx}`,
+                title: source.title || 'Untitled',
+                url: source.url || '',
+                domain: source.domain || new URL(source.url || 'http://example.com').hostname,
+                snippet: source.snippet || '',
+                text: source.snippet || '',
+                type: source.sourceType || 'other',
+                sourceType: source.sourceType || 'other',
+                relevanceScore: Math.round((source.relevanceScore || 0.5) * 100),
+                timestamp: source.timestamp || Date.now(),
+                metadata: {
+                  provider: 'backend-api',
+                },
+              }));
+              aggregatedProviderNames = ['backend-api'];
+            }
+
+            // Use backend summary if available
+            if (backendResult.summary) {
+              context.backend_summary = backendResult.summary;
+            }
+
+            // Store metrics for verification
+            if (backendResult.citations !== undefined || backendResult.hallucination) {
+              context.backend_metrics = {
+                citations: backendResult.citations || 0,
+                hallucination: backendResult.hallucination || 'medium',
+              };
+            }
+
+            console.log(
+              `[Research] Backend API returned ${aggregatedSources.length} results with summary and metrics`
+            );
+          }
+
+          // Fallback to multi-source search if backend API failed or returned no results
+          if (aggregatedSources.length === 0) {
+            try {
+              console.log('[Research] Using fallback search (optimizedSearch)...');
+              setLoadingMessage('Searching with fallback engines...');
+              setProgress(25);
+
+              // OPTIMIZED SEARCH: Use optimized search service for better reliability
+              const optimizedResults = await optimizedSearch(searchQuery, {
+                count: 20,
+                language,
+                timeout: 10000,
+              });
+
+              console.log(
+                '[Research] Fallback search returned',
+                optimizedResults.length,
+                'results'
+              );
+              setProgress(40);
+
+              // Convert optimized results to multi-source format
+              const multiSourceResults: MultiSourceSearchResult[] = optimizedResults.map(r => ({
+                title: r.title,
+                url: r.url,
+                snippet: r.snippet,
+                source: r.provider,
+                score: r.score,
+                domain: r.domain,
+              }));
+              if (multiSourceResults.length > 0) {
+                aggregatedSources = multiSourceResults.map((hit, idx) =>
+                  mapMultiSourceResultToSource(hit, idx)
+                );
+                aggregatedProviderNames = Array.from(
+                  new Set(
+                    multiSourceResults.map(hit =>
+                      typeof hit.source === 'string' ? hit.source.toLowerCase() : 'web'
+                    )
+                  )
+                );
+                context.multi_source_results = multiSourceResults.slice(0, 8).map(hit => ({
+                  title: hit.title,
+                  url: hit.url,
+                  snippet: hit.snippet.slice(0, 300),
+                  provider: hit.source,
+                  score: hit.score,
+                }));
+
+                const urlsToScrape = aggregatedSources
+                  .filter(source => Boolean(source.url))
+                  .slice(0, 4)
+                  .map(source => source.url as string);
+                if (urlsToScrape.length > 0) {
+                  scrapedSnapshots = await scrapeResearchSources(urlsToScrape, {
+                    max_chars: 12000,
+                    allow_render: true,
+                  });
+                  if (scrapedSnapshots.length > 0) {
+                    aggregatedSources = mergeScrapedSnapshots(aggregatedSources, scrapedSnapshots);
+                    context.scraped_sources = scrapedSnapshots.slice(0, 3).map(snapshot => ({
+                      url: snapshot.finalUrl ?? snapshot.url,
+                      title: snapshot.title,
+                      excerpt: snapshot.excerpt?.slice(0, 400),
+                      word_count: snapshot.wordCount,
+                      rendered: snapshot.rendered,
+                    }));
+                  }
+                }
+              }
+            } catch (multiSourceError) {
+              console.warn('[Research] Multi-source search failed:', multiSourceError);
+              // Don't give up - try next fallback
+              if (aggregatedSources.length === 0) {
+                toast.info('Primary search failed, trying alternative engines...', {
+                  duration: 2000,
                 });
               }
             }
-            await refreshGraph();
-          } catch (graphError) {
-            console.debug('[Research] Auto-graph generation failed:', graphError);
+          }
+
+          // Final fallback to live web search if all else fails
+          if (aggregatedSources.length === 0) {
+            console.log('[Research] No results from optimizedSearch, trying live web search...');
+            toast.info('Using alternative search engine...', { duration: 2000 });
+            try {
+              const liveResults = await performLiveWebSearch(searchQuery, {
+                count: 15,
+                language: language !== 'auto' ? language : undefined,
+              });
+
+              if (liveResults.length > 0) {
+                aggregatedSources = liveResults.map((hit, idx) => ({
+                  id: `live-${hit.provider}-${idx}`,
+                  title: hit.title,
+                  url: hit.url,
+                  domain: hit.domain,
+                  snippet: hit.snippet,
+                  text: hit.snippet,
+                  type: inferSourceType(hit.domain),
+                  sourceType: inferSourceType(hit.domain),
+                  relevanceScore: Math.round(hit.score * 100),
+                  timestamp: Date.now(),
+                  metadata: {
+                    provider: hit.provider,
+                  },
+                }));
+                aggregatedProviderNames = Array.from(new Set(liveResults.map(r => r.provider)));
+
+                console.log(
+                  `[Research] Live web search returned ${liveResults.length} results from ${aggregatedProviderNames.join(', ')}`
+                );
+              }
+            } catch (liveSearchError) {
+              console.warn('[Research] Live web search failed:', liveSearchError);
+            }
+          }
+
+          // If we got a backend result with summary, use it directly
+          if (
+            backendResult &&
+            (backendResult.summary || backendResult.answer) &&
+            aggregatedSources.length > 0
+          ) {
+            const dedupedSources = dedupeResearchSources(aggregatedSources);
+
+            // Map backend metrics to verification
+            const citations = backendResult.citations || aggregatedSources.length || 0;
+            const hallucination = backendResult.hallucination || 'medium';
+            const hallucinationRisk =
+              hallucination === 'low' ? 0.2 : hallucination === 'medium' ? 0.5 : 0.8;
+            const citationCoverage = Math.min(
+              (citations / Math.max(aggregatedSources.length, 1)) * 100,
+              100
+            );
+
+            // TELEMETRY FIX: Track successful search latency
+            const searchLatency = performance.now() - searchStartTime;
+            import('../../services/telemetryMetrics')
+              .then(({ telemetryMetrics }) => {
+                telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
+                  provider: 'backend',
+                  resultCount: dedupedSources.length,
+                });
+              })
+              .catch(() => {
+                // Telemetry not available
+              });
+
+            setResult({
+              query: searchQuery,
+              summary: backendResult.summary || backendResult.answer || '',
+              sources: dedupedSources.slice(0, 16),
+              citations: backendResult.citations || [],
+              inlineEvidence: [],
+              contradictions: backendResult.contradictions || [],
+              verification: {
+                verified: hallucination === 'low',
+                claimDensity: aggregatedSources.length,
+                citationCoverage: citationCoverage,
+                ungroundedClaims: [],
+                hallucinationRisk: hallucinationRisk,
+                suggestions:
+                  hallucination === 'high' ? ['Consider verifying with additional sources'] : [],
+              },
+              confidence: backendResult.confidence || (hallucination === 'low' ? 0.8 : 0.6),
+              language: backendResult.language || language,
+              languageLabel: backendResult.languageLabel || getLanguageMeta(language).nativeName,
+              languageConfidence: backendResult.languageConfidence || 0.9,
+            });
+            setLoading(false);
+            setLoadingMessage(null);
+            toast.dismiss();
+            return;
+          }
+
+          // Try Tauri streaming if available and no result yet
+          // Reuse isTauri from above (line 835) - no need to redeclare
+          if (isTauri && ipc && aggregatedSources.length === 0) {
+            try {
+              // Set up streaming listeners
+              let streamedText = '';
+              let streamCitations = 0;
+              let streamHallucination = 'medium';
+
+              const handleToken = (e: CustomEvent) => {
+                if (typeof e.detail === 'string') {
+                  streamedText += e.detail;
+                  // Update result in real-time
+                  setResult(prev => ({
+                    ...prev,
+                    query: searchQuery,
+                    summary: streamedText,
+                    sources: prev?.sources || [],
+                    citations: prev?.citations || [],
+                    inlineEvidence: [],
+                    contradictions: [],
+                    verification: {
+                      verified: streamHallucination === 'low',
+                      claimDensity: aggregatedSources.length,
+                      citationCoverage:
+                        streamCitations > 0
+                          ? Math.min(
+                              (streamCitations / Math.max(aggregatedSources.length, 1)) * 100,
+                              100
+                            )
+                          : 0,
+                      ungroundedClaims: [],
+                      hallucinationRisk:
+                        streamHallucination === 'low'
+                          ? 0.2
+                          : streamHallucination === 'medium'
+                            ? 0.5
+                            : 0.8,
+                      suggestions:
+                        streamHallucination === 'high'
+                          ? ['Consider verifying with additional sources']
+                          : [],
+                    },
+                    confidence: streamHallucination === 'low' ? 0.8 : 0.6,
+                    language: language,
+                    languageLabel: getLanguageMeta(language).nativeName,
+                    languageConfidence: 0.9,
+                  }));
+                }
+              };
+
+              const handleMetrics = (e: CustomEvent) => {
+                if (e.detail) {
+                  streamCitations = e.detail.citations || 0;
+                  streamHallucination = e.detail.hallucination || 'medium';
+                }
+              };
+
+              const handleEnd = (e: CustomEvent) => {
+                if (e.detail) {
+                  streamedText = e.detail.response || streamedText;
+                  streamCitations = e.detail.citations || streamCitations;
+                  streamHallucination = e.detail.hallucination || streamHallucination;
+                }
+                // Remove listeners
+                window.removeEventListener('research-token', handleToken as EventListener);
+                window.removeEventListener('research-metrics', handleMetrics as EventListener);
+                window.removeEventListener('research-end', handleEnd as EventListener);
+                setLoading(false);
+                setLoadingMessage(null);
+                toast.dismiss();
+              };
+
+              // Add listeners
+              window.addEventListener('research-token', handleToken as EventListener);
+              window.addEventListener('research-metrics', handleMetrics as EventListener);
+              window.addEventListener('research-end', handleEnd as EventListener);
+
+              // Start streaming (Tauri command expects query as first parameter, window is auto-injected)
+              await (ipc as any).invoke('research_stream', { query: searchQuery });
+
+              // Set initial result
+              setResult({
+                query: searchQuery,
+                summary: '',
+                sources: [],
+                citations: [],
+                inlineEvidence: [],
+                contradictions: [],
+                verification: {
+                  verified: false,
+                  claimDensity: 0,
+                  citationCoverage: 0,
+                  ungroundedClaims: [],
+                  hallucinationRisk: 0.5,
+                  suggestions: [],
+                },
+                confidence: 0.5,
+                language: language,
+                languageLabel: getLanguageMeta(language).nativeName,
+                languageConfidence: 0.9,
+              });
+
+              return; // Exit early, streaming will update result
+            } catch (streamError) {
+              console.warn('[Research] Tauri streaming failed:', streamError);
+              // Continue to fallback
+            }
           }
         }
 
-        // Convert AI result to ResearchResult format
-        const sources: ResearchSource[] = [...aggregatedSources];
+        // Use unified AI engine for research queries
+        try {
+          let streamedText = '';
+          let streamedResult: AITaskResult | null = null;
 
-        // Add citations from AI response as sources
-        if (finalResult?.citations && finalResult.citations.length > 0) {
-          sources.push(
-            ...finalResult.citations.map((cite, idx) => {
-              let domain = cite.source || '';
-              try {
-                if (cite.url) {
-                  domain = new URL(cite.url).hostname;
+          // Build a comprehensive prompt that includes sources if available
+          let researchPrompt = searchQuery;
+          if (aggregatedSources.length > 0) {
+            // Include top sources in the prompt for better context
+            const topSources = aggregatedSources
+              .slice(0, 8)
+              .map((source, idx) => {
+                return `[${idx + 1}] ${source.title}\n${source.snippet || source.text || ''}\nURL: ${source.url || 'N/A'}`;
+              })
+              .join('\n\n');
+
+            researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following sources, provide a comprehensive answer:\n\n${topSources}\n\nAnswer:`;
+          } else if (scrapedSnapshots.length > 0) {
+            // Use scraped content if available
+            const scrapedContent = scrapedSnapshots
+              .slice(0, 3)
+              .map((snapshot, idx) => {
+                return `[${idx + 1}] ${snapshot.title}\n${snapshot.excerpt || ''}`;
+              })
+              .join('\n\n');
+
+            researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
+          }
+
+          // DETERMINISM: Wrap AI operation with determinism
+          const userId = getUserId();
+          const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+            userId,
+            type: 'research',
+            query: searchQuery,
+            reasoning: `Research query with ${aggregatedSources.length} sources: ${searchQuery.substring(0, 100)}`,
+            sources: aggregatedSources.slice(0, 10).map(s => s.url),
+          });
+
+          const aiResult = await deterministicRunner(
+            {
+              kind: 'search',
+              prompt: researchPrompt,
+              context: {
+                ...context,
+                sources: aggregatedSources.slice(0, 10).map(s => ({
+                  title: s.title,
+                  url: s.url,
+                  snippet: s.snippet || s.text,
+                })),
+                query: searchQuery,
+              },
+              mode: 'research',
+              metadata: {
+                includeCounterpoints,
+                region: region !== 'global' ? region : undefined,
+                recencyWeight,
+                authorityWeight,
+                language: language !== 'auto' ? language : undefined,
+                sourceCount: aggregatedSources.length,
+              },
+              llm: {
+                temperature: 0.2,
+                maxTokens: 1500, // Increased for better answers
+                systemPrompt:
+                  "You are ReGen's research copilot. Provide comprehensive, well-structured answers based on the provided sources. Cite sources as [n] when referencing them. If sources are provided, use them to answer the question. If no sources are provided, provide a general answer based on your knowledge.",
+              },
+            },
+            event => {
+              if (event.type === 'token' && typeof event.data === 'string') {
+                streamedText += event.data;
+                // Update result with streaming text in real-time
+                if (streamedText.length > 50) {
+                  setResult(prev => ({
+                    ...prev,
+                    query: searchQuery,
+                    summary: streamedText,
+                    sources: prev?.sources || aggregatedSources.slice(0, 16),
+                    citations: prev?.citations || [],
+                    inlineEvidence: [],
+                    contradictions: [],
+                    verification: prev?.verification || {
+                      score: 0.7,
+                      confidence: 'medium',
+                      suggestions: [],
+                    },
+                    confidence: 0.75,
+                  }));
                 }
-              } catch {
-                // Invalid URL, use source or empty
-                domain = cite.source || '';
+              } else if (event.type === 'done' && typeof event.data !== 'string') {
+                streamedResult = event.data as AITaskResult;
+              } else if (event.type === 'error') {
+                console.error('[Research] AI engine error:', event.data);
+                throw new Error(typeof event.data === 'string' ? event.data : 'AI engine error');
               }
-              const citationType: ResearchSourceType = inferSourceType(domain);
-              return {
-                id: `ai-citation-${idx}`,
-                title: cite.title || cite.url || `Source ${idx + 1}`,
-                url: cite.url || '',
-                domain,
-                snippet: cite.snippet || '',
-                text: cite.snippet || '',
-                type: citationType,
-                sourceType: citationType,
-                relevanceScore: 95 - idx * 3,
-                timestamp: Date.now(),
-                metadata: {
-                  provider: 'ai-citation',
-                },
-              };
-            })
+            }
           );
-        }
 
-        // Add uploaded documents as sources
-        if (uploadedDocuments.length > 0) {
-          sources.push(
-            ...uploadedDocuments.map((doc, idx) => ({
-              id: doc.id,
-              title: doc.name,
-              url: '',
-              domain: 'uploaded',
-              snippet: doc.text.slice(0, 200) + (doc.text.length > 200 ? '...' : ''),
-              text: doc.text,
-              type: 'documentation' as ResearchSourceType,
-              sourceType: 'documentation' as ResearchSourceType,
-              relevanceScore: 98 - idx, // High relevance for uploaded documents
-              timestamp: Date.now(),
-              metadata: {
-                provider: 'uploaded-doc',
-              },
-            }))
-          );
-        }
+          const finalResult = streamedResult ?? aiResult;
+          aiMetaRef.current = {
+            provider: finalResult?.provider || 'ai',
+            model: finalResult?.model,
+          };
+          const finalAnswer = streamedText || finalResult?.text || '';
 
-        // Add local search results (legacy lunr index)
-        try {
-          const localResults = await searchLocal(searchQuery);
-          sources.push(
-            ...localResults.map((lr, idx) => ({
-              id: `local-${lr.id}`,
-              title: lr.title,
-              url: '',
-              domain: 'local',
-              snippet: lr.snippet,
-              text: lr.snippet,
-              type: 'documentation' as ResearchSourceType,
-              sourceType: 'documentation' as ResearchSourceType,
-              relevanceScore: 85 - idx * 3,
-              timestamp: Date.now(),
-              metadata: {
-                provider: 'local-index',
-              },
-            }))
-          );
-        } catch (localError) {
-          console.debug('[Research] Local search failed:', localError);
-        }
+          // Auto-generate graph from AI response if available
+          if (finalAnswer && typeof window !== 'undefined' && window.graph) {
+            try {
+              // Extract key concepts from AI response
+              const concepts = finalAnswer.split(/[.,;]/).slice(0, 5);
+              for (const concept of concepts) {
+                const trimmed = concept.trim();
+                if (trimmed.length > 3 && trimmed.length < 50) {
+                  await window.graph.add({
+                    id: `research-${Date.now()}-${Math.random()}`,
+                    label: trimmed,
+                    type: 'research-concept',
+                  });
+                }
+              }
+              await refreshGraph();
+            } catch (graphError) {
+              console.debug('[Research] Auto-graph generation failed:', graphError);
+            }
+          }
 
-        // Search offline RAG documents
-        try {
-          const offlineRAGResults = await searchOfflineDocuments(searchQuery, { limit: 5 });
-          if (offlineRAGResults && offlineRAGResults.documents.length > 0) {
+          // Convert AI result to ResearchResult format
+          const sources: ResearchSource[] = [...aggregatedSources];
+
+          // Add citations from AI response as sources
+          if (finalResult?.citations && finalResult.citations.length > 0) {
             sources.push(
-              ...offlineRAGResults.documents.map((ragDoc, idx) => ({
-                id: `offline-rag-${ragDoc.document.id}`,
-                title: ragDoc.document.title,
-                url: ragDoc.document.url || '',
-                domain: ragDoc.document.url ? new URL(ragDoc.document.url).hostname : 'offline',
-                snippet: ragDoc.document.excerpt || ragDoc.document.content.slice(0, 200),
-                text: ragDoc.document.content.slice(0, 500),
+              ...finalResult.citations.map((cite, idx) => {
+                let domain = cite.source || '';
+                try {
+                  if (cite.url) {
+                    domain = new URL(cite.url).hostname;
+                  }
+                } catch {
+                  // Invalid URL, use source or empty
+                  domain = cite.source || '';
+                }
+                const citationType: ResearchSourceType = inferSourceType(domain);
+                return {
+                  id: `ai-citation-${idx}`,
+                  title: cite.title || cite.url || `Source ${idx + 1}`,
+                  url: cite.url || '',
+                  domain,
+                  snippet: cite.snippet || '',
+                  text: cite.snippet || '',
+                  type: citationType,
+                  sourceType: citationType,
+                  relevanceScore: 95 - idx * 3,
+                  timestamp: Date.now(),
+                  metadata: {
+                    provider: 'ai-citation',
+                  },
+                };
+              })
+            );
+          }
+
+          // Add uploaded documents as sources
+          if (uploadedDocuments.length > 0) {
+            sources.push(
+              ...uploadedDocuments.map((doc, idx) => ({
+                id: doc.id,
+                title: doc.name,
+                url: '',
+                domain: 'uploaded',
+                snippet: doc.text.slice(0, 200) + (doc.text.length > 200 ? '...' : ''),
+                text: doc.text,
                 type: 'documentation' as ResearchSourceType,
                 sourceType: 'documentation' as ResearchSourceType,
-                relevanceScore: Math.round(ragDoc.relevance * 100) - idx,
-                timestamp: ragDoc.document.indexedAt,
+                relevanceScore: 98 - idx, // High relevance for uploaded documents
+                timestamp: Date.now(),
                 metadata: {
-                  provider: 'offline-rag',
-                  documentId: ragDoc.document.id,
-                  accessCount: ragDoc.document.accessCount,
-                  ...ragDoc.document.metadata,
+                  provider: 'uploaded-doc',
                 },
               }))
             );
           }
-        } catch (offlineError) {
-          console.debug('[Research] Offline RAG search failed:', offlineError);
-        }
 
-        // Build inline citations from AI response
-        const inlineCitations =
-          finalResult?.citations?.map((cite, idx) => ({
-            id: `citation-${idx}`,
-            text: cite.title || cite.url || `Source ${idx + 1}`,
-            url: cite.url || '',
-            position:
-              finalAnswer.indexOf(cite.title || '') >= 0
-                ? finalAnswer.indexOf(cite.title || '')
-                : idx * 50, // Approximate position
-          })) || [];
+          // Add local search results (legacy lunr index)
+          try {
+            const localResults = await searchLocal(searchQuery);
+            sources.push(
+              ...localResults.map((lr, idx) => ({
+                id: `local-${lr.id}`,
+                title: lr.title,
+                url: '',
+                domain: 'local',
+                snippet: lr.snippet,
+                text: lr.snippet,
+                type: 'documentation' as ResearchSourceType,
+                sourceType: 'documentation' as ResearchSourceType,
+                relevanceScore: 85 - idx * 3,
+                timestamp: Date.now(),
+                metadata: {
+                  provider: 'local-index',
+                },
+              }))
+            );
+          } catch (localError) {
+            console.debug('[Research] Local search failed:', localError);
+          }
 
-        const dedupedSources = dedupeResearchSources(sources);
+          // Search offline RAG documents
+          try {
+            const offlineRAGResults = await searchOfflineDocuments(searchQuery, { limit: 5 });
+            if (offlineRAGResults && offlineRAGResults.documents.length > 0) {
+              sources.push(
+                ...offlineRAGResults.documents.map((ragDoc, idx) => ({
+                  id: `offline-rag-${ragDoc.document.id}`,
+                  title: ragDoc.document.title,
+                  url: ragDoc.document.url || '',
+                  domain: ragDoc.document.url ? new URL(ragDoc.document.url).hostname : 'offline',
+                  snippet: ragDoc.document.excerpt || ragDoc.document.content.slice(0, 200),
+                  text: ragDoc.document.content.slice(0, 500),
+                  type: 'documentation' as ResearchSourceType,
+                  sourceType: 'documentation' as ResearchSourceType,
+                  relevanceScore: Math.round(ragDoc.relevance * 100) - idx,
+                  timestamp: ragDoc.document.indexedAt,
+                  metadata: {
+                    provider: 'offline-rag',
+                    documentId: ragDoc.document.id,
+                    accessCount: ragDoc.document.accessCount,
+                    ...ragDoc.document.metadata,
+                  },
+                }))
+              );
+            }
+          } catch (offlineError) {
+            console.debug('[Research] Offline RAG search failed:', offlineError);
+          }
 
-        // Ensure we have a valid answer
-        const finalSummary = finalAnswer.trim() || streamedText.trim();
-        if (!finalSummary || finalSummary === 'No answer generated') {
-          // If no answer was generated, create one from sources
-          if (dedupedSources.length > 0) {
-            const sourceSummary = dedupedSources
-              .slice(0, 3)
-              .map(
-                (s, idx) =>
-                  `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`
-              )
-              .join('\n\n');
+          // Build inline citations from AI response
+          const inlineCitations =
+            finalResult?.citations?.map((cite, idx) => ({
+              id: `citation-${idx}`,
+              text: cite.title || cite.url || `Source ${idx + 1}`,
+              url: cite.url || '',
+              position:
+                finalAnswer.indexOf(cite.title || '') >= 0
+                  ? finalAnswer.indexOf(cite.title || '')
+                  : idx * 50, // Approximate position
+            })) || [];
+
+          const dedupedSources = dedupeResearchSources(sources);
+
+          // Ensure we have a valid answer
+          const finalSummary = finalAnswer.trim() || streamedText.trim();
+          if (!finalSummary || finalSummary === 'No answer generated') {
+            // If no answer was generated, create one from sources
+            if (dedupedSources.length > 0) {
+              const sourceSummary = dedupedSources
+                .slice(0, 3)
+                .map(
+                  (s, idx) =>
+                    `${idx + 1}. ${s.title}: ${(s.snippet || s.text || '').slice(0, 150)}...`
+                )
+                .join('\n\n');
+              setResult({
+                query: searchQuery,
+                summary: `Based on ${dedupedSources.length} source(s):\n\n${sourceSummary}`,
+                sources: dedupedSources.slice(0, 16),
+                citations: inlineCitations,
+                inlineEvidence: [],
+                contradictions: [],
+                verification: {
+                  score: 0.7,
+                  confidence: 'medium',
+                  suggestions: ['AI answer generation failed, showing source summaries instead'],
+                },
+                confidence: 0.65,
+              });
+            } else {
+              setError(
+                'Unable to generate answer. Please try a different query or check your connection.'
+              );
+              setLoading(false);
+              setLoadingMessage(null);
+              toast.dismiss();
+              toast.error('Research failed - no sources found');
+              return;
+            }
+          } else {
+            // Create final checkpoint before setting result
+            if (currentJobId) {
+              try {
+                await jobAuthority.checkpoint({
+                  jobId: currentJobId,
+                  progress: 95,
+                  step: 'Finalizing results...',
+                  data: {
+                    answer: finalSummary.substring(0, 500),
+                    sourceCount: dedupedSources.length,
+                    query: searchQuery,
+                  },
+                });
+              } catch (error) {
+                console.warn('[Research] Failed to create final checkpoint:', error);
+              }
+            }
+
             setResult({
               query: searchQuery,
-              summary: `Based on ${dedupedSources.length} source(s):\n\n${sourceSummary}`,
+              summary: finalSummary,
               sources: dedupedSources.slice(0, 16),
               citations: inlineCitations,
               inlineEvidence: [],
               contradictions: [],
               verification: {
-                score: 0.7,
-                confidence: 'medium',
-                suggestions: ['AI answer generation failed, showing source summaries instead'],
+                score: 0.8,
+                confidence: 'high',
+                suggestions: [
+                  `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
+                  ...(finalResult?.citations?.length
+                    ? [`${finalResult.citations.length} citation(s) included`]
+                    : []),
+                  ...(dedupedSources.length > 0
+                    ? [`Based on ${dedupedSources.length} source(s)`]
+                    : []),
+                ],
               },
-              confidence: 0.65,
+              confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
             });
-          } else {
-            setError(
-              'Unable to generate answer. Please try a different query or check your connection.'
-            );
-            setLoading(false);
-            setLoadingMessage(null);
-            toast.dismiss();
-            toast.error('Research failed - no sources found');
-            return;
           }
-        } else {
-          setResult({
-            query: searchQuery,
-            summary: finalSummary,
-            sources: dedupedSources.slice(0, 16),
-            citations: inlineCitations,
-            inlineEvidence: [],
-            contradictions: [],
-            verification: {
-              score: 0.8,
-              confidence: 'high',
-              suggestions: [
-                `AI-generated response using ${finalResult?.provider || 'unknown'} (${finalResult?.model || 'unknown'})`,
-                ...(finalResult?.citations?.length
-                  ? [`${finalResult.citations.length} citation(s) included`]
-                  : []),
-                ...(dedupedSources.length > 0
-                  ? [`Based on ${dedupedSources.length} source(s)`]
-                  : []),
-              ],
-            },
-            confidence: Math.min(0.95, Math.max(0.45, finalResult?.confidence ?? 0.82)),
-          });
-        }
-        setLoading(false);
-        setLoadingMessage(null);
-        toast.dismiss();
-        toast.success('Research complete');
-        return;
-      } catch (aiError) {
-        console.error('[Research] AI engine failed:', aiError);
-        const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
-        console.warn('[Research] Falling back to legacy search:', errorMessage);
-
-        if (aggregatedSources.length > 0) {
-          const providerLabel =
-            aggregatedProviderNames.length > 0
-              ? aggregatedProviderNames.map(provider => formatProviderName(provider)).join(', ')
-              : 'multi-source web';
-          const dedupedAggregated = dedupeResearchSources(aggregatedSources);
-          const topTitles = dedupedAggregated
-            .slice(0, 3)
-            .map(source => source.title)
-            .join('; ');
-          const scrapedSummary = scrapedSnapshots.find(snapshot => snapshot.excerpt)?.excerpt;
-          aiMetaRef.current = {
-            provider: 'multi-source',
-            model: 'aggregate',
-          };
-
-          setResult({
-            query: searchQuery,
-            summary: scrapedSummary?.length
-              ? scrapedSummary
-              : topTitles.length > 0
-                ? `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results. Top hits: ${topTitles}.`
-                : `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results.`,
-            sources: dedupedAggregated.slice(0, 16),
-            citations: [],
-            inlineEvidence: [],
-            contradictions: [],
-            verification: {
-              score: 0.65,
-              confidence: 'medium',
-              suggestions: [`Review ${providerLabel} sources manually.`],
-            },
-            confidence: 0.62,
-          });
+          setLoading(false);
+          setLoadingMessage(null);
+          setProgress(100);
+          toast.dismiss();
+          toast.success('Research complete');
           return;
-        }
+        } catch (aiError) {
+          console.error('[Research] AI engine failed:', aiError);
+          const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+          console.warn('[Research] Falling back to legacy search:', errorMessage);
 
-        // OPTIMIZED SEARCH: Try optimized search as primary fallback
-        const optimizedResults = await optimizedSearch(searchQuery, {
-          count: 10,
-          language,
-          timeout: 6000,
-        });
-
-        if (optimizedResults.length > 0) {
-          const sources: ResearchSource[] = optimizedResults.map((r, idx) => ({
-            id: `opt-fallback-${idx}`,
-            title: r.title,
-            url: r.url,
-            domain: r.domain,
-            snippet: r.snippet,
-            text: r.snippet,
-            type: inferSourceType(r.domain),
-            sourceType: inferSourceType(r.domain),
-            relevanceScore: r.score * 100,
-            timestamp: r.timestamp,
-            metadata: {
-              provider: r.provider,
-            },
-          }));
-
-          setResult({
-            query: searchQuery,
-            summary: `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
-            sources: dedupeResearchSources(sources).slice(0, 16),
-            citations: [],
-            inlineEvidence: [],
-            contradictions: [],
-            verification: {
-              score: 0.65,
-              confidence: 'medium',
-              suggestions: [`Results from ${optimizedResults[0]?.provider || 'optimized'} search`],
-            },
-            confidence: 0.6,
-          });
-          return;
-        }
-
-        // Final fallback to DuckDuckGo Instant Answer API
-        const duckResult = await fetchDuckDuckGoInstant(searchQuery, language);
-        if (duckResult) {
-          aiMetaRef.current = {
-            provider: 'duckduckgo',
-            model: 'instant-answer',
-          };
-          const formatted = formatDuckDuckGoResults(duckResult);
-
-          // Also try local search
-          const localResults = await searchLocal(searchQuery).catch(() => []);
-
-          // Convert to ResearchResult format
-          const sources: ResearchSource[] = [
-            // DuckDuckGo instant answer
-            ...(duckResult.Heading && duckResult.AbstractText
-              ? [
-                  {
-                    id: 'duck-instant',
-                    title: duckResult.Heading,
-                    url: duckResult.AbstractURL || '',
-                    domain: duckResult.AbstractURL
-                      ? extractDomain(duckResult.AbstractURL)
-                      : 'duckduckgo.com',
-                    snippet: duckResult.AbstractText,
-                    text: duckResult.AbstractText,
-                    type: 'news' as ResearchSourceType,
-                    sourceType: 'news' as ResearchSourceType,
-                    relevanceScore: 100,
-                    timestamp: Date.now(),
-                  },
-                ]
-              : []),
-            // DuckDuckGo web results
-            ...formatted
-              .filter(f => f.type === 'result' && f.url)
-              .map((f, idx) => {
-                const domain = f.url ? extractDomain(f.url) : '';
-                const sourceType = inferSourceType(domain);
-                return {
-                  id: `duck-result-${idx}`,
-                  title: f.title,
-                  url: f.url || '',
-                  domain,
-                  snippet: f.snippet,
-                  text: f.snippet,
-                  type: sourceType,
-                  sourceType,
-                  relevanceScore: 85 - idx * 5,
-                  timestamp: Date.now(),
-                };
-              }),
-            // Local docs results
-            ...localResults.map((lr, idx) => ({
-              id: `local-${lr.id}`,
-              title: lr.title,
-              url: '',
-              domain: 'local',
-              snippet: lr.snippet,
-              text: lr.snippet,
-              type: 'documentation' as ResearchSourceType,
-              sourceType: 'documentation' as ResearchSourceType,
-              relevanceScore: 90 - idx * 3,
-              timestamp: Date.now(),
-              metadata: {
-                provider: 'local-index',
-              },
-            })),
-          ];
-
-          setResult({
-            query: searchQuery,
-            summary:
-              duckResult.AbstractText ||
-              duckResult.Answer ||
-              duckResult.Definition ||
-              `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
-            sources: dedupeResearchSources(sources).slice(0, 16),
-            citations: [],
-            inlineEvidence: [],
-            contradictions: [],
-            verification: {
-              score: 0.7,
-              confidence: 'medium',
-              suggestions: ['Results from DuckDuckGo Instant Answer API'],
-            },
-            confidence: 0.58,
-          });
-        } else {
-          // Final fallback: try local search only
-          const localResults = await searchLocal(searchQuery).catch(() => []);
-          if (localResults.length > 0) {
+          if (aggregatedSources.length > 0) {
+            const providerLabel =
+              aggregatedProviderNames.length > 0
+                ? aggregatedProviderNames.map(provider => formatProviderName(provider)).join(', ')
+                : 'multi-source web';
+            const dedupedAggregated = dedupeResearchSources(aggregatedSources);
+            const topTitles = dedupedAggregated
+              .slice(0, 3)
+              .map(source => source.title)
+              .join('; ');
+            const scrapedSummary = scrapedSnapshots.find(snapshot => snapshot.excerpt)?.excerpt;
             aiMetaRef.current = {
-              provider: 'local-index',
-              model: 'documents',
+              provider: 'multi-source',
+              model: 'aggregate',
             };
+
             setResult({
               query: searchQuery,
-              summary: `Found ${localResults.length} local result${localResults.length === 1 ? '' : 's'}`,
-              sources: localResults.map((lr, idx) => ({
+              summary: scrapedSummary?.length
+                ? scrapedSummary
+                : topTitles.length > 0
+                  ? `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results. Top hits: ${topTitles}.`
+                  : `Multi-source (${providerLabel}) search returned ${dedupedAggregated.length} results.`,
+              sources: dedupedAggregated.slice(0, 16),
+              citations: [],
+              inlineEvidence: [],
+              contradictions: [],
+              verification: {
+                score: 0.65,
+                confidence: 'medium',
+                suggestions: [`Review ${providerLabel} sources manually.`],
+              },
+              confidence: 0.62,
+            });
+            return;
+          }
+
+          // OPTIMIZED SEARCH: Try optimized search as primary fallback
+          const optimizedResults = await optimizedSearch(searchQuery, {
+            count: 10,
+            language,
+            timeout: 6000,
+          });
+
+          if (optimizedResults.length > 0) {
+            const sources: ResearchSource[] = optimizedResults.map((r, idx) => ({
+              id: `opt-fallback-${idx}`,
+              title: r.title,
+              url: r.url,
+              domain: r.domain,
+              snippet: r.snippet,
+              text: r.snippet,
+              type: inferSourceType(r.domain),
+              sourceType: inferSourceType(r.domain),
+              relevanceScore: r.score * 100,
+              timestamp: r.timestamp,
+              metadata: {
+                provider: r.provider,
+              },
+            }));
+
+            setResult({
+              query: searchQuery,
+              summary: `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+              sources: dedupeResearchSources(sources).slice(0, 16),
+              citations: [],
+              inlineEvidence: [],
+              contradictions: [],
+              verification: {
+                score: 0.65,
+                confidence: 'medium',
+                suggestions: [
+                  `Results from ${optimizedResults[0]?.provider || 'optimized'} search`,
+                ],
+              },
+              confidence: 0.6,
+            });
+            return;
+          }
+
+          // Final fallback to DuckDuckGo Instant Answer API
+          const duckResult = await fetchDuckDuckGoInstant(searchQuery, language);
+          if (duckResult) {
+            aiMetaRef.current = {
+              provider: 'duckduckgo',
+              model: 'instant-answer',
+            };
+            const formatted = formatDuckDuckGoResults(duckResult);
+
+            // Also try local search
+            const localResults = await searchLocal(searchQuery).catch(() => []);
+
+            // Convert to ResearchResult format
+            const sources: ResearchSource[] = [
+              // DuckDuckGo instant answer
+              ...(duckResult.Heading && duckResult.AbstractText
+                ? [
+                    {
+                      id: 'duck-instant',
+                      title: duckResult.Heading,
+                      url: duckResult.AbstractURL || '',
+                      domain: duckResult.AbstractURL
+                        ? extractDomain(duckResult.AbstractURL)
+                        : 'duckduckgo.com',
+                      snippet: duckResult.AbstractText,
+                      text: duckResult.AbstractText,
+                      type: 'news' as ResearchSourceType,
+                      sourceType: 'news' as ResearchSourceType,
+                      relevanceScore: 100,
+                      timestamp: Date.now(),
+                    },
+                  ]
+                : []),
+              // DuckDuckGo web results
+              ...formatted
+                .filter(f => f.type === 'result' && f.url)
+                .map((f, idx) => {
+                  const domain = f.url ? extractDomain(f.url) : '';
+                  const sourceType = inferSourceType(domain);
+                  return {
+                    id: `duck-result-${idx}`,
+                    title: f.title,
+                    url: f.url || '',
+                    domain,
+                    snippet: f.snippet,
+                    text: f.snippet,
+                    type: sourceType,
+                    sourceType,
+                    relevanceScore: 85 - idx * 5,
+                    timestamp: Date.now(),
+                  };
+                }),
+              // Local docs results
+              ...localResults.map((lr, idx) => ({
                 id: `local-${lr.id}`,
                 title: lr.title,
                 url: '',
@@ -2000,100 +2213,166 @@ export default function ResearchPanel() {
                   provider: 'local-index',
                 },
               })),
+            ];
+
+            setResult({
+              query: searchQuery,
+              summary:
+                duckResult.AbstractText ||
+                duckResult.Answer ||
+                duckResult.Definition ||
+                `Found ${sources.length} result${sources.length === 1 ? '' : 's'} for "${searchQuery}"`,
+              sources: dedupeResearchSources(sources).slice(0, 16),
               citations: [],
               inlineEvidence: [],
               contradictions: [],
               verification: {
-                score: 0.6,
-                confidence: 'low',
-                suggestions: ['Results from local index only'],
+                score: 0.7,
+                confidence: 'medium',
+                suggestions: ['Results from DuckDuckGo Instant Answer API'],
               },
-              confidence: 0.52,
+              confidence: 0.58,
             });
           } else {
-            throw new Error(
-              'No search results available. Please check your connection or try a different query.'
+            // Final fallback: try local search only
+            const localResults = await searchLocal(searchQuery).catch(() => []);
+            if (localResults.length > 0) {
+              aiMetaRef.current = {
+                provider: 'local-index',
+                model: 'documents',
+              };
+              setResult({
+                query: searchQuery,
+                summary: `Found ${localResults.length} local result${localResults.length === 1 ? '' : 's'}`,
+                sources: localResults.map((lr, idx) => ({
+                  id: `local-${lr.id}`,
+                  title: lr.title,
+                  url: '',
+                  domain: 'local',
+                  snippet: lr.snippet,
+                  text: lr.snippet,
+                  type: 'documentation' as ResearchSourceType,
+                  sourceType: 'documentation' as ResearchSourceType,
+                  relevanceScore: 90 - idx * 3,
+                  timestamp: Date.now(),
+                  metadata: {
+                    provider: 'local-index',
+                  },
+                })),
+                citations: [],
+                inlineEvidence: [],
+                contradictions: [],
+                verification: {
+                  score: 0.6,
+                  confidence: 'low',
+                  suggestions: ['Results from local index only'],
+                },
+                confidence: 0.52,
+              });
+            } else {
+              throw new Error(
+                'No search results available. Please check your connection or try a different query.'
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Research query failed:', err);
+
+        // SEARCH SYSTEM VERIFICATION: Enhanced error handling with offline fallback
+        const errorMessage =
+          err instanceof Error
+            ? err.message
+            : 'Unable to complete the research request. Please try again.';
+
+        // Try offline fallback if MeiliSearch is down
+        const searchHealth = getSearchHealth();
+        if (searchHealth && !searchHealth.meiliSearch && searchHealth.localSearch) {
+          try {
+            console.log('[Research] Attempting offline search fallback...');
+            const localResults = await searchLocal(searchQuery, { limit: 10 });
+            if (localResults && localResults.length > 0) {
+              // Convert local results to ResearchSource format
+              const localSources = localResults.map((result: any, idx: number) => ({
+                id: `local-${idx}`,
+                url: result.url || '',
+                title: result.title || 'Local Result',
+                snippet: result.snippet || '',
+                sourceType: 'local' as ResearchSourceType,
+                relevanceScore: result.score || 50,
+              }));
+
+              // Create a basic result from local search
+              setResult({
+                query: searchQuery,
+                summary: `Found ${localResults.length} local result(s) for "${searchQuery}"`,
+                sources: localSources,
+                citations: localSources.length,
+                confidence: 0.6,
+                processingTimeMs: 100,
+              });
+
+              toast.success(`Found ${localResults.length} local result(s)`);
+              setError(null);
+              return;
+            }
+          } catch (fallbackError) {
+            console.warn('[Research] Offline fallback also failed:', fallbackError);
+            const fallbackErrorMsg =
+              fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+            setError(
+              `All search methods failed. ${fallbackErrorMsg}. ${searchHealth?.error ? `(${searchHealth.error})` : 'Backend is offline and fallback engines are not responding. Please check your internet connection or start the backend server with: npm run dev:server'}`
             );
+            toast.error('Search failed: All engines offline. Check connection or start backend.');
           }
         }
-      }
-    } catch (err) {
-      console.error('Research query failed:', err);
 
-      // SEARCH SYSTEM VERIFICATION: Enhanced error handling with offline fallback
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Unable to complete the research request. Please try again.';
-
-      // Try offline fallback if MeiliSearch is down
-      const searchHealth = getSearchHealth();
-      if (searchHealth && !searchHealth.meiliSearch && searchHealth.localSearch) {
-        try {
-          console.log('[Research] Attempting offline search fallback...');
-          const localResults = await searchLocal(searchQuery, { limit: 10 });
-          if (localResults && localResults.length > 0) {
-            // Convert local results to ResearchSource format
-            const localSources = localResults.map((result: any, idx: number) => ({
-              id: `local-${idx}`,
-              url: result.url || '',
-              title: result.title || 'Local Result',
-              snippet: result.snippet || '',
-              sourceType: 'local' as ResearchSourceType,
-              relevanceScore: result.score || 50,
-            }));
-
-            // Create a basic result from local search
-            setResult({
-              query: searchQuery,
-              summary: `Found ${localResults.length} local result(s) for "${searchQuery}"`,
-              sources: localSources,
-              citations: localSources.length,
-              confidence: 0.6,
-              processingTimeMs: 100,
-            });
-
-            toast.success(`Found ${localResults.length} local result(s)`);
-            setError(null);
-            return;
-          }
-        } catch (fallbackError) {
-          console.warn('[Research] Offline fallback also failed:', fallbackError);
-          const fallbackErrorMsg =
-            fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        // Only set error if we haven't set it in the catch block above and errorMessage is defined
+        if (typeof errorMessage !== 'undefined' && !error) {
           setError(
-            `All search methods failed. ${fallbackErrorMsg}. ${searchHealth?.error ? `(${searchHealth.error})` : 'Backend is offline and fallback engines are not responding. Please check your internet connection or start the backend server with: npm run dev:server'}`
+            `Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`
           );
-          toast.error('Search failed: All engines offline. Check connection or start backend.');
+          toast.error(`Search failed: ${errorMessage}`);
         }
-      }
 
-      // Only set error if we haven't set it in the catch block above and errorMessage is defined
-      if (typeof errorMessage !== 'undefined' && !error) {
-        setError(
-          `Search failed: ${errorMessage}. ${searchHealth?.error ? `(${searchHealth.error})` : ''}`
-        );
-        toast.error(`Search failed: ${errorMessage}`);
-      }
-
-      // TELEMETRY FIX: Track failed search latency
-      const searchLatency = performance.now() - searchStartTime;
-      import('../../services/telemetryMetrics')
-        .then(({ telemetryMetrics }) => {
-          telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
-            provider: 'failed',
-            error: errorMessage,
+        // TELEMETRY FIX: Track failed search latency
+        const searchLatency = performance.now() - searchStartTime;
+        import('../../services/telemetryMetrics')
+          .then(({ telemetryMetrics }) => {
+            telemetryMetrics.trackPerformance('search_latency', searchLatency, 'ms', {
+              provider: 'failed',
+              error: errorMessage,
+            });
+          })
+          .catch(() => {
+            // Telemetry not available
           });
-        })
-        .catch(() => {
-          // Telemetry not available
-        });
-    } finally {
-      setLoading(false);
-      setLoadingMessage(null);
-      toast.dismiss();
-    }
-  };
+      } finally {
+        // <300ms Reaction Rule: Hide feedback when done
+        searchFeedback.hide();
+        setLoading(false);
+        setLoadingMessage(null);
+        toast.dismiss();
+      }
+    },
+    [
+      query,
+      language,
+      detectedLang,
+      useHybridSearch,
+      deepScanEnabled,
+      includeCounterpoints,
+      authorityBias,
+      region,
+      buildSearchContext,
+      runDeepScanFlow,
+    ]
+  );
+
+  // Update ref whenever handleSearch changes
+  useEffect(() => {
+    handleSearchRef.current = handleSearch;
+  }, [handleSearch]);
 
   useEffect(() => {
     const handleQuickstart = (event: Event) => {
@@ -2373,6 +2652,8 @@ export default function ResearchPanel() {
 
   return (
     <>
+      {/* <300ms Reaction Rule: Immediate feedback */}
+      <searchFeedback.Feedback />
       <ResearchStagehandIntegration />
       <LayoutEngine
         sidebarWidth={0}
@@ -2504,7 +2785,7 @@ export default function ResearchPanel() {
                     disabled={loading || !query.trim()}
                     className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {loading ? 'Researching…' : 'Run research'}
+                    {loading ? 'Researching…' : 'Research'}
                   </button>
                   <VoiceButton
                     editBeforeExecute={useSettingsStore(
@@ -2664,6 +2945,12 @@ export default function ResearchPanel() {
                 onOpenSource={handleOpenUrl}
                 activeSourceId={activeSourceId}
                 onSelectSource={setActiveSourceId}
+                onSearch={query => {
+                  setQuery(query);
+                  if (handleSearchRef.current) {
+                    handleSearchRef.current(query);
+                  }
+                }}
               />
             </>
           ) : (
@@ -2704,6 +2991,10 @@ export default function ResearchPanel() {
                         Gathering sources and evaluating evidence…
                       </div>
                       <div className="w-full max-w-2xl space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-300">{progress}%</span>
+                          <Progress value={progress} className="flex-1" />
+                        </div>
                         <LoadingSkeleton variant="card" />
                         <LoadingSkeleton variant="list" lines={3} />
                         <LoadingSkeleton variant="text" lines={4} />
@@ -2755,6 +3046,12 @@ export default function ResearchPanel() {
                 onOpenSource={handleOpenUrl}
                 activeSourceId={activeSourceId}
                 onSelectSource={setActiveSourceId}
+                onSearch={query => {
+                  setQuery(query);
+                  if (handleSearchRef.current) {
+                    handleSearchRef.current(query);
+                  }
+                }}
               />
             </>
           )}
@@ -2976,13 +3273,21 @@ function ResearchResultView({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-white/5 bg-white/5 px-6 py-5 shadow-inner shadow-black/30">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {/* Answer Panel - Visually Dominant per UI audit */}
+      <section className="rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900/50 to-blue-950/30 px-8 py-6 shadow-2xl shadow-blue-500/10">
+        <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-white">AI answer with citations</h2>
-            <p className="text-xs text-gray-400">
-              {result.sources.length} sources considered • Confidence {confidencePercent}%
-            </p>
+            <h2 className="mb-2 text-2xl font-bold text-white">Answer</h2>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-300">{result.sources.length} sources</p>
+              <span className="text-gray-500">•</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-300">Confidence</span>
+                <span className="rounded-full border border-blue-500/30 bg-blue-500/20 px-3 py-1 text-sm font-bold text-blue-200">
+                  {confidencePercent}%
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {verification && (
@@ -3088,9 +3393,6 @@ function ResearchResultView({
               <div className="flex gap-1">
                 <button
                   onClick={() => {
-                    const {
-                      downloadResearchExport,
-                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'markdown');
                   }}
                   className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
@@ -3100,9 +3402,6 @@ function ResearchResultView({
                 </button>
                 <button
                   onClick={() => {
-                    const {
-                      downloadResearchExport,
-                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'json');
                   }}
                   className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
@@ -3120,11 +3419,6 @@ function ResearchResultView({
                 if (!source) return null;
 
                 // Phase 1, Day 6: Calculate credibility
-                const {
-                  calculateCredibility,
-                  getCredibilityColor,
-                  getCredibilityLabel,
-                } = require('../../core/research/sourceCredibility');
                 const credibility = calculateCredibility(source);
                 const credibilityColor = getCredibilityColor(credibility.level);
                 const credibilityLabel = getCredibilityLabel(credibility.level);
@@ -3200,12 +3494,14 @@ function InsightsSidebar({
   onOpenSource,
   activeSourceId,
   onSelectSource,
+  onSearch,
 }: {
   result: ResearchResult | null;
   loading: boolean;
   onOpenSource(url: string): void;
   activeSourceId: string | null;
   onSelectSource(sourceKey: string): void;
+  onSearch?: (query: string) => void;
 }) {
   if (loading) {
     return (
@@ -3397,18 +3693,16 @@ function InsightsSidebar({
         </div>
       )}
 
-      {/* Tier 2: OmniAgent Input */}
-      <OmniAgentInput
-        currentUrl={
-          activeId && tabs.find(t => t.id === activeId)
-            ? tabs.find(t => t.id === activeId)?.url
-            : undefined
-        }
-        onResult={result => {
-          // Display result in a toast or add to research results
-          console.log('OmniAgent result:', result);
-        }}
-      />
+      {/* Related Questions - Perplexity-style */}
+      {result && onSearch && (
+        <RelatedQuestions
+          questions={generateRelatedQuestions(result.query, result.sources, 5)}
+          onSelectQuestion={question => {
+            onSearch(question);
+          }}
+          isLoading={loading}
+        />
+      )}
     </aside>
   );
 }
@@ -3608,11 +3902,7 @@ function SourcesList({
 
   // Phase 1, Day 6: Calculate credibility for all sources
   // Note: These are used in the SourceCard component (lines 2793-2795), not here
-  const {
-    calculateCredibility: _calculateCredibility,
-    getCredibilityColor: _getCredibilityColor,
-    getCredibilityLabel: _getCredibilityLabel,
-  } = require('../../core/research/sourceCredibility');
+  // Functions are already imported at the top of the file
 
   const providerCounts = sources.reduce<Record<string, number>>((acc, source) => {
     const provider =

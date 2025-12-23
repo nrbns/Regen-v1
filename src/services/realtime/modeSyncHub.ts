@@ -8,7 +8,7 @@ import { useAppStore, type AppState } from '../../state/appStore';
 import { useTabsStore } from '../../state/tabsStore';
 
 export interface ModeSyncMessage {
-  type: 'mode-switch' | 'state-sync' | 'heartbeat';
+  type: 'mode-switch' | 'state-sync' | 'heartbeat' | 'handoff';
   mode?: string;
   data?: Record<string, unknown>;
   timestamp: number;
@@ -22,6 +22,7 @@ class ModeSyncHub {
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private listeners: Set<(message: ModeSyncMessage) => void> = new Set();
+  private ipcListeners: Set<(data: any) => void> = new Set();
 
   /**
    * Connect to the global sync hub
@@ -110,6 +111,31 @@ class ModeSyncHub {
   }
 
   /**
+   * Send cross-mode handoff payload (e.g., Browse → Research)
+   */
+  sendHandoff(payload: Record<string, unknown>): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const message: ModeSyncMessage = {
+      type: 'handoff',
+      data: payload,
+      timestamp: Date.now(),
+    };
+
+    this.ws.send(JSON.stringify(message));
+  }
+
+  /**
+   * Subscribe to handoff payloads
+   */
+  onHandoff(listener: (data: any) => void): () => void {
+    this.ipcListeners.add(listener);
+    return () => this.ipcListeners.delete(listener);
+  }
+
+  /**
    * Subscribe to sync messages
    */
   subscribe(listener: (message: ModeSyncMessage) => void): () => void {
@@ -138,6 +164,17 @@ class ModeSyncHub {
       if (appStore.mode !== message.mode) {
         appStore.setMode(message.mode as any);
       }
+    }
+
+    // Handle cross-mode handoff payloads
+    if (message.type === 'handoff' && message.data) {
+      this.ipcListeners.forEach(listener => {
+        try {
+          listener(message.data);
+        } catch (error) {
+          console.error('[ModeSyncHub] Handoff listener error:', error);
+        }
+      });
     }
 
     // Handle state sync

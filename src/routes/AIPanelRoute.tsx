@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { AIPanel } from '../components/AIPanel';
+import { AIPanel } from '../components/ai/AIPanel';
 
 export default function AIPanelRoute() {
   // Get bridge URL and token from environment or localStorage

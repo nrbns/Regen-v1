@@ -22,13 +22,14 @@ import {
 } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import {
-  useTabsStore,
   // type ClosedTab, // Unused
   type TabGroup,
   TAB_GROUP_COLORS,
 } from '../../state/tabsStore';
+import { eventBus, EVENTS } from '../../core/state/eventBus';
 import { useContainerStore } from '../../state/containerStore';
 import { useAppStore } from '../../state/appStore';
+import { useToastStore } from '../../state/toastStore';
 import { ipcEvents } from '../../lib/ipc-events';
 import { TabHoverCard } from '../TopNav/TabHoverCard';
 import { ContainerQuickSelector } from '../containers/ContainerQuickSelector';
@@ -38,6 +39,7 @@ import { Portal } from '../common/Portal';
 import { useTabGraphStore } from '../../state/tabGraphStore';
 import { PredictiveClusterChip, PredictivePrefetchHint } from './PredictiveClusterChip';
 import { TabGroupsOverlay } from '../tabs/TabGroupsOverlay';
+import { HibernationIndicator } from '../tabs/HibernationIndicator'; // SPRINT 1
 // HolographicPreviewOverlay removed - unused component
 import { isDevEnv, isElectronRuntime } from '../../lib/env';
 // DropdownMenu components removed - no longer used
@@ -48,6 +50,7 @@ import {
   RESURRECTION_DELAY_MS,
 } from '../../core/tabs/resurrection';
 import { useAppError } from '../../hooks/useAppError';
+import { useAdaptiveLayout } from '../../hooks/useAdaptiveLayout'; // SPRINT 2: Responsive tabs
 
 const TAB_GRAPH_DRAG_MIME = 'application/x-regen-tab-id';
 const IS_DEV = isDevEnv();
@@ -136,7 +139,10 @@ const mapTabsForStore = (list: Tab[]): Tab[] => {
           title: safeGetString(item, 'title', 'Untitled'),
           active: Boolean(safeGet(item, 'active', false)),
           url: safeGetString(item, 'url', 'about:blank'),
-          mode: (safeGet(item, 'mode') === 'ghost' || safeGet(item, 'mode') === 'private' ? safeGet(item, 'mode') : 'normal'),
+          mode:
+            safeGet(item, 'mode') === 'ghost' || safeGet(item, 'mode') === 'private'
+              ? safeGet(item, 'mode')
+              : 'normal',
           containerId: safeGetString(item, 'containerId'),
           containerColor: safeGetString(item, 'containerColor'),
           containerName: safeGetString(item, 'containerName'),
@@ -168,25 +174,72 @@ const mapTabsForStore = (list: Tab[]): Tab[] => {
 
 export function TabStrip() {
   const { handleError: _handleError } = useAppError();
-  const setAllTabs = useTabsStore(state => state.setAll);
-  const setActiveTab = useTabsStore(state => state.setActive);
-  const activeId = useTabsStore(state => state.activeId);
-  const storeTabs = useTabsStore(state => state.tabs);
+  const { verticalTabs, compactTabs, screenWidth } = useAdaptiveLayout(); // SPRINT 2: Responsive tabs
+
+  // Compute layout flags early for use in renderTabNode
+  const isVertical = verticalTabs && screenWidth > 1400;
+  const isCompact = compactTabs || screenWidth < 768;
+
+  // Local tab state, updated via event bus
+  const [tabs, setTabs] = useState<any[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [tabGroups, setTabGroups] = useState<any[]>([]);
+
+  // setAllTabs function to update tabs (should emit event for persistence)
+  const setAllTabs = (newTabs: any[]) => {
+    setTabs(newTabs);
+    eventBus.emit('tab:reordered', newTabs);
+  };
+  // setActiveTab function
+  const _setActiveTabEvent = (id: string | null) => {
+    setActiveId(id);
+    eventBus.emit(EVENTS.TAB_ACTIVATED, id);
+  };
+
+  useEffect(() => {
+    // Initial fetch: try to get from Zustand (for now, fallback to empty)
+    if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+      setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+      setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+    }
+
+    // Listen for all tab events that could change the tab list
+    const offOpened = eventBus.on(EVENTS.TAB_OPENED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offClosed = eventBus.on(EVENTS.TAB_CLOSED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offUpdated = eventBus.on('tab:updated', () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offActivated = eventBus.on(EVENTS.TAB_ACTIVATED, (id: string) => {
+      setActiveId(id);
+    });
+
+    return () => {
+      offOpened();
+      offClosed();
+      offUpdated();
+      offActivated();
+    };
+  }, []);
 
   // Defensive: Ensure tabs is always an array
-  const safeTabs = Array.isArray(storeTabs) ? storeTabs : [];
-  const updateTab = useTabsStore(state => state.updateTab);
-  const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
-  const openPeek = usePeekPreviewStore(state => state.open); // Must be defined before renderTabNode
-  const _recentlyClosed = useTabsStore(state => state.recentlyClosed);
-  const togglePinTab = useTabsStore(state => state.togglePinTab);
-  const tabGroups = useTabsStore(state => state.tabGroups);
-  const createGroup = useTabsStore(state => state.createGroup);
-  const deleteGroup = useTabsStore(state => state.deleteGroup);
-  const toggleGroupCollapsed = useTabsStore(state => state.toggleGroupCollapsed);
-  const setGroupColor = useTabsStore(state => state.setGroupColor);
-  const assignTabToGroup = useTabsStore(state => state.assignTabToGroup);
-  const updateGroup = useTabsStore(state => state.updateGroup);
+  const safeTabs = Array.isArray(tabs) ? tabs : [];
   const { activeContainerId } = useContainerStore();
   const { mode: currentMode } = useAppStore();
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -222,7 +275,8 @@ export function TabStrip() {
   const currentActiveIdRef = useRef<string | null>(null); // Track active ID without causing re-renders
   const activationInFlightRef = useRef<string | null>(null); // Track activations to avoid duplicate work
   const tabsRef = useRef<Tab[]>(tabs); // Must be defined before refreshTabsFromMain and activateTab
-  const fetchPredictiveSuggestionsRef = useRef<(options?: { force?: boolean }) => Promise<void> | void>(); // Must be defined before refreshTabsFromMain
+  const fetchPredictiveSuggestionsRef =
+    useRef<(options?: { force?: boolean }) => Promise<void> | void>(); // Must be defined before refreshTabsFromMain
   const [groupDragTarget, setGroupDragTarget] = useState<string | null>(null);
   const groupMap = useMemo(() => {
     const map = new Map<string, TabGroup>();
@@ -309,7 +363,12 @@ export function TabStrip() {
       }
       const validTabs = safeTabs.filter(tab => {
         try {
-          return tab != null && typeof tab === 'object' && typeof tab.id === 'string' && tab.id.length > 0;
+          return (
+            tab != null &&
+            typeof tab === 'object' &&
+            typeof tab.id === 'string' &&
+            tab.id.length > 0
+          );
         } catch {
           return false;
         }
@@ -332,81 +391,48 @@ export function TabStrip() {
     }
   }, [safeTabs, currentMode]);
 
-  const renderGroupHeader = useCallback((group: TabGroup) => {
-    const groupTabs = filteredTabs.filter(t => t.groupId === group.id);
-    return (
-      <div
-        key={`group-${group.id}`}
-        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${
-          groupDragTarget === group.id
-            ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
-            : 'border-gray-700/60 bg-gray-800/80 text-gray-200'
-        }`}
-        style={{
-          borderLeft: `3px solid ${group.color}`,
-        }}
-        onDragOver={e => handleGroupDragOver(e, group.id)}
-        onDragLeave={() => handleGroupDragLeave(group.id)}
-        onDrop={e => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleGroupDrop(group.id);
-        }}
-      >
-        <button
-          type="button"
-          onClick={e => {
-            stopEventPropagation(e);
-            toggleGroupCollapsed(group.id);
-          }}
-          onMouseDown={e => {
-            stopEventPropagation(e);
-          }}
-          className="p-1 rounded hover:bg-gray-700/60 transition-colors text-gray-300 hover:text-white"
-          style={{ zIndex: 10011, isolation: 'isolate' }}
-          title={group.collapsed ? 'Expand group' : 'Collapse group'}
-        >
-          {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-        </button>
+  const renderGroupHeader = useCallback(
+    (group: TabGroup) => {
+      const groupTabs = filteredTabs.filter(t => t.groupId === group.id);
+      return (
         <div
-          className="w-3 h-3 rounded-full border border-white/30 flex-shrink-0"
-          style={{ backgroundColor: group.color }}
-          title={`Group color: ${group.color}`}
-        />
-        <button
-          type="button"
-          onClick={e => {
-            stopEventPropagation(e);
-            handleRenameGroup(group);
+          key={`group-${group.id}`}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold ${
+            groupDragTarget === group.id
+              ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
+              : 'border-gray-700/60 bg-gray-800/80 text-gray-200'
+          }`}
+          style={{
+            borderLeft: `3px solid ${group.color}`,
           }}
-          onMouseDown={e => {
-            stopEventPropagation(e);
+          onDragOver={e => handleGroupDragOver(e, group.id)}
+          onDragLeave={() => handleGroupDragLeave(group.id)}
+          onDrop={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleGroupDrop(group.id);
           }}
-          className="text-[11px] font-semibold text-gray-100 hover:text-white truncate min-w-[60px]"
-          style={{ zIndex: 10011, isolation: 'isolate' }}
-          title="Rename group"
         >
-          {group.name}
-        </button>
-        <span className="text-[10px] text-gray-400 ml-1">
-          ({groupTabs.length})
-        </span>
-        <div className="flex items-center gap-0.5 ml-auto">
           <button
             type="button"
             onClick={e => {
               stopEventPropagation(e);
-              handleCycleGroupColor(group);
+              toggleGroupCollapsed(group.id);
             }}
             onMouseDown={e => {
               stopEventPropagation(e);
             }}
-            className="p-1 rounded hover:bg-gray-700/60 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+            className="rounded p-1 text-gray-300 transition-colors hover:bg-gray-700/60 hover:text-white"
             style={{ zIndex: 10011, isolation: 'isolate' }}
-            title="Change color"
+            title={group.collapsed ? 'Expand group' : 'Collapse group'}
           >
-            <Palette size={12} />
+            {group.collapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           </button>
+          <div
+            className="h-3 w-3 flex-shrink-0 rounded-full border border-white/30"
+            style={{ backgroundColor: group.color }}
+            title={`Group color: ${group.color}`}
+          />
           <button
             type="button"
             onClick={e => {
@@ -416,16 +442,60 @@ export function TabStrip() {
             onMouseDown={e => {
               stopEventPropagation(e);
             }}
-            className="p-1 rounded hover:bg-gray-700/60 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+            className="min-w-[60px] truncate text-[11px] font-semibold text-gray-100 hover:text-white"
             style={{ zIndex: 10011, isolation: 'isolate' }}
             title="Rename group"
           >
-            <Edit3 size={12} />
+            {group.name}
           </button>
+          <span className="ml-1 text-[10px] text-gray-400">({groupTabs.length})</span>
+          <div className="ml-auto flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={e => {
+                stopEventPropagation(e);
+                handleCycleGroupColor(group);
+              }}
+              onMouseDown={e => {
+                stopEventPropagation(e);
+              }}
+              className="rounded p-1 text-gray-400 opacity-0 transition-colors hover:bg-gray-700/60 hover:text-white group-hover:opacity-100"
+              style={{ zIndex: 10011, isolation: 'isolate' }}
+              title="Change color"
+            >
+              <Palette size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={e => {
+                stopEventPropagation(e);
+                handleRenameGroup(group);
+              }}
+              onMouseDown={e => {
+                stopEventPropagation(e);
+              }}
+              className="rounded p-1 text-gray-400 opacity-0 transition-colors hover:bg-gray-700/60 hover:text-white group-hover:opacity-100"
+              style={{ zIndex: 10011, isolation: 'isolate' }}
+              title="Rename group"
+            >
+              <Edit3 size={12} />
+            </button>
+          </div>
         </div>
-      </div>
-    );
-  }, [filteredTabs, groupDragTarget, handleGroupDragOver, handleGroupDragLeave, handleGroupDrop, toggleGroupCollapsed, handleRenameGroup, handleCycleGroupColor, setGroupsOverlayOpen]);
+      );
+    },
+    [
+      filteredTabs,
+      groupDragTarget,
+      handleGroupDragOver,
+      handleGroupDragLeave,
+      handleGroupDrop,
+      toggleGroupCollapsed,
+      handleRenameGroup,
+      handleCycleGroupColor,
+      setGroupsOverlayOpen,
+    ]
+  );
 
   // Define refreshTabsFromMain and activateTab BEFORE renderTabNode that uses them
   const refreshTabsFromMain = useCallback(async () => {
@@ -771,366 +841,448 @@ export function TabStrip() {
     }
   };
 
-  const renderTabNode = useCallback((tab: Tab) => {
-    const group = tab.groupId ? groupMap.get(tab.groupId) : null;
-    const groupRingStyle = group
-      ? {
-          boxShadow: `inset 0 0 0 1px ${group.color}40`,
-        }
-      : undefined;
-    const prefetchForTab = prefetchEntries.find(entry => entry.tabId === tab.id);
-    return (
-      <TabHoverCard key={tab.id} tabId={tab.id}>
-        <motion.div
-          id={`tab-${tab.id}`}
-          data-tab={tab.id}
-          role="tab"
-          aria-selected={tab.active}
-          aria-controls={`tabpanel-${tab.id}`}
-          aria-label={`Tab: ${tab.title || 'Untitled'}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
-          tabIndex={tab.active ? 0 : -1}
-          layout
-          initial={{ opacity: 0, scale: 0.9, x: -20 }}
-          animate={{ opacity: 1, scale: 1, x: 0 }}
-          exit={{ opacity: 0, scale: 0.9, x: 20 }}
-          transition={{ 
-            duration: 0.2, 
-            ease: [0.4, 0, 0.2, 1],
-            layout: { duration: 0.3 }
-          }}
-          className={`
-            relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg
-            ${tab.pinned ? 'min-w-[40px] max-w-[40px]' : 'min-w-[100px] max-w-[220px]'} cursor-pointer group
-            transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-            ${
+  const renderTabNode = useCallback(
+    (tab: Tab) => {
+      const group = tab.groupId ? groupMap.get(tab.groupId) : null;
+      const groupRingStyle = group
+        ? {
+            boxShadow: `inset 0 0 0 1px ${group.color}40`,
+          }
+        : undefined;
+      const prefetchForTab = prefetchEntries.find(entry => entry.tabId === tab.id);
+      return (
+        <TabHoverCard key={tab.id} tabId={tab.id}>
+          <motion.div
+            id={`tab-${tab.id}`}
+            data-tab={tab.id}
+            role="tab"
+            aria-selected={tab.active}
+            aria-controls={`tabpanel-${tab.id}`}
+            aria-label={`Tab: ${tab.title || 'Untitled'}${tab.mode === 'ghost' ? ' (Ghost tab)' : tab.mode === 'private' ? ' (Private tab)' : ''}${tab.sleeping ? ' (Hibernating)' : ''}${group ? ` (Group: ${group.name})` : ''}`}
+            tabIndex={tab.active ? 0 : -1}
+            layout
+            // SPRINT 0: Tab animations - 200ms fade-in/out per UX specs
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 4 }}
+            transition={{
+              duration: 0.2, // 200ms per Sprint 0 specs
+              ease: [0.4, 0, 0.2, 1],
+              layout: { duration: 0.3 },
+            }}
+            className={`relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} ${
+              verticalTabs ? 'rounded-lg' : 'rounded-t-lg' // Chrome-like: rounded top corners only for horizontal tabs
+            } ${
+              verticalTabs
+                ? 'w-full' // Vertical tabs take full width
+                : compactTabs
+                  ? tab.pinned
+                    ? 'min-w-[40px] max-w-[40px]'
+                    : 'min-w-[100px] max-w-[160px]' // Compact horizontal tabs
+                  : tab.pinned
+                    ? 'min-w-[40px] max-w-[40px]'
+                    : 'min-w-[100px] max-w-[220px]' // Normal horizontal tabs
+            } group cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
               tab.active
-                ? 'bg-purple-600/20 border border-purple-500/40 shadow-lg shadow-purple-500/20'
-                : 'bg-gray-800/30 hover:bg-gray-800/50 border border-transparent'
-            }
-            ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''}
-            ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''}
-            ${tab.sleeping ? 'ring-1 ring-amber-400/40' : ''}
-            ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''}
-          `}
-          style={{ 
-            pointerEvents: 'auto', 
-            zIndex: 1, 
-            userSelect: 'none', 
-            ...groupRingStyle,
-            ...(group ? { borderLeft: `2px solid ${group.color}` } : {})
-          }}
-          draggable
-          onDragStart={event => {
-            try {
-              const isGraphDrag = event.ctrlKey || event.metaKey;
-              if (isGraphDrag) {
-                event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
-                if (tab.title) {
-                  event.dataTransfer?.setData('text/plain', tab.title);
+                ? 'z-10 border-x border-t border-blue-400/30 bg-slate-800/90 shadow-[0_-2px_8px_rgba(0,0,0,0.3)]' // Chrome-like active tab with shadow above
+                : 'border-x border-t border-transparent bg-slate-700/40 hover:bg-slate-700/60' // Chrome-like inactive tabs
+            } ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''} ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''} ${tab.sleeping ? 'bg-amber-500/10 ring-1 ring-amber-400/40' : ''} ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''} `}
+            style={{
+              pointerEvents: 'auto',
+              zIndex: 1,
+              userSelect: 'none',
+              ...groupRingStyle,
+              ...(group ? { borderLeft: `2px solid ${group.color}` } : {}),
+            }}
+            draggable
+            onDragStart={event => {
+              try {
+                const isGraphDrag = event.ctrlKey || event.metaKey;
+                if (isGraphDrag) {
+                  event.dataTransfer?.setData(TAB_GRAPH_DRAG_MIME, tab.id);
+                  if (tab.title) {
+                    event.dataTransfer?.setData('text/plain', tab.title);
+                  }
+                  if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'copy';
+                  }
+                } else {
+                  draggedTabIdRef.current = tab.id;
+                  if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                  }
                 }
-                if (event.dataTransfer) {
-                  event.dataTransfer.effectAllowed = 'copy';
-                }
-              } else {
-                draggedTabIdRef.current = tab.id;
-                if (event.dataTransfer) {
-                  event.dataTransfer.effectAllowed = 'move';
+              } catch (error) {
+                if (IS_DEV) {
+                  console.warn('[TabStrip] Drag start failed', error);
                 }
               }
-            } catch (error) {
-              if (IS_DEV) {
-                console.warn('[TabStrip] Drag start failed', error);
+            }}
+            onDragEnd={() => {
+              if (draggedTabIdRef.current === null) {
+                window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
               }
-            }
-          }}
-          onDragEnd={() => {
-            if (draggedTabIdRef.current === null) {
-              window.dispatchEvent(new CustomEvent('tabgraph:dragend'));
-            }
-            draggedTabIdRef.current = null;
-            dragOverIndexRef.current = null;
-            setGroupDragTarget(null);
-          }}
-          onClick={e => {
-            e.preventDefault();
-            stopEventPropagation(e);
-            void activateTab(tab.id);
-          }}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              activateTab(tab.id);
-              return;
-            }
-
-            if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
-              e.preventDefault();
-              e.stopPropagation();
-
-              // Defensive: Use filteredTabs for keyboard navigation (with null check)
-              if (!filteredTabs || !Array.isArray(filteredTabs)) {
-                return;
-              }
-              const validTabs = filteredTabs.filter(t => t && t.id);
-              const currentIndex = validTabs.findIndex(t => t.id === tab.id);
-              if (currentIndex === -1) {
-                return;
-              }
-
-              let nextIndex = currentIndex;
-              switch (e.key) {
-                case 'Home':
-                  nextIndex = 0;
-                  break;
-                case 'End':
-                  nextIndex = validTabs.length - 1;
-                  break;
-                case 'ArrowLeft':
-                  nextIndex = (currentIndex - 1 + validTabs.length) % validTabs.length;
-                  break;
-                case 'ArrowRight':
-                  nextIndex = (currentIndex + 1) % validTabs.length;
-                  break;
-              }
-
-              const nextTab = validTabs[nextIndex];
-              if (nextTab && nextTab.id) {
-                void activateTab(nextTab.id);
-              }
-            }
-          }}
-          onAuxClick={(e: React.MouseEvent) => {
-            if (e.button === 1) {
-              e.preventDefault();
-              stopEventPropagation(e);
-              closeTab(tab.id);
-            }
-          }}
-          onContextMenu={e => {
-            e.preventDefault();
-            (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
-            setContextMenu({
-              tabId: tab.id,
-              url: tab.url,
-              containerId: tab.containerId,
-              containerName: tab.containerName,
-              containerColor: tab.containerColor,
-              mode: tab.mode,
-              sleeping: tab.sleeping,
-              x: e.clientX,
-              y: e.clientY,
-            });
-          }}
-          onMouseEnter={() => {
-            // Defensive: Check if tab is last in filteredTabs (with null check)
-            if (!filteredTabs || !Array.isArray(filteredTabs)) {
-              return;
-            }
-            const validFilteredTabs = filteredTabs.filter(t => t && t.id);
-            if (
-              validFilteredTabs.length > 0 &&
-              tab === validFilteredTabs[validFilteredTabs.length - 1]
-            ) {
-              setHolographicPreviewTabId(tab.id);
-            }
-          }}
-          onMouseLeave={() => {
-            if (holographicPreviewTabId === tab.id) {
-              setHolographicPreviewTabId(null);
-            }
-          }}
-        >
-          {prefetchForTab && (
-            <span
-              className="absolute top-1 right-2 text-emerald-300 text-[11px] font-semibold"
-              title={`Suggested follow-up: ${prefetchForTab.reason}`}
-            >
-              ⚡
-            </span>
-          )}
-          {hologramSupported !== false && holographicPreviewTabId === tab.id && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 6 }}
-              className="absolute -bottom-9 left-1/2 flex -translate-x-1/2 items-center gap-2"
-            >
-              <motion.button
-                type="button"
-                className="flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] text-cyan-100 shadow-lg backdrop-blur transition-colors hover:bg-cyan-500/25"
-                onClick={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setHandoffStatus({ platform: 'xr', lastSentAt: Date.now() });
-                  window.dispatchEvent(
-                    new CustomEvent('tab:holographic-preview', {
-                      detail: { tabId: tab.id },
-                    })
-                  );
-                  void ipc.crossReality.handoff(tab.id, 'xr');
-                }}
-              >
-                <Sparkles size={12} /> XR Hologram
-              </motion.button>
-              <motion.button
-                type="button"
-                className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-[10px] text-amber-100 shadow-lg backdrop-blur transition-colors hover:bg-amber-500/25"
-                onClick={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setHandoffStatus({ platform: 'mobile', lastSentAt: Date.now() });
-                  void ipc.crossReality.handoff(tab.id, 'mobile');
-                }}
-              >
-                <span role="img" aria-label="mobile">
-                  📱
-                </span>{' '}
-                Send
-              </motion.button>
-            </motion.div>
-          )}
-          {/* Favicon */}
-          <div className="flex-shrink-0 w-4 h-4 bg-gray-600 rounded-full flex items-center justify-center">
-            {tab.favicon ? (
-              <img src={tab.favicon} alt="" className="w-full h-full rounded-full" />
-            ) : (
-              <div className="w-2 h-2 bg-gray-400 rounded-full" />
-            )}
-          </div>
-
-          {tab.mode && tab.mode !== 'normal' && (
-            <span
-              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                tab.mode === 'ghost'
-                  ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
-                  : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
-              }`}
-            >
-              {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
-            </span>
-          )}
-
-          {tab.containerId && tab.containerId !== 'default' && (
-            <div
-              className="w-2.5 h-2.5 rounded-full border border-gray-700/60"
-              style={{ backgroundColor: tab.containerColor || '#6366f1' }}
-              title={`${tab.containerName || 'Custom'} container`}
-            />
-          )}
-
-          {group && (
-            <span
-              className="w-2 h-2 rounded-full border border-white/20"
-              style={{ backgroundColor: group.color }}
-              title={`Group: ${group.name}`}
-            />
-          )}
-
-          {/* Phase 1, Day 2: Enhanced hibernation indicator */}
-          {tab.sleeping && (
-            <span className="flex items-center gap-1" title="Tab is hibernating (click to wake)">
-              <motion.span
-                className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
-                animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
-                transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-              />
-              <span className="text-[10px] text-amber-400/70 font-medium hidden group-hover:inline">
-                Zzz
-              </span>
-            </span>
-          )}
-
-          {!tab.pinned && (
-            <span
-              className={`flex-1 text-sm truncate ${tab.active ? 'text-gray-100' : 'text-gray-400'}`}
-            >
-              {tab.title}
-            </span>
-          )}
-
-          <motion.button
-            type="button"
+              draggedTabIdRef.current = null;
+              dragOverIndexRef.current = null;
+              setGroupDragTarget(null);
+            }}
             onClick={e => {
               e.preventDefault();
               stopEventPropagation(e);
-              togglePinTab(tab.id);
+              void activateTab(tab.id);
             }}
-            onMouseDown={e => {
-              stopEventPropagation(e);
-            }}
-            aria-label={tab.pinned ? `Unpin tab: ${tab.title}` : `Pin tab: ${tab.title}`}
-            className={`${tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-blue-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1`}
-            style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.96 }}
-            title={tab.pinned ? 'Unpin tab' : 'Pin tab'}
-          >
-            {tab.pinned ? <Pin size={14} className="text-blue-400" /> : <PinOff size={14} />}
-          </motion.button>
-
-          {!tab.pinned && (
-            <motion.button
-              type="button"
-              onClick={e => {
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                stopEventPropagation(e);
-                openPeek(tab);
-              }}
-              onMouseDown={e => {
-                stopEventPropagation(e);
-              }}
-              aria-label={`Peek preview: ${tab.title}`}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity text-gray-400 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag ml-1"
-              style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
-              title="Peek preview"
-            >
-              <Eye size={14} />
-            </motion.button>
-          )}
+                e.stopPropagation();
+                activateTab(tab.id);
+                return;
+              }
 
-          {!tab.pinned && (
-            <motion.button
-              type="button"
-              onClick={e => {
+              if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Defensive: Use filteredTabs for keyboard navigation (with null check)
+                if (!filteredTabs || !Array.isArray(filteredTabs)) {
+                  return;
+                }
+                const validTabs = filteredTabs.filter(t => t && t.id);
+                const currentIndex = validTabs.findIndex(t => t.id === tab.id);
+                if (currentIndex === -1) {
+                  return;
+                }
+
+                let nextIndex = currentIndex;
+                switch (e.key) {
+                  case 'Home':
+                    nextIndex = 0;
+                    break;
+                  case 'End':
+                    nextIndex = validTabs.length - 1;
+                    break;
+                  case 'ArrowLeft':
+                    nextIndex = (currentIndex - 1 + validTabs.length) % validTabs.length;
+                    break;
+                  case 'ArrowRight':
+                    nextIndex = (currentIndex + 1) % validTabs.length;
+                    break;
+                }
+
+                const nextTab = validTabs[nextIndex];
+                if (nextTab && nextTab.id) {
+                  void activateTab(nextTab.id);
+                }
+              }
+            }}
+            onAuxClick={(e: React.MouseEvent) => {
+              if (e.button === 1) {
                 e.preventDefault();
                 stopEventPropagation(e);
                 closeTab(tab.id);
-              }}
-              onAuxClick={e => {
-                if (e.button === 1) {
-                  e.preventDefault();
-                  stopEventPropagation(e);
-                  closeTab(tab.id);
+              }
+            }}
+            onContextMenu={e => {
+              e.preventDefault();
+              (window as any).__lastContextMenuPos = { x: e.clientX, y: e.clientY };
+              setContextMenu({
+                tabId: tab.id,
+                url: tab.url,
+                containerId: tab.containerId,
+                containerName: tab.containerName,
+                containerColor: tab.containerColor,
+                mode: tab.mode,
+                sleeping: tab.sleeping,
+                x: e.clientX,
+                y: e.clientY,
+              });
+            }}
+            onMouseEnter={() => {
+              // Defensive: Check if tab is last in filteredTabs (with null check)
+              if (!filteredTabs || !Array.isArray(filteredTabs)) {
+                return;
+              }
+              const validFilteredTabs = filteredTabs.filter(t => t && t.id);
+              if (
+                validFilteredTabs.length > 0 &&
+                tab === validFilteredTabs[validFilteredTabs.length - 1]
+              ) {
+                setHolographicPreviewTabId(tab.id);
+              }
+            }}
+            onMouseLeave={() => {
+              if (holographicPreviewTabId === tab.id) {
+                setHolographicPreviewTabId(null);
+              }
+            }}
+          >
+            {prefetchForTab && (
+              <span
+                className="absolute right-2 top-1 text-[11px] font-semibold text-emerald-300"
+                title={`Suggested follow-up: ${prefetchForTab.reason}`}
+              >
+                ⚡
+              </span>
+            )}
+            {hologramSupported !== false && holographicPreviewTabId === tab.id && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="absolute -bottom-9 left-1/2 flex -translate-x-1/2 items-center gap-2"
+              >
+                <motion.button
+                  type="button"
+                  className="flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-3 py-1 text-[10px] text-cyan-100 shadow-lg backdrop-blur transition-colors hover:bg-cyan-500/25"
+                  onClick={async e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    try {
+                      setHandoffStatus({ platform: 'xr', lastSentAt: Date.now() });
+                      window.dispatchEvent(
+                        new CustomEvent('tab:holographic-preview', {
+                          detail: { tabId: tab.id },
+                        })
+                      );
+                      // Check if XR is available
+                      if (typeof navigator !== 'undefined' && 'xr' in navigator) {
+                        await ipc.crossReality.handoff(tab.id, 'xr');
+                      } else {
+                        console.warn('[TabStrip] XR not available, opening in new tab instead');
+                        // Fallback: open tab URL in new window
+                        if (tab.url) {
+                          window.open(tab.url, '_blank', 'noopener,noreferrer');
+                        }
+                      }
+                    } catch (error) {
+                      console.error('[TabStrip] Hologram handoff failed:', error);
+                      // Fallback: open tab URL in new window
+                      if (tab.url) {
+                        window.open(tab.url, '_blank', 'noopener,noreferrer');
+                      }
+                    }
+                  }}
+                >
+                  <Sparkles size={12} /> XR Hologram
+                </motion.button>
+                <motion.button
+                  type="button"
+                  className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-[10px] text-amber-100 shadow-lg backdrop-blur transition-colors hover:bg-amber-500/25"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setHandoffStatus({ platform: 'mobile', lastSentAt: Date.now() });
+                    void ipc.crossReality.handoff(tab.id, 'mobile');
+                  }}
+                >
+                  <span role="img" aria-label="mobile">
+                    📱
+                  </span>{' '}
+                  Send
+                </motion.button>
+              </motion.div>
+            )}
+            {/* Favicon */}
+            <div
+              className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 ${tab.sleeping ? 'opacity-70' : ''}`}
+            >
+              {tab.favicon ? (
+                <img src={tab.favicon} alt="" className="h-full w-full rounded-full" />
+              ) : (
+                <div className="h-2 w-2 rounded-full bg-gray-400" />
+              )}
+            </div>
+
+            {tab.mode && tab.mode !== 'normal' && (
+              <span
+                className={`rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+                  tab.mode === 'ghost'
+                    ? 'border-purple-400/40 bg-purple-500/20 text-purple-200'
+                    : 'border-emerald-400/40 bg-emerald-500/20 text-emerald-200'
+                }`}
+              >
+                {tab.mode === 'ghost' ? 'Ghost' : 'Private'}
+              </span>
+            )}
+
+            {tab.containerId && tab.containerId !== 'default' && (
+              <div
+                className="h-2.5 w-2.5 rounded-full border border-gray-700/60"
+                style={{ backgroundColor: tab.containerColor || '#6366f1' }}
+                title={`${tab.containerName || 'Custom'} container`}
+              />
+            )}
+
+            {group && (
+              <span
+                className="h-2 w-2 rounded-full border border-white/20"
+                style={{ backgroundColor: group.color }}
+                title={`Group: ${group.name}`}
+              />
+            )}
+
+            {/* SPRINT 2: Enhanced hibernation indicator with better visibility */}
+            {tab.sleeping && (
+              <span
+                className={`flex ${isVertical ? 'flex-row' : 'flex-row'} items-center gap-1`}
+                title={`Hibernating — saves ~${estimateSavedMB(tab)} MB (click to wake)`}
+              >
+                <motion.span
+                  className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.55)]"
+                  animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+                  transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+                />
+                {!isCompact && (
+                  <span className="hidden text-[10px] font-medium text-amber-400/80 group-hover:inline">
+                    Zzz
+                  </span>
+                )}
+              </span>
+            )}
+
+            {!tab.pinned && (
+              <span
+                className={`flex-1 truncate ${isCompact ? 'text-xs' : 'text-sm'} ${tab.active ? 'text-gray-100' : 'text-gray-400'} ${tab.sleeping ? 'opacity-75' : ''}`}
+                title={
+                  isCompact
+                    ? tab.title
+                    : tab.sleeping
+                      ? `Hibernating — saves ~${estimateSavedMB(tab)} MB`
+                      : undefined
                 }
+              >
+                {tab.title}
+              </span>
+            )}
+
+            <motion.button
+              type="button"
+              onClick={e => {
+                e.preventDefault();
+                stopEventPropagation(e);
+                togglePinTab(tab.id);
               }}
               onMouseDown={e => {
                 stopEventPropagation(e);
               }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  closeTab(tab.id);
-                }
-              }}
-              aria-label={`Close tab: ${tab.title}`}
-              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-gray-700/50 transition-opacity ml-1 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 no-drag"
-              style={{ pointerEvents: 'auto', zIndex: 2 }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              title="Close tab (Middle click)"
+              aria-label={tab.pinned ? `Unpin tab: ${tab.title}` : `Pin tab: ${tab.title}`}
+              className={`${tab.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} no-drag ml-1 rounded p-0.5 text-gray-400 transition-opacity hover:bg-gray-700/50 hover:text-blue-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
+              style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
+              title={tab.pinned ? 'Unpin tab' : 'Pin tab'}
             >
-              <X size={14} className="text-gray-400" />
+              {tab.pinned ? <Pin size={14} className="text-blue-400" /> : <PinOff size={14} />}
             </motion.button>
-          )}
-        </motion.div>
-      </TabHoverCard>
-    );
-  }, [groupMap, prefetchEntries, filteredTabs, holographicPreviewTabId, hologramSupported, activateTab, closeTab, togglePinTab, openPeek]);
+
+            {!tab.pinned && (
+              <motion.button
+                type="button"
+                onClick={e => {
+                  e.preventDefault();
+                  stopEventPropagation(e);
+                  openPeek(tab);
+                }}
+                onMouseDown={e => {
+                  stopEventPropagation(e);
+                }}
+                aria-label={`Peek preview: ${tab.title}`}
+                className="no-drag ml-1 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-700/50 hover:text-gray-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 group-hover:opacity-100"
+                style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.96 }}
+                title="Peek preview"
+              >
+                <Eye size={14} />
+              </motion.button>
+            )}
+
+            {/* Single AI action: Summarize this tab */}
+            {!tab.pinned && (
+              <motion.button
+                type="button"
+                onClick={async e => {
+                  e.preventDefault();
+                  stopEventPropagation(e);
+                  try {
+                    const { summarizeTab } = await import('../../services/agentService');
+                    await summarizeTab?.(tab.id);
+                    useToastStore.getState().show({ type: 'info', message: 'Summarizing tab…' });
+                  } catch (error) {
+                    console.warn('[TabStrip] Summarize action failed', error);
+                    useToastStore
+                      .getState()
+                      .show({ type: 'error', message: 'Failed to summarize' });
+                  }
+                }}
+                onMouseDown={e => {
+                  stopEventPropagation(e);
+                }}
+                aria-label={`Summarize tab: ${tab.title}`}
+                className="no-drag ml-1 rounded p-0.5 text-gray-400 opacity-0 transition-opacity hover:bg-gray-700/50 hover:text-amber-300 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 group-hover:opacity-100"
+                style={{ pointerEvents: 'auto', zIndex: 10011, isolation: 'isolate' }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.96 }}
+                title="Summarize this tab"
+              >
+                {/* Sparkles icon already imported earlier in file */}
+                <Sparkles size={14} />
+              </motion.button>
+            )}
+
+            {!tab.pinned && (
+              <motion.button
+                type="button"
+                onClick={e => {
+                  e.preventDefault();
+                  stopEventPropagation(e);
+                  closeTab(tab.id);
+                }}
+                onAuxClick={e => {
+                  if (e.button === 1) {
+                    e.preventDefault();
+                    stopEventPropagation(e);
+                    closeTab(tab.id);
+                  }
+                }}
+                onMouseDown={e => {
+                  stopEventPropagation(e);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }
+                }}
+                aria-label={`Close tab: ${tab.title}`}
+                className="no-drag ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-gray-700/50 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 group-hover:opacity-100"
+                style={{ pointerEvents: 'auto', zIndex: 2 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                title="Close tab (Middle click)"
+              >
+                <X size={14} className="text-gray-400" />
+              </motion.button>
+            )}
+          </motion.div>
+        </TabHoverCard>
+      );
+    },
+    [
+      groupMap,
+      prefetchEntries,
+      filteredTabs,
+      holographicPreviewTabId,
+      hologramSupported,
+      activateTab,
+      closeTab,
+      togglePinTab,
+      openPeek,
+      isVertical,
+      isCompact,
+    ]
+  );
 
   const tabElements = useMemo(() => {
     // Defensive: Ensure functions are available
@@ -1140,7 +1292,7 @@ export function TabStrip() {
 
     const elements: React.ReactNode[] = [];
     const renderedGroupIds = new Set<string>();
-    
+
     // Group tabs by groupId
     const tabsByGroup = new Map<string | undefined, typeof filteredTabs>();
     filteredTabs.forEach(tab => {
@@ -1261,6 +1413,15 @@ export function TabStrip() {
     [predictedClusters.length]
   );
 
+  // Lightweight memory savings estimator (for tooltip + counter)
+  const estimateSavedMB = useCallback((tab: Tab): number => {
+    // Base estimates: normal ~40MB, private ~35MB, ghost ~20MB
+    const base = tab.mode === 'private' ? 35 : tab.mode === 'ghost' ? 20 : 40;
+    // Minor boost for heavy sites (heuristic: long title)
+    const heuristic = (tab.title?.length ?? 0) > 30 ? 1.2 : 1.0;
+    return Math.round(base * heuristic);
+  }, []);
+
   useEffect(() => {
     fetchPredictiveSuggestionsRef.current = runPredictiveSuggestions;
   }, [runPredictiveSuggestions]);
@@ -1269,7 +1430,6 @@ export function TabStrip() {
     if (!hasInitialized) return;
     fetchPredictiveSuggestionsRef.current?.({ force: true });
   }, [hasInitialized]);
-
 
   useEffect(() => {
     const checkHologramSupport = () => {
@@ -1642,6 +1802,21 @@ export function TabStrip() {
         };
       });
 
+      // Dispatch RAM saved events for tabs that just entered sleeping state
+      try {
+        const prevById = new Map<string, Tab>();
+        tabsRef.current.forEach(pt => prevById.set(pt.id, pt));
+        mappedTabs.forEach(mt => {
+          const prev = prevById.get(mt.id);
+          if (mt.sleeping && (!prev || !prev.sleeping)) {
+            const saved = estimateSavedMB(mt);
+            window.dispatchEvent(
+              new CustomEvent('omnibrowser:ram_saved', { detail: { mb: saved, tabId: mt.id } })
+            );
+          }
+        });
+      } catch {}
+
       // OPTIMIZED: Check if tabs actually changed before updating
       const newTabIds = mappedTabs
         .map(t => t.id)
@@ -1721,6 +1896,10 @@ export function TabStrip() {
   }, []); // Empty deps - only run on mount, IPC events handle all updates
 
   const addTab = async () => {
+    // Enforce tab cap (low-RAM aware)
+    // TODO: Enforce tab cap (low-RAM aware) via eventBus or backend event
+    // For now, allow tab creation. Implement max tab logic via eventBus/FS watcher for real-time.
+
     if (!IS_ELECTRON) {
       const baseTabs = (tabsRef.current.length > 0 ? tabsRef.current : tabs).map(t => ({
         ...t,
@@ -1802,9 +1981,23 @@ export function TabStrip() {
           console.warn('[TabStrip] Tab creation returned no ID:', result);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       if (IS_DEV) {
         console.error('Failed to create tab:', error);
+      }
+      // Show user-friendly error message if tab limit exceeded
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+        useToastStore.getState().show({
+          type: 'warning',
+          message: errorMessage,
+        });
+      } else {
+        // Generic error for other failures
+        useToastStore.getState().show({
+          type: 'error',
+          message: 'Failed to create tab. Please try again.',
+        });
       }
     } finally {
       // Reset flag quickly - IPC events will handle the update
@@ -2006,13 +2199,20 @@ export function TabStrip() {
     return null;
   }
 
+  // SPRINT 2: Responsive tab layout - vertical for wide displays (>1400px), horizontal for others
+  // Note: isVertical and isCompact are computed earlier in the component for use in renderTabNode
+
   return (
     <>
       <div
         ref={stripRef}
         role="tablist"
         aria-label="Browser tabs"
-        className="no-drag flex items-center gap-2 px-3 py-2 bg-[#1A1D28] border-b border-gray-700/30 overflow-x-auto scrollbar-hide relative"
+        className={`no-drag scrollbar-hide relative ${
+          isVertical
+            ? 'h-full w-64 flex-col items-stretch overflow-y-auto border-r border-gray-700/30'
+            : 'flex items-center overflow-x-auto border-b border-gray-700/30'
+        } bg-[#1A1D28] px-3 py-2`}
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 9999 }}
         onKeyDown={handleKeyNavigation}
         data-onboarding="tabstrip"
@@ -2110,13 +2310,18 @@ export function TabStrip() {
           onApply={handleApplyCluster}
           summary={predictionSummary}
         />
-        <div className="flex items-center gap-2 min-w-0 flex-1" style={{ pointerEvents: 'auto' }}>
+        <div
+          className={`flex min-w-0 flex-1 ${isVertical ? 'flex-col' : 'flex-row items-center'} gap-2`}
+          style={{ pointerEvents: 'auto' }}
+        >
           <AnimatePresence mode="popLayout">
             {tabElements.length > 0 ? tabElements : null}
           </AnimatePresence>
 
           {/* Container Selector & New Tab Button */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div
+            className={`flex flex-shrink-0 ${isVertical ? 'flex-col items-stretch' : 'flex-row items-center'} gap-2 ${isVertical ? 'mt-auto' : ''}`}
+          >
             <motion.button
               type="button"
               onClick={e => {
@@ -2142,9 +2347,9 @@ export function TabStrip() {
                 e.stopPropagation();
                 handleDropToNewGroup();
               }}
-              className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+              className={`hidden items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors lg:flex ${
                 groupDragTarget === NEW_GROUP_DROP_ID
-                  ? 'border-blue-500/70 text-blue-200 bg-blue-500/10'
+                  ? 'border-blue-500/70 bg-blue-500/10 text-blue-200'
                   : 'border-gray-700/40 text-gray-300 hover:bg-gray-800/50'
               }`}
             >
@@ -2170,7 +2375,7 @@ export function TabStrip() {
                 }
               }}
               aria-label="New tab"
-              className="p-2 rounded-lg hover:bg-gray-800/50 border border-transparent hover:border-gray-700/30 text-gray-400 hover:text-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="rounded-lg border border-transparent p-2 text-gray-400 transition-all hover:border-gray-700/30 hover:bg-gray-800/50 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               style={{ zIndex: 10011, isolation: 'isolate' }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -2210,6 +2415,11 @@ export function TabStrip() {
 
       {/* Tab Groups Overlay */}
       <TabGroupsOverlay open={groupsOverlayOpen} onClose={() => setGroupsOverlayOpen(false)} />
+
+      {/* SPRINT 1: Hibernation Indicator */}
+      <div className="absolute left-0 right-0 top-full z-50 px-4 py-2">
+        <HibernationIndicator />
+      </div>
 
       {/* HolographicPreviewOverlay removed - unused component */}
     </>

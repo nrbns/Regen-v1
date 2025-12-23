@@ -16,7 +16,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useMobileDetection } from '../../hooks/useMobileDetection';
+import { useMobileDetection } from '../../mobile';
 
 export interface ArticleViewProps {
   url: string;
@@ -96,17 +96,17 @@ export function ArticleView({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-slate-950 overflow-y-auto',
+        'fixed inset-0 z-50 overflow-y-auto bg-slate-950',
         isMobile ? 'p-4' : 'p-8',
         className
       )}
     >
       {/* Header */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="mx-auto mb-6 max-w-4xl">
+        <div className="mb-4 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-slate-300 transition-colors hover:bg-slate-700"
           >
             <ArrowLeft size={16} />
             <span>Back</span>
@@ -115,7 +115,7 @@ export function ArticleView({
             {onSave && (
               <button
                 onClick={onSave}
-                className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                className="rounded-lg bg-slate-800 p-2 text-slate-300 transition-colors hover:bg-slate-700"
                 aria-label="Save article"
               >
                 <Bookmark size={18} />
@@ -123,7 +123,7 @@ export function ArticleView({
             )}
             <button
               onClick={handleShare}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              className="rounded-lg bg-slate-800 p-2 text-slate-300 transition-colors hover:bg-slate-700"
               aria-label="Share article"
             >
               <Share2 size={18} />
@@ -132,7 +132,7 @@ export function ArticleView({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              className="rounded-lg bg-slate-800 p-2 text-slate-300 transition-colors hover:bg-slate-700"
               aria-label="Open original"
             >
               <ExternalLink size={18} />
@@ -142,11 +142,11 @@ export function ArticleView({
 
         {/* Article Header */}
         <div className="mb-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">{title}</h1>
-          
+          <h1 className="mb-4 text-3xl font-bold leading-tight text-white md:text-4xl">{title}</h1>
+
           {image && (
-            <div className="mb-6 rounded-lg overflow-hidden">
-              <img src={image} alt={title} className="w-full h-auto max-h-96 object-cover" />
+            <div className="mb-6 overflow-hidden rounded-lg">
+              <img src={image} alt={title} className="h-auto max-h-96 w-full object-cover" />
             </div>
           )}
 
@@ -173,7 +173,7 @@ export function ArticleView({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
+              className="flex items-center gap-2 text-purple-400 transition-colors hover:text-purple-300"
             >
               <Globe size={16} />
               <span>Original Source</span>
@@ -185,25 +185,25 @@ export function ArticleView({
         <div className="prose prose-invert prose-lg max-w-none">
           {loading ? (
             <div className="space-y-4">
-              <div className="h-4 bg-slate-800 rounded animate-pulse" />
-              <div className="h-4 bg-slate-800 rounded animate-pulse w-5/6" />
-              <div className="h-4 bg-slate-800 rounded animate-pulse" />
+              <div className="h-4 animate-pulse rounded bg-slate-800" />
+              <div className="h-4 w-5/6 animate-pulse rounded bg-slate-800" />
+              <div className="h-4 animate-pulse rounded bg-slate-800" />
             </div>
           ) : (
             <div
-              className="text-slate-200 leading-relaxed"
+              className="leading-relaxed text-slate-200"
               dangerouslySetInnerHTML={{ __html: articleContent || 'No content available.' }}
             />
           )}
         </div>
 
         {/* Footer Actions */}
-        <div className="mt-8 pt-6 border-t border-slate-800 flex items-center justify-between">
+        <div className="mt-8 flex items-center justify-between border-t border-slate-800 pt-6">
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
           >
             <ExternalLink size={16} />
             <span>Read on Original Site</span>
@@ -211,7 +211,7 @@ export function ArticleView({
           {onSave && (
             <button
               onClick={onSave}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-slate-300 transition-colors hover:bg-slate-700"
             >
               <Download size={16} />
               <span>Save Offline</span>
@@ -222,5 +222,3 @@ export function ArticleView({
     </div>
   );
 }
-
-

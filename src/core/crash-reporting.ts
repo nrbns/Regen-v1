@@ -114,13 +114,35 @@ class CrashReporter {
 
   /**
    * Send report to backend
+   * LAG FIX #7: Integrate with Sentry when opt-in is enabled
    */
   private async sendReport(report: CrashReport): Promise<void> {
     try {
-      // TODO: Call backend API
-      // POST /api/crash
-      // For now, just log
-      log.info('[CrashReporter] Would send report:', report.id);
+      // LAG FIX #7: Send to Sentry if available and opt-in is enabled
+      if (typeof window !== 'undefined' && (window as any).Sentry && this.enabled) {
+        try {
+          const error = new Error(report.error.message);
+          error.stack = report.error.stack;
+          error.name = report.error.name;
+
+          (window as any).Sentry.captureException(error, {
+            contexts: {
+              app: {
+                mode: report.context.mode,
+                tabCount: report.context.tabCount,
+                route: report.context.route,
+              },
+            },
+            tags: {
+              platform: report.environment.platform,
+              version: report.environment.version,
+            },
+          });
+          log.info('[CrashReporter] Sent to Sentry:', report.id);
+        } catch (sentryError) {
+          log.warn('[CrashReporter] Sentry capture failed:', sentryError);
+        }
+      }
 
       // Store locally for manual review
       const stored = localStorage.getItem('regen_crash_reports');
@@ -141,11 +163,20 @@ class CrashReporter {
 
   /**
    * Enable/disable crash reporting
+   * LAG FIX #7: Sync with Sentry opt-in
    */
-  setEnabled(enabled: boolean): void {
+  async setEnabled(enabled: boolean): Promise<void> {
     this.enabled = enabled;
     localStorage.setItem('regen_crash_reporting_consent', String(enabled));
     log.info('[CrashReporter]', enabled ? 'Enabled' : 'Disabled');
+
+    // LAG FIX #7: Sync with Sentry opt-in
+    try {
+      const { applyTelemetryOptIn } = await import('../lib/monitoring/sentry-client');
+      await applyTelemetryOptIn(enabled);
+    } catch (error) {
+      log.warn('[CrashReporter] Failed to sync Sentry opt-in:', error);
+    }
   }
 
   /**

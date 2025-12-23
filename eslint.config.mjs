@@ -20,6 +20,7 @@ export default tseslint.config(
       'src/plugins/examples/**',
       'tests/**',
       'tauri-migration/src-tauri/target/**',
+      'src-tauri/target/**',
       'storybook-static/**',
       '**/storybook-static/**',
       'coverage/**',

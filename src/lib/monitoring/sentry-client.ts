@@ -120,10 +120,17 @@ async function shutdownRendererSentry() {
   sentryInitialized = false;
 }
 
+/**
+ * LAG FIX #7: Opt-in Sentry with user consent
+ */
 export async function applyTelemetryOptIn(optIn: boolean) {
-  await ipc.telemetry.setOptIn(optIn);
-  if (!isElectronRuntime()) return;
+  try {
+    await ipc.telemetry.setOptIn(optIn);
+  } catch (error) {
+    console.warn('[Sentry] IPC telemetry opt-in failed, using local state', error);
+  }
 
+  // Apply opt-in regardless of runtime
   if (optIn) {
     await initRendererSentry();
   } else {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { TrendingUp, TrendingDown, Shield, RefreshCw, Plus } from 'lucide-react';
 import { fetchTradeQuote } from '../../core/trade/dataService';
 import { useTradeStore } from '../../state/tradeStore';
@@ -15,6 +15,8 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
   const [error, setError] = useState<string | null>(null);
   const [newSymbol, setNewSymbol] = useState('');
 
+  // Debounce quote updates to avoid jitter
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -38,12 +40,16 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
       }
     };
 
-    loadQuote();
+    // Debounce initial load
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(loadQuote, 100);
+
     // Real-time updates: Poll every 5 seconds for active trading
     const interval = setInterval(loadQuote, 5000);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [activeSymbol, open, updateQuote]);
 
@@ -55,18 +61,18 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
       {/* Backdrop for mobile */}
       {open && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 sm:hidden"
+          className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm sm:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
       <div
-        className={`fixed right-0 top-0 bottom-0 w-96 max-w-[90vw] sm:max-w-full bg-gray-900/95 backdrop-blur-xl border-l border-gray-800 z-40 transform transition-transform duration-300 ${
+        className={`fixed bottom-0 right-0 top-0 z-40 w-96 max-w-[90vw] transform border-l border-gray-800 bg-gray-900/95 backdrop-blur-xl transition-transform duration-300 will-change-transform sm:max-w-full ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 p-4">
           <div className="flex items-center gap-2">
             <Shield size={18} className="text-blue-400" />
             <div>
@@ -76,21 +82,21 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Close trade sidebar"
           >
             ✕
           </button>
         </div>
 
-        <div className="p-4 space-y-4 overflow-y-auto h-full">
-          <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
+        <div className="h-full space-y-4 overflow-y-auto p-4">
+          <div className="rounded-xl border border-gray-700/50 bg-gray-800/50 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase text-gray-400 tracking-wide">Active Symbol</div>
+                <div className="text-xs uppercase tracking-wide text-gray-400">Active Symbol</div>
                 <div className="text-2xl font-bold text-white">{activeSymbol}</div>
                 {quote && (
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-2 flex items-center gap-2">
                     {changePositive ? (
                       <TrendingUp size={16} className="text-green-400" />
                     ) : (
@@ -106,7 +112,7 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
                 onClick={() =>
                   quotes[activeSymbol] && updateQuote(activeSymbol, quotes[activeSymbol]!)
                 }
-                className="p-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700"
+                className="rounded-lg bg-gray-800 p-2 text-gray-300 hover:bg-gray-700 hover:text-white"
                 title="Refresh quote"
               >
                 <RefreshCw size={16} />
@@ -116,15 +122,19 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
             <div className="mt-4 h-24">
               {quote ? (
                 <Sparkline values={quote.sparkline} positive={changePositive} />
+              ) : loading ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <div className="h-4 w-full animate-pulse rounded bg-gray-700" />
+                </div>
               ) : (
-                <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-                  {loading ? 'Loading...' : 'No data'}
+                <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                  No data
                 </div>
               )}
             </div>
           </div>
 
-          <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-2">
+          <div className="space-y-2 rounded-xl border border-gray-700/50 bg-gray-800/50 p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-200">Watchlist</span>
               <div className="flex items-center gap-2">
@@ -132,7 +142,7 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
                   value={newSymbol}
                   onChange={e => setNewSymbol(e.target.value.toUpperCase())}
                   placeholder="Add symbol"
-                  className="bg-gray-900 border border-gray-700 text-sm text-white rounded px-2 py-1 w-24"
+                  className="w-24 rounded border border-gray-700 bg-gray-900 px-2 py-1 text-sm text-white"
                 />
                 <button
                   onClick={() => {
@@ -141,7 +151,7 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
                     setActiveSymbol(newSymbol);
                     setNewSymbol('');
                   }}
-                  className="p-1.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30"
+                  className="rounded bg-blue-500/20 p-1.5 text-blue-300 hover:bg-blue-500/30"
                 >
                   <Plus size={14} />
                 </button>
@@ -155,7 +165,7 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
                   <button
                     key={symbol}
                     onClick={() => setActiveSymbol(symbol)}
-                    className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                    className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                       symbol === activeSymbol
                         ? 'border-blue-500/40 bg-blue-500/10 text-blue-200'
                         : 'border-gray-700 text-gray-300 hover:border-blue-500/40'
@@ -177,11 +187,11 @@ export function TradeSidebar({ open, onClose }: TradeSidebarProps) {
           </div>
 
           {quote && (
-            <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 space-y-2">
+            <div className="space-y-2 rounded-xl border border-gray-700/50 bg-gray-800/50 p-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-200">Sentiment</span>
                 <span
-                  className={`text-xs px-2 py-0.5 rounded-full ${
+                  className={`rounded-full px-2 py-0.5 text-xs ${
                     quote.sentiment === 'bullish'
                       ? 'bg-green-500/20 text-green-300'
                       : quote.sentiment === 'bearish'
@@ -225,7 +235,7 @@ function Sparkline({ values, positive }: { values: number[]; positive: boolean }
   const min = Math.min(...values);
   const range = max - min || 1;
   return (
-    <div className="h-full w-full flex items-end gap-[2px]">
+    <div className="flex h-full w-full items-end gap-[2px]">
       {values.map((value, idx) => {
         const heightPercent = ((value - min) / range) * 100;
         return (

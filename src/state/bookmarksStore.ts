@@ -14,6 +14,7 @@ export type Bookmark = {
   tags?: string[];
   description?: string;
   folder?: string;
+  favicon?: string;
 };
 
 export type BookmarkFolder = {

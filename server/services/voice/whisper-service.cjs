@@ -5,6 +5,7 @@
 
 const axios = require('axios');
 const Pino = require('pino');
+const { getWhisperLanguageCode } = require('./whisper-language-map.js');
 
 const logger = Pino({ name: 'whisper-service' });
 
@@ -17,19 +18,30 @@ class WhisperService {
 
   /**
    * Transcribe audio using Ollama Whisper
+   * DESI POLISH: Supports all 22 Indian languages
    */
   async _transcribeOllama(audioBuffer, options = {}) {
     const model = options.model || 'whisper';
+    const whisperLang = getWhisperLanguageCode(options.language);
     
     try {
       // Ollama Whisper API
+      // Note: Ollama whisper may not support language parameter directly
+      // Language is usually auto-detected, but we can pass it if supported
+      const requestBody = {
+        model,
+        prompt: 'transcribe',
+        stream: false,
+      };
+
+      // If language is specified and Ollama supports it, add it
+      if (whisperLang) {
+        requestBody.language = whisperLang;
+      }
+
       const response = await axios.post(
         `${this.ollamaUrl}/api/generate`,
-        {
-          model,
-          prompt: 'transcribe',
-          stream: false,
-        },
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -42,7 +54,7 @@ class WhisperService {
       // This is a simplified version - actual implementation needs audio handling
       return {
         text: response.data.response || '',
-        language: 'en',
+        language: whisperLang || options.language || 'auto',
         confidence: 0.9,
       };
     } catch (error) {
@@ -53,6 +65,7 @@ class WhisperService {
 
   /**
    * Transcribe audio using OpenAI Whisper
+   * DESI POLISH: Supports all 22 Indian languages via language parameter
    */
   async _transcribeOpenAI(audioBuffer, options = {}) {
     if (!this.openaiApiKey) {
@@ -67,7 +80,16 @@ class WhisperService {
         contentType: 'audio/webm',
       });
       form.append('model', 'whisper-1');
-      form.append('language', options.language || 'en');
+      
+      // DESI POLISH: Map our language code to Whisper language code
+      const whisperLang = getWhisperLanguageCode(options.language);
+      if (whisperLang) {
+        form.append('language', whisperLang);
+      } else {
+        // Let Whisper auto-detect (better for mixed languages)
+        // Don't append language parameter
+      }
+      
       form.append('response_format', 'verbose_json');
 
       const response = await axios.post(
@@ -84,7 +106,7 @@ class WhisperService {
 
       return {
         text: response.data.text,
-        language: response.data.language,
+        language: response.data.language || whisperLang || options.language || 'auto',
         duration: response.data.duration,
         confidence: 0.95, // OpenAI doesn't provide confidence
       };
@@ -160,15 +182,32 @@ class WhisperService {
 
   /**
    * Detect language (simple heuristic)
+   * DESI POLISH: Enhanced with Indian language patterns
    */
   detectLanguage(text) {
-    // Simple language detection (can be enhanced)
+    // Simple language detection (can be enhanced with ML)
     const patterns = {
+      // English
       en: /\b(the|and|or|but|in|on|at|to|for|of|with|by)\b/gi,
+      // Spanish
       es: /\b(el|la|los|las|de|en|con|por|para)\b/gi,
+      // French
       fr: /\b(le|la|les|de|en|avec|pour|par)\b/gi,
+      // DESI POLISH: Indian language patterns
+      hi: /[\u0900-\u097F]/, // Devanagari script (Hindi, Marathi, Nepali, etc.)
+      ta: /[\u0B80-\u0BFF]/, // Tamil script
+      te: /[\u0C00-\u0C7F]/, // Telugu script
+      bn: /[\u0980-\u09FF]/, // Bengali script
+      kn: /[\u0C80-\u0CFF]/, // Kannada script
+      ml: /[\u0D00-\u0D7F]/, // Malayalam script
+      gu: /[\u0A80-\u0AFF]/, // Gujarati script
+      pa: /[\u0A00-\u0A7F]/, // Gurmukhi script (Punjabi)
+      ur: /[\u0600-\u06FF]/, // Perso-Arabic script (Urdu)
+      or: /[\u0B00-\u0B7F]/, // Odia script
+      as: /[\u0980-\u09FF]/, // Assamese (Bengali script)
     };
 
+    // Check for script-based detection first (more reliable for Indian languages)
     for (const [lang, pattern] of Object.entries(patterns)) {
       if (pattern.test(text)) {
         return lang;

@@ -118,13 +118,15 @@ export async function scrapeActiveTab(): Promise<LiveScrapeResult | null> {
       window.addEventListener('message', handleMessage);
 
       // Send scrape command to iframe
-      iframe.contentWindow.postMessage(
-        {
-          type: 'scrape:execute',
-          script: scrapeScript,
-        },
-        '*' // Note: In production, should use specific origin
-      );
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage(
+          {
+            type: 'scrape:execute',
+            script: scrapeScript,
+          },
+          '*' // Note: In production, should use specific origin
+        );
+      }
 
       // Also try direct execution if same-origin, or use browserScrape function
       try {
@@ -142,12 +144,14 @@ export async function scrapeActiveTab(): Promise<LiveScrapeResult | null> {
         }
 
         // Fallback: try eval (only works same-origin)
-        const result = iframe.contentWindow.eval?.(scrapeScript);
-        if (result) {
-          clearTimeout(timeout);
-          window.removeEventListener('message', handleMessage);
-          console.debug('[LiveTabScraper] Scraped via eval:', result.url);
-          resolve(result as LiveScrapeResult);
+        if (iframe.contentWindow && 'eval' in iframe.contentWindow) {
+          const result = (iframe.contentWindow as any).eval(scrapeScript);
+          if (result) {
+            clearTimeout(timeout);
+            window.removeEventListener('message', handleMessage);
+            console.debug('[LiveTabScraper] Scraped via eval:', result.url);
+            resolve(result as LiveScrapeResult);
+          }
         }
       } catch {
         // Cross-origin - wait for postMessage response

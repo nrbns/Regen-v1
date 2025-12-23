@@ -31,6 +31,26 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
 
   const prompt = buildPrompt(task, mode, context);
 
+  // Check if Ollama is available first
+  try {
+    const { checkOllamaAvailable } = await import('../utils/ollamaCheck');
+    const ollamaCheck = await checkOllamaAvailable();
+    if (!ollamaCheck.available) {
+      const errorMessage =
+        ollamaCheck.error ||
+        'Ollama is not running. Please install and start Ollama from https://ollama.com';
+      onError?.(new Error(errorMessage));
+      return;
+    }
+  } catch {
+    onError?.(
+      new Error(
+        'Failed to check Ollama availability. Please ensure Ollama is installed and running.'
+      )
+    );
+    return;
+  }
+
   try {
     const response = await fetch('http://127.0.0.1:11434/api/chat', {
       method: 'POST',
@@ -47,10 +67,18 @@ export async function streamAgentTask(task: string, opts: AgentStreamOptions = {
           },
         ],
       }),
+      signal: AbortSignal.timeout(60000), // 60 second timeout
     });
 
-    if (!response.ok || !response.body) {
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(`Model "${model}" not found. Run: ollama pull ${model}`);
+      }
       throw new Error(`Agent request failed with status ${response.status}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body from Ollama');
     }
 
     const reader = response.body.getReader();

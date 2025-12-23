@@ -58,13 +58,10 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
     setEditingName(group.name);
   }, [createGroup, tabGroups.length]);
 
-  const handleRenameGroup = useCallback(
-    (group: TabGroup) => {
-      setEditingGroupId(group.id);
-      setEditingName(group.name);
-    },
-    []
-  );
+  const handleRenameGroup = useCallback((group: TabGroup) => {
+    setEditingGroupId(group.id);
+    setEditingName(group.name);
+  }, []);
 
   const handleSaveRename = useCallback(
     (groupId: string) => {
@@ -129,13 +126,13 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[80vh] bg-gray-900 rounded-2xl shadow-2xl border border-gray-700 overflow-hidden"
+            className="absolute left-1/2 top-1/2 max-h-[80vh] w-full max-w-4xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-gray-700 bg-gray-900 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 bg-gray-800/50">
+            <div className="flex items-center justify-between border-b border-gray-700 bg-gray-800/50 px-6 py-4">
               <div className="flex items-center gap-3">
-                <Folder className="w-5 h-5 text-purple-400" />
+                <Folder className="h-5 w-5 text-purple-400" />
                 <h2 className="text-xl font-semibold text-white">Tab Groups</h2>
                 <span className="text-sm text-gray-400">
                   {tabGroups.length} group{tabGroups.length !== 1 ? 's' : ''}
@@ -144,14 +141,14 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCreateGroup}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
                 >
                   <FolderPlus size={16} />
                   New Group
                 </button>
                 <button
                   onClick={onClose}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400 hover:text-white"
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
                 >
                   <X size={20} />
                 </button>
@@ -159,17 +156,15 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
             </div>
 
             {/* Content */}
-            <div className="overflow-y-auto max-h-[calc(80vh-80px)] p-6">
+            <div className="max-h-[calc(80vh-80px)] overflow-y-auto p-6">
               {tabGroups.length === 0 && ungroupedTabs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <Folder className="w-16 h-16 text-gray-600 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-300 mb-2">No tabs or groups</h3>
-                  <p className="text-sm text-gray-500 mb-6">
-                    Create a group to organize your tabs
-                  </p>
+                  <Folder className="mb-4 h-16 w-16 text-gray-600" />
+                  <h3 className="mb-2 text-lg font-semibold text-gray-300">No tabs or groups</h3>
+                  <p className="mb-6 text-sm text-gray-500">Create a group to organize your tabs</p>
                   <button
                     onClick={handleCreateGroup}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    className="rounded-lg bg-purple-600 px-6 py-3 text-white transition-colors hover:bg-purple-700"
                   >
                     Create Your First Group
                   </button>
@@ -185,7 +180,7 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                       <motion.div
                         key={group.id}
                         layout
-                        className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
+                        className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800/50"
                         onDragOver={e => {
                           if (draggedTabId) {
                             e.preventDefault();
@@ -200,24 +195,20 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                       >
                         {/* Group Header */}
                         <div
-                          className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700"
+                          className="flex min-h-[48px] items-center gap-3 border-b border-gray-700 bg-gray-800/70 px-4 py-3"
                           style={{
                             borderLeft: `4px solid ${group.color}`,
                           }}
                         >
                           <button
                             onClick={() => toggleGroupCollapsed(group.id)}
-                            className="p-1 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
+                            className="flex flex-shrink-0 items-center justify-center rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
                           >
-                            {isCollapsed ? (
-                              <ChevronRight size={16} />
-                            ) : (
-                              <ChevronDown size={16} />
-                            )}
+                            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
                           </button>
 
                           <div
-                            className="w-4 h-4 rounded-full border border-white/20 flex-shrink-0"
+                            className="h-4 w-4 flex-shrink-0 rounded-full border border-white/20"
                             style={{ backgroundColor: group.color }}
                           />
 
@@ -234,40 +225,40 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                                   handleCancelRename();
                                 }
                               }}
-                              className="flex-1 bg-gray-700 text-white px-2 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                              className="min-h-[32px] flex-1 rounded bg-gray-700 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                               autoFocus
                             />
                           ) : (
                             <button
                               onClick={() => handleRenameGroup(group)}
-                              className="flex-1 text-left text-sm font-semibold text-white hover:text-purple-400 transition-colors"
+                              className="flex min-h-[32px] flex-1 items-center text-left text-sm font-semibold text-white transition-colors hover:text-purple-400"
                             >
                               {group.name}
                             </button>
                           )}
 
-                          <span className="text-xs text-gray-400">
+                          <span className="flex-shrink-0 whitespace-nowrap text-xs text-gray-400">
                             {groupTabs.length} tab{groupTabs.length !== 1 ? 's' : ''}
                           </span>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-shrink-0 items-center gap-1">
                             <button
                               onClick={() => handleCycleColor(group)}
-                              className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
+                              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
                               title="Change color"
                             >
                               <Palette size={14} />
                             </button>
                             <button
                               onClick={() => handleRenameGroup(group)}
-                              className="p-1.5 hover:bg-gray-700 rounded transition-colors text-gray-400 hover:text-white"
+                              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
                               title="Rename"
                             >
                               <Edit3 size={14} />
                             </button>
                             <button
                               onClick={() => handleDeleteGroup(group.id)}
-                              className="p-1.5 hover:bg-red-500/20 rounded transition-colors text-gray-400 hover:text-red-400"
+                              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-500/20 hover:text-red-400"
                               title="Delete group"
                             >
                               <Trash2 size={14} />
@@ -278,11 +269,11 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                         {/* Group Tabs */}
                         {!isCollapsed && (
                           <AnimatePresence>
-                            <div className="p-3 space-y-2">
+                            <div className="space-y-2 p-3">
                               {groupTabs.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500 text-sm">
+                                <div className="py-8 text-center text-sm text-gray-500">
                                   <p>No tabs in this group</p>
-                                  <p className="text-xs mt-1">Drag tabs here to add them</p>
+                                  <p className="mt-1 text-xs">Drag tabs here to add them</p>
                                 </div>
                               ) : (
                                 groupTabs.map(tab => (
@@ -292,16 +283,23 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                                     draggable
                                     onDragStart={() => setDraggedTabId(tab.id)}
                                     onDragEnd={() => setDraggedTabId(null)}
-                                    className="flex items-center gap-3 px-3 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors cursor-move"
+                                    className="flex cursor-move items-center gap-3 rounded-lg bg-gray-700/50 px-3 py-2 transition-colors hover:bg-gray-700"
                                   >
-                                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: group.color }} />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm text-white truncate">{tab.title || 'Untitled'}</p>
-                                      <p className="text-xs text-gray-400 truncate">{tab.url || 'about:blank'}</p>
+                                    <div
+                                      className="h-2 w-2 flex-shrink-0 rounded-full"
+                                      style={{ backgroundColor: group.color }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-sm text-white">
+                                        {tab.title || 'Untitled'}
+                                      </p>
+                                      <p className="truncate text-xs text-gray-400">
+                                        {tab.url || 'about:blank'}
+                                      </p>
                                     </div>
                                     <button
                                       onClick={() => assignTabToGroup(tab.id, null)}
-                                      className="p-1 hover:bg-gray-600 rounded transition-colors text-gray-400 hover:text-white"
+                                      className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-600 hover:text-white"
                                       title="Remove from group"
                                     >
                                       <X size={14} />
@@ -320,7 +318,7 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                   {ungroupedTabs.length > 0 && (
                     <motion.div
                       layout
-                      className="bg-gray-800/50 rounded-xl border border-gray-700 overflow-hidden"
+                      className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800/50"
                       onDragOver={e => {
                         if (draggedTabId) {
                           e.preventDefault();
@@ -333,16 +331,16 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                         handleDropTab(null);
                       }}
                     >
-                      <div className="flex items-center gap-3 px-4 py-3 bg-gray-800/70 border-b border-gray-700">
-                        <Folder className="w-4 h-4 text-gray-400" />
-                        <h3 className="text-sm font-semibold text-gray-300">
+                      <div className="flex min-h-[48px] items-center gap-3 border-b border-gray-700 bg-gray-800/70 px-4 py-3">
+                        <Folder className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                        <h3 className="flex-1 text-sm font-semibold text-gray-300">
                           Ungrouped Tabs
                         </h3>
-                        <span className="text-xs text-gray-500">
+                        <span className="flex-shrink-0 whitespace-nowrap text-xs text-gray-500">
                           {ungroupedTabs.length} tab{ungroupedTabs.length !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <div className="p-3 space-y-2">
+                      <div className="space-y-2 p-3">
                         {ungroupedTabs.map(tab => (
                           <motion.div
                             key={tab.id}
@@ -350,11 +348,15 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                             draggable
                             onDragStart={() => setDraggedTabId(tab.id)}
                             onDragEnd={() => setDraggedTabId(null)}
-                            className="flex items-center gap-3 px-3 py-2 bg-gray-700/50 hover:bg-gray-700 rounded-lg transition-colors cursor-move"
+                            className="flex cursor-move items-center gap-3 rounded-lg bg-gray-700/50 px-3 py-2 transition-colors hover:bg-gray-700"
                           >
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white truncate">{tab.title || 'Untitled'}</p>
-                              <p className="text-xs text-gray-400 truncate">{tab.url || 'about:blank'}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm text-white">
+                                {tab.title || 'Untitled'}
+                              </p>
+                              <p className="truncate text-xs text-gray-400">
+                                {tab.url || 'about:blank'}
+                              </p>
                             </div>
                             <button
                               onClick={() => {
@@ -365,7 +367,7 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
                                   assignTabToGroup(tab.id, newGroup.id);
                                 }
                               }}
-                              className="p-1 hover:bg-gray-600 rounded transition-colors text-gray-400 hover:text-purple-400"
+                              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-600 hover:text-purple-400"
                               title="Add to group"
                             >
                               <Plus size={14} />
@@ -384,4 +386,3 @@ export function TabGroupsOverlay({ open, onClose }: TabGroupsOverlayProps) {
     </Portal>
   );
 }
-

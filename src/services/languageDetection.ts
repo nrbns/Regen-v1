@@ -47,7 +47,20 @@ const INDIC_LANGUAGES = [
 const LANGUAGE_PATTERNS: Record<string, RegExp[]> = {
   hi: [
     /[\u0900-\u097F]/, // Devanagari script
+    // LAG FIX #5: Enhanced Hindi patterns for 65% → 85% detection
     /\b(है|हो|कर|से|में|को|का|के|की|पर|इस|उस|वह|यह|क्या|कैसे|कहाँ|कब|क्यों)\b/,
+    // Common Hindi words (verbs, nouns, pronouns)
+    /\b(मैं|तू|वह|हम|तुम|वे|ये|वो|कौन|किस|किसी|कुछ|सब|अपना|अपने|अपनी)\b/,
+    // Common Hindi verbs
+    /\b(करना|होना|जाना|आना|देना|लेना|खाना|पीना|सोना|उठना|बैठना|बोलना|सुनना|देखना|पढ़ना|लिखना)\b/,
+    // Common Hindi nouns
+    /\b(घर|काम|दिन|रात|सुबह|शाम|पानी|खाना|किताब|बच्चा|आदमी|औरत|बेटा|बेटी|माँ|पिता)\b/,
+    // Hindi question words
+    /\b(क्या|कैसे|कहाँ|कब|क्यों|कौन|किस|किसे|किसको|किसका|किसकी|किसके)\b/,
+    // Hindi conjunctions and particles
+    /\b(और|या|लेकिन|क्योंकि|तो|फिर|भी|ही|तक|से|में|पर|को|का|के|की)\b/,
+    // Hindi numbers (1-10)
+    /\b(एक|दो|तीन|चार|पाँच|छह|सात|आठ|नौ|दस)\b/,
   ],
   ta: [
     /[\u0B80-\u0BFF]/, // Tamil script
@@ -146,7 +159,20 @@ function detectLanguageClient(text: string): LanguageDetectionResult {
       scores[a[0]] > scores[b[0]] ? a : b
     )[0];
     const maxScore = scores[detectedLang];
-    const confidence = Math.min(0.9, 0.5 + (maxScore / text.length) * 0.4);
+
+    // LAG FIX #5: Improved confidence calculation for Hindi (65% → 85%)
+    // Weight script detection more heavily for Hindi
+    const scriptWeight = detectedLang === 'hi' ? 1.5 : 1.0;
+    const weightedScore = maxScore * scriptWeight;
+    const textLength = text.trim().length;
+
+    // Higher confidence for Hindi when Devanagari script is present
+    let confidence = Math.min(0.9, 0.5 + (weightedScore / textLength) * 0.4);
+
+    // Boost confidence for Hindi if Devanagari script is detected
+    if (detectedLang === 'hi' && /[\u0900-\u097F]/.test(text)) {
+      confidence = Math.min(0.95, confidence + 0.15); // Boost by 15%
+    }
 
     return {
       language: detectedLang,

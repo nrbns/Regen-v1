@@ -43,7 +43,7 @@ export async function save(workflow: Omit<Workflow, 'createdAt' | 'updatedAt'>):
   const now = Date.now();
   const saved: Workflow = {
     ...workflow,
-    createdAt: workflow.createdAt || now,
+    createdAt: now,
     updatedAt: now,
   };
 

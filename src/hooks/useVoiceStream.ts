@@ -17,6 +17,7 @@ interface UseVoiceStreamOptions {
   wsUrl?: string;
   autoReconnect?: boolean;
   autoSendToAgent?: boolean;
+  language?: string; // DESI POLISH: Language code (e.g., 'hi', 'ta', 'en', 'auto')
   onTranscript?: (transcript: VoiceTranscript) => void;
   onFinalTranscript?: (text: string) => void;
   onError?: (error: string) => void;
@@ -46,6 +47,7 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     wsUrl = DEFAULT_WS_URL,
     autoReconnect = true,
     autoSendToAgent = false,
+    language = 'auto', // DESI POLISH: Default to auto-detect
     onTranscript,
     onFinalTranscript,
     onError,
@@ -204,10 +206,11 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       // Start recording
       mediaRecorder.start(500); // Send chunks every 500ms
 
-      // Notify server
+      // DESI POLISH: Notify server with language preference
       wsRef.current.send(
         JSON.stringify({
           type: 'start',
+          language, // Pass language to Whisper service
         })
       );
     } catch (error) {
@@ -215,7 +218,7 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
       onError?.(errorMessage);
       throw error;
     }
-  }, [onError]);
+  }, [onError, language]);
 
   /**
    * Stop recording
@@ -226,14 +229,16 @@ export function useVoiceStream(options: UseVoiceStreamOptions = {}): UseVoiceStr
     }
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      // DESI POLISH: Pass language to ensure consistent transcription
       wsRef.current.send(
         JSON.stringify({
           type: 'stop',
           autoSendToAgent,
+          language, // Pass language for final transcription
         })
       );
     }
-  }, [autoSendToAgent]);
+  }, [autoSendToAgent, language]);
 
   /**
    * Cancel recording

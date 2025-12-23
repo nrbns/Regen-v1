@@ -3,13 +3,13 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "./dist/renderer",
-    "rootDir": "./src",
+    "rootDir": "./",
     "types": ["node"],
     "moduleResolution": "bundler",
     "skipLibCheck": true,
     "incremental": true
   },
-  "include": ["src", "src/**/*.json", "src/vite-env.d.ts"],
+  "include": ["src", "src/**/*.json", "src/vite-env.d.ts", "services/**/*.ts", "packages/**/*.ts"],
   "exclude": [
     "server",
     "node_modules",

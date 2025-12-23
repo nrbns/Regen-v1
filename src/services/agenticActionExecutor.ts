@@ -89,21 +89,25 @@ async function executeTradeAction(
   const symbol = action.target || 'NIFTY50';
   toast.info(`Executing trade action for ${symbol}...`);
 
-  // Step 1: Scrape relevant news/sources (parallel with AI reasoning)
+  // WEEK 1 TASK 2: Optimize for <1.5s voice query response
+  // Start AI reasoning immediately without waiting for scraping (faster initial response)
   const searchQuery = `${symbol} latest news analysis`;
-  const [scrapedResults, aiResults] = await Promise.all([
-    // Scrape news sources
-    scrapeResearchSources([
-      `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`,
-    ]).catch(() => []),
-    // Parallel AI reasoning about trade
-    aiEngine
-      .runReasonAndSummary(
-        `Should I ${action.params?.side || 'trade'} ${symbol}? Current market conditions and analysis.`,
-        { mode: 'trade' }
-      )
-      .catch(() => ({ reasoning: { text: '' }, summary: { text: '' } })),
-  ]);
+
+  // AI reasoning starts immediately (no dependency on scraping)
+  const aiPromise = aiEngine
+    .runReasonAndSummary(`Should I ${action.params?.side || 'trade'} ${symbol}? Brief analysis.`, {
+      mode: 'trade',
+    })
+    .catch(() => ({ reasoning: { text: '' }, summary: { text: '' } }));
+
+  // Scraping happens in background (non-blocking)
+  const scrapedPromise = scrapeResearchSources([
+    `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`,
+  ]).catch(() => []);
+
+  // Wait for AI first (faster), then scraping can continue in background
+  const aiResults = await aiPromise;
+  const scrapedResults = await scrapedPromise;
 
   // Step 2: Emit trade event (simulation - no real orders)
   // Trade mode listens for 'agent:trade-action' event
@@ -225,24 +229,25 @@ async function executeResearchAction(
   const query = action.target || '';
   toast.info(`Researching: ${query}...`);
 
-  // Step 1: Scrape multiple sources in parallel
+  // WEEK 1 TASK 2: Optimize for <1.5s voice query - prioritize AI response
+  // AI starts immediately with query (no dependency on scraping)
+  const aiPromise = aiEngine.runReasonAndSummary(
+    `Research: ${query}. Provide brief analysis and summary.`,
+    { mode: 'research', context: { query } }
+  );
+
+  // Scraping happens in parallel but doesn't block AI response
   const searchUrls = [
     `https://www.google.com/search?q=${encodeURIComponent(query)}`,
     `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
   ];
-
   const scrapedPromise = Promise.all(
     searchUrls.map(url => scrapeResearchSources([url]).catch(() => []))
   ).then(results => results.flat());
 
-  // Step 2: Parallel AI reasoning + summarization
-  const aiPromise = aiEngine.runReasonAndSummary(
-    `Research query: ${query}\n\nProvide analysis and summary.`,
-    { mode: 'research', context: { query } }
-  );
-
-  // Wait for both to complete
-  const [scrapedResults, aiResults] = await Promise.all([scrapedPromise, aiPromise]);
+  // Get AI results first (faster UX), scraping can finish in background
+  const aiResults = await aiPromise;
+  const scrapedResults = await scrapedPromise;
 
   toast.success('Research complete');
 

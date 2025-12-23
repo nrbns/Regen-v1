@@ -1,49 +1,60 @@
 # Pull Request
 
-## Description
+## Summary
 
-<!-- Describe your changes -->
+<!-- Brief description of changes -->
 
-## Design System Checklist
+## Files Changed
 
-- [ ] Uses `LayoutEngine` where applicable
-- [ ] No hardcoded colors/spacing; uses tokens
-- [ ] Added Storybook story for any new component
-- [ ] Unit tests added for new logic
-- [ ] Visual snapshot added (if UI changed)
-- [ ] Accessibility checks (axe) pass locally
-- [ ] Lint and build pass
+<!-- List of files modified/added -->
 
-## Type of Change
+- [ ] `packages/shared/events.js` - Shared event constants
+- [ ] `server/realtime.js` - Socket.IO server
+- [ ] `src/services/realtime/socketService.ts` - Client socket service
+- [ ] Worker files - Publishing progress to Redis
+- [ ] Component files - Replaced polling with socket events
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change
-- [ ] Documentation update
+## How to Run Locally
 
-## Testing
+```bash
+# Start Redis
+docker run -p 6379:6379 -d redis
 
-- [ ] Unit tests pass (`npm test`)
-- [ ] E2E tests pass (`npm run test:e2e`)
-- [ ] Visual regression tests pass (`npm run test:visual`)
-- [ ] Accessibility tests pass
-- [ ] Type check passes (`npm run build:types`)
-- [ ] Lint passes (`npm run lint`)
-- [ ] Build succeeds (`npm run build`)
+# Start server
+npm run dev:server
 
-## Release Checklist (for release PRs)
+# Start client
+npm run dev:web
+```
 
-- [ ] CHANGELOG.md updated
-- [ ] Version bumped (if needed)
-- [ ] Migration guide added (for breaking changes)
-- [ ] Release notes prepared
-- [ ] All tests pass
-- [ ] Manual smoke tests completed
+## Test Plan
 
-## Screenshots (if applicable)
+- [ ] Unit tests pass
+- [ ] Integration test: Socket connection with valid JWT
+- [ ] Integration test: Worker publishes → Socket.IO forwards → Client receives
+- [ ] Reconnection test: Disconnect mid-stream → Reconnect → Resume
+- [ ] Load test: 100 concurrent socket connections
 
-<!-- Add screenshots here -->
+## Demo
+
+<!-- Add GIF/video showing the feature working -->
+
+## Checklist
+
+- [ ] Code follows project style guidelines
+- [ ] Self-review completed
+- [ ] Comments added for complex logic
+- [ ] Documentation updated
+- [ ] No new warnings generated
+- [ ] Tests added/updated
+- [ ] All tests pass locally
 
 ## Related Issues
 
-<!-- Link related issues here -->
+Closes #<!-- issue number -->
+
+## Reviewers
+
+- [ ] Backend reviewer assigned
+- [ ] Frontend reviewer assigned
+- [ ] QA reviewer assigned

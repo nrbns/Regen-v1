@@ -1,36 +1,33 @@
-/**
- * Tauri API Stub
- * DAY 10 FIX: Stub module to avoid Vite resolution errors when @tauri-apps/api is not installed
- * This allows the code to run in non-Tauri environments (web builds)
- */
+// Minimal Tauri API stub for Storybook/Node environments
+// Provides no-op async implementations so imports succeed during visual builds
 
-// Stub for @tauri-apps/api/core
-export function invoke(cmd, args) {
-  // Silently fail - Tauri APIs are expected to be unavailable in web mode
-  // Callers should handle this gracefully with try/catch
-  return Promise.reject(new Error('Tauri API not available'));
-}
+export const invoke = async () => null;
+export const listen = async () => ({ unsubscribe: () => {} });
+export const emit = async () => {};
 
-// Stub for @tauri-apps/api/event
-export function listen(event, handler) {
-  console.warn(`[Tauri Stub] listen('${event}', ...) called but Tauri is not available`);
-  return Promise.resolve(() => {}); // Return a no-op unsubscribe function
-}
+// Updater stubs
+export const checkUpdate = async () => ({ shouldUpdate: false, manifest: null });
+export const installUpdate = async () => {};
+export const relaunch = async () => {};
 
-export function emit(event, payload) {
-  console.warn(`[Tauri Stub] emit('${event}', ...) called but Tauri is not available`);
-  return Promise.resolve();
-}
+// Window stubs
+export const appWindow = {
+  listen: async () => ({ unsubscribe: () => {} }),
+  emit: async () => {},
+};
 
-// Stub for @tauri-apps/api/updater (optional plugin)
-export function check() {
-  console.warn(`[Tauri Stub] updater.check() called but Tauri updater plugin is not available`);
-  return Promise.reject(new Error('Tauri updater plugin not available'));
-}
+// General info
+export const getVersion = async () => '0.0.0';
+export const getName = async () => 'omnibrowser-stub';
 
-// Default export for module compatibility
 export default {
   invoke,
   listen,
   emit,
+  checkUpdate,
+  installUpdate,
+  relaunch,
+  appWindow,
+  getVersion,
+  getName,
 };

@@ -43,6 +43,36 @@ function getLocaleFromLanguage(lang?: string): string {
 // Search engines that allow iframe embedding (no X-Frame-Options blocking)
 const IFRAME_FRIENDLY_PROVIDERS = ['bing', 'yahoo', 'startpage', 'ecosia'];
 
+/**
+ * DAY 2 ENHANCEMENT: Fetch search results with proper headers
+ * This bypasses bot detection and enables search results in iframes
+ */
+export async function fetchSearchResults(
+  searchUrl: string,
+  signal?: AbortSignal
+): Promise<Response> {
+  try {
+    // Try to import the search headers config
+    const { getSearchRequestHeaders } = await import('../config/day2-search-unblock').catch(() => ({
+      getSearchRequestHeaders: () => ({
+        'User-Agent': typeof navigator !== 'undefined' ? navigator.userAgent : 'Mozilla/5.0',
+      }),
+    }));
+
+    return fetch(searchUrl, {
+      headers: getSearchRequestHeaders(),
+      signal,
+      mode: 'no-cors',
+    }).catch(error => {
+      console.error('[Search] Fetch failed:', error);
+      throw error;
+    });
+  } catch (error) {
+    console.error('[Search] Search request error:', error);
+    throw error;
+  }
+}
+
 export function buildSearchUrl(
   provider: 'google' | 'duckduckgo' | 'bing' | 'yahoo' | 'startpage' | 'ecosia',
   q: string,
@@ -55,9 +85,9 @@ export function buildSearchUrl(
 
   // If iframe-friendly is preferred and current provider blocks iframes, use fallback
   if (preferIframeFriendly && !IFRAME_FRIENDLY_PROVIDERS.includes(provider)) {
-    // DuckDuckGo and Google block iframes - use Bing as fallback
+    // DuckDuckGo and Google block iframes - use Startpage as fallback (privacy-friendly)
     if (provider === 'duckduckgo' || provider === 'google') {
-      return `https://www.bing.com/search?q=${enc}&setlang=${langCode}`;
+      return `https://www.startpage.com/sp/search?query=${enc}&language=${langCode}`;
     }
   }
 
@@ -176,10 +206,9 @@ export function normalizeInputToUrlOrSearch(
   }
 
   // Not a URL - convert to search
-  // Use DuckDuckGo by default (privacy-friendly, works in iframes with proper setup)
-  // Only use Bing if explicitly requested or iframe-friendly is critical
-  const searchProvider = provider === 'all' 
-    ? (preferIframeFriendly ? 'duckduckgo' : 'google') 
-    : provider;
+  // Use Startpage by default (privacy-friendly AND iframe-friendly)
+  // DuckDuckGo and Google block iframes, so use Startpage or Bing for iframe compatibility
+  const searchProvider =
+    provider === 'all' ? (preferIframeFriendly ? 'startpage' : 'google') : provider;
   return buildSearchUrl(searchProvider, trimmed, language, preferIframeFriendly);
 }

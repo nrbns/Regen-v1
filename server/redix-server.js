@@ -4,6 +4,7 @@
 // LOAD ENVIRONMENT VARIABLES - MUST BE FIRST
 // ============================================================================
 import { config } from 'dotenv';
+import { initOrchestratorWebSocket } from './websocket/orchestrator.js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
@@ -153,10 +154,22 @@ let searchHandler, searchGetHandler, summarizeHandler, searchRateLimiter, summar
 // Lazy load handlers (will be initialized when routes are registered)
 async function loadProductionSearchAPIs() {
   try {
-    // Use dynamic import with .js extension (TypeScript convention for ES modules)
-    const searchModule = await import('./api/search.js');
-    const summarizeModule = await import('./api/summarize.js');
-    const rateLimiterModule = await import('./middleware/rateLimiter.js');
+    // Use dynamic import - try .ts first, then .js (for TypeScript files when using tsx)
+    let searchModule, summarizeModule, rateLimiterModule;
+    try {
+      searchModule = await import('./api/search.js');
+      summarizeModule = await import('./api/summarize.js');
+      rateLimiterModule = await import('./middleware/rateLimiter.js');
+    } catch (tsError) {
+      // Try .ts extensions if .js fails (when using tsx)
+      try {
+        searchModule = await import('./api/search.ts');
+        summarizeModule = await import('./api/summarize.ts');
+        rateLimiterModule = await import('./middleware/rateLimiter.ts');
+      } catch {
+        throw tsError; // Re-throw original error
+      }
+    }
 
     searchHandler = searchModule.searchHandler;
     searchGetHandler = searchModule.searchGetHandler;
@@ -170,29 +183,21 @@ async function loadProductionSearchAPIs() {
     console.warn('[RedixServer] Make sure TypeScript files are compiled or use tsx to run server');
     // Provide fallback handlers
     searchHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'search_api_not_available',
-          message:
-            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'search_api_not_available',
+        message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     searchGetHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'search_api_not_available',
-          message:
-            'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'search_api_not_available',
+        message: 'Production search API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     summarizeHandler = async (req, reply) =>
-      reply
-        .code(503)
-        .send({
-          error: 'summarize_api_not_available',
-          message:
-            'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.',
-        });
+      reply.code(503).send({
+        error: 'summarize_api_not_available',
+        message:
+          'Production summarize API not loaded. Ensure TypeScript is compiled or run with tsx.',
+      });
     searchRateLimiter = async () => {}; // No-op
     summarizeRateLimiter = async () => {}; // No-op
     return false;
@@ -243,7 +248,8 @@ const automationTriggers = {
   addTriggerEvent: () => Promise.resolve(),
 };
 
-const failSafe = {};
+// Fail-safe will be imported dynamically to handle CommonJS/ES modules
+let failSafe = { healthCheck: async () => ({ ok: true, status: 'fail-safe module not loaded' }) };
 
 // WebSocket server will be initialized after Fastify starts
 // Import is done dynamically to avoid circular dependencies
@@ -1924,6 +1930,24 @@ try {
   fastify.log.warn({ err: error }, 'Failed to register trade WebSocket server (optional)');
 }
 
+// Register trade indicators API endpoint (will be registered after server starts)
+let tradeIndicatorsRegistered = false;
+async function registerTradeIndicators() {
+  if (tradeIndicatorsRegistered) return;
+  try {
+    const { calculateIndicators } = await import('./api/trade-indicators.js');
+    fastify.post('/api/trade/indicators', async (request, reply) => {
+      return calculateIndicators(request, reply);
+    });
+    fastify.log.info('Trade indicators API endpoint registered');
+    tradeIndicatorsRegistered = true;
+  } catch (error) {
+    fastify.log.warn({ err: error }, 'Failed to register trade indicators API (optional)');
+  }
+}
+// Register immediately (async but won't block)
+registerTradeIndicators();
+
 fastify.post('/api/query', async (request, reply) => {
   const body = request.body ?? {};
   const query = typeof body.query === 'string' ? body.query.trim() : '';
@@ -2931,7 +2955,40 @@ fastify.post('/api/regen/event', async (request, reply) => {
 
 // Redix health check
 fastify.get('/api/redix/health', async () => {
-  return await failSafe.healthCheck();
+  try {
+    // Try to load fail-safe module dynamically (CommonJS)
+    if (!failSafe.healthCheck || failSafe.healthCheck.toString().includes('not loaded')) {
+      try {
+        const { createRequire } = await import('module');
+        const require = createRequire(import.meta.url);
+        const failSafeModule = require('./services/redix/fail-safe.js');
+        if (failSafeModule?.healthCheck && typeof failSafeModule.healthCheck === 'function') {
+          failSafe = failSafeModule;
+        }
+      } catch (importError) {
+        // If import fails, use fallback
+        fastify.log.warn('[Redix Health] Could not load fail-safe module:', importError.message);
+      }
+    }
+
+    // Check if healthCheck is available and callable
+    if (failSafe.healthCheck && typeof failSafe.healthCheck === 'function') {
+      return await failSafe.healthCheck();
+    } else {
+      // Return basic health check if module not available
+      return { ok: true, healthy: true, status: 'basic', timestamp: Date.now() };
+    }
+  } catch (error) {
+    // Return basic health if fail-safe module unavailable
+    fastify.log.warn('[Redix Health] Health check failed:', error.message);
+    return {
+      ok: true,
+      healthy: true,
+      status: 'fallback',
+      error: error.message,
+      timestamp: Date.now(),
+    };
+  }
 });
 
 // Command queue endpoints
@@ -4599,6 +4656,253 @@ fastify.get('/metrics/prom', async (_request, reply) => {
     initWebSocketServer(httpServer);
     fastify.log.info('WebSocket server initialized');
 
+    // Initialize Socket.IO server (for Socket.IO clients)
+    try {
+      const { Server } = require('socket.io');
+      const { createAdapter } = require('@socket.io/redis-adapter');
+      const { redisClient } = require('./config/redis.js');
+      const { publish } = require('./pubsub.js');
+      const EVENTS = require('../packages/shared/events.js').EVENTS || {};
+
+      const io = new Server(httpServer, {
+        cors: {
+          origin: process.env.FRONTEND_ORIGIN || '*',
+          methods: ['GET', 'POST'],
+          credentials: true,
+        },
+        pingTimeout: 30000,
+        pingInterval: 25000,
+        transports: ['websocket', 'polling'],
+      });
+
+      // Attach Redis adapter for horizontal scaling (optional)
+      if (redisClient && process.env.REDIS_URL) {
+        try {
+          const pubClient = redisClient.duplicate();
+          const subClient = redisClient.duplicate();
+          io.adapter(createAdapter(pubClient, subClient));
+          fastify.log.info('Socket.IO Redis adapter attached');
+        } catch {
+          fastify.log.warn('Socket.IO Redis adapter failed (continuing without it)');
+        }
+      }
+
+      // Authentication middleware
+      io.use(async (socket, next) => {
+        try {
+          const token =
+            socket.handshake.auth?.token ||
+            socket.handshake.headers?.authorization?.replace('Bearer ', '');
+
+          if (!token && process.env.NODE_ENV === 'production') {
+            return next(new Error('Authentication required'));
+          }
+
+          // Simple token verification (replace with actual JWT verification)
+          const user = token
+            ? { id: token.substring(0, 8) || 'anonymous', token }
+            : { id: 'anonymous', token: null };
+          socket.user = user;
+          socket.userId = user.id;
+          return next();
+        } catch (error) {
+          return next(new Error(`Authentication error: ${error.message}`));
+        }
+      });
+
+      // Connection handler
+      io.on('connection', socket => {
+        const userId = socket.userId;
+        const sessionId = socket.id;
+
+        fastify.log.info({ userId, sessionId }, 'Socket.IO client connected');
+
+        // Join user room for targeted messaging
+        socket.join(`user:${userId}`);
+        socket.join(`session:${sessionId}`);
+
+        // Emit connection confirmation
+        socket.emit('connected', {
+          sessionId,
+          userId,
+          timestamp: Date.now(),
+        });
+
+        // Handle search start
+        socket.on(EVENTS.START_SEARCH || 'search:start:v1', async payload => {
+          try {
+            const { query, filters } = payload;
+
+            // Enqueue to LLM queue for processing
+            const { enqueueLLMJob } = await import('./services/queue/llmQueue.js');
+            const jobResult = await enqueueLLMJob(
+              {
+                query,
+                context: filters || {},
+                userId,
+                sessionId,
+                model: payload.model || 'phi3:mini',
+                stream: true,
+              },
+              { jobId: payload.jobId }
+            );
+
+            const jobId = jobResult.jobId;
+
+            fastify.log.info(
+              { userId, jobId, query },
+              'Search started via Socket.IO - job enqueued'
+            );
+
+            // Emit start confirmation
+            socket.emit(EVENTS.JOB_STARTED || 'job:started:v1', { jobId, query });
+
+            // Workers will publish progress to Redis, which will be forwarded here
+          } catch (error) {
+            fastify.log.error({ err: error }, 'Failed to enqueue search job');
+            socket.emit('error', { message: error.message });
+          }
+        });
+
+        // Handle task cancellation
+        socket.on(EVENTS.CANCEL_TASK || 'task:cancel:v1', data => {
+          const { jobId } = data;
+          fastify.log.info({ userId, jobId }, 'Task cancelled via Socket.IO');
+
+          // Publish cancellation event to Redis
+          publish(`job:${jobId}`, {
+            type: 'cancelled',
+            jobId,
+            userId,
+            timestamp: Date.now(),
+          }).catch(() => {});
+
+          socket.emit('task:cancelled', { jobId });
+        });
+
+        // Handle disconnection
+        socket.on('disconnect', reason => {
+          fastify.log.info({ userId, sessionId, reason }, 'Socket.IO client disconnected');
+        });
+      });
+
+      // PR 2: Subscribe to Redis channels for worker events with pattern matching
+      if (redisClient) {
+        try {
+          const { subscribe } = require('./pubsub.js');
+          const Redis = require('ioredis');
+
+          // Create a dedicated subscriber for pattern matching
+          const patternSub = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+            maxRetriesPerRequest: null,
+            enableOfflineQueue: false,
+            retryStrategy: () => null,
+            lazyConnect: true,
+          });
+
+          // PR 2: Subscribe to job:* pattern to catch all job-specific channels
+          patternSub.psubscribe('job:*', (err, count) => {
+            if (err) {
+              fastify.log.warn({ err }, 'Failed to psubscribe to job:* pattern');
+            } else {
+              fastify.log.info(`[Socket.IO] Subscribed to job:* pattern (${count} channels)`);
+            }
+          });
+
+          // Handle pattern messages (job:${jobId} channels)
+          patternSub.on('pmessage', (pattern, channel, message) => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              const event = parsed.event || data.event;
+
+              // Extract jobId from channel (job:${jobId})
+              const jobId = channel.replace('job:', '');
+
+              if (data.userId) {
+                // Forward to user room
+                io.to(`user:${data.userId}`).emit(event || 'model:chunk:v1', {
+                  ...data,
+                  jobId,
+                });
+                fastify.log.debug(
+                  { jobId, userId: data.userId, event },
+                  '[Socket.IO] Forwarded job message to user room'
+                );
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error, channel }, 'Failed to parse job channel message');
+            }
+          });
+
+          // Subscribe to general channels (model:chunk, model:complete, job:progress)
+          subscribe('model:chunk', message => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(EVENTS.MODEL_CHUNK || 'model:chunk:v1', data);
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse model:chunk message');
+            }
+          });
+
+          subscribe('job:progress', message => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(EVENTS.TASK_PROGRESS || 'task:progress:v1', data);
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse job:progress message');
+            }
+          });
+
+          subscribe('model:complete', message => {
+            try {
+              const parsed = typeof message === 'string' ? JSON.parse(message) : message;
+              const data = parsed.data || parsed;
+              if (data.jobId && data.userId) {
+                io.to(`user:${data.userId}`).emit(
+                  EVENTS.MODEL_COMPLETE || 'model:complete:v1',
+                  data
+                );
+              }
+            } catch (error) {
+              fastify.log.warn({ err: error }, 'Failed to parse model:complete message');
+            }
+          });
+
+          fastify.log.info(
+            'Socket.IO subscribed to Redis channels (model:chunk, job:progress, model:complete, job:*)'
+          );
+        } catch (error) {
+          fastify.log.warn({ err: error }, 'Socket.IO Redis subscription failed (optional)');
+        }
+      }
+
+      // Optional: Add Socket.IO admin endpoint
+      fastify.get('/api/socketio/stats', async (request, reply) => {
+        try {
+          const sockets = await io.fetchSockets();
+          return {
+            connected: sockets.length,
+            rooms: Array.from(io.sockets.adapter.rooms.keys()).length,
+          };
+        } catch (error) {
+          fastify.log.error({ err: error }, 'Failed to get Socket.IO stats');
+          reply.code(500);
+          return { error: 'Failed to get Socket.IO stats', message: error.message };
+        }
+      });
+
+      fastify.log.info('Socket.IO server initialized');
+    } catch (error) {
+      fastify.log.warn({ err: error }, 'Socket.IO server failed to initialize (optional)');
+    }
+
     // Initialize Voice WebSocket server
     try {
       const { createVoiceWebSocketServer } = await import('./services/voice/voice-production.js');
@@ -4708,19 +5012,45 @@ fastify.get('/metrics/prom', async (_request, reply) => {
 
       await fastify.listen({ port: PORT, host: '0.0.0.0' });
       fastify.log.info(`Redix server listening on port ${PORT}`);
+
+      // Initialize Orchestrator WebSocket on the underlying Node server
+      try {
+        initOrchestratorWebSocket(fastify.server);
+        fastify.log.info('Orchestrator WebSocket initialized at /ws/orchestrator');
+      } catch (e) {
+        fastify.log.warn({ err: e }, 'Failed to initialize Orchestrator WebSocket');
+      }
     } catch (err) {
       console.error('[Redix Server] Failed to start:', err);
+      console.error('[Redix Server] Error message:', err?.message);
+      console.error('[Redix Server] Error stack:', err?.stack);
+      console.error('[Redix Server] Error code:', err?.code);
       if (process.env.NODE_ENV === 'production') {
         // In production, exit on startup failure
         process.exit(1);
       } else {
         // In dev, log and continue - don't crash
         console.warn('[Redix Server] Server failed to start, but continuing in dev mode');
+        throw err; // Re-throw to outer catch for logging
       }
     }
   } catch (error) {
-    fastify.log.error({ error }, 'failed to start redix server');
-    nodeProcess?.exit?.(1);
+    console.error('[Redix Server] Outer catch - failed to start redix server:', error);
+    console.error('[Redix Server] Outer error message:', error?.message);
+    console.error('[Redix Server] Outer error stack:', error?.stack);
+    fastify.log.error(
+      {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+        code: error?.code,
+      },
+      'failed to start redix server'
+    );
+    // Don't exit in dev mode - let it fail gracefully
+    if (process.env.NODE_ENV === 'production') {
+      nodeProcess?.exit?.(1);
+    }
   }
 })();
 

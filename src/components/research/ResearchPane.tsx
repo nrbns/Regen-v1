@@ -28,6 +28,7 @@ import { ipcEvents } from '../../lib/ipc-events';
 import { runResearchAgent } from '../../services/researchAgent';
 import type { ResearchAgentResponse, ResearchAgentAction } from '../../types/researchAgent';
 import { showToast } from '../../state/toastStore';
+import { createStreamingHandler } from '../../services/realtime/streamingBridge';
 
 interface SourceCard {
   id: string;
@@ -66,6 +67,7 @@ export function ResearchPane() {
   const { activeId, tabs } = useTabsStore();
   const activeTab = tabs.find(tab => tab.id === activeId);
   const streamChannelRef = useRef<string | null>(null);
+  const streamHandlerRef = useRef(createStreamingHandler(`research-${Date.now()}`));
   const listenerRef = useRef<((event: any, payload: any) => void) | null>(null);
   const agentPromptRef = useRef<HTMLTextAreaElement | null>(null);
   const [agentPrompt, setAgentPrompt] = useState(AGENT_DEFAULT_PROMPT);
@@ -123,6 +125,10 @@ export function ResearchPane() {
     setSources([]);
     setActiveSourceId(null);
 
+    // Reset streaming handler for new request
+    streamHandlerRef.current.reset();
+    streamHandlerRef.current = createStreamingHandler(`research-${Date.now()}`);
+
     try {
       // First, try local cache search for instant results
       const localResults = await searchChunks(query.trim(), 5);
@@ -151,6 +157,8 @@ export function ResearchPane() {
                 ...prev,
                 { content: payload.content, citations: payload.citations || [] },
               ]);
+              // Emit MODEL_CHUNK events for realtime panel
+              streamHandlerRef.current.onChunk(payload.content);
               break;
             case 'sources':
               if (payload.entries) {
@@ -175,6 +183,8 @@ export function ResearchPane() {
               break;
             case 'complete':
               setIsLoading(false);
+              // Mark streaming complete
+              streamHandlerRef.current.onComplete();
               break;
             case 'error':
               setIsLoading(false);

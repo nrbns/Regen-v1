@@ -19,12 +19,13 @@ export default defineConfig({
     // Electron plugin removed - using Tauri now
   ],
   optimizeDeps: {
-    exclude: ['@sentry/electron/renderer', '@tauri-apps/api'], // Sentry and Tauri API are optional
+    exclude: ['@sentry/electron/renderer', '@tauri-apps/api', 'jsdom', 'cssstyle'], // Sentry and Tauri API are optional, exclude jsdom/cssstyle
     include: ['lightweight-charts'],
   },
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      '@shared': resolve(__dirname, './packages/shared'),
       canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
       bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
       'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
@@ -47,7 +48,7 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV === 'development', // Only sourcemaps in dev
     emptyOutDir: true,
     minify: process.env.NODE_ENV === 'production' ? 'terser' : false, // Use terser in prod for better minification
-    chunkSizeWarningLimit: 500, // Reduce warning limit to catch large chunks
+    chunkSizeWarningLimit: 500, // Updated: Balanced for UI improvements (500KB chunks)
     // NETWORK FIX: Enable compression (brotli/gzip handled by server)
     reportCompressedSize: true,
     // DAY 6: Enhanced build optimization
@@ -69,6 +70,7 @@ export default defineConfig({
         : undefined,
     rollupOptions: {
       external: [
+        'apps/desktop',
         '@ghostery/adblocker-electron',
         '@cliqz/adblocker-electron',
         'chromium-bidi/lib/cjs/bidiMapper/BidiMapper',
@@ -77,6 +79,8 @@ export default defineConfig({
         '@tauri-apps/api/core',
         '@tauri-apps/api/event',
         '@sentry/electron/renderer', // Optional dependency - external to prevent build-time resolution
+        'jsdom',
+        'cssstyle',
       ],
       output: {
         // Optimize chunk names for better caching
@@ -85,10 +89,16 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]',
         // Optimize chunk splitting for better loading performance
         manualChunks: id => {
-          // DAY 6: Enhanced chunk splitting for better performance
+          // DAY 5: Enhanced chunk splitting for mobile optimization
           // Split node_modules into separate chunks
           if (id.includes('node_modules')) {
             // Large UI libraries - split into separate chunks
+            if (id.includes('@radix-ui')) {
+              return 'vendor-radix';
+            }
+            if (id.includes('@dnd-kit')) {
+              return 'vendor-dnd';
+            }
             if (id.includes('framer-motion')) {
               return 'vendor-framer-motion';
             }
@@ -143,6 +153,10 @@ export default defineConfig({
             // Everything else from node_modules
             return 'vendor';
           }
+          // DAY 5: Mobile components in separate chunk
+          if (id.includes('src/mobile')) {
+            return 'mobile-components';
+          }
           // Split mode components (already handled by lazy loading, but ensure they're in separate chunks)
           if (id.includes('/modes/')) {
             const modeMatch = id.match(/\/modes\/([^/]+)/);
@@ -178,15 +192,15 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    strictPort: true,
+    port: parseInt(process.env.VITE_DEV_PORT || '5173', 10),
+    strictPort: false, // Allow port override from env
     host: true,
     // Enable HMR with proper configuration
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
+      port: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
+      clientPort: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
       overlay: true, // Show error overlay
     },
     // Watch for file changes - use polling for better reliability on Windows
@@ -201,7 +215,9 @@ export default defineConfig({
       allow: ['..'], // Allow serving files from parent directories
     },
     // DEVELOPMENT ONLY: Set relaxed CSP header for local development
+    // Fix HTTP 431 error: Request header fields too large
     headers: {
+      'access-control-allow-origin': '*',
       'Content-Security-Policy':
         "default-src 'self' https: data: blob:; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
