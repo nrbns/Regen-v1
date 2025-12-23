@@ -1,6 +1,6 @@
 {
   "name": "regen",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Regen/Regen: Next-generation AI automation platform with full agent layer, automation workflows, Redix execution environment, and multi-browser capabilities",
   "scripts": {
@@ -28,16 +28,8 @@
     "test:chaos:network": "node tests/load/chaos-harness.js --scenario network-partition --duration 120",
     "test:chaos:full": "node tests/load/chaos-harness.js --scenario all --duration 600",
     "test:realtime:integration": "npm run test:load:websocket && npm run test:chaos:full",
-    "demo": "node scripts/run-demo.js",
-    "demo:ps1": "powershell -ExecutionPolicy Bypass -File scripts/run-demo.ps1",
-    "demo:sh": "bash scripts/run-demo.sh",
     "test:integration": "node tests/integration/run-all.js",
     "test:automated": "node scripts/run-tests.js --all",
-    "test:week2-progress": "node scripts/week2-progress.js",
-    "test:week2-checklist": "node scripts/week2-test-helpers.js checklist",
-    "test:week2-analyze": "node scripts/week2-test-helpers.js analyze",
-    "test:week2-data": "node scripts/week2-test-helpers.js data",
-    "test:comprehensive": "node scripts/run-all-tests.cjs",
     "test:openai": "cd apps/api && python test_openai.py",
     "dev:api": "python -m uvicorn apps.api.main:app --reload --port 8000",
     "dev:engine": "cd packages/omni-engine && npm run dev",
@@ -46,7 +38,7 @@
     "dev:all": "node scripts/start-dev-all.cjs",
     "dev:web": "npx cross-env JSDOM_NO_CANVAS=1 vite --mode development",
     "dev:full": "npm run dev",
-    "dev:server": "node server/redix-server.js",
+    "dev:server": "npx tsx server/redix-server.js",
     "dev:realtime": "tsx server/index.ts",
     "dev:ai-bridge": "cd server/ai-bridge && npm ci && node index.js",
     "dev:realtime-server": "node server/realtime-server.js",
@@ -174,6 +166,7 @@
     "precommit": "lint-staged"
   },
   "dependencies": {
+    "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.3.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.2.0",
@@ -259,7 +252,8 @@
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27",
     "zod": "^3.25.76",
-    "zustand": "^4.5.2"
+    "zustand": "^4.5.2",
+    "@tauri-apps/api": "^2.0.0"
   },
   "optionalDependencies": {
     "better-sqlite3": "^9.6.0"

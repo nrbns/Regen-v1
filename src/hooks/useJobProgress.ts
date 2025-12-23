@@ -86,7 +86,7 @@ export function useJobProgress(jobId: string | null) {
                 typeof data?.sequence === 'number' ? data.sequence : lastSequenceRef.current + 1;
               lastSequenceRef.current = seq;
             },
-            (data: any) => {
+            (_data: any) => {
               setState({ jobId, status: 'completed' });
               setIsStreaming(false);
             },
@@ -96,7 +96,7 @@ export function useJobProgress(jobId: string | null) {
             }
           );
         }
-      } catch (error) {
+      } catch {
         // Optional realtime
       }
     };

@@ -9,7 +9,7 @@ export interface BreakpointConfig {
 
 export function useMobileDetection() {
   const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  const [_isTablet, setIsTablet] = useState(false);
 
   useEffect(() => {
     const check = () => {

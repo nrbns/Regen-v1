@@ -15,6 +15,24 @@ import { createJobRoutes, InMemoryJobStore } from './routes/jobRoutes';
 import { JobScheduler } from './jobs/scheduler';
 import { CheckpointManager } from './jobs/checkpoint';
 import { configureRecoveryPublisher } from './jobs/recovery';
+import agentRoutes from './routes/agent';
+
+// Event-driven runtime manager (unifies job, agent, memory, skill events)
+import './services/realtime/runtime-manager.js';
+// Event-driven skill/plugin loader (watches and loads skills/plugins in real time)
+import './services/realtime/skill-loader.js';
+// Centralized, event-driven error/exception handler for production hardening
+import './services/realtime/error-handler.js';
+// Event-driven user/session manager (real-time user/session events)
+import './services/realtime/user-session-manager.js';
+// Event-driven logging and monitoring (logs all runtime events)
+import './services/realtime/logging-monitor.js';
+// Distributed agent peer (enables multi-device, multi-node agent execution)
+import '../distributed/agent-peer.js';
+// Edge inference node (exposes local LLM inference as remote API)
+import '../edge/edge-inference.js';
+// Advanced analytics (event-driven metrics, stats, insights)
+import '../analytics/advanced-analytics.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -93,6 +111,8 @@ export async function startRealtimeServer() {
 
     // Register job routes with dependencies
     app.use('/api/jobs', createJobRoutes(jobStore, redisClient));
+    // Register agent routes
+    app.use('/api', agentRoutes);
 
     // Health check endpoint
     app.get('/health', (req, res) => {

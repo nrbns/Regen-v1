@@ -6,6 +6,8 @@ import { Bot, Send, StopCircle, Copy, CheckCircle2, Loader2, Sparkles } from 'lu
 import { AIThinkingSkeleton } from '../components/common/LoadingSkeleton';
 import { aiEngine, type AITaskResult } from '../core/ai';
 import { createFastCharStream } from '../core/ai/streamEnhancer';
+import { withDeterminism, extractConfidence, extractSources } from '../core/ai/withDeterminism';
+import { getUserId } from '../utils/getUserId';
 import { MemoryStoreInstance } from '../core/supermemory/store';
 import { semanticSearchMemories } from '../core/supermemory/search';
 import { useAgentStreamStore } from '../state/agentStreamStore';
@@ -24,6 +26,7 @@ import { multiAgentSystem, type AgentMode } from '../core/agents/multiAgentSyste
 import { useTabsStore } from '../state/tabsStore';
 import { AgentStagehandIntegration } from './AgentConsole/stagehand-integration';
 import { toast } from '../utils/toast';
+import { AgentSuggestions, generateAgentSuggestions } from '../components/agent/AgentSuggestions';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -376,8 +379,20 @@ export default function AgentConsole() {
       let streamError: string | null = null;
       let sawFirstToken = false;
 
+      // DETERMINISM: Wrap AI operation with determinism (job creation, Event Ledger logging)
+      const userId = getUserId();
+      const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+        userId,
+        type: 'agent',
+        query: trimmedQuery,
+        reasoning: `Agent console query: ${trimmedQuery.substring(0, 100)}`,
+        sources: context.memories
+          ? context.memories.map((m: any) => m.id || m.content?.substring(0, 50))
+          : [],
+      });
+
       try {
-        await aiEngine.runTask(
+        await deterministicRunner(
           {
             kind: 'agent',
             prompt: trimmedQuery,
@@ -408,6 +423,13 @@ export default function AgentConsole() {
             fullText => {
               finalResult = { text: fullText, provider: 'ollama', model: 'phi3:mini' };
               setStreamingText(fullText);
+
+              // Extract confidence and sources from result for enhanced logging
+              if (finalResult) {
+                const _confidence = extractConfidence(finalResult);
+                const _sources = extractSources(finalResult);
+                // These are already logged by withDeterminism, but available here if needed
+              }
             },
             error => {
               streamError =
@@ -893,17 +915,38 @@ export default function AgentConsole() {
                   key="response"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="prose prose-invert prose-sm max-w-none"
+                  className="space-y-4"
                 >
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
-                    {streamingText || transcript}
-                    {isStreaming && (
-                      <motion.span
-                        className="ml-1 inline-block h-4 w-0.5 bg-blue-400"
-                        animate={{ opacity: [1, 0, 1] }}
-                        transition={{ duration: 0.8, repeat: Infinity }}
-                      />
-                    )}
+                  {/* Enhanced Message Bubble */}
+                  <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 to-purple-500/5 p-5 shadow-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="rounded-full border border-blue-500/40 bg-blue-500/20 p-2">
+                        <Bot size={18} className="text-blue-300" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-xs font-medium text-blue-300">AI Assistant</span>
+                          <span className="text-xs text-gray-500">
+                            {new Date().toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <div className="prose prose-invert prose-sm max-w-none">
+                          <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-100">
+                            {streamingText || transcript}
+                            {isStreaming && (
+                              <motion.span
+                                className="ml-1 inline-block h-4 w-0.5 bg-blue-400"
+                                animate={{ opacity: [1, 0, 1] }}
+                                transition={{ duration: 0.8, repeat: Infinity }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               ) : isStreaming ? (
@@ -939,6 +982,28 @@ export default function AgentConsole() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Suggestions - Show after response completes */}
+            {!isStreaming && (streamingText || transcript) && status === 'complete' && (
+              <div className="mt-6">
+                <AgentSuggestions
+                  suggestions={generateAgentSuggestions(query, streamingText || transcript, {
+                    mode: selectedAgentMode,
+                    url: activeTab?.url,
+                  })}
+                  onSelect={suggestion => {
+                    setQuery(suggestion.text);
+                    // Auto-submit if it's a quick action
+                    if (suggestion.category === 'quick' || suggestion.category === 'action') {
+                      setTimeout(() => {
+                        void handleStartStream();
+                      }, 100);
+                    }
+                  }}
+                  isLoading={isStreaming}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

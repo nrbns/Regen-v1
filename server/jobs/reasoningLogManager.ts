@@ -25,7 +25,7 @@ export class ReasoningLogManager {
     try {
       if (!this.redis) return;
       await this.redis.xadd(this.key(jobId), '*', 'payload', JSON.stringify(entry));
-    } catch (err) {
+    } catch {
       // Best-effort; swallow to avoid impacting app flow
     }
   }

@@ -126,8 +126,46 @@ export default function DownloadsPage() {
       });
     };
 
-    const progressUnsub = ipcEvents.on<DownloadUpdate>('downloads:progress', updateItem);
-    const doneUnsub = ipcEvents.on<DownloadUpdate>('downloads:done', updateItem);
+    const progressUnsub = ipcEvents.on<DownloadUpdate>('downloads:progress', update => {
+      updateItem(update);
+      // Persist to database when progress updates
+      if (update.id && update.status && update.url) {
+        ipc.downloads
+          .save({
+            id: update.id,
+            url: update.url,
+            filename: update.filename,
+            path: update.path,
+            status: update.status,
+            progress: update.progress || 0,
+            receivedBytes: update.receivedBytes || 0,
+            totalBytes: update.totalBytes,
+            checksum: update.checksum,
+            safetyStatus: update.safety?.status,
+          })
+          .catch(console.error);
+      }
+    });
+    const doneUnsub = ipcEvents.on<DownloadUpdate>('downloads:done', update => {
+      updateItem(update);
+      // Persist final state to database
+      if (update.id && update.status && update.url) {
+        ipc.downloads
+          .save({
+            id: update.id,
+            url: update.url,
+            filename: update.filename,
+            path: update.path,
+            status: update.status,
+            progress: update.progress || (update.status === 'completed' ? 1 : 0),
+            receivedBytes: update.receivedBytes || 0,
+            totalBytes: update.totalBytes,
+            checksum: update.checksum,
+            safetyStatus: update.safety?.status,
+          })
+          .catch(console.error);
+      }
+    });
 
     return () => {
       progressUnsub();

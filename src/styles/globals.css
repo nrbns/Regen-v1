@@ -19,6 +19,9 @@
 /* SPRINT 0: Low-Data Mode Styles - Must be before @tailwind */
 @import './low-data-mode.css';
 
+/* Phase A: Low-RAM Mode Styles - Must be before @tailwind */
+@import './low-ram-mode.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,13 +30,7 @@ html {
   /* SPRINT 0: Typography foundation - 16px base, system font for low-download */
   font-size: 16px; /* Base font size for rem calculations */
   font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    'Roboto',
-    'Helvetica Neue',
-    Arial,
-    sans-serif; /* System fonts first for low-download, Inter optional */
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif; /* System fonts first for low-download, Inter optional */
   font-feature-settings:
     'calt' 1,
     'liga' 1;
@@ -75,7 +72,7 @@ textarea,
   --topbar-height: 56px;
   --bottom-bar-height: 80px;
   --tabstrip-height: 40px;
-  
+
   /* SPRINT 0: 8px baseline grid spacing scale */
   --spacing-1: 4px;
   --spacing-2: 8px;
@@ -85,12 +82,12 @@ textarea,
   --spacing-6: 32px;
   --spacing-7: 48px;
   --spacing-8: 64px;
-  
+
   /* SPRINT 0: Animation durations for micro-interactions */
   --animation-fast: 150ms;
   --animation-normal: 200ms;
   --animation-slow: 300ms;
-  
+
   /* SPRINT 0: Border radius scale */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -420,19 +417,19 @@ html {
   }
 
   /* SPRINT 0: Touch targets - minimum 44x44px (all devices, not just mobile) */
-button,
-a,
-[role='button'],
-input[type='button'],
-input[type='submit'],
-[role='tab'],
-[role='menuitem'] {
-  min-height: 44px;
-  min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
+  button,
+  a,
+  [role='button'],
+  input[type='button'],
+  input[type='submit'],
+  [role='tab'],
+  [role='menuitem'] {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   /* Card spacing on mobile */
   .card-mobile {

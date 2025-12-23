@@ -14,6 +14,7 @@ config({ path: resolve(__dirname, '../../.env') });
 
 import { aiProxy } from '../services/ai/realtime-ai-proxy.js';
 import { researchSearch } from '../services/research/search.js';
+import { enhanceAgentResponse } from './agent-suggestions.js';
 
 /**
  * Research Agent Request Schema
@@ -209,7 +210,10 @@ export async function researchAgent(req, reply) {
       processing_time_ms: Date.now() - startTime,
     };
 
-    return reply.send(response);
+    // Enhance with suggestions
+    const enhanced = enhanceAgentResponse(response, query, { mode, url });
+
+    return reply.send(enhanced);
   } catch (error) {
     console.error('[Agent] Research error:', error);
     return reply.code(500).send({

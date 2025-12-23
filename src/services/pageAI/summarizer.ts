@@ -5,6 +5,12 @@
 
 import { analyzePage } from '../pageActions/analyzer';
 import { aiEngine } from '../../core/ai';
+import {
+  withDeterminism,
+  extractConfidence as _extractConfidence,
+  extractSources as _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
 
 export interface SummaryOptions {
   length?: 'short' | 'medium' | 'long';
@@ -50,7 +56,17 @@ ${options.includeKeyPoints ? 'Also list the key points as bullet points.' : ''}
 ${options.language ? `Please provide the summary in ${options.language}.` : ''}`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: `Summarize page: ${analysis.title}`,
+      reasoning: `Page summarization: ${analysis.title} (${options.length || 'medium'} length)`,
+      sources: [analysis.url],
+    });
+
+    const result = await deterministicRunner({
       kind: 'summary',
       prompt,
       context: {
@@ -128,7 +144,17 @@ ${selectedText.substring(0, 5000)}
 ${options.length === 'short' ? 'Provide a brief summary.' : 'Provide a concise summary.'}`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: 'Summarize selected text',
+      reasoning: `Summarizing selected text (${options.length || 'medium'} length)`,
+      sources: [window.location.href],
+    });
+
+    const result = await deterministicRunner({
       kind: 'summary',
       prompt,
       context: {

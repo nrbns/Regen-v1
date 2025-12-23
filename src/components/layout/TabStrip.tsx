@@ -22,11 +22,11 @@ import {
 } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
 import {
-  useTabsStore,
   // type ClosedTab, // Unused
   type TabGroup,
   TAB_GROUP_COLORS,
 } from '../../state/tabsStore';
+import { eventBus, EVENTS } from '../../core/state/eventBus';
 import { useContainerStore } from '../../state/containerStore';
 import { useAppStore } from '../../state/appStore';
 import { useToastStore } from '../../state/toastStore';
@@ -175,30 +175,71 @@ const mapTabsForStore = (list: Tab[]): Tab[] => {
 export function TabStrip() {
   const { handleError: _handleError } = useAppError();
   const { verticalTabs, compactTabs, screenWidth } = useAdaptiveLayout(); // SPRINT 2: Responsive tabs
-  
+
   // Compute layout flags early for use in renderTabNode
   const isVertical = verticalTabs && screenWidth > 1400;
   const isCompact = compactTabs || screenWidth < 768;
-  
-  const setAllTabs = useTabsStore(state => state.setAll);
-  const setActiveTab = useTabsStore(state => state.setActive);
-  const activeId = useTabsStore(state => state.activeId);
-  const storeTabs = useTabsStore(state => state.tabs);
+
+  // Local tab state, updated via event bus
+  const [tabs, setTabs] = useState<any[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [tabGroups, setTabGroups] = useState<any[]>([]);
+
+  // setAllTabs function to update tabs (should emit event for persistence)
+  const setAllTabs = (newTabs: any[]) => {
+    setTabs(newTabs);
+    eventBus.emit('tab:reordered', newTabs);
+  };
+  // setActiveTab function
+  const _setActiveTabEvent = (id: string | null) => {
+    setActiveId(id);
+    eventBus.emit(EVENTS.TAB_ACTIVATED, id);
+  };
+
+  useEffect(() => {
+    // Initial fetch: try to get from Zustand (for now, fallback to empty)
+    if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+      setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+      setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+    }
+
+    // Listen for all tab events that could change the tab list
+    const offOpened = eventBus.on(EVENTS.TAB_OPENED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offClosed = eventBus.on(EVENTS.TAB_CLOSED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offUpdated = eventBus.on('tab:updated', () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+        setActiveId(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().activeId || null);
+        setTabGroups(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabGroups || []);
+      }
+    });
+    const offActivated = eventBus.on(EVENTS.TAB_ACTIVATED, (id: string) => {
+      setActiveId(id);
+    });
+
+    return () => {
+      offOpened();
+      offClosed();
+      offUpdated();
+      offActivated();
+    };
+  }, []);
 
   // Defensive: Ensure tabs is always an array
-  const safeTabs = Array.isArray(storeTabs) ? storeTabs : [];
-  const updateTab = useTabsStore(state => state.updateTab);
-  const rememberClosedTab = useTabsStore(state => state.rememberClosedTab);
-  const openPeek = usePeekPreviewStore(state => state.open); // Must be defined before renderTabNode
-  const _recentlyClosed = useTabsStore(state => state.recentlyClosed);
-  const togglePinTab = useTabsStore(state => state.togglePinTab);
-  const tabGroups = useTabsStore(state => state.tabGroups);
-  const createGroup = useTabsStore(state => state.createGroup);
-  const deleteGroup = useTabsStore(state => state.deleteGroup);
-  const toggleGroupCollapsed = useTabsStore(state => state.toggleGroupCollapsed);
-  const setGroupColor = useTabsStore(state => state.setGroupColor);
-  const assignTabToGroup = useTabsStore(state => state.assignTabToGroup);
-  const updateGroup = useTabsStore(state => state.updateGroup);
+  const safeTabs = Array.isArray(tabs) ? tabs : [];
   const { activeContainerId } = useContainerStore();
   const { mode: currentMode } = useAppStore();
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -829,7 +870,9 @@ export function TabStrip() {
               ease: [0.4, 0, 0.2, 1],
               layout: { duration: 0.3 },
             }}
-            className={`relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} rounded-lg ${
+            className={`relative flex items-center gap-2 ${tab.pinned ? 'px-2 py-1.5' : 'px-4 py-2'} ${
+              verticalTabs ? 'rounded-lg' : 'rounded-t-lg' // Chrome-like: rounded top corners only for horizontal tabs
+            } ${
               verticalTabs
                 ? 'w-full' // Vertical tabs take full width
                 : compactTabs
@@ -841,9 +884,9 @@ export function TabStrip() {
                     : 'min-w-[100px] max-w-[220px]' // Normal horizontal tabs
             } group cursor-pointer transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
               tab.active
-                ? 'border border-purple-500/40 bg-purple-600/20 shadow-lg shadow-purple-500/20'
-                : 'border border-transparent bg-gray-800/30 hover:bg-gray-800/50'
-            } ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''} ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''} ${tab.sleeping ? 'ring-1 ring-amber-400/40 bg-amber-500/10' : ''} ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''} `}
+                ? 'z-10 border-x border-t border-blue-400/30 bg-slate-800/90 shadow-[0_-2px_8px_rgba(0,0,0,0.3)]' // Chrome-like active tab with shadow above
+                : 'border-x border-t border-transparent bg-slate-700/40 hover:bg-slate-700/60' // Chrome-like inactive tabs
+            } ${tab.mode === 'ghost' ? 'ring-1 ring-purple-500/40' : ''} ${tab.mode === 'private' ? 'ring-1 ring-emerald-500/40' : ''} ${tab.sleeping ? 'bg-amber-500/10 ring-1 ring-amber-400/40' : ''} ${tab.pinned ? 'border-l-2 border-l-blue-500' : ''} `}
             style={{
               pointerEvents: 'auto',
               zIndex: 1,
@@ -1040,7 +1083,9 @@ export function TabStrip() {
               </motion.div>
             )}
             {/* Favicon */}
-            <div className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 ${tab.sleeping ? 'opacity-70' : ''}`}>
+            <div
+              className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 ${tab.sleeping ? 'opacity-70' : ''}`}
+            >
               {tab.favicon ? (
                 <img src={tab.favicon} alt="" className="h-full w-full rounded-full" />
               ) : (
@@ -1098,7 +1143,13 @@ export function TabStrip() {
             {!tab.pinned && (
               <span
                 className={`flex-1 truncate ${isCompact ? 'text-xs' : 'text-sm'} ${tab.active ? 'text-gray-100' : 'text-gray-400'} ${tab.sleeping ? 'opacity-75' : ''}`}
-                title={isCompact ? tab.title : tab.sleeping ? `Hibernating — saves ~${estimateSavedMB(tab)} MB` : undefined}
+                title={
+                  isCompact
+                    ? tab.title
+                    : tab.sleeping
+                      ? `Hibernating — saves ~${estimateSavedMB(tab)} MB`
+                      : undefined
+                }
               >
                 {tab.title}
               </span>
@@ -1159,7 +1210,9 @@ export function TabStrip() {
                     useToastStore.getState().show({ type: 'info', message: 'Summarizing tab…' });
                   } catch (error) {
                     console.warn('[TabStrip] Summarize action failed', error);
-                    useToastStore.getState().show({ type: 'error', message: 'Failed to summarize' });
+                    useToastStore
+                      .getState()
+                      .show({ type: 'error', message: 'Failed to summarize' });
                   }
                 }}
                 onMouseDown={e => {
@@ -1844,13 +1897,8 @@ export function TabStrip() {
 
   const addTab = async () => {
     // Enforce tab cap (low-RAM aware)
-    if (!useTabsStore.getState().canAddTab()) {
-      useToastStore.getState().show({
-        type: 'warning',
-        message: 'Tab limit reached in low-RAM mode. Close a tab to open a new one.',
-      });
-      return;
-    }
+    // TODO: Enforce tab cap (low-RAM aware) via eventBus or backend event
+    // For now, allow tab creation. Implement max tab logic via eventBus/FS watcher for real-time.
 
     if (!IS_ELECTRON) {
       const baseTabs = (tabsRef.current.length > 0 ? tabsRef.current : tabs).map(t => ({
@@ -1933,9 +1981,23 @@ export function TabStrip() {
           console.warn('[TabStrip] Tab creation returned no ID:', result);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       if (IS_DEV) {
         console.error('Failed to create tab:', error);
+      }
+      // Show user-friendly error message if tab limit exceeded
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+        useToastStore.getState().show({
+          type: 'warning',
+          message: errorMessage,
+        });
+      } else {
+        // Generic error for other failures
+        useToastStore.getState().show({
+          type: 'error',
+          message: 'Failed to create tab. Please try again.',
+        });
       }
     } finally {
       // Reset flag quickly - IPC events will handle the update
@@ -2148,7 +2210,7 @@ export function TabStrip() {
         aria-label="Browser tabs"
         className={`no-drag scrollbar-hide relative ${
           isVertical
-            ? 'flex-col items-stretch h-full w-64 overflow-y-auto border-r border-gray-700/30'
+            ? 'h-full w-64 flex-col items-stretch overflow-y-auto border-r border-gray-700/30'
             : 'flex items-center overflow-x-auto border-b border-gray-700/30'
         } bg-[#1A1D28] px-3 py-2`}
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 9999 }}
@@ -2248,13 +2310,18 @@ export function TabStrip() {
           onApply={handleApplyCluster}
           summary={predictionSummary}
         />
-        <div className={`flex min-w-0 flex-1 ${isVertical ? 'flex-col' : 'flex-row items-center'} gap-2`} style={{ pointerEvents: 'auto' }}>
+        <div
+          className={`flex min-w-0 flex-1 ${isVertical ? 'flex-col' : 'flex-row items-center'} gap-2`}
+          style={{ pointerEvents: 'auto' }}
+        >
           <AnimatePresence mode="popLayout">
             {tabElements.length > 0 ? tabElements : null}
           </AnimatePresence>
 
           {/* Container Selector & New Tab Button */}
-          <div className={`flex flex-shrink-0 ${isVertical ? 'flex-col items-stretch' : 'flex-row items-center'} gap-2 ${isVertical ? 'mt-auto' : ''}`}>
+          <div
+            className={`flex flex-shrink-0 ${isVertical ? 'flex-col items-stretch' : 'flex-row items-center'} gap-2 ${isVertical ? 'mt-auto' : ''}`}
+          >
             <motion.button
               type="button"
               onClick={e => {
@@ -2350,7 +2417,7 @@ export function TabStrip() {
       <TabGroupsOverlay open={groupsOverlayOpen} onClose={() => setGroupsOverlayOpen(false)} />
 
       {/* SPRINT 1: Hibernation Indicator */}
-      <div className="absolute top-full left-0 right-0 z-50 px-4 py-2">
+      <div className="absolute left-0 right-0 top-full z-50 px-4 py-2">
         <HibernationIndicator />
       </div>
 

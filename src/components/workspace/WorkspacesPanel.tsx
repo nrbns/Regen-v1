@@ -6,7 +6,7 @@
 import { useState, useRef } from 'react';
 import { Search, Pin, PinOff, Trash2, Save, FolderOpen, Upload, Download } from 'lucide-react';
 import { useWorkspacesStore } from '../../state/workspacesStore';
-import { useTabsStore } from '../../state/tabsStore';
+import { eventBus, EVENTS } from '../../core/state/eventBus';
 import { useAppStore } from '../../state/appStore';
 import { ipc } from '../../lib/ipc-typed';
 import { track } from '../../services/analytics';
@@ -24,8 +24,53 @@ export function WorkspacesPanel() {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const tabsStore = useTabsStore();
+  // Local tab state, updated via event bus
+  const [tabs, setTabs] = useState<any[]>([]);
   const appMode = useAppStore(state => state.mode);
+
+  // Listen for tab events and update local state
+  useEffect(() => {
+    // Handler to update tabs from event payload
+    const _handleTabsUpdate = (updatedTabs: any[]) => {
+      setTabs(updatedTabs);
+    };
+
+    // Initial fetch: try to get from Zustand (for now, fallback to empty)
+    // This can be replaced with a more robust source if needed
+    if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+      setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+    }
+
+    // Listen for all tab events that could change the tab list
+    const offOpened = eventBus.on(EVENTS.TAB_OPENED, () => {
+      // Assume tabsStore is still updating, so fetch from it
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      }
+    });
+    const offClosed = eventBus.on(EVENTS.TAB_CLOSED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      }
+    });
+    const offUpdated = eventBus.on('tab:updated', () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      }
+    });
+    const offActivated = eventBus.on(EVENTS.TAB_ACTIVATED, () => {
+      if (window?.__ZUSTAND_DEVTOOLS__?.tabsStore) {
+        setTabs(window.__ZUSTAND_DEVTOOLS__.tabsStore.getState().tabs || []);
+      }
+    });
+
+    return () => {
+      offOpened();
+      offClosed();
+      offUpdated();
+      offActivated();
+    };
+  }, []);
 
   // Sort: pinned first, then by updatedAt
   const sortedWorkspaces = [...workspaces].sort((a, b) => {
@@ -50,9 +95,9 @@ export function WorkspacesPanel() {
 
       const workspaceId = add({
         name,
-        tabs: tabsStore.tabs,
+        tabs,
         mode: appMode,
-        description: `${tabsStore.tabs.length} tab${tabsStore.tabs.length === 1 ? '' : 's'}`,
+        description: `${tabs.length} tab${tabs.length === 1 ? '' : 's'}`,
       });
 
       track('workspace_saved', { workspaceId, tabCount: tabsStore.tabs.length });
@@ -68,8 +113,8 @@ export function WorkspacesPanel() {
   const handleRestore = async (workspace: { id: string; tabs: any[]; mode: string }) => {
     try {
       // Clear current tabs
-      const currentTabs = [...tabsStore.tabs];
-      for (const tab of currentTabs) {
+      const _currentTabs = [...tabsStore.tabs];
+      for (const tab of tabs) {
         try {
           await ipc.tabs.close({ id: tab.id });
         } catch (error) {
@@ -101,7 +146,7 @@ export function WorkspacesPanel() {
 
       // Set active tab
       if (workspace.tabs.length > 0 && workspace.tabs[0]?.id && workspace.tabs[0]?.url) {
-        const firstTab = tabsStore.tabs.find(t => t.url === workspace.tabs[0].url);
+        const firstTab = tabs.find(t => t.url === workspace.tabs[0].url);
         if (firstTab) {
           tabsStore.setActive(firstTab.id);
           await ipc.tabs.activate({ id: firstTab.id });
@@ -171,7 +216,7 @@ export function WorkspacesPanel() {
             </label>
             <button
               onClick={handleSave}
-              disabled={saving || tabsStore.tabs.length === 0}
+              disabled={saving || tabs.length === 0}
               className="flex items-center gap-2 rounded-lg bg-blue-600/20 px-3 py-1.5 text-sm text-blue-300 transition-colors hover:bg-blue-600/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Save size={14} />

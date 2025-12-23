@@ -5,6 +5,12 @@
 
 import { analyzePage } from '../pageActions/analyzer';
 import { aiEngine } from '../../core/ai';
+import {
+  withDeterminism,
+  extractConfidence as _extractConfidence,
+  extractSources as _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
 
 export interface ExplanationOptions {
   level?: 'simple' | 'detailed' | 'expert';
@@ -47,7 +53,17 @@ ${options.language ? `Please provide the explanation in ${options.language}.` : 
 Provide a clear explanation of what this page is about, its main concepts, and key information.`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: `Explain page: ${analysis.title}`,
+      reasoning: `Page explanation (${options.level || 'detailed'} level)${options.focus ? `, focus: ${options.focus}` : ''}`,
+      sources: [analysis.url],
+    });
+
+    const result = await deterministicRunner({
       kind: 'chat',
       prompt,
       context: {
@@ -89,7 +105,17 @@ ${levelInstruction[options.level || 'detailed']}
 ${options.language ? `Please provide the explanation in ${options.language}.` : ''}`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: 'Explain selected text',
+      reasoning: `Explaining selected text (${options.level || 'detailed'} level)`,
+      sources: [window.location.href],
+    });
+
+    const result = await deterministicRunner({
       kind: 'chat',
       prompt,
       context: {

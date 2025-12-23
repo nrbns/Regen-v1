@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Globe, Search, TrendingUp, Code, MoreHorizontal } from 'lucide-react';
+import { Globe, Search, TrendingUp, Code, BookOpen, MoreHorizontal } from 'lucide-react';
 import { useModeShift } from '../hooks/useModeShift';
 import { useAppStore } from '../../state/appStore';
 import { useTokens } from '../useTokens';
@@ -27,7 +27,8 @@ const MODE_CONFIG: Array<{
   { id: 'browse', label: 'Browse', icon: Globe, shortcut: '1' },
   { id: 'research', label: 'Research', icon: Search, shortcut: '2' },
   { id: 'trade', label: 'Trade', icon: TrendingUp, shortcut: '3' },
-  { id: 'dev', label: 'Dev', icon: Code, shortcut: '4', comingSoon: true }, // Tier 1: Hide unfinished
+  { id: 'knowledge', label: 'Knowledge', icon: BookOpen, shortcut: '4' },
+  { id: 'dev', label: 'Dev', icon: Code, shortcut: '5', comingSoon: true }, // Tier 1: Hide unfinished
 ];
 
 export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
@@ -39,6 +40,7 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
     browse: null,
     research: null,
     trade: null,
+    knowledge: null,
     dev: null,
   });
 
@@ -50,7 +52,9 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
         ? 'research'
         : currentMode === 'Trade'
           ? 'trade'
-          : 'browse';
+          : currentMode === 'Knowledge'
+            ? 'knowledge'
+            : 'browse';
 
   const handleModeClick = React.useCallback(
     async (modeId: ModeId) => {
@@ -59,11 +63,20 @@ export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
       // Map ModeId to AppState mode
       const modeMap: Record<
         ModeId,
-        'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind'
+        | 'Browse'
+        | 'Research'
+        | 'Trade'
+        | 'Knowledge'
+        | 'Games'
+        | 'Docs'
+        | 'Images'
+        | 'Threats'
+        | 'GraphMind'
       > = {
         browse: 'Browse',
         research: 'Research',
         trade: 'Trade',
+        knowledge: 'Knowledge',
         dev: 'Browse', // Dev maps to Browse for now
       };
 

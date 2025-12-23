@@ -32,6 +32,15 @@ interface JobEventPayload {
   timestamp: number;
 }
 
+// Realtime Health Contract
+export type RealtimeHealthMode = 'realtime' | 'degraded' | 'offline';
+export interface RealtimeHealthContract {
+  mode: RealtimeHealthMode;
+  latencyMs: number;
+  lastEventTs: number;
+  source: 'ws' | 'polling' | 'cache';
+}
+
 interface RealtimeSocketConfig {
   serverUrl: string;
   autoConnect?: boolean;
@@ -60,6 +69,12 @@ const DEFAULT_CONFIG: Partial<RealtimeSocketConfig> = {
  * Handles WebSocket connection, job events, and reconnection logic
  */
 export class RealtimeSocketService {
+  private health: RealtimeHealthContract = {
+    mode: 'offline',
+    latencyMs: 0,
+    lastEventTs: 0,
+    source: 'ws',
+  };
   private socket: Socket | null = null;
   private config: Required<RealtimeSocketConfig>;
   private token: string | null = null;
@@ -470,6 +485,19 @@ export class RealtimeSocketService {
     if (this.connectionStatus === status) return;
 
     this.connectionStatus = status;
+    // Update health contract
+    if (status === 'online') {
+      this.health.mode = 'realtime';
+      this.health.source = 'ws';
+    } else if (status === 'reconnecting') {
+      this.health.mode = 'degraded';
+      this.health.source = 'polling';
+    } else if (status === 'offline' || status === 'error') {
+      this.health.mode = 'offline';
+      this.health.source = 'cache';
+    }
+    this.health.lastEventTs = Date.now();
+    // Latency calculation could be improved with ping/pong
     this.statusListeners.forEach(listener => {
       try {
         listener(status);
@@ -477,6 +505,13 @@ export class RealtimeSocketService {
         console.error('[RealtimeSocket] Status listener error:', error);
       }
     });
+  }
+
+  /**
+   * Get current realtime health contract
+   */
+  getHealth(): RealtimeHealthContract {
+    return this.health;
   }
 }
 

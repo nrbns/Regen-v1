@@ -9,9 +9,11 @@ import {
   RotateCcw,
   Brain,
 } from 'lucide-react';
-import { getSocketClient } from '../../services/realtime/socketClient';
+import { eventBus as _eventBus } from '../../core/state/eventBus';
+import { getApiBaseUrl } from '../../lib/env';
 import { StepProgress, StepBadge, parseJobStep, type JobStep } from './StepProgress';
 import { ActionLog } from './ActionLog';
+import { useActionLogFromLedger } from '../../hooks/useActionLogFromLedger';
 
 interface TimelineJob {
   jobId: string;
@@ -35,11 +37,12 @@ interface TimelineJob {
  * - Collapse after 5s on completion
  * - Stores in sessionStorage for persistence
  */
-export function JobTimelinePanel() {
+export function JobTimelinePanel({ onStepSelect }: { onStepSelect?: (step: JobStep) => void }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [jobs, setJobs] = useState<TimelineJob[]>([]);
+  const jobsRef = useRef<TimelineJob[]>([]);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const collapseTimeoutRef = useRef<NodeJS.Timeout>();
+  const [, _forceUpdate] = useState(0);
   const sessionStorageKey = 'job-timeline-state';
 
   // Load jobs from sessionStorage on mount
@@ -59,7 +62,7 @@ export function JobTimelinePanel() {
   // Save jobs to sessionStorage
   useEffect(() => {
     try {
-      sessionStorage.setItem(sessionStorageKey, JSON.stringify({ jobs, activeJobId }));
+      jobsRef.current = storedJobs || [];
     } catch {
       // Silently fail
     }
@@ -67,103 +70,133 @@ export function JobTimelinePanel() {
 
   // Subscribe to socket events
   useEffect(() => {
-    const client = getSocketClient();
-    if (!client) return;
-
+    let client: ReturnType<typeof getSocketClient> | null = null;
+    let _isMounted = true;
     const unsubscribers: (() => void)[] = [];
+    sessionStorage.setItem(
+      sessionStorageKey,
+      JSON.stringify({ jobs: jobsRef.current, activeJobId })
+    );
+    // Initialize socket client if not already initialized
+    const initializeAndSubscribe = async () => {
+      try {
+        // Try to get existing client first
+        try {
+          client = getSocketClient();
+        } catch {
+          // Client not initialized, initialize it
+          // Socket.IO uses HTTP/HTTPS URLs, not WebSocket URLs
+          const socketUrl =
+            (import.meta as any).env?.VITE_SOCKET_URL || getApiBaseUrl() || 'http://localhost:4000';
+          client = await initSocketClient({
+            url: socketUrl,
+            token: null,
+            deviceId: `web-${Date.now()}`,
+          });
+        }
 
-    // Listen for job start
-    const unsubJobStart = client.on?.('job:start', (data: any) => {
-      const stepString = data.step || 'Initializing';
-      const newJob: TimelineJob = {
-        jobId: data.jobId,
-        status: 'running',
-        progress: 0,
-        streamingOutput: '',
-        startTime: Date.now(),
-        step: stepString,
-        currentStep: parseJobStep(stepString),
-      };
-      setJobs(prev => [newJob, ...prev]);
-      setActiveJobId(data.jobId);
-      setIsExpanded(true);
-    });
-    if (unsubJobStart) unsubscribers.push(unsubJobStart);
+        jobsRef.current = [newJob, ...jobsRef.current];
 
-    // Listen for job progress
-    const unsubJobProgress = client.on?.('job:progress', (data: any) => {
-      setJobs(prev =>
-        prev.map(job =>
-          job.jobId === data.jobId
-            ? {
-                ...job,
-                progress: data.progress || 0,
-                step: data.step || job.step,
-                currentStep: parseJobStep(data.step || job.step),
-              }
-            : job
-        )
-      );
-    });
-    if (unsubJobProgress) unsubscribers.push(unsubJobProgress);
+        // Listen for job start
+        const unsubJobStart = client.on?.('job:start', (data: any) => {
+          const stepString = data.step || 'Initializing';
+          const newJob: TimelineJob = {
+            jobId: data.jobId,
+            status: 'running',
+            progress: 0,
+            streamingOutput: '',
+            startTime: Date.now(),
+            step: stepString,
+            currentStep: parseJobStep(stepString),
+          };
+          setJobs(prev => [newJob, ...prev]);
+          setActiveJobId(data.jobId);
+          setIsExpanded(true);
+        });
+        if (unsubJobStart) unsubscribers.push(unsubJobStart);
 
-    // Listen for streaming chunks
-    const unsubModelChunk = client.on?.('model:chunk', (data: any) => {
-      setJobs(prev =>
-        prev.map(job =>
-          job.jobId === data.jobId
-            ? {
-                ...job,
-                streamingOutput: job.streamingOutput + (data.chunk || ''),
-              }
-            : job
-        )
-      );
-    });
-    if (unsubModelChunk) unsubscribers.push(unsubModelChunk);
+        // Listen for job progress
+        const unsubJobProgress = client.on?.('job:progress', (data: any) => {
+          setJobs(prev =>
+            prev.map(job =>
+              job.jobId === data.jobId
+                ? {
+                    ...job,
+                    progress: data.progress || 0,
+                    step: data.step || job.step,
+                    currentStep: parseJobStep(data.step || job.step),
+                  }
+                : job
+            )
+          );
+        });
+        if (unsubJobProgress) unsubscribers.push(unsubJobProgress);
 
-    // Listen for job completion
-    const unsubJobComplete = client.on?.('job:completed', (data: any) => {
-      setJobs(prev =>
-        prev.map(job =>
-          job.jobId === data.jobId
-            ? {
-                ...job,
-                status: 'completed',
-                endTime: Date.now(),
-                progress: 100,
-              }
-            : job
-        )
-      );
+        // Listen for streaming chunks
+        const unsubModelChunk = client.on?.('model:chunk', (data: any) => {
+          setJobs(prev =>
+            prev.map(job =>
+              job.jobId === data.jobId
+                ? {
+                    ...job,
+                    streamingOutput: job.streamingOutput + (data.chunk || ''),
+                  }
+                : job
+            )
+          );
+        });
+        if (unsubModelChunk) unsubscribers.push(unsubModelChunk);
 
-      // Auto-collapse after 5s
-      if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
-      collapseTimeoutRef.current = setTimeout(() => {
-        setIsExpanded(false);
-      }, 5000);
-    });
-    if (unsubJobComplete) unsubscribers.push(unsubJobComplete);
+        // Listen for job completion
+        const unsubJobComplete = client.on?.('job:completed', (data: any) => {
+          setJobs(prev =>
+            prev.map(job =>
+              job.jobId === data.jobId
+                ? {
+                    ...job,
+                    status: 'completed',
+                    endTime: Date.now(),
+                    progress: 100,
+                  }
+                : job
+            )
+          );
 
-    // Listen for job failure
-    const unsubJobFailed = client.on?.('job:failed', (data: any) => {
-      setJobs(prev =>
-        prev.map(job =>
-          job.jobId === data.jobId
-            ? {
-                ...job,
-                status: 'failed',
-                endTime: Date.now(),
-                error: data.error || 'Job failed',
-              }
-            : job
-        )
-      );
-    });
-    if (unsubJobFailed) unsubscribers.push(unsubJobFailed);
+          // Auto-collapse after 5s
+          if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
+          collapseTimeoutRef.current = setTimeout(() => {
+            setIsExpanded(false);
+          }, 5000);
+        });
+        if (unsubJobComplete) unsubscribers.push(unsubJobComplete);
+
+        // Listen for job failure
+        const unsubJobFailed = client.on?.('job:failed', (data: any) => {
+          setJobs(prev =>
+            prev.map(job =>
+              job.jobId === data.jobId
+                ? {
+                    ...job,
+                    status: 'failed',
+                    endTime: Date.now(),
+                    error: data.error || 'Job failed',
+                  }
+                : job
+            )
+          );
+        });
+        if (unsubJobFailed) unsubscribers.push(unsubJobFailed);
+      } catch (error) {
+        console.warn('[JobTimelinePanel] Failed to initialize socket client:', error);
+        // Silently fail - socket client is optional
+      }
+    };
+
+    initializeAndSubscribe();
 
     // Cleanup
     return () => {
+      isMounted = false;
       unsubscribers.forEach(unsub => unsub?.());
     };
   }, []);
@@ -178,6 +211,9 @@ export function JobTimelinePanel() {
     ? currentJob.endTime - currentJob.startTime
     : Date.now() - currentJob.startTime;
   const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+  // Fetch ActionLog entries from Event Ledger (with mandatory confidence + sources)
+  const { entries: actionLogEntries } = useActionLogFromLedger(currentJob.jobId);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -210,7 +246,7 @@ export function JobTimelinePanel() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 max-w-md">
+    <div className="fixed bottom-4 right-4 z-40 max-w-sm">
       <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-lg">
         {/* Header - Always Visible */}
         <button
@@ -258,7 +294,10 @@ export function JobTimelinePanel() {
 
             {/* Step Progress Indicator */}
             {currentJob.currentStep && currentJob.currentStep !== 'idle' && (
-              <div className="mt-3">
+              <div
+                className="mt-3 cursor-pointer"
+                onClick={() => onStepSelect?.(currentJob.currentStep!)}
+              >
                 <StepProgress currentStep={currentJob.currentStep} size="sm" />
               </div>
             )}
@@ -332,29 +371,34 @@ export function JobTimelinePanel() {
                 How Regen Thinks
               </div>
 
-              {/* ActionLog - What Regen understood */}
+              {/* ActionLog - What Regen understood (from Event Ledger) */}
               <ActionLog
-                entries={[
-                  {
-                    id: `job-${currentJob.jobId}-action`,
-                    timestamp: Date.now(),
-                    userSaid: currentJob.step || 'Running...',
-                    regenUnderstood: {
-                      intent: currentJob.step || 'Processing',
-                      confidence: currentJob.progress / 100,
-                    },
-                    decision: {
-                      action: currentJob.status,
-                      reasoning: `Job is currently ${currentJob.status}. Progress: ${currentJob.progress}%`,
-                      constraints: [],
-                    },
-                    context: {
-                      sources: ['user-input'],
-                      mode: 'research',
-                    },
-                    result: currentJob.status === 'completed' ? { success: true } : undefined,
-                  },
-                ]}
+                entries={
+                  actionLogEntries.length > 0
+                    ? actionLogEntries
+                    : [
+                        // Fallback if no ledger entries yet
+                        {
+                          id: `job-${currentJob.jobId}-action`,
+                          timestamp: Date.now(),
+                          userSaid: currentJob.step || 'Running...',
+                          regenUnderstood: {
+                            intent: currentJob.step || 'Processing',
+                            confidence: currentJob.progress / 100,
+                          },
+                          decision: {
+                            action: currentJob.status,
+                            reasoning: `Job is currently ${currentJob.status}. Progress: ${currentJob.progress}%`,
+                            constraints: [],
+                          },
+                          context: {
+                            sources: ['user-input'],
+                            mode: 'research',
+                          },
+                          result: currentJob.status === 'completed' ? { success: true } : undefined,
+                        },
+                      ]
+                }
               />
             </div>
 

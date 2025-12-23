@@ -116,7 +116,7 @@ function AppearanceSettings() {
   const theme = useSettingsStore(s => s.appearance.theme);
   const updateAppearance = useSettingsStore(s => s.updateAppearance);
 
-  const handleSetTheme = (newTheme: string) => {
+  const _handleSetTheme = (newTheme: string) => {
     updateAppearance({ theme: newTheme as any });
   };
 

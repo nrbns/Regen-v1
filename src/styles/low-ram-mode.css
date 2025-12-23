@@ -1,0 +1,49 @@
+/* Low-RAM Mode Styles
+ * Disables animations and reduces visual effects for low-end devices
+ */
+
+/* Disable all animations and transitions when low-RAM mode is enabled */
+.low-ram-mode *,
+.low-ram-mode *::before,
+.low-ram-mode *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+/* Override Tailwind transition classes */
+.low-ram-mode [class*='transition'],
+.low-ram-mode [class*='animate'] {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Disable framer-motion animations */
+.low-ram-mode [data-framer-name] {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Reduce shadow effects (less GPU work) */
+.low-ram-mode {
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+}
+
+.low-ram-mode [class*='shadow'] {
+  box-shadow: none !important;
+}
+
+/* Reduce backdrop blur (expensive) */
+.low-ram-mode [class*='backdrop-blur'] {
+  backdrop-filter: none !important;
+}
+
+/* Simplify hover effects */
+.low-ram-mode [class*='hover:'] {
+  transition: none !important;
+}

@@ -4,16 +4,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import {
-  Send,
-  Brain,
-  Shield,
-  Activity,
-  AlertTriangle,
-  X,
-  Wifi,
-  Loader2,
-} from 'lucide-react';
+import { Send, Brain, Shield, Activity, AlertTriangle, X, Wifi, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
@@ -165,11 +156,13 @@ export function BottomStatus() {
   const isElectron = useMemo(() => isElectronRuntime(), []);
   const apiBaseUrl = useMemo(() => {
     return (
-      getEnvVar('API_BASE_URL') ??
-      getEnvVar('OMNIBROWSER_API_URL') ??
-      getEnvVar('OB_API_BASE_URL') ??
-      getEnvVar('VITE_REDIX_HTTP_URL') ??
-      'http://localhost:4000'
+      getEnvVar('VITE_API_BASE_URL') ||
+      getEnvVar('VITE_APP_API_URL') ||
+      getEnvVar('API_BASE_URL') ||
+      getEnvVar('OMNIBROWSER_API_URL') ||
+      getEnvVar('OB_API_BASE_URL') ||
+      getEnvVar('VITE_REDIX_HTTP_URL') ||
+      'http://127.0.0.1:4000' // Default to match .env specification
     );
   }, []);
   const metricsSocketRef = useRef<WebSocket | EventSource | null>(null);
@@ -455,21 +448,47 @@ export function BottomStatus() {
       let reconnectAttempts = 0;
       const maxReconnectAttempts = 10;
       const reconnectDelay = 3000; // Start with 3 seconds
+      const pollingIntervalMs = 2000; // Fallback polling interval (rate limit)
+      let pollingFallbackActive = false;
+      let pollInterval: NodeJS.Timeout | null = null;
+
+      const showDegradedStatus = () => {
+        setMetricsAlert({
+          title: 'Realtime metrics degraded',
+          message: 'Falling back to polling. Live updates unavailable.',
+          severity: 'warning',
+        });
+      };
+
+      const startPollingFallback = () => {
+        if (pollingFallbackActive) return;
+        pollingFallbackActive = true;
+        showDegradedStatus();
+        pollInterval = setInterval(async () => {
+          try {
+            const response = await fetch(`${apiBaseUrl}/metrics`);
+            if (response.ok) {
+              const data = await response.json();
+              pushMetricSample({
+                timestamp: Date.now(),
+                cpu: data.cpu || 0,
+                memory: data.memory || 0,
+                carbonIntensity: data.carbon_intensity,
+              });
+            }
+          } catch (error) {
+            console.debug('[metrics] Polling fallback failed:', error);
+          }
+        }, pollingIntervalMs);
+      };
 
       const connectWebSocket = () => {
-        // Skip WebSocket connections in web mode - no backend available
-        if (isWebMode()) {
-          // In web mode, never attempt WebSocket connection
-          return;
-        }
-
+        if (isWebMode()) return;
         if (socket?.readyState === WebSocket.OPEN) return;
-
         try {
           const wsUrl = `${apiBaseUrl.replace(/^http/, 'ws')}/ws/metrics`;
           socket = new WebSocket(wsUrl);
           metricsSocketRef.current = socket;
-
           socket.onmessage = event => {
             try {
               const data = JSON.parse(event.data);
@@ -482,41 +501,38 @@ export function BottomStatus() {
                   typeof data.carbon_intensity === 'number' ? data.carbon_intensity : undefined,
               };
               pushMetricSample(sample);
-              reconnectAttempts = 0; // Reset on successful message
+              reconnectAttempts = 0;
+              if (pollingFallbackActive) {
+                pollingFallbackActive = false;
+                setMetricsAlert(null);
+                if (pollInterval) clearInterval(pollInterval);
+              }
             } catch (error) {
               console.warn('[metrics] Failed to parse message', error);
             }
           };
-
           socket.onopen = () => {
             reconnectAttempts = 0;
-            // Don't log - WebSocket connection is expected in Electron/Tauri
           };
-
           socket.onerror = event => {
-            // Suppress error logging completely - metrics WebSocket is optional
             event.stopPropagation();
             event.preventDefault();
-            // Don't log - backend is optional in web mode
           };
-
           socket.onclose = () => {
             socket = null;
             metricsSocketRef.current = null;
-
-            // Auto-reconnect with exponential backoff (skip in web mode)
             if (!isWebMode() && reconnectAttempts < maxReconnectAttempts) {
               reconnectAttempts++;
-              const delay = reconnectDelay * Math.min(reconnectAttempts, 5); // Cap at 5x delay
+              const delay = reconnectDelay * Math.min(reconnectAttempts, 5);
               reconnectTimeout = setTimeout(() => {
                 connectWebSocket();
               }, delay);
+            } else if (!isWebMode() && reconnectAttempts >= maxReconnectAttempts) {
+              // Fallback to polling after max reconnect attempts
+              startPollingFallback();
             }
-            // Don't log warnings or attempt fallback polling in web mode
           };
         } catch (error) {
-          // Suppress all WebSocket creation errors - backend is optional
-          // Only log if we're in Electron/Tauri (backend expected)
           if (!isWebMode()) {
             console.error('[metrics] Failed to create websocket:', error);
           }
@@ -526,24 +542,21 @@ export function BottomStatus() {
       connectWebSocket();
 
       return () => {
-        if (reconnectTimeout) {
-          clearTimeout(reconnectTimeout);
-        }
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+        if (pollInterval) clearInterval(pollInterval);
         if (socket) {
           try {
-            // Only close if WebSocket is in a valid state to prevent browser errors
             if (
               socket.readyState === WebSocket.OPEN ||
               socket.readyState === WebSocket.CONNECTING
             ) {
               socket.close();
             }
-          } catch {
-            // ignore - WebSocket errors are expected if server isn't running
-          }
+          } catch {}
           socket = null;
         }
         metricsSocketRef.current = null;
+        pollingFallbackActive = false;
       };
     }
   }, [isElectron, apiBaseUrl, pushMetricSample, backendOnline]);
@@ -1172,7 +1185,7 @@ export function BottomStatus() {
           </AnimatePresence>
         </div>
       </div>
-      
+
       {/* HIDDEN SECTION: Prompt input moved to expandable panel */}
       <div className="hidden">
         <div className="relative w-60">

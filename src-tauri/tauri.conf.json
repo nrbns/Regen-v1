@@ -3,7 +3,7 @@
   "version": "0.3.0",
   "identifier": "com.regen.app",
   "build": {
-    "beforeDevCommand": "npm run dev:web",
+    "beforeDevCommand": "powershell -ExecutionPolicy Bypass -File scripts/vite-dev-tauri.ps1",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist-web"
@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' data: https:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
     }
   },
   "bundle": {
@@ -42,18 +42,7 @@
       "icons/icon.ico"
     ],
     "resources": [],
-    "externalBin": [
-      {
-        "name": "ollama",
-        "path": "../bin/ollama",
-        "args": ["serve"]
-      },
-      {
-        "name": "meilisearch",
-        "path": "../bin/meilisearch",
-        "args": []
-      }
-    ],
+    "externalBin": [],
     "copyright": "Copyright © 2025 Regen Browser",
     "category": "Utility",
     "shortDescription": "Next-generation AI automation platform",

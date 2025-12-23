@@ -1,36 +1,19 @@
-// Rust Tauri Backend - Service Modules
+// Rust Tauri Backend - Core Modules
 
+// Core modules (Rust-owned state)
+pub mod state;
+pub mod browser;
+pub mod db;
+pub mod search;
+pub mod privacy;
+pub mod ai;
+pub mod agent;
+pub mod tor;
+pub mod commands;
+pub mod stability;
+
+// Service modules
 pub mod services {
     pub mod ollama_service;
     pub mod global_shortcut_service;
-}
-
-use services::ollama_service::OllamaService;
-use services::global_shortcut_service;
-
-// Initialize all backend services on app startup
-pub fn initialize_backend() -> Result<(), String> {
-    // DAY 1: Start Ollama backend
-    let mut ollama = OllamaService::new();
-    ollama.start()?;
-    
-    // DAY 3: Register global shortcuts
-    global_shortcut_service::initialize_global_shortcuts()?;
-    
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_app_initialization() {
-        // Test that app initializes correctly
-    }
-
-    #[tokio::test]
-    async fn test_search_command() {
-        // Test search command routing
-    }
 }

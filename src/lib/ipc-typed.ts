@@ -10,6 +10,19 @@ import type { PrivacyAuditSummary } from './ipc-events';
 import { ipcEvents } from './ipc-events';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './env';
 import apiClient from './api-client';
+// Only import invoke from @tauri-apps/api/core dynamically if in Tauri, using runtime-generated import path
+let invoke: ((...args: any[]) => Promise<any>) | undefined;
+if (isTauriRuntime()) {
+  // Use globalThis['import'] to avoid static analysis
+  (globalThis as any)
+    ['import']('@tauri-apps/api/core')
+    .then((mod: any) => {
+      invoke = mod.invoke;
+    })
+    .catch(() => {
+      // Tauri not available, ignore
+    });
+}
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
 import type { NexusListResponse, NexusPluginEntry } from '../types/extensionNexus';
@@ -106,43 +119,81 @@ const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
   'vpn:disconnect': () => ({ connected: false, stub: true }),
   'dns:status': () => ({ enabled: false, provider: 'system', stub: true }),
   'tabs:predictiveGroups': () => ({ groups: [], prefetch: [], summary: undefined }),
-  'tabs:create': (req?: any) => {
+  'tabs:create': async (req?: any) => {
     const payload = typeof req === 'object' && req ? req : {};
+    const url =
+      typeof payload.url === 'string' && payload.url.trim().length > 0
+        ? payload.url
+        : 'about:blank';
+
+    // Try Rust command first (Tauri)
+    if (isTauriRuntime()) {
+      try {
+        if (!invoke) {
+          // If invoke is not yet loaded, load it now
+          const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
+          invoke = mod.invoke;
+        }
+        const tabId = await invoke!('tabs:create', {
+          url,
+          privacyMode: payload.mode || 'normal',
+          appMode: payload.appMode || 'Browse',
+        });
+        return { id: tabId, url, success: true };
+      } catch (error) {
+        console.warn('[IPC] Failed to create tab in Rust, falling back to local state:', error);
+      }
+    }
+
+    // Fallback to local state (for non-Tauri environments)
     const tabsState = getTabsStore();
     const previousActiveId = tabsState?.activeId;
     const tabId =
       (typeof payload.tabId === 'string' && payload.tabId.trim().length > 0
         ? payload.tabId
         : undefined) ?? `tab-${Date.now()}`;
-    const url =
-      typeof payload.url === 'string' && payload.url.trim().length > 0
-        ? payload.url
-        : 'about:blank';
     const title =
       typeof payload.title === 'string' && payload.title.trim().length > 0
         ? payload.title
         : deriveTitleFromUrl(url);
 
-    tabsState?.add?.({
-      id: tabId,
-      title,
-      url,
-      mode: payload.mode,
-      appMode: payload.appMode,
-      containerId: payload.containerId,
-      createdAt: payload.createdAt ?? Date.now(),
-      lastActiveAt: payload.lastActiveAt ?? Date.now(),
-      profileId: payload.profileId,
-      sessionId: payload.sessionId,
-    });
+    // Note: tabsStore.add now calls Rust first, so this fallback is for non-Tauri
+    if (tabsState?.add) {
+      await tabsState.add({
+        id: tabId,
+        title,
+        url,
+        mode: payload.mode,
+        appMode: payload.appMode,
+        containerId: payload.containerId,
+        createdAt: payload.createdAt ?? Date.now(),
+        lastActiveAt: payload.lastActiveAt ?? Date.now(),
+        profileId: payload.profileId,
+        sessionId: payload.sessionId,
+      });
+    }
 
     if (payload.activate === false && previousActiveId && tabsState?.setActive) {
-      tabsState.setActive(previousActiveId);
+      await tabsState.setActive(previousActiveId);
     }
 
     return { id: tabId, title, url, success: true };
   },
-  'tabs:list': () => {
+  'tabs:list': async () => {
+    // Try Rust command first (Tauri)
+    if (isTauriRuntime()) {
+      try {
+        if (!invoke) {
+          const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
+          invoke = mod.invoke;
+        }
+        const result = await invoke!('tabs:list');
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.warn('[IPC] Failed to list tabs from Rust, falling back to local state:', error);
+      }
+    }
+    // Fallback to local state (for non-Tauri environments)
     try {
       const state = useTabsStore.getState?.();
       if (state) {
@@ -153,7 +204,24 @@ const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
     }
     return [];
   },
-  'tabs:getActive': () => {
+  'tabs:getActive': async () => {
+    // Try Rust command first (Tauri)
+    if (isTauriRuntime()) {
+      try {
+        if (!invoke) {
+          const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
+          invoke = mod.invoke;
+        }
+        const result = await invoke!('tabs:get_active');
+        return result || null;
+      } catch (error) {
+        console.warn(
+          '[IPC] Failed to get active tab from Rust, falling back to local state:',
+          error
+        );
+      }
+    }
+    // Fallback to local state
     try {
       const state = useTabsStore.getState?.();
       if (state) {
@@ -164,22 +232,60 @@ const FALLBACK_CHANNELS: Record<string, (req?: any) => unknown> = {
     }
     return null;
   },
-  'tabs:close': (req?: { id?: string }) => {
+  'tabs:close': async (req?: { id?: string }) => {
+    if (!req?.id) {
+      return { success: false, error: 'Tab ID required' };
+    }
+
+    // Try Rust command first (Tauri)
+    if (isTauriRuntime()) {
+      try {
+        if (!invoke) {
+          const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
+          invoke = mod.invoke;
+        }
+        await invoke!('tabs:delete', { id: req.id });
+        return { success: true };
+      } catch (error) {
+        console.warn('[IPC] Failed to delete tab in Rust, falling back to local state:', error);
+      }
+    }
+
+    // Fallback to local state
     try {
-      if (req?.id) {
-        const state = useTabsStore.getState?.();
-        state?.remove?.(req.id);
+      const state = useTabsStore.getState?.();
+      if (state?.remove) {
+        await state.remove(req.id);
       }
     } catch {
       // ignore
     }
     return { success: true };
   },
-  'tabs:activate': (req?: { id?: string }) => {
+  'tabs:activate': async (req?: { id?: string }) => {
+    if (!req?.id) {
+      return { success: false, error: 'Tab ID required' };
+    }
+
+    // Try Rust command first (Tauri)
+    if (isTauriRuntime()) {
+      try {
+        if (!invoke) {
+          const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
+          invoke = mod.invoke;
+        }
+        await invoke!('tabs:set_active', { id: req.id });
+        return { success: true };
+      } catch (error) {
+        console.warn('[IPC] Failed to set active tab in Rust, falling back to local state:', error);
+      }
+    }
+
+    // Fallback to local state
     try {
-      if (req?.id) {
-        const state = useTabsStore.getState?.();
-        state?.setActive?.(req.id);
+      const state = useTabsStore.getState?.();
+      if (state?.setActive) {
+        await state.setActive(req.id);
       }
     } catch {
       // ignore
@@ -2010,6 +2116,35 @@ export const ipc: any = {
         'downloads:getQueue',
         {}
       ),
+    save: (item: {
+      id: string;
+      url: string;
+      filename?: string;
+      path?: string;
+      status: string;
+      progress: number;
+      receivedBytes: number;
+      totalBytes?: number;
+      checksum?: string;
+      safetyStatus?: string;
+    }) =>
+      ipcCall<
+        {
+          id: string;
+          url: string;
+          filename?: string;
+          path?: string;
+          status: string;
+          progress: number;
+          receivedBytes: number;
+          totalBytes?: number;
+          checksum?: string;
+          safetyStatus?: string;
+        },
+        { success: boolean }
+      >('downloads:save', item),
+    delete: (id: string) =>
+      ipcCall<{ id: string }, { success: boolean }>('downloads:delete', { id }),
   },
   watchers: {
     list: () =>

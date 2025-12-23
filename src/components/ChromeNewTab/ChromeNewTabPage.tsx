@@ -3,7 +3,7 @@
  * Combines clean design with rich content: search, news, markets, weather, shortcuts
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Search,
   Sparkles,
@@ -60,6 +60,48 @@ export function ChromeNewTabPage() {
   const { setMode } = useAppStore();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const smartStartCards = useMemo(
+    () => [
+      {
+        title: 'Resume Last Session',
+        desc:
+          tabs.length && tabs[0]
+            ? tabs[0]?.title || tabs[0]?.url || 'Continue where you left off'
+            : 'Pick up instantly',
+        action: () => {
+          if (tabs[0]?.id) {
+            useTabsStore.getState().setActive(tabs[0].id);
+          } else {
+            setMode('Browse');
+          }
+        },
+      },
+      {
+        title: 'Offline Pages',
+        desc: 'View cached saves and notes',
+        action: () => setMode('Docs'),
+      },
+      {
+        title: 'AI Daily Brief',
+        desc: 'Summaries ready in seconds',
+        action: () => setMode('Research'),
+      },
+      {
+        title: 'Top Sites',
+        desc: 'Jump to your frequent tabs',
+        action: () => {
+          inputRef.current?.focus();
+        },
+      },
+      {
+        title: 'Research Queue',
+        desc: 'Queue questions to stream',
+        action: () => setMode('Research'),
+      },
+    ],
+    [tabs, setMode]
+  );
+
   // Real-time market data fetching
   const fetchMarketData = useCallback(async () => {
     try {
@@ -112,7 +154,10 @@ export function ChromeNewTabPage() {
           }
 
           // Fallback to HTTP API
-          const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000';
+          const API_BASE_URL =
+            import.meta.env.VITE_API_BASE_URL ||
+            import.meta.env.VITE_APP_API_URL ||
+            'http://127.0.0.1:4000';
           const response = await fetch(
             `${API_BASE_URL}/api/trade/quote?symbol=${encodeURIComponent(yahooSymbol)}`,
             {
@@ -264,6 +309,24 @@ export function ChromeNewTabPage() {
     void fetchNews();
     void fetchWeather();
   }, [fetchMarketData, fetchNews, fetchWeather]);
+
+  const _SmartStartGrid = () => (
+    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-800/60 bg-slate-900/70 p-4 shadow-lg shadow-black/30 sm:grid-cols-2 xl:grid-cols-3">
+      {smartStartCards.map(card => (
+        <button
+          key={card.title}
+          onClick={card.action}
+          className="group flex flex-col items-start gap-1 rounded-xl border border-slate-800/70 bg-slate-900/60 px-3 py-3 text-left transition duration-200 hover:-translate-y-1 hover:border-emerald-400/50 hover:bg-slate-800/80 hover:shadow-lg hover:shadow-emerald-500/10"
+        >
+          <div className="text-sm font-semibold text-slate-100">{card.title}</div>
+          <div className="text-xs text-slate-400">{card.desc}</div>
+          <span className="mt-2 text-[11px] font-medium text-emerald-300 opacity-0 transition group-hover:opacity-100">
+            Ready · live
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 
   // Real-time updates: Poll market data every 30 seconds
   useEffect(() => {

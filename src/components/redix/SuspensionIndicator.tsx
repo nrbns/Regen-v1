@@ -20,7 +20,7 @@ export function SuspensionIndicator() {
     .slice(0, 3);
 
   return (
-    <div className="fixed bottom-6 left-6 z-[120] flex flex-col gap-3">
+    <div className="fixed bottom-36 left-6 z-[95] flex flex-col gap-3">
       {list.map(entry => (
         <article
           key={entry.tabId}
@@ -46,7 +46,7 @@ export function SuspensionIndicator() {
               <PauseCircle size={12} />
               <span>Suspended</span>
             </div>
-            <p className="text-sm font-semibold text-white line-clamp-1">
+            <p className="line-clamp-1 text-sm font-semibold text-white">
               {entry.title || entry.url || 'Sleeping tab'}
             </p>
             <p className="text-xs text-slate-400">

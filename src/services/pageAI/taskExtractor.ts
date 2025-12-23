@@ -4,6 +4,12 @@
  */
 
 import { aiEngine } from '../../core/ai';
+import {
+  withDeterminism,
+  extractConfidence as _extractConfidence,
+  extractSources as _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
 
 export interface ExtractedTask {
   task: string;
@@ -45,7 +51,17 @@ Format the response as JSON with the following structure:
 }`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: 'Extract tasks from text',
+      reasoning: 'Extracting tasks, dates, and actionable items from text',
+      sources: [window.location.href],
+    });
+
+    const result = await deterministicRunner({
       kind: 'chat',
       prompt,
       context: {

@@ -3,7 +3,7 @@
  * Tabs: Accounts, Appearance, APIs, Bookmarks, Workspaces, Safety, Shortcuts
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User,
   Palette,
@@ -40,6 +40,8 @@ import { AdblockerSettingsPanel } from '../components/adblocker';
 import { VPNPanel } from '../components/vpn';
 import { setLowDataMode, isLowDataModeEnabled } from '../services/lowDataMode';
 import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
+import { invoke } from '@tauri-apps/api/core';
+import { isTauriRuntime } from '../lib/env';
 
 // Helper Components
 function SectionCard({
@@ -221,6 +223,7 @@ export default function SettingsRoute() {
                     }}
                     description="Disable images by default, reduce quality, limit bandwidth. Ideal for slow connections."
                   />
+                  <LowRamModeToggle />
                 </div>
               </div>
             </SectionCard>
@@ -262,6 +265,58 @@ export default function SettingsRoute() {
         )}
       </div>
     </div>
+  );
+}
+
+// Low-RAM Mode Toggle Component
+function LowRamModeToggle() {
+  const settings = useSettingsStore();
+  const [systemRam, setSystemRam] = useState<number | null>(null);
+  const [_isLoading, setIsLoading] = useState(false);
+  const lowRamMode = settings.general.lowRamMode ?? false;
+
+  useEffect(() => {
+    // Fetch system RAM on mount
+    if (isTauriRuntime()) {
+      invoke<number>('system:get_ram')
+        .then(ramBytes => {
+          const ramGB = ramBytes / (1024 * 1024 * 1024);
+          setSystemRam(ramGB);
+        })
+        .catch(err => {
+          console.error('[LowRamModeToggle] Failed to get system RAM:', err);
+        });
+    }
+  }, []);
+
+  const handleToggle = async (checked: boolean) => {
+    if (!isTauriRuntime()) {
+      settings.updateGeneral({ lowRamMode: checked });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await invoke('settings:set_low_ram_mode', { enabled: checked });
+      settings.updateGeneral({ lowRamMode: checked });
+    } catch (error) {
+      console.error('[LowRamModeToggle] Failed to set low-RAM mode:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <ToggleRow
+      label="Low-RAM Mode"
+      checked={lowRamMode}
+      onChange={handleToggle}
+      description={
+        systemRam !== null
+          ? `Disable animations, reduce features. Detected: ${systemRam.toFixed(1)}GB RAM`
+          : 'Disable animations, reduce features for low-end devices. Ideal for < 4GB RAM.'
+      }
+    />
   );
 }
 
@@ -344,9 +399,10 @@ function AppearancePanel() {
 
       <SectionCard title="Layout Preferences" icon={Activity}>
         <p className="mb-4 text-sm text-slate-400">
-          Customize how the browser adapts to your network and screen size. Override automatic detection if needed.
+          Customize how the browser adapts to your network and screen size. Override automatic
+          detection if needed.
         </p>
-        
+
         <LabeledField label="Layout Mode">
           <select
             value={appearance.layoutModeOverride || 'auto'}

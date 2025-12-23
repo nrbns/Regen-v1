@@ -3,7 +3,7 @@
  * Handles browser connections and forwards Redis events
  */
 
-import WebSocket from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { subscribe as subscribePubSub } from '../../pubsub.js';
 // Redis client reserved for future use
@@ -31,7 +31,7 @@ function initWebSocketServer(httpServer) {
     return null;
   }
 
-  const wss = new WebSocket.Server({
+  const wss = new WebSocketServer({
     server: httpServer,
     path: '/agent/stream',
     perMessageDeflate: false, // Disable compression for lower latency
@@ -49,61 +49,61 @@ function initWebSocketServer(httpServer) {
   try {
     subscribePubSub('research.event', event => {
       const jobId = event.jobId;
-    if (!jobId) {
-      log.warn('[WS-FORWARDER] Event missing jobId', { event });
-      return;
-    }
+      if (!jobId) {
+        log.warn('[WS-FORWARDER] Event missing jobId', { event });
+        return;
+      }
 
-    log.info('[WS-FORWARDER] Got event', {
-      eventType: event.eventType || event.type,
-      jobId,
-      hasClients: jobClients.has(jobId),
-    });
-
-    const clients = jobClients.get(jobId);
-    if (!clients || clients.size === 0) {
-      log.warn('[WS-FORWARDER] No clients subscribed to job', {
+      log.info('[WS-FORWARDER] Got event', {
+        eventType: event.eventType || event.type,
         jobId,
-        totalJobs: jobClients.size,
+        hasClients: jobClients.has(jobId),
       });
-      return;
-    }
 
-    // Ensure event has ID for deduplication
-    if (!event.id) {
-      event.id = uuidv4();
-    }
+      const clients = jobClients.get(jobId);
+      if (!clients || clients.size === 0) {
+        log.warn('[WS-FORWARDER] No clients subscribed to job', {
+          jobId,
+          totalJobs: jobClients.size,
+        });
+        return;
+      }
 
-    const payload = JSON.stringify(event);
-    let forwardedCount = 0;
+      // Ensure event has ID for deduplication
+      if (!event.id) {
+        event.id = uuidv4();
+      }
 
-    // Forward to all subscribed clients
-    for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.send(payload);
-          forwardedCount++;
-        } catch (error) {
-          log.warn('[WS-FORWARDER] Failed to send to client', {
+      const payload = JSON.stringify(event);
+      let forwardedCount = 0;
+
+      // Forward to all subscribed clients
+      for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(payload);
+            forwardedCount++;
+          } catch (error) {
+            log.warn('[WS-FORWARDER] Failed to send to client', {
+              jobId,
+              error: error.message,
+            });
+          }
+        } else {
+          log.debug('[WS-FORWARDER] Client not open', {
             jobId,
-            error: error.message,
+            readyState: ws.readyState,
           });
         }
-      } else {
-        log.debug('[WS-FORWARDER] Client not open', {
+      }
+
+      if (forwardedCount > 0) {
+        log.info('[WS-FORWARDER] Forwarded event to clients', {
           jobId,
-          readyState: ws.readyState,
+          eventType: event.eventType || event.type,
+          count: forwardedCount,
         });
       }
-    }
-
-    if (forwardedCount > 0) {
-      log.info('[WS-FORWARDER] Forwarded event to clients', {
-        jobId,
-        eventType: event.eventType || event.type,
-        count: forwardedCount,
-      });
-    }
     });
   } catch (error) {
     log.warn('[WS] Redis subscription failed (optional)', { error: error.message });

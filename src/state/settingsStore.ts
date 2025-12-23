@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppState } from './appStore';
+import { isTauriRuntime } from '../lib/env';
 
 type SearchEngine =
   | 'google'
@@ -24,6 +25,7 @@ type GeneralSettings = {
   voiceAutoDetectLanguage?: boolean; // Phase 2, Day 4: Auto-detect language for voice
   hasSeenOnboardingTour?: boolean; // AUDIT FIX #6: Track if user has seen onboarding tour
   lowDataMode?: boolean; // SPRINT 0: Low-data mode (disable images, reduce quality, limit bandwidth)
+  lowRamMode?: boolean; // Phase A: Low-RAM mode (disable animations, reduce features for low-end devices)
 };
 
 type PrivacySettings = {
@@ -76,7 +78,7 @@ export type SettingsData = {
 type SettingsState = SettingsData & {
   setConsent: (value: boolean) => void;
   setSearchEngine: (engine: SearchEngine) => void;
-  setLanguage: (language: string) => void;
+  setLanguage: (language: string) => Promise<void>;
   updateGeneral: (partial: Partial<GeneralSettings>) => void;
   updatePrivacy: (partial: Partial<PrivacySettings>) => void;
   updateAppearance: (partial: Partial<AppearanceSettings>) => void;
@@ -153,7 +155,35 @@ export const useSettingsStore = create<SettingsState>()(
       ...createDefaults(),
       setConsent: value => set({ videoDownloadConsent: value }),
       setSearchEngine: searchEngine => set({ searchEngine }),
-      setLanguage: language => set({ language }),
+      setLanguage: async language => {
+        // ARCHITECTURE: Rust owns state, Zustand is cache
+        // Call Rust command first (source of truth)
+        if (isTauriRuntime()) {
+          try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('settings:set_language', { language });
+
+            // After Rust updates language, sync Zustand cache
+            // This will be handled by useSettingsSync hook
+            return;
+          } catch (error) {
+            console.error('[settingsStore] Failed to set language in Rust:', error);
+            // ARCHITECTURE: Fail gracefully, don't create fake state
+            // In Tauri mode, Rust is source of truth - if it fails, we fail
+            throw error; // Re-throw to let caller handle
+          }
+        }
+
+        // ARCHITECTURE: Only allow fallback in non-Tauri environments (browser mode)
+        // In Tauri mode, Rust must succeed or we fail
+        if (!isTauriRuntime()) {
+          // Fallback: Local state (for non-Tauri environments only)
+          set({ language });
+        } else {
+          // In Tauri mode, if we reach here, Rust failed and we should not continue
+          throw new Error('Failed to set language: Rust backend unavailable');
+        }
+      },
       updateGeneral: partial => set(state => ({ general: { ...state.general, ...partial } })),
       updatePrivacy: partial => set(state => ({ privacy: { ...state.privacy, ...partial } })),
       updateAppearance: partial =>

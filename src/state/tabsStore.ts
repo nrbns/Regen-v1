@@ -4,16 +4,10 @@ import { ipc } from '../lib/ipc-typed';
 import { debouncedSaveSession } from '../services/session';
 import { useAppStore } from './appStore';
 import { createIndexedDBStorage, isIndexedDBAvailable } from '../lib/storage/indexedDBStorage';
+import { isTauriRuntime } from '../lib/env';
+import { eventBus, EVENTS } from '../core/state/eventBus';
 
-export const TAB_GROUP_COLORS = [
-  '#6366f1',
-  '#8b5cf6',
-  '#f472b6',
-  '#14b8a6',
-  '#0ea5e9',
-  '#f97316',
-  '#facc15',
-];
+export const TAB_GROUP_COLORS = ['#6366f1', '#8b5cf6', '#14b8a6', '#0ea5e9', '#f97316', '#facc15'];
 
 const generateId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -77,12 +71,12 @@ type TabsState = {
   activeId: string | null;
   recentlyClosed: ClosedTab[];
   tabGroups: TabGroup[];
-  add: (t: Tab) => void;
+  add: (t: Tab) => Promise<void>;
   setActive: (id: string | null) => void;
   setAll: (tabs: Tab[]) => void;
-  remove: (id: string) => void;
+  remove: (id: string) => Promise<void>;
   getTabsForMode: (mode: string) => Tab[];
-  updateTab: (id: string, updates: Partial<Tab>) => void;
+  updateTab: (id: string, updates: Partial<Tab>) => Promise<void>;
   rememberClosedTab: (tab: Tab) => void;
   popRecentlyClosed: () => ClosedTab | undefined;
   removeRecentlyClosed: (closedId: string) => void;
@@ -106,14 +100,31 @@ type TabsState = {
   // Tier 1: Tab limits
   canAddTab: () => boolean;
   getTabCount: () => number;
-  getMaxTabs: () => number;
+  getMaxTabs: () => Promise<number>;
 };
 
 const MAX_RECENTLY_CLOSED = 12;
 const DEFAULT_MAX_TABS = 15; // Tier 1: Limit tabs for MVP (overridden by Redix low-RAM mode)
 
-// Derive max tabs dynamically based on Redix low-RAM mode
-const resolveMaxTabs = (): number => {
+// Derive max tabs dynamically based on low-RAM mode (Rust-controlled) or Redix mode
+const resolveMaxTabs = async (): Promise<number> => {
+  // ARCHITECTURE: Rust owns state, check Rust first
+  if (isTauriRuntime()) {
+    try {
+      // Use a runtime-generated import path to avoid Vite static analysis
+      const mod = await globalThis['import']('@tauri-apps/api/core');
+      if (mod && typeof mod.invoke === 'function') {
+        const maxTabs = await mod.invoke('system:get_max_tabs');
+        return maxTabs;
+      }
+    } catch (error) {
+      if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'test') {
+        console.error('[tabsStore] Failed to get max tabs from Rust:', error);
+      }
+    }
+  }
+
+  // Fallback: Check Redix mode (legacy)
   try {
     // Lazy import to avoid breaking SSR/build if env differs
     const { getRedixConfig } = require('../lib/redix-mode');
@@ -126,6 +137,12 @@ const resolveMaxTabs = (): number => {
   }
 };
 
+// Synchronous version for immediate checks (uses cached value or default)
+const resolveMaxTabsSync = (): number => {
+  // For immediate checks, use default (async will update)
+  return DEFAULT_MAX_TABS;
+};
+
 export const useTabsStore = create<TabsState>()(
   persist(
     (set, get) => ({
@@ -133,37 +150,91 @@ export const useTabsStore = create<TabsState>()(
       activeId: null,
       recentlyClosed: [],
       tabGroups: [],
-      add: tab =>
-        set(state => {
-          // Tier 1: Check tab limit (low-RAM aware)
-          const maxTabs = resolveMaxTabs();
-          if (state.tabs.length >= maxTabs) {
-            // Don't add, but return state (caller should show toast)
-            return state;
+      add: async tab => {
+        // ARCHITECTURE: Rust owns state, Zustand is cache
+        // Call Rust command first (source of truth)
+        if (isTauriRuntime()) {
+          try {
+            const mod = await globalThis['import']('@tauri-apps/api/core');
+            const _tabId = await mod.invoke('tabs:create', {
+              url: tab.url || 'about:blank',
+              privacyMode: tab.mode || 'normal',
+              appMode: tab.appMode || 'Browse',
+            });
+            // After Rust creates tab, sync Zustand cache
+            // This will be handled by useTabsSync hook
+            return;
+          } catch (error: any) {
+            console.error('[tabsStore] Failed to create tab in Rust:', error);
+            // If error contains tab limit message, show user-friendly message
+            const errorMessage = error?.message || error?.toString() || 'Unknown error';
+            if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+              // Import toast dynamically to avoid circular dependencies
+              import('../utils/toast').then(({ toast }) => {
+                toast.error(errorMessage);
+              });
+            }
+            // ARCHITECTURE: Fail gracefully, don't create fake state
+            // In Tauri mode, Rust is source of truth - if it fails, we fail
+            throw error; // Re-throw to let caller handle
           }
-          const newState = {
-            tabs: [...state.tabs, { ...tab, createdAt: tab.createdAt ?? Date.now() }],
-            activeId: tab.id,
-          };
-          // Tier 1: Auto-save session
-          const appMode = useAppStore.getState().mode;
-          debouncedSaveSession({
-            tabs: newState.tabs,
-            activeTabId: newState.activeId,
-            mode: appMode,
-            savedAt: Date.now(),
+        }
+
+        // ARCHITECTURE: Only allow fallback in non-Tauri environments (browser mode)
+        // In Tauri mode, Rust must succeed or we fail
+        if (!isTauriRuntime()) {
+          set(state => {
+            // Tier 1: Check tab limit (low-RAM aware)
+            // Use sync version for immediate check (async will update)
+            const maxTabs = resolveMaxTabsSync();
+            if (state.tabs.length >= maxTabs) {
+              // Don't add, but return state (caller should show toast)
+              return state;
+            }
+            const newState = {
+              tabs: [...state.tabs, { ...tab, createdAt: tab.createdAt ?? Date.now() }],
+              activeId: tab.id,
+            };
+            // Tier 1: Auto-save session
+            const appMode = useAppStore.getState().mode;
+            debouncedSaveSession({
+              tabs: newState.tabs,
+              activeTabId: newState.activeId,
+              mode: appMode,
+              savedAt: Date.now(),
+            });
+            // Tier 2: Track tab creation
+            import('../services/analytics').then(({ track }) => {
+              track('tab_created', { mode: appMode });
+            });
+            // Index tab in MeiliSearch
+            import('../services/meiliIndexer').then(({ indexTab }) => {
+              indexTab(tab).catch(console.error);
+            });
+            // Emit event for tab opened
+            eventBus.emit(EVENTS.TAB_OPENED, tab);
+            return newState;
           });
-          // Tier 2: Track tab creation
-          import('../services/analytics').then(({ track }) => {
-            track('tab_created', { mode: appMode });
-          });
-          // Index tab in MeiliSearch
-          import('../services/meiliIndexer').then(({ indexTab }) => {
-            indexTab(tab).catch(console.error);
-          });
-          return newState;
-        }),
-      setActive: id => {
+        }
+        eventBus.emit('tab:add', tab);
+      },
+      setActive: async id => {
+        // ARCHITECTURE: Rust owns state, Zustand is cache
+        // Call Rust command first (source of truth)
+        if (isTauriRuntime() && id) {
+          try {
+            const mod = await globalThis['import']('@tauri-apps/api/core');
+            await mod.invoke('tabs:set_active', { id });
+            // After Rust sets active tab, sync Zustand cache
+            // This will be handled by useTabsSync hook
+            return;
+          } catch (error) {
+            console.error('[tabsStore] Failed to set active tab in Rust:', error);
+            // Fall through to local fallback if Rust fails
+          }
+        }
+
+        // Fallback: Local state (for non-Tauri environments)
         // PR: Fix tab switch - add logging and null guards
         const currentState = get();
 
@@ -222,6 +293,12 @@ export const useTabsStore = create<TabsState>()(
               // Silently fail if store not available
             });
 
+          // Emit event for tab activated
+          const activeTab = newState.tabs.find(tab => tab.id === id);
+          if (activeTab) {
+            eventBus.emit(EVENTS.TAB_ACTIVATED, activeTab);
+          }
+
           return newState;
         });
       },
@@ -252,7 +329,7 @@ export const useTabsStore = create<TabsState>()(
             activeId: activeCandidate ? activeCandidate.id : null,
           };
         }),
-      remove: id =>
+      remove: async id => {
         set(state => {
           const tabToRemove = state.tabs.find(t => t.id === id);
           // Prevent closing pinned tabs accidentally (user must unpin first)
@@ -312,16 +389,45 @@ export const useTabsStore = create<TabsState>()(
             track('tab_closed', { mode: appMode });
           });
 
+          // Emit event for tab closed
+          eventBus.emit(EVENTS.TAB_CLOSED, { tabId: id });
+
           return newState;
-        }),
+        });
+      },
       getTabsForMode: (mode: string) => {
         const state = get();
         return state.tabs.filter(tab => !tab.appMode || tab.appMode === mode);
       },
-      updateTab: (id: string, updates: Partial<Tab>) =>
+      updateTab: async (id: string, updates: Partial<Tab>) => {
+        // ARCHITECTURE: Rust owns state, Zustand is cache
+        // Call Rust command first (source of truth)
+        if (isTauriRuntime()) {
+          try {
+            const mod = await globalThis['import']('@tauri-apps/api/core');
+            await mod.invoke('tabs:update', {
+              id,
+              url: updates.url,
+              title: updates.title,
+              favicon: updates.favicon,
+            });
+            // After Rust updates tab, sync Zustand cache
+            // This will be handled by useTabsSync hook
+            return;
+          } catch (error) {
+            console.error('[tabsStore] Failed to update tab in Rust:', error);
+            // Fall through to local fallback if Rust fails
+          }
+        }
+
+        // Fallback: Local state (for non-Tauri environments)
         set(state => {
           const updatedTabs = state.tabs.map(tab => (tab.id === id ? { ...tab, ...updates } : tab));
           const updatedTab = updatedTabs.find(t => t.id === id);
+          // Emit event for tab updated
+          if (updatedTab) {
+            eventBus.emit('tab:updated', updatedTab);
+          }
           // Re-index updated tab in MeiliSearch
           if (updatedTab) {
             import('../services/meiliIndexer').then(({ indexTab }) => {
@@ -329,7 +435,8 @@ export const useTabsStore = create<TabsState>()(
             });
           }
           return { tabs: updatedTabs };
-        }),
+        });
+      },
       rememberClosedTab: (tab: Tab) =>
         set(state => {
           const entry: ClosedTab = {
@@ -603,13 +710,15 @@ export const useTabsStore = create<TabsState>()(
       },
       // Tier 1: Tab limits
       canAddTab: () => {
-        return get().tabs.length < resolveMaxTabs();
+        // Use sync version for immediate checks (may not reflect low-RAM mode immediately)
+        // For accurate checks, use async resolveMaxTabs
+        return get().tabs.length < resolveMaxTabsSync();
       },
       getTabCount: () => {
         return get().tabs.length;
       },
-      getMaxTabs: () => {
-        return resolveMaxTabs();
+      getMaxTabs: async () => {
+        return await resolveMaxTabs();
       },
     }),
     {
@@ -644,3 +753,85 @@ export const useTabsStore = create<TabsState>()(
     }
   )
 );
+
+// EventBus subscriber: update Zustand state in response to tab events
+eventBus.on('tab:add', tab => {
+  useTabsStore.setState(state => {
+    const maxTabs = resolveMaxTabsSync();
+    if (state.tabs.length >= maxTabs) return state;
+    return {
+      ...state,
+      tabs: [...state.tabs, { ...tab, createdAt: tab.createdAt ?? Date.now() }],
+      activeId: tab.id,
+    };
+  });
+});
+
+eventBus.on('tab:setActive', id => {
+  useTabsStore.setState(state => {
+    if (id === state.activeId) return state;
+    return {
+      ...state,
+      activeId: id,
+      tabs: state.tabs.map(tab => ({
+        ...tab,
+        active: tab.id === id,
+        lastActiveAt: tab.id === id ? Date.now() : tab.lastActiveAt,
+      })),
+    };
+  });
+});
+
+eventBus.on('tab:setAll', tabs => {
+  useTabsStore.setState(state => {
+    const previousTabs = state.tabs;
+    const normalized = tabs.map((tab, index) => {
+      const previous = previousTabs.find(prev => prev.id === tab.id);
+      return {
+        ...tab,
+        createdAt: tab.createdAt ?? previous?.createdAt ?? Date.now(),
+        lastActiveAt:
+          tab.lastActiveAt ?? previous?.lastActiveAt ?? Date.now() - (tabs.length - index),
+        pinned: (typeof tab.pinned === 'boolean' ? tab.pinned : previous?.pinned) ?? false,
+        groupId: previous?.groupId,
+      };
+    });
+    // Sort: pinned tabs first (by creation time), then unpinned tabs
+    const sorted = normalized.sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      if (a.pinned && b.pinned) return (a.createdAt ?? 0) - (b.createdAt ?? 0);
+      return (a.lastActiveAt ?? 0) - (b.lastActiveAt ?? 0);
+    });
+    const activeCandidate = sorted.find(tab => tab.active) ?? sorted[0] ?? null;
+    return {
+      ...state,
+      tabs: sorted,
+      activeId: activeCandidate ? activeCandidate.id : null,
+    };
+  });
+});
+
+eventBus.on('tab:remove', id => {
+  useTabsStore.setState(state => {
+    const tabToRemove = state.tabs.find(t => t.id === id);
+    if (tabToRemove?.pinned) return state;
+    const remaining = state.tabs.filter(tab => tab.id !== id);
+    const nextActive =
+      state.activeId === id
+        ? (remaining.find(tab => tab.appMode === state.tabs.find(t => t.id === id)?.appMode) ??
+          remaining[0] ??
+          null)
+        : (state.tabs.find(tab => tab.id === state.activeId) ?? null);
+    // If no tabs left, create a new blank tab
+    const finalTabs =
+      remaining.length === 0
+        ? [{ id: `tab-${Date.now()}`, title: 'New Tab', createdAt: Date.now(), active: true }]
+        : remaining;
+    return {
+      ...state,
+      tabs: finalTabs,
+      activeId: nextActive ? nextActive.id : (finalTabs[0]?.id ?? null),
+    };
+  });
+});

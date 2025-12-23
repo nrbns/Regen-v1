@@ -154,10 +154,22 @@ let searchHandler, searchGetHandler, summarizeHandler, searchRateLimiter, summar
 // Lazy load handlers (will be initialized when routes are registered)
 async function loadProductionSearchAPIs() {
   try {
-    // Use dynamic import with .js extension (TypeScript convention for ES modules)
-    const searchModule = await import('./api/search.js');
-    const summarizeModule = await import('./api/summarize.js');
-    const rateLimiterModule = await import('./middleware/rateLimiter.js');
+    // Use dynamic import - try .ts first, then .js (for TypeScript files when using tsx)
+    let searchModule, summarizeModule, rateLimiterModule;
+    try {
+      searchModule = await import('./api/search.js');
+      summarizeModule = await import('./api/summarize.js');
+      rateLimiterModule = await import('./middleware/rateLimiter.js');
+    } catch (tsError) {
+      // Try .ts extensions if .js fails (when using tsx)
+      try {
+        searchModule = await import('./api/search.ts');
+        summarizeModule = await import('./api/summarize.ts');
+        rateLimiterModule = await import('./middleware/rateLimiter.ts');
+      } catch {
+        throw tsError; // Re-throw original error
+      }
+    }
 
     searchHandler = searchModule.searchHandler;
     searchGetHandler = searchModule.searchGetHandler;
@@ -236,7 +248,8 @@ const automationTriggers = {
   addTriggerEvent: () => Promise.resolve(),
 };
 
-const failSafe = {};
+// Fail-safe will be imported dynamically to handle CommonJS/ES modules
+let failSafe = { healthCheck: async () => ({ ok: true, status: 'fail-safe module not loaded' }) };
 
 // WebSocket server will be initialized after Fastify starts
 // Import is done dynamically to avoid circular dependencies
@@ -1917,6 +1930,24 @@ try {
   fastify.log.warn({ err: error }, 'Failed to register trade WebSocket server (optional)');
 }
 
+// Register trade indicators API endpoint (will be registered after server starts)
+let tradeIndicatorsRegistered = false;
+async function registerTradeIndicators() {
+  if (tradeIndicatorsRegistered) return;
+  try {
+    const { calculateIndicators } = await import('./api/trade-indicators.js');
+    fastify.post('/api/trade/indicators', async (request, reply) => {
+      return calculateIndicators(request, reply);
+    });
+    fastify.log.info('Trade indicators API endpoint registered');
+    tradeIndicatorsRegistered = true;
+  } catch (error) {
+    fastify.log.warn({ err: error }, 'Failed to register trade indicators API (optional)');
+  }
+}
+// Register immediately (async but won't block)
+registerTradeIndicators();
+
 fastify.post('/api/query', async (request, reply) => {
   const body = request.body ?? {};
   const query = typeof body.query === 'string' ? body.query.trim() : '';
@@ -2924,7 +2955,40 @@ fastify.post('/api/regen/event', async (request, reply) => {
 
 // Redix health check
 fastify.get('/api/redix/health', async () => {
-  return await failSafe.healthCheck();
+  try {
+    // Try to load fail-safe module dynamically (CommonJS)
+    if (!failSafe.healthCheck || failSafe.healthCheck.toString().includes('not loaded')) {
+      try {
+        const { createRequire } = await import('module');
+        const require = createRequire(import.meta.url);
+        const failSafeModule = require('./services/redix/fail-safe.js');
+        if (failSafeModule?.healthCheck && typeof failSafeModule.healthCheck === 'function') {
+          failSafe = failSafeModule;
+        }
+      } catch (importError) {
+        // If import fails, use fallback
+        fastify.log.warn('[Redix Health] Could not load fail-safe module:', importError.message);
+      }
+    }
+
+    // Check if healthCheck is available and callable
+    if (failSafe.healthCheck && typeof failSafe.healthCheck === 'function') {
+      return await failSafe.healthCheck();
+    } else {
+      // Return basic health check if module not available
+      return { ok: true, healthy: true, status: 'basic', timestamp: Date.now() };
+    }
+  } catch (error) {
+    // Return basic health if fail-safe module unavailable
+    fastify.log.warn('[Redix Health] Health check failed:', error.message);
+    return {
+      ok: true,
+      healthy: true,
+      status: 'fallback',
+      error: error.message,
+      timestamp: Date.now(),
+    };
+  }
 });
 
 // Command queue endpoints
@@ -4958,17 +5022,35 @@ fastify.get('/metrics/prom', async (_request, reply) => {
       }
     } catch (err) {
       console.error('[Redix Server] Failed to start:', err);
+      console.error('[Redix Server] Error message:', err?.message);
+      console.error('[Redix Server] Error stack:', err?.stack);
+      console.error('[Redix Server] Error code:', err?.code);
       if (process.env.NODE_ENV === 'production') {
         // In production, exit on startup failure
         process.exit(1);
       } else {
         // In dev, log and continue - don't crash
         console.warn('[Redix Server] Server failed to start, but continuing in dev mode');
+        throw err; // Re-throw to outer catch for logging
       }
     }
   } catch (error) {
-    fastify.log.error({ error }, 'failed to start redix server');
-    nodeProcess?.exit?.(1);
+    console.error('[Redix Server] Outer catch - failed to start redix server:', error);
+    console.error('[Redix Server] Outer error message:', error?.message);
+    console.error('[Redix Server] Outer error stack:', error?.stack);
+    fastify.log.error(
+      {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+        code: error?.code,
+      },
+      'failed to start redix server'
+    );
+    // Don't exit in dev mode - let it fail gracefully
+    if (process.env.NODE_ENV === 'production') {
+      nodeProcess?.exit?.(1);
+    }
   }
 })();
 

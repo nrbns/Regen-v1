@@ -308,6 +308,12 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                   el.style.contentVisibility = isActive ? 'auto' : 'hidden';
                   el.style.contain = 'layout style paint';
                   el.setAttribute('fetchpriority', isActive ? 'high' : 'low');
+
+                  // Mobile optimizations
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    const { optimizeIframeForMobile } = require('../../utils/mobileOptimizations');
+                    optimizeIframeForMobile(el);
+                  }
                 }
               }}
               src={currentIframeUrl}
@@ -631,21 +637,28 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                   // Navigation will still work in cross-origin iframes
                 }
 
-                // Check if blocked after load
-                try {
-                  // Try to access contentWindow - will be null if blocked
-                  if (!iframe.contentWindow && iframeUrl && !iframeUrl.startsWith('about:')) {
-                    // X-Frame-Options detected on load - no logging needed
-                    blockedTabs.current.add(tab.id);
-                    window.dispatchEvent(
-                      new CustomEvent('iframe-blocked', {
-                        detail: { tabId: tab.id, url: tab.url },
-                      })
-                    );
+                // Check if blocked after load (with delay to allow iframe to initialize)
+                setTimeout(() => {
+                  try {
+                    // Try to access contentWindow - will be null if blocked
+                    if (!iframe.contentWindow && iframeUrl && !iframeUrl.startsWith('about:')) {
+                      // X-Frame-Options detected on load - no logging needed
+                      blockedTabs.current.add(tab.id);
+
+                      // Emit event for fallback handling
+                      window.dispatchEvent(
+                        new CustomEvent('iframe-blocked', {
+                          detail: { tabId: tab.id, url: tab.url },
+                        })
+                      );
+                    } else {
+                      // Iframe loaded successfully, remove from blocked set
+                      blockedTabs.current.delete(tab.id);
+                    }
+                  } catch {
+                    // Cross-origin access denied is expected, not a block
                   }
-                } catch {
-                  // Cross-origin access denied is normal
-                }
+                }, 1000); // Wait 1 second for iframe to initialize
               }}
               onError={e => {
                 console.warn('[TabIframeManager] Iframe error', {

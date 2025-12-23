@@ -8,7 +8,7 @@ import { WeatherCard } from '../components/widgets/WeatherCard';
 import { FlightCard } from '../components/widgets/FlightCard';
 import { ModeSwitchLoader } from '../components/common/ModeSwitchLoader';
 import { MobileNav, InstallPrompt } from '../mobile';
-import { PageAIButton, PageAIPanel } from '../components/pageAI';
+import { PageAIButton as _PageAIButton, PageAIPanel } from '../components/pageAI';
 import { TextSelectionAIBar } from '../components/pageAI/TextSelectionAIBar';
 import { useWorkspaceShortcuts } from '../hooks/useWorkspaceShortcuts'; // SPRINT 2
 
@@ -170,11 +170,11 @@ export default function Home() {
       {/* PWA Install Prompt - Shows install prompt for PWA installation */}
       <InstallPrompt />
 
-      {/* Page AI Components - Sprint Day 11-12 Features */}
-      <PageAIButton />
+      {/* Single AI entry point via Command Bar ('/' or Ctrl/⌘+K). Remove floating AI button. */}
       {isPageAIPanelOpen && (
         <PageAIPanel isOpen={isPageAIPanelOpen} onClose={() => setPageAIPanelOpen(false)} />
       )}
+      {/* Keep selection AI bar as contextual entry (right-click/selection). */}
       <TextSelectionAIBar />
     </div>
   );

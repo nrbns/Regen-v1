@@ -55,7 +55,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
   );
   const [failedMessage, setFailedMessage] = useState<string | null>(null);
   const [blockedExternal, setBlockedExternal] = useState(false);
-  
+
   // Refs for intervals that need to be cleaned up across different useEffect blocks
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressInterval2Ref = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -688,7 +688,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
         setTabLoading(tab.id!, true, progress);
       }, 200);
     }
-    
+
     // Set loading timeout
     timeoutId = setTimeout(() => {
       if (!isMounted) return; // Don't update state if unmounted
@@ -707,7 +707,7 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       handleLoad();
     };
-    
+
     const wrappedHandleError = (e: ErrorEvent | Event) => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       handleError(e);
@@ -909,7 +909,11 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
               contentVisibility: tab?.active ? 'auto' : 'hidden',
               contain: 'layout style paint',
             }}
-            src={targetUrl && targetUrl !== 'about:blank' ? targetUrl : 'regen://newtab'}
+            src={
+              targetUrl && targetUrl !== 'about:blank' && !targetUrl.startsWith('regen://')
+                ? targetUrl
+                : undefined
+            }
             sandbox={SAFE_IFRAME_SANDBOX}
             allow="fullscreen; autoplay; camera; microphone; geolocation; payment; clipboard-read; clipboard-write; display-capture; storage-access; accelerometer; encrypted-media; gyroscope; picture-in-picture"
             referrerPolicy="no-referrer"
@@ -926,7 +930,9 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
             aria-live="off"
             onError={e => {
               // Additional error handling for iframe
-              console.warn('[TabContentSurface] Iframe error event:', e);
+              if (import.meta.env.DEV) {
+                console.warn('[TabContentSurface] Iframe error event:', e);
+              }
               // Check if it's a blocked iframe
               const iframe = e.currentTarget;
               if (iframe && !iframe.contentWindow && !iframe.contentDocument) {
@@ -939,7 +945,16 @@ export function TabContentSurface({ tab, overlayActive }: TabContentSurfaceProps
                 } else {
                   setFailedMessage('This site blocks embedded views (X-Frame-Options).');
                 }
+              } else {
+                // Generic error - might be network issue
+                setFailedMessage('Failed to load this page. Please check your connection.');
               }
+            }}
+            onLoad={() => {
+              // Clear any error states on successful load
+              setFailedMessage(null);
+              setBlockedExternal(false);
+              setLoading(false);
             }}
           />
         </Suspense>

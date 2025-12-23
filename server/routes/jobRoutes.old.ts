@@ -17,7 +17,7 @@ const jobStore = new Map<string, any>();
 
 let sequence = 0;
 
-function getNextSequence(): number {
+function _getNextSequence(): number {
   return ++sequence;
 }
 
@@ -212,7 +212,7 @@ export function createJobRoutes(): Router {
   router.post('/jobs/:jobId/progress', (req: AuthRequest, res: Response) => {
     try {
       const { jobId } = req.params;
-      const { state, progress, step, partial, checkpoint } = req.body;
+      const { state, progress, step: _step, partial: _partial, checkpoint } = req.body;
 
       const job = jobStore.get(jobId);
       if (!job) {

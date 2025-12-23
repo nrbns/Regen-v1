@@ -300,8 +300,16 @@ export default function HistoryPage() {
         // Navigate to home to show the tab in MainView
         navigate('/');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to open history URL:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      // Show error if tab limit exceeded, otherwise proceed with fallback
+      if (errorMessage.includes('Tab limit reached') || errorMessage.includes('max')) {
+        import('../utils/toast').then(({ toast }) => {
+          toast.warning(errorMessage);
+        });
+        return;
+      }
       // Fallback: navigate to home and create blank tab
       navigate('/');
       setTimeout(() => {

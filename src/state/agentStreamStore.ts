@@ -108,12 +108,17 @@ interface AgentStreamState {
   lastGoal: string | null;
   // PR: Fix tab switch - track active tab for agent operations
   activeTabId: string | null;
+  stateVersion: number;
+  lastConfirmedActionId: string | null;
   setRun: (runId: string, goal: string | null, tabId?: string | null) => void;
   setStatus: (status: StreamStatus) => void;
   setError: (error: string | undefined) => void;
   appendEvent: (event: AgentStreamEvent) => void;
   appendTranscript: (delta: string) => void;
   setActiveTabId: (tabId: string | null) => void;
+  setStateVersion: (version: number) => void;
+  setLastConfirmedActionId: (actionId: string | null) => void;
+  replayOrReset: (incomingVersion: number, incomingActionId: string | null) => void;
   reset: () => void;
 }
 
@@ -127,6 +132,8 @@ export const useAgentStreamStore = create<AgentStreamState>()(
       error: undefined,
       lastGoal: null,
       activeTabId: null,
+      stateVersion: 0,
+      lastConfirmedActionId: null,
       setRun: (runId: string, goal: string | null, tabId: string | null = null) => {
         console.log('[AGENT_STREAM] setRun', { runId, goal, tabId });
         set({
@@ -137,13 +144,14 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           events: [],
           lastGoal: goal,
           activeTabId: tabId,
+          stateVersion: 1,
+          lastConfirmedActionId: null,
         });
       },
       setStatus: (status: StreamStatus) => set({ status }),
       setError: (error: string | undefined) => set({ error, status: error ? 'error' : 'idle' }),
       appendEvent: (event: AgentStreamEvent) => {
-        // PR: Fix tab switch - only append events for current active tab
-        const state = useAgentStreamStore.getState();
+        const _state = useAgentStreamStore.getState();
         if (event.tabId && state.activeTabId && event.tabId !== state.activeTabId) {
           console.log('[AGENT_STREAM] Ignoring event for inactive tab', {
             eventTabId: event.tabId,
@@ -152,32 +160,46 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           });
           return;
         }
-        console.log('[AGENT_STREAM] appendEvent', {
-          eventId: event.id,
-          type: event.type,
-          tabId: event.tabId,
-          activeTabId: state.activeTabId,
-        });
-        set(state => ({
-          events: [...state.events, event],
+        set(s => ({
+          events: [...s.events, event],
+          stateVersion: s.stateVersion + 1,
+          lastConfirmedActionId: event.id || s.lastConfirmedActionId,
         }));
       },
       appendTranscript: (delta: string) => {
-        const state = useAgentStreamStore.getState();
-        console.log('[AGENT_STREAM] appendTranscript', {
-          deltaLength: delta.length,
-          activeTabId: state.activeTabId,
-        });
-        set(state => ({
-          transcript: state.transcript ? `${state.transcript}${delta}` : delta,
+        const _state = useAgentStreamStore.getState();
+        set(s => ({
+          transcript: s.transcript ? `${s.transcript}${delta}` : delta,
+          stateVersion: s.stateVersion + 1,
         }));
       },
       setActiveTabId: (tabId: string | null) => {
-        console.log('[AGENT_STREAM] setActiveTabId', { tabId });
         set({ activeTabId: tabId });
       },
+      setStateVersion: (version: number) => set({ stateVersion: version }),
+      setLastConfirmedActionId: (actionId: string | null) =>
+        set({ lastConfirmedActionId: actionId }),
+      replayOrReset: (incomingVersion: number, incomingActionId: string | null) => {
+        const state = useAgentStreamStore.getState();
+        if (incomingVersion > state.stateVersion) {
+          // Replay logic: Accept incoming state
+          set({ stateVersion: incomingVersion, lastConfirmedActionId: incomingActionId });
+        } else if (incomingVersion < state.stateVersion) {
+          // Hard reset: Local state is ahead, reset to incoming
+          set({
+            runId: null,
+            status: 'idle',
+            transcript: '',
+            events: [],
+            error: undefined,
+            lastGoal: null,
+            activeTabId: null,
+            stateVersion: incomingVersion,
+            lastConfirmedActionId: incomingActionId,
+          });
+        }
+      },
       reset: () => {
-        console.log('[AGENT_STREAM] reset');
         set({
           runId: null,
           status: 'idle',
@@ -186,6 +208,8 @@ export const useAgentStreamStore = create<AgentStreamState>()(
           error: undefined,
           lastGoal: null,
           activeTabId: null,
+          stateVersion: 0,
+          lastConfirmedActionId: null,
         });
       },
     }),

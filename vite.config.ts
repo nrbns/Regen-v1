@@ -192,15 +192,15 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
-    strictPort: true,
+    port: parseInt(process.env.VITE_DEV_PORT || '5173', 10),
+    strictPort: false, // Allow port override from env
     host: true,
     // Enable HMR with proper configuration
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
+      port: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
+      clientPort: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
       overlay: true, // Show error overlay
     },
     // Watch for file changes - use polling for better reliability on Windows
@@ -215,7 +215,9 @@ export default defineConfig({
       allow: ['..'], // Allow serving files from parent directories
     },
     // DEVELOPMENT ONLY: Set relaxed CSP header for local development
+    // Fix HTTP 431 error: Request header fields too large
     headers: {
+      'access-control-allow-origin': '*',
       'Content-Security-Policy':
         "default-src 'self' https: data: blob:; " +
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +

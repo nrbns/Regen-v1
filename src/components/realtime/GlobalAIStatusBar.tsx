@@ -9,7 +9,8 @@
  * - AI source (Local/Web/Hybrid)
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { eventBus } from '../../core/state/eventBus';
 import { Activity, Cloud, Zap, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 interface GlobalAIStatusBarProps {
@@ -26,7 +27,7 @@ interface StatusState {
 }
 
 export function GlobalAIStatusBar({ className = '' }: GlobalAIStatusBarProps) {
-  const [status, setStatus] = useState<StatusState>({
+  const statusRef = useRef<StatusState>({
     isConnected: typeof navigator !== 'undefined' ? navigator.onLine : true,
     isConnecting: false,
     activeJobs: 0,
@@ -34,47 +35,65 @@ export function GlobalAIStatusBar({ className = '' }: GlobalAIStatusBarProps) {
     aiSource: 'local',
     lastUpdate: Date.now(),
   });
+  const [, forceUpdate] = useState(0);
 
   const [showDetails, setShowDetails] = useState(false);
 
   // Listen to socket client events
   useEffect(() => {
-    const pollStatus = async () => {
-      try {
-        const { getSocketClient } = await import('../../services/realtime/socketClient');
-        const client = getSocketClient();
-        const clientStatus = client.getStatus();
-
-        setStatus(prev => ({
-          ...prev,
-          isConnected: client.isReady(),
-          activeJobs: clientStatus.subscriptions,
-          lastUpdate: Date.now(),
-        }));
-      } catch {
-        // Socket not initialized yet
-      }
+    // Hydrate from eventBus
+    const update = () => forceUpdate(x => x + 1);
+    const handleStatus = (data: Partial<StatusState>) => {
+      statusRef.current = { ...statusRef.current, ...data, lastUpdate: Date.now() };
+      update();
     };
-
-    // Poll every 500ms for live updates
-    const interval = setInterval(pollStatus, 500);
-    pollStatus(); // Initial check
-
+    const offStatus = eventBus.on('ai:status', handleStatus);
+    const offStreaming = eventBus.on('ai:streaming', (isStreaming: boolean) => {
+      statusRef.current.isStreaming = isStreaming;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    });
+    const offSource = eventBus.on('ai:source', (aiSource: 'local' | 'web' | 'hybrid') => {
+      statusRef.current.aiSource = aiSource;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    });
+    const offJobCount = eventBus.on('ai:job:count', (activeJobs: number) => {
+      statusRef.current.activeJobs = activeJobs;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    });
+    const offConnection = eventBus.on('connection:status', (isConnected: boolean) => {
+      statusRef.current.isConnected = isConnected;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    });
     // Listen to online/offline
-    const handleOnline = () => setStatus(prev => ({ ...prev, isConnected: true }));
-    const handleOffline = () => setStatus(prev => ({ ...prev, isConnected: false }));
-
+    const handleOnline = () => {
+      statusRef.current.isConnected = true;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    };
+    const handleOffline = () => {
+      statusRef.current.isConnected = false;
+      statusRef.current.lastUpdate = Date.now();
+      update();
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
     return () => {
-      clearInterval(interval);
+      offStatus();
+      offStreaming();
+      offSource();
+      offJobCount();
+      offConnection();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
   // Determine indicator color + icon
+  const status = statusRef.current;
   const getStatusColor = () => {
     if (status.isConnecting) return 'bg-blue-500/10 border-blue-400';
     if (!status.isConnected) return 'bg-red-500/10 border-red-400';

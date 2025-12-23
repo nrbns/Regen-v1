@@ -24,17 +24,34 @@ import OrderBook, { type OrderBookEntry } from '../../components/trade/OrderBook
 import TradesTape, { type Trade } from '../../components/trade/TradesTape';
 import { useRealtimeTrade } from '../../hooks/useRealtimeTrade';
 import { TradeStagehandIntegration } from './stagehand-integration';
-import { SSEConnectionStatusIndicator } from '../../components/realtime/SSEConnectionStatus';
+import { SSEConnectionStatusIndicator as _SSEConnectionStatusIndicator } from '../../components/realtime/SSEConnectionStatus';
 import { validateSignal } from '../../core/trade/signalGenerator';
 import { getSSESignalService } from '../../services/realtime/sseSignalService';
 import BrowserView from '../../components/browser/BrowserView';
 import { VoiceButton } from '../../components/voice';
-import { ZeroPromptSuggestions } from '../../components/search/ZeroPromptSuggestions';
+// ZeroPromptSuggestions replaced with trade-specific context-aware actions per UI audit
 import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { executeAgenticAction } from '../../services/agenticActionExecutor';
 import { trackUserAction } from '../../services/zeroPromptPrediction';
 // LAG FIX #8: Hindi defaults for Indian users
 import { getModeDefaults } from '../../config/modeDefaults';
+import {
+  TechnicalIndicators,
+  type Indicator,
+  type IndicatorType as _IndicatorType,
+} from '../../components/trade/TechnicalIndicators';
+import {
+  ChartDrawingTools,
+  type DrawingToolType,
+  type DrawingShape,
+} from '../../components/trade/ChartDrawingTools';
+import {
+  ChartTypeSelector,
+  type ChartType,
+  convertToHeikinAshi as _convertToHeikinAshi,
+} from '../../components/trade/ChartTypeSelector';
+import { useTechnicalIndicators } from '../../hooks/useTechnicalIndicators';
+import { layerManager } from '../../core/layers/layerManager';
 
 const markets = [
   { name: 'NIFTY 50', symbol: 'NSE:NIFTY', currency: '₹', exchange: 'NSE' },
@@ -71,6 +88,79 @@ export default function TradePanel() {
   const [low, setLow] = useState(24720);
   const [volume, setVolume] = useState(0);
   const [open, setOpen] = useState(25000);
+  const [indicators, setIndicators] = useState<Indicator[]>([]);
+  const [chartType, setChartType] = useState<ChartType>('candlestick');
+  const [drawingTool, setDrawingTool] = useState<DrawingToolType>('none');
+  const [drawingShapes, setDrawingShapes] = useState<DrawingShape[]>([]);
+  const [candleHistory, setCandleHistory] = useState<any[]>([]);
+
+  // Real-time indicator calculations from actual candle data
+  const { indicatorData: _indicatorData } = useTechnicalIndicators(
+    candleHistory,
+    indicators
+      .filter(ind => ind.enabled)
+      .map(ind => ({
+        type: ind.type,
+        period: ind.period || 14,
+        fastPeriod: ind.type === 'macd' ? 12 : undefined,
+        slowPeriod: ind.type === 'macd' ? 26 : undefined,
+        signalPeriod: ind.type === 'macd' ? 9 : undefined,
+        stdDev: ind.type === 'bollinger' ? 2 : undefined,
+      }))
+  );
+
+  // Mode-themed background dominance (class already handled at page level)
+
+  const _MarketChips = () => {
+    return (
+      <div className="no-scrollbar mb-3 flex w-full items-center gap-2 overflow-x-auto px-3 py-1">
+        {markets.map(m => {
+          const isActive = m.symbol === selected.symbol;
+          const chipPrice = isActive ? price : undefined;
+          const chipChangePct = isActive ? changePercent : undefined;
+          const up = (chipChangePct || 0) >= 0;
+          return (
+            <button
+              key={m.symbol}
+              onClick={() => setSelected(m)}
+              className={`inline-flex min-w-[160px] items-center justify-between rounded-xl border px-3 py-1.5 text-sm transition ${
+                isActive
+                  ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
+                  : 'border-slate-700/60 bg-slate-900/60 text-slate-200 hover:border-slate-600'
+              }`}
+            >
+              <span className="mr-3 truncate font-medium">{m.name}</span>
+              <span className="flex items-center gap-2 whitespace-nowrap">
+                {chipPrice !== undefined ? (
+                  <>
+                    <span className="font-semibold">
+                      {m.currency}
+                      {chipPrice.toLocaleString()}
+                    </span>
+                    <span className={up ? 'text-emerald-300' : 'text-rose-300'}>
+                      {up ? '▲' : '▼'} {Math.abs(chipChangePct || 0).toFixed(2)}%
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-slate-400">cached</span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // TIERED ARCHITECTURE: Activate L2 layer when Trade mode mounts
+  useEffect(() => {
+    layerManager.switchToMode('Trade').catch(console.error);
+
+    return () => {
+      // Deactivate L2 when component unmounts (if switching away from Trade)
+      layerManager.exitMode('Trade').catch(console.error);
+    };
+  }, []);
 
   // LAG FIX #8: Apply Hindi defaults for Trade mode
   useEffect(() => {
@@ -105,7 +195,6 @@ export default function TradePanel() {
   }, []);
 
   // Real-time WebSocket updates
-  const [candleHistory, setCandleHistory] = useState<any[]>([]);
   const {
     tick: _tick,
     connected: wsConnected,
@@ -347,7 +436,10 @@ export default function TradePanel() {
         const loadRealCandles = async () => {
           setChartLoading(true);
           try {
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+            const API_BASE =
+              import.meta.env.VITE_API_BASE_URL ||
+              import.meta.env.VITE_APP_API_URL ||
+              'http://127.0.0.1:4000';
             const symbolKey = selected.symbol.includes(':')
               ? selected.symbol.split(':')[1]
               : selected.symbol;
@@ -574,22 +666,13 @@ export default function TradePanel() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-black text-white">
-      {/* Connection Status Banner */}
+      {/* Single Connection Status Banner - ONE source of truth per UI audit */}
       {!wsConnected && (
-        <div
-          className={`border-b px-4 py-2 text-sm ${
-            wsReconnecting
-              ? 'border-blue-500/40 bg-blue-500/10 text-blue-100'
-              : 'border-yellow-500/40 bg-yellow-500/10 text-yellow-100'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span>
-              {wsReconnecting ? '🔄 Reconnecting...' : '⚠️ Connection lost'}
-              {lastPrice !== null && ' (Showing cached data)'}
-            </span>
-            <SSEConnectionStatusIndicator showDetails={false} />
-          </div>
+        <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-100">
+          <span>
+            {wsReconnecting ? '🔄 Reconnecting...' : '🟡 Offline'}
+            {lastPrice !== null && ' — Showing cached market data'}
+          </span>
         </div>
       )}
 
@@ -598,7 +681,7 @@ export default function TradePanel() {
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-emerald-400" />
           <h1 className="text-sm font-semibold text-white md:text-lg">Trade Mode</h1>
-          <SSEConnectionStatusIndicator showDetails={false} />
+          {/* Connection status removed from header - single banner above handles it */}
           <button
             onClick={() => setUseTradingView(!useTradingView)}
             className={`ml-4 rounded-lg px-3 py-1 text-xs transition ${
@@ -665,34 +748,73 @@ export default function TradePanel() {
         </div>
       </div>
 
-      {/* Zero-prompt suggestions */}
+      {/* Trade-specific AI Actions - Context-aware per UI audit */}
       <div className="z-20 flex-shrink-0 border-b border-gray-800 bg-black/50 px-4 py-2">
-        <ZeroPromptSuggestions maxSuggestions={3} autoRefresh={true} />
+        <div className="flex gap-2 overflow-x-auto">
+          <button
+            onClick={() => toast.info("Explain today's move - Coming soon")}
+            className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            📈 Explain today's move
+          </button>
+          <button
+            onClick={() => toast.info('Support/Resistance levels - Coming soon')}
+            className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            📊 Support / Resistance
+          </button>
+          <button
+            onClick={() => toast.info('Risk summary - Coming soon')}
+            className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            ⚠️ Risk summary
+          </button>
+          <button
+            onClick={() => toast.info('What changed since yesterday - Coming soon')}
+            className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
+          >
+            🔄 What changed?
+          </button>
+        </div>
       </div>
 
-      {/* Market Selector */}
-      <div className="z-20 flex-shrink-0 bg-gradient-to-r from-purple-800 to-pink-800 p-3 md:p-4">
+      {/* Market Selector - Reduced saturation per UI audit (less visually loud) */}
+      <div className="z-20 flex-shrink-0 bg-gradient-to-r from-purple-800/60 to-pink-800/60 p-3 md:p-4">
         <div className="scrollbar-hide flex gap-2 overflow-x-auto md:gap-3">
-          {markets.map(m => (
-            <button
-              key={m.symbol}
-              onClick={() => setSelected(m)}
-              className={`flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 font-bold transition-all md:px-6 md:py-3 ${
-                selected.symbol === m.symbol
-                  ? 'scale-110 bg-white/30 shadow-2xl'
-                  : 'bg-white/10 hover:bg-white/20'
-              }`}
-            >
-              {m.exchange === 'NSE' && <IndianRupee className="h-3 w-3 md:h-4 md:w-4" />}
-              {m.exchange === 'Crypto' && <Bitcoin className="h-3 w-3 md:h-4 md:w-4" />}
-              {(m.exchange === 'NYSE' || m.exchange === 'NASDAQ' || m.exchange === 'Forex') && (
-                <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
-              )}
-              <span className="text-xs md:text-sm">
-                {m.currency} {m.name}
-              </span>
-            </button>
-          ))}
+          {markets.map(m => {
+            const isActive = selected.symbol === m.symbol;
+            const pct = isActive ? changePercent : undefined;
+            const isUp = (pct || 0) >= 0;
+            return (
+              <button
+                key={m.symbol}
+                onClick={() => setSelected(m)}
+                className={`flex flex-shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-4 py-2 font-bold transition-all md:px-6 md:py-3 ${
+                  isActive ? 'scale-110 bg-white/30 shadow-2xl' : 'bg-white/10 hover:bg-white/20'
+                }`}
+              >
+                {m.exchange === 'NSE' && <IndianRupee className="h-3 w-3 md:h-4 md:w-4" />}
+                {m.exchange === 'Crypto' && <Bitcoin className="h-3 w-3 md:h-4 md:w-4" />}
+                {(m.exchange === 'NYSE' || m.exchange === 'NASDAQ' || m.exchange === 'Forex') && (
+                  <DollarSign className="h-3 w-3 md:h-4 md:w-4" />
+                )}
+                <span className="text-xs md:text-sm">{m.name}</span>
+                <span className="text-[11px] opacity-80 md:text-xs">
+                  {isActive ? (
+                    <>
+                      {m.currency}
+                      {price.toLocaleString()} •
+                      <span className={isUp ? 'text-green-200' : 'text-red-200'}>
+                        {isUp ? ' ▲' : ' ▼'} {Math.abs(changePercent).toFixed(2)}%
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-100/80">cached</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -750,7 +872,7 @@ export default function TradePanel() {
 
       {/* Main Content Grid */}
       <div className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
-        {/* Chart Area */}
+        {/* Chart Area - Visually Dominant per UI audit */}
         <div className="col-span-12 flex flex-col lg:col-span-8">
           {useTradingView ? (
             <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]">
@@ -766,8 +888,10 @@ export default function TradePanel() {
           ) : (
             <div
               ref={chartContainerRef}
-              className="relative h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
+              className="relative h-[420px] min-h-[420px] w-full overflow-hidden rounded-lg border border-[#222] bg-[#030303]"
+              style={{ minHeight: '420px', height: '420px' }}
             >
+              {/* Chart Container - Fixed layout, never reflows per UI audit */}
               {chartLoading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/50">
                   <div className="flex flex-col items-center gap-2">
@@ -776,9 +900,9 @@ export default function TradePanel() {
                   </div>
                 </div>
               )}
-              <div className="absolute left-4 top-4 z-10 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
-                1D • EMA • RSI • Volume Profile
-                {wsConnected && <span className="ml-2 text-green-400">● Live</span>}
+              <div className="absolute left-4 top-4 z-10 flex items-center gap-3 rounded-lg border border-gray-700 bg-black/70 px-4 py-2 text-xs backdrop-blur md:text-sm">
+                <ChartTypeSelector selectedType={chartType} onTypeChange={setChartType} />
+                {wsConnected && <span className="text-green-400">● Live</span>}
               </div>
             </div>
           )}
@@ -789,8 +913,8 @@ export default function TradePanel() {
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="col-span-12 flex flex-col gap-4 lg:col-span-4">
+        {/* Right Sidebar - Secondary, visually quieter */}
+        <div className="col-span-12 flex flex-col gap-4 lg:col-span-3">
           {/* Order Book */}
           <OrderBook
             bids={orderBookBids}
@@ -798,6 +922,46 @@ export default function TradePanel() {
             onPriceClick={(price, _side) => {
               // Just show price info, no order placement
               toast.info(`Price: ${selected.currency}${price.toLocaleString()}`);
+            }}
+          />
+
+          {/* Technical Indicators */}
+          <TechnicalIndicators
+            indicators={indicators}
+            onToggle={id => {
+              setIndicators(prev =>
+                prev.map(ind => (ind.id === id ? { ...ind, enabled: !ind.enabled } : ind))
+              );
+            }}
+            onAdd={type => {
+              const newIndicator: Indicator = {
+                id: `indicator-${Date.now()}`,
+                type,
+                name: type.toUpperCase(),
+                enabled: true,
+                color: type === 'rsi' ? '#fb923c' : type === 'macd' ? '#60a5fa' : '#a78bfa',
+                period: type === 'rsi' ? 14 : type === 'sma' || type === 'ema' ? 20 : undefined,
+              };
+              setIndicators(prev => [...prev, newIndicator]);
+            }}
+            onRemove={id => {
+              setIndicators(prev => prev.filter(ind => ind.id !== id));
+            }}
+          />
+
+          {/* Drawing Tools */}
+          <ChartDrawingTools
+            selectedTool={drawingTool}
+            onToolSelect={setDrawingTool}
+            shapes={drawingShapes}
+            onShapeAdd={shape => {
+              setDrawingShapes(prev => [...prev, shape]);
+            }}
+            onShapeRemove={id => {
+              setDrawingShapes(prev => prev.filter(s => s.id !== id));
+            }}
+            onShapeUpdate={(id, updates) => {
+              setDrawingShapes(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)));
             }}
           />
 

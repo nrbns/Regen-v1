@@ -45,36 +45,14 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Initialize agent client early
-import './lib/agent-client';
+// TIERED ARCHITECTURE: L0 Core - No agent system or Socket.IO at startup
+// These are now loaded on-demand when L2 layer is activated (Research/Trade modes)
 
-// Initialize agent system (planner, executor, memory, tools)
-import { initializeAgentSystem } from './core/agent/integration';
-initializeAgentSystem();
+// Initialize layer manager first (handles all layer transitions)
+import { layerManager } from './core/layers/layerManager';
 
-// Initialize app connections
+// Initialize app connections (lightweight - no Socket.IO)
 import { initializeApp } from './lib/initialize-app';
-
-// Initialize Socket.IO for realtime job progress (web renderer)
-const setupRealtimeSocket = async () => {
-  try {
-    const { initSocketClient } = await import('./services/realtime/socketClient');
-    const token = localStorage.getItem('auth:token');
-    await initSocketClient({
-      url: import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000',
-      token,
-      deviceId: `web-${Date.now()}`,
-    });
-    console.log('[Socket] Realtime client initialized');
-  } catch (error) {
-    console.warn('[Socket] Failed to initialize realtime client:', error);
-  }
-};
-
-// Call after app initializes
-setupRealtimeSocket().catch(() => {
-  // Silently fail - realtime is optional
-});
 
 // Import test utility in dev mode
 if (isDevEnv()) {
@@ -1197,8 +1175,27 @@ try {
   }
 
   // Tier 2: Start session snapshotting - defer to avoid blocking
+  // L3: Only activate recovery snapshotting if jobs exist
   setTimeout(() => {
-    startSnapshotting();
+    // Check if we have any jobs before starting recovery system
+    import('./services/jobs')
+      .then(({ jobRepository }) => {
+        return jobRepository?.getActiveJobs?.() || Promise.resolve([]);
+      })
+      .then((jobs: any[]) => {
+        if (jobs && jobs.length > 0) {
+          // Jobs exist - activate L3 recovery system
+          layerManager.switchToMode('Research').catch(() => {
+            // Force L3 activation
+            (layerManager as any).activateLayer('L3').catch(() => {});
+          });
+          startSnapshotting();
+        }
+        // No jobs = recovery system stays dormant
+      })
+      .catch(() => {
+        // Job system not available - skip recovery initialization
+      });
   }, 1000);
 
   // Ensure root element is visible before rendering (redundant but safe)

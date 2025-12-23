@@ -60,8 +60,8 @@ export class AdblockerEngine {
     }
 
     // Add blocked domains
-    const blockedDomainSet = new Set(this.blockedDomains);
-    const whitelistedSet = new Set(
+    const _blockedDomainSet = new Set(this.blockedDomains);
+    const _whitelistedSet = new Set(
       settings && 'whitelistedDomains' in settings ? settings.whitelistedDomains || [] : []
     );
     if (settings?.blockedDomains) {

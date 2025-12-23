@@ -15,7 +15,9 @@ import { EVENTS, type EventType } from '../../../packages/shared/events';
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   import.meta.env.VITE_WS_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
-  'http://localhost:4000';
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_APP_API_URL ||
+  'http://127.0.0.1:4000'; // Default to match .env specification
 
 export interface SocketConfig {
   token?: string;
@@ -30,7 +32,17 @@ class SocketService {
   private config: SocketConfig = {};
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
-  private offlineQueue: Array<{ event: string; data: any }> = [];
+  private offlineQueue: Array<{ event: string; data: any; attempts?: number }> = [];
+  private pendingAcks: Map<
+    string,
+    {
+      event: string;
+      data: any;
+      resolve: (value: any) => void;
+      reject: (error: any) => void;
+      attempts: number;
+    }
+  > = new Map();
   private isConnected = false;
   private connectionStatusListeners: Set<(connected: boolean) => void> = new Set();
 
@@ -126,20 +138,57 @@ class SocketService {
   /**
    * Emit event to server
    */
-  emit(event: EventType | string, data?: any): void {
-    if (!this.socket) {
-      console.warn('[SocketService] Not connected, queueing event', { event });
-      this.offlineQueue.push({ event, data });
+  emit(event: EventType | string, data?: any, requireAck: boolean = false): Promise<any> | void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('[SocketService] Not connected, buffering event', { event });
+      this.offlineQueue.push({ event, data, attempts: 0 });
+      return requireAck ? Promise.reject('Socket not connected') : undefined;
+    }
+    if (!requireAck) {
+      this.socket.emit(event, data);
       return;
     }
+    // Ack-based delivery
+    return new Promise((resolve, reject) => {
+      const ackId = `${event}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+      this.pendingAcks.set(ackId, { event, data, resolve, reject, attempts: 0 });
+      if (!this.socket) {
+        reject('Socket not connected');
+        return;
+      }
+      this.socket.emit(event, { ...data, ackId }, (response: any) => {
+        if (response?.ok) {
+          this.pendingAcks.delete(ackId);
+          resolve(response);
+        } else {
+          this.retryAck(ackId);
+        }
+      });
+    });
+  }
 
-    if (!this.isConnected) {
-      console.warn('[SocketService] Not connected, queueing event', { event });
-      this.offlineQueue.push({ event, data });
+  private retryAck(ackId: string) {
+    const entry = this.pendingAcks.get(ackId);
+    if (!entry) return;
+    entry.attempts++;
+    if (entry.attempts > 5) {
+      entry.reject('Max ack retries');
+      this.pendingAcks.delete(ackId);
       return;
     }
-
-    this.socket.emit(event, data);
+    setTimeout(
+      () => {
+        this.socket?.emit(entry.event, { ...entry.data, ackId }, (response: any) => {
+          if (response?.ok) {
+            this.pendingAcks.delete(ackId);
+            entry.resolve(response);
+          } else {
+            this.retryAck(ackId);
+          }
+        });
+      },
+      Math.min(1000 * Math.pow(2, entry.attempts), 10000)
+    );
   }
 
   /**
@@ -199,14 +248,11 @@ class SocketService {
    */
   private flushOfflineQueue(): void {
     if (this.offlineQueue.length === 0) return;
-
     console.log('[SocketService] Flushing offline queue', { count: this.offlineQueue.length });
-
     const queue = [...this.offlineQueue];
     this.offlineQueue = [];
-
     queue.forEach(({ event, data }) => {
-      this.emit(event, data);
+      this.emit(event, data, false);
     });
   }
 
@@ -266,16 +312,8 @@ class SocketService {
 // Singleton instance
 export const socketService = new SocketService();
 
-// Auto-connect in browser (if token available)
-if (typeof window !== 'undefined') {
-  // Connect on app initialization
-  const token = localStorage.getItem('auth_token');
-  if (token || import.meta.env.DEV) {
-    socketService.connect({
-      token: token || undefined,
-      autoConnect: true,
-    });
-  }
-}
+// TIERED ARCHITECTURE: Do NOT auto-connect
+// Socket.IO only connects when L2 layer is activated (Research/Trade modes)
+// Connection is managed by layerManager in core/layers/layerManager.ts
 
 export default socketService;

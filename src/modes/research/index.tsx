@@ -20,6 +20,13 @@ import { searchLocal } from '../../utils/lunrIndex';
 import { searchOfflineDocuments } from '../../services/offlineRAG';
 // import { SavePageButton } from '../../components/offline/SavePageButton'; // Unused
 import { aiEngine, type AITaskResult } from '../../core/ai';
+import {
+  withDeterminism,
+  extractConfidence as _extractConfidence,
+  extractSources as _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
+import { jobAuthority } from '../../core/jobAuthority';
 import { semanticSearchMemories } from '../../core/supermemory/search';
 import { parsePdfFile } from '../docs/parsers/pdf';
 import { parseDocxFile } from '../docs/parsers/docx';
@@ -28,6 +35,11 @@ import { parseResearchVoiceCommand } from '../../utils/voiceCommandParser';
 import { detectLanguage } from '../../services/languageDetection';
 import { summarizeOffline } from '../../services/offlineSummarizer';
 import { ZeroPromptSuggestions } from '../../components/search/ZeroPromptSuggestions';
+import { useImmediateFeedback } from '../../hooks/useImmediateFeedback';
+import {
+  RelatedQuestions,
+  generateRelatedQuestions,
+} from '../../components/research/RelatedQuestions';
 // LAG FIX #8: Hindi defaults for Research mode
 import { getModeDefaults } from '../../config/modeDefaults';
 import {
@@ -51,7 +63,7 @@ import { useResearchCompareStore } from '../../state/researchCompareStore';
 import { toast } from '../../utils/toast';
 import { runDeepScan, type DeepScanStep, type DeepScanSource } from '../../services/deepScan';
 import { CursorChat } from '../../components/cursor/CursorChat';
-import { OmniAgentInput } from '../../components/omni-mode/OmniAgentInput';
+import { OmniAgentInput as _OmniAgentInput } from '../../components/omni-mode/OmniAgentInput';
 import { executeAgentActions } from '../../services/agenticActions';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { researchApi } from '../../lib/api-client';
@@ -59,6 +71,13 @@ import { getLanguageMeta } from '../../constants/languageMeta';
 import { getSearchHealth } from '../../services/searchHealth';
 import { multiLanguageAI, type SupportedLanguage } from '../../core/language/multiLanguageAI';
 import { checkResearchBackend } from '../../utils/checkBackendConnection';
+import { layerManager } from '../../core/layers/layerManager';
+import { downloadResearchExport } from '../../core/research/researchExport';
+import {
+  calculateCredibility,
+  getCredibilityColor,
+  getCredibilityLabel,
+} from '../../core/research/sourceCredibility';
 
 type UploadedDocument = {
   id: string;
@@ -103,6 +122,16 @@ export default function ResearchPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
+  // TIERED ARCHITECTURE: Activate L2 layer when Research mode mounts
+  useEffect(() => {
+    layerManager.switchToMode('Research').catch(console.error);
+
+    return () => {
+      // Deactivate L2 when component unmounts (if switching away from Research)
+      layerManager.exitMode('Research').catch(console.error);
+    };
+  }, []);
+
   // LAG FIX #8: Apply Hindi defaults for Research mode
   useEffect(() => {
     const defaults = getModeDefaults('Research');
@@ -127,6 +156,9 @@ export default function ResearchPanel() {
   const aiMetaRef = useRef<{ provider?: string; model?: string }>({});
   const handleSearchRef = useRef<((input?: string) => Promise<void>) | null>(null);
   const [deepScanEnabled, setDeepScanEnabled] = useState(false);
+
+  // <300ms Reaction Rule: Immediate feedback for search
+  const searchFeedback = useImmediateFeedback({ type: 'understanding' });
   const [deepScanLoading, setDeepScanLoading] = useState(false);
   const [deepScanSteps, setDeepScanSteps] = useState<DeepScanStep[]>([]);
   const [deepScanError, setDeepScanError] = useState<string | null>(null);
@@ -469,8 +501,23 @@ export default function ResearchPanel() {
 
         // v0.4: Parallel AI execution (reason + summarize) for faster responses
         // Also scrape active tab in parallel if available
-        const [aiResult, liveScrapeResult] = await Promise.all([
-          aiEngine.runTask(
+
+        // DETERMINISM: Wrap AI operation with determinism (job creation, Event Ledger logging)
+        const userId = getUserId();
+        let currentJobId: string | null = null;
+        const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+          userId,
+          type: 'research',
+          query: searchQuery,
+          reasoning: `Research query: ${searchQuery.substring(0, 100)}`,
+          sources: aggregatedSources.slice(0, 10).map(s => s.url),
+        });
+
+        // Create checkpoint after sources are aggregated (before AI analysis)
+        // Note: Job is created when deterministicRunner is called, so we'll create checkpoint after
+
+        const [_aiResultWithJob, liveScrapeResult] = await Promise.all([
+          deterministicRunner(
             {
               kind: 'search',
               prompt: searchQuery,
@@ -493,6 +540,13 @@ export default function ResearchPanel() {
                 streamedText += event.data;
               } else if (event.type === 'done' && typeof event.data !== 'string') {
                 streamedResult = event.data as AITaskResult;
+
+                // Update confidence and sources from result
+                if (event.data) {
+                  const _result = event.data as AITaskResult;
+                  // Confidence and sources are already logged by withDeterminism
+                  // But we can enhance with extracted values if needed
+                }
               }
             }
           ),
@@ -518,6 +572,43 @@ export default function ResearchPanel() {
           model: finalResult?.model,
         };
         let finalAnswer = streamedText || finalResult?.text || '';
+
+        // Create checkpoint after sources are aggregated (before AI analysis completes)
+        if (currentJobId && aggregatedSources.length > 0) {
+          try {
+            await jobAuthority.checkpoint({
+              jobId: currentJobId,
+              progress: 30,
+              step: `Found ${aggregatedSources.length} sources, analyzing...`,
+              data: {
+                sources: aggregatedSources.slice(0, 5).map(s => ({ url: s.url, title: s.title })),
+                sourceCount: aggregatedSources.length,
+                query: searchQuery,
+              },
+            });
+          } catch (error) {
+            console.warn('[Research] Failed to create checkpoint after sources:', error);
+          }
+        }
+
+        // Create checkpoint after AI analysis completes
+        if (currentJobId && finalAnswer) {
+          try {
+            await jobAuthority.checkpoint({
+              jobId: currentJobId,
+              progress: 70,
+              step: 'Analysis complete, processing results...',
+              data: {
+                answer: finalAnswer.substring(0, 500),
+                sourceCount: aggregatedSources.length,
+                provider: finalResult?.provider,
+                model: finalResult?.model,
+              },
+            });
+          } catch (error) {
+            console.warn('[Research] Failed to create checkpoint after analysis:', error);
+          }
+        }
 
         // v0.4: Parse and execute agentic actions from AI response
         if (finalAnswer) {
@@ -1124,6 +1215,20 @@ export default function ResearchPanel() {
       const searchQuery = typeof input === 'string' ? input : query;
       if (!searchQuery.trim()) return;
 
+      // <300ms Reaction Rule: Show immediate feedback
+      searchFeedback.show('Understanding your intent...');
+
+      // Dispatch context update event for ContextStrip
+      window.dispatchEvent(
+        new CustomEvent('research:query', {
+          detail: { query: searchQuery },
+        })
+      );
+
+      // Update loading state immediately
+      setLoading(true);
+      setError(null);
+
       // TELEMETRY FIX: Track search feature usage
       import('../../services/telemetryMetrics')
         .then(({ telemetryMetrics }) => {
@@ -1650,7 +1755,17 @@ export default function ResearchPanel() {
             researchPrompt = `Research Question: ${searchQuery}\n\nBased on the following content:\n\n${scrapedContent}\n\nAnswer:`;
           }
 
-          const aiResult = await aiEngine.runTask(
+          // DETERMINISM: Wrap AI operation with determinism
+          const userId = getUserId();
+          const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+            userId,
+            type: 'research',
+            query: searchQuery,
+            reasoning: `Research query with ${aggregatedSources.length} sources: ${searchQuery.substring(0, 100)}`,
+            sources: aggregatedSources.slice(0, 10).map(s => s.url),
+          });
+
+          const aiResult = await deterministicRunner(
             {
               kind: 'search',
               prompt: researchPrompt,
@@ -1898,6 +2013,24 @@ export default function ResearchPanel() {
               return;
             }
           } else {
+            // Create final checkpoint before setting result
+            if (currentJobId) {
+              try {
+                await jobAuthority.checkpoint({
+                  jobId: currentJobId,
+                  progress: 95,
+                  step: 'Finalizing results...',
+                  data: {
+                    answer: finalSummary.substring(0, 500),
+                    sourceCount: dedupedSources.length,
+                    query: searchQuery,
+                  },
+                });
+              } catch (error) {
+                console.warn('[Research] Failed to create final checkpoint:', error);
+              }
+            }
+
             setResult({
               query: searchQuery,
               summary: finalSummary,
@@ -2215,6 +2348,8 @@ export default function ResearchPanel() {
             // Telemetry not available
           });
       } finally {
+        // <300ms Reaction Rule: Hide feedback when done
+        searchFeedback.hide();
         setLoading(false);
         setLoadingMessage(null);
         toast.dismiss();
@@ -2517,6 +2652,8 @@ export default function ResearchPanel() {
 
   return (
     <>
+      {/* <300ms Reaction Rule: Immediate feedback */}
+      <searchFeedback.Feedback />
       <ResearchStagehandIntegration />
       <LayoutEngine
         sidebarWidth={0}
@@ -2648,7 +2785,7 @@ export default function ResearchPanel() {
                     disabled={loading || !query.trim()}
                     className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-gray-100 hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {loading ? 'Researching…' : 'Run research'}
+                    {loading ? 'Researching…' : 'Research'}
                   </button>
                   <VoiceButton
                     editBeforeExecute={useSettingsStore(
@@ -2808,6 +2945,12 @@ export default function ResearchPanel() {
                 onOpenSource={handleOpenUrl}
                 activeSourceId={activeSourceId}
                 onSelectSource={setActiveSourceId}
+                onSearch={query => {
+                  setQuery(query);
+                  if (handleSearchRef.current) {
+                    handleSearchRef.current(query);
+                  }
+                }}
               />
             </>
           ) : (
@@ -2903,6 +3046,12 @@ export default function ResearchPanel() {
                 onOpenSource={handleOpenUrl}
                 activeSourceId={activeSourceId}
                 onSelectSource={setActiveSourceId}
+                onSearch={query => {
+                  setQuery(query);
+                  if (handleSearchRef.current) {
+                    handleSearchRef.current(query);
+                  }
+                }}
               />
             </>
           )}
@@ -3124,13 +3273,21 @@ function ResearchResultView({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-white/5 bg-white/5 px-6 py-5 shadow-inner shadow-black/30">
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      {/* Answer Panel - Visually Dominant per UI audit */}
+      <section className="rounded-2xl border-2 border-blue-500/20 bg-gradient-to-br from-blue-950/30 via-slate-900/50 to-blue-950/30 px-8 py-6 shadow-2xl shadow-blue-500/10">
+        <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-semibold text-white">AI answer with citations</h2>
-            <p className="text-xs text-gray-400">
-              {result.sources.length} sources considered • Confidence {confidencePercent}%
-            </p>
+            <h2 className="mb-2 text-2xl font-bold text-white">Answer</h2>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-300">{result.sources.length} sources</p>
+              <span className="text-gray-500">•</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-300">Confidence</span>
+                <span className="rounded-full border border-blue-500/30 bg-blue-500/20 px-3 py-1 text-sm font-bold text-blue-200">
+                  {confidencePercent}%
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {verification && (
@@ -3236,9 +3393,6 @@ function ResearchResultView({
               <div className="flex gap-1">
                 <button
                   onClick={() => {
-                    const {
-                      downloadResearchExport,
-                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'markdown');
                   }}
                   className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
@@ -3248,9 +3402,6 @@ function ResearchResultView({
                 </button>
                 <button
                   onClick={() => {
-                    const {
-                      downloadResearchExport,
-                    } = require('../../core/research/researchExport');
                     downloadResearchExport(result, 'json');
                   }}
                   className="rounded px-2 py-1 text-[10px] text-gray-400 transition-colors hover:bg-white/5 hover:text-gray-300"
@@ -3268,11 +3419,6 @@ function ResearchResultView({
                 if (!source) return null;
 
                 // Phase 1, Day 6: Calculate credibility
-                const {
-                  calculateCredibility,
-                  getCredibilityColor,
-                  getCredibilityLabel,
-                } = require('../../core/research/sourceCredibility');
                 const credibility = calculateCredibility(source);
                 const credibilityColor = getCredibilityColor(credibility.level);
                 const credibilityLabel = getCredibilityLabel(credibility.level);
@@ -3348,12 +3494,14 @@ function InsightsSidebar({
   onOpenSource,
   activeSourceId,
   onSelectSource,
+  onSearch,
 }: {
   result: ResearchResult | null;
   loading: boolean;
   onOpenSource(url: string): void;
   activeSourceId: string | null;
   onSelectSource(sourceKey: string): void;
+  onSearch?: (query: string) => void;
 }) {
   if (loading) {
     return (
@@ -3545,18 +3693,16 @@ function InsightsSidebar({
         </div>
       )}
 
-      {/* Tier 2: OmniAgent Input */}
-      <OmniAgentInput
-        currentUrl={
-          activeId && tabs.find(t => t.id === activeId)
-            ? tabs.find(t => t.id === activeId)?.url
-            : undefined
-        }
-        onResult={result => {
-          // Display result in a toast or add to research results
-          console.log('OmniAgent result:', result);
-        }}
-      />
+      {/* Related Questions - Perplexity-style */}
+      {result && onSearch && (
+        <RelatedQuestions
+          questions={generateRelatedQuestions(result.query, result.sources, 5)}
+          onSelectQuestion={question => {
+            onSearch(question);
+          }}
+          isLoading={loading}
+        />
+      )}
     </aside>
   );
 }
@@ -3756,11 +3902,7 @@ function SourcesList({
 
   // Phase 1, Day 6: Calculate credibility for all sources
   // Note: These are used in the SourceCard component (lines 2793-2795), not here
-  const {
-    calculateCredibility: _calculateCredibility,
-    getCredibilityColor: _getCredibilityColor,
-    getCredibilityLabel: _getCredibilityLabel,
-  } = require('../../core/research/sourceCredibility');
+  // Functions are already imported at the top of the file
 
   const providerCounts = sources.reduce<Record<string, number>>((acc, source) => {
     const provider =

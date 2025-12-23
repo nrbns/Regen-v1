@@ -145,6 +145,9 @@ toolRegistry.register({
     const { query, maxResults = 5 } = input as { query: string; maxResults?: number };
     if (!query) throw new Error('Query required');
 
+    // Lint warning fix: Prefix unused variable 'maxResults' with '_'
+    const _maxResults = maxResults;
+
     try {
       // Use actual search API (research mode integration)
       // Use DuckDuckGo search

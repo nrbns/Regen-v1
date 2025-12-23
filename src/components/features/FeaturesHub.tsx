@@ -2,18 +2,8 @@
  * Features Hub - Central access point for all v1 features
  */
 
-import { useState } from 'react';
-import { 
-  Sparkles, 
-  PanelRight, 
-  Columns, 
-  Lock, 
-  Zap, 
-  Palette, 
-  Cloud, 
-  Code,
-  X 
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Sparkles, PanelRight, Columns, Lock, Zap, Palette, Cloud, Code, X } from 'lucide-react';
 import { useAppStore } from '../../state/appStore';
 import { EnhancedRegenSidebar } from '../regen/EnhancedRegenSidebar';
 import { SplitView } from '../split-view/SplitView';
@@ -29,6 +19,20 @@ export function FeaturesHub() {
   const [activeFeature, setActiveFeature] = useState<FeatureView>(null);
   const { regenSidebarOpen, setRegenSidebarOpen } = useAppStore();
 
+  // Keyboard shortcut: Cmd/Ctrl + ~ to toggle Developer Console
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const modifier = e.metaKey || e.ctrlKey;
+      if ((modifier && e.key === '`') || (modifier && e.shiftKey && e.key === '~')) {
+        e.preventDefault();
+        setActiveFeature(prev => (prev === 'dev' ? null : 'dev'));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const features = [
     { id: 'sidebar' as FeatureView, icon: PanelRight, label: 'Regen Sidebar', color: 'purple' },
     { id: 'split' as FeatureView, icon: Columns, label: 'Split View', color: 'blue' },
@@ -43,17 +47,17 @@ export function FeaturesHub() {
     <>
       {/* Features Access Panel */}
       {!activeFeature && (
-        <div className="fixed top-20 right-6 md:top-[72px] md:right-8 z-50 bg-gray-900 border border-purple-500/50 rounded-2xl p-4 shadow-2xl max-w-xs">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+        <div className="fixed right-6 top-20 z-50 max-w-xs rounded-2xl border border-purple-500/50 bg-gray-900 p-4 shadow-2xl md:right-8 md:top-[72px]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Sparkles className="h-4 w-4 text-purple-400" />
               Features
             </h3>
             <button
               onClick={() => setActiveFeature(null)}
               className="text-gray-400 hover:text-white"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           </div>
           <div className="space-y-2">
@@ -69,9 +73,9 @@ export function FeaturesHub() {
                       setActiveFeature(feature.id);
                     }
                   }}
-                  className="w-full flex items-center gap-3 p-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
+                  className="flex w-full items-center gap-3 rounded-lg bg-gray-800 p-2 transition-colors hover:bg-gray-700"
                 >
-                  <Icon className={`w-5 h-5 text-${feature.color}-400`} />
+                  <Icon className={`h-5 w-5 text-${feature.color}-400`} />
                   <span className="text-sm text-white">{feature.label}</span>
                 </button>
               );
@@ -86,9 +90,9 @@ export function FeaturesHub() {
           <SplitView />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       )}
@@ -98,20 +102,20 @@ export function FeaturesHub() {
           <RegenVault />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       )}
 
       {activeFeature === 'theme' && (
-        <div className="fixed inset-0 z-[100] bg-gray-900 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-8">
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-gray-900">
+          <div className="mx-auto max-w-4xl p-8">
             <ThemeEngine />
             <button
               onClick={() => setActiveFeature(null)}
-              className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+              className="mt-4 rounded-lg bg-gray-800 px-4 py-2 text-white hover:bg-gray-700"
             >
               Close
             </button>
@@ -124,18 +128,18 @@ export function FeaturesHub() {
           <AIDeveloperConsole />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       )}
 
       {/* Lightning Mode Toggle */}
       {activeFeature === 'lightning' && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 border border-yellow-500/50 rounded-lg p-4 shadow-2xl">
-          <div className="flex items-center gap-3 mb-3">
-            <Zap className="w-5 h-5 text-yellow-400" />
+        <div className="fixed bottom-4 right-4 z-50 rounded-lg border border-yellow-500/50 bg-gray-900 p-4 shadow-2xl">
+          <div className="mb-3 flex items-center gap-3">
+            <Zap className="h-5 w-5 text-yellow-400" />
             <h3 className="text-sm font-semibold text-white">Lightning Mode</h3>
           </div>
           <button
@@ -149,10 +153,10 @@ export function FeaturesHub() {
               }
               setActiveFeature(null);
             }}
-            className={`w-full px-4 py-2 rounded-lg font-semibold ${
+            className={`w-full rounded-lg px-4 py-2 font-semibold ${
               LightningMode.isEnabled()
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                ? 'bg-red-600 text-white hover:bg-red-700'
+                : 'bg-yellow-600 text-white hover:bg-yellow-700'
             }`}
           >
             {LightningMode.isEnabled() ? 'Disable' : 'Enable'} Lightning Mode
@@ -162,30 +166,30 @@ export function FeaturesHub() {
 
       {/* Sync Cloud Settings */}
       {activeFeature === 'sync' && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-900 border border-cyan-500/50 rounded-lg p-4 shadow-2xl max-w-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <Cloud className="w-5 h-5 text-cyan-400" />
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg border border-cyan-500/50 bg-gray-900 p-4 shadow-2xl">
+          <div className="mb-3 flex items-center gap-3">
+            <Cloud className="h-5 w-5 text-cyan-400" />
             <h3 className="text-sm font-semibold text-white">Sync Cloud</h3>
           </div>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="mb-3 text-xs text-gray-400">
             Sync bookmarks, history, and settings across devices
           </p>
           <input
             type="text"
             placeholder="User ID"
-            className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm mb-2"
+            className="mb-2 w-full rounded-lg bg-gray-800 px-3 py-2 text-sm text-white"
           />
           <input
             type="password"
             placeholder="Sync Token"
-            className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm mb-3"
+            className="mb-3 w-full rounded-lg bg-gray-800 px-3 py-2 text-sm text-white"
           />
           <button
             onClick={() => {
               toast.info('Sync feature - configure your sync endpoint');
               setActiveFeature(null);
             }}
-            className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-semibold"
+            className="w-full rounded-lg bg-cyan-600 px-4 py-2 font-semibold text-white hover:bg-cyan-700"
           >
             Enable Sync
           </button>
@@ -194,12 +198,10 @@ export function FeaturesHub() {
 
       {/* Enhanced Sidebar */}
       {regenSidebarOpen && (
-        <div className="fixed right-0 top-0 bottom-0 w-96 z-[90]">
+        <div className="fixed bottom-0 right-0 top-0 z-[90] w-96">
           <EnhancedRegenSidebar />
         </div>
       )}
     </>
   );
 }
-
-

@@ -1,7 +1,7 @@
 /**
  * Session Restore Hook
  * Persists and recovers job state across page reloads/crashes
- * 
+ *
  * Features:
  * - Save active jobId + lastSequence to localStorage
  * - On app load: check for ongoing jobs
@@ -10,7 +10,7 @@
  * - Clear saved session on completion
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { getSocketClient } from '../services/realtime/socketClient';
 
 interface SessionState {
@@ -66,7 +66,9 @@ export function loadJobSession(): SessionState | null {
       return null;
     }
 
-    console.log(`[SessionRestore] Loaded session: job ${session.jobId} (age: ${Math.round(ageMs / 1000)}s)`);
+    console.log(
+      `[SessionRestore] Loaded session: job ${session.jobId} (age: ${Math.round(ageMs / 1000)}s)`
+    );
     return session;
   } catch (err) {
     console.warn('[SessionRestore] Failed to load session:', err);
@@ -91,7 +93,7 @@ interface UseSessionRestoreOptions {
    * Called when a saved session is recovered
    */
   onRestore?: (session: SessionState) => void;
-  
+
   /**
    * Auto-subscribe to restored job
    */
@@ -103,22 +105,22 @@ interface SessionRestoreState {
    * Is there a saved session to restore?
    */
   hasSession: boolean;
-  
+
   /**
    * The session data if restored
    */
   session: SessionState | null;
-  
+
   /**
    * Is the restore currently in progress?
    */
   isRestoring: boolean;
-  
+
   /**
    * Resume banner message
    */
   resumeBannerText: string;
-  
+
   /**
    * Dismiss the resume banner
    */
@@ -127,25 +129,23 @@ interface SessionRestoreState {
 
 /**
  * React hook for session restore
- * 
+ *
  * Usage:
  * ```tsx
  * const restore = useSessionRestore({
  *   onRestore: (session) => console.log('Recovered job:', session.jobId),
  *   autoSubscribe: true,
  * });
- * 
+ *
  * if (restore.hasSession) {
  *   return <ResumeBanner message={restore.resumeBannerText} onDismiss={restore.dismissBanner} />;
  * }
  * ```
  */
-export function useSessionRestore(
-  options: UseSessionRestoreOptions = {}
-): SessionRestoreState {
+export function useSessionRestore(options: UseSessionRestoreOptions = {}): SessionRestoreState {
   const [session, setSession] = useState<SessionState | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
-  const [showBanner, setShowBanner] = useState(false);
+  const [_showBanner, setShowBanner] = useState(false);
 
   // On mount: check for saved session
   useEffect(() => {
@@ -177,16 +177,16 @@ export function useSessionRestore(
           // Subscribe to job (socket client will handle resume from lastSequence)
           client.subscribeToJob(
             savedSession.jobId,
-            (progressData) => {
+            progressData => {
               console.log('[SessionRestore] Received progress during restore:', progressData);
             },
-            (completionData) => {
+            _completionData => {
               console.log('[SessionRestore] Job completed after restore');
               clearJobSession();
               setSession(null);
               setIsRestoring(false);
             },
-            (error) => {
+            error => {
               console.error('[SessionRestore] Job failed after restore:', error);
               setIsRestoring(false);
             }
@@ -263,7 +263,7 @@ export function SessionRestoreBanner({
   if (!message) return null;
 
   return (
-    <div className="fixed top-20 right-4 bg-blue-500/20 border border-blue-500/50 rounded-lg px-4 py-3 text-sm text-blue-300 flex items-center gap-3 max-w-xs z-50">
+    <div className="fixed right-4 top-20 z-50 flex max-w-xs items-center gap-3 rounded-lg border border-blue-500/50 bg-blue-500/20 px-4 py-3 text-sm text-blue-300">
       <div className="flex-1">{message}</div>
       <button
         onClick={onDismiss}

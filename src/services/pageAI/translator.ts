@@ -4,6 +4,12 @@
  */
 
 import { aiEngine } from '../../core/ai';
+import {
+  withDeterminism,
+  _extractConfidence,
+  _extractSources,
+} from '../../core/ai/withDeterminism';
+import { getUserId } from '../../utils/getUserId';
 
 export interface TranslationOptions {
   targetLanguage?: string;
@@ -29,7 +35,17 @@ Text to translate:
 Provide only the translation, no explanations or additional text.`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: `Translate to ${targetLanguage}`,
+      reasoning: `Translating text from ${sourceLanguage} to ${targetLanguage}`,
+      sources: [window.location.href],
+    });
+
+    const result = await deterministicRunner({
       kind: 'chat',
       prompt,
       context: {
@@ -55,7 +71,17 @@ Text:
 "${text.substring(0, 200)}"`;
 
   try {
-    const result = await aiEngine.runTask({
+    // DETERMINISM: Wrap AI operation with determinism
+    const userId = getUserId();
+    const deterministicRunner = withDeterminism(aiEngine.runTask.bind(aiEngine), {
+      userId,
+      type: 'analysis',
+      query: 'Detect language',
+      reasoning: 'Detecting language of text',
+      sources: [window.location.href],
+    });
+
+    const result = await deterministicRunner({
       kind: 'chat',
       prompt,
       context: {
