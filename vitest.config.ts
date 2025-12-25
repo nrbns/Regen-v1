@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    testTimeout: 30000,
     setupFiles: ['./vitest.setup.ts', './tests/setup.ts'],
     include: ['**/*.{test,spec}.{ts,tsx}'],
     exclude: [
@@ -37,6 +38,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      '@tauri-apps/api': resolve(__dirname, './src/test-stubs/tauri-api.js'),
+      '@tauri-apps/api/core': resolve(__dirname, './src/test-stubs/tauri-api.js'),
+      'hnswlib-wasm': resolve(__dirname, './src/test-stubs/hnswlib-wasm.js'),
       '@components': resolve(__dirname, './src/components'),
       '@lib': resolve(__dirname, './src/lib'),
       '@state': resolve(__dirname, './src/state'),
