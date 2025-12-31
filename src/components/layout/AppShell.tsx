@@ -3,7 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { OmniShell } from '../../ui/components/OmniShell';
 import { DesktopIcons } from '../../ui/components/DesktopIcons';
 import { useAppStore } from '../../state/appStore';
-import { TradeModeLayout } from '../../modes/trade/TradeModeLayout';
+import TradeLayout from '../../os/modes/Trade/TradeLayout';
 import { OSBar } from '../ui/OSBar';
 import { SignalRail } from '../ui/SignalRail';
 import { ContextOverlay } from '../ui/ContextOverlay';
@@ -13,6 +13,7 @@ import { TopBar } from '../../ui/components/TopBar';
 import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
 import { AIDeveloperConsole } from '../../components/dev-console/AIDeveloperConsole';
 import KnowledgePanel from '../../ui/components/KnowledgePanel';
+import { ResourceMonitor } from '../resource/ResourceMonitor';
 
 export function AppShell(): JSX.Element {
   const mode = useAppStore(s => s.mode);
@@ -38,61 +39,68 @@ export function AppShell(): JSX.Element {
 
   return (
     <OmniShell showTopBar={false} showTaskBar={false}>
-      <div className="flex-1 h-full pb-12 flex flex-col" style={{background: '#0F1115'}}>
+      <div className="flex h-full flex-1 flex-col pb-12" style={{ background: '#0F1115' }}>
         {/* OS Authority Bar */}
         <OSBar />
 
-        <div className="flex-1 flex h-[calc(100%-48px)]">
+        <div className="flex h-[calc(100%-48px)] flex-1">
           {/* Signal rail */}
           <SignalRail />
 
           {/* Main workspace */}
-          <main className="flex-1 h-full relative overflow-hidden">
+          <main className="relative h-full flex-1 overflow-hidden">
             {mode === 'Browse' ? (
               <>
                 <TopBar />
-                <div className="h-full w-full os-desktop relative">
-                <DesktopIcons />
+                <div className="os-desktop relative h-full w-full">
+                  <DesktopIcons />
 
-                <div className="relative z-10 h-full flex items-center justify-center p-8">
-                  <div className="text-center max-w-2xl w-full">
-                    <h1 className="text-4xl font-bold text-white mb-4">Omnibrowser OS</h1>
-                    <p className="text-white/60 text-lg">Welcome to your AI-powered desktop environment</p>
-                    <div className="mt-8 p-6 bg-white/6 rounded-2xl border border-white/6 max-w-md mx-auto">
-                      <Outlet />
-                      <div className="mt-4 flex justify-center">
-                        <button className="px-3 py-1 rounded bg-[#4FD1C5] text-black" onClick={() => setShowOverlay(true)}>Summarize</button>
+                  <div className="relative z-10 flex h-full items-center justify-center p-8">
+                    <div className="w-full max-w-2xl text-center">
+                      <h1 className="mb-4 text-4xl font-bold text-white">Omnibrowser OS</h1>
+                      <p className="text-lg text-white/60">
+                        Welcome to your AI-powered desktop environment
+                      </p>
+                      <div className="bg-white/6 border-white/6 mx-auto mt-8 max-w-md rounded-2xl border p-6">
+                        <Outlet />
+                        <div className="mt-4 flex justify-center">
+                          <button
+                            className="rounded bg-[#4FD1C5] px-3 py-1 text-black"
+                            onClick={() => setShowOverlay(true)}
+                          >
+                            Summarize
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </> 
+              </>
             ) : mode === 'Trade' ? (
-              <TradeModeLayout />
+              <TradeLayout />
             ) : mode === 'Research' ? (
               <div className="h-full w-full">
                 <TopBar />
-                <div className="p-4 h-full">
+                <div className="h-full p-4">
                   <RegenResearchPanel />
                 </div>
               </div>
             ) : mode === 'Knowledge' ? (
               <div className="h-full w-full">
                 <TopBar />
-                <div className="p-4 h-full">
+                <div className="h-full p-4">
                   <KnowledgePanel />
                 </div>
               </div>
             ) : mode === 'Dev' ? (
               <div className="h-full w-full">
                 <TopBar />
-                <div className="p-4 h-full">
+                <div className="h-full p-4">
                   <AIDeveloperConsole />
                 </div>
               </div>
             ) : (
-              <div className="p-4 h-full">
+              <div className="h-full p-4">
                 <Outlet />
               </div>
             )}
@@ -102,8 +110,14 @@ export function AppShell(): JSX.Element {
         <WhisperStrip active={false} />
 
         {showOverlay && (
-          <ContextOverlay title={overlayTitle} content={overlayContent} onDismiss={() => setShowOverlay(false)} />
+          <ContextOverlay
+            title={overlayTitle}
+            content={overlayContent}
+            onDismiss={() => setShowOverlay(false)}
+          />
         )}
+
+        <ResourceMonitor />
       </div>
     </OmniShell>
   );
