@@ -32,7 +32,7 @@ export type Tab = {
   containerColor?: string;
   containerName?: string;
   mode?: 'normal' | 'ghost' | 'private';
-  appMode?: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
+  appMode?: 'Browse' | 'Research' | 'Trade' | 'Knowledge' | 'Dev' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   createdAt?: number;
   lastActiveAt?: number;
   sessionId?: string;
@@ -112,7 +112,7 @@ const resolveMaxTabs = async (): Promise<number> => {
   if (isTauriRuntime()) {
     try {
       // Use a runtime-generated import path to avoid Vite static analysis
-      const mod = await globalThis['import']('@tauri-apps/api/core');
+      const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
       if (mod && typeof mod.invoke === 'function') {
         const maxTabs = await mod.invoke('system:get_max_tabs');
         return maxTabs;
@@ -155,7 +155,7 @@ export const useTabsStore = create<TabsState>()(
         // Call Rust command first (source of truth)
         if (isTauriRuntime()) {
           try {
-            const mod = await globalThis['import']('@tauri-apps/api/core');
+            const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
             const _tabId = await mod.invoke('tabs:create', {
               url: tab.url || 'about:blank',
               privacyMode: tab.mode || 'normal',
@@ -223,7 +223,7 @@ export const useTabsStore = create<TabsState>()(
         // Call Rust command first (source of truth)
         if (isTauriRuntime() && id) {
           try {
-            const mod = await globalThis['import']('@tauri-apps/api/core');
+            const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
             await mod.invoke('tabs:set_active', { id });
             // After Rust sets active tab, sync Zustand cache
             // This will be handled by useTabsSync hook
@@ -404,7 +404,7 @@ export const useTabsStore = create<TabsState>()(
         // Call Rust command first (source of truth)
         if (isTauriRuntime()) {
           try {
-            const mod = await globalThis['import']('@tauri-apps/api/core');
+            const mod = await (globalThis as any)['import']('@tauri-apps/api/core');
             await mod.invoke('tabs:update', {
               id,
               url: updates.url,
@@ -573,7 +573,7 @@ export const useTabsStore = create<TabsState>()(
           ),
         })),
       // Tier 1: History navigation
-      navigateTab: (tabId, newUrl) =>
+      navigateTab: (tabId, newUrl) => {
         set(state => {
           const tab = state.tabs.find(t => t.id === tabId);
           if (!tab) return state;
@@ -623,8 +623,19 @@ export const useTabsStore = create<TabsState>()(
             savedAt: Date.now(),
           });
 
+          // Emit a navigation event for other systems (e.g., context engine)
+          try {
+            const navigatedTab = updatedTabs.find(t => t.id === tabId);
+            if (navigatedTab) {
+              eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId, url: newUrl, tab: navigatedTab });
+            }
+          } catch (err) {
+            // Ignore event emission failures
+          }
+
           return { tabs: updatedTabs };
-        }),
+        });
+      },
       goBack: tabId =>
         set(state => {
           const tab = state.tabs.find(t => t.id === tabId);
@@ -758,12 +769,26 @@ export const useTabsStore = create<TabsState>()(
 eventBus.on('tab:add', tab => {
   useTabsStore.setState(state => {
     const maxTabs = resolveMaxTabsSync();
-    if (state.tabs.length >= maxTabs) return state;
-    return {
-      ...state,
-      tabs: [...state.tabs, { ...tab, createdAt: tab.createdAt ?? Date.now() }],
-      activeId: tab.id,
-    };
+    const existing = state.tabs.find(t => t.id === tab.id);
+    // If adding a new tab would exceed limit, and this is not an update, ignore
+    if (!existing && state.tabs.length >= maxTabs) return state;
+
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing tab and mark it active; ensure others are inactive
+      const updated = state.tabs.map(t =>
+        t.id === tab.id
+          ? { ...t, ...tab, createdAt: t.createdAt ?? tab.createdAt ?? now, active: true }
+          : { ...t, active: false }
+      );
+      return { ...state, tabs: updated, activeId: tab.id };
+    }
+
+    // Add new tab: mark all others inactive and append the new active tab
+    const added = { ...tab, createdAt: tab.createdAt ?? now, active: true };
+    const others = state.tabs.map(t => ({ ...t, active: false }));
+    return { ...state, tabs: [...others, added], activeId: tab.id };
   });
 });
 
@@ -782,10 +807,10 @@ eventBus.on('tab:setActive', id => {
   });
 });
 
-eventBus.on('tab:setAll', tabs => {
+eventBus.on('tab:setAll', (tabs: Tab[]) => {
   useTabsStore.setState(state => {
     const previousTabs = state.tabs;
-    const normalized = tabs.map((tab, index) => {
+    const normalized = tabs.map((tab: Tab, index: number) => {
       const previous = previousTabs.find(prev => prev.id === tab.id);
       return {
         ...tab,
@@ -794,7 +819,7 @@ eventBus.on('tab:setAll', tabs => {
           tab.lastActiveAt ?? previous?.lastActiveAt ?? Date.now() - (tabs.length - index),
         pinned: (typeof tab.pinned === 'boolean' ? tab.pinned : previous?.pinned) ?? false,
         groupId: previous?.groupId,
-      };
+      } as Tab;
     });
     // Sort: pinned tabs first (by creation time), then unpinned tabs
     const sorted = normalized.sort((a, b) => {
@@ -802,8 +827,8 @@ eventBus.on('tab:setAll', tabs => {
       if (!a.pinned && b.pinned) return 1;
       if (a.pinned && b.pinned) return (a.createdAt ?? 0) - (b.createdAt ?? 0);
       return (a.lastActiveAt ?? 0) - (b.lastActiveAt ?? 0);
-    });
-    const activeCandidate = sorted.find(tab => tab.active) ?? sorted[0] ?? null;
+    }) as Tab[];
+    const activeCandidate = sorted.find((tab: Tab) => tab.active) ?? sorted[0] ?? null;
     return {
       ...state,
       tabs: sorted,
