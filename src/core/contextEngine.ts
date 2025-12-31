@@ -68,6 +68,15 @@ class ContextEngine {
 
       try {
         await this.storage.setItem(this.storageKey, JSON.stringify(list));
+
+        // Try to index context in Meili (best-effort)
+        try {
+          import('../services/meiliIndexer').then(({ indexContext }) => {
+            try {
+              void indexContext(entry);
+            } catch {}
+          });
+        } catch {}
       } catch (err) {
         console.error('[ContextEngine] Failed to persist context', err);
       }

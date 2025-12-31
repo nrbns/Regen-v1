@@ -15,6 +15,8 @@ describe('ContextEngine', () => {
   });
 
   it('persists navigation events to storage', async () => {
+    const indexSpy = vi.spyOn(await import('../../services/meiliIndexer'), 'indexContext');
+
     eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: 't-1', url: 'https://example.com', tab: { title: 'Example' } });
 
     // Wait for async persistence
@@ -25,6 +27,10 @@ describe('ContextEngine', () => {
     expect(list[0].tabId).toBe('t-1');
     expect(list[0].url).toBe('https://example.com');
     expect(list[0].title).toBe('Example');
+
+    // indexContext should have been called (best-effort)
+    expect(indexSpy).toHaveBeenCalled();
+    indexSpy.mockRestore();
   });
 
   it('keeps only latest N entries when limit exceeded', async () => {
