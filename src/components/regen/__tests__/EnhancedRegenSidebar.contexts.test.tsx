@@ -27,4 +27,24 @@ describe('EnhancedRegenSidebar contexts tab', () => {
     await waitFor(() => expect(screen.getByText('A')).toBeInTheDocument());
     expect(screen.getByText('B')).toBeInTheDocument();
   });
+
+  it('searches contexts when query entered (uses Meili)', async () => {
+    // Mock meili search
+    const meili = await import('../../../services/meiliIndexer');
+    (meili.searchContexts as any).mockImplementationOnce(async (q: string) => {
+      return { hits: [{ id: 'c3', url: 'https://gamma.com', title: 'Gamma', timestamp: Date.now() }], estimatedTotalHits: 1, processingTimeMs: 1 };
+    });
+
+    render(<EnhancedRegenSidebar />);
+    const btn = screen.getByRole('button', { name: /Contexts/i });
+    fireEvent.click(btn);
+
+    const input = screen.getByLabelText('Sidebar contexts search') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'gamma' } });
+
+    const searchBtn = screen.getByRole('button', { name: /Search contexts/i });
+    fireEvent.click(searchBtn);
+
+    await waitFor(() => expect(screen.getByText('Gamma')).toBeInTheDocument());
+  });
 });

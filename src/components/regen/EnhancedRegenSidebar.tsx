@@ -60,6 +60,8 @@ export function EnhancedRegenSidebar() {
   const [messages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [isLoading] = useState(false);
+  // Contexts search state
+  const [contextsQuery, setContextsQuery] = useState('');
 
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
@@ -362,11 +364,30 @@ export function EnhancedRegenSidebar() {
         {activeTab === 'contexts' && (
           <div className="p-4">
             <h3 className="mb-3 font-semibold text-white">Navigation Contexts</h3>
+            <div className="mb-2 flex items-center gap-2">
+              <input
+                value={contextsQuery}
+                onChange={e => setContextsQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') setContextsQuery((s: string) => s.trim());
+                }}
+                placeholder="Search contexts..."
+                className="flex-1 rounded bg-gray-700 px-2 py-1 text-sm text-white placeholder:text-gray-400"
+                aria-label="Sidebar contexts search"
+              />
+              <button
+                aria-label="Search contexts"
+                onClick={() => setContextsQuery(contextsQuery.trim())}
+                className="rounded bg-gray-700 px-3 py-1 text-xs hover:bg-gray-600"
+              >
+                Search
+              </button>
+            </div>
             <div className="rounded-lg bg-gray-800 p-2">
               {/* Reuse ContextPanel with larger limit for full sidebar */}
               <div style={{ padding: 0 }}>
                 {/* Lightweight inline listing for contexts */}
-                <ContextsList />
+                <ContextsList query={contextsQuery} />
               </div>
             </div>
           </div>
