@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Code, Sparkles, Zap, Play } from 'lucide-react';
 import { toast } from '../../utils/toast';
+import ContextPanel from '../context/ContextPanel';
 
 export function AIDeveloperConsole() {
   const [code, setCode] = useState('');
@@ -40,11 +41,14 @@ export function AIDeveloperConsole() {
         };
       }
 
-      // Execute code
-      const result = (iframeWindow as any).eval ? (iframeWindow as any).eval(code) : eval(code);
-
-      if (result !== undefined) {
-        capturedOutput += String(result) + '\n';
+      // Execute code inside sandboxed iframe only
+      if ((iframeWindow as any).eval) {
+        const result = (iframeWindow as any).eval(code);
+        if (result !== undefined) {
+          capturedOutput += String(result) + '\n';
+        }
+      } else {
+        throw new Error('Sandboxed eval not available');
       }
 
       setOutput(capturedOutput || 'Code executed successfully');
@@ -129,7 +133,6 @@ export function AIDeveloperConsole() {
         <div className="flex items-center gap-2">
           <Code className="h-5 w-5 text-purple-400" />
           <h2 className="text-lg font-semibold">AI Developer Console</h2>
-          <span className="text-xs text-gray-500">(Press Cmd/Ctrl + ~ to close)</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -190,6 +193,9 @@ export function AIDeveloperConsole() {
               <div className="text-gray-500">Output will appear here</div>
             )}
           </div>
+
+          {/* Context Panel - recent navigations */}
+          <ContextPanel />
         </div>
       </div>
 
