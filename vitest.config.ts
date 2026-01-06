@@ -39,7 +39,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, './src'),
       '@tauri-apps/api': resolve(__dirname, './src/test-stubs/tauri-api.js'),
-      '@tauri-apps/api/core': resolve(__dirname, './src/test-stubs/tauri-api.js'),
+      '@tauri-apps/api/core': resolve(__dirname, './src/test-stubs/tauri-api-core.js'),
       'hnswlib-wasm': resolve(__dirname, './src/test-stubs/hnswlib-wasm.js'),
       '@components': resolve(__dirname, './src/components'),
       '@lib': resolve(__dirname, './src/lib'),

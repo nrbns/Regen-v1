@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
 import {
   Search,
   Sparkles,
@@ -40,6 +41,15 @@ interface SearchSource {
 }
 
 export default function AISearch() {
+  // Disable AI Search in v1-mode to avoid background AI and heavy UI
+  if (isV1ModeEnabled()) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="text-sm text-slate-400">AI Search is disabled in v1-mode for stability.</div>
+      </div>
+    );
+  }
+
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [answer, setAnswer] = useState('');

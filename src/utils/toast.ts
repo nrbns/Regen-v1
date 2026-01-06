@@ -85,7 +85,17 @@ const toastObj = {
     }
   ) => {
     // Phase 1, Day 3: Enhanced promise toast with retry support
-    const promiseWithRetry = options?.retry
+    // In minimal-demo-ui, avoid UI-triggered retry flows to prevent the UI from causing state changes
+    const v1Mode = typeof window !== 'undefined' && (() => {
+      try {
+        const { isV1ModeEnabled } = require('../config/mvpFeatureFlags');
+        return isV1ModeEnabled();
+      } catch {
+        return false;
+      }
+    })();
+
+    const promiseWithRetry = options?.retry && !v1Mode
       ? (async () => {
           const { withNetworkRetry } = await import('../core/errors/errorRecovery');
           return withNetworkRetry(
@@ -96,7 +106,7 @@ const toastObj = {
             }
           );
         })()
-      : promise;
+      : promise; 
 
     return toastLib.promise(promiseWithRetry, messages, {
       style: {

@@ -28,6 +28,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { TabUpdate, ipcEvents } from '../../lib/ipc-events';
@@ -145,6 +146,7 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
     return null;
   }
 
+  const v1Mode = isV1ModeEnabled();
   const lower = trimmed.toLowerCase();
 
   if (lower.startsWith('/calc')) {
@@ -154,6 +156,7 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
   }
 
   if (lower.startsWith('/ai')) {
+    if (v1Mode) return null; // AI prompts disabled in v1-mode
     const prompt = trimmed.slice(3).trim();
     return { type: 'ai', prompt };
   }
@@ -179,10 +182,12 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
   }
 
   if (trimmed.startsWith('?')) {
+    if (minimalDemo) return null;
     return { type: 'agent', prompt: trimmed.slice(1).trim() };
   }
 
   if (lower.startsWith('ask ')) {
+    if (minimalDemo) return null;
     return { type: 'agent', prompt: trimmed.slice(4).trim() };
   }
 

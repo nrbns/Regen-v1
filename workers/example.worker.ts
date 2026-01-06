@@ -192,6 +192,10 @@ export async function processJob(job: any): Promise<void> {
         throw new Error(`Unknown job type: ${job.type}`);
     }
   } finally {
-    await redis.quit();
+    try {
+      await redis.quit();
+    } catch {
+      // ignore
+    }
   }
 }

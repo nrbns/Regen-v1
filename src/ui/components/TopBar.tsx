@@ -28,6 +28,8 @@ import { motion } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
+import { SystemBar } from '../../components/system/SystemBar';
+import { PrivacyIndicator } from './PrivacyIndicator';
 
 export interface TopBarProps {
   className?: string;
@@ -376,6 +378,12 @@ export function TopBar({
         {/* Neon accent & quick status */}
         <div className="ml-4 hidden items-center gap-3 lg:flex">
           <div className="h-1 w-24 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--color-secondary-400)] opacity-90 shadow-[0_0_10px_var(--accent),0_0_20px_var(--accent)]" />
+        </div>
+
+        {/* Privacy indicator + System Bar (v1-mode info) */}
+        <div className="ml-2 flex items-center gap-2">
+          <PrivacyIndicator />
+          <SystemBar />
         </div>
 
         {/* Profile / Notifications */}

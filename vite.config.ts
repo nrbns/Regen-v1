@@ -24,14 +24,18 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
+    '@': resolve(__dirname, './src'),
+    '@lib': resolve(__dirname, './src/lib'),
       '@shared': resolve(__dirname, './packages/shared'),
+      // v1 shims to neutralize heavy UI libraries
+      'framer-motion': resolve(__dirname, './src/shims/framer-motion.tsx'),
+      'lucide-react': resolve(__dirname, './src/shims/lucide-react.tsx'),
       canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
       bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
       'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
       './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js'),
       // DAY 10 FIX: Alias @tauri-apps/api to a stub to avoid resolution errors in dev
-      '@tauri-apps/api/core': resolve(__dirname, './stubs/tauri-api-stub.js'),
+      '@tauri-apps/api/core': resolve(__dirname, './src/test-stubs/tauri-api-core.js'),
       '@tauri-apps/api/event': resolve(__dirname, './stubs/tauri-api-stub.js'),
       '@tauri-apps/api/updater': resolve(__dirname, './stubs/tauri-api-stub.js'), // Optional updater plugin
       '@tauri-apps/api': resolve(__dirname, './stubs/tauri-api-stub.js'),
@@ -99,9 +103,7 @@ export default defineConfig({
             if (id.includes('@dnd-kit')) {
               return 'vendor-dnd';
             }
-            if (id.includes('framer-motion')) {
-              return 'vendor-framer-motion';
-            }
+                  // framer-motion chunking preserved
             if (id.includes('lightweight-charts')) {
               return 'vendor-charts';
             }
@@ -199,8 +201,9 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
-      clientPort: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
+      // Use VITE_HMR_PORT to override HMR websocket port; otherwise let Vite pick an available port
+      port: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
+      clientPort: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
       overlay: true, // Show error overlay
     },
     // Watch for file changes - use polling for better reliability on Windows

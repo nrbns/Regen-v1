@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CircleHelp, MessageSquare, Workflow, PanelRight } from 'lucide-react';
 import { useAppStore } from '../../../state/appStore';
+import { isV1ModeEnabled } from '../../../config/mvpFeatureFlags';
 
 import { NotificationsMenu } from './NotificationsMenu';
 import { ProfileMenu } from './ProfileMenu';
@@ -16,14 +17,17 @@ export function TopRightCluster() {
   const [workflowMarketplaceOpen, setWorkflowMarketplaceOpen] = useState(false);
   const { regenSidebarOpen, setRegenSidebarOpen } = useAppStore();
 
+  const v1 = isV1ModeEnabled();
+
   return (
     <>
       <div className="flex items-center gap-2">
         <LanguageSwitcher />
         <SystemStatusPanel />
         <NotificationsMenu />
-        {/* Regen Sidebar Toggle - Direct UI control (minimal requirement) */}
-        <button
+        {/* Regen Sidebar Toggle - Direct UI control (hidden in v1-mode) */}
+        {!v1 && (
+          <button
           type="button"
           aria-label={regenSidebarOpen ? 'Hide Regen sidebar' : 'Show Regen sidebar'}
           title={`Toggle Regen Sidebar (Ctrl+B)`}
@@ -35,8 +39,9 @@ export function TopRightCluster() {
           onClick={() => setRegenSidebarOpen(!regenSidebarOpen)}
         >
           <PanelRight className="h-5 w-5" aria-hidden />
-        </button>
-        <FeaturesMenu />
+          </button>
+        )}
+        {!v1 && <FeaturesMenu />}
         <SettingsMenu />
         {/* Workflow Marketplace Button */}
         <button

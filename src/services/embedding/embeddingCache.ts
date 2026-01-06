@@ -6,7 +6,7 @@
  * Future Enhancement #2: Now uses LRU cache for memory efficiency
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@lib/tauri-invoke';
 import { saveCachedEmbeddingLRU, getCachedEmbeddingLRU } from './lruCache';
 import { isTauriRuntime, isWebMode } from '../../lib/env';
 

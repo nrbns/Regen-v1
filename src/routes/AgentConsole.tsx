@@ -27,6 +27,7 @@ import { useTabsStore } from '../state/tabsStore';
 import { AgentStagehandIntegration } from './AgentConsole/stagehand-integration';
 import { toast } from '../utils/toast';
 import { AgentSuggestions, generateAgentSuggestions } from '../components/agent/AgentSuggestions';
+import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
 
 export default function AgentConsole() {
   const [runId, setRunId] = useState<string | null>(null);
@@ -287,6 +288,12 @@ export default function AgentConsole() {
   }, [appendTranscript, runId]);
 
   const handleStartStream = useCallback(async () => {
+    // Prevent UI-triggered agent starts when running v1-mode
+    if (isV1ModeEnabled()) {
+      toast.info('Agent execution is disabled in v1-mode for stability');
+      return;
+    }
+
     const trimmedQuery = query.trim();
     if (!trimmedQuery || isStreaming) return;
 

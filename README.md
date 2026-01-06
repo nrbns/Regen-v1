@@ -1,3 +1,29 @@
+# Regen v1 — Early Access / Technical Preview
+
+**Regen is a privacy-first, low-resource AI-enabled browser designed for long, focused sessions. It manages intent, system resources, and failures automatically, while running locally by default.**
+
+Quick highlights
+- Privacy-first browsing, local-first AI assistance
+- Low resource usage and designed for long sessions
+- Automatic recovery from failures; works offline where possible
+
+First run
+- No account required
+- No forced tour or signup
+- Just open the app and start browsing
+
+Where to find onboarding and privacy guidance
+- Onboarding: docs/onboarding.md
+- Privacy notes: docs/privacy.md
+
+Developer notes
+- UI should present as a normal desktop app: address/command bar on top, webpage center, system/status bar visible.
+- Keep platform-only APIs behind runtime guards or shims so web builds and tests work.
+
+Versioning
+- Release: Regen v1 — Early Access / Technical Preview
+
+If you want me to implement the UI changes (address bar, system bar, privacy indicator) I can start updating source files next.
 # 🌟 Regen - Your Private AI OS
 
 **Built for India. Works Offline. Transparent. Free Forever.**

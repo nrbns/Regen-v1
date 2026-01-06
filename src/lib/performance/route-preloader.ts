@@ -4,13 +4,14 @@
  */
 
 import { prefetchComponents } from './lazy-loader';
+import { isV1ModeEnabled } from '../../config/mvpFeatureFlags';
 
 // Route import functions
 const routeImports = {
   settings: () => import('../../routes/Settings'),
   history: () => import('../../routes/History'),
   offline: () => import('../../routes/OfflineDocuments'),
-  agents: () => import('../../routes/AgentConsole'),
+  agents: isV1ModeEnabled() ? undefined : () => import('../../routes/AgentConsole'),
   research: () => import('../../modes/research'),
   trade: () => import('../../modes/trade'),
 };

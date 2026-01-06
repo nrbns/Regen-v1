@@ -7,6 +7,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { type ModeId } from '../tokens-enhanced';
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
 
 export interface ModePreviewCardProps {
   preview: {
@@ -26,7 +27,10 @@ const MODE_LABELS: Record<ModeId, string> = {
 };
 
 export function ModePreviewCard({ preview, onConfirm, onCancel }: ModePreviewCardProps) {
-  const { from, to, changes } = preview;
+  // Hide preview card in v1-mode; mode switching controlled by system
+  if (isV1ModeEnabled()) return null;
+
+  const { from, to, changes } = preview; 
 
   return (
     <AnimatePresence>

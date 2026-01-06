@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, Suspense, lazy } from 'react';
 import { 
   Sparkles, 
   PanelRight, 
@@ -10,11 +10,18 @@ import {
   Code,
 } from 'lucide-react';
 import { useAppStore } from '../../../state/appStore';
-import { EnhancedRegenSidebar } from '../../../components/regen/EnhancedRegenSidebar';
+import { isV1ModeEnabled } from '../../../config/mvpFeatureFlags';
 import { SplitView } from '../../../components/split-view/SplitView';
 import { RegenVault } from '../../../components/vault/RegenVault';
 import { ThemeEngine } from '../../../components/themes/ThemeEngine';
-import { AIDeveloperConsole } from '../../../components/dev-console/AIDeveloperConsole';
+// Lazy-load heavy/demo components only when not in v1-mode
+const LazyAIDeveloperConsole = !isV1ModeEnabled()
+  ? lazy(() => import('../../../components/dev-console/AIDeveloperConsole').then(m => ({ default: m.AIDeveloperConsole })))
+  : null;
+
+const LazyEnhancedRegenSidebar = !isV1ModeEnabled()
+  ? lazy(() => import('../../../components/regen/EnhancedRegenSidebar').then(m => ({ default: m.EnhancedRegenSidebar })))
+  : null;
 import { LightningMode } from '../../../core/lightning/LightningMode';
 import { toast } from '../../../utils/toast';
 import { useTokens } from '../../useTokens';
@@ -90,6 +97,11 @@ export function FeaturesMenu() {
     }
   };
 
+  // If v1-mode is enabled, hide demo-only features like the sidebar and dev console
+  const visibleFeatures = isV1ModeEnabled()
+    ? features.filter(f => f.id !== 'sidebar' && f.id !== 'dev')
+    : features;
+
   return (
     <>
       <div className="relative">
@@ -132,7 +144,7 @@ export function FeaturesMenu() {
             </div>
 
             <div className="space-y-1 px-2 py-2" style={{ fontSize: tokens.fontSize.sm }}>
-              {features.map(feature => {
+              {visibleFeatures.map(feature => {
                 const Icon = feature.icon;
                 const colorClass = {
                   purple: 'text-purple-400',
@@ -225,10 +237,12 @@ export function FeaturesMenu() {
         </div>
       )}
 
-      {/* Enhanced Sidebar */}
-      {regenSidebarOpen && (
+      {/* Enhanced Sidebar (lazy) */}
+      {regenSidebarOpen && !isV1ModeEnabled() && LazyEnhancedRegenSidebar && (
         <div className="fixed right-0 top-0 bottom-0 w-96 z-[90]">
-          <EnhancedRegenSidebar />
+          <Suspense fallback={null}>
+            <LazyEnhancedRegenSidebar />
+          </Suspense>
         </div>
       )}
     </>

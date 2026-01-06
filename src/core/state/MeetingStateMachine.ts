@@ -15,22 +15,25 @@ class MeetingStateMachine {
     if (this.offlineTimeout) clearTimeout(this.offlineTimeout);
     this.degradeTimeout = null;
     this.offlineTimeout = null;
+    if (this.debounceTimer) clearTimeout(this.debounceTimer);
+    this.debounceTimer = null;
+    this.lastStatus = null;
   }
   private state: MeetingState = 'OFFLINE';
   private lastOnline: number = 0;
   private degradeTimeout: any = null;
   private offlineTimeout: any = null;
+  private lastStatus: boolean | null = null;
+  private debounceTimer: any = null;
 
   constructor() {
     // Listen to connection events
     // Debounce connection:status to avoid rapid flapping
-    let lastStatus: boolean | null = null;
-    let debounceTimer: any = null;
     eventBus.on('connection:status', (isConnected: boolean) => {
-      if (lastStatus === isConnected) return;
-      lastStatus = isConnected;
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+      if (this.lastStatus === isConnected) return;
+      this.lastStatus = isConnected;
+      if (this.debounceTimer) clearTimeout(this.debounceTimer);
+      this.debounceTimer = setTimeout(() => {
         // If currently OFFLINE and isConnected, always allow transition to CONNECTED
         if (isConnected) {
           if (this.state !== 'CONNECTED') {
@@ -41,7 +44,7 @@ class MeetingStateMachine {
             this.transition('OFFLINE');
           }
         }
-      }, 100); // 100ms debounce to prevent race/flap
+      }, 10); // 10ms debounce to prevent race/flap but still respond quickly for tests
     });
     // Listen to explicit degrade events (e.g., high latency, packet loss)
     // Only allow degrade if not already degraded or offline

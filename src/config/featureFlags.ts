@@ -1,3 +1,23 @@
+// Simple runtime feature flags for v1
+export const FEATURES: Record<string, boolean> = {
+  // v1 decisions
+  vpn: false, // VPN deferred from v1
+  // UI / demo surface area
+  animations: false,
+  aiPanels: false,
+  enhancedSidebar: false,
+  realtimePreview: false,
+  modeButtons: false,
+  largeIcons: false,
+  demoElements: false,
+  agentControls: false,
+};
+
+export function isFeatureEnabled(flag: string): boolean {
+  return Boolean(FEATURES[flag]);
+}
+
+export default FEATURES;
 export type ModeAvailability = 'ready' | 'beta' | 'soon' | 'hidden';
 
 type ModeId =

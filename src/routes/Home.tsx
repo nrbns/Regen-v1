@@ -8,7 +8,17 @@ import { WeatherCard } from '../components/widgets/WeatherCard';
 import { FlightCard } from '../components/widgets/FlightCard';
 import { ModeSwitchLoader } from '../components/common/ModeSwitchLoader';
 import { MobileNav, InstallPrompt } from '../mobile';
-import { PageAIButton as _PageAIButton, PageAIPanel } from '../components/pageAI';
+import { PageAIButton as _PageAIButton } from '../components/pageAI';
+import { isV1ModeEnabled } from '../config/mvpFeatureFlags';
+let PageAIPanelComp: any = null;
+if (!isV1ModeEnabled()) {
+  const LazyPanel = lazy(() => import('../components/pageAI').then(m => ({ default: m.PageAIPanel })));
+  PageAIPanelComp = (props: any) => (
+    <Suspense fallback={null}>
+      <LazyPanel {...props} />
+    </Suspense>
+  );
+}
 import { TextSelectionAIBar } from '../components/pageAI/TextSelectionAIBar';
 import { useWorkspaceShortcuts } from '../hooks/useWorkspaceShortcuts'; // SPRINT 2
 
@@ -171,8 +181,8 @@ export default function Home() {
       <InstallPrompt />
 
       {/* Single AI entry point via Command Bar ('/' or Ctrl/⌘+K). Remove floating AI button. */}
-      {isPageAIPanelOpen && (
-        <PageAIPanel isOpen={isPageAIPanelOpen} onClose={() => setPageAIPanelOpen(false)} />
+      {isPageAIPanelOpen && PageAIPanelComp && (
+        <PageAIPanelComp isOpen={isPageAIPanelOpen} onClose={() => setPageAIPanelOpen(false)} />
       )}
       {/* Keep selection AI bar as contextual entry (right-click/selection). */}
       <TextSelectionAIBar />

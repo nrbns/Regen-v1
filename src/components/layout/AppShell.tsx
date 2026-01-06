@@ -5,6 +5,10 @@ import { DesktopIcons } from '../../ui/components/DesktopIcons';
 import { useAppStore } from '../../state/appStore';
 import TradeLayout from '../../os/modes/Trade/TradeLayout';
 import { OSBar } from '../ui/OSBar';
+import StatusStrip from '../../components/ui/StatusStrip';
+import SystemBar from '../../components/ui/SystemBar';
+import CommandBar from '../../components/ui/CommandBar';
+import AgentPanel from '../../components/ui/AgentPanel';
 import { SignalRail } from '../ui/SignalRail';
 import { ContextOverlay } from '../ui/ContextOverlay';
 import { WhisperStrip } from '../ui/WhisperStrip';
@@ -42,6 +46,8 @@ export function AppShell(): JSX.Element {
       <div className="flex h-full flex-1 flex-col pb-12" style={{ background: '#0F1115' }}>
         {/* OS Authority Bar */}
         <OSBar />
+        {/* Minimal status strip (read-only) */}
+        <StatusStrip mode={mode} agent={"N/A"} health={"Stable"} />
 
         <div className="flex h-[calc(100%-48px)] flex-1">
           {/* Signal rail */}
@@ -107,7 +113,18 @@ export function AppShell(): JSX.Element {
           </main>
         </div>
 
+        {/* Command input (emits raw text events only) */}
+        <CommandBar onUserInput={text => window.dispatchEvent(new CustomEvent('ui:user-input', { detail: text }))} />
+
+        {/* System metrics (read-only) */}
+        <SystemBar ram="-" cpu="-" battery="-" redix="-" lastRepair="-" />
+
         <WhisperStrip active={false} />
+
+        {/* Collapsed Agent Panel (read-only) */}
+        <div style={{ position: 'fixed', right: 8, bottom: 72, width: 260 }}>
+          <AgentPanel agents={[]} onStop={id => window.dispatchEvent(new CustomEvent('agent:stop', { detail: id }))} />
+        </div>
 
         {showOverlay && (
           <ContextOverlay

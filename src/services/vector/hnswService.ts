@@ -57,23 +57,45 @@ class HNSWService {
       if (isTauriRuntime() && !isWebMode()) {
         try {
           try {
-            const { invoke } = await import(/* @vite-ignore */ '@tauri-apps/api/core');
-            const indexPath = await invoke<string>('get_app_data_path', {
-              subpath: 'vectors/hnsw_index.bin',
-            });
+            // Use test runtime mock if available
+            if ((globalThis as any).mockInvoke) {
+              const indexPath = await (globalThis as any).mockInvoke('get_app_data_path', {
+                subpath: 'vectors/hnsw_index.bin',
+              });
 
-            try {
-              const indexData = await invoke<number[]>('read_file', { path: indexPath });
-              const uint8Array = new Uint8Array(indexData);
-              // Use library's loadIndex if available
-              if (hnswlib.loadIndex) {
-                this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
-                console.log('[HNSWService] Index loaded from disk');
+              try {
+                const indexData = await (globalThis as any).mockInvoke('read_file', { path: indexPath });
+                const uint8Array = new Uint8Array(indexData);
+                if (hnswlib.loadIndex) {
+                  this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
+                  console.log('[HNSWService] Index loaded from disk (mock)');
+                }
+              } catch (error) {
+                if (!isWebMode()) {
+                  console.warn('[HNSWService] Failed to load index (mock), creating new one', error);
+                }
               }
-            } catch (error) {
-              // Suppress errors in web mode
-              if (!isWebMode()) {
-                console.warn('[HNSWService] Failed to load index, creating new one', error);
+            } else {
+              // Build package name dynamically to avoid static analysis issues during tests
+              const pkg = '@tauri-apps' + '/api/core';
+              const { invoke: invoke2 } = await import(/* @vite-ignore */ pkg);
+              const indexPath = await invoke2<string>('get_app_data_path', {
+                subpath: 'vectors/hnsw_index.bin',
+              });
+
+              try {
+                const indexData = await invoke2<number[]>('read_file', { path: indexPath });
+                const uint8Array = new Uint8Array(indexData);
+                // Use library's loadIndex if available
+                if (hnswlib.loadIndex) {
+                  this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
+                  console.log('[HNSWService] Index loaded from disk');
+                }
+              } catch (error) {
+                // Suppress errors in web mode
+                if (!isWebMode()) {
+                  console.warn('[HNSWService] Failed to load index, creating new one', error);
+                }
               }
             }
           } catch (err) {

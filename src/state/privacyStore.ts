@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ipc } from '../lib/ipc-typed';
+import { isFeatureEnabled } from '../config/featureFlags';
 
 export type TorStatus = {
   running: boolean;
@@ -83,6 +84,12 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
     }
   },
   async refreshVpn() {
+    // VPN is deferred in v1; avoid invoking platform VPN APIs
+    if (!isFeatureEnabled('vpn')) {
+      set((state) => ({ vpn: { ...state.vpn, loading: false, stub: true, lastChecked: Date.now() } }));
+      return;
+    }
+
     set((state) => ({ vpn: { ...state.vpn, loading: true } }));
     try {
       const status = await ipc.vpn.status() as any;
@@ -165,6 +172,12 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
     }
   },
   async checkVpn() {
+    // No-op in v1 when VPN is disabled
+    if (!isFeatureEnabled('vpn')) {
+      set((state) => ({ vpn: { ...state.vpn, loading: false, lastChecked: Date.now() } }));
+      return;
+    }
+
     set((state) => ({ vpn: { ...state.vpn, loading: true } }));
     try {
       const status = await ipc.vpn.check() as any;
