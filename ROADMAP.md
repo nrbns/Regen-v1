@@ -1,3 +1,30 @@
+# Regen Roadmap
+
+This document separates **v1 scope** from **future exploration**.
+
+---
+
+## v1 (Current Focus)
+
+• Local-first execution
+• Offline AI support
+• Low-RAM discipline
+• Resource-aware AI execution
+• Automatic recovery from failures
+• Transparent system visibility
+
+---
+
+## Post-v1 (Exploration, Not Promises)
+
+• Network isolation / routing layer (VPN-like capabilities)
+• Cloud sync (opt-in, encrypted)
+• Extended agent workflows
+• Advanced developer APIs
+• Marketplace / extensions
+• Domain-specific integrations (finance, research, etc.)
+
+These are **intentionally excluded** from v1 to protect stability and trust.
 Regen-v1 Roadmap
 =================
 
