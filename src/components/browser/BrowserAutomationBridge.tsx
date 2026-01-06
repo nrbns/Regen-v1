@@ -245,8 +245,20 @@ export function BrowserAutomationBridge({
             // v0.4: Listen for scrape commands
             if (event.data.type === 'scrape:execute') {
               try {
-                const scrapeScript = event.data.script;
-                const result = eval('(' + scrapeScript + ')()');
+                // For v1 we disallow executing arbitrary injected scripts inside the iframe.
+                // Use the built-in `browserScrape` helper which performs a safe, bounded extraction.
+                const result = (typeof window.browserScrape === 'function')
+                  ? window.browserScrape()
+                  : {
+                      url: window.location.href,
+                      title: document.title || '',
+                      content: '',
+                      text: '',
+                      error: 'browserScrape not available',
+                      timestamp: Date.now(),
+                      success: false,
+                    };
+
                 window.parent.postMessage({
                   type: 'scrape:result',
                   result: result
@@ -259,7 +271,7 @@ export function BrowserAutomationBridge({
                     title: document.title || '',
                     content: '',
                     text: '',
-                    error: error.message,
+                    error: error?.message || String(error),
                     timestamp: Date.now(),
                     success: false
                   }

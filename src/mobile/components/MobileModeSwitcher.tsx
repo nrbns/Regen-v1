@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { Layout, List, Grid, Eye } from 'lucide-react';
+import { isMVPFeatureEnabled } from '../../../src/config/mvpFeatureFlags';
 
 export interface ModeSwitcherProps {
   onModeChange?: (mode: string) => void;
@@ -12,6 +13,9 @@ export interface ModeSwitcherProps {
 }
 
 export function MobileModeSwitcher({ onModeChange, defaultMode = 'grid' }: ModeSwitcherProps) {
+  // Hide mobile mode switcher in v1-mode to keep UI simple and stable
+  if (isV1ModeEnabled()) return null;
+
   const [activeMode, setActiveMode] = useState(defaultMode);
 
   const modes = [

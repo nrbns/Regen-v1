@@ -37,7 +37,6 @@ import { LanguageSelector } from '../components/settings/LanguageSelector';
 import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
 import { AdblockerSettingsPanel } from '../components/adblocker';
-import { VPNPanel } from '../components/vpn';
 import { setLowDataMode, isLowDataModeEnabled } from '../services/lowDataMode';
 import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 import { invoke } from '@tauri-apps/api/core';
@@ -115,14 +114,16 @@ function LabeledField({ label, children }: { label: string; children: React.Reac
 }
 
 // Tab definitions
-const TABS = [
+import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
+
+const ALL_TABS = [
   { id: 'accounts', label: 'Account', icon: User },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'apis', label: 'APIs', icon: Plug },
   { id: 'bookmarks', label: 'Bookmarks', icon: Bookmark },
   { id: 'workspaces', label: 'Workspaces', icon: FolderOpen },
   { id: 'safety', label: 'Safety', icon: Shield },
-  { id: 'vpn', label: 'VPN', icon: Shield },
+  // VPN removed for Regen-v1
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'system', label: 'System', icon: Settings2 },
   { id: 'skills', label: 'Skills', icon: Zap },
@@ -130,6 +131,14 @@ const TABS = [
   { id: 'resume', label: 'Resume Fixer', icon: FileText },
   { id: 'recorder', label: 'Clip Recorder', icon: Video },
 ] as const;
+
+// In v1-mode, hide advanced tabs and marketing pages
+const TABS = ((): typeof ALL_TABS => {
+  if (typeof window !== 'undefined' && isV1ModeEnabled()) {
+    return ALL_TABS.filter(t => ['accounts', 'appearance', 'safety', 'system', 'shortcuts', 'bookmarks'].includes(t.id));
+  }
+  return ALL_TABS;
+})();
 
 type TabId = (typeof TABS)[number]['id'];
 
@@ -186,11 +195,7 @@ export default function SettingsRoute() {
             </SectionCard>
           </div>
         )}
-        {activeTab === 'vpn' && (
-          <div className="max-w-4xl">
-            <VPNPanel />
-          </div>
-        )}
+        {/* VPN removed for Regen-v1 */}
         {activeTab === 'shortcuts' && <ShortcutsHelp />}
         {activeTab === 'system' && (
           <div className="max-w-4xl space-y-6">
@@ -227,12 +232,21 @@ export default function SettingsRoute() {
                 </div>
               </div>
             </SectionCard>
-            <SectionCard title="AI Models" icon={Zap}>
-              <ModelDownloader />
-            </SectionCard>
-            <SectionCard title="Data Management" icon={Activity}>
-              <SettingsPersistence />
-            </SectionCard>
+            {!isV1ModeEnabled() && (
+              <>
+                <SectionCard title="AI Models" icon={Zap}>
+                  <ModelDownloader />
+                </SectionCard>
+                <SectionCard title="Data Management" icon={Activity}>
+                  <SettingsPersistence />
+                </SectionCard>
+              </>
+            )}
+            {isV1ModeEnabled() && (
+              <SectionCard title="Diagnostics" icon={Activity}>
+                <p className="text-sm text-slate-400">Advanced model and data controls are hidden in v1-mode.</p>
+              </SectionCard>
+            )} 
           </div>
         )}
         {activeTab === 'skills' && (

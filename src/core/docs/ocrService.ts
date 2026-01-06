@@ -16,10 +16,12 @@ async function loadTesseract() {
   
   try {
     // Dynamic import to reduce initial bundle size
-    // Use string variable to prevent Vite from analyzing the import at build time
+    // Use safeImport helper to ensure only allowlisted modules are loaded dynamically
     const tesseractPackage = 'tesseract' + '.js';
-    // @ts-ignore - tesseract.js is optional dependency
-    tesseractModule = await import(/* @vite-ignore */ tesseractPackage);
+    const { safeImport } = await import('../utils/safeImport').catch(() => ({ safeImport: null }));
+    if (!safeImport) throw new Error('safeImport unavailable');
+    // Allowlist tesseractPackage explicitly for optional OCR support
+    tesseractModule = await safeImport(tesseractPackage, [tesseractPackage]).catch(() => null);
     return tesseractModule;
   } catch {
     console.warn('[OCR] Tesseract.js is not installed. OCR features will be unavailable.');

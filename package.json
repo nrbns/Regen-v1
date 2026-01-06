@@ -1,8 +1,8 @@
 {
   "name": "regen",
-  "version": "0.3.1",
+  "version": "1.0.0",
   "private": true,
-  "description": "Regen/Regen: Next-generation AI automation platform with full agent layer, automation workflows, Redix execution environment, and multi-browser capabilities",
+  "description": "Regen v1 — Early Access / Technical Preview. Privacy-first, low-resource AI-enabled browser for long, focused sessions.",
   "scripts": {
     "setup:ollama": "echo 'Ollama setup: Install from https://ollama.com/download. Then run: ollama pull phi3:mini && ollama pull llava:7b'",
     "test:all": "npm run lint && npm run typecheck && npm run test:unit && npm run build",
@@ -37,6 +37,7 @@
     "dev:with-ai": "concurrently \"npm:dev:web\" \"npm:dev:server\" \"npm:dev:ai-bridge\" \"npm:dev:tauri\"",
     "dev:all": "node scripts/start-dev-all.cjs",
     "dev:web": "npx cross-env JSDOM_NO_CANVAS=1 vite --mode development",
+    "dev:web-only": "npm run dev:web",
     "dev:full": "npm run dev",
     "dev:server": "npx tsx server/redix-server.js",
     "dev:realtime": "tsx server/index.ts",
@@ -121,6 +122,7 @@
     "build:android:setup": "npm run build && npx cap add android && npx cap sync android",
     "preview": "vite preview",
     "lint": "eslint .",
+    "security:check": "node scripts/security-check.js",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",

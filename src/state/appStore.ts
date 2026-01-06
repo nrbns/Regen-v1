@@ -28,7 +28,7 @@ export type AppState = {
   setHeartbeat: () => void;
 
   // Original state
-  mode: 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
+  mode: 'Browse' | 'Research' | 'Trade' | 'Knowledge' | 'Dev' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
   graphDockOpen: boolean;
   toggleGraphDock: () => void;
@@ -56,7 +56,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAIStatus: aiStatus => set({ aiStatus, lastUpdateTs: Date.now() }),
   setMarketStatus: marketStatus => set({ marketStatus, lastUpdateTs: Date.now() }),
   setHeartbeat: () => set({ lastUpdateTs: Date.now() }),
-  mode: 'Research',
+  mode: 'Browse',
   setMode: async mode => {
     const currentMode = get().mode;
     if (mode === currentMode) return;
@@ -108,6 +108,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           Browse: 'https://www.google.com',
           Research: 'https://www.google.com',
           Trade: 'https://www.tradingview.com',
+          Knowledge: 'https://en.wikipedia.org',
+          Dev: 'about:blank',
           Games: 'https://www.friv.com',
           Docs: 'about:blank',
           Images: 'https://www.google.com/imghp',

@@ -8,7 +8,8 @@
  */
 
 import { getLRUCache, saveCachedEmbeddingLRU } from '../embedding/lruCache';
-import { invoke } from '@tauri-apps/api/core';
+// Tauri invoke is imported dynamically in `prefetchEmbedding` to avoid
+// static import resolution during web/dev/test where Tauri isn't available.
 import { useTabsStore } from '../../state/tabsStore';
 
 export interface PrefetchPrediction {
@@ -145,8 +146,26 @@ class QueryPrefetcher {
         return; // Silently skip in web mode
       }
 
-      // Call Rust embed_text command
-      const embedding = await invoke<number[]>('embed_text', {
+      // Call Rust embed_text command via dynamic import so bundlers/tests
+      // that don't include Tauri won't fail on static analysis.
+      let tauriInvoke = null;
+      if (typeof (globalThis as any).mockInvoke === 'function') {
+        tauriInvoke = (globalThis as any).mockInvoke;
+      } else {
+        try {
+          const modName = '@tauri-apps' + '/api/core';
+          const { safeImport } = await import('../../utils/safeImport').catch(() => ({ safeImport: null }));
+          if (!safeImport) throw new Error('safeImport unavailable');
+          const core = await safeImport(modName, [modName]);
+          if (core && typeof core.invoke === 'function') tauriInvoke = core.invoke;
+        } catch (e) {
+          // Tauri not available — silently skip
+        }
+      }
+
+      if (!tauriInvoke) return;
+
+      const embedding = await tauriInvoke('embed_text', {
         text: query,
         model: 'nomic-embed-text:4bit',
       });

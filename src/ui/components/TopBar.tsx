@@ -4,7 +4,19 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Search, ArrowLeft, ArrowRight, RotateCcw, Sparkles, ListChecks } from 'lucide-react';
+import {
+  Search,
+  ArrowLeft,
+  ArrowRight,
+  RotateCcw,
+  Sparkles,
+  ListChecks,
+  X,
+  Minus,
+  Square,
+  Bell,
+  User,
+} from 'lucide-react';
 import { ModeTabs } from './ModeTabs';
 import { useTokens } from '../useTokens';
 import { Container } from '../layout';
@@ -16,6 +28,8 @@ import { motion } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { useAppStore } from '../../state/appStore';
+import { SystemBar } from '../../components/system/SystemBar';
+import { PrivacyIndicator } from './PrivacyIndicator';
 
 export interface TopBarProps {
   className?: string;
@@ -46,7 +60,7 @@ export function TopBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { activeId } = useTabsStore();
-  
+
   // SPRINT 0: Address bar auto-hide on scroll
   const { isVisible: isAddressBarVisible } = useAddressBarAutoHide({
     enabled: showAddressBar && !focused, // Don't hide when focused
@@ -73,12 +87,44 @@ export function TopBar({
     }
   }, [showPreview]);
 
-  const handleAddressSubmit = (e: React.FormEvent) => {
+  const handleAddressSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (addressValue.trim() && onAddressBarSubmit) {
-      onAddressBarSubmit(addressValue.trim());
+    const query = addressValue.trim();
+    if (!query) return;
+
+    // If a custom handler is provided, delegate to it
+    if (onAddressBarSubmit) {
+      onAddressBarSubmit(query);
       setShowPreview(false);
       setFocused(false);
+      return;
+    }
+
+    // Default behavior: decide between URL navigation or search
+    const isUrl = /^https?:\/\//i.test(query) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(query);
+
+    try {
+      if (isUrl) {
+        const urlToNavigate = query.startsWith('http') ? query : `https://${query}`;
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, urlToNavigate);
+        } else {
+          await ipc.tabs.create(urlToNavigate);
+        }
+      } else {
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, searchUrl);
+        } else {
+          await ipc.tabs.create(searchUrl);
+        }
+      }
+    } catch (error) {
+      console.error('[TopBar] Address navigation failed:', error);
+    } finally {
+      setShowPreview(false);
+      setFocused(false);
+      setAddressValue('');
     }
   };
 
@@ -136,17 +182,34 @@ export function TopBar({
     }
   }, [activeId]);
 
+  // OS-style window controls
+  const handleMinimize = useCallback(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      (window as any).electronAPI.minimizeWindow();
+    }
+  }, []);
+
+  const handleMaximize = useCallback(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      (window as any).electronAPI.maximizeWindow();
+    }
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      (window as any).electronAPI.closeWindow();
+    }
+  }, []);
+
   const modeQuickActions = useMemo(() => {
     if (mode === 'Research') {
       return [
-        { id: 'brief', label: 'Brief' },
-        { id: 'sources', label: 'Sources' },
+        { id: 'brief', label: 'Brief' }, // Only one primary action
       ];
     }
     if (mode === 'Trade') {
       return [
-        { id: 'watch', label: 'Watchlist' },
-        { id: 'paper', label: 'Paper' },
+        { id: 'watch', label: 'Watchlist' }, // Only one primary action
       ];
     }
     return [];
@@ -154,47 +217,26 @@ export function TopBar({
 
   const handleModeQuickAction = useCallback(
     async (actionId: string) => {
-      if (mode === 'Research') {
-        if (actionId === 'brief') {
-          await setMode('Research');
-          setResearchPaneOpen(true);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(
-              new CustomEvent('ai:prompt', {
-                detail: { prompt: 'Draft a research brief with key questions and sources.' },
-              })
-            );
-          }
-          return;
+      if (mode === 'Research' && actionId === 'brief') {
+        await setMode('Research');
+        setResearchPaneOpen(true);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ai:prompt', {
+              detail: { prompt: 'Draft a research brief with key questions and sources.' },
+            })
+          );
         }
-        if (actionId === 'sources') {
-          await setMode('Research');
-          setResearchPaneOpen(true);
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('research:start', { detail: { intent: 'sources' } }));
-          }
-          return;
-        }
+        return;
       }
-
-      if (mode === 'Trade') {
+      if (mode === 'Trade' && actionId === 'watch') {
         await setMode('Trade');
-        if (actionId === 'watch') {
-          try {
-            await ipc.tabs.create('https://www.tradingview.com/watchlists/');
-          } catch (error) {
-            console.debug('[TopBar] open watchlist failed', error);
-          }
-          return;
+        try {
+          await ipc.tabs.create('https://www.tradingview.com/watchlists/');
+        } catch (error) {
+          console.debug('[TopBar] open watchlist failed', error);
         }
-        if (actionId === 'paper') {
-          try {
-            await ipc.tabs.create('https://www.tradingview.com/paper-trading/');
-          } catch (error) {
-            console.debug('[TopBar] open paper trading failed', error);
-          }
-          return;
-        }
+        return;
       }
     },
     [mode, setMode, setResearchPaneOpen]
@@ -206,19 +248,61 @@ export function TopBar({
         y: isAddressBarVisible ? 0 : -100,
         opacity: isAddressBarVisible ? 1 : 0,
       }}
-      transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-      className={`sticky top-0 z-50 w-full border-b border-[var(--surface-border)] bg-[var(--surface-panel)] backdrop-blur-xl ${className || ''} ${!isAddressBarVisible ? 'pointer-events-none' : ''}`}
+      transition={{ duration: 0.12, ease: [0.4, 0, 0.2, 1] }}
+      className={`sticky top-0 z-50 w-full border-b border-[var(--surface-border)] bg-[var(--surface-panel)] backdrop-blur-lg ${className || ''} ${!isAddressBarVisible ? 'pointer-events-none' : ''}`}
       style={{
-        height: compact ? '48px' : '64px',
+        height: 'var(--systembar-height, 56px)',
       }}
       role="banner"
     >
+      {/* Center breadcrumb / context (matches ref image) */}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-3 pl-4 pr-4 text-sm text-[var(--text-secondary)] lg:flex">
+        <span className="font-medium text-[var(--accent)]">{mode}</span>
+        <span className="opacity-50">›</span>
+        <span>Quantum Computing</span>
+        <span className="opacity-50">›</span>
+        <span className="text-[var(--text-muted)]">Paper #3</span>
+      </div>
       <Container
         className="flex h-full items-center justify-between gap-4"
         style={{ padding: tokens.spacing(3) }}
       >
-        {/* Left: Mode Tabs */}
-        <div className="flex flex-shrink-0 items-center gap-4">
+        {/* OS Window Controls (Left) */}
+        <div className="flex items-center gap-1">
+          {/* Window Control Buttons */}
+          <div className="mr-4 flex items-center gap-0.5">
+            <button
+              onClick={handleMinimize}
+              className="flex h-3 w-3 items-center justify-center rounded-full bg-yellow-400 transition-colors hover:bg-yellow-500"
+              title="Minimize"
+              aria-label="Minimize window"
+            >
+              <Minus size={6} className="text-yellow-900" />
+            </button>
+            <button
+              onClick={handleMaximize}
+              className="flex h-3 w-3 items-center justify-center rounded-full bg-green-400 transition-colors hover:bg-green-500"
+              title="Maximize"
+              aria-label="Maximize window"
+            >
+              <Square size={6} className="text-green-900" />
+            </button>
+            <button
+              onClick={handleClose}
+              className="flex h-3 w-3 items-center justify-center rounded-full bg-red-400 transition-colors hover:bg-red-500"
+              title="Close"
+              aria-label="Close window"
+            >
+              <X size={6} className="text-red-900" />
+            </button>
+          </div>
+
+          {/* Logo */}
+          <div className="mr-4 flex items-center">
+            <span className="text-lg font-bold tracking-wide text-[var(--accent)]">Regen</span>
+          </div>
+
+          {/* Mode Tabs */}
           <ModeTabs compact={compact} onModeChange={onModeChange} />
         </div>
 
@@ -227,11 +311,11 @@ export function TopBar({
           <div ref={containerRef} className="relative mx-4 max-w-2xl flex-1">
             <form onSubmit={handleAddressSubmit} className="relative flex items-center gap-2">
               {/* Minimal navigation controls */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                   title="Go back"
                   aria-label="Go back"
                 >
@@ -240,7 +324,7 @@ export function TopBar({
                 <button
                   type="button"
                   onClick={handleForward}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                   title="Go forward"
                   aria-label="Go forward"
                 >
@@ -249,14 +333,14 @@ export function TopBar({
                 <button
                   type="button"
                   onClick={handleReload}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                   title="Reload page"
                   aria-label="Reload page"
                 >
                   <RotateCcw size={16} />
                 </button>
               </div>
-              
+
               <Search
                 size={16}
                 className="pointer-events-none absolute left-[100px] top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
@@ -290,6 +374,36 @@ export function TopBar({
 
         {/* Right: Utility cluster */}
         {showQuickActions && <TopRightCluster />}
+
+        {/* Neon accent & quick status */}
+        <div className="ml-4 hidden items-center gap-3 lg:flex">
+          <div className="h-1 w-24 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--color-secondary-400)] opacity-90 shadow-[0_0_10px_var(--accent),0_0_20px_var(--accent)]" />
+        </div>
+
+        {/* Privacy indicator + System Bar (v1-mode info) */}
+        <div className="ml-2 flex items-center gap-2">
+          <PrivacyIndicator />
+          <SystemBar />
+        </div>
+
+        {/* Profile / Notifications */}
+        <div className="ml-4 flex items-center gap-2">
+          <button
+            title="Notifications"
+            aria-label="Notifications"
+            className="rounded p-2 hover:bg-[var(--surface-hover)]"
+          >
+            <Bell size={18} />
+          </button>
+          <button
+            title="Profile"
+            aria-label="Profile"
+            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-elevated)]"
+          >
+            <User size={18} />
+          </button>
+        </div>
+
         {modeQuickActions.length > 0 && (
           <div className="hidden items-center gap-2 lg:flex">
             {modeQuickActions.map(action => (

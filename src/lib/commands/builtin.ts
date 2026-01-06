@@ -3,6 +3,7 @@ import type { CommandDescriptor } from './types';
 import { ipc } from '../ipc-typed';
 import { useAppStore } from '../../state/appStore';
 import { useTabsStore } from '../../state/tabsStore';
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
 
 let builtinsRegistered = false;
 
@@ -81,6 +82,14 @@ const staticCommands: CommandDescriptor[] = [
 ];
 
 function registerModeCommands() {
+  // In minimal demo UI, don't register mode switching commands (system controls mode)
+  if (typeof window !== 'undefined' && isV1ModeEnabled()) {
+    if (typeof window !== 'undefined') {
+      console.log('[Commands] Skipping mode commands registration in v1-mode');
+    }
+    return;
+  }
+
   const modes: Array<{ id: string; title: string; mode: AppMode }> = [
     { id: 'core:mode-browse', title: 'Switch to Browse Mode', mode: 'Browse' },
     { id: 'core:mode-research', title: 'Switch to Research Mode', mode: 'Research' },

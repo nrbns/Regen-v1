@@ -3,7 +3,7 @@
  * Falls back to encrypted localStorage if keychain unavailable
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@lib/tauri-invoke';
 import { isTauriRuntime } from '../lib/env';
 
 /**

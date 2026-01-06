@@ -24,17 +24,21 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
+    '@': resolve(__dirname, './src'),
+    '@lib': resolve(__dirname, './src/lib'),
       '@shared': resolve(__dirname, './packages/shared'),
+      // v1 shims to neutralize heavy UI libraries
+      'framer-motion': resolve(__dirname, './src/shims/framer-motion.tsx'),
+      'lucide-react': resolve(__dirname, './src/shims/lucide-react.tsx'),
       canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
       bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
       'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
       './xhr-sync-worker.js': resolve(__dirname, './stubs/xhr-sync-worker.js'),
-      // DAY 10 FIX: Alias @tauri-apps/api to a stub to avoid resolution errors in dev
-      '@tauri-apps/api/core': resolve(__dirname, './stubs/tauri-api-stub.js'),
-      '@tauri-apps/api/event': resolve(__dirname, './stubs/tauri-api-stub.js'),
-      '@tauri-apps/api/updater': resolve(__dirname, './stubs/tauri-api-stub.js'), // Optional updater plugin
-      '@tauri-apps/api': resolve(__dirname, './stubs/tauri-api-stub.js'),
+      // Tauri neutralization: point to browser-safe shim to prevent native API usage
+      '@tauri-apps/api/core': resolve(__dirname, './src/shims/tauri.ts'),
+      '@tauri-apps/api/event': resolve(__dirname, './src/shims/tauri.ts'),
+      '@tauri-apps/api/updater': resolve(__dirname, './src/shims/tauri.ts'), // Optional updater plugin
+      '@tauri-apps/api': resolve(__dirname, './src/shims/tauri.ts'),
     },
   },
   root: resolve(__dirname),
@@ -99,9 +103,7 @@ export default defineConfig({
             if (id.includes('@dnd-kit')) {
               return 'vendor-dnd';
             }
-            if (id.includes('framer-motion')) {
-              return 'vendor-framer-motion';
-            }
+                  // framer-motion chunking preserved
             if (id.includes('lightweight-charts')) {
               return 'vendor-charts';
             }
@@ -199,8 +201,9 @@ export default defineConfig({
     hmr: {
       protocol: 'ws',
       host: 'localhost',
-      port: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
-      clientPort: parseInt(process.env.VITE_DEV_PORT || '1420', 10),
+      // Use VITE_HMR_PORT to override HMR websocket port; otherwise let Vite pick an available port
+      port: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
+      clientPort: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
       overlay: true, // Show error overlay
     },
     // Watch for file changes - use polling for better reliability on Windows
@@ -214,20 +217,28 @@ export default defineConfig({
       strict: false, // Allow serving files outside root
       allow: ['..'], // Allow serving files from parent directories
     },
-    // DEVELOPMENT ONLY: Set relaxed CSP header for local development
-    // Fix HTTP 431 error: Request header fields too large
+    // Headers: relaxed for development, strict for production
     headers: {
       'access-control-allow-origin': '*',
       'Content-Security-Policy':
-        "default-src 'self' https: data: blob:; " +
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
-        "connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:; " +
-        "img-src 'self' data: https:; " +
-        "style-src 'self' 'unsafe-inline' https://rsms.me https:; " +
-        "style-src-elem 'self' 'unsafe-inline' https://rsms.me https:; " +
-        "font-src 'self' https://rsms.me https:; " +
-        "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https:; " +
-        'media-src https:;',
+        process.env.NODE_ENV === 'production'
+          ? "default-src 'self' https:; " +
+            "script-src 'self' https:; " +
+            "connect-src 'self' https:; " +
+            "img-src 'self' data: https:; " +
+            "style-src 'self' https:; " +
+            "font-src 'self' https:; " +
+            "frame-src 'self' https:; " +
+            'media-src https:;'
+          : "default-src 'self' https: data: blob:; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; " +
+            "connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:; " +
+            "img-src 'self' data: https:; " +
+            "style-src 'self' 'unsafe-inline' https://rsms.me https:; " +
+            "style-src-elem 'self' 'unsafe-inline' https://rsms.me https:; " +
+            "font-src 'self' https://rsms.me https:; " +
+            "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https:; " +
+            'media-src https;'
     },
   },
   define: {

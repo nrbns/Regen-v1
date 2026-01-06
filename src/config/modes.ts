@@ -7,6 +7,8 @@ export type ModeId =
   | 'Browse'
   | 'Research'
   | 'Trade'
+  | 'Knowledge'
+  | 'Dev'
   | 'Games'
   | 'Docs'
   | 'Images'
@@ -42,6 +44,20 @@ export const MODES: Record<ModeId, ModeConfig> = {
     enabled: true,
     comingSoon: false,
     description: 'Trading mode with TradingView integration and real-time market data',
+  },
+  Knowledge: {
+    id: 'Knowledge',
+    label: 'Knowledge',
+    enabled: true,
+    comingSoon: false,
+    description: 'Knowledge Base mode for curated knowledge access and search',
+  },
+  Dev: {
+    id: 'Dev',
+    label: 'Dev',
+    enabled: true,
+    comingSoon: false,
+    description: 'Developer mode with advanced tools and diagnostics',
   },
   Games: {
     id: 'Games',

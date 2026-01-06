@@ -20,6 +20,14 @@ const STORAGE_KEY = 'mvp-feature-flags-v1';
 
 // Default feature configurations
 const DEFAULT_FEATURES: MVPFeature[] = [
+  // v1-mode: Minimal, infra-focused defaults for Early Access
+  {
+    id: 'v1-mode',
+    name: 'V1 Mode (Minimal)',
+    description: 'Enable minimal UI and disable experimental features for v1 releases',
+    category: 'system',
+    enabled: true,
+  },
   // Performance features
   {
     id: 'tab-hibernation',
@@ -67,6 +75,7 @@ const DEFAULT_FEATURES: MVPFeature[] = [
     category: 'ui',
     enabled: true,
   },
+  
 ];
 
 /**
@@ -185,6 +194,14 @@ export function setMVPFeatureEnabled(featureId: string, enabled: boolean): void 
       })
     );
   }
+}
+
+/**
+ * Is Version-1 mode enabled? Returns true if either `v1-mode` or `minimal-demo-ui` is active.
+ */
+export function isV1ModeEnabled(): boolean {
+  // v1-mode takes precedence, but also include backward-compatible minimal-demo-ui
+  return isMVPFeatureEnabled('v1-mode') || isMVPFeatureEnabled('minimal-demo-ui');
 }
 
 /**

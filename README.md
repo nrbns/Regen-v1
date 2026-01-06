@@ -1,97 +1,197 @@
-# 🌟 Regen - Your Private AI OS
+Regen — A Local-First AI Execution Environment (Browser-First)
 
-**Built for India. Works Offline. Transparent. Free Forever.**
+Built in India 🇮🇳
+Designed for low-resource devices
+Early Access / Technical Preview
 
-[![CI Status](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nrbns/Regenbrowser/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Made in India](https://img.shields.io/badge/Made%20in-India-orange)](https://github.com/nrbns/Regenbrowser)
-[![Open Source](https://img.shields.io/badge/Open%20Source-100%25-brightgreen)](https://github.com/nrbns/Regenbrowser)
-[![Node.js Version](https://img.shields.io/badge/Node-18%2B-green)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
+Regen is a **local-first AI execution environment** that helps users work with information, documents, and the web — while **staying lightweight, private, and stable**.
 
-> **Regen is a private intelligence OS that works even without the internet.**
->
-> Your data stays on your device. Your AI stays offline. And you see exactly how it thinks.
+Regen runs **locally by default**, works **offline after setup**, and is designed for **long sessions without crashes or resource spikes**.
 
-## 🎯 Why Regen? (Not ChatGPT or Comet)
+---
 
-| Feature              | Regen | ChatGPT | Comet | Browser |
-| -------------------- | ----- | ------- | ----- | ------- |
-| **Works Offline**    | ✅    | ❌      | ❌    | ✅      |
-| **Data Stays Local** | ✅    | ❌      | ❌    | ✅      |
-| **Shows Reasoning**  | ✅    | ❌      | ⚠️    | ❌      |
-| **Learns About You** | ✅    | ❌      | ❌    | ✅      |
-| **100% Free**        | ✅    | ❌      | ❌    | ✅      |
-| **Open Source**      | ✅    | ❌      | ❌    | ✅      |
+## Why Regen?
 
-**The key difference**: Regen is **AI you trust** because you can **audit, understand, and control** it completely.
+Regen focuses on **trust, efficiency, and reliability** — not hype.
 
-## 🚀 Quick Start
+• Local-first by default
+• Works offline after initial setup
+• No hidden telemetry
+• Designed for low-RAM systems
+• Automatic recovery from failures
+• Open-source and auditable
 
-1. **Download**: Get `.exe` (Windows) or `.AppImage` (Linux) from [Releases](https://github.com/nrbns/Regenbrowser/releases)
-2. **Install Ollama** (one-time): Download from [ollama.com](https://ollama.com/download)
-3. **Run**: Open RegenBrowser → AI brain auto-sets up in 60 seconds
-4. **Use**: Press `Ctrl+Space` for WISPR → Say "Hey WISPR, research BTC" → Magic happens
+Regen is **not a chat app** and **not a cloud AI wrapper**.
+It is an execution environment where AI operates **under system control**, not the other way around.
 
-## ✨ Key Features
+---
 
-### 🎤 WISPR Voice Assistant
+## Core Principles
 
-- **Global Hotkey**: `Ctrl+Space` anywhere
-- **Hindi/English**: "Nifty kharido 50" or "Research Tesla earnings"
-- **Voice Commands**: Trade, Research, Search, Summarize, Explain, Fill Forms
-- **Edit Before Execute**: Review and modify voice commands before execution
+### 1. Local-First
+All processing runs on your device by default.
+Network access is explicit and optional.
 
-### 🔍 Research Mode
+### 2. Resource Discipline
+AI execution is governed by system limits:
+- Memory
+- CPU
+- Battery state
 
-- **AI-Powered Research**: Multi-source aggregation with citations
-- **Source Credibility**: Automatic scoring and verification
-- **Document Upload**: PDF, DOCX, TXT, MD support
-- **OCR Support**: Extract text from scanned PDFs (Hindi + English)
-- **Export Options**: Markdown, JSON formats
+### 3. Stability Over Features
+Regen prioritizes long-running stability, predictable behavior, and graceful recovery.
 
-### 💹 Trade Mode
+### 4. Transparency
+System state (memory, agent activity, recovery events) is visible to the user.
 
-- **Voice Trading**: "100 HDFC Bank becho at market"
-- **Real-Time Signals**: AI-generated trade signals with SSE/WebSocket
-- **Risk Metrics**: Automatic position sizing and risk calculation
-- **TradingView Charts**: Real-time candles and indicators
+---
 
-### 📝 Document Editor
+## Key Capabilities (v1)
 
-- **AI Auto-Editing**: Grammar, style, clarity, fact-check suggestions
-- **Multi-Format**: Word, PDF, Excel support
-- **OCR Integration**: Scanned PDF text extraction
-- **Preview Mode**: See changes before applying
+### AI-Assisted Research
+- Page summarization
+- Document analysis (PDF, text)
+- Offline embeddings & search
+- Optional online sources (explicit)
 
-### ⚡ Performance (MVP Week 1-2)
+### Document Assistance
+- Text refinement
+- Structure & clarity suggestions
+- Offline processing supported
 
-- **Tab Hibernation**: Auto-suspends inactive tabs after 30 minutes (saves ~48MB per tab)
-- **Low-RAM Mode**: Automatically caps tabs (3-5) based on device memory
-- **Battery-Aware Power**: Auto-enables Power Saving Mode on battery power
-- **Memory Optimization**: Smart detection, <200MB idle (3 tabs)
-- **Fast Startup**: Cold-start ~2.5s, tab-switch <150ms
-- **HNSW Vector Search**: Fast semantic search for research
-- **Offline First**: Works 100% offline with Ollama
+### Voice Input (Experimental)
+- Manual trigger only
+- Treated as text input
+- No background listening
+- Fully optional and disable-able
 
-### 🎨 UI Controls (MVP Week 1-2)
+### Performance Focus
+- Idle memory target: <200MB (validated on low-tab usage)
+- Automatic tab hibernation
+- Battery-aware throttling
+- Fast startup on low-end systems
 
-- **Sidebar Toggle**: Press `Ctrl+B` or click button to show/hide Regen AI sidebar
-- **Address Bar Controls**: Back, Forward, Reload navigation buttons
-- **Keyboard Shortcuts**: 12+ shortcuts for power users
-  - `Ctrl+T` - New tab | `Ctrl+W` - Close tab
-  - `Ctrl+B` - Toggle sidebar | `Ctrl+K` - Focus address bar
-  - `Ctrl+Tab` - Next tab | `Ctrl+Shift+Tab` - Previous tab
-  - `Ctrl+1-9` - Jump to tab
-- **Settings UI**: Configure all MVP features at `/settings`
-- **Feature Toggles**: Enable/disable performance & UI features
+---
 
-### 🔒 Privacy & Security
+## Privacy & Trust
 
-- **100% Offline AI**: Your data never leaves your device
-- **No Tracking**: Zero telemetry, zero ads
-- **Local Storage**: All data stored locally
-- **Privacy Dashboard**: Full control over your data
+- Local-first by default
+- No hidden telemetry
+- No ads
+- No background data collection
+- Offline operation supported after setup
+
+Regen’s privacy comes from **architecture**, not promises.
+
+---
+
+## What Regen Is Not (v1)
+
+- Not a VPN
+- Not a Chrome replacement
+- Not a cloud AI service
+- Not an autonomous agent platform
+- Not feature-complete
+
+---
+
+## System Requirements
+
+**Minimum**
+- OS: Windows 10+, Linux, macOS
+- RAM: 4GB
+- Disk: ~3GB (local models)
+- CPU: Dual-core
+
+**Recommended**
+- RAM: 8GB+
+- Disk: 5GB+
+- Quad-core CPU
+
+---
+
+## Installation (Developer Preview)
+
+```bash
+git clone https://github.com/nrbns/Regen-v1.git
+cd Regen-v1
+npm install
+npm run dev
+```
+
+Offline AI requires a local model runtime (e.g., Ollama).
+
+## Project Status
+
+Version: v1 (Early Access)
+Status: Core systems implemented, actively stabilizing
+Audience: Builders, researchers, early technical users
+
+## License
+
+MIT License
+Open-source and auditable.
+
+Made with ❤️ in India 🇮🇳
+
+---
+# Regen — A Local-First AI Execution Environment (Browser-First)
+
+Early Access / Technical Preview — Designed for low-resource devices.
+
+Regen focuses on local-first AI assistance that runs in the browser or the Tauri desktop shell. This repository contains the web UI, optional desktop glue, and developer tooling used during early access.
+
+Why this README changed
+- Tone down broad claims and keep v1 expectations focused and verifiable.
+- Remove experimental features from core messaging (they belong in ROADMAP.md).
+
+Key principles (v1)
+- Local-first by default; network use is explicit.
+- Privacy-preserving: no telemetry enabled by default; opt-in diagnostics only.
+- Resource-aware: designed to be usable on low-RAM devices.
+- Incremental: experimental integrations are documented separately in ROADMAP.md.
+
+Quick start (summary)
+- No account required for local usage.
+- Developer: see `DEVELOPERS.md` for full setup and architecture.
+
+WISPR (Voice) — Experimental
+- Manual trigger only; no background listening.
+- Treated as an optional text-input pathway and can be disabled.
+
+Research assistance (v1)
+- Page summarization and local document analysis (PDF/text).
+- Local embeddings & offline search when models are available.
+- Optional online sources used only with explicit consent and configuration.
+
+Trade/Financial integrations
+- Trading and automated execution are not part of the v1 README or core claims.
+- Experimental integrations (if any) are listed under `ROADMAP.md` and guarded behind explicit opt-ins.
+
+Telemetry and privacy
+- No telemetry by default. Any diagnostic or usage collection is opt-in and documented.
+
+Developer setup (short)
+- Node.js 18+ (20+ recommended)
+- Rust + Tauri CLI only required for desktop builds
+- See `DEVELOPERS.md` for detailed instructions and optional AI backend setup
+
+Project status
+- Version: Early Access / Technical Preview
+- Core systems implemented for local-first prototypes; actively stabilizing.
+
+How to contribute
+- See `CONTRIBUTING.md` and `DEVELOPERS.md` for development, testing, and PR guidance.
+
+Where to find more
+- ROADMAP and experimental features: `ROADMAP.md`
+- Developer docs: `DEVELOPERS.md`
+- Contributor guide: `CONTRIBUTING.md`
+
+License
+- MIT
+
+Made with care in India — aimed at being practical, measurable, and safe for early adopters.
 
 ## 🛠️ Developer Setup
 

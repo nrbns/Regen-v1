@@ -13,6 +13,8 @@ interface RedixModeToggleProps {
   compact?: boolean;
 }
 
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
+
 export function RedixModeToggle({ showLabel = true, compact = false }: RedixModeToggleProps) {
   const [redixEnabled, setRedixEnabled] = useState(false);
   const [config, setConfig] = useState(getRedixConfig());
@@ -23,6 +25,12 @@ export function RedixModeToggle({ showLabel = true, compact = false }: RedixMode
   }, []);
 
   const handleToggle = () => {
+    // In v1-mode, don't allow toggling Redix to prevent users from changing stability settings
+    if (isV1ModeEnabled()) {
+      toast.info('Redix mode is managed by the system in v1-mode');
+      return;
+    }
+
     const newState = toggleRedixMode();
     setRedixEnabled(newState);
     setConfig(getRedixConfig());
