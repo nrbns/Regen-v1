@@ -122,6 +122,7 @@
     "build:android:setup": "npm run build && npx cap add android && npx cap sync android",
     "preview": "vite preview",
     "lint": "eslint .",
+    "security:check": "node scripts/security-check.js",
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
