@@ -1,16 +1,3 @@
-import React from 'react';
-
-const motion = new Proxy(
-  {},
-  {
-    get: (_target, prop: string) => {
-      return ({ children, ...rest }: any) => React.createElement('div', rest, children);
-    },
-  }
-);
-
-export const AnimatePresence: any = ({ children }: any) => <>{children}</>;
-export default motion;
 import React from 'react'
 
 const passthrough = (tag: any) => {
@@ -38,4 +25,4 @@ export const useInView = () => false
 export type Variants = any
 export type HTMLMotionProps<T = any> = any
 
-export default { motion, AnimatePresence }
+export default motion

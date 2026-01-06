@@ -168,7 +168,12 @@ export const useSettingsStore = create<SettingsState>()(
 
             // Build the import path dynamically to avoid static analysis by Vite during tests
             const pkg = '@tauri-apps' + '/api/core';
-            const mod = await import(/* @vite-ignore */ pkg);
+            // Use safeImport helper to ensure only allowlisted dynamic imports are permitted
+            const { safeImport } = await import('../utils/safeImport').catch(() => ({ safeImport: null }));
+            if (!safeImport) {
+              throw new Error('safeImport helper unavailable');
+            }
+            const mod = await safeImport(pkg, [pkg]);
             const invoke = mod.invoke ?? (mod.default && mod.default.invoke);
             await invoke('settings:set_language', { language });
 

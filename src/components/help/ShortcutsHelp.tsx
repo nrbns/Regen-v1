@@ -16,7 +16,6 @@ const SHORTCUT_GROUPS: Array<{ id: string; title: string; shortcuts: ShortcutEnt
       { combo: 'Ctrl/Cmd + Space', action: 'Activate WISPR voice assistant', context: 'Global' },
       { combo: 'Ctrl/Cmd + Shift + Space', action: 'Wake WISPR from anywhere', context: 'Global' },
       { combo: 'Voice: "Research [topic]"', action: 'Start research in current mode', context: 'Voice' },
-      { combo: 'Voice: "Nifty kharido 50"', action: 'Place trade order (Hindi/English)', context: 'Voice' },
     ],
   },
   {
@@ -45,8 +44,7 @@ const SHORTCUT_GROUPS: Array<{ id: string; title: string; shortcuts: ShortcutEnt
     title: 'Trade mode',
     shortcuts: [
       { combo: 'Shift + 1..9', action: 'Toggle indicator presets', context: 'Trade' },
-      { combo: 'Ctrl/Cmd + Shift + R', action: 'Refresh TradingView feed', context: 'Trade' },
-      { combo: 'Ctrl/Cmd + Enter', action: 'Submit staged order', context: 'Trade' },
+      { combo: 'Ctrl/Cmd + Shift + R', action: 'Refresh chart feed', context: 'Trade' },
     ],
   },
   {

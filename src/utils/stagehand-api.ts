@@ -4,6 +4,9 @@
  * Inspired by Stagehand: https://github.com/cloudflare/stagehand
  */
 
+import { isV1ModeEnabled } from '../config/mvpFeatureFlags';
+import { requestExecution } from '../core/executor/ExecutionGate';
+
 /**
  * Element selector types
  */
@@ -192,6 +195,13 @@ export class StagehandAPI {
     if (script.includes('eval') || script.includes('Function') || script.includes('import')) {
       throw new Error('Invalid script: contains dangerous patterns');
     }
+    // In v1-mode, disallow direct in-page evaluation for safety.
+    if (isV1ModeEnabled()) {
+      // Route the request through ExecutionGate for auditing; by default this will be denied.
+      return requestExecution({ type: 'automation:evaluate', payload: { script, context: this.context, sessionId: this.sessionId } });
+    }
+
+    // Non-v1 builds may still need to execute trusted scripts; use Function only when explicitly allowed.
     return new Function(script)();
   }
 

@@ -103,6 +103,10 @@ export function EnhancedRegenSidebar() {
 
     // Monitor clipboard
     const handleClipboardChange = () => {
+      if (typeof navigator === 'undefined' || !navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+        return;
+      }
+
       navigator.clipboard
         .readText()
         .then(text => {

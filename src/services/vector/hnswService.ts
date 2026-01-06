@@ -75,10 +75,12 @@ class HNSWService {
                   console.warn('[HNSWService] Failed to load index (mock), creating new one', error);
                 }
               }
-            } else {
+              } else {
               // Build package name dynamically to avoid static analysis issues during tests
               const pkg = '@tauri-apps' + '/api/core';
-              const { invoke: invoke2 } = await import(/* @vite-ignore */ pkg);
+              const { safeImport } = await import('../../utils/safeImport').catch(() => ({ safeImport: null }));
+              if (!safeImport) throw new Error('safeImport unavailable');
+              const { invoke: invoke2 } = await safeImport(pkg, [pkg]);
               const indexPath = await invoke2<string>('get_app_data_path', {
                 subpath: 'vectors/hnsw_index.bin',
               });

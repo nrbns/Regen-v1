@@ -6,7 +6,9 @@ export async function invoke(command: string, args?: any) {
 
   try {
     const modName = '@tauri-apps' + '/api/core';
-    const mod = await import(modName);
+    const { safeImport } = await import('../utils/safeImport').catch(() => ({ safeImport: null }));
+    if (!safeImport) throw new Error('safeImport unavailable');
+    const mod = await safeImport(modName, [modName]);
     if (mod && typeof mod.invoke === 'function') {
       return mod.invoke(command, args);
     }

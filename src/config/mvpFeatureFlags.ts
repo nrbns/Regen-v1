@@ -20,6 +20,14 @@ const STORAGE_KEY = 'mvp-feature-flags-v1';
 
 // Default feature configurations
 const DEFAULT_FEATURES: MVPFeature[] = [
+  // v1-mode: Minimal, infra-focused defaults for Early Access
+  {
+    id: 'v1-mode',
+    name: 'V1 Mode (Minimal)',
+    description: 'Enable minimal UI and disable experimental features for v1 releases',
+    category: 'system',
+    enabled: true,
+  },
   // Performance features
   {
     id: 'tab-hibernation',

@@ -6,6 +6,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Code, Sparkles, Zap, Play } from 'lucide-react';
 import { toast } from '../../utils/toast';
+import { isV1ModeEnabled } from '../../config/mvpFeatureFlags';
+import { requestExecution } from '../../core/executor/ExecutionGate';
 import ContextPanel from '../context/ContextPanel';
 
 export function AIDeveloperConsole() {
@@ -22,40 +24,18 @@ export function AIDeveloperConsole() {
     setError(null);
 
     try {
-      // Create sandboxed execution
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-
-      const iframeWindow = iframe.contentWindow;
-      if (!iframeWindow) throw new Error('Failed to create sandbox');
-
-      // Capture console output
-      let capturedOutput = '';
-      const consoleObj = (iframeWindow as any).console;
-      if (consoleObj && consoleObj.log) {
-        const originalLog = consoleObj.log;
-        consoleObj.log = (...args: any[]) => {
-          capturedOutput += args.map(a => String(a)).join(' ') + '\n';
-          originalLog.apply(consoleObj, args);
-        };
+      // In v1-mode we do not allow arbitrary in-browser code execution.
+      if (isV1ModeEnabled()) {
+        throw new Error('Execution disabled in v1-mode for safety');
       }
 
-      // Execute code inside sandboxed iframe only
-      if ((iframeWindow as any).eval) {
-        const result = (iframeWindow as any).eval(code);
-        if (result !== undefined) {
-          capturedOutput += String(result) + '\n';
-        }
-      } else {
-        throw new Error('Sandboxed eval not available');
-      }
-
-      setOutput(capturedOutput || 'Code executed successfully');
-      document.body.removeChild(iframe);
+      // Route execution request through the central ExecutionGate for auditing.
+      // By default ExecutionGate denies execution until an approved sandbox is implemented.
+      const result = await requestExecution({ type: 'developer:runCode', payload: { code } });
+      setOutput(result?.output || 'Execution routed to sandbox');
     } catch (err: any) {
-      setError(err.message);
-      setOutput(`Error: ${err.message}`);
+      setError(err?.message || String(err));
+      setOutput(`Error: ${err?.message || String(err)}`);
     } finally {
       setIsRunning(false);
     }
