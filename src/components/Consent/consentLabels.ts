@@ -27,7 +27,10 @@ export const CONSENT_ACTION_OPTIONS: Array<{ value: ConsentActionType | 'all'; l
   { value: 'ai_cloud', label: CONSENT_ACTION_LABELS.ai_cloud },
 ];
 
-export const CONSENT_STATUS_OPTIONS: Array<{ value: 'all' | 'pending' | 'approved' | 'revoked'; label: string }> = [
+export const CONSENT_STATUS_OPTIONS: Array<{
+  value: 'all' | 'pending' | 'approved' | 'revoked';
+  label: string;
+}> = [
   { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },

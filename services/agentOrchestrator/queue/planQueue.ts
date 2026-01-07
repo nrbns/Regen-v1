@@ -1,8 +1,8 @@
 /**
  * Plan Execution Queue (Week 3 - Bull Worker)
- * 
+ *
  * Manages distributed plan execution using BullMQ
- * 
+ *
  * Features:
  * - Job enqueueing from API routes
  * - Automatic retry with exponential backoff
@@ -45,7 +45,7 @@ export function initializePlanQueue(): Queue<PlanExecutionJob, JobResult> {
   }
 
   const redis = createRedisConnection();
-  
+
   // Create queue with Redis connection
   planQueue = new Queue<PlanExecutionJob, JobResult>('plans:execute', {
     connection: {
@@ -102,7 +102,7 @@ export function initializePlanQueue(): Queue<PlanExecutionJob, JobResult> {
   });
 
   console.log('[PlanQueue] Queue initialized');
-  
+
   return planQueue;
 }
 
@@ -140,17 +140,13 @@ export async function enqueuePlanExecution(
     timeout: options?.timeout || 60000,
   };
 
-  const job = await queue.add(
-    `execute-${planId}`,
-    jobData,
-    {
-      jobId: `job-${planId}-${Date.now()}`,
-      priority: options?.priority || 2,
-    }
-  );
+  const job = await queue.add(`execute-${planId}`, jobData, {
+    jobId: `job-${planId}-${Date.now()}`,
+    priority: options?.priority || 2,
+  });
 
   console.log(`[PlanQueue] Enqueued plan ${planId} as job ${job.id}`);
-  
+
   return job.id!;
 }
 
@@ -253,7 +249,7 @@ export async function retryJob(jobId: string): Promise<boolean> {
  */
 export async function cleanQueue(olderThanMs: number = 24 * 3600 * 1000) {
   const queue = getPlanQueue();
-  
+
   await queue.clean(olderThanMs, 1000, 'completed');
   await queue.clean(olderThanMs * 7, 1000, 'failed'); // Keep failed jobs longer
 

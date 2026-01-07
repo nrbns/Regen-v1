@@ -46,7 +46,7 @@ export class OrchestratorMonitoring {
    */
   trackPerformance(metric: PerformanceMetric): void {
     this.metrics.push(metric);
-    
+
     // Keep only recent metrics
     if (this.metrics.length > this.maxStoredMetrics) {
       this.metrics.shift();
@@ -54,7 +54,9 @@ export class OrchestratorMonitoring {
 
     // Log slow operations
     if (metric.durationMs > 5000) {
-      console.warn(`[Monitoring] Slow operation detected: ${metric.component}.${metric.operation} took ${metric.durationMs}ms`);
+      console.warn(
+        `[Monitoring] Slow operation detected: ${metric.component}.${metric.operation} took ${metric.durationMs}ms`
+      );
     }
   }
 
@@ -63,7 +65,7 @@ export class OrchestratorMonitoring {
    */
   trackError(event: ErrorEvent): void {
     this.errors.push(event);
-    
+
     // Keep only recent errors
     if (this.errors.length > this.maxStoredMetrics) {
       this.errors.shift();
@@ -77,7 +79,7 @@ export class OrchestratorMonitoring {
    */
   trackUsage(event: UsageEvent): void {
     this.usage.push(event);
-    
+
     // Keep only recent usage
     if (this.usage.length > this.maxStoredMetrics) {
       this.usage.shift();
@@ -126,7 +128,7 @@ export class OrchestratorMonitoring {
     recent: ErrorEvent[];
   } {
     const byComponent: Record<string, number> = {};
-    
+
     this.errors.forEach(e => {
       byComponent[e.component] = (byComponent[e.component] || 0) + 1;
     });
@@ -204,7 +206,7 @@ export class OrchestratorMonitoring {
    */
   clearOldData(olderThanHours: number = 24): void {
     const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
-    
+
     this.metrics = this.metrics.filter(m => m.timestamp > cutoff);
     this.errors = this.errors.filter(e => e.timestamp > cutoff);
     this.usage = this.usage.filter(u => u.timestamp > cutoff);
@@ -252,7 +254,11 @@ export function trackRouterPerformance(durationMs: number, success: boolean, met
   });
 }
 
-export function trackPlannerPerformance(durationMs: number, success: boolean, metadata?: any): void {
+export function trackPlannerPerformance(
+  durationMs: number,
+  success: boolean,
+  metadata?: any
+): void {
   getMonitoring().trackPerformance({
     component: 'planner',
     operation: 'create_plan',
@@ -263,7 +269,11 @@ export function trackPlannerPerformance(durationMs: number, success: boolean, me
   });
 }
 
-export function trackExecutorPerformance(durationMs: number, success: boolean, metadata?: any): void {
+export function trackExecutorPerformance(
+  durationMs: number,
+  success: boolean,
+  metadata?: any
+): void {
   getMonitoring().trackPerformance({
     component: 'executor',
     operation: 'execute_plan',

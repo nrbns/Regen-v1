@@ -33,14 +33,14 @@ export function ConnectionStatus() {
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <div
-        className="bg-gray-900 border border-gray-700 rounded-lg p-3 shadow-lg cursor-pointer"
+        className="cursor-pointer rounded-lg border border-gray-700 bg-gray-900 p-3 shadow-lg"
         onClick={() => setShowDetails(!showDetails)}
       >
         <div className="flex items-center gap-2">
           {allConnected ? (
-            <CheckCircle2 className="w-4 h-4 text-green-400" />
+            <CheckCircle2 className="h-4 w-4 text-green-400" />
           ) : (
-            <AlertCircle className="w-4 h-4 text-yellow-400" />
+            <AlertCircle className="h-4 w-4 text-yellow-400" />
           )}
           <span className="text-sm text-gray-300">
             {allConnected ? 'All systems connected' : 'Connection issues'}
@@ -51,33 +51,33 @@ export function ConnectionStatus() {
           <div className="mt-3 space-y-2 text-xs">
             <div className="flex items-center gap-2">
               {status.agentClient ? (
-                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                <CheckCircle2 className="h-3 w-3 text-green-400" />
               ) : (
-                <WifiOff className="w-3 h-3 text-red-400" />
+                <WifiOff className="h-3 w-3 text-red-400" />
               )}
               <span className="text-gray-400">Agent Client</span>
             </div>
             <div className="flex items-center gap-2">
               {status.apiClient ? (
-                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                <CheckCircle2 className="h-3 w-3 text-green-400" />
               ) : (
-                <WifiOff className="w-3 h-3 text-red-400" />
+                <WifiOff className="h-3 w-3 text-red-400" />
               )}
               <span className="text-gray-400">API Client</span>
             </div>
             <div className="flex items-center gap-2">
               {backendStatus ? (
-                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                <CheckCircle2 className="h-3 w-3 text-green-400" />
               ) : (
-                <WifiOff className="w-3 h-3 text-red-400" />
+                <WifiOff className="h-3 w-3 text-red-400" />
               )}
               <span className="text-gray-400">Backend Server</span>
             </div>
             <div className="flex items-center gap-2">
               {status.browserIntegration ? (
-                <CheckCircle2 className="w-3 h-3 text-green-400" />
+                <CheckCircle2 className="h-3 w-3 text-green-400" />
               ) : (
-                <WifiOff className="w-3 h-3 text-red-400" />
+                <WifiOff className="h-3 w-3 text-red-400" />
               )}
               <span className="text-gray-400">Browser Integration</span>
             </div>
@@ -87,4 +87,3 @@ export function ConnectionStatus() {
     </div>
   );
 }
-

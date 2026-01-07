@@ -130,10 +130,7 @@ class RedixOptimizer {
     });
 
     // Evict until we're under the limit
-    const tabsToEvictNow = tabsToEvict.slice(
-      0,
-      this.activeTabs.size - this.strategy.maxActiveTabs
-    );
+    const tabsToEvictNow = tabsToEvict.slice(0, this.activeTabs.size - this.strategy.maxActiveTabs);
 
     for (const tabId of tabsToEvictNow) {
       try {
@@ -198,7 +195,8 @@ class RedixOptimizer {
 
     // Reduce image quality via CSS
     if (this.strategy.lowerImageQuality) {
-      const style = document.getElementById('redix-optimizations') || document.createElement('style');
+      const style =
+        document.getElementById('redix-optimizations') || document.createElement('style');
       if (!style.id) style.id = 'redix-optimizations';
       style.textContent += `
         img {
@@ -268,7 +266,7 @@ class RedixOptimizer {
    */
   updateStrategy(strategy: Partial<OptimizationStrategy>): void {
     this.strategy = { ...this.strategy, ...strategy };
-    
+
     // Reinitialize if Redix mode is active
     if (isRedixMode()) {
       this.initialize();
@@ -319,4 +317,3 @@ export function getRedixOptimizer(strategy?: Partial<OptimizationStrategy>): Red
   }
   return optimizerInstance;
 }
-

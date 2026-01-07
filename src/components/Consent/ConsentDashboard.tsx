@@ -86,7 +86,7 @@ export function ConsentDashboard() {
     return (
       <div
         key={record.id}
-        className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3"
+        className="space-y-3 rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm text-gray-200">
@@ -97,7 +97,7 @@ export function ConsentDashboard() {
             {status.label}
           </span>
         </div>
-        <div className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">
+        <div className="whitespace-pre-wrap text-xs leading-relaxed text-gray-400">
           {record.action.description}
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-gray-500">
@@ -107,7 +107,7 @@ export function ConsentDashboard() {
           </div>
           <div>
             <span className="text-gray-400">Risk:</span>{' '}
-            <span className="text-gray-200 capitalize">{record.action.risk}</span>
+            <span className="capitalize text-gray-200">{record.action.risk}</span>
           </div>
           <div>
             <span className="text-gray-400">Requested:</span>{' '}
@@ -115,12 +115,12 @@ export function ConsentDashboard() {
           </div>
           <div>
             <span className="text-gray-400">Ledger ID:</span>{' '}
-            <span className="text-gray-500 font-mono text-[10px]">{record.id.slice(0, 8)}…</span>
+            <span className="font-mono text-[10px] text-gray-500">{record.id.slice(0, 8)}…</span>
           </div>
         </div>
         <div className="flex items-center gap-2 text-[11px] text-gray-500">
           <span>Signature:</span>
-          <span className="font-mono truncate text-gray-600">{record.signature.slice(0, 24)}…</span>
+          <span className="truncate font-mono text-gray-600">{record.signature.slice(0, 24)}…</span>
         </div>
         <div className="flex items-center justify-between">
           <div className="text-[11px] text-gray-500">
@@ -168,7 +168,7 @@ export function ConsentDashboard() {
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.2 }}
-        className="relative w-[min(900px,92vw)] max-h-[90vh] overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-950/95 text-gray-100 shadow-2xl"
+        className="relative max-h-[90vh] w-[min(900px,92vw)] overflow-hidden rounded-3xl border border-slate-700/70 bg-slate-950/95 text-gray-100 shadow-2xl"
       >
         <div className="flex items-start justify-between border-b border-slate-800/60 px-6 py-4">
           <div className="space-y-1">
@@ -208,7 +208,7 @@ export function ConsentDashboard() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 p-6 overflow-y-auto max-h-[75vh]">
+        <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto p-6">
           <ConsentFlowGraph
             records={records}
             onApprove={approve}

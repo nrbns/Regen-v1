@@ -165,9 +165,7 @@ Return ONLY valid JSON, no markdown formatting.`;
   private extractTitle(prompt: string): string {
     // Simple heuristic: capitalize first few words
     const words = prompt.split(' ').slice(0, 6);
-    return words
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
+    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
   /**
@@ -179,13 +177,13 @@ Return ONLY valid JSON, no markdown formatting.`;
     }
 
     // Must have title slide
-    const hasTitle = outline.slides.some((s) => s.type === 'title');
+    const hasTitle = outline.slides.some(s => s.type === 'title');
     if (!hasTitle) {
       return false;
     }
 
     // All slides must have titles
-    const allHaveTitles = outline.slides.every((s) => s.title && s.title.length > 0);
+    const allHaveTitles = outline.slides.every(s => s.title && s.title.length > 0);
     if (!allHaveTitles) {
       return false;
     }

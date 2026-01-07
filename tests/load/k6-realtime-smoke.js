@@ -199,15 +199,23 @@ export function handleSummary(data) {
   console.log(`  WS Connection (p95): ${summary.metrics.ws_connecting_p95.toFixed(2)}ms`);
 
   console.log('\nThresholds:');
-  console.log(`  ✓ Job Started Rate > 95%: ${summary.thresholds.job_started_rate ? '✅ PASS' : '❌ FAIL'}`);
-  console.log(`  ✓ Job Completed Rate > 90%: ${summary.thresholds.job_completed_rate ? '✅ PASS' : '❌ FAIL'}`);
-  console.log(`  ✓ Chunk Latency < 500ms: ${summary.thresholds.chunk_latency ? '✅ PASS' : '❌ FAIL'}`);
-  console.log(`  ✓ Reconnect Success > 95%: ${summary.thresholds.reconnect_success ? '✅ PASS' : '❌ FAIL'}`);
+  console.log(
+    `  ✓ Job Started Rate > 95%: ${summary.thresholds.job_started_rate ? '✅ PASS' : '❌ FAIL'}`
+  );
+  console.log(
+    `  ✓ Job Completed Rate > 90%: ${summary.thresholds.job_completed_rate ? '✅ PASS' : '❌ FAIL'}`
+  );
+  console.log(
+    `  ✓ Chunk Latency < 500ms: ${summary.thresholds.chunk_latency ? '✅ PASS' : '❌ FAIL'}`
+  );
+  console.log(
+    `  ✓ Reconnect Success > 95%: ${summary.thresholds.reconnect_success ? '✅ PASS' : '❌ FAIL'}`
+  );
 
   const allPassed = Object.values(summary.thresholds).every(Boolean);
   console.log(`\nOverall: ${allPassed ? '✅ ALL TESTS PASSED' : '❌ SOME TESTS FAILED'}`);
 
   return {
-    'stdout': JSON.stringify(summary, null, 2),
+    stdout: JSON.stringify(summary, null, 2),
   };
 }

@@ -1,12 +1,14 @@
-/**
- * Security Configuration & Setup Guide
- */
+/\*\*
+
+- Security Configuration & Setup Guide
+  \*/
 
 # Security Hardening Setup
 
 ## 🔒 Components Deployed
 
 ### 1. Token Vault
+
 Encrypted storage for OAuth tokens and API keys.
 
 ```typescript
@@ -29,6 +31,7 @@ await globalTokenVault.revokeAllTokens(userId);
 ```
 
 **Production Setup:**
+
 ```bash
 # Use HashiCorp Vault
 vault kv put secret/regen/oauth \
@@ -42,6 +45,7 @@ aws secretsmanager create-secret \
 ```
 
 ### 2. Two-Factor Authentication
+
 TOTP, email OTP, SMS OTP, backup codes.
 
 ```typescript
@@ -66,12 +70,14 @@ const validChallenge = await globalTwoFactorAuth.verifyChallenge(
 ```
 
 **Supported Methods:**
+
 - TOTP (authenticator apps: Google Authenticator, Authy, etc.)
 - Email OTP
 - SMS OTP
 - Backup codes (single-use recovery)
 
 ### 3. Permission Control
+
 Role-based access control (RBAC) with approval workflows.
 
 ```typescript
@@ -100,13 +106,14 @@ const history = await globalPermissionControl.getActionHistory(userId);
 
 **Role Matrix:**
 
-| Role | Permissions | Approval | 2FA |
-|------|-------------|----------|-----|
-| Viewer | read | - | - |
+| Role   | Permissions          | Approval     | 2FA                |
+| ------ | -------------------- | ------------ | ------------------ |
+| Viewer | read                 | -            | -                  |
 | Editor | read, create, update | send, delete | send, book, delete |
-| Admin | all | delete | delete, export |
+| Admin  | all                  | delete       | delete, export     |
 
 ### 4. Rate Limiting
+
 Prevent abuse with sliding window rate limiting.
 
 ```typescript
@@ -130,6 +137,7 @@ const stats = await globalRateLimiter.getStats(userId, 'send_email');
 ```
 
 **Default Limits:**
+
 - Email: 50/hour, 500/day
 - Booking: 20/hour, 100/day
 - PPT generation: 30/hour, 200/day
@@ -172,16 +180,19 @@ app.post(
 ## 📋 Action-Specific Rules
 
 ### Mail Agent
+
 - **read_emails**: No approval, no 2FA
 - **draft_reply**: Approval (editor+), no 2FA
 - **send_email**: Approval (admin), 2FA required
 
 ### PPT Agent
+
 - **generate_outline**: No approval, no 2FA
 - **create_slides**: No approval, no 2FA
 - **share**: Approval (viewer+), no 2FA
 
 ### Booking Agent
+
 - **search**: No approval, no 2FA
 - **book**: Approval (admin), 2FA required
 - **cancel**: Approval (admin), 2FA required
@@ -227,12 +238,12 @@ Every action is logged with full context:
 ```
 
 **Query Examples:**
+
 ```typescript
 // All actions by user today
-const todayActions = await auditLogger.queryByDateRange(
-  new Date(Date.now() - 24*60*60*1000),
-  new Date()
-).filter(a => a.userId === userId);
+const todayActions = await auditLogger
+  .queryByDateRange(new Date(Date.now() - 24 * 60 * 60 * 1000), new Date())
+  .filter(a => a.userId === userId);
 
 // All rejected actions
 const rejected = await auditLogger.queryByAction('*').filter(a => !a.approved);
@@ -259,6 +270,7 @@ const csv = auditLogger.exportAsCSV(logs);
 ## 📖 Compliance Standards
 
 ✅ Supports:
+
 - GDPR (right to delete, data export, audit logs)
 - CCPA (user rights, consent logging)
 - SOC 2 (audit trails, access controls)

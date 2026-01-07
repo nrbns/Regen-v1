@@ -62,7 +62,9 @@ export class AudioProcessor {
         mimeType: this.getMimeType(),
       });
 
-      console.log(`[AudioProcessor] Recording started (${this.config.format}@${this.config.sampleRate}Hz)`);
+      console.log(
+        `[AudioProcessor] Recording started (${this.config.format}@${this.config.sampleRate}Hz)`
+      );
     } catch (error) {
       console.error('[AudioProcessor] Failed to start recording:', error);
       throw new Error('Microphone access denied or unavailable');
@@ -91,7 +93,7 @@ export class AudioProcessor {
 
       // Stop all audio tracks
       if (this.stream) {
-        this.stream.getTracks().forEach((track) => track.stop());
+        this.stream.getTracks().forEach(track => track.stop());
       }
 
       if (this.audioContext) {
@@ -174,7 +176,7 @@ export class WebAudioProcessor extends AudioProcessor {
       const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
 
       // Cleanup
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach(track => track.stop());
       audioContext.close();
 
       return average / 255; // Normalize to 0-1

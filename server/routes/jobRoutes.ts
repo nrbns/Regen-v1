@@ -550,11 +550,9 @@ export function createJobRoutes(store?: InMemoryJobStore, redis?: Redis): Router
       }
 
       if (!['failed', 'cancelled'].includes(job.state)) {
-        return res
-          .status(400)
-          .json({
-            error: `Cannot restart job in state ${job.state}. Expected 'failed' or 'cancelled'.`,
-          });
+        return res.status(400).json({
+          error: `Cannot restart job in state ${job.state}. Expected 'failed' or 'cancelled'.`,
+        });
       }
 
       // Transition to created to allow restart

@@ -4,8 +4,8 @@
  * Supports TTL, cache invalidation, and metrics
  */
 interface CacheOptions {
-    ttl?: number;
-    maxSize?: number;
+  ttl?: number;
+  maxSize?: number;
 }
 /**
  * Create a cache instance
@@ -26,7 +26,11 @@ export declare const contentCache: any;
 /**
  * Generate cache key for search query
  */
-export declare function getSearchCacheKey(query: string, lang?: string, options?: Record<string, any>): string;
+export declare function getSearchCacheKey(
+  query: string,
+  lang?: string,
+  options?: Record<string, any>
+): string;
 /**
  * Generate cache key for summary
  */

@@ -12,13 +12,11 @@ export const excelService = {
   /**
    * Edit an Excel file
    */
-  async edit(
-    filePath: string,
-    task: EditTask,
-    options: EditOptions
-  ): Promise<EditResult> {
+  async edit(filePath: string, task: EditTask, options: EditOptions): Promise<EditResult> {
     if (process.env.ALLOW_EXCEL_PROCESSING !== 'true') {
-      throw new Error('Excel processing is disabled for security until a patched library is available. Set ALLOW_EXCEL_PROCESSING=true to enable at your own risk.');
+      throw new Error(
+        'Excel processing is disabled for security until a patched library is available. Set ALLOW_EXCEL_PROCESSING=true to enable at your own risk.'
+      );
     }
     const startTime = Date.now();
 
@@ -95,23 +93,23 @@ export const excelService = {
         if (typeof cell === 'string') {
           // Trim whitespace
           let value = cell.trim();
-          
+
           // Skip empty cells
           if (!value) return '';
-          
+
           // Try to parse as number
           const numValue = parseFloat(value.replace(/[^\d.-]/g, ''));
           if (!isNaN(numValue) && value.replace(/[^\d.-]/g, '') === numValue.toString()) {
             return numValue;
           }
-          
+
           // Try to parse as date (common formats)
           const dateFormats = [
             /^\d{4}-\d{2}-\d{2}/, // YYYY-MM-DD
             /^\d{2}\/\d{2}\/\d{4}/, // MM/DD/YYYY
             /^\d{2}-\d{2}-\d{4}/, // MM-DD-YYYY
           ];
-          
+
           for (const format of dateFormats) {
             if (format.test(value)) {
               const dateValue = new Date(value);
@@ -120,7 +118,7 @@ export const excelService = {
               }
             }
           }
-          
+
           return value;
         }
         return cell;
@@ -167,8 +165,8 @@ export const excelService = {
       return data;
     }
 
-    const filled = data.map((row) =>
-      row.map((cell) => {
+    const filled = data.map(row =>
+      row.map(cell => {
         if (typeof cell === 'string') {
           let value = cell;
           // Replace template placeholders
@@ -188,14 +186,14 @@ export const excelService = {
    * Convert Excel data to text
    */
   excelToText(data: any[][]): string {
-    return data.map((row) => row.join('\t')).join('\n');
+    return data.map(row => row.join('\t')).join('\n');
   },
 
   /**
    * Convert text back to Excel format
    */
   textToExcel(text: string): any[][] {
-    return text.split('\n').map((line) => line.split('\t'));
+    return text.split('\n').map(line => line.split('\t'));
   },
 
   /**
@@ -253,10 +251,9 @@ export const excelService = {
 
   calculateConfidence(changes: Change[], originalLength: number): 'high' | 'medium' | 'low' {
     const changeRatio = changes.length / Math.max(originalLength / 100, 1);
-    
+
     if (changeRatio < 0.1) return 'high';
     if (changeRatio < 0.3) return 'medium';
     return 'low';
   },
 };
-

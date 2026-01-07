@@ -16,8 +16,8 @@ export interface AuthRequest extends Request {
  */
 export function extractUser(req: AuthRequest, _res: Response, next: NextFunction) {
   // In production, extract from JWT token or session
-  req.userId = req.headers['x-user-id'] as string || 'demo-user';
-  req.userRole = req.headers['x-user-role'] as string || 'viewer';
+  req.userId = (req.headers['x-user-id'] as string) || 'demo-user';
+  req.userRole = (req.headers['x-user-role'] as string) || 'viewer';
   next();
 }
 

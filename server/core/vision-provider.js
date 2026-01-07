@@ -47,13 +47,15 @@ export async function getVisionModel() {
 async function analyzeWithLocalVision(images, prompt) {
   try {
     // Convert images to base64
-    const imageData = images.map(imagePath => {
-      if (fs.existsSync(imagePath)) {
-        const imageBuffer = fs.readFileSync(imagePath);
-        return imageBuffer.toString('base64');
-      }
-      return null;
-    }).filter(Boolean);
+    const imageData = images
+      .map(imagePath => {
+        if (fs.existsSync(imagePath)) {
+          const imageBuffer = fs.readFileSync(imagePath);
+          return imageBuffer.toString('base64');
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     if (imageData.length === 0) {
       throw new Error('No valid images provided');
@@ -93,28 +95,29 @@ async function analyzeWithGemini(images, prompt) {
 
   try {
     // Convert images to base64
-    const imageParts = images.map(imagePath => {
-      if (fs.existsSync(imagePath)) {
-        const imageBuffer = fs.readFileSync(imagePath);
-        return {
-          inline_data: {
-            mime_type: 'image/jpeg',
-            data: imageBuffer.toString('base64'),
-          },
-        };
-      }
-      return null;
-    }).filter(Boolean);
+    const imageParts = images
+      .map(imagePath => {
+        if (fs.existsSync(imagePath)) {
+          const imageBuffer = fs.readFileSync(imagePath);
+          return {
+            inline_data: {
+              mime_type: 'image/jpeg',
+              data: imageBuffer.toString('base64'),
+            },
+          };
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
-        contents: [{
-          parts: [
-            { text: prompt },
-            ...imageParts,
-          ],
-        }],
+        contents: [
+          {
+            parts: [{ text: prompt }, ...imageParts],
+          },
+        ],
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 2000,
@@ -137,10 +140,3 @@ async function analyzeWithPoe(images, prompt) {
   console.warn('[VisionProvider] Poe vision not implemented, using text-only');
   return prompt; // Placeholder
 }
-
-
-
-
-
-
-

@@ -20,7 +20,7 @@ export const GlobalErrorBanner: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50">
+    <div className="fixed left-0 right-0 top-0 z-50">
       <ErrorBanner
         message={latest.message || 'A task failed or paused'}
         actionLabel={latest.type === 'failed' ? 'Resume' : 'Dismiss'}

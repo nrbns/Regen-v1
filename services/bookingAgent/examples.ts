@@ -48,7 +48,9 @@ export async function example1_FlightSearch(): Promise<void> {
   console.log('\nExecution complete:');
   console.log(`- Search results: ${context.searchResults.length}`);
   console.log(`- Filtered options: ${context.filteredOptions.length}`);
-  console.log(`- Selected: ${context.selectedOption?.airline} ${context.selectedOption?.flightNumber}`);
+  console.log(
+    `- Selected: ${context.selectedOption?.airline} ${context.selectedOption?.flightNumber}`
+  );
   console.log(`- Confirmation: ${context.bookingConfirmation?.confirmationCode}`);
 }
 
@@ -70,7 +72,7 @@ export async function example2_FlightWithFilters(): Promise<void> {
 
   console.log(`Intent: ${request.intent}`);
   console.log(`Booking type: ${request.type}`);
-  console.log(`Tasks: ${plan.tasks.map((t) => t.type).join(' → ')}`);
+  console.log(`Tasks: ${plan.tasks.map(t => t.type).join(' → ')}`);
   console.log(`Estimated time: ${plan.estimatedTime}s`);
 }
 

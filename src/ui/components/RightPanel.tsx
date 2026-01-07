@@ -103,7 +103,7 @@ export function RightPanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
               aria-hidden="true"
             />
           )}
@@ -118,13 +118,7 @@ export function RightPanel({
               damping: 25,
               stiffness: 200,
             }}
-            className={`
-              fixed right-0 top-0 bottom-0 z-50
-              bg-[var(--surface-root)] backdrop-blur-xl
-              border-l border-[var(--surface-border)]
-              flex flex-col shadow-2xl
-              ${className}
-            `}
+            className={`fixed bottom-0 right-0 top-0 z-50 flex flex-col border-l border-[var(--surface-border)] bg-[var(--surface-root)] shadow-2xl backdrop-blur-xl ${className} `}
             style={{
               width: `${width}px`,
             }}
@@ -150,7 +144,7 @@ export function RightPanel({
                 {onClose && (
                   <button
                     onClick={onClose}
-                    className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                     aria-label="Close panel"
                   >
                     <X size={18} />

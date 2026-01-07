@@ -83,7 +83,9 @@ const withAlpha = (hex?: string, alpha = '33'): string | undefined => {
 const capitalize = (value?: string): string =>
   value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
 
-const buildNavigationTarget = (input: string): { url: string; description: string; isDirect: boolean } => {
+const buildNavigationTarget = (
+  input: string
+): { url: string; description: string; isDirect: boolean } => {
   const trimmed = input.trim();
   if (!trimmed) {
     return { url: 'about:blank', description: 'Open a blank tab', isDirect: true };
@@ -168,19 +170,13 @@ function fuzzyScore(query: string, value?: string): number {
 
   // Penalty for unmatched characters
   const unmatchedRatio = (normalizedValue.length - queryIndex) / normalizedValue.length;
-  score = Math.max(0, score - (unmatchedRatio * 5));
+  score = Math.max(0, score - unmatchedRatio * 5);
 
   return score;
 }
 
 function scorePaletteItem(query: string, item: PaletteItem, usageCount: number = 0): number {
-  const fields = [
-    item.title,
-    item.subtitle,
-    item.category,
-    item.badge,
-    ...(item.keywords ?? []),
-  ];
+  const fields = [item.title, item.subtitle, item.category, item.badge, ...(item.keywords ?? [])];
   let best = 0;
   for (const field of fields) {
     const current = fuzzyScore(query, field);
@@ -188,12 +184,12 @@ function scorePaletteItem(query: string, item: PaletteItem, usageCount: number =
       best = current;
     }
   }
-  
+
   // Boost score based on usage history
   if (usageCount > 0) {
     best += Math.min(usageCount * 2, 20); // Max 20 point boost
   }
-  
+
   return best;
 }
 
@@ -207,12 +203,14 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [openTabs, setOpenTabs] = useState<TabSnapshot[]>([]);
   const [showRecentCommands, setShowRecentCommands] = useState(false);
-  const { containers, activeContainerId, setContainers, setActiveContainer } = useContainerStore((state) => ({
-    containers: state.containers,
-    activeContainerId: state.activeContainerId,
-    setContainers: state.setContainers,
-    setActiveContainer: state.setActiveContainer,
-  }));
+  const { containers, activeContainerId, setContainers, setActiveContainer } = useContainerStore(
+    state => ({
+      containers: state.containers,
+      activeContainerId: state.activeContainerId,
+      setContainers: state.setContainers,
+      setActiveContainer: state.setActiveContainer,
+    })
+  );
   const containersRef = useRef<ContainerInfo[]>(containers);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -278,7 +276,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         });
     }
 
-    const unsubscribeList = ipcEvents.on<ContainerInfo[]>('containers:list', (payload) => {
+    const unsubscribeList = ipcEvents.on<ContainerInfo[]>('containers:list', payload => {
       if (Array.isArray(payload)) {
         setContainers(payload as ContainerInfo[]);
       }
@@ -286,13 +284,14 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
     const unsubscribeActive = ipcEvents.on<{ containerId: string; container?: ContainerInfo }>(
       'containers:active',
-      (payload) => {
+      payload => {
         if (!payload) return;
-        const next = payload.container ?? containersRef.current.find((c) => c.id === payload.containerId);
+        const next =
+          payload.container ?? containersRef.current.find(c => c.id === payload.containerId);
         if (next) {
           setActiveContainer(next);
         }
-      },
+      }
     );
 
     return () => {
@@ -316,7 +315,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     };
     void loadTabs();
 
-    const unsubscribeTabs = ipcEvents.on<any[]>('tabs:updated', (payload) => {
+    const unsubscribeTabs = ipcEvents.on<any[]>('tabs:updated', payload => {
       if (Array.isArray(payload)) {
         setOpenTabs(payload as TabSnapshot[]);
       }
@@ -374,7 +373,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       usageCounts.set(cmd.id, commandHistory.getUsageCount(cmd.id));
     }
 
-    const commandItems: PaletteItem[] = commands.map((cmd) => ({
+    const commandItems: PaletteItem[] = commands.map(cmd => ({
       id: cmd.id,
       title: cmd.title,
       subtitle: cmd.subtitle,
@@ -390,7 +389,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       meta: { usageCount: usageCounts.get(cmd.id) || 0 },
     }));
 
-    const containerItems: PaletteItem[] = containers.map((container) => ({
+    const containerItems: PaletteItem[] = containers.map(container => ({
       id: `container:${container.id}`,
       title: `Switch to ${container.name}`,
       subtitle: container.description || `${capitalize(container.scope ?? 'session')} container`,
@@ -410,7 +409,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       },
     }));
 
-    const tabItems: PaletteItem[] = openTabs.map((tab) => ({
+    const tabItems: PaletteItem[] = openTabs.map(tab => ({
       id: `tab:${tab.id}`,
       title: tab.title || tab.url || 'Untitled tab',
       subtitle: tab.url,
@@ -424,7 +423,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       },
     }));
 
-    const historyItems: PaletteItem[] = historySource.map((entry) => ({
+    const historyItems: PaletteItem[] = historySource.map(entry => ({
       id: `history:${entry.id}`,
       title: entry.title || entry.url,
       subtitle: entry.url,
@@ -440,7 +439,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
     const openInContainerItems: PaletteItem[] =
       trimmed.length > 0
-        ? containers.map((container) => {
+        ? containers.map(container => {
             const target = buildNavigationTarget(trimmed);
             return {
               id: `open:${container.id}:${trimmed}`,
@@ -473,13 +472,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
     }
 
     const scored = combined
-      .map((item) => ({
+      .map(item => ({
         item,
-        score: scorePaletteItem(
-          normalized,
-          item,
-          (item.meta?.usageCount as number) || 0
-        ),
+        score: scorePaletteItem(normalized, item, (item.meta?.usageCount as number) || 0),
       }))
       .filter(({ score }) => score > 0)
       .sort((a, b) => {
@@ -496,12 +491,21 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
       .slice(0, 30)
       .map(({ item }) => item);
     return scored;
-  }, [query, commands, containers, activeContainerId, openTabs, historySearchResults, recentHistory, setActiveContainer]);
+  }, [
+    query,
+    commands,
+    containers,
+    activeContainerId,
+    openTabs,
+    historySearchResults,
+    recentHistory,
+    setActiveContainer,
+  ]);
 
   // Recent commands when query is empty
   const recentCommands = useMemo(() => {
     if (!showRecentCommands) return [];
-    
+
     const recent = commandHistory.getRecent(10);
     const items: PaletteItem[] = [];
     for (const entry of recent) {
@@ -660,17 +664,17 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         initial={{ scale: 0.95, opacity: 0, y: -20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: -20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl mx-4 bg-gray-900/95 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+        className="relative mx-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-800/50 bg-gray-900/95 shadow-2xl backdrop-blur-xl"
       >
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800/50">
+        <div className="flex items-center gap-3 border-b border-gray-800/50 px-4 py-3">
           <Search size={20} className="text-gray-400" />
           <input
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => {
+            onChange={e => {
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
@@ -678,7 +682,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
             placeholder="Type a command or search..."
             className="flex-1 bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none"
           />
-          <kbd className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400">
+          <kbd className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-400">
             Esc
           </kbd>
         </div>
@@ -687,9 +691,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         <div className="max-h-96 overflow-y-auto">
           {displayItems.length > 0 ? (
             <div className="py-2">
-              {groupedItems.map((section) => (
+              {groupedItems.map(section => (
                 <div key={`section-${section.category}`}>
-                  <div className="px-4 pt-3 pb-1 text-[11px] uppercase tracking-wider text-gray-500">
+                  <div className="px-4 pb-1 pt-3 text-[11px] uppercase tracking-wider text-gray-500">
                     {section.category}
                   </div>
                   <div className="flex flex-col">
@@ -705,17 +709,19 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                             onClose();
                           }}
                           onMouseEnter={() => setSelectedIndex(globalIndex)}
-                          className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+                          className={`flex w-full items-center justify-between px-4 py-3 text-left transition-colors ${
                             isSelected
-                              ? 'bg-blue-600/20 border-l-2 border-blue-500'
-                              : 'hover:bg-gray-800/40 border-l-2 border-transparent'
+                              ? 'border-l-2 border-blue-500 bg-blue-600/20'
+                              : 'border-l-2 border-transparent hover:bg-gray-800/40'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex min-w-0 items-center gap-3">
                             {iconElement}
-                            <div className="flex-1 min-w-0">
+                            <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-200 truncate">{cmd.title}</span>
+                                <span className="truncate text-sm font-medium text-gray-200">
+                                  {cmd.title}
+                                </span>
                                 {cmd.badge && (
                                   <span className="rounded-full border border-gray-700 bg-gray-800/60 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
                                     {cmd.badge}
@@ -723,13 +729,11 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
                                 )}
                               </div>
                               {cmd.subtitle && (
-                                <div className="text-xs text-gray-500 truncate">
-                                  {cmd.subtitle}
-                                </div>
+                                <div className="truncate text-xs text-gray-500">{cmd.subtitle}</div>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 ml-4 shrink-0">
+                          <div className="ml-4 flex shrink-0 items-center gap-2">
                             {cmd.shortcut && (
                               <span className="flex items-center gap-1 text-[11px] text-gray-500">
                                 {cmd.shortcut.map((part, idx) => (
@@ -752,23 +756,24 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
               ))}
             </div>
           ) : (
-            <div className="py-8 text-center text-gray-500 text-sm">
+            <div className="py-8 text-center text-sm text-gray-500">
               {loading || historyLoading ? 'Searching…' : 'No commands found'}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2 border-t border-gray-800/50 flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between border-t border-gray-800/50 px-4 py-2 text-xs text-gray-500">
           <div className="flex items-center gap-4">
             <span>↑↓ Navigate</span>
             <span>↵ Select</span>
             <span>Esc Close</span>
           </div>
-          <span>{displayItems.length} {displayItems.length === 1 ? 'result' : 'results'}</span>
+          <span>
+            {displayItems.length} {displayItems.length === 1 ? 'result' : 'results'}
+          </span>
         </div>
       </motion.div>
     </motion.div>
   );
 }
-

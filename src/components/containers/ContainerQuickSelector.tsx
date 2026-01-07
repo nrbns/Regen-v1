@@ -88,7 +88,9 @@ export function ContainerQuickSelector({
         const updated = await ipc.containers.list().catch(() => []);
         const presets: ContainerInfo[] = [];
         for (const preset of PRESET_CONTAINERS) {
-          const found = updated.find((c: any) => c.name.toLowerCase() === preset.name.toLowerCase());
+          const found = updated.find(
+            (c: any) => c.name.toLowerCase() === preset.name.toLowerCase()
+          );
           if (found && found.scope) {
             presets.push(found as ContainerInfo);
           }

@@ -55,28 +55,28 @@ export class AuditLogger {
    * Query logs by user
    */
   async queryByUser(userId: string): Promise<AuditLogEntry[]> {
-    return auditStore.filter((entry) => entry.userId === userId);
+    return auditStore.filter(entry => entry.userId === userId);
   }
 
   /**
    * Query logs by plan
    */
   async queryByPlan(planId: string): Promise<AuditLogEntry[]> {
-    return auditStore.filter((entry) => entry.planId === planId);
+    return auditStore.filter(entry => entry.planId === planId);
   }
 
   /**
    * Query logs by action
    */
   async queryByAction(action: string): Promise<AuditLogEntry[]> {
-    return auditStore.filter((entry) => entry.action === action);
+    return auditStore.filter(entry => entry.action === action);
   }
 
   /**
    * Query logs in date range
    */
   async queryByDateRange(startDate: Date, endDate: Date): Promise<AuditLogEntry[]> {
-    return auditStore.filter((entry) => {
+    return auditStore.filter(entry => {
       const ts = new Date(entry.timestamp);
       return ts >= startDate && ts <= endDate;
     });
@@ -110,7 +110,7 @@ export class AuditLogger {
       'Error',
     ];
 
-    const rows = entries.map((entry) => [
+    const rows = entries.map(entry => [
       entry.id || '',
       new Date(entry.timestamp).toISOString(),
       entry.userId,
@@ -124,7 +124,7 @@ export class AuditLogger {
 
     const csv = [
       headers.join(','),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
     ].join('\n');
 
     return csv;
@@ -144,9 +144,9 @@ export class AuditLogger {
 
     return {
       totalActions: userLogs.length,
-      successCount: userLogs.filter((l) => l.status === 'completed').length,
-      failureCount: userLogs.filter((l) => l.status === 'failed').length,
-      rejectionCount: userLogs.filter((l) => l.status === 'rejected').length,
+      successCount: userLogs.filter(l => l.status === 'completed').length,
+      failureCount: userLogs.filter(l => l.status === 'failed').length,
+      rejectionCount: userLogs.filter(l => l.status === 'rejected').length,
       lastAction: userLogs.length > 0 ? new Date(userLogs[userLogs.length - 1].timestamp) : null,
     };
   }

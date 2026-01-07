@@ -25,14 +25,14 @@ class SimpleCache {
     this.cache = new Map();
     this.defaultTTL = (options.ttl || 3600) * 1000; // Convert to milliseconds
     this.maxSize = options.maxSize || 1000;
-    
+
     // Clean expired entries every 5 minutes
     setInterval(() => this.cleanExpired(), 5 * 60 * 1000);
   }
 
   get<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return undefined;
     }
@@ -74,7 +74,7 @@ class SimpleCache {
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
@@ -146,7 +146,11 @@ export const contentCache = createCache({ ttl: 21600, maxSize: 1000 });
 /**
  * Generate cache key for search query
  */
-export function getSearchCacheKey(query: string, lang?: string, options?: Record<string, any>): string {
+export function getSearchCacheKey(
+  query: string,
+  lang?: string,
+  options?: Record<string, any>
+): string {
   const normalized = query.trim().toLowerCase();
   const optStr = options ? JSON.stringify(options) : '';
   return `search:${normalized}:${lang || 'auto'}:${optStr}`;
@@ -174,4 +178,3 @@ export function getContentCacheKey(url: string): string {
  * Default cache instance (for backward compatibility)
  */
 export const cache = searchCache;
-

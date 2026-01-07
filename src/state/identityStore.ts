@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { ipc } from '../lib/ipc-typed';
-import type { IdentityCredential, IdentityRevealPayload, IdentityVaultSummary } from '../types/identity';
+import type {
+  IdentityCredential,
+  IdentityRevealPayload,
+  IdentityVaultSummary,
+} from '../types/identity';
 
 interface IdentityState {
   status: IdentityVaultSummary | null;
@@ -11,7 +15,13 @@ interface IdentityState {
   unlock: (passphrase: string) => Promise<void>;
   lock: () => Promise<void>;
   refresh: () => Promise<void>;
-  addCredential: (payload: { domain: string; username: string; secret: string; secretHint?: string | null; tags?: string[] }) => Promise<void>;
+  addCredential: (payload: {
+    domain: string;
+    username: string;
+    secret: string;
+    secretHint?: string | null;
+    tags?: string[];
+  }) => Promise<void>;
   removeCredential: (id: string) => Promise<void>;
   revealCredential: (id: string) => Promise<IdentityRevealPayload | null>;
   setError: (message: string | null) => void;
@@ -116,4 +126,3 @@ export const useIdentityStore = create<IdentityState>((set, get) => ({
     set({ error: message });
   },
 }));
-

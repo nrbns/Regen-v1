@@ -39,24 +39,24 @@ export class GmailConnector {
    * Get OAuth authorization URL
    */
   getAuthUrl(_userId: string): string {
-     return this.oauth2Client.generateAuthUrl({
+    return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
-     });
+    });
   }
 
   /**
    * Exchange auth code for tokens
    */
   async setCredentialsFromCode(userId: string, _code: string): Promise<GmailToken> {
-      const { tokens } = await this.oauth2Client.getToken(_code);
-      const gmailToken: GmailToken = {
-        accessToken: tokens.access_token!,
-        refreshToken: tokens.refresh_token || '',
-        expiresAt: tokens.expiry_date || Date.now() + 3600000,
-        scope: tokens.scope || SCOPES.join(' '),
-      };
+    const { tokens } = await this.oauth2Client.getToken(_code);
+    const gmailToken: GmailToken = {
+      accessToken: tokens.access_token!,
+      refreshToken: tokens.refresh_token || '',
+      expiresAt: tokens.expiry_date || Date.now() + 3600000,
+      scope: tokens.scope || SCOPES.join(' '),
+    };
 
     this.tokenStore.set(userId, gmailToken);
     this.saveTokensToDisk();
@@ -83,7 +83,7 @@ export class GmailConnector {
       expiry_date: token.expiresAt,
     });
 
-      this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
+    this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
     return true;
   }
 
@@ -196,9 +196,8 @@ export class GmailConnector {
         date: firstMsg.date,
         snippet: gmailThread.snippet || '',
         fullText,
-        isUnread: gmailThread.messages?.some((m: GmailMessage) =>
-          m.labelIds?.includes('UNREAD')
-        ) || false,
+        isUnread:
+          gmailThread.messages?.some((m: GmailMessage) => m.labelIds?.includes('UNREAD')) || false,
       };
     } catch (error) {
       console.error(`[GmailConnector] Failed to get thread details: ${error}`);
@@ -209,7 +208,12 @@ export class GmailConnector {
   /**
    * Send a reply to a thread
    */
-  async sendReply(userId: string, threadId: string, body: string, subject?: string): Promise<boolean> {
+  async sendReply(
+    userId: string,
+    threadId: string,
+    body: string,
+    subject?: string
+  ): Promise<boolean> {
     try {
       await this.setCredentials(userId, this.tokenStore.get(userId)!);
 

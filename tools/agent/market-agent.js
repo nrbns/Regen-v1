@@ -13,8 +13,8 @@ const UPDATE_CHANNEL_PREFIX = 'market.updates';
 
 // Mock market data (replace with real exchange API)
 const mockPrices = {
-  'BTCUSDT': { price: 45000, change: 2.5, volume: 1000000 },
-  'ETHUSDT': { price: 2800, change: -1.2, volume: 500000 },
+  BTCUSDT: { price: 45000, change: 2.5, volume: 1000000 },
+  ETHUSDT: { price: 2800, change: -1.2, volume: 500000 },
   'NSE:NIFTY': { price: 25000, change: 0.8, volume: 2000000 },
   'SP:SPX': { price: 4500, change: 0.5, volume: 5000000 },
 };
@@ -37,13 +37,15 @@ function connect() {
   ws.on('open', () => {
     console.log('[MarketAgent] Connected to bus');
 
-    ws.send(JSON.stringify({
-      type: 'subscribe',
-      channel: REQUEST_CHANNEL,
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'subscribe',
+        channel: REQUEST_CHANNEL,
+      })
+    );
   });
 
-  ws.on('message', (data) => {
+  ws.on('message', data => {
     try {
       const message = JSON.parse(data.toString());
       handleMessage(message);
@@ -52,14 +54,14 @@ function connect() {
     }
   });
 
-  ws.on('error', (error) => {
+  ws.on('error', error => {
     console.error('[MarketAgent] WebSocket error:', error);
   });
 
   ws.on('close', () => {
     console.log('[MarketAgent] Disconnected, reconnecting...');
     // Stop all subscriptions
-    activeSubscriptions.forEach((interval) => clearInterval(interval));
+    activeSubscriptions.forEach(interval => clearInterval(interval));
     activeSubscriptions.clear();
     setTimeout(() => connect(), 3000);
   });
@@ -138,7 +140,7 @@ function unsubscribeFromSymbol(symbol, subscriptionId) {
  */
 function generatePriceUpdate(symbol) {
   const base = mockPrices[symbol] || { price: 100, change: 0, volume: 0 };
-  
+
   // Simulate price movement
   const change = (Math.random() - 0.5) * 0.1; // ±0.05%
   const newPrice = base.price * (1 + change);
@@ -163,11 +165,13 @@ function publishUpdate(symbol, update) {
   }
 
   const channel = `${UPDATE_CHANNEL_PREFIX}.${symbol}`;
-  ws.send(JSON.stringify({
-    type: 'publish',
-    channel,
-    data: update,
-  }));
+  ws.send(
+    JSON.stringify({
+      type: 'publish',
+      channel,
+      data: update,
+    })
+  );
 }
 
 /**
@@ -183,10 +187,9 @@ connect();
 // Cleanup on exit
 process.on('SIGTERM', () => {
   console.log('[MarketAgent] Shutting down...');
-  activeSubscriptions.forEach((interval) => clearInterval(interval));
+  activeSubscriptions.forEach(interval => clearInterval(interval));
   if (ws) {
     ws.close();
   }
   process.exit(0);
 });
-

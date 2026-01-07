@@ -11,7 +11,7 @@ export class LightningMode {
   static init() {
     // Load blocklists
     this.loadBlocklists();
-    
+
     // Common trackers
     const commonTrackers = [
       'google-analytics.com',
@@ -120,7 +120,7 @@ export class LightningMode {
 
   static shouldBlock(url: string): boolean {
     if (!this.enabled) return false;
-    
+
     try {
       const domain = new URL(url).hostname;
       return Array.from(this.blockedDomains).some(blocked => domain.includes(blocked));
@@ -138,4 +138,3 @@ export class LightningMode {
 
 // Auto-init
 LightningMode.init();
-

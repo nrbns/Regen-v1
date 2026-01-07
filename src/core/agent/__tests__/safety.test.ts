@@ -21,7 +21,11 @@ describe('Agent safety', () => {
   });
 
   it('allows low-risk tools without consent', async () => {
-    const decision = await evaluateSafety('summarize_text', { text: 'hello' }, { requireConsent: true });
+    const decision = await evaluateSafety(
+      'summarize_text',
+      { text: 'hello' },
+      { requireConsent: true }
+    );
     expect(decision.allowed).toBe(true);
     expect(decision.consentRequired).toBe(false);
   });
@@ -38,7 +42,11 @@ describe('Agent safety', () => {
 
   it('requests consent for medium/high risk and respects denial', async () => {
     (ipcMock.ipc.consent.check as any).mockResolvedValue({ hasConsent: false });
-    const decision = await evaluateSafety('manage_tabs', { action: 'close' }, { requireConsent: true });
+    const decision = await evaluateSafety(
+      'manage_tabs',
+      { action: 'close' },
+      { requireConsent: true }
+    );
     expect(ipcMock.ipc.consent.check).toHaveBeenCalled();
     expect(decision.allowed).toBe(false);
     expect(decision.consentRequired).toBe(true);

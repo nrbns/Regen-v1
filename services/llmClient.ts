@@ -78,10 +78,7 @@ export function getCachedLLMClient(): CachedClient {
             choices: [
               {
                 message: {
-                  content:
-                    response.content[0].type === 'text'
-                      ? response.content[0].text
-                      : '',
+                  content: response.content[0].type === 'text' ? response.content[0].text : '',
                 },
               },
             ],

@@ -38,18 +38,13 @@ let currentEndpointIndex = 0;
  * Get LLM instance (online or offline)
  */
 export async function getLLM(options = {}) {
-  const {
-    model = null,
-    temperature = 0.7,
-    maxTokens = 2000,
-    stream: _stream = false,
-  } = options;
+  const { model = null, temperature = 0.7, maxTokens = 2000, stream: _stream = false } = options;
 
   if (isOffline()) {
     // Offline: Use Ollama
     const capabilities = await detectSystemCapabilities();
-    const recommendedModel = model || await getRecommendedModel(capabilities);
-    
+    const recommendedModel = model || (await getRecommendedModel(capabilities));
+
     return {
       type: 'ollama',
       model: recommendedModel,
@@ -111,16 +106,14 @@ async function callCloudLLM(endpoint, prompt, options = {}) {
       `${endpoint.url}/chat/completions`,
       {
         model: options.model,
-        messages: [
-          { role: 'user', content: prompt },
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: options.temperature,
         max_tokens: options.maxTokens,
         stream: false,
       },
       {
         headers: {
-          'Authorization': `Bearer ${endpoint.apiKey}`,
+          Authorization: `Bearer ${endpoint.apiKey}`,
           'Content-Type': 'application/json',
         },
         timeout: 30000,
@@ -135,7 +128,8 @@ async function callCloudLLM(endpoint, prompt, options = {}) {
   } catch (error) {
     // Fallback to next endpoint
     console.warn(`[LLMProvider] ${endpoint.name} failed, trying next...`);
-    const nextEndpoint = FREE_ENDPOINTS[(FREE_ENDPOINTS.indexOf(endpoint) + 1) % FREE_ENDPOINTS.length];
+    const nextEndpoint =
+      FREE_ENDPOINTS[(FREE_ENDPOINTS.indexOf(endpoint) + 1) % FREE_ENDPOINTS.length];
     if (nextEndpoint !== endpoint) {
       return await callCloudLLM(nextEndpoint, prompt, options);
     }
@@ -152,16 +146,14 @@ async function* streamCloudLLM(endpoint, prompt, options = {}) {
       `${endpoint.url}/chat/completions`,
       {
         model: options.model,
-        messages: [
-          { role: 'user', content: prompt },
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: options.temperature,
         max_tokens: options.maxTokens,
         stream: true,
       },
       {
         headers: {
-          'Authorization': `Bearer ${endpoint.apiKey}`,
+          Authorization: `Bearer ${endpoint.apiKey}`,
           'Content-Type': 'application/json',
         },
         responseType: 'stream',
@@ -194,7 +186,8 @@ async function* streamCloudLLM(endpoint, prompt, options = {}) {
   } catch (error) {
     // Fallback to next endpoint
     console.warn(`[LLMProvider] ${endpoint.name} streaming failed, trying next...`);
-    const nextEndpoint = FREE_ENDPOINTS[(FREE_ENDPOINTS.indexOf(endpoint) + 1) % FREE_ENDPOINTS.length];
+    const nextEndpoint =
+      FREE_ENDPOINTS[(FREE_ENDPOINTS.indexOf(endpoint) + 1) % FREE_ENDPOINTS.length];
     if (nextEndpoint !== endpoint) {
       yield* streamCloudLLM(nextEndpoint, prompt, options);
     } else {
@@ -202,8 +195,3 @@ async function* streamCloudLLM(endpoint, prompt, options = {}) {
     }
   }
 }
-
-
-
-
-

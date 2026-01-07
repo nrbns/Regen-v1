@@ -170,7 +170,9 @@ export const useBatchStore = create<BatchState>((set, get) => ({
           const progress = Math.round((completed / updatedTasks.length) * 100) || 0;
 
           // Check if all done
-          const allDone = updatedTasks.every(t => t.status === 'completed' || t.status === 'failed');
+          const allDone = updatedTasks.every(
+            t => t.status === 'completed' || t.status === 'failed'
+          );
           const now = Date.now();
 
           return {

@@ -6,13 +6,17 @@
 .animate-slide-in {
   transform: translateX(0);
   opacity: 1;
-  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
 }
 
 .animate-slide-out {
   transform: translateX(-100%);
   opacity: 0;
-  transition: transform 0.2s ease-in, opacity 0.2s ease-in;
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease-in;
 }
 
 /* Prefer CSS animations over JS */
@@ -103,7 +107,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -173,4 +178,3 @@ img {
   width: 100%;
   height: 100%;
 }
-

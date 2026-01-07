@@ -30,22 +30,22 @@ export class PPTAgentHandler {
     switch (action) {
       case 'gather_content':
         return await this.gatherContent(parameters);
-      
+
       case 'generate_outline':
         return await this.generateOutline(parameters);
-      
+
       case 'create_slides':
         return await this.createSlides(parameters);
-      
+
       case 'create_presentation':
         return await this.createFullPresentation(parameters);
-      
+
       case 'add_slide':
         return await this.addSlide(parameters);
-      
+
       case 'format_presentation':
         return await this.formatPresentation(parameters);
-      
+
       default:
         throw new Error(`Unknown PPT action: ${action}`);
     }
@@ -81,13 +81,10 @@ export class PPTAgentHandler {
   private async generateOutline(params: any) {
     const { topic, content: _content, slideCount = 10 } = params;
 
-    const outline = await this.outlineGenerator.generateOutline(
-      topic || 'Presentation Topic',
-      {
-        slideCount: slideCount,
-        theme: params.style || 'professional',
-      }
-    );
+    const outline = await this.outlineGenerator.generateOutline(topic || 'Presentation Topic', {
+      slideCount: slideCount,
+      theme: params.style || 'professional',
+    });
 
     return {
       success: true,
@@ -136,8 +133,8 @@ export class PPTAgentHandler {
     const content = await this.gatherContent({ topic });
 
     // Step 2: Generate outline
-    const outlineResult = await this.generateOutline({ 
-      topic, 
+    const outlineResult = await this.generateOutline({
+      topic,
       content: content.content,
       slideCount,
       style,

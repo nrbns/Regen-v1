@@ -42,7 +42,7 @@ const executionListeners: Set<(execution: AutomationExecution | null) => void> =
  */
 export async function executeAutomation(playbook: AutomationPlaybook): Promise<string> {
   const executionId = `auto-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  
+
   currentExecution = {
     id: executionId,
     playbookId: playbook.id || executionId,
@@ -179,4 +179,3 @@ function notifyListeners(): void {
     }
   });
 }
-

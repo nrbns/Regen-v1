@@ -135,26 +135,26 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
   const handleTemplateSubmit = async (goal: string, safety: any) => {
     setQuery(goal);
     setLoading(true);
-    
+
     try {
       const runId = `agent-run-${Date.now()}`;
       const result = await executeAgentGoal(goal, {
         runId,
         safety,
       });
-      
+
       if (result && typeof result === 'object' && 'audit' in result) {
         recordAgentAudit(runId, (result as any).audit || []);
         setAuditRunId(runId);
         setAuditModalOpen(true);
       }
-      
+
       onResult?.({
         type: 'complex_plan',
         content: formatComplexResult(result),
         sources: [],
       });
-      
+
       toast.success('Template research completed!');
     } catch (error) {
       console.error('Template research error', error);
@@ -167,12 +167,12 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
   const handleWorkflowExecute = async (steps: WorkflowStep[], templateId: string) => {
     try {
       const jobId = createJob(`Workflow: ${templateId}`);
-      
+
       // Convert workflow steps to batch tasks
-      steps.forEach((step) => {
+      steps.forEach(step => {
         addTaskToJob(jobId, step.content);
       });
-      
+
       setBatchProcessorOpen(true);
       toast.success(`Workflow "${templateId}" added to batch processor`);
     } catch (error) {
@@ -191,7 +191,7 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
           onClose={() => setAuditModalOpen(false)}
         />
       )}
-      
+
       {templateSelectorOpen && (
         <AgentTemplateSelector
           onSubmit={handleTemplateSubmit}
@@ -287,7 +287,7 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
             <span className="text-xs">Batch</span>
           </button>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 text-xs text-gray-400">
+        <div className="grid gap-3 text-xs text-gray-400 sm:grid-cols-2">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -322,7 +322,11 @@ export function OmniAgentInput({ currentUrl, onResult }: OmniAgentInputProps) {
   );
 }
 
-function buildSafetyContext(currentUrl?: string, allowedDomainsInput?: string, requireConsent = true) {
+function buildSafetyContext(
+  currentUrl?: string,
+  allowedDomainsInput?: string,
+  requireConsent = true
+) {
   const allowedDomains = allowedDomainsInput
     ?.split(',')
     .map(d => d.trim())

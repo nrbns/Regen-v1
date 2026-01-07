@@ -10,7 +10,7 @@
 ✅ **Auto Image Search** — Finds relevant images for visual slides  
 ✅ **Speaker Notes** — Generates talking points for each slide  
 ✅ **Chart Support** — Data visualization capabilities  
-✅ **Batch Generation** — Process multiple presentations  
+✅ **Batch Generation** — Process multiple presentations
 
 ## 📁 Structure
 
@@ -101,12 +101,12 @@ const presentation = await connector.createPresentation('My Presentation');
 
 ## 🎨 Themes
 
-| Theme | Description | Use Case |
-|-------|-------------|----------|
-| **Professional** | Clean, corporate look | Business presentations |
-| **Creative** | Vibrant, modern | Product launches, marketing |
-| **Minimal** | Simple, elegant | Technical talks, research |
-| **Dark** | Dark background | Developer presentations |
+| Theme            | Description           | Use Case                    |
+| ---------------- | --------------------- | --------------------------- |
+| **Professional** | Clean, corporate look | Business presentations      |
+| **Creative**     | Vibrant, modern       | Product launches, marketing |
+| **Minimal**      | Simple, elegant       | Technical talks, research   |
+| **Dark**         | Dark background       | Developer presentations     |
 
 ## 📊 Slide Types
 

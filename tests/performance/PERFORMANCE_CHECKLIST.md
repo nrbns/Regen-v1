@@ -10,6 +10,7 @@
 ### Quick Wins (Sprint 0)
 
 #### Initial Load Performance
+
 - [ ] **Time to Interactive (TTI)**: < 3s
   - ✅ Target: 3s on low-end device (4GB RAM, 3G network)
   - ❌ Fail: > 5s
@@ -35,6 +36,7 @@
   - **Script**: `npm run perf:css-size`
 
 #### Runtime Performance
+
 - [ ] **Memory per Tab**: < 100MB average
   - ✅ Target: 100MB
   - ❌ Fail: > 150MB
@@ -58,6 +60,7 @@
 ### Medium Term (Sprint 1-2)
 
 #### Tab Management Performance
+
 - [ ] **Tab Resume Time**: < 1s
   - ✅ Target: 1s
   - ❌ Fail: > 2s
@@ -77,6 +80,7 @@
   - **Script**: `npm run perf:tab-suspend`
 
 #### Network Performance
+
 - [ ] **Blocked Requests per Page**: > 30%
   - ✅ Target: 30% (ad/tracker blocking)
   - ❌ Fail: < 20%
@@ -94,6 +98,7 @@
 ### Long-Term (Sprint 3+)
 
 #### AI Features Performance
+
 - [ ] **Summarizer Response Time**: < 2s
   - ✅ Target: 2s
   - ❌ Fail: > 5s
@@ -107,6 +112,7 @@
   - **Script**: `npm run perf:reading-mode`
 
 #### User Engagement
+
 - [ ] **7-Day Retention**: > 60%
   - ✅ Target: 60%
   - ❌ Fail: < 40%
@@ -166,22 +172,22 @@ module.exports = {
         throttling: {
           rttMs: 150,
           throughputKbps: 1638.4, // 3G
-          cpuSlowdownMultiplier: 4
-        }
-      }
+          cpuSlowdownMultiplier: 4,
+        },
+      },
     },
     assert: {
       assertions: {
         'categories:performance': ['error', { minScore: 0.8 }],
         'first-contentful-paint': ['error', { maxNumericValue: 1500 }],
-        'interactive': ['error', { maxNumericValue: 3000 }],
-        'total-byte-weight': ['error', { maxNumericValue: 500000 }] // 500KB
-      }
+        interactive: ['error', { maxNumericValue: 3000 }],
+        'total-byte-weight': ['error', { maxNumericValue: 500000 }], // 500KB
+      },
     },
     upload: {
-      target: 'temporary-public-storage'
-    }
-  }
+      target: 'temporary-public-storage',
+    },
+  },
 };
 ```
 
@@ -206,7 +212,8 @@ function getBundleSize(filePath) {
 }
 
 function checkBundleSize() {
-  const jsFiles = fs.readdirSync(DIST_DIR)
+  const jsFiles = fs
+    .readdirSync(DIST_DIR)
     .filter(file => file.endsWith('.js'))
     .map(file => path.join(DIST_DIR, file));
 
@@ -222,7 +229,7 @@ function checkBundleSize() {
 
   console.log('\n📦 Bundle Size Report:');
   console.log('=====================\n');
-  
+
   Object.entries(sizes).forEach(([file, size]) => {
     const sizeKB = (size / 1024).toFixed(2);
     const status = size > MAX_SIZE ? '❌' : '✅';
@@ -274,10 +281,12 @@ async function measureMemoryPerTab() {
   const memoryMetrics = [];
   for (const tab of tabs) {
     const metrics = await tab.evaluate(() => {
-      return performance.memory ? {
-        usedJSHeapSize: performance.memory.usedJSHeapSize,
-        totalJSHeapSize: performance.memory.totalJSHeapSize
-      } : null;
+      return performance.memory
+        ? {
+            usedJSHeapSize: performance.memory.usedJSHeapSize,
+            totalJSHeapSize: performance.memory.totalJSHeapSize,
+          }
+        : null;
     });
     if (metrics) {
       memoryMetrics.push(metrics.usedJSHeapSize);
@@ -332,15 +341,17 @@ async function measureJank() {
     function measureFrame() {
       const now = Date.now();
       const delta = now - lastFrameTime;
-      
-      if (delta > 20) { // Frame should be ~16.67ms (60fps)
+
+      if (delta > 20) {
+        // Frame should be ~16.67ms (60fps)
         droppedFrames++;
       }
-      
+
       frameCount++;
       lastFrameTime = now;
 
-      if (frameCount < 300) { // Measure for 5 seconds (300 frames)
+      if (frameCount < 300) {
+        // Measure for 5 seconds (300 frames)
         requestAnimationFrame(measureFrame);
       } else {
         return { frameCount, droppedFrames };
@@ -401,27 +412,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build
         run: npm run build
-      
+
       - name: Start server
         run: npm run preview &
-      
+
       - name: Wait for server
         run: npx wait-on http://localhost:4173
-      
+
       - name: Run performance tests
         run: npm run perf:all
-      
+
       - name: Run Lighthouse CI
         run: npm run perf:ci
         env:
@@ -442,6 +453,7 @@ jobs:
 6. **Jank Rate**
 
 ### Tools
+
 - **Lighthouse CI**: Automated performance testing
 - **Chrome DevTools**: Manual profiling
 - **Bundle Analyzer**: Bundle size visualization
@@ -463,4 +475,3 @@ Before deploying to production, ensure:
 
 **Last Updated**: December 2025  
 **Next Review**: After Sprint 0 completion
-

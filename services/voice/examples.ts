@@ -21,7 +21,7 @@ export async function example1_SimpleVoiceCommand() {
     await audioProcessor.startRecording();
 
     // Simulate speaking (in real app: user speaks for 3 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Stop recording
     const audioBlob = await audioProcessor.stopRecording();
@@ -48,7 +48,7 @@ export async function example2_StreamingTranscription() {
     chunkDurationMs: 500,
     language: 'en-US',
     includePartial: true,
-    onChunk: (chunk) => {
+    onChunk: chunk => {
       if (chunk.isFinal) {
         console.log(`  ✓ Final: "${chunk.partial}"`);
       } else {
@@ -56,7 +56,7 @@ export async function example2_StreamingTranscription() {
         console.log(`  → Partial: "${chunk.partial}"`);
       }
     },
-    onError: (error) => {
+    onError: error => {
       console.error('  ✗ Error:', error);
     },
   });
@@ -66,7 +66,7 @@ export async function example2_StreamingTranscription() {
     await transcriber.start();
 
     // Simulate speaking (3 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Stop and get final result
     const fullText = await transcriber.stop();
@@ -125,7 +125,7 @@ export async function example4_VoiceAgentSingleCommand() {
 
     // Simulate listening (2 seconds)
     await voiceAgent.startListening();
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const result = await voiceAgent.stopListening();
 
@@ -170,7 +170,7 @@ export async function example5_VoiceAgentMultipleCommands() {
 
       // Simulate voice command
       await voiceAgent.startListening();
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const result = await voiceAgent.stopListening();
 
@@ -193,7 +193,7 @@ export async function example6_VoiceWithFeedback() {
     chunkDurationMs: 300,
     language: 'en-US',
     includePartial: true,
-    onChunk: async (chunk) => {
+    onChunk: async chunk => {
       if (!chunk.isFinal) {
         console.log(`  🗣️  "${chunk.partial}"`);
       } else {
@@ -210,7 +210,7 @@ export async function example6_VoiceWithFeedback() {
         }
       }
     },
-    onError: (error) => {
+    onError: error => {
       console.error(`  ✗ Error: ${error}`);
     },
   });
@@ -220,7 +220,7 @@ export async function example6_VoiceWithFeedback() {
     await transcriber.start();
 
     // Simulate speaking (3 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     const fullText = await transcriber.stop();
     console.log(`\n  Final: "${fullText}"`);
@@ -247,7 +247,7 @@ export async function example7_VoiceAgentWithApproval() {
     console.log('  ► Listening...');
 
     await voiceAgent.startListening();
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     console.log('  ► Processing...');
     const result = await voiceAgent.stopListening();
@@ -261,7 +261,7 @@ export async function example7_VoiceAgentWithApproval() {
         console.log('  (In real app: user speaks "yes" or "no")');
 
         // Simulate approval
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
   } catch (error) {

@@ -4,7 +4,11 @@
 
 import { useMemo, useState } from 'react';
 import { ExternalLink, FileText, Download } from 'lucide-react';
-import type { ResearchInlineEvidence, ResearchCitation, ResearchSource } from '../../types/research';
+import type {
+  ResearchInlineEvidence,
+  ResearchCitation,
+  ResearchSource,
+} from '../../types/research';
 import { motion } from 'framer-motion';
 import { ipc } from '../../lib/ipc-typed';
 
@@ -70,7 +74,7 @@ export function AnswerWithCitations({
     // Sort inline evidence by position
     const sortedEvidence = [...inlineEvidence].sort((a, b) => a.from - b.from);
 
-    sortedEvidence.forEach((evidence) => {
+    sortedEvidence.forEach(evidence => {
       if (evidence.from > lastPos) {
         parts.push({ text: summary.slice(lastPos, evidence.from) });
       }
@@ -109,7 +113,16 @@ export function AnswerWithCitations({
       }
       return <span key={`text-${idx}`}>{part.text}</span>;
     });
-  }, [summary, citations, inlineEvidence, sources, activeSourceId, hoveredCitation, onActivate, onOpenSource]);
+  }, [
+    summary,
+    citations,
+    inlineEvidence,
+    sources,
+    activeSourceId,
+    hoveredCitation,
+    onActivate,
+    onOpenSource,
+  ]);
 
   const handleExport = async (format: 'markdown' | 'pdf') => {
     setExporting(format);
@@ -178,17 +191,15 @@ export function AnswerWithCitations({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm leading-relaxed text-gray-200 whitespace-pre-wrap">
-          {renderedText}
-        </p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">{renderedText}</p>
         {onExport && (
-          <div className="flex items-center gap-2 ml-4">
+          <div className="ml-4 flex items-center gap-2">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handleExport('markdown')}
               disabled={exporting !== null}
-              className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
+              className="rounded-lg border border-white/10 bg-white/5 p-2 transition-colors hover:bg-white/10 disabled:opacity-50"
               title="Export as Markdown"
             >
               <FileText size={16} className={exporting === 'markdown' ? 'animate-pulse' : ''} />
@@ -198,7 +209,7 @@ export function AnswerWithCitations({
               whileTap={{ scale: 0.95 }}
               onClick={() => handleExport('pdf')}
               disabled={exporting !== null}
-              className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
+              className="rounded-lg border border-white/10 bg-white/5 p-2 transition-colors hover:bg-white/10 disabled:opacity-50"
               title="Export as PDF"
             >
               <Download size={16} className={exporting === 'pdf' ? 'animate-pulse' : ''} />
@@ -233,16 +244,16 @@ function CitationMarker({
 }: CitationMarkerProps) {
   return (
     <motion.sup
-      className={`inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold cursor-pointer transition-all ${
+      className={`mx-0.5 inline-flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-all ${
         isActive
-          ? 'bg-blue-500/30 text-blue-200 border border-blue-400/50'
+          ? 'border border-blue-400/50 bg-blue-500/30 text-blue-200'
           : isHovered
-          ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30'
-          : 'bg-white/10 text-gray-300 border border-white/10 hover:bg-white/15'
+            ? 'border border-blue-400/30 bg-blue-500/20 text-blue-300'
+            : 'border border-white/10 bg-white/10 text-gray-300 hover:bg-white/15'
       }`}
       onMouseEnter={() => onHover(index)}
       onMouseLeave={() => onHover(null)}
-      onClick={(e) => {
+      onClick={e => {
         e.preventDefault();
         e.stopPropagation();
         onActivate(sourceKey);
@@ -254,11 +265,7 @@ function CitationMarker({
       whileTap={{ scale: 0.95 }}
       title={source ? `${source.title} - ${source.domain}` : `Citation ${index}`}
     >
-      [{index}]
-      {isHovered && source && (
-        <ExternalLink size={10} className="opacity-70" />
-      )}
+      [{index}]{isHovered && source && <ExternalLink size={10} className="opacity-70" />}
     </motion.sup>
   );
 }
-

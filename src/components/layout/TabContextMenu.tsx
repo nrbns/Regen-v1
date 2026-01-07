@@ -263,23 +263,23 @@ export function TabContextMenu({
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.15 }}
-        className="fixed z-50 bg-surface-elevated text-foreground border border-subtle rounded-lg shadow-elevated py-1 min-w-[200px]"
+        className="bg-surface-elevated text-foreground border-subtle shadow-elevated fixed z-50 min-w-[200px] rounded-lg border py-1"
         style={{
           left: `${position.x}px`,
           top: `${position.y}px`,
         }}
       >
         {isSleeping && (
-          <div className="px-3 py-2 text-xs text-amber-500 bg-amber-500/10 border-b border-subtle flex items-center gap-2">
+          <div className="border-subtle flex items-center gap-2 border-b bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             <MoonStar size={14} />
             <span>Tab is hibernating</span>
           </div>
         )}
 
         {(containerId || containerName) && (
-          <div className="px-3 py-2 text-xs text-muted border-b border-subtle flex items-center gap-2">
+          <div className="text-muted border-subtle flex items-center gap-2 border-b px-3 py-2 text-xs">
             <div
-              className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
+              className="h-2.5 w-2.5 rounded-full border border-gray-500/30"
               style={{ backgroundColor: containerColor || '#6366f1' }}
             />
             <span>
@@ -295,7 +295,7 @@ export function TabContextMenu({
               key={idx}
               whileHover={item.disabled ? undefined : { scale: 1.01 }}
               onClick={item.action}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+              className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors ${
                 item.danger
                   ? 'text-red-500 hover:bg-red-500/10'
                   : item.disabled
@@ -314,8 +314,8 @@ export function TabContextMenu({
         })}
 
         {openTargets.length > 0 && (
-          <div className="mt-1 border-t border-subtle pt-1.5">
-            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-muted flex items-center gap-2">
+          <div className="border-subtle mt-1 border-t pt-1.5">
+            <div className="text-muted flex items-center gap-2 px-3 py-1 text-[11px] uppercase tracking-wide">
               <Boxes size={12} />
               Open copy in container
             </div>
@@ -325,10 +325,10 @@ export function TabContextMenu({
                   key={`open-${container.id}`}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => handleDuplicate(container.id, true)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                  className="text-foreground hover:bg-[color:var(--surface-muted)]/45 flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors"
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
+                    className="h-2.5 w-2.5 rounded-full border border-gray-500/30"
                     style={{ backgroundColor: container.color || '#6366f1' }}
                   />
                   <span className="truncate">{container.name}</span>
@@ -339,8 +339,8 @@ export function TabContextMenu({
         )}
 
         {moveTargets.length > 0 && (
-          <div className="mt-1 border-t border-subtle pt-1.5">
-            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-muted flex items-center gap-2">
+          <div className="border-subtle mt-1 border-t pt-1.5">
+            <div className="text-muted flex items-center gap-2 px-3 py-1 text-[11px] uppercase tracking-wide">
               <Boxes size={12} />
               Move to container
             </div>
@@ -350,10 +350,10 @@ export function TabContextMenu({
                   key={container.id}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => handleMoveToContainer(container.id)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                  className="text-foreground hover:bg-[color:var(--surface-muted)]/45 flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors"
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
+                    className="h-2.5 w-2.5 rounded-full border border-gray-500/30"
                     style={{ backgroundColor: container.color || '#6366f1' }}
                   />
                   <span className="truncate">{container.name}</span>
@@ -363,8 +363,8 @@ export function TabContextMenu({
           </div>
         )}
         {tabGroups.length > 0 && (
-          <div className="mt-1 border-t border-subtle pt-1.5">
-            <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-muted flex items-center gap-2">
+          <div className="border-subtle mt-1 border-t pt-1.5">
+            <div className="text-muted flex items-center gap-2 px-3 py-1 text-[11px] uppercase tracking-wide">
               <Layers size={12} />
               Tab group
             </div>
@@ -374,13 +374,13 @@ export function TabContextMenu({
                   key={group.id}
                   whileHover={{ scale: 1.01 }}
                   onClick={() => handleAssignGroup(group.id)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                  className="text-foreground hover:bg-[color:var(--surface-muted)]/45 flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors"
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full border border-gray-500/30"
+                    className="h-2.5 w-2.5 rounded-full border border-gray-500/30"
                     style={{ backgroundColor: group.color }}
                   />
-                  <span className="truncate flex-1">{group.name}</span>
+                  <span className="flex-1 truncate">{group.name}</span>
                   {tab?.groupId === group.id && <Check size={12} className="text-emerald-400" />}
                 </motion.button>
               ))}
@@ -388,7 +388,7 @@ export function TabContextMenu({
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   onClick={() => handleAssignGroup(null)}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors"
+                  className="text-foreground hover:bg-[color:var(--surface-muted)]/45 flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors"
                 >
                   Remove from group
                 </motion.button>
@@ -399,7 +399,7 @@ export function TabContextMenu({
         <motion.button
           whileHover={{ scale: 1.01 }}
           onClick={handleCreateGroup}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[color:var(--surface-muted)]/45 transition-colors border-t border-subtle mt-1"
+          className="text-foreground hover:bg-[color:var(--surface-muted)]/45 border-subtle mt-1 flex w-full items-center gap-2 border-t px-3 py-1.5 text-sm transition-colors"
         >
           <FolderPlus size={14} />
           New group

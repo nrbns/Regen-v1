@@ -13,7 +13,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <label
         className={cn(
           'inline-flex h-11 items-center gap-2 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-3 text-sm text-[var(--text-primary)] transition focus-within:border-[var(--surface-border-strong)] focus-within:ring-2 focus-within:ring-[var(--accent)]',
-          disabled && 'opacity-60 cursor-not-allowed',
+          disabled && 'cursor-not-allowed opacity-60',
           className
         )}
       >
@@ -47,8 +47,8 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
         ref={ref}
         disabled={disabled}
         className={cn(
-          'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition focus:border-[var(--surface-border-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]',
-          disabled && 'opacity-60 cursor-not-allowed',
+          'w-full rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--text-primary)] transition placeholder:text-[var(--text-muted)] focus:border-[var(--surface-border-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]',
+          disabled && 'cursor-not-allowed opacity-60',
           className
         )}
       />

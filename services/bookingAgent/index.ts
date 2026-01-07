@@ -7,8 +7,4 @@ export { BookingExecutor } from './bookingExecutor';
 export { IntentParser } from './intentParser';
 export { FlightSearchService, createFlightSearchService } from './flightSearchService';
 
-export type {
-  FlightSearchParams,
-  HotelSearchParams,
-  CarSearchParams,
-} from './types';
+export type { FlightSearchParams, HotelSearchParams, CarSearchParams } from './types';

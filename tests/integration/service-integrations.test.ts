@@ -164,7 +164,7 @@ describe('Orchestrator Connections', () => {
     it('should be able to classify intents', async () => {
       const orchestrator = require('../services/agentOrchestrator/index.ts');
       const router = new orchestrator.IntentRouter({ anthropicApiKey: null });
-      
+
       // Quick classify should work even without API
       const classification = router.quickClassify?.('send an email');
       expect(classification).toBeDefined();
@@ -175,11 +175,11 @@ describe('Orchestrator Connections', () => {
     it('should be able to register agents', () => {
       const orchestrator = require('../services/agentOrchestrator/index.ts');
       const executor = new orchestrator.TaskExecutor();
-      
+
       // Mock agent registration
       const mockMailAgent = async () => ({ status: 'success' });
       executor.registerAgent('mail', mockMailAgent);
-      
+
       expect(executor).toBeDefined();
     });
 
@@ -189,7 +189,7 @@ describe('Orchestrator Connections', () => {
         maxRetries: 3,
         timeoutMs: 30000,
       });
-      
+
       expect(executor).toBeDefined();
     });
   });
@@ -198,7 +198,7 @@ describe('Orchestrator Connections', () => {
     it('should be able to create plans', async () => {
       const orchestrator = require('../services/agentOrchestrator/index.ts');
       const planner = new orchestrator.TaskPlanner({ anthropicApiKey: null });
-      
+
       const intent = {
         primaryAgent: 'mail' as const,
         intent: 'send email',
@@ -207,7 +207,7 @@ describe('Orchestrator Connections', () => {
         parameters: { to: 'test@example.com' },
         reasoning: 'clear intent',
       };
-      
+
       // Should have plan creation method
       expect(planner.createPlan).toBeDefined();
     });
@@ -237,14 +237,14 @@ describe('Mock Implementations', () => {
     it('should have mock OAuth2 client', () => {
       const Gmail = require('../services/mailAgent/gmailConnector.ts').GmailConnector;
       const connector = new Gmail();
-      
+
       expect(connector).toBeDefined();
     });
 
     it('should support authentication flow', async () => {
       const Gmail = require('../services/mailAgent/gmailConnector.ts').GmailConnector;
       const connector = new Gmail();
-      
+
       const authUrl = connector.getAuthUrl?.();
       expect(authUrl).toBeDefined();
     });
@@ -254,14 +254,14 @@ describe('Mock Implementations', () => {
     it('should have mock presentation creation', () => {
       const Slides = require('../services/pptAgent/slidesConnector.ts').SlidesConnector;
       const connector = new Slides();
-      
+
       expect(connector).toBeDefined();
     });
 
     it('should support presentation operations', async () => {
       const Slides = require('../services/pptAgent/slidesConnector.ts').SlidesConnector;
       const connector = new Slides();
-      
+
       const presentationId = await connector.createPresentation?.('Test', {});
       expect(presentationId).toBeDefined();
     });
@@ -271,7 +271,7 @@ describe('Mock Implementations', () => {
     it('should have mock flight search', async () => {
       const Flight = require('../services/bookingAgent/flightSearchService.ts').FlightSearchService;
       const service = new Flight();
-      
+
       expect(service).toBeDefined();
     });
   });

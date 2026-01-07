@@ -83,18 +83,18 @@ export function OCRProcessor({ file, onComplete, onCancel }: OCRProcessorProps) 
       if (isPdf) {
         ocrResult = await ocrPdf(file, {
           language: selectedLanguage,
-          progressCallback: (p) => setProgress(p),
+          progressCallback: p => setProgress(p),
         });
       } else {
         ocrResult = await ocrImage(file, {
           language: selectedLanguage,
-          progressCallback: (p) => setProgress(p),
+          progressCallback: p => setProgress(p),
         });
       }
 
       setResult(ocrResult);
       toast.success(`OCR completed with ${ocrResult.confidence.toFixed(1)}% confidence`);
-      
+
       if (onComplete) {
         onComplete(ocrResult);
       }
@@ -218,7 +218,8 @@ export function OCRProcessor({ file, onComplete, onCancel }: OCRProcessorProps) 
             </div>
             {error.includes('Tesseract.js') && (
               <p className="mt-2 text-xs text-red-300">
-                Install Tesseract.js: <code className="rounded bg-red-900/50 px-1">npm install tesseract.js</code>
+                Install Tesseract.js:{' '}
+                <code className="rounded bg-red-900/50 px-1">npm install tesseract.js</code>
               </p>
             )}
           </div>
@@ -301,4 +302,3 @@ export function OCRProcessor({ file, onComplete, onCancel }: OCRProcessorProps) 
     </div>
   );
 }
-

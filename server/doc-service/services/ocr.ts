@@ -35,7 +35,7 @@ export const ocrService = {
   async extractText(filePath: string, language: string = 'eng'): Promise<string> {
     try {
       const ext = path.extname(filePath).toLowerCase();
-      
+
       // For PDFs, try pdf-parse first (faster for text PDFs)
       if (ext === '.pdf') {
         try {
@@ -52,7 +52,7 @@ export const ocrService = {
 
       // Use Tesseract for OCR (works for images and scanned PDFs)
       const tesseractLang = LANGUAGE_MAP[language] || language || 'eng';
-      
+
       // Try to load the language, fallback to English if not available
       let worker;
       try {
@@ -62,7 +62,9 @@ export const ocrService = {
         worker = await createWorker('eng');
       }
 
-      const { data: { text } } = await worker.recognize(filePath);
+      const {
+        data: { text },
+      } = await worker.recognize(filePath);
       await worker.terminate();
 
       if (!text || text.trim().length < 5) {
@@ -95,4 +97,3 @@ export const ocrService = {
     return fullText.split(/\n{3,}/).filter(page => page.trim().length > 0);
   },
 };
-

@@ -108,19 +108,13 @@ export function SmartActionButton({ action, compact = false }: SmartActionButton
       disabled={status === 'loading'}
       whileHover={{ scale: status === 'idle' ? 1.02 : 1 }}
       whileTap={{ scale: 0.98 }}
-      className={`
-        flex items-center gap-2 px-3 py-2 rounded-lg border transition-all
-        ${getColorClasses()}
-        ${compact ? 'text-xs' : 'text-sm'}
-        ${status === 'loading' ? 'cursor-wait opacity-75' : 'cursor-pointer'}
-        focus:outline-none focus:ring-2 focus:ring-${color}-500/40
-      `}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-all ${getColorClasses()} ${compact ? 'text-xs' : 'text-sm'} ${status === 'loading' ? 'cursor-wait opacity-75' : 'cursor-pointer'} focus:outline-none focus:ring-2 focus:ring-${color}-500/40 `}
       title={action.description || action.label}
     >
       {getStatusIcon()}
       {!compact && <span className="font-medium">{action.label}</span>}
       {action.description && !compact && (
-        <span className="text-xs opacity-75 truncate max-w-[200px]">{action.description}</span>
+        <span className="max-w-[200px] truncate text-xs opacity-75">{action.description}</span>
       )}
     </motion.button>
   );

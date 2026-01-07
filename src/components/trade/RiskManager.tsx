@@ -163,7 +163,7 @@ export default function RiskManager({
   );
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#090b12] p-4 text-white shadow-inner shadow-black/40 space-y-4">
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-[#090b12] p-4 text-white shadow-inner shadow-black/40">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Shield size={18} className="text-emerald-400" />
@@ -174,7 +174,7 @@ export default function RiskManager({
         <div className="flex items-center gap-2 text-xs text-gray-400">
           <Activity size={14} />
           Risk score
-          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-emerald-200 font-semibold">
+          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 font-semibold text-emerald-200">
             {riskScore}
           </span>
         </div>
@@ -227,7 +227,7 @@ export default function RiskManager({
             }`}
             style={{ zIndex: 10011, isolation: 'isolate' }}
           >
-            <TrendingUp size={14} className="inline mr-2" />
+            <TrendingUp size={14} className="mr-2 inline" />
             Long
           </button>
           <button
@@ -248,7 +248,7 @@ export default function RiskManager({
             }`}
             style={{ zIndex: 10011, isolation: 'isolate' }}
           >
-            <TrendingDown size={14} className="inline mr-2" />
+            <TrendingDown size={14} className="mr-2 inline" />
             Short
           </button>
         </div>
@@ -269,7 +269,7 @@ export default function RiskManager({
         />
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-3 space-y-3">
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
         <PortfolioBar
           label="Risk allocation"
           value={portfolioRiskUsage}
@@ -295,9 +295,9 @@ export default function RiskManager({
       </div>
 
       {worstPosition.symbol && (
-        <div className="rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-100 flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-yellow-100">
           <div>
-            <p className="font-semibold uppercase tracking-wide text-[11px]">Worst position</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide">Worst position</p>
             <p>
               {worstPosition.symbol} • ${worstPosition.unrealizedPnL.toFixed(2)} unrealized P/L
             </p>
@@ -308,7 +308,7 @@ export default function RiskManager({
 
       {lastAppliedPlan && (
         <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-          <p className="font-semibold uppercase tracking-wide text-[11px] mb-1">Plan applied</p>
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide">Plan applied</p>
           <p>
             {lastAppliedPlan.direction.toUpperCase()} {lastAppliedPlan.symbol} ·{' '}
             {lastAppliedPlan.positionSize} shares @ ${lastAppliedPlan.entryPrice.toFixed(2)}
@@ -320,10 +320,10 @@ export default function RiskManager({
         </div>
       )}
 
-      <div className="flex gap-2 items-center">
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="flex-1 rounded-xl bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
           disabled={!plan.positionSize}
           onClick={e => {
             (e as any).stopImmediatePropagation();
@@ -341,7 +341,7 @@ export default function RiskManager({
         </button>
         <button
           type="button"
-          className="rounded-xl border border-white/20 px-3 py-2 text-xs text-gray-300 hover:border-white/40 hover:text-white flex items-center gap-2"
+          className="flex items-center gap-2 rounded-xl border border-white/20 px-3 py-2 text-xs text-gray-300 hover:border-white/40 hover:text-white"
           onClick={e => {
             (e as any).stopImmediatePropagation();
             e.stopPropagation();
@@ -356,7 +356,7 @@ export default function RiskManager({
           <RefreshCcw size={14} />
           Reset
         </button>
-        <div className="text-[11px] text-gray-500 flex items-center gap-1">
+        <div className="flex items-center gap-1 text-[11px] text-gray-500">
           <Save size={12} />
           Auto-saved
         </div>
@@ -378,9 +378,9 @@ type SliderRowProps = {
 function SliderRow({ label, value, min, max, step, current, onChange }: SliderRowProps) {
   return (
     <div>
-      <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+      <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
         <span>{label}</span>
-        <span className="text-white font-semibold">{value}</span>
+        <span className="font-semibold text-white">{value}</span>
       </div>
       <input
         type="range"
@@ -404,9 +404,9 @@ type StatProps = {
 function Stat({ label, value, sub }: StatProps) {
   return (
     <div className="rounded-xl border border-white/10 bg-[#0b0f1a] p-3">
-      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">{label}</p>
+      <p className="mb-1 text-[11px] uppercase tracking-wide text-gray-500">{label}</p>
       <p className="text-lg font-semibold text-white">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      {sub && <p className="mt-0.5 text-xs text-gray-400">{sub}</p>}
     </div>
   );
 }
@@ -421,17 +421,17 @@ type PortfolioBarProps = {
 function PortfolioBar({ label, value, color, description }: PortfolioBarProps) {
   return (
     <div>
-      <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+      <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
         <span>{label}</span>
-        <span className="text-white font-semibold">{value.toFixed(1)}%</span>
+        <span className="font-semibold text-white">{value.toFixed(1)}%</span>
       </div>
-      <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+      <div className="h-2 overflow-hidden rounded-full bg-white/5">
         <div
           className={`h-full ${color}`}
           style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
         />
       </div>
-      {description && <p className="text-[11px] text-gray-500 mt-1">{description}</p>}
+      {description && <p className="mt-1 text-[11px] text-gray-500">{description}</p>}
     </div>
   );
 }

@@ -51,7 +51,7 @@ export function TrustEthicsDashboard() {
     refresh,
     close,
   } = useTrustDashboardStore();
-  const openConsent = useConsentOverlayStore((state) => state.open);
+  const openConsent = useConsentOverlayStore(state => state.open);
   const agentAuditItems = useMemo(() => agentAudits.slice(0, 5), [agentAudits]);
   useEffect(() => {
     if (!visible) return;
@@ -64,22 +64,28 @@ export function TrustEthicsDashboard() {
 
   const timelineItems = useMemo(() => consentTimeline.slice(0, 8), [consentTimeline]);
   const highRiskSignals = useMemo(
-    () => trustSignals.filter((record) => record.verdict !== 'trusted').slice(0, 6),
-    [trustSignals],
+    () => trustSignals.filter(record => record.verdict !== 'trusted').slice(0, 6),
+    [trustSignals]
   );
   const trustedSignals = useMemo(
-    () => trustSignals.filter((record) => record.verdict === 'trusted').slice(0, 6),
-    [trustSignals],
+    () => trustSignals.filter(record => record.verdict === 'trusted').slice(0, 6),
+    [trustSignals]
   );
 
   if (!visible) {
     return null;
   }
 
-  const lastUpdatedLabel = lastUpdated ? formatDistanceToNow(lastUpdated, { addSuffix: true }) : 'just now';
+  const lastUpdatedLabel = lastUpdated
+    ? formatDistanceToNow(lastUpdated, { addSuffix: true })
+    : 'just now';
 
   const auditSeverityVariant =
-    privacyAudit?.grade === 'high' ? 'danger' : privacyAudit?.grade === 'moderate' ? 'warning' : 'info';
+    privacyAudit?.grade === 'high'
+      ? 'danger'
+      : privacyAudit?.grade === 'moderate'
+        ? 'warning'
+        : 'info';
 
   return (
     <div className="fixed inset-0 z-[1125] flex items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -95,7 +101,9 @@ export function TrustEthicsDashboard() {
             <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-emerald-300/80">
               <Shield size={14} /> Trust &amp; Ethics
             </div>
-            <h1 className="mt-1 text-lg font-semibold text-white">Real-time consent ledger &amp; threat summary</h1>
+            <h1 className="mt-1 text-lg font-semibold text-white">
+              Real-time consent ledger &amp; threat summary
+            </h1>
             <div className="mt-1 text-[11px] text-slate-500">
               {loading ? 'Refreshing…' : `Last updated ${lastUpdatedLabel}`}
               {error && <span className="ml-2 text-red-300">· {error}</span>}
@@ -164,17 +172,27 @@ export function TrustEthicsDashboard() {
               </div>
 
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
-                <HeaderRow icon={Clock} title="Consent timeline" description="Live ledger of ethical approvals" />
+                <HeaderRow
+                  icon={Clock}
+                  title="Consent timeline"
+                  description="Live ledger of ethical approvals"
+                />
                 <div className="divide-y divide-slate-800/60">
                   {timelineItems.length === 0 ? (
                     <EmptyState message="No consent activity recorded yet." />
                   ) : (
-                    timelineItems.map((record) => {
+                    timelineItems.map(record => {
                       const status = record.revokedAt
                         ? { label: 'Revoked', tone: 'text-red-300 border-red-400/40 bg-red-500/10' }
                         : record.approved
-                          ? { label: 'Approved', tone: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10' }
-                          : { label: 'Pending', tone: 'text-amber-300 border-amber-400/40 bg-amber-500/10' };
+                          ? {
+                              label: 'Approved',
+                              tone: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10',
+                            }
+                          : {
+                              label: 'Pending',
+                              tone: 'text-amber-300 border-amber-400/40 bg-amber-500/10',
+                            };
                       const riskIcon =
                         record.action.risk === 'high'
                           ? AlertTriangle
@@ -183,7 +201,10 @@ export function TrustEthicsDashboard() {
                             : CheckCircle2;
                       const RiskIcon = riskIcon;
                       return (
-                        <div key={record.id} className="flex items-center gap-4 px-4 py-3 text-sm text-gray-200">
+                        <div
+                          key={record.id}
+                          className="flex items-center gap-4 px-4 py-3 text-sm text-gray-200"
+                        >
                           <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-800/70 bg-slate-900/80">
                             <RiskIcon size={16} className="text-emerald-300" />
                           </div>
@@ -196,9 +217,15 @@ export function TrustEthicsDashboard() {
                                 {formatDistanceToNow(record.timestamp, { addSuffix: true })}
                               </span>
                             </div>
-                            <div className="text-xs text-slate-400">{record.action.description}</div>
+                            <div className="text-xs text-slate-400">
+                              {record.action.description}
+                            </div>
                           </div>
-                          <span className={`rounded-full border px-2 py-0.5 text-xs ${status.tone}`}>{status.label}</span>
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-xs ${status.tone}`}
+                          >
+                            {status.label}
+                          </span>
                         </div>
                       );
                     })
@@ -209,7 +236,11 @@ export function TrustEthicsDashboard() {
 
             <section className="space-y-5">
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
-                <HeaderRow icon={Radar} title="Privacy Sentinel" description="Latest AI risk sweep" />
+                <HeaderRow
+                  icon={Radar}
+                  title="Privacy Sentinel"
+                  description="Latest AI risk sweep"
+                />
                 <div className="space-y-3 px-4 py-4">
                   {privacyAudit ? (
                     <>
@@ -234,9 +265,11 @@ export function TrustEthicsDashboard() {
 
                       {privacyAudit.trackers.length > 0 && (
                         <div className="rounded-xl border border-slate-800/60 bg-slate-900/70 p-3">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Trackers</div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Trackers
+                          </div>
                           <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
-                            {privacyAudit.trackers.slice(0, 6).map((tracker) => (
+                            {privacyAudit.trackers.slice(0, 6).map(tracker => (
                               <span
                                 key={`${tracker.host}-${tracker.count}`}
                                 className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 bg-slate-950/80 px-3 py-1"
@@ -252,9 +285,11 @@ export function TrustEthicsDashboard() {
 
                       {privacyAudit.suggestions.length > 0 && (
                         <div className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-900/70 p-3">
-                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Suggested fixes</div>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Suggested fixes
+                          </div>
                           <ul className="space-y-1 text-xs text-slate-300">
-                            {privacyAudit.suggestions.slice(0, 4).map((suggestion) => (
+                            {privacyAudit.suggestions.slice(0, 4).map(suggestion => (
                               <li key={suggestion} className="flex items-start gap-2">
                                 <ArrowUpRight size={11} className="mt-0.5 text-emerald-300" />
                                 <span>{suggestion}</span>
@@ -271,16 +306,22 @@ export function TrustEthicsDashboard() {
               </div>
 
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
-                <HeaderRow icon={Shield} title="Agent safety log" description="Latest AI actions & outcomes" />
+                <HeaderRow
+                  icon={Shield}
+                  title="Agent safety log"
+                  description="Latest AI actions & outcomes"
+                />
                 <div className="divide-y divide-slate-800/60">
                   {agentAuditItems.length === 0 ? (
                     <EmptyState message="No agent actions recorded yet." />
                   ) : (
-                    agentAuditItems.map((audit) => (
+                    agentAuditItems.map(audit => (
                       <div key={audit.runId} className="px-4 py-3 text-sm text-gray-200">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium">Run {audit.runId}</span>
-                          <span className="text-[11px] text-slate-500">{audit.entries.length} steps</span>
+                          <span className="text-[11px] text-slate-500">
+                            {audit.entries.length} steps
+                          </span>
                         </div>
                         <div className="mt-2 space-y-1 text-xs text-slate-300">
                           {audit.entries.slice(0, 3).map((entry, idx) => {
@@ -303,7 +344,9 @@ export function TrustEthicsDashboard() {
                             );
                           })}
                           {audit.entries.length > 3 && (
-                            <div className="text-[11px] text-slate-500">+{audit.entries.length - 3} more…</div>
+                            <div className="text-[11px] text-slate-500">
+                              +{audit.entries.length - 3} more…
+                            </div>
                           )}
                         </div>
                       </div>
@@ -322,21 +365,30 @@ export function TrustEthicsDashboard() {
 
               {/* Optimizer Quick Access */}
               <div className="rounded-2xl border border-blue-700/40 bg-blue-900/10 p-4">
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <div className="text-sm font-semibold text-white">Workflow Optimizer</div>
-                  <div className="text-[11px] text-slate-400">Review and apply AI-powered suggestions</div>
+                  <div className="text-[11px] text-slate-400">
+                    Review and apply AI-powered suggestions
+                  </div>
                 </div>
                 <WorkflowOptimizerPanel />
               </div>
 
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
-                <HeaderRow icon={Ban} title="Trust alerts" description="Domains flagged by the mesh" />
+                <HeaderRow
+                  icon={Ban}
+                  title="Trust alerts"
+                  description="Domains flagged by the mesh"
+                />
                 <div className="divide-y divide-slate-800/60">
                   {highRiskSignals.length === 0 ? (
                     <EmptyState message="No high-risk domains flagged." />
                   ) : (
-                    highRiskSignals.map((record) => (
-                      <div key={record.domain} className="flex items-center gap-3 px-4 py-3 text-sm text-gray-200">
+                    highRiskSignals.map(record => (
+                      <div
+                        key={record.domain}
+                        className="flex items-center gap-3 px-4 py-3 text-sm text-gray-200"
+                      >
                         <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200">
                           <ShieldAlert size={16} />
                         </div>
@@ -359,27 +411,37 @@ export function TrustEthicsDashboard() {
               </div>
 
               <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70">
-                <HeaderRow icon={ShieldCheck} title="Trusted mesh" description="Domains with positive consensus" />
+                <HeaderRow
+                  icon={ShieldCheck}
+                  title="Trusted mesh"
+                  description="Domains with positive consensus"
+                />
                 <div className="flex flex-col gap-3 px-4 py-4">
                   {trustedSignals.length === 0 ? (
                     <EmptyState message="No trusted domains recorded yet." />
                   ) : (
-                    trustedSignals.map((record) => (
+                    trustedSignals.map(record => (
                       <div
                         key={`trusted-${record.domain}`}
                         className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100"
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-semibold">{record.domain}</span>
-                          <span className="text-xs uppercase tracking-wide text-emerald-300/80">Score {Math.round(record.score)}</span>
+                          <span className="text-xs uppercase tracking-wide text-emerald-300/80">
+                            Score {Math.round(record.score)}
+                          </span>
                         </div>
                         <div className="mt-1 text-xs text-emerald-200/80">
-                          Confidence {Math.round(record.confidence * 100)}% · {record.signals} peer signals
+                          Confidence {Math.round(record.confidence * 100)}% · {record.signals} peer
+                          signals
                         </div>
                         {record.tags.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-emerald-200/80">
-                            {record.tags.slice(0, 4).map((tag) => (
-                              <span key={`${record.domain}-${tag}`} className="rounded-full border border-emerald-400/40 px-2 py-0.5">
+                            {record.tags.slice(0, 4).map(tag => (
+                              <span
+                                key={`${record.domain}-${tag}`}
+                                className="rounded-full border border-emerald-400/40 px-2 py-0.5"
+                              >
                                 #{tag}
                               </span>
                             ))}
@@ -423,8 +485,11 @@ function SummaryCard({
         {title}
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-300">
-        {stats.map((stat) => (
-          <div key={stat.label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center">
+        {stats.map(stat => (
+          <div
+            key={stat.label}
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center"
+          >
             <div className="text-lg font-semibold text-white">{stat.value}</div>
             <div className="text-[11px] uppercase tracking-wide text-slate-300">{stat.label}</div>
           </div>
@@ -463,4 +528,3 @@ function EmptyState({ message }: { message: string }) {
     </div>
   );
 }
-

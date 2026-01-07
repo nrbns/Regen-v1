@@ -100,7 +100,7 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
             setResponse(prev => prev + (prev ? '\n\n' : '') + textContent);
           }
         }
-        
+
         // Mark streaming complete
         streamHandlerRef.current.onComplete();
       },

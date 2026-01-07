@@ -15,21 +15,21 @@ Text:
 ${text}
 `,
 
-  grammar: (text) => `
+  grammar: text => `
 You are a grammar expert. Fix all grammar, spelling, and punctuation errors in the following text. Preserve the original meaning and style. Output only the corrected text.
 
 Text:
 ${text}
 `,
 
-  summarize: (text) => `
+  summarize: text => `
 You are a summarization expert. Create a concise summary of the following text, capturing the main points and key information. Output only the summary.
 
 Text:
 ${text}
 `,
 
-  expand: (text) => `
+  expand: text => `
 You are a writing assistant. Expand the following text with more detail, examples, and explanations while maintaining the original structure and meaning. Output only the expanded text.
 
 Text:
@@ -43,35 +43,35 @@ Text:
 ${text}
 `,
 
-  formal: (text) => `
+  formal: text => `
 You are a professional editor. Rewrite the following text in a formal, professional tone suitable for business or academic contexts. Maintain all factual information. Output only the edited text.
 
 Text:
 ${text}
 `,
 
-  casual: (text) => `
+  casual: text => `
 You are a writing assistant. Rewrite the following text in a casual, friendly tone. Maintain the original meaning and key information. Output only the edited text.
 
 Text:
 ${text}
 `,
 
-  concise: (text) => `
+  concise: text => `
 You are a professional editor. Rewrite the following text to be concise and clear, removing unnecessary words while preserving all important information and meaning. Output only the edited text.
 
 Text:
 ${text}
 `,
 
-  bulletize: (text) => `
+  bulletize: text => `
 You are a writing assistant. Convert the following text into a bullet-point list format, organizing information clearly and concisely. Output only the bullet points.
 
 Text:
 ${text}
 `,
 
-  normalize: (text) => `
+  normalize: text => `
 You are a data normalization expert. Normalize and clean the following text data, standardizing formats, removing inconsistencies, and organizing information clearly. Output only the normalized text.
 
 Text:
@@ -141,7 +141,9 @@ export const aiProxy = {
     // Check for API key
     const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      throw new Error('Cloud LLM API key not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY.');
+      throw new Error(
+        'Cloud LLM API key not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY.'
+      );
     }
 
     // Use OpenAI by default
@@ -171,4 +173,3 @@ export const aiProxy = {
     return data.choices[0]?.message?.content || '';
   },
 };
-

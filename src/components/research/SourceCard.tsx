@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, Info, Sparkles, Shield } from 'lucide-react';
 import type { ResearchSource } from '../../types/research';
-import { calculateCredibility, getCredibilityColor, getCredibilityLabel } from '../../core/research/sourceCredibility';
+import {
+  calculateCredibility,
+  getCredibilityColor,
+  getCredibilityLabel,
+} from '../../core/research/sourceCredibility';
 
 type SourceCardProps = {
   source: ResearchSource;
@@ -38,7 +42,7 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
   const fetchedAtLabel = source.fetchedAt ? new Date(source.fetchedAt).toLocaleString() : null;
   const languageLabel = source.lang ? source.lang.toUpperCase() : null;
   const selectorMatched = Boolean(source.metadata?.selectorMatched);
-  
+
   // Phase 1, Day 6: Calculate credibility
   const credibility = useMemo(() => calculateCredibility(source), [source]);
   const credibilityColor = getCredibilityColor(credibility.level);
@@ -70,7 +74,7 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
       <header className="flex flex-wrap items-start gap-3">
         <button type="button" onClick={handleActivate} className="flex-1 text-left">
           <p className="text-xs uppercase tracking-wide text-gray-500">Source {index + 1}</p>
-          <h4 className="mt-0.5 text-base font-semibold text-white hover:text-blue-200 transition-colors">
+          <h4 className="mt-0.5 text-base font-semibold text-white transition-colors hover:text-blue-200">
             {source.title || source.url || 'Untitled source'}
           </h4>
           <p className="text-xs text-gray-500">{source.domain || provider || 'unknown-domain'}</p>
@@ -93,7 +97,9 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
             </span>
           )}
           {/* Phase 1, Day 6: Credibility badge */}
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${credibilityColor}`}>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${credibilityColor}`}
+          >
             <Shield size={10} />
             {credibilityLabel} ({credibility.score}/100)
           </span>
@@ -111,7 +117,7 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
         </div>
       )}
 
-      <p className="mt-3 text-sm text-gray-300 leading-relaxed whitespace-pre-line">{preview}</p>
+      <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-gray-300">{preview}</p>
 
       <footer className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-gray-400">
         {source.wordCount && source.wordCount > 0 && (
@@ -153,7 +159,7 @@ export function SourceCard({ source, index, isActive, onActivate, onOpen }: Sour
           className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium ${
             canOpen
               ? 'border-white/20 text-white hover:border-blue-400/50 hover:text-blue-100'
-              : 'border-white/5 text-gray-500 cursor-not-allowed'
+              : 'cursor-not-allowed border-white/5 text-gray-500'
           }`}
         >
           {canOpen ? 'Open source' : 'No link'}

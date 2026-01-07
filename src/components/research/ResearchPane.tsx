@@ -301,9 +301,10 @@ export function ResearchPane() {
       setPendingActionId(action.id);
       try {
         // Create a follow-up prompt based on the action
-        const followUpPrompt = action.type === 'follow_up' && action.payload?.query 
-          ? action.payload.query 
-          : action.description || action.label;
+        const followUpPrompt =
+          action.type === 'follow_up' && action.payload?.query
+            ? action.payload.query
+            : action.description || action.label;
         if (followUpPrompt) {
           setAgentPrompt(followUpPrompt);
           requestAnimationFrame(() => agentPromptRef.current?.focus());

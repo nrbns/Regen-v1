@@ -1,6 +1,6 @@
 /**
  * Layer 1: Browser Core Stability - Validation Tests
- * 
+ *
  * Tests for:
  * 1. Session restore at startup based on settings
  * 2. Low-RAM tab eviction and hibernation
@@ -39,7 +39,7 @@ describe('Layer 1: Browser Core Stability', () => {
     it('should restore tabs from snapshot when behavior is restore', async () => {
       const sessionState = useSessionStore.getState();
       const settingsState = useSettingsStore.getState();
-      
+
       // Mock snapshot
       sessionState.saveSnapshot(
         [
@@ -84,13 +84,34 @@ describe('Layer 1: Browser Core Stability', () => {
 
     it('should evict oldest tabs first when under memory pressure', () => {
       const tabsState = useTabsStore.getState();
-      
+
       // Create mock tabs with timestamps
       const now = Date.now();
       const tabs = [
-        { id: 'tab1', url: 'https://a.com', title: 'A', lastActiveAt: now - 5000, pinned: false, sleeping: false },
-        { id: 'tab2', url: 'https://b.com', title: 'B', lastActiveAt: now - 3000, pinned: false, sleeping: false },
-        { id: 'tab3', url: 'https://c.com', title: 'C', lastActiveAt: now - 1000, pinned: false, sleeping: false },
+        {
+          id: 'tab1',
+          url: 'https://a.com',
+          title: 'A',
+          lastActiveAt: now - 5000,
+          pinned: false,
+          sleeping: false,
+        },
+        {
+          id: 'tab2',
+          url: 'https://b.com',
+          title: 'B',
+          lastActiveAt: now - 3000,
+          pinned: false,
+          sleeping: false,
+        },
+        {
+          id: 'tab3',
+          url: 'https://c.com',
+          title: 'C',
+          lastActiveAt: now - 1000,
+          pinned: false,
+          sleeping: false,
+        },
       ];
 
       // Mock tabs would be evicted in order: tab1 (oldest), tab2, tab3 (newest)

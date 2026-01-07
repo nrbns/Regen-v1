@@ -76,7 +76,7 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-[90]"
+            className="fixed inset-0 z-[90] bg-black/50"
             onClick={onClose}
           />
 
@@ -85,17 +85,17 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-white rounded-2xl shadow-2xl z-[100] p-6 max-h-[80vh] overflow-y-auto"
+            className="fixed left-1/2 top-1/2 z-[100] max-h-[80vh] w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">
                 <Edit3 size={24} />
                 Customize Shortcuts
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="rounded-full p-2 transition-colors hover:bg-gray-100"
                 aria-label="Close"
               >
                 <X size={20} className="text-gray-600" />
@@ -106,32 +106,32 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
               axis="y"
               values={editedSites}
               onReorder={setEditedSites}
-              className="space-y-2 mb-4"
+              className="mb-4 space-y-2"
             >
               {editedSites.map(site => (
                 <Reorder.Item
                   key={site.id}
                   value={site}
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-3 rounded-lg bg-gray-50 p-3 transition-colors hover:bg-gray-100"
                 >
-                  <GripVertical size={20} className="text-gray-400 cursor-move" />
+                  <GripVertical size={20} className="cursor-move text-gray-400" />
 
-                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-xl flex-shrink-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white text-xl">
                     {site.favicon ? (
-                      <img src={site.favicon} alt="" className="w-full h-full rounded-full" />
+                      <img src={site.favicon} alt="" className="h-full w-full rounded-full" />
                     ) : (
                       <span>{site.icon || '🌐'}</span>
                     )}
                   </div>
 
                   {editingId === site.id ? (
-                    <div className="flex-1 flex gap-2">
+                    <div className="flex flex-1 gap-2">
                       <input
                         type="text"
                         value={editForm.title}
                         onChange={e => setEditForm({ ...editForm, title: e.target.value })}
                         placeholder="Title"
-                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm"
+                        className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm"
                         autoFocus
                       />
                       <input
@@ -139,11 +139,11 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
                         value={editForm.url}
                         onChange={e => setEditForm({ ...editForm, url: e.target.value })}
                         placeholder="URL"
-                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm"
+                        className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-sm"
                       />
                       <button
                         onClick={handleSave}
-                        className="p-1.5 rounded hover:bg-green-100 text-green-600"
+                        className="rounded p-1.5 text-green-600 hover:bg-green-100"
                         aria-label="Save"
                       >
                         <Check size={18} />
@@ -151,22 +151,22 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
                     </div>
                   ) : (
                     <>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-gray-900">
                           {site.title}
                         </div>
-                        <div className="text-xs text-gray-500 truncate">{site.url || 'No URL'}</div>
+                        <div className="truncate text-xs text-gray-500">{site.url || 'No URL'}</div>
                       </div>
                       <button
                         onClick={() => handleEdit(site)}
-                        className="p-1.5 rounded hover:bg-blue-100 text-blue-600"
+                        className="rounded p-1.5 text-blue-600 hover:bg-blue-100"
                         aria-label="Edit"
                       >
                         <Edit3 size={16} />
                       </button>
                       <button
                         onClick={() => handleDelete(site.id)}
-                        className="p-1.5 rounded hover:bg-red-100 text-red-600"
+                        className="rounded p-1.5 text-red-600 hover:bg-red-100"
                         aria-label="Delete"
                       >
                         <Trash2 size={16} />
@@ -177,10 +177,10 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
               ))}
             </Reorder.Group>
 
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between gap-4 border-t border-gray-200 pt-4">
               <button
                 onClick={handleAdd}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
               >
                 <Plus size={16} />
                 Add Shortcut
@@ -188,13 +188,13 @@ export function QuickAccessEditor({ sites, onUpdate, isOpen, onClose }: QuickAcc
               <div className="flex gap-2">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveAll}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                 >
                   Save Changes
                 </button>

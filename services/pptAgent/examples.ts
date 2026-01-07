@@ -60,7 +60,7 @@ export async function example2_CustomPresentation(): Promise<void> {
 
   const plan = planner.createPlan(request);
   console.log(`Plan created: ${plan.id}`);
-  console.log(`Tasks: ${plan.tasks.map((t) => t.type).join(' -> ')}`);
+  console.log(`Tasks: ${plan.tasks.map(t => t.type).join(' -> ')}`);
 }
 
 /**
@@ -71,11 +71,7 @@ export async function example3_BatchGeneration(): Promise<void> {
 
   const planner = new PptPlanner();
 
-  const prompts = [
-    'Company quarterly review',
-    'Team onboarding guide',
-    'Marketing strategy 2025',
-  ];
+  const prompts = ['Company quarterly review', 'Team onboarding guide', 'Marketing strategy 2025'];
 
   for (const prompt of prompts) {
     const plan = planner.createPlan({

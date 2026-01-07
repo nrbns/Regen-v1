@@ -26,7 +26,8 @@ function checkBundleSize() {
     process.exit(1);
   }
 
-  const jsFiles = fs.readdirSync(DIST_DIR)
+  const jsFiles = fs
+    .readdirSync(DIST_DIR)
     .filter(file => file.endsWith('.js') && file.includes('assets'))
     .map(file => path.join(DIST_DIR, file));
 
@@ -34,7 +35,8 @@ function checkBundleSize() {
     // Check chunks directory if it exists
     const chunksDir = path.join(DIST_DIR, 'chunks');
     if (fs.existsSync(chunksDir)) {
-      const chunkFiles = fs.readdirSync(chunksDir)
+      const chunkFiles = fs
+        .readdirSync(chunksDir)
         .filter(file => file.endsWith('.js'))
         .map(file => path.join(chunksDir, file));
       jsFiles.push(...chunkFiles);
@@ -58,7 +60,7 @@ function checkBundleSize() {
 
   console.log('\n📦 Bundle Size Report:');
   console.log('=====================\n');
-  
+
   Object.entries(sizes)
     .sort((a, b) => b[1] - a[1]) // Sort by size descending
     .forEach(([file, size]) => {
@@ -71,13 +73,16 @@ function checkBundleSize() {
   console.log(`Target: ${(MAX_SIZE / 1024).toFixed(2)} KB\n`);
 
   if (totalSize > MAX_SIZE) {
-    console.error(`❌ FAIL: Total bundle size (${(totalSize / 1024).toFixed(2)}KB) exceeds ${(MAX_SIZE / 1024).toFixed(2)}KB`);
+    console.error(
+      `❌ FAIL: Total bundle size (${(totalSize / 1024).toFixed(2)}KB) exceeds ${(MAX_SIZE / 1024).toFixed(2)}KB`
+    );
     process.exit(1);
   } else {
-    console.log(`✅ PASS: Bundle size (${(totalSize / 1024).toFixed(2)}KB) under ${(MAX_SIZE / 1024).toFixed(2)}KB`);
+    console.log(
+      `✅ PASS: Bundle size (${(totalSize / 1024).toFixed(2)}KB) under ${(MAX_SIZE / 1024).toFixed(2)}KB`
+    );
     process.exit(0);
   }
 }
 
 checkBundleSize();
-

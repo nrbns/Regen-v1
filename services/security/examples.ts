@@ -156,10 +156,19 @@ export async function example5_RoleBasedAccess() {
 
   console.log(`✓ Editor can read:`, await globalPermissionControl.canPerformAction(editor, 'read'));
   console.log(`  Editor can send:`, await globalPermissionControl.canPerformAction(editor, 'send')); // true
-  console.log(`  Editor requires approval for send:`, await globalPermissionControl.requiresApproval(editor, 'send')); // true
+  console.log(
+    `  Editor requires approval for send:`,
+    await globalPermissionControl.requiresApproval(editor, 'send')
+  ); // true
 
-  console.log(`✓ Admin can delete:`, await globalPermissionControl.canPerformAction(admin, 'delete'));
-  console.log(`  Admin requires 2FA for delete:`, await globalPermissionControl.requires2FA(admin, 'delete')); // true
+  console.log(
+    `✓ Admin can delete:`,
+    await globalPermissionControl.canPerformAction(admin, 'delete')
+  );
+  console.log(
+    `  Admin requires 2FA for delete:`,
+    await globalPermissionControl.requires2FA(admin, 'delete')
+  ); // true
 
   // 3. Audit an action
   await globalPermissionControl.auditAction(editor, 'send', 'email-thread-123', true, {
@@ -238,7 +247,9 @@ export async function example6_MailAgentSecureWorkflow() {
   const requiresApproval = await globalPermissionControl.requiresApproval(userId, 'send');
   const needs2FA = await globalPermissionControl.requires2FA(userId, 'send');
 
-  console.log(`4. Can send: ${canSend}, requires approval: ${requiresApproval}, needs 2FA: ${needs2FA}`);
+  console.log(
+    `4. Can send: ${canSend}, requires approval: ${requiresApproval}, needs 2FA: ${needs2FA}`
+  );
 
   if (canSend && needs2FA) {
     // Create 2FA challenge
@@ -246,7 +257,10 @@ export async function example6_MailAgentSecureWorkflow() {
     console.log(`   ✓ 2FA challenge created: ${challenge.challengeId}`);
 
     // Verify challenge
-    const verified = await globalTwoFactorAuth.verifyChallenge(challenge.challengeId, challenge.code!);
+    const verified = await globalTwoFactorAuth.verifyChallenge(
+      challenge.challengeId,
+      challenge.code!
+    );
     if (verified) {
       // Check rate limit
       await globalRateLimiter.configureLimit({

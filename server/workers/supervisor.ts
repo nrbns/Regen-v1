@@ -74,9 +74,10 @@ export class WorkerSupervisor {
 
     // Start polling loop
     this.supervisorInterval = setInterval(
-      () => this.monitorAndRecover().catch((error) => {
-        console.error('[Supervisor] Error in monitor loop:', error);
-      }),
+      () =>
+        this.monitorAndRecover().catch(error => {
+          console.error('[Supervisor] Error in monitor loop:', error);
+        }),
       this.config.pollIntervalMs
     );
   }
@@ -252,9 +253,7 @@ export class WorkerSupervisor {
     recoveryAttempts: Record<string, number>;
     nextCheckMs: number;
   } {
-    const nextCheck = this.supervisorInterval
-      ? this.config.pollIntervalMs
-      : 0;
+    const nextCheck = this.supervisorInterval ? this.config.pollIntervalMs : 0;
 
     return {
       running: this.isRunning,
@@ -324,7 +323,7 @@ export async function initSupervisor(io?: SocketIOServer, redisClient?: any): Pr
 
   // Periodic cleanup
   setInterval(() => {
-    supervisor.cleanupRecoveryState().catch((error) => {
+    supervisor.cleanupRecoveryState().catch(error => {
       console.error('[Supervisor] Cleanup error:', error);
     });
   }, 300000); // Every 5 minutes

@@ -22,7 +22,10 @@ interface Recommendation {
 export function AgentRecommendations() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [_selectedPreference, setSelectedPreference] = useState<{ title: string; confidence: number } | null>(null);
+  const [_selectedPreference, setSelectedPreference] = useState<{
+    title: string;
+    confidence: number;
+  } | null>(null);
 
   useEffect(() => {
     generateRecommendations();
@@ -40,7 +43,11 @@ export function AgentRecommendations() {
       // Pattern 1: Popular research topics from task history
       const topicFrequency = new Map<string, number>();
       history.forEach(entry => {
-        if (entry.type === 'task_history' && typeof entry.value === 'object' && entry.value !== null) {
+        if (
+          entry.type === 'task_history' &&
+          typeof entry.value === 'object' &&
+          entry.value !== null
+        ) {
           const val = entry.value as any;
           const goal = val.goal || entry.key;
           topicFrequency.set(goal, (topicFrequency.get(goal) || 0) + 1);
@@ -67,7 +74,8 @@ export function AgentRecommendations() {
         if (successRate > 0.7) {
           recs.push({
             title: 'Performance Optimization',
-            description: 'Your research tasks are highly successful. Consider enabling advanced parallel execution.',
+            description:
+              'Your research tasks are highly successful. Consider enabling advanced parallel execution.',
             type: 'optimization',
             confidence: successRate,
             relatedTopics: ['parallel execution', 'batch research', 'concurrent analysis'],
@@ -138,7 +146,9 @@ export function AgentRecommendations() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.05 }}
-              onClick={() => setSelectedPreference({ title: rec.title, confidence: rec.confidence })}
+              onClick={() =>
+                setSelectedPreference({ title: rec.title, confidence: rec.confidence })
+              }
               className="group relative flex flex-col gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-left transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10"
             >
               <div className="flex items-start justify-between gap-2">
@@ -173,7 +183,8 @@ export function AgentRecommendations() {
               )}
 
               <div className="text-[10px] text-slate-500">
-                Based on {rec.previousRunCount} successful run{rec.previousRunCount !== 1 ? 's' : ''}
+                Based on {rec.previousRunCount} successful run
+                {rec.previousRunCount !== 1 ? 's' : ''}
               </div>
             </motion.button>
           );
@@ -188,7 +199,7 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
   const color =
     confidence >= 0.8 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300';
 
-  return <div className={`rounded px-2 py-0.5 text-[10px] font-mono ${color}`}>{percentage}%</div>;
+  return <div className={`rounded px-2 py-0.5 font-mono text-[10px] ${color}`}>{percentage}%</div>;
 }
 
 function calculateSuccessRate(history: MemoryItem[]): number {
@@ -210,11 +221,7 @@ function extractRelatedTopics(topic: string, facts: unknown[]): string[] {
     if (typeof fact === 'string') {
       const factLower = fact.toLowerCase();
       topicKeywords.forEach(keyword => {
-        if (
-          factLower.includes(keyword) &&
-          !factLower.startsWith(topic) &&
-          related.size < 3
-        ) {
+        if (factLower.includes(keyword) && !factLower.startsWith(topic) && related.size < 3) {
           const extracted = factLower.split(/[:\s,]+/)[0];
           if (extracted.length > 2) related.add(extracted);
         }
@@ -227,7 +234,13 @@ function extractRelatedTopics(topic: string, facts: unknown[]): string[] {
 
 function findTrendingPatterns(
   facts: unknown[]
-): Array<{ name: string; description: string; confidence: number; topics: string[]; count: number }> {
+): Array<{
+  name: string;
+  description: string;
+  confidence: number;
+  topics: string[];
+  count: number;
+}> {
   const trends: Array<{
     name: string;
     description: string;
@@ -238,10 +251,7 @@ function findTrendingPatterns(
 
   // Find high-confidence patterns
   const highConfidenceFacts = facts.filter(
-    f =>
-      typeof f === 'object' &&
-      f !== null &&
-      (f as any).confidence >= 0.7
+    f => typeof f === 'object' && f !== null && (f as any).confidence >= 0.7
   );
 
   if (highConfidenceFacts.length >= 3) {

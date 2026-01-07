@@ -20,17 +20,17 @@ import { transcribeAudio } from './whisper-service.js';
 function detectVoiceActivity(audioBuffer) {
   // Convert buffer to array
   const samples = new Int16Array(audioBuffer);
-  
+
   // Calculate RMS (Root Mean Square) for volume
   let sum = 0;
   for (let i = 0; i < samples.length; i++) {
     sum += samples[i] * samples[i];
   }
   const rms = Math.sqrt(sum / samples.length);
-  
+
   // Threshold: 0.01 (1% of max amplitude)
   const threshold = 3276; // 0.01 * 32768 (max int16)
-  
+
   return rms > threshold;
 }
 
@@ -60,20 +60,20 @@ export function createVoiceWebSocketServer(httpServer) {
 
   wss.on('connection', async (ws, _req) => {
     console.log('[VoiceWS] New voice connection');
-    
+
     let buffer = Buffer.alloc(0);
     let _isSpeaking = false;
     let silenceFrames = 0;
     const SILENCE_THRESHOLD = 10; // Frames of silence before processing
 
-    ws.on('message', async (data) => {
+    ws.on('message', async data => {
       try {
         if (Buffer.isBuffer(data)) {
           buffer = Buffer.concat([buffer, data]);
-          
+
           // VAD: Check if speaking
           const hasVoice = detectVoiceActivity(data);
-          
+
           if (hasVoice) {
             isSpeaking = true;
             silenceFrames = 0;
@@ -82,7 +82,7 @@ export function createVoiceWebSocketServer(httpServer) {
           }
 
           // Process if we have enough data and silence detected
-          if (buffer.length > 50000 && (!hasVoice && silenceFrames >= SILENCE_THRESHOLD)) {
+          if (buffer.length > 50000 && !hasVoice && silenceFrames >= SILENCE_THRESHOLD) {
             const audioChunk = buffer;
             buffer = Buffer.alloc(0);
             silenceFrames = 0;
@@ -90,20 +90,24 @@ export function createVoiceWebSocketServer(httpServer) {
 
             // Transcribe
             const text = await voiceToText(audioChunk);
-            
+
             if (!text) {
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Transcription failed',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'error',
+                  message: 'Transcription failed',
+                })
+              );
               return;
             }
 
             // Send transcription
-            ws.send(JSON.stringify({
-              type: 'transcription',
-              text,
-            }));
+            ws.send(
+              JSON.stringify({
+                type: 'transcription',
+                text,
+              })
+            );
 
             // Stream LLM response (using Grok-4 or available model)
             try {
@@ -111,36 +115,44 @@ export function createVoiceWebSocketServer(httpServer) {
                 task: 'qa',
                 inputText: '',
                 question: text,
-                onToken: (token) => {
-                  ws.send(JSON.stringify({
-                    type: 'token',
-                    text: token,
-                  }));
+                onToken: token => {
+                  ws.send(
+                    JSON.stringify({
+                      type: 'token',
+                      text: token,
+                    })
+                  );
                 },
                 temperature: 0.8,
               });
 
-              ws.send(JSON.stringify({
-                type: 'done',
-                final: streamMeta.answer || '',
-                query: text,
-                model: streamMeta.model,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'done',
+                  final: streamMeta.answer || '',
+                  query: text,
+                  model: streamMeta.model,
+                })
+              );
             } catch (error) {
               console.error('[VoiceWS] LLM streaming failed:', error);
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'LLM response failed',
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'error',
+                  message: 'LLM response failed',
+                })
+              );
             }
           }
         }
       } catch (error) {
         console.error('[VoiceWS] Message processing error:', error);
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: error.message,
-        }));
+        ws.send(
+          JSON.stringify({
+            type: 'error',
+            message: error.message,
+          })
+        );
       }
     });
 
@@ -149,23 +161,18 @@ export function createVoiceWebSocketServer(httpServer) {
       buffer = Buffer.alloc(0);
     });
 
-    ws.on('error', (error) => {
+    ws.on('error', error => {
       console.error('[VoiceWS] WebSocket error:', error);
     });
 
     // Send connection confirmation
-    ws.send(JSON.stringify({
-      type: 'connected',
-      message: 'Voice WebSocket connected',
-    }));
+    ws.send(
+      JSON.stringify({
+        type: 'connected',
+        message: 'Voice WebSocket connected',
+      })
+    );
   });
 
   return wss;
 }
-
-
-
-
-
-
-

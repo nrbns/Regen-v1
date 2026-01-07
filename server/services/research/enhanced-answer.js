@@ -102,7 +102,9 @@ export async function generateEnhancedAnswer({
   const allUrls = [
     ...agentResults.agents.flatMap(a => a.results.map(r => r.url)),
     ...twitterInsights.map(t => t.url),
-  ].filter(Boolean).slice(0, 15);
+  ]
+    .filter(Boolean)
+    .slice(0, 15);
 
   const sourcePreviews = await generateSourcePreviews(allUrls);
 
@@ -188,7 +190,9 @@ function formatAnswer(synthesis, twitterInsights) {
   if (synthesis.answer) {
     const rest = synthesis.answer
       .split('\n')
-      .filter(l => !l.includes('KEY INSIGHTS') && !l.includes('HIDDEN GEM') && !l.includes('CONTRA VIEW'))
+      .filter(
+        l => !l.includes('KEY INSIGHTS') && !l.includes('HIDDEN GEM') && !l.includes('CONTRA VIEW')
+      )
       .join('\n');
     if (rest.trim()) {
       text += rest.trim();
@@ -244,4 +248,3 @@ function buildCitations(agentResults, twitterInsights, sourcePreviews = []) {
 
   return citations.slice(0, 15); // Limit to top 15
 }
-

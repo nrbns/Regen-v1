@@ -372,7 +372,7 @@ export const TaskActivityPanel: React.FC<TaskActivityPanelProps> = ({
         <RecoveryToast
           key={`${n.jobId}-${n.timestamp}-${idx}`}
           notification={n}
-          onResume={async (jid) => {
+          onResume={async jid => {
             try {
               // Attempt resume via jobs service
               const { resumeJob } = await import('../services/jobs');

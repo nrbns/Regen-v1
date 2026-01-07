@@ -1,6 +1,6 @@
 /**
  * Vite Config for Redix Universal Build
- * 
+ *
  * Creates an ultra-lightweight build (< 12KB) for universal device compatibility.
  * - Vanilla JS (no React)
  * - ES2015 target (works on 99% of devices)
@@ -16,21 +16,21 @@ import { resolve } from 'path';
 export default defineConfig({
   root: resolve(__dirname),
   publicDir: 'public',
-  
+
   build: {
     outDir: 'dist-redix',
     emptyOutDir: true,
     minify: 'terser',
     target: 'es2015', // Support older devices (ES6)
     sourcemap: false, // No sourcemaps for smaller size
-    
+
     rollupOptions: {
       input: resolve(__dirname, 'src/redix/index.html'),
       output: {
         format: 'es', // ES modules for better tree-shaking
         entryFileNames: 'redix.js',
         chunkFileNames: 'redix-[name].js',
-        assetFileNames: (assetInfo) => {
+        assetFileNames: assetInfo => {
           if (assetInfo.name === 'index.html') {
             return 'index.html';
           }
@@ -49,7 +49,7 @@ export default defineConfig({
         '@langchain/anthropic',
       ],
     },
-    
+
     // Aggressive minification
     terserOptions: {
       compress: {
@@ -62,11 +62,11 @@ export default defineConfig({
         toplevel: true,
       },
     },
-    
+
     // Chunk size warning (we want small bundles)
     chunkSizeWarningLimit: 12, // 12KB target
   },
-  
+
   esbuild: {
     target: 'es2015',
     minifyIdentifiers: true,
@@ -74,13 +74,13 @@ export default defineConfig({
     minifyWhitespace: true,
     treeShaking: true,
   },
-  
+
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
     },
   },
-  
+
   // Optimize dependencies
   optimizeDeps: {
     exclude: [
@@ -92,7 +92,7 @@ export default defineConfig({
       '@langchain/anthropic',
     ],
   },
-  
+
   // Server config for dev
   server: {
     port: 5174, // Different port from main app
@@ -100,4 +100,3 @@ export default defineConfig({
     host: true,
   },
 });
-

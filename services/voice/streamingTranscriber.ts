@@ -175,7 +175,7 @@ export class WebSocketTranscriber {
           resolve();
         };
 
-        this.ws.onerror = (error) => {
+        this.ws.onerror = error => {
           reject(new Error(`WebSocket error: ${String(error)}`));
         };
 

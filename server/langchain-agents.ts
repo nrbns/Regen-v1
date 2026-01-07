@@ -276,15 +276,15 @@ export class AgenticWorkflowEngine {
     options: { maxIterations?: number; maxTokens?: number; temperature?: number } = {},
     streamCallback?: StreamCallback
   ): Promise<AgenticWorkflowResponse> {
-          // Emit initial step: thinking
-          if (streamCallback) {
-            streamCallback({
-              type: 'step',
-              step: 0,
-              content: 'thinking',
-              data: { stage: 'Analyzing query and planning search...' },
-            });
-          }
+    // Emit initial step: thinking
+    if (streamCallback) {
+      streamCallback({
+        type: 'step',
+        step: 0,
+        content: 'thinking',
+        data: { stage: 'Analyzing query and planning search...' },
+      });
+    }
 
     const startTime = Date.now();
     const steps: AgenticWorkflowResponse['steps'] = [];
@@ -293,14 +293,14 @@ export class AgenticWorkflowEngine {
 
     try {
       // Step 1: Search Agent
-            if (streamCallback) {
-              streamCallback({
-                type: 'step',
-                step: 1,
-                content: 'searching',
-                data: { stage: 'Searching web for information...' },
-              });
-            }
+      if (streamCallback) {
+        streamCallback({
+          type: 'step',
+          step: 1,
+          content: 'searching',
+          data: { stage: 'Searching web for information...' },
+        });
+      }
 
       const searchTools = [AgentTools.createSearchTool()];
       const searchAgent = await this.createReActAgent(
@@ -337,14 +337,14 @@ export class AgenticWorkflowEngine {
       }
 
       // Step 2: Summarize Agent
-            if (streamCallback) {
-              streamCallback({
-                type: 'step',
-                step: 2,
-                content: 'writing',
-                data: { stage: 'Summarizing results...' },
-              });
-            }
+      if (streamCallback) {
+        streamCallback({
+          type: 'step',
+          step: 2,
+          content: 'writing',
+          data: { stage: 'Summarizing results...' },
+        });
+      }
 
       const summarizePrompt = ChatPromptTemplate.fromMessages([
         [
@@ -387,14 +387,14 @@ export class AgenticWorkflowEngine {
       totalTokens += Math.ceil(summary.length / 4);
 
       // Step 3: Ethics Check Agent
-            if (streamCallback) {
-              streamCallback({
-                type: 'step',
-                step: 3,
-                content: 'writing',
-                data: { stage: 'Performing ethics check...' },
-              });
-            }
+      if (streamCallback) {
+        streamCallback({
+          type: 'step',
+          step: 3,
+          content: 'writing',
+          data: { stage: 'Performing ethics check...' },
+        });
+      }
 
       const ethicsPrompt = ChatPromptTemplate.fromMessages([
         [
@@ -594,14 +594,14 @@ What should I do next?`,
 
       // Agent 2: Code Generation (if query involves code)
       if (query.toLowerCase().includes('code') || query.toLowerCase().includes('function')) {
-                if (streamCallback) {
-                  streamCallback({
-                    type: 'step',
-                    step: steps.length + 1,
-                    content: 'writing',
-                    data: { stage: 'Generating code...' },
-                  });
-                }
+        if (streamCallback) {
+          streamCallback({
+            type: 'step',
+            step: steps.length + 1,
+            content: 'writing',
+            data: { stage: 'Generating code...' },
+          });
+        }
 
         const codeTools = [AgentTools.createCodeTool(), AgentTools.createCalculatorTool()];
         const codeAgent = await this.createReActAgent(this.getGPTModel(0.2), codeTools);
@@ -626,21 +626,21 @@ What should I do next?`,
 
         totalTokens += Math.ceil((codeResult.output || '').length / 4);
 
-              // Emit code result
-              if (streamCallback) {
-                streamCallback({
-                  type: 'token',
-                  content: `\n\nGenerated Code:\n${codeResult.output}\n`,
-                });
-              }
+        // Emit code result
+        if (streamCallback) {
+          streamCallback({
+            type: 'token',
+            content: `\n\nGenerated Code:\n${codeResult.output}\n`,
+          });
+        }
 
-            // Emit completion
-            if (streamCallback) {
-              streamCallback({
-                type: 'done',
-                data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed },
-              });
-            }
+        // Emit completion
+        if (streamCallback) {
+          streamCallback({
+            type: 'done',
+            data: { greenScore, latency, tokensUsed: totalTokens, agentsUsed },
+          });
+        }
       }
 
       // Calculate final eco score

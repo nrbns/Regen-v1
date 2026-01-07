@@ -295,9 +295,9 @@ export function AIDockPanel() {
               Ask follow-up
             </button>
           </div>
-          <p className="text-sm text-gray-300 whitespace-pre-wrap">{latest.answer}</p>
+          <p className="whitespace-pre-wrap text-sm text-gray-300">{latest.answer}</p>
           {latest.scrape && (
-            <div className="text-xs text-gray-500 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
               <span>{latest.scrape.cached ? 'Cached result' : 'Fresh fetch'}</span>
               <span>HTTP {latest.scrape.status}</span>
               {latest.scrape.fetchedAt && (

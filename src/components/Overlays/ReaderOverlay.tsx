@@ -48,8 +48,8 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const tabsStore = useTabsStore();
   const activeTab = useMemo(
-    () => tabsStore.tabs.find((t) => t.id === tabId),
-    [tabsStore.tabs, tabId],
+    () => tabsStore.tabs.find(t => t.id === tabId),
+    [tabsStore.tabs, tabId]
   );
 
   useEffect(() => {
@@ -81,8 +81,11 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             try {
               result = await ipc.research.extractContent(tabId);
             } catch (ipcError) {
-              console.warn('[ReaderOverlay] IPC extractContent failed, trying Redix fallback:', ipcError);
-              
+              console.warn(
+                '[ReaderOverlay] IPC extractContent failed, trying Redix fallback:',
+                ipcError
+              );
+
               // Try Redix /extract endpoint if available
               const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
               try {
@@ -94,14 +97,15 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                     tabId,
                   }),
                 }).catch(() => null);
-                
+
                 if (redixResponse?.ok) {
                   const redixData = await redixResponse.json();
                   if (redixData.title || redixData.content) {
                     result = {
                       title: redixData.title || activeTab?.title,
                       content: redixData.content || redixData.text,
-                      html: redixData.html || `<h1>${redixData.title}</h1><p>${redixData.content}</p>`,
+                      html:
+                        redixData.html || `<h1>${redixData.title}</h1><p>${redixData.content}</p>`,
                     };
                   }
                 }
@@ -113,12 +117,15 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
         } catch {
           // Continue to fallback
         }
-        
+
         // Fallback: Try to use page extractor from document
         if (!result && typeof window !== 'undefined' && window.document) {
           try {
             const { extractPageContent } = await import('../../utils/pageExtractor');
-            const pageMeta = extractPageContent(window.document, activeTab?.url || url || undefined);
+            const pageMeta = extractPageContent(
+              window.document,
+              activeTab?.url || url || undefined
+            );
             result = {
               title: pageMeta.title,
               content: pageMeta.mainContent,
@@ -128,7 +135,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             console.warn('[ReaderOverlay] Page extractor fallback failed:', extractError);
           }
         }
-        
+
         // Final fallback: Use tab title/URL if available
         if (!result && activeTab) {
           result = {
@@ -137,12 +144,14 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             html: `<h1>${activeTab.title || 'Reader View'}</h1>\n<p>Content from: <a href="${activeTab.url}">${activeTab.url}</a></p>\n<p>Unable to extract readable content. Please ensure the page has loaded completely.</p>`,
           };
         }
-        
+
         if (!result || (!result.content && !result.html)) {
-          setError('Unable to extract article content for this page. The page may not have readable content, or it may still be loading.');
+          setError(
+            'Unable to extract article content for this page. The page may not have readable content, or it may still be loading.'
+          );
           return;
         }
-        
+
         setArticle({
           title: result.title || activeTab?.title || activeTab?.url || 'Reader View',
           html: result.html || `<p>${sanitizeText(result.content)}</p>`,
@@ -151,7 +160,9 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
         });
       } catch (err) {
         console.error('Failed to load reader content:', err);
-        setError('Failed to load reader view for this page. Please try again or ensure the page has loaded.');
+        setError(
+          'Failed to load reader view for this page. Please try again or ensure the page has loaded.'
+        );
       } finally {
         setLoading(false);
       }
@@ -171,10 +182,11 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
         const { sendPrompt } = await import('../../core/llm/adapter');
         const prompt = `Summarize the following article in 3-5 bullet points:\n\nTitle: ${article.title}\n\n${article.content}`;
         const response = await sendPrompt(prompt, {
-          systemPrompt: 'You are a helpful assistant that creates concise summaries of web articles.',
+          systemPrompt:
+            'You are a helpful assistant that creates concise summaries of web articles.',
           maxTokens: 300,
         });
-        
+
         // Parse bullet points from response
         const bullets = response.text
           .split(/\n/)
@@ -183,7 +195,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             summary: line.replace(/^[-•*]\s|^\d+\.\s/, '').trim(),
             citation: { text: article.title, url: article.url },
           }));
-        
+
         if (bullets.length > 0) {
           setSummary(bullets);
           setSummaryMode('cloud');
@@ -192,7 +204,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
       } catch {
         // Fallback to IPC
       }
-      
+
       // Fallback to IPC method
       const result = await ipc.reader.summarize({
         url: article.url,
@@ -259,11 +271,11 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 32 }}
             transition={{ duration: 0.18 }}
-            className="fixed inset-8 z-[80] rounded-2xl border border-gray-800/70 bg-[#0B1120]/98 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col"
+            className="bg-[#0B1120]/98 fixed inset-8 z-[80] flex flex-col overflow-hidden rounded-2xl border border-gray-800/70 shadow-2xl backdrop-blur-xl"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800/60 bg-gray-900/40">
+            <div className="flex items-center justify-between border-b border-gray-800/60 bg-gray-900/40 px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/20 border border-blue-500/30">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/30 bg-blue-500/20">
                   <BookOpen size={20} className="text-blue-200" />
                 </div>
                 <div>
@@ -279,22 +291,30 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                 <button
                   onClick={handleExport}
                   disabled={!article?.html || exporting}
-                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-gray-700/60 bg-gray-800/50 hover:bg-gray-800/70 text-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 rounded-lg border border-gray-700/60 bg-gray-800/50 px-3 py-2 text-sm text-gray-200 transition-colors hover:bg-gray-800/70 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {exporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                  {exporting ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
                   Export clean view
                 </button>
                 <button
                   onClick={() => void handleSummarize()}
                   disabled={!article?.content || summaryLoading}
-                  className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg bg-blue-600/70 hover:bg-blue-600 text-blue-50 border border-blue-500/40 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center gap-2 rounded-lg border border-blue-500/40 bg-blue-600/70 px-3 py-2 text-sm text-blue-50 transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {summaryLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                  {summaryLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
                   Cite-preserving summary
                 </button>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-gray-800/60 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-200"
                   title="Close reader"
                 >
                   <X size={18} />
@@ -303,7 +323,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             </div>
 
             {exportMessage && (
-              <div className="px-6 py-3 bg-emerald-500/10 border-b border-emerald-500/20 text-sm text-emerald-200 flex items-center justify-between">
+              <div className="flex items-center justify-between border-b border-emerald-500/20 bg-emerald-500/10 px-6 py-3 text-sm text-emerald-200">
                 <span>{exportMessage}</span>
                 <button
                   onClick={() => setExportMessage(null)}
@@ -315,15 +335,15 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
             )}
 
             {error ? (
-              <div className="flex-1 flex items-center justify-center text-sm text-red-300 bg-red-500/10">
+              <div className="flex flex-1 items-center justify-center bg-red-500/10 text-sm text-red-300">
                 {error}
               </div>
             ) : (
-              <div className="flex-1 grid grid-cols-1 lg:grid-cols-[2fr_1fr] overflow-hidden">
+              <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[2fr_1fr]">
                 <div className="relative overflow-y-auto">
                   {loading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-950/60 backdrop-blur-sm z-10">
-                      <Loader2 size={32} className="text-blue-400 animate-spin" />
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-950/60 backdrop-blur-sm">
+                      <Loader2 size={32} className="animate-spin text-blue-400" />
                     </div>
                   )}
                   <div className="prose prose-invert max-w-none px-8 py-6">
@@ -333,52 +353,53 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                         dangerouslySetInnerHTML={{ __html: article.html }}
                       />
                     ) : (
-                      <div className="text-center text-gray-500 text-sm py-12">
+                      <div className="py-12 text-center text-sm text-gray-500">
                         Preparing clean article view…
                       </div>
                     )}
                   </div>
                 </div>
-                <aside className="border-l border-gray-800/60 bg-gray-900/30 flex flex-col overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800/50">
+                <aside className="flex flex-col overflow-hidden border-l border-gray-800/60 bg-gray-900/30">
+                  <div className="flex items-center justify-between border-b border-gray-800/50 px-5 py-4">
                     <div>
-                      <div className="text-sm font-semibold text-gray-100 flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-100">
                         <Sparkles size={16} className="text-blue-300" />
                         Summary with citations
                       </div>
                       <div className="text-xs text-gray-500">
                         {summaryMode === 'local' && 'Generated locally (GGUF)'}
                         {summaryMode === 'cloud' && 'Generated via cloud model (with consent)'}
-                        {summaryMode === 'extractive' && 'Extractive summary from source paragraphs'}
+                        {summaryMode === 'extractive' &&
+                          'Extractive summary from source paragraphs'}
                         {!summaryMode && 'Click summarize to generate key bullet points'}
                       </div>
                     </div>
                     <button
                       onClick={() => void handleSummarize()}
                       disabled={!article?.content || summaryLoading}
-                      className="p-2 rounded-lg border border-gray-700/50 text-gray-300 hover:text-gray-100 hover:bg-gray-800/60 disabled:opacity-50"
+                      className="rounded-lg border border-gray-700/50 p-2 text-gray-300 hover:bg-gray-800/60 hover:text-gray-100 disabled:opacity-50"
                       title="Refresh summary"
                     >
                       <RefreshCcw size={16} className={summaryLoading ? 'animate-spin' : ''} />
                     </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                  <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
                     {summaryLoading && (
-                      <div className="flex items-center justify-center h-full text-sm text-gray-400 gap-2">
+                      <div className="flex h-full items-center justify-center gap-2 text-sm text-gray-400">
                         <Loader2 size={18} className="animate-spin" />
                         Generating summary…
                       </div>
                     )}
                     {summaryError && (
-                      <div className="flex items-center gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 text-yellow-200 px-3 py-2 text-sm">
+                      <div className="flex items-center gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-200">
                         <AlertTriangle size={16} />
                         {summaryError}
                       </div>
                     )}
                     {!summaryLoading && !summaryError && summary.length === 0 && (
                       <div className="text-sm text-gray-500">
-                        The summary will include direct citations from the article to preserve attribution.
-                        Click{" "}
+                        The summary will include direct citations from the article to preserve
+                        attribution. Click{' '}
                         <span className="text-blue-400">“Cite-preserving summary”</span> to begin.
                       </div>
                     )}
@@ -390,7 +411,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                         className="rounded-xl border border-gray-700/50 bg-gray-900/50 p-4 shadow-sm"
                       >
                         <div className="flex items-start gap-3 text-gray-100">
-                          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-500/20 border border-blue-500/40 text-xs text-blue-200">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/20 text-xs text-blue-200">
                             {idx + 1}
                           </div>
                           <p className="text-sm leading-relaxed">{bullet.summary}</p>
@@ -398,7 +419,7 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                         {bullet.citation && (
                           <button
                             onClick={() => handleOpenCitation(bullet.citation?.url)}
-                            className="mt-3 flex w-full items-start gap-2 rounded-lg bg-gray-900/70 border border-gray-800/70 px-3 py-2 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-700 transition-colors text-left"
+                            className="mt-3 flex w-full items-start gap-2 rounded-lg border border-gray-800/70 bg-gray-900/70 px-3 py-2 text-left text-xs text-gray-400 transition-colors hover:border-gray-700 hover:text-gray-200"
                           >
                             <Quote size={14} className="flex-shrink-0 text-gray-500" />
                             <span className="flex-1">
@@ -406,7 +427,9 @@ export function ReaderOverlay({ active, onClose, tabId, url }: ReaderOverlayProp
                                 ? `${bullet.citation.text.slice(0, 220)}…`
                                 : bullet.citation.text}
                             </span>
-                            {bullet.citation.url && <ExternalLink size={12} className="text-gray-500" />}
+                            {bullet.citation.url && (
+                              <ExternalLink size={12} className="text-gray-500" />
+                            )}
                           </button>
                         )}
                       </motion.div>
@@ -433,4 +456,3 @@ function getHostname(input: string): string {
     return input;
   }
 }
-

@@ -53,19 +53,19 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   const estimatedTime = Math.ceil(plan.tasks.length * 2); // ~2s per task
 
   return (
-    <div className="action-card bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4">
+    <div className="action-card mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-md">
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
+      <div className="mb-3 flex items-start justify-between">
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900">{plan.intent}</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="mt-1 text-sm text-gray-500">
             {plan.tasks.length} tasks · ~{estimatedTime}s
           </p>
         </div>
 
         {/* Risk Badge */}
         <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${getRiskColor(
+          className={`rounded-full px-3 py-1 text-xs font-medium ${getRiskColor(
             plan.estimatedRiskLevel
           )}`}
         >
@@ -77,7 +77,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
       <div className="mb-4">
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
         >
           {showDetails ? '▼' : '▶'} {showDetails ? 'Hide' : 'Show'} task details
         </button>
@@ -85,17 +85,12 @@ export const ActionCard: React.FC<ActionCardProps> = ({
         {showDetails && (
           <div className="mt-2 space-y-2">
             {plan.tasks.map((task, idx) => (
-              <div
-                key={task.id}
-                className="flex items-center gap-2 text-sm bg-gray-50 p-2 rounded"
-              >
+              <div key={task.id} className="flex items-center gap-2 rounded bg-gray-50 p-2 text-sm">
                 <span className="text-gray-400">{getStatusIcon(task.status)}</span>
                 <span className="font-mono text-xs text-gray-600">
                   {idx + 1}. {task.type.replace(/_/g, ' ')}
                 </span>
-                {task.error && (
-                  <span className="text-red-600 text-xs ml-auto">{task.error}</span>
-                )}
+                {task.error && <span className="ml-auto text-xs text-red-600">{task.error}</span>}
               </div>
             ))}
           </div>
@@ -107,7 +102,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
         <div className="flex gap-2">
           <button
             onClick={() => onApprove(plan.id)}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+            className="flex-1 rounded bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700"
             disabled={isExecuting}
           >
             ✓ Approve & Execute
@@ -116,7 +111,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
           {onEdit && (
             <button
               onClick={() => onEdit(plan.id)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded transition-colors"
+              className="rounded bg-gray-200 px-4 py-2 font-medium text-gray-800 transition-colors hover:bg-gray-300"
               disabled={isExecuting}
             >
               Edit
@@ -125,7 +120,7 @@ export const ActionCard: React.FC<ActionCardProps> = ({
 
           <button
             onClick={() => onReject(plan.id)}
-            className="bg-red-100 hover:bg-red-200 text-red-700 font-medium py-2 px-4 rounded transition-colors"
+            className="rounded bg-red-100 px-4 py-2 font-medium text-red-700 transition-colors hover:bg-red-200"
             disabled={isExecuting}
           >
             ✗ Reject
@@ -136,14 +131,14 @@ export const ActionCard: React.FC<ActionCardProps> = ({
       {/* Executing State */}
       {isExecuting && (
         <div className="flex items-center gap-2 text-blue-600">
-          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
           <span className="text-sm font-medium">Executing...</span>
         </div>
       )}
 
       {/* Auto-Execute for Low Risk */}
       {!plan.requiresApproval && (
-        <div className="text-sm text-gray-500 italic">
+        <div className="text-sm italic text-gray-500">
           ✓ Auto-executing (low risk, no approval needed)
         </div>
       )}
@@ -172,7 +167,7 @@ export const ActionCardList: React.FC<ActionCardListProps> = ({
 }) => {
   if (plans.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="py-8 text-center text-gray-500">
         <p>No pending actions</p>
       </div>
     );
@@ -180,7 +175,7 @@ export const ActionCardList: React.FC<ActionCardListProps> = ({
 
   return (
     <div className="action-card-list space-y-4">
-      {plans.map((plan) => (
+      {plans.map(plan => (
         <ActionCard
           key={plan.id}
           plan={plan}

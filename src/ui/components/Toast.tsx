@@ -59,23 +59,19 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
-      className={`
-        flex items-start gap-3 p-4 rounded-lg
-        bg-[var(--surface-panel)] border border-[var(--surface-border)]
-        shadow-lg min-w-[300px] max-w-[500px]
-      `}
+      className={`flex min-w-[300px] max-w-[500px] items-start gap-3 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-panel)] p-4 shadow-lg`}
       role="alert"
       aria-live="polite"
     >
       <Icon size={20} className={`flex-shrink-0 ${colorMap[toast.type || 'info']}`} />
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-[var(--text-primary)]" style={{ fontSize: tokens.fontSize.sm }}>
           {toast.message}
         </p>
         {toast.action && (
           <button
             onClick={toast.action.onClick}
-            className="mt-2 text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)] font-medium"
+            className="mt-2 font-medium text-[var(--color-primary-500)] hover:text-[var(--color-primary-400)]"
             style={{ fontSize: tokens.fontSize.xs }}
           >
             {toast.action.label}
@@ -84,7 +80,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       </div>
       <button
         onClick={() => onDismiss(toast.id)}
-        className="flex-shrink-0 p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+        className="flex-shrink-0 rounded p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
         aria-label="Dismiss"
       >
         <X size={16} />
@@ -109,7 +105,7 @@ export function ToastContainer({ toasts, onDismiss, position = 'top-right' }: To
 
   return (
     <div
-      className={`fixed ${positionClasses[position]} z-[100] flex flex-col gap-2 pointer-events-none`}
+      className={`fixed ${positionClasses[position]} pointer-events-none z-[100] flex flex-col gap-2`}
       aria-live="polite"
       aria-label="Notifications"
     >

@@ -4,13 +4,7 @@
  * Integrates RAG for context-aware summaries
  */
 
-import type {
-  AgentPlan,
-  AgentTask,
-  EmailThread,
-  EmailSummary,
-  DraftReply,
-} from './types';
+import type { AgentPlan, AgentTask, EmailThread, EmailSummary, DraftReply } from './types';
 import { GmailConnector } from './gmailConnector';
 import { MailSummarizer } from './mailSummarizer';
 import { DraftReplyGenerator } from './draftReplyGenerator';
@@ -171,7 +165,11 @@ export class AgentExecutor {
   /**
    * Execute a single task
    */
-  private async executeTask(task: AgentTask, context: ExecutionContext, userId: string): Promise<void> {
+  private async executeTask(
+    task: AgentTask,
+    context: ExecutionContext,
+    userId: string
+  ): Promise<void> {
     switch (task.type) {
       case 'read_emails':
         context.threads = await this.executeReadEmails(task, userId);
@@ -205,16 +203,20 @@ export class AgentExecutor {
     const { maxEmails, filter } = task.input;
     console.log(`[Executor] Reading ${maxEmails} ${filter} emails`);
 
-      // Use real Gmail API
-      const threads = await this.gmailConnector.getUnreadThreads(_userId, maxEmails || 10);
-      console.log(`[Executor] Read ${threads.length} threads from Gmail`);
+    // Use real Gmail API
+    const threads = await this.gmailConnector.getUnreadThreads(_userId, maxEmails || 10);
+    console.log(`[Executor] Read ${threads.length} threads from Gmail`);
     return threads;
   }
 
   /**
    * Task: Summarize emails
    */
-  private async executeSummarize(task: AgentTask, context: ExecutionContext, userId: string): Promise<EmailSummary[]> {
+  private async executeSummarize(
+    task: AgentTask,
+    context: ExecutionContext,
+    userId: string
+  ): Promise<EmailSummary[]> {
     console.log(`[Executor] Summarizing ${context.threads.length} threads with RAG context`);
 
     const summaries: EmailSummary[] = [];
@@ -245,7 +247,11 @@ export class AgentExecutor {
   /**
    * Task: Draft reply
    */
-  private async executeDraftReply(task: AgentTask, context: ExecutionContext, userId: string): Promise<DraftReply[]> {
+  private async executeDraftReply(
+    task: AgentTask,
+    context: ExecutionContext,
+    userId: string
+  ): Promise<DraftReply[]> {
     console.log(`[Executor] Drafting ${context.summaries.length} replies`);
 
     const drafts: DraftReply[] = [];
@@ -255,11 +261,7 @@ export class AgentExecutor {
       const thread = context.threads[context.summaries.indexOf(summary)];
       if (!thread) continue;
 
-      const draft = await this.draftGenerator.generateDraft(
-        thread,
-        summary,
-        userId
-      );
+      const draft = await this.draftGenerator.generateDraft(thread, summary, userId);
       drafts.push(draft);
     }
 
@@ -270,23 +272,27 @@ export class AgentExecutor {
   /**
    * Task: Send draft
    */
-  private async executeSendDraft(task: AgentTask, context: ExecutionContext, _userId: string): Promise<void> {
+  private async executeSendDraft(
+    task: AgentTask,
+    context: ExecutionContext,
+    _userId: string
+  ): Promise<void> {
     console.log(`[Executor] Sending ${context.drafts.length} drafts`);
 
     for (const draft of context.drafts) {
       const threadId = draft.threadId;
-        // Use real Gmail API to send reply
-        const success = await this.gmailConnector.sendReply(
-          _userId,
-          threadId,
-          draft.body,
-          draft.subject
-        );
-        if (success) {
-          console.log(`[Executor] Sent draft for thread ${threadId}`);
-        } else {
-          console.error(`[Executor] Failed to send draft for thread ${threadId}`);
-        }
+      // Use real Gmail API to send reply
+      const success = await this.gmailConnector.sendReply(
+        _userId,
+        threadId,
+        draft.body,
+        draft.subject
+      );
+      if (success) {
+        console.log(`[Executor] Sent draft for thread ${threadId}`);
+      } else {
+        console.error(`[Executor] Failed to send draft for thread ${threadId}`);
+      }
     }
   }
 
@@ -313,8 +319,8 @@ export class AgentExecutor {
       case 'send_draft':
         return {
           draftCount: context.drafts.length,
-          recipients: context.drafts.flatMap((d) => d.to),
-          subjects: context.drafts.map((d) => d.subject),
+          recipients: context.drafts.flatMap(d => d.to),
+          subjects: context.drafts.map(d => d.subject),
         };
 
       case 'draft_reply':

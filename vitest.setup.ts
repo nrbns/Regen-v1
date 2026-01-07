@@ -10,7 +10,9 @@ vi.mock('./src/lib/meili', () => ({
   indexDocuments: vi.fn(() => Promise.resolve()),
   ensureIndex: vi.fn(() => Promise.resolve()),
   checkMeiliSearch: vi.fn(() => Promise.resolve(false)),
-  searchMeili: vi.fn(() => Promise.resolve({ hits: [], limit: 0, offset: 0, processingTimeMs: 0, query: '' })),
+  searchMeili: vi.fn(() =>
+    Promise.resolve({ hits: [], limit: 0, offset: 0, processingTimeMs: 0, query: '' })
+  ),
 }));
 
 // Mock meiliIndexer service to prevent async initialization during tests

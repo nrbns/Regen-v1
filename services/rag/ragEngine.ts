@@ -72,7 +72,7 @@ export class RAGEngine {
 
     return {
       query,
-      documents: documents.map((d) => ({
+      documents: documents.map(d => ({
         id: d.id,
         content: d.content.substring(0, 200), // Truncate for response
         similarity: d.similarity,
@@ -130,7 +130,8 @@ export class RAGEngine {
     }
 
     const contextParts = documents.map(
-      (doc, i) => `[Source ${i + 1} (similarity: ${(doc.similarity * 100).toFixed(1)}%)]:\n${doc.content}`
+      (doc, i) =>
+        `[Source ${i + 1} (similarity: ${(doc.similarity * 100).toFixed(1)}%)]:\n${doc.content}`
     );
 
     const context = contextParts.join('\n\n');

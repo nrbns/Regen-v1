@@ -10,28 +10,28 @@ import { getTaskExecutor } from '../../services/agentOrchestrator/executor';
 import { getPlanStore } from '../../services/agentOrchestrator/persistence/planStoreFactory';
 import { extractUser, requireOrchestratorAction } from '../orchestrator/rbac';
 import { globalPermissionControl } from '../../services/security/permissionControl';
-import { 
-  trackRouterPerformance, 
-  trackPlannerPerformance, 
-  trackExecutorPerformance, 
+import {
+  trackRouterPerformance,
+  trackPlannerPerformance,
+  trackExecutorPerformance,
   trackOrchestratorError,
-  getMonitoring 
+  getMonitoring,
 } from '../monitoring/orchestrator';
-import { 
-  sendPlanCreated, 
-  sendTaskStarted, 
-  sendTaskCompleted, 
+import {
+  sendPlanCreated,
+  sendTaskStarted,
+  sendTaskCompleted,
   sendTaskFailed,
   sendPlanCompleted,
-  sendPlanFailed 
+  sendPlanFailed,
 } from '../websocket/orchestrator';
-import { 
-  initializePlanQueue, 
-  enqueuePlanExecution, 
-  getJobStatus, 
+import {
+  initializePlanQueue,
+  enqueuePlanExecution,
+  getJobStatus,
   getQueueMetrics,
   cancelJob,
-  retryJob 
+  retryJob,
 } from '../../services/agentOrchestrator/queue/planQueue';
 
 const router = express.Router();
@@ -51,7 +51,10 @@ try {
   queueInitialized = true;
   console.log('[Orchestrator Routes] Bull queue initialized');
 } catch (error: any) {
-  console.warn('[Orchestrator Routes] Queue initialization failed, will use direct execution:', error?.message);
+  console.warn(
+    '[Orchestrator Routes] Queue initialization failed, will use direct execution:',
+    error?.message
+  );
 }
 
 // Get planStore
@@ -72,10 +75,10 @@ router.post('/classify', async (req: Request, res: Response) => {
 
     const classification = await intentRouter.classify(input);
 
-    trackRouterPerformance(Date.now() - startTime, true, { 
+    trackRouterPerformance(Date.now() - startTime, true, {
       input,
       agent: classification.primaryAgent,
-      confidence: classification.confidence 
+      confidence: classification.confidence,
     });
 
     res.json({
@@ -95,134 +98,142 @@ router.post('/classify', async (req: Request, res: Response) => {
  * POST /orchestrator/plan
  * Create execution plan from intent
  */
-router.post('/plan', requireOrchestratorAction('create') as any, async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const { input, userId, context } = req.body;
+router.post(
+  '/plan',
+  requireOrchestratorAction('create') as any,
+  async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const { input, userId, context } = req.body;
 
-    if (!input || !userId) {
-      return res.status(400).json({ error: 'Input and userId required' });
-    }
+      if (!input || !userId) {
+        return res.status(400).json({ error: 'Input and userId required' });
+      }
 
-    // Classify intent
-    const intent = await intentRouter.classify(input);
+      // Classify intent
+      const intent = await intentRouter.classify(input);
 
-    // Create plan
-    const plan = await taskPlanner.createPlan(intent, userId, context);
+      // Create plan
+      const plan = await taskPlanner.createPlan(intent, userId, context);
 
-    // Validate plan
-    const validation = taskPlanner.validatePlan(plan);
-    if (!validation.valid) {
-      return res.status(400).json({
+      // Validate plan
+      const validation = taskPlanner.validatePlan(plan);
+      if (!validation.valid) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid plan',
+          details: validation.errors,
+        });
+      }
+
+      trackPlannerPerformance(Date.now() - startTime, true, {
+        agent: intent.primaryAgent,
+        taskCount: plan.tasks.length,
+        planId: plan.planId,
+      });
+
+      // Store for approval
+      await planStore.saveNewPlan({
+        plan,
+        createdAt: new Date(),
+        status: 'pending_approval',
+      });
+
+      sendPlanCreated(plan.planId, {
+        agent: intent.primaryAgent,
+        taskCount: plan.tasks.length,
+        requiresApproval: plan.requiresApproval,
+      });
+
+      res.json({
+        success: true,
+        plan,
+        requiresApproval: plan.requiresApproval,
+      });
+    } catch (error: any) {
+      trackPlannerPerformance(Date.now() - startTime, false, { planCreateError: true });
+      trackOrchestratorError('planner', error, { message: error?.message });
+      console.error('[Orchestrator API] Planning error:', error);
+      res.status(500).json({
         success: false,
-        error: 'Invalid plan',
-        details: validation.errors,
+        error: error.message,
       });
     }
-
-    trackPlannerPerformance(Date.now() - startTime, true, {
-      agent: intent.primaryAgent,
-      taskCount: plan.tasks.length,
-      planId: plan.planId
-    });
-
-    // Store for approval
-    await planStore.saveNewPlan({
-      plan,
-      createdAt: new Date(),
-      status: 'pending_approval',
-    });
-
-    sendPlanCreated(plan.planId, { 
-      agent: intent.primaryAgent, 
-      taskCount: plan.tasks.length,
-      requiresApproval: plan.requiresApproval 
-    });
-
-    res.json({
-      success: true,
-      plan,
-      requiresApproval: plan.requiresApproval,
-    });
-  } catch (error: any) {
-    trackPlannerPerformance(Date.now() - startTime, false, { planCreateError: true });
-    trackOrchestratorError('planner', error, { message: error?.message });
-    console.error('[Orchestrator API] Planning error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /orchestrator/approve
  * Approve a plan for execution (uses Bull queue if available, checks quotas)
  */
-router.post('/approve', requireOrchestratorAction('approve') as any, async (req: Request, res: Response) => {
-  try {
-    const { planId, userId } = req.body;
+router.post(
+  '/approve',
+  requireOrchestratorAction('approve') as any,
+  async (req: Request, res: Response) => {
+    try {
+      const { planId, userId } = req.body;
 
-    if (!planId || !userId) {
-      return res.status(400).json({ error: 'planId and userId required' });
-    }
+      if (!planId || !userId) {
+        return res.status(400).json({ error: 'planId and userId required' });
+      }
 
-    const pending = await planStore.get(planId);
-    if (!pending) {
-      return res.status(404).json({ error: 'Plan not found or already executed' });
-    }
+      const pending = await planStore.get(planId);
+      if (!pending) {
+        return res.status(404).json({ error: 'Plan not found or already executed' });
+      }
 
-    const { plan } = pending;
+      const { plan } = pending;
 
-    // Check user quota before queueing
-    const quotaCheck = await globalPermissionControl.checkQuota(userId);
-    if (!quotaCheck.allowed) {
-      return res.status(429).json({
+      // Check user quota before queueing
+      const quotaCheck = await globalPermissionControl.checkQuota(userId);
+      if (!quotaCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: 'Quota exceeded',
+          reason: quotaCheck.reason,
+        });
+      }
+
+      // Update status
+      await planStore.update(planId, {
+        status: 'approved',
+        approvedAt: new Date(),
+        approvedBy: userId,
+      });
+
+      // Increment execution count
+      await globalPermissionControl.incrementExecution(userId);
+
+      // Queue or execute directly
+      if (queueInitialized) {
+        // Get user priority for queue
+        const priority = await globalPermissionControl.getUserPriority(userId);
+
+        const job = await enqueuePlanExecution(planId, plan, userId, { priority });
+        res.json({
+          success: true,
+          planId,
+          jobId: job,
+          priority,
+          message: 'Plan approved and queued for execution',
+        });
+      } else {
+        executeAsync(plan, userId);
+        res.json({
+          success: true,
+          planId,
+          message: 'Plan approved and executing directly (queue unavailable)',
+        });
+      }
+    } catch (error: any) {
+      console.error('[Orchestrator API] Approval error:', error);
+      res.status(500).json({
         success: false,
-        error: 'Quota exceeded',
-        reason: quotaCheck.reason,
+        error: error.message,
       });
     }
-
-    // Update status
-    await planStore.update(planId, {
-      status: 'approved',
-      approvedAt: new Date(),
-      approvedBy: userId,
-    });
-
-    // Increment execution count
-    await globalPermissionControl.incrementExecution(userId);
-
-    // Queue or execute directly
-    if (queueInitialized) {
-      // Get user priority for queue
-      const priority = await globalPermissionControl.getUserPriority(userId);
-      
-      const job = await enqueuePlanExecution(planId, plan, userId, { priority });
-      res.json({
-        success: true,
-        planId,
-        jobId: job,
-        priority,
-        message: 'Plan approved and queued for execution',
-      });
-    } else {
-      executeAsync(plan, userId);
-      res.json({
-        success: true,
-        planId,
-        message: 'Plan approved and executing directly (queue unavailable)',
-      });
-    }
-  } catch (error: any) {
-    console.error('[Orchestrator API] Approval error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * POST /orchestrator/reject
@@ -298,95 +309,99 @@ router.get('/status/:planId', async (req: Request, res: Response) => {
  * POST /orchestrator/execute
  * Direct execution (bypass approval for low-risk plans, checks quotas)
  */
-router.post('/execute', requireOrchestratorAction('execute') as any, async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const { input, userId, context } = req.body;
+router.post(
+  '/execute',
+  requireOrchestratorAction('execute') as any,
+  async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    try {
+      const { input, userId, context } = req.body;
 
-    if (!input || !userId) {
-      return res.status(400).json({ error: 'Input and userId required' });
-    }
+      if (!input || !userId) {
+        return res.status(400).json({ error: 'Input and userId required' });
+      }
 
-    // Check user quota before proceeding
-    const quotaCheck = await globalPermissionControl.checkQuota(userId);
-    if (!quotaCheck.allowed) {
-      return res.status(429).json({
+      // Check user quota before proceeding
+      const quotaCheck = await globalPermissionControl.checkQuota(userId);
+      if (!quotaCheck.allowed) {
+        return res.status(429).json({
+          success: false,
+          error: 'Quota exceeded',
+          reason: quotaCheck.reason,
+        });
+      }
+
+      // Classify + plan
+      const intent = await intentRouter.classify(input);
+      const plan = await taskPlanner.createPlan(intent, userId, context);
+
+      // Only allow low-risk plans to execute directly
+      if (plan.requiresApproval || plan.riskLevel !== 'low') {
+        return res.status(403).json({
+          success: false,
+          error: 'Plan requires approval',
+          planId: plan.planId,
+        });
+      }
+
+      // Save plan
+      await planStore.saveNewPlan({
+        plan,
+        createdAt: new Date(),
+        status: 'approved',
+      });
+
+      // Increment execution count
+      await globalPermissionControl.incrementExecution(userId);
+
+      // Queue or execute directly
+      if (queueInitialized) {
+        // Get user priority
+        const priority = await globalPermissionControl.getUserPriority(userId);
+
+        const job = await enqueuePlanExecution(plan.planId, plan, userId, { priority });
+        trackExecutorPerformance(Date.now() - startTime, true, {
+          planId: plan.planId,
+          userId,
+          direct: true,
+          queued: true,
+          priority,
+        });
+        res.json({
+          success: true,
+          planId: plan.planId,
+          jobId: job,
+          priority,
+          message: 'Plan queued for execution',
+        });
+      } else {
+        const result = await taskExecutor.executePlan(plan);
+
+        // Decrement on completion
+        await globalPermissionControl.decrementExecution(userId);
+
+        trackExecutorPerformance(Date.now() - startTime, true, {
+          planId: plan.planId,
+          userId,
+          direct: true,
+          queued: false,
+        });
+        res.json({
+          success: true,
+          result,
+        });
+      }
+    } catch (error: any) {
+      trackExecutorPerformance(Date.now() - startTime, false, { executionError: true });
+      trackOrchestratorError('executor', error, { message: error?.message });
+      console.error('[Orchestrator API] Execution error:', error);
+      res.status(500).json({
         success: false,
-        error: 'Quota exceeded',
-        reason: quotaCheck.reason,
+        error: error.message,
       });
     }
-
-    // Classify + plan
-    const intent = await intentRouter.classify(input);
-    const plan = await taskPlanner.createPlan(intent, userId, context);
-
-    // Only allow low-risk plans to execute directly
-    if (plan.requiresApproval || plan.riskLevel !== 'low') {
-      return res.status(403).json({
-        success: false,
-        error: 'Plan requires approval',
-        planId: plan.planId,
-      });
-    }
-
-    // Save plan
-    await planStore.saveNewPlan({
-      plan,
-      createdAt: new Date(),
-      status: 'approved',
-    });
-
-    // Increment execution count
-    await globalPermissionControl.incrementExecution(userId);
-
-    // Queue or execute directly
-    if (queueInitialized) {
-      // Get user priority
-      const priority = await globalPermissionControl.getUserPriority(userId);
-      
-      const job = await enqueuePlanExecution(plan.planId, plan, userId, { priority });
-      trackExecutorPerformance(Date.now() - startTime, true, {
-        planId: plan.planId,
-        userId,
-        direct: true,
-        queued: true,
-        priority
-      });
-      res.json({
-        success: true,
-        planId: plan.planId,
-        jobId: job,
-        priority,
-        message: 'Plan queued for execution',
-      });
-    } else {
-      const result = await taskExecutor.executePlan(plan);
-      
-      // Decrement on completion
-      await globalPermissionControl.decrementExecution(userId);
-      
-      trackExecutorPerformance(Date.now() - startTime, true, {
-        planId: plan.planId,
-        userId,
-        direct: true,
-        queued: false
-      });
-      res.json({
-        success: true,
-        result,
-      });
-    }
-  } catch (error: any) {
-    trackExecutorPerformance(Date.now() - startTime, false, { executionError: true });
-    trackOrchestratorError('executor', error, { message: error?.message });
-    console.error('[Orchestrator API] Execution error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /orchestrator/health
@@ -423,7 +438,7 @@ router.get('/health', async (req: Request, res: Response) => {
 router.get('/metrics', (req: Request, res: Response) => {
   try {
     const monitoring = getMonitoring();
-    
+
     res.json({
       success: true,
       performance: monitoring.getPerformanceStats(),
@@ -485,14 +500,14 @@ router.get('/quota/:userId', async (req: Request, res: Response) => {
     const { userId } = req.params;
 
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'userId required' 
+      return res.status(400).json({
+        success: false,
+        error: 'userId required',
       });
     }
 
     const status = await globalPermissionControl.getRateLimitStatus(userId);
-    
+
     res.json({
       success: true,
       userId,
@@ -509,35 +524,35 @@ router.get('/quota/:userId', async (req: Request, res: Response) => {
  * Get job status from queue (Week 3)
  */
 // Removed invalid duplicate handler declaration (fixed below)
-  // Fix: missing arrow in async handler
-  router.get('/job/:jobId', async (req: Request, res: Response) => {
-    try {
-      const { jobId } = req.params;
+// Fix: missing arrow in async handler
+router.get('/job/:jobId', async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
 
-      if (!queueInitialized) {
-        return res.status(503).json({ 
-          success: false, 
-          error: 'Queue not available' 
-        });
-      }
-
-      const jobStatus = await getJobStatus(jobId);
-      if (!jobStatus) {
-        return res.status(404).json({ 
-          success: false, 
-          error: 'Job not found' 
-        });
-      }
-
-      res.json({
-        success: true,
-        job: jobStatus,
+    if (!queueInitialized) {
+      return res.status(503).json({
+        success: false,
+        error: 'Queue not available',
       });
-    } catch (error: any) {
-      console.error('[Orchestrator API] Job status error:', error);
-      res.status(500).json({ success: false, error: error.message });
     }
-  });
+
+    const jobStatus = await getJobStatus(jobId);
+    if (!jobStatus) {
+      return res.status(404).json({
+        success: false,
+        error: 'Job not found',
+      });
+    }
+
+    res.json({
+      success: true,
+      job: jobStatus,
+    });
+  } catch (error: any) {
+    console.error('[Orchestrator API] Job status error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 /**
  * POST /orchestrator/retry/:jobId
@@ -548,9 +563,9 @@ router.post('/retry/:jobId', async (req: Request, res: Response) => {
     const { jobId } = req.params;
 
     if (!queueInitialized) {
-      return res.status(503).json({ 
-        success: false, 
-        error: 'Queue not available' 
+      return res.status(503).json({
+        success: false,
+        error: 'Queue not available',
       });
     }
 

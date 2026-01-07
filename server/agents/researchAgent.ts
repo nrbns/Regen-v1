@@ -153,7 +153,9 @@ export async function executeResearchAgent(
     }
 
     // Step 2: Fetch and extract content
-    request.log.info(`[ResearchAgent] Step 2: Fetching content from ${searchResults.length} sources`);
+    request.log.info(
+      `[ResearchAgent] Step 2: Fetching content from ${searchResults.length} sources`
+    );
     const sourcesWithContent = await Promise.all(
       searchResults.slice(0, maxResults).map((result: any) =>
         fetchLimiter(async () => {
@@ -215,8 +217,7 @@ export async function executeResearchAgent(
     request.log.info(`[ResearchAgent] Step 3: Summarizing ${validSources.length} sources`);
     const combinedContent = validSources
       .map(
-        (s, i) =>
-          `[Source ${i + 1}: ${s.title}]\n${s.content.slice(0, 2000)}` // Limit per source
+        (s, i) => `[Source ${i + 1}: ${s.title}]\n${s.content.slice(0, 2000)}` // Limit per source
       )
       .join('\n\n---\n\n');
 
@@ -303,7 +304,9 @@ ${format === 'report' ? 'Research Report:' : 'Summary:'}`;
 
     const latency = Date.now() - startTime;
 
-    request.log.info(`[ResearchAgent] Completed in ${latency}ms with ${validSources.length} sources`);
+    request.log.info(
+      `[ResearchAgent] Completed in ${latency}ms with ${validSources.length} sources`
+    );
 
     return {
       success: true,
@@ -335,4 +338,3 @@ ${format === 'report' ? 'Research Report:' : 'Summary:'}`;
     }) as any;
   }
 }
-

@@ -36,7 +36,9 @@ async function checkGPU() {
   }
 
   try {
-    const { stdout } = await execAsync('nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits');
+    const { stdout } = await execAsync(
+      'nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits'
+    );
     gpuUtilization = parseInt(stdout.trim()) || 0;
     gpuAvailable = gpuUtilization >= 0 && gpuUtilization < 100;
     return gpuAvailable && gpuUtilization < 80;
@@ -136,13 +138,17 @@ async function findWorkingOllamaModel(preferredModel = OLLAMA_MODEL) {
   const fallbacks = ['phi3:mini', 'llama3.2:3b', 'llama3.1', 'llama3', 'mistral', 'gemma'];
   for (const fallback of fallbacks) {
     if (available.includes(fallback)) {
-      console.log(`[llm] Using fallback model: ${fallback} (preferred: ${preferredModel} not available)`);
+      console.log(
+        `[llm] Using fallback model: ${fallback} (preferred: ${preferredModel} not available)`
+      );
       return fallback;
     }
   }
 
   // Use first available model
-  console.log(`[llm] Using first available model: ${available[0]} (preferred: ${preferredModel} not available)`);
+  console.log(
+    `[llm] Using first available model: ${available[0]} (preferred: ${preferredModel} not available)`
+  );
   return available[0];
 }
 
@@ -183,7 +189,7 @@ export async function callOllama(messages, options = {}) {
 
   const startTime = Date.now();
   const perfKey = perfLogger.start('ollama-inference', { model, useGPU });
-  
+
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -208,7 +214,7 @@ export async function callOllama(messages, options = {}) {
 
   // PERFORMANCE FIX #6: Log performance metrics
   perfLogger.end(perfKey, true);
-  
+
   if (process.env.LOG_PERFORMANCE !== '0') {
     console.log(`[llm] Ollama inference: ${latency}ms, GPU: ${useGPU}, Model: ${model}`);
   }
@@ -543,9 +549,9 @@ export async function analyzeWithLLM({
         // Try with explicit fallback model
         if (ollamaError.message.includes('model')) {
           console.log('[llm] Attempting with fallback model...');
-          llmResult = await callOllama(messages, { 
+          llmResult = await callOllama(messages, {
             temperature: 0.0,
-            model: 'phi3:mini' // Explicit fallback
+            model: 'phi3:mini', // Explicit fallback
           });
         } else {
           throw ollamaError;

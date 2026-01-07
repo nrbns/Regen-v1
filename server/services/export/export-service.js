@@ -221,10 +221,3 @@ export async function exportToTool(contentMd, tool, options = {}) {
       throw new Error(`Invalid tool: ${tool}. Supported: notion, obsidian, roam`);
   }
 }
-
-
-
-
-
-
-

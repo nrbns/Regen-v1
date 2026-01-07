@@ -56,7 +56,7 @@ export function AIResultBlock({
     <ResponsiveCard
       className={cn(
         'group transition-all duration-200',
-        hovered && 'shadow-lg shadow-purple-500/10 border-purple-500/30',
+        hovered && 'border-purple-500/30 shadow-lg shadow-purple-500/10',
         trending && 'border-emerald-500/30 bg-emerald-500/5',
         className
       )}
@@ -66,17 +66,17 @@ export function AIResultBlock({
       onMouseLeave={() => setHovered(false)}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center gap-2">
             {trending && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-xs font-medium">
+              <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-300">
                 <TrendingUp size={12} />
                 Trending
               </span>
             )}
             {source && (
-              <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-xs font-medium">
+              <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-medium text-slate-300">
                 {source}
               </span>
             )}
@@ -85,7 +85,7 @@ export function AIResultBlock({
             )}
           </div>
           <h3
-            className="text-lg font-semibold text-white mb-1 line-clamp-2 group-hover:text-purple-300 transition-colors cursor-pointer"
+            className="mb-1 line-clamp-2 cursor-pointer text-lg font-semibold text-white transition-colors group-hover:text-purple-300"
             onClick={handleOpen}
           >
             {title}
@@ -102,7 +102,7 @@ export function AIResultBlock({
         </div>
         <button
           onClick={handleOpen}
-          className="flex-shrink-0 p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+          className="flex-shrink-0 rounded-lg bg-slate-800/50 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
           aria-label="Open article"
         >
           <ExternalLink size={16} />
@@ -111,19 +111,19 @@ export function AIResultBlock({
 
       {/* AI Summary Section */}
       {summary && (
-        <div className="mb-3 p-3 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-lg border border-purple-500/20">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="mb-3 rounded-lg border border-purple-500/20 bg-gradient-to-r from-purple-500/10 to-blue-500/10 p-3">
+          <div className="mb-2 flex items-center gap-2">
             <Sparkles size={14} className="text-purple-400" />
-            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wide">
+            <span className="text-xs font-semibold uppercase tracking-wide text-purple-300">
               AI Summary
             </span>
           </div>
-          <p className="text-sm text-slate-200 leading-relaxed">{summary}</p>
+          <p className="text-sm leading-relaxed text-slate-200">{summary}</p>
         </div>
       )}
 
       {/* Snippet */}
-      <p className="text-sm text-slate-400 mb-3 line-clamp-3">{snippet}</p>
+      <p className="mb-3 line-clamp-3 text-sm text-slate-400">{snippet}</p>
 
       {/* Bullet Points */}
       {bullets && bullets.length > 0 && (
@@ -131,7 +131,7 @@ export function AIResultBlock({
           <ul className="space-y-1.5">
             {bullets.slice(0, expanded ? bullets.length : 3).map((bullet, idx) => (
               <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className="text-purple-400 mt-1">•</span>
+                <span className="mt-1 text-purple-400">•</span>
                 <span>{bullet}</span>
               </li>
             ))}
@@ -139,7 +139,7 @@ export function AIResultBlock({
           {bullets.length > 3 && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="mt-2 text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+              className="mt-2 flex items-center gap-1 text-xs text-purple-400 transition-colors hover:text-purple-300"
             >
               {expanded ? 'Show less' : `Show ${bullets.length - 3} more points`}
               <ArrowRight
@@ -153,8 +153,8 @@ export function AIResultBlock({
 
       {/* Citations */}
       {citations && citations.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-800">
-          <p className="text-xs text-slate-500 mb-2 font-medium">Sources:</p>
+        <div className="mt-3 border-t border-slate-800 pt-3">
+          <p className="mb-2 text-xs font-medium text-slate-500">Sources:</p>
           <div className="flex flex-wrap gap-2">
             {citations.map((cite, idx) => (
               <a
@@ -164,7 +164,7 @@ export function AIResultBlock({
                   e.stopPropagation();
                   handleOpen();
                 }}
-                className="text-xs text-purple-400 hover:text-purple-300 hover:underline flex items-center gap-1"
+                className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 hover:underline"
               >
                 <BookOpen size={12} />
                 {cite.title || cite.url}
@@ -175,10 +175,10 @@ export function AIResultBlock({
       )}
 
       {/* Actions */}
-      <div className="mt-4 flex items-center gap-2 pt-3 border-t border-slate-800">
+      <div className="mt-4 flex items-center gap-2 border-t border-slate-800 pt-3">
         <button
           onClick={handleOpen}
-          className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700"
         >
           Read Article
           <ArrowRight size={14} />
@@ -189,7 +189,7 @@ export function AIResultBlock({
               e.stopPropagation();
               onSave();
             }}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors"
+            className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
           >
             Save
           </button>
@@ -198,5 +198,3 @@ export function AIResultBlock({
     </ResponsiveCard>
   );
 }
-
-

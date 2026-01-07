@@ -10,7 +10,7 @@
 ✅ **Comparison Engine** — Sort and rank options  
 ✅ **Approval Workflow** — User confirms before booking  
 ✅ **Booking Confirmation** — Automated confirmation codes  
-✅ **Audit Trail** — Complete logging of all actions  
+✅ **Audit Trail** — Complete logging of all actions
 
 ## 📁 Structure
 
@@ -74,10 +74,10 @@ const request = await parser.parseIntent(
 const plan = planner.createPlan(request);
 
 // Execute with approval handler
-const context = await executor.execute('user@example.com', plan, async (req) => {
+const context = await executor.execute('user@example.com', plan, async req => {
   // Show options to user
   console.log(`Found ${req.options.length} flights`);
-  
+
   // User selects one
   return req.options[0];
 });
@@ -102,17 +102,20 @@ const request = await parser.parseIntent(
 ## 🔍 Supported Intents
 
 ### Flights
+
 - "Find me a flight from [origin] to [destination] on [date]"
 - "Book a nonstop flight from [origin] to [destination]"
 - "Cheapest flight to [destination] next week"
 - "Business class flight to [destination]"
 
 ### Hotels
+
 - "Find a hotel in [city] for [nights] nights starting [date]"
 - "4-star hotel near Times Square"
 - "Hotel room for 2 guests in [location]"
 
 ### Cars
+
 - "Rent a car in [location] from [date] to [date]"
 - "SUV rental for next weekend"
 
@@ -121,6 +124,7 @@ const request = await parser.parseIntent(
 ### Production Flight APIs
 
 **Amadeus** (recommended)
+
 ```typescript
 import Amadeus from 'amadeus';
 
@@ -138,6 +142,7 @@ const flights = await amadeus.shopping.flightOffersSearch.get({
 ```
 
 **Skyscanner**
+
 ```typescript
 // Via RapidAPI
 const response = await fetch('https://skyscanner-api.p.rapidapi.com/search', {
@@ -150,12 +155,14 @@ const response = await fetch('https://skyscanner-api.p.rapidapi.com/search', {
 ## 🎨 Filter & Sort Options
 
 ### Filters
+
 - **Price**: `maxPrice: 500`
 - **Stops**: `maxStops: 0` (nonstop), `1` (one stop)
 - **Airlines**: `airlines: ['United', 'Delta']`
 - **Departure Time**: `departureTimeRange: { start: 6, end: 12 }`
 
 ### Sort
+
 - **price** — Cheapest first
 - **duration** — Fastest first
 - **stops** — Fewest stops first

@@ -78,7 +78,10 @@ class MVPTelemetryService {
       timestamp: new Date().toISOString(),
     });
 
-    console.log('[Telemetry] Service initialized:', { sessionId: this.sessionId, enabled: this.isEnabled });
+    console.log('[Telemetry] Service initialized:', {
+      sessionId: this.sessionId,
+      enabled: this.isEnabled,
+    });
   }
 
   /**
@@ -143,7 +146,11 @@ class MVPTelemetryService {
   /**
    * Track hibernation events
    */
-  trackHibernation(tabId: string, action: 'hibernated' | 'resumed', context?: Record<string, unknown>): void {
+  trackHibernation(
+    tabId: string,
+    action: 'hibernated' | 'resumed',
+    context?: Record<string, unknown>
+  ): void {
     this.track(action === 'hibernated' ? 'tab_hibernated' : 'tab_resumed', {
       tabId,
       ...context,

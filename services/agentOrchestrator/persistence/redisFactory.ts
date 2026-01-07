@@ -1,7 +1,7 @@
 /**
  * Redis connection factory for PlanStore
  * Handles connection pooling, configuration, and graceful shutdown
- * 
+ *
  * Usage:
  * const redis = createRedisConnection();
  * const planStore = new RedisPlanStore(redis);
@@ -25,22 +25,22 @@ export function createRedisConnection(options?: RedisOptions): Redis {
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD,
     db: parseInt(process.env.REDIS_DB || '0', 10),
-    
+
     // Connection pooling
     maxRetriesPerRequest: 3,
     enableReadyCheck: true,
     enableOfflineQueue: true,
-    
+
     // Reconnection strategy
     retryStrategy: (times: number) => {
       const delay = Math.min(times * 50, 2000);
       return delay;
     },
-    
+
     // Timeouts
     connectTimeout: 10000,
     commandTimeout: 5000,
-    
+
     // Custom settings
     ...options,
   };
@@ -107,7 +107,10 @@ export async function testRedisConnection(timeoutMs: number = 5000): Promise<boo
     ]);
     return result === 'PONG';
   } catch (error) {
-    console.error('[Redis] Connection test failed:', error instanceof Error ? error.message : 'Unknown error');
+    console.error(
+      '[Redis] Connection test failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     return false;
   }
 }

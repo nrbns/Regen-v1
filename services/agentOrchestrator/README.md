@@ -25,6 +25,7 @@ User Result
 ## Core Components
 
 ### IntentRouter
+
 Classifies user intent across all agents.
 
 ```typescript
@@ -43,6 +44,7 @@ interface IntentClassification {
 ```
 
 ### Multi-Agent Planner
+
 Creates task DAG from intent.
 
 ```typescript
@@ -80,6 +82,7 @@ interface AgentPlan {
 ```
 
 ### Generic Approval Handler
+
 Standardized approval workflow for all agents.
 
 ```typescript
@@ -102,6 +105,7 @@ interface ApprovalResponse {
 ```
 
 ### Unified Executor
+
 Orchestrates execution across all agents.
 
 ```typescript
@@ -125,6 +129,7 @@ interface ExecutionContext {
 Parse user intent and return plan.
 
 **Request:**
+
 ```json
 {
   "userId": "alice@example.com",
@@ -137,6 +142,7 @@ Parse user intent and return plan.
 ```
 
 **Response:**
+
 ```json
 {
   "planId": "plan_abc123",
@@ -152,6 +158,7 @@ Parse user intent and return plan.
 ```
 
 **Status Codes:**
+
 - `200` — Plan created successfully
 - `400` — Invalid intent format
 - `401` — Unauthorized
@@ -164,6 +171,7 @@ Parse user intent and return plan.
 Execute an approved plan.
 
 **Request:**
+
 ```json
 {
   "planId": "plan_abc123",
@@ -174,6 +182,7 @@ Execute an approved plan.
 ```
 
 **Response:**
+
 ```json
 {
   "executionId": "exec_xyz789",
@@ -195,6 +204,7 @@ Execute an approved plan.
 Poll execution status.
 
 **Response:**
+
 ```json
 {
   "executionId": "exec_xyz789",
@@ -217,6 +227,7 @@ Poll execution status.
 Retrieve full audit trail for a plan.
 
 **Response:**
+
 ```json
 {
   "planId": "plan_abc123",
@@ -251,6 +262,7 @@ Retrieve full audit trail for a plan.
 20+ predefined intent templates to improve accuracy.
 
 ### Mail Agent Templates
+
 ```
 "summarize my emails"
 "read unread messages"
@@ -262,6 +274,7 @@ Retrieve full audit trail for a plan.
 ```
 
 ### PPT Agent Templates
+
 ```
 "create a presentation about [topic]"
 "generate slides for [meeting]"
@@ -270,6 +283,7 @@ Retrieve full audit trail for a plan.
 ```
 
 ### Booking Agent Templates
+
 ```
 "book me a flight to [city]"
 "find hotels in [location]"
@@ -278,6 +292,7 @@ Retrieve full audit trail for a plan.
 ```
 
 ### Research Agent Templates
+
 ```
 "research [topic] and create a report"
 "find information about [subject]"
@@ -286,6 +301,7 @@ Retrieve full audit trail for a plan.
 ```
 
 ### Trading Agent Templates
+
 ```
 "show me quotes for [stocks]"
 "what is the market sentiment on [topic]"
@@ -362,7 +378,7 @@ agents:
 
 approvals:
   timeout_seconds: 3600
-  require_2fa_for: ["send_email", "execute_trade", "book_flight"]
+  require_2fa_for: ['send_email', 'execute_trade', 'book_flight']
   auto_approve_low_risk: true
 
 quotas:
@@ -381,7 +397,7 @@ import { AgentOrchestrator } from './agentOrchestrator';
 const orchestrator = new AgentOrchestrator();
 
 // 1. Parse intent
-const plan = await orchestrator.createPlan(userId, "Summarize my emails and send drafts");
+const plan = await orchestrator.createPlan(userId, 'Summarize my emails and send drafts');
 // {
 //   planId: "plan_abc",
 //   agent: "mail",
@@ -425,4 +441,3 @@ const audit = await orchestrator.getAuditTrail(plan.planId);
 6. Add comprehensive logging
 7. Add Prometheus metrics
 8. Add E2E tests
-

@@ -128,22 +128,26 @@ export class TaskExecutor {
           callbacks?.onTaskStart?.(task.id);
           // Execute
           this.executeTask(task, plan.planId)
-            .then((result) => {
+            .then(result => {
               taskResults.push(result);
 
               if (result.status === 'success') {
                 this.taskOutputs.set(task.id, result.output);
                 ctx.mergeTaskOutput(plan.planId, task.id, result.output);
                 // Checkpoint: save task result to persistent store
-                getPlanStore().appendTaskResult(plan.planId, result).catch(err => {
-                  console.error(`[Executor] Failed to checkpoint task ${task.id}:`, err);
-                });
+                getPlanStore()
+                  .appendTaskResult(plan.planId, result)
+                  .catch(err => {
+                    console.error(`[Executor] Failed to checkpoint task ${task.id}:`, err);
+                  });
                 callbacks?.onTaskComplete?.(task.id, result.output);
               } else if (result.status === 'failure') {
                 // Checkpoint failed task
-                getPlanStore().appendTaskResult(plan.planId, result).catch(err => {
-                  console.error(`[Executor] Failed to checkpoint task ${task.id}:`, err);
-                });
+                getPlanStore()
+                  .appendTaskResult(plan.planId, result)
+                  .catch(err => {
+                    console.error(`[Executor] Failed to checkpoint task ${task.id}:`, err);
+                  });
                 callbacks?.onTaskFail?.(task.id, new Error(result.error || 'Task failed'));
                 if (task.criticalPath) {
                   aborted = true;
@@ -162,7 +166,7 @@ export class TaskExecutor {
                 }
               }
             })
-            .catch((err) => {
+            .catch(err => {
               // Shouldn't occur because executeTask handles errors
               callbacks?.onTaskFail?.(task.id, err);
             })
@@ -287,15 +291,10 @@ export class TaskExecutor {
   /**
    * Execute with timeout
    */
-  private async executeWithTimeout<T>(
-    fn: () => Promise<T>,
-    timeoutMs: number
-  ): Promise<T> {
+  private async executeWithTimeout<T>(fn: () => Promise<T>, timeoutMs: number): Promise<T> {
     return Promise.race([
       fn(),
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('Task timeout')), timeoutMs)
-      ),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Task timeout')), timeoutMs)),
     ]);
   }
 
@@ -314,7 +313,7 @@ export class TaskExecutor {
         // Reference into shared context: $ctx.taskId.some.path
         const path = value.substring(5);
         const ctx = getContextStore();
-        resolved[key] = planId ? ctx.getPath(planId, path) ?? value : value;
+        resolved[key] = planId ? (ctx.getPath(planId, path) ?? value) : value;
       } else {
         resolved[key] = value;
       }

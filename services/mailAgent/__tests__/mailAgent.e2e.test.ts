@@ -56,7 +56,7 @@ describe('Mail Agent E2E Tests', () => {
 
     for (const { intent, expected } of testCases) {
       const plan = planner.createPlan(testUserId, intent);
-      const taskTypes = plan.tasks.map((t) => t.type);
+      const taskTypes = plan.tasks.map(t => t.type);
 
       expect(taskTypes).toContain('read_emails');
       expect(plan.estimatedRiskLevel).toBe(expected.riskLevel);
@@ -140,7 +140,7 @@ describe('Mail Agent E2E Tests', () => {
     expect(plan.requiresApproval).toBe(true);
 
     // Check that send_draft task is in the plan
-    const sendTask = plan.tasks.find((t) => t.type === 'send_draft');
+    const sendTask = plan.tasks.find(t => t.type === 'send_draft');
     expect(sendTask).toBeDefined();
   });
 
@@ -210,15 +210,18 @@ describe('Mail Agent E2E Tests', () => {
    * End-to-end test with actual Gmail API + LLM
    * This test is SKIPPED if credentials are missing
    */
-  it.skipIf(!process.env.GMAIL_TEST_TOKEN)('should execute full pipeline with real APIs', async () => {
-    let taskExecutionCount = 0;
+  it.skipIf(!process.env.GMAIL_TEST_TOKEN)(
+    'should execute full pipeline with real APIs',
+    async () => {
+      let taskExecutionCount = 0;
 
-    // This would require real credentials
-    // In CI/CD, set GMAIL_TEST_TOKEN and ANTHROPIC_API_KEY to run this
-    const plan = { tasks: [] };
-    expect(plan.tasks.length).toBeGreaterThan(-1);
-    expect(taskExecutionCount).toBeGreaterThanOrEqual(0);
-  });
+      // This would require real credentials
+      // In CI/CD, set GMAIL_TEST_TOKEN and ANTHROPIC_API_KEY to run this
+      const plan = { tasks: [] };
+      expect(plan.tasks.length).toBeGreaterThan(-1);
+      expect(taskExecutionCount).toBeGreaterThanOrEqual(0);
+    }
+  );
 });
 
 /**

@@ -171,45 +171,45 @@ export function TabManager() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900">
+    <div className="flex h-full flex-col bg-gray-900">
       {/* Header */}
-      <div className="p-4 border-b border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Folder className="w-5 h-5" />
+      <div className="border-b border-gray-700 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+            <Folder className="h-5 w-5" />
             Tab Manager
           </h2>
           <button
             onClick={createGroup}
-            className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
+            className="rounded-lg bg-purple-600 p-2 text-white hover:bg-purple-700"
           >
-            <FolderPlus className="w-4 h-4" />
+            <FolderPlus className="h-4 w-4" />
           </button>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="Search tabs..."
-            className="w-full bg-gray-800 text-white rounded-lg pl-10 pr-4 py-2 text-sm"
+            className="w-full rounded-lg bg-gray-800 py-2 pl-10 pr-4 text-sm text-white"
           />
         </div>
       </div>
 
       {/* Groups */}
       {groups.length > 0 && (
-        <div className="p-4 border-b border-gray-700">
-          <h3 className="text-sm font-semibold text-gray-400 mb-2">Groups</h3>
+        <div className="border-b border-gray-700 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-gray-400">Groups</h3>
           <div className="space-y-2">
             {groups.map(group => (
               <div
                 key={group.id}
-                className="flex items-center justify-between p-2 bg-gray-800 rounded-lg"
+                className="flex items-center justify-between rounded-lg bg-gray-800 p-2"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: group.color }} />
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: group.color }} />
                   <span className="text-sm text-white">{group.name}</span>
                   <span className="text-xs text-gray-400">({group.tabIds.length})</span>
                 </div>
@@ -217,7 +217,7 @@ export function TabManager() {
                   onClick={() => deleteGroup(group.id)}
                   className="p-1 text-red-400 hover:text-red-300"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             ))}
@@ -228,8 +228,8 @@ export function TabManager() {
       {/* Tabs List */}
       <div className="flex-1 overflow-y-auto p-4">
         {filteredTabs.length === 0 ? (
-          <div className="text-center text-gray-400 mt-8">
-            <Folder className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <div className="mt-8 text-center text-gray-400">
+            <Folder className="mx-auto mb-4 h-12 w-12 opacity-50" />
             <p className="text-sm">No tabs found</p>
           </div>
         ) : (
@@ -241,23 +241,23 @@ export function TabManager() {
               return (
                 <div
                   key={tab.id}
-                  className={`p-3 rounded-lg transition-colors ${
+                  className={`rounded-lg p-3 transition-colors ${
                     activeId === tab.id
                       ? 'bg-purple-600 text-white'
-                      : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+                      : 'bg-gray-800 text-gray-200 hover:bg-gray-700'
                   } ${isDiscarded ? 'opacity-50' : ''}`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       {group && (
                         <div
-                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          className="h-2 w-2 flex-shrink-0 rounded-full"
                           style={{ backgroundColor: group.color }}
                         />
                       )}
-                      <p className="text-sm font-medium truncate">{tab.title || tab.url}</p>
+                      <p className="truncate text-sm font-medium">{tab.title || tab.url}</p>
                       {isDiscarded && (
-                        <span className="text-xs px-2 py-0.5 bg-yellow-600/20 text-yellow-400 rounded">
+                        <span className="rounded bg-yellow-600/20 px-2 py-0.5 text-xs text-yellow-400">
                           Discarded
                         </span>
                       )}
@@ -266,30 +266,30 @@ export function TabManager() {
                       {isDiscarded ? (
                         <button
                           onClick={() => restoreTab(tab.id)}
-                          className="p-1 hover:bg-white/20 rounded"
+                          className="rounded p-1 hover:bg-white/20"
                           title="Restore"
                         >
-                          <RefreshCw className="w-4 h-4" />
+                          <RefreshCw className="h-4 w-4" />
                         </button>
                       ) : (
                         <button
                           onClick={() => discardTab(tab.id)}
-                          className="p-1 hover:bg-white/20 rounded"
+                          className="rounded p-1 hover:bg-white/20"
                           title="Discard"
                         >
-                          <Archive className="w-4 h-4" />
+                          <Archive className="h-4 w-4" />
                         </button>
                       )}
                       <button
                         onClick={() => remove(tab.id)}
-                        className="p-1 hover:bg-white/20 rounded text-red-400"
+                        className="rounded p-1 text-red-400 hover:bg-white/20"
                         title="Close"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs opacity-75 truncate">{tab.url}</p>
+                  <p className="truncate text-xs opacity-75">{tab.url}</p>
 
                   {/* Group selector */}
                   <div className="mt-2 flex items-center gap-2">
@@ -302,7 +302,7 @@ export function TabManager() {
                           removeTabFromGroup(tab.id, group.id);
                         }
                       }}
-                      className="text-xs bg-gray-700 text-white rounded px-2 py-1"
+                      className="rounded bg-gray-700 px-2 py-1 text-xs text-white"
                       onClick={e => e.stopPropagation()}
                     >
                       <option value="">No group</option>

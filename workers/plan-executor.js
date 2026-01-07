@@ -1,19 +1,22 @@
 #!/usr/bin/env node
 /**
  * Standalone Plan Worker Process
- * 
+ *
  * Runs as a separate process to execute queued plans
- * 
+ *
  * Usage:
  *   node workers/plan-executor.js
- * 
+ *
  * Environment Variables:
  *   WORKER_CONCURRENCY=5     # Number of concurrent jobs (default: 5)
  *   REDIS_HOST=localhost     # Redis host
  *   REDIS_PORT=6379          # Redis port
  */
 
-import { createPlanWorker, stopPlanWorker } from '../services/agentOrchestrator/workers/planWorker.js';
+import {
+  createPlanWorker,
+  stopPlanWorker,
+} from '../services/agentOrchestrator/workers/planWorker.js';
 import { initializePlanStore } from '../services/agentOrchestrator/persistence/planStoreFactory.js';
 import { initSentry } from '../server/monitoring/sentry.js';
 
@@ -53,9 +56,10 @@ async function main() {
 
     console.log('\n✅ Worker ready to process plans\n');
     console.log(`Concurrency: ${WORKER_CONCURRENCY}`);
-    console.log(`Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
+    console.log(
+      `Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+    );
     console.log('\nPress Ctrl+C to stop\n');
-
   } catch (error) {
     console.error('\n❌ Failed to start worker:', error);
     process.exit(1);
@@ -82,7 +86,7 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Handle uncaught errors
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', error => {
   console.error('[Worker] Uncaught exception:', error);
   shutdown('uncaughtException');
 });

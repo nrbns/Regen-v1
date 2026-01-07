@@ -7,13 +7,15 @@ assignees: ''
 ---
 
 ## Description
+
 <!-- Describe the core engine feature or improvement -->
 
 ## Acceptance Criteria
+
 - [ ] Feature implemented and tested
 - [ ] Documentation updated
 - [ ] Integration verified
 
 ## Related Files
-<!-- List relevant files -->
 
+<!-- List relevant files -->

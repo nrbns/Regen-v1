@@ -5,6 +5,7 @@ Real-time speech-to-text, text-to-speech, and voice command execution.
 ## Components
 
 ### Audio Processor
+
 Captures and processes microphone input.
 
 ```typescript
@@ -18,12 +19,14 @@ const audioBlob = await audioProcessor.stopRecording();
 ```
 
 **Features:**
+
 - Echo cancellation
 - Noise suppression
 - Auto gain control
 - Configurable sample rate (16kHz recommended)
 
 ### Whisper Service
+
 Speech-to-Text using OpenAI Whisper API.
 
 ```typescript
@@ -38,11 +41,13 @@ const lang = await whisperService.detectLanguage(audioBlob);
 ```
 
 **Supported:**
+
 - 99+ languages
 - Confidence scores (demo includes mock)
 - Automatic speech recognition
 
 ### Streaming Transcriber
+
 Real-time partial transcriptions while speaking.
 
 ```typescript
@@ -52,13 +57,13 @@ const transcriber = new StreamingTranscriber({
   chunkDurationMs: 500,
   language: 'en-US',
   includePartial: true,
-  onChunk: (chunk) => {
+  onChunk: chunk => {
     console.log(`Partial: "${chunk.partial}"`); // "Summarize my..." (live)
     if (chunk.isFinal) {
       console.log(`Final: "${chunk.partial}"`);
     }
   },
-  onError: (error) => console.error(error),
+  onError: error => console.error(error),
 });
 
 // Start streaming
@@ -69,6 +74,7 @@ const fullText = await transcriber.stop();
 ```
 
 ### Text-to-Speech (TTS)
+
 Converts text to audio with multiple providers.
 
 ```typescript
@@ -82,12 +88,14 @@ await ttsService.play(result.audioBlob);
 ```
 
 **Providers:**
+
 - Browser Web Speech API (fallback)
 - Google Cloud TTS
 - ElevenLabs (natural voices)
 - Azure TTS
 
 ### Voice Agent
+
 Complete voice-controlled workflow.
 
 ```typescript
@@ -119,6 +127,7 @@ const result = await voiceAgent.stopListening();
 ## Supported Voice Commands
 
 ### Mail Agent
+
 - "Summarize my emails"
 - "Read unread messages"
 - "Send a reply to that email"
@@ -126,16 +135,19 @@ const result = await voiceAgent.stopListening();
 - "Show me urgent emails"
 
 ### PPT Agent
+
 - "Create a presentation about sales"
 - "Generate a deck for Q4 roadmap"
 - "Make slides about our new feature"
 
 ### Booking Agent
+
 - "Book me a flight to New York"
 - "Find hotels in San Francisco for next week"
 - "Search for car rentals in LA"
 
 ### General
+
 - "Show my calendar"
 - "What's my schedule tomorrow"
 - "Set a reminder"
@@ -191,7 +203,7 @@ const transcriber = new StreamingTranscriber({
   chunkDurationMs: 500,
   language: 'en-US',
   includePartial: true,
-  onChunk: async (chunk) => {
+  onChunk: async chunk => {
     console.log(`You said: "${chunk.partial}"`);
 
     if (chunk.isFinal) {
@@ -201,7 +213,7 @@ const transcriber = new StreamingTranscriber({
       await ttsService.play(audio.audioBlob);
     }
   },
-  onError: (error) => console.error('Error:', error),
+  onError: error => console.error('Error:', error),
 });
 
 await transcriber.start();
@@ -211,23 +223,27 @@ const text = await transcriber.stop();
 ## TTS Providers
 
 ### Browser Web Speech API (Built-in)
+
 - ✅ Works offline
 - ❌ Limited voice quality
 - ❌ Limited languages
 
 ### Google Cloud TTS
+
 - ✅ Natural sounding
 - ✅ 220+ voices
 - ❌ Requires API key
 - Pricing: $16 per 1M characters
 
 ### ElevenLabs
+
 - ✅ Most natural voices
 - ✅ Voice cloning
 - ❌ Requires API key
 - Pricing: $0.30 per 1K characters (or $5/mo basic)
 
 ### Azure TTS
+
 - ✅ Good quality
 - ✅ 400+ voices
 - ❌ Requires API key
@@ -236,6 +252,7 @@ const text = await transcriber.stop();
 ## STT Providers
 
 ### OpenAI Whisper
+
 - ✅ Highest accuracy
 - ✅ Supports 99 languages
 - ✅ Timestamps available
@@ -243,12 +260,14 @@ const text = await transcriber.stop();
 - Pricing: $0.02 per 60 seconds
 
 ### Google Cloud Speech-to-Text
+
 - ✅ Streaming support
 - ✅ Automatic punctuation
 - ❌ Requires API key
 - Pricing: $0.006 per 15 seconds
 
 ### Azure Speech Services
+
 - ✅ Streaming support
 - ✅ Speaker identification
 - ❌ Requires API key
@@ -288,6 +307,7 @@ const processor = new AudioProcessor({
 ## Performance
 
 ### Latency
+
 - Audio capture: <50ms
 - Transcription: 1-3 seconds (Whisper)
 - Plan creation: <500ms
@@ -295,6 +315,7 @@ const processor = new AudioProcessor({
 - **Total: ~5-15 seconds** per command
 
 ### Accuracy
+
 - Whisper: 95%+ accuracy (English)
 - TTS: Native quality varies by provider
 - Voice command recognition: 90%+ (with fallback)

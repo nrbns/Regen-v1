@@ -46,7 +46,7 @@ export function TopBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { activeId } = useTabsStore();
-  
+
   // SPRINT 0: Address bar auto-hide on scroll
   const { isVisible: isAddressBarVisible } = useAddressBarAutoHide({
     enabled: showAddressBar && !focused, // Don't hide when focused
@@ -171,7 +171,9 @@ export function TopBar({
           await setMode('Research');
           setResearchPaneOpen(true);
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('research:start', { detail: { intent: 'sources' } }));
+            window.dispatchEvent(
+              new CustomEvent('research:start', { detail: { intent: 'sources' } })
+            );
           }
           return;
         }
@@ -227,11 +229,11 @@ export function TopBar({
           <div ref={containerRef} className="relative mx-4 max-w-2xl flex-1">
             <form onSubmit={handleAddressSubmit} className="relative flex items-center gap-2">
               {/* Minimal navigation controls */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex flex-shrink-0 items-center gap-1">
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                   title="Go back"
                   aria-label="Go back"
                 >
@@ -240,7 +242,7 @@ export function TopBar({
                 <button
                   type="button"
                   onClick={handleForward}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                   title="Go forward"
                   aria-label="Go forward"
                 >
@@ -249,14 +251,14 @@ export function TopBar({
                 <button
                   type="button"
                   onClick={handleReload}
-                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+                  className="rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                   title="Reload page"
                   aria-label="Reload page"
                 >
                   <RotateCcw size={16} />
                 </button>
               </div>
-              
+
               <Search
                 size={16}
                 className="pointer-events-none absolute left-[100px] top-1/2 -translate-y-1/2 text-[var(--text-muted)]"

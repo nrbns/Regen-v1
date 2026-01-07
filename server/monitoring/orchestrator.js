@@ -33,10 +33,10 @@ class OrchestratorMonitoring {
   }
 
   getPerformanceStats(component) {
-    const items = component ? this.metrics.filter((m) => m.component === component) : this.metrics;
+    const items = component ? this.metrics.filter(m => m.component === component) : this.metrics;
     const count = items.length;
-    const durations = items.map((m) => m.durationMs);
-    const successCount = items.filter((m) => m.success).length;
+    const durations = items.map(m => m.durationMs);
+    const successCount = items.filter(m => m.success).length;
     const avgDurationMs = count ? durations.reduce((a, b) => a + b, 0) / count : 0;
     return {
       count,
@@ -78,11 +78,12 @@ class OrchestratorMonitoring {
       successRate: perf.successRate > 90,
       errorRate: errors.total < 100,
     };
-    const status = checks.performance && checks.successRate && checks.errorRate
-      ? 'healthy'
-      : checks.performance || checks.successRate
-      ? 'degraded'
-      : 'unhealthy';
+    const status =
+      checks.performance && checks.successRate && checks.errorRate
+        ? 'healthy'
+        : checks.performance || checks.successRate
+          ? 'degraded'
+          : 'unhealthy';
     return { status, checks, metrics: { perf, errors } };
   }
 }

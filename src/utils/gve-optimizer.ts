@@ -39,11 +39,15 @@ export class IframeManager {
   /**
    * Register iframe with optimizations
    */
-  registerIframe(id: string, iframe: HTMLIFrameElement, options: {
-    lazy?: boolean;
-    sandbox?: string[];
-    allow?: string;
-  } = {}) {
+  registerIframe(
+    id: string,
+    iframe: HTMLIFrameElement,
+    options: {
+      lazy?: boolean;
+      sandbox?: string[];
+      allow?: string;
+    } = {}
+  ) {
     // Apply sandbox for security
     if (options.sandbox) {
       iframe.setAttribute('sandbox', options.sandbox.join(' '));
@@ -93,9 +97,11 @@ export class IframeManager {
     requestAnimationFrame(() => {
       const rect = iframe.getBoundingClientRect();
       // Emit custom event for view updates
-      window.dispatchEvent(new CustomEvent('iframe-resize', {
-        detail: { id, rect }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('iframe-resize', {
+          detail: { id, rect },
+        })
+      );
     });
   }
 
@@ -106,9 +112,11 @@ export class IframeManager {
     // Validate origin for security
     const allowedOrigins = ['*']; // Configure based on needs
     if (allowedOrigins.includes('*') || allowedOrigins.includes(event.origin)) {
-      window.dispatchEvent(new CustomEvent('iframe-message', {
-        detail: { id, data: event.data, origin: event.origin }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('iframe-message', {
+          detail: { id, data: event.data, origin: event.origin },
+        })
+      );
     }
   }
 
@@ -205,7 +213,7 @@ export class OptimizedViewRenderer {
 
     this.isRendering = true;
     const batch = this.renderQueue.splice(0, 10); // Process up to 10 at a time
-    
+
     batch.forEach(callback => {
       try {
         callback();
@@ -304,4 +312,3 @@ export function getPerformanceMonitor(): PerformanceMonitor {
   }
   return monitorInstance;
 }
-

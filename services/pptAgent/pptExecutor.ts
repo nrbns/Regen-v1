@@ -3,12 +3,7 @@
  * Orchestrates presentation generation
  */
 
-import type {
-  PptPlan,
-  PptTask,
-  PresentationOutline,
-  GoogleSlidesPresentation,
-} from './types';
+import type { PptPlan, PptTask, PresentationOutline, GoogleSlidesPresentation } from './types';
 import { OutlineGenerator } from './outlineGenerator';
 import { SlidesConnector } from './slidesConnector';
 import { AuditLogger } from '../mailAgent/auditLog';
@@ -137,10 +132,7 @@ export class PptExecutor {
   /**
    * Task: Generate outline
    */
-  private async executeGenerateOutline(
-    task: PptTask,
-    plan: PptPlan
-  ): Promise<PresentationOutline> {
+  private async executeGenerateOutline(task: PptTask, plan: PptPlan): Promise<PresentationOutline> {
     const { prompt, slideCount, theme } = task.input;
 
     const outline = await this.outlineGenerator.generateOutline(prompt, {
@@ -166,9 +158,7 @@ export class PptExecutor {
       throw new Error('No outline available for creating slides');
     }
 
-    const presentation = await this.slidesConnector.createPresentation(
-      context.outline.title
-    );
+    const presentation = await this.slidesConnector.createPresentation(context.outline.title);
 
     console.log(`[PptExecutor] Created presentation: ${presentation.presentationId}`);
     return presentation;
@@ -177,10 +167,7 @@ export class PptExecutor {
   /**
    * Task: Add content
    */
-  private async executeAddContent(
-    _task: PptTask,
-    context: PptExecutionContext
-  ): Promise<void> {
+  private async executeAddContent(_task: PptTask, context: PptExecutionContext): Promise<void> {
     if (!context.outline || !context.presentation) {
       throw new Error('Missing outline or presentation');
     }
@@ -196,16 +183,13 @@ export class PptExecutor {
   /**
    * Task: Add images
    */
-  private async executeAddImages(
-    _task: PptTask,
-    context: PptExecutionContext
-  ): Promise<void> {
+  private async executeAddImages(_task: PptTask, context: PptExecutionContext): Promise<void> {
     if (!context.outline || !context.presentation) {
       throw new Error('Missing outline or presentation');
     }
 
     // Find slides with image queries
-    const slidesWithImages = context.outline.slides.filter((s) => s.imageQuery);
+    const slidesWithImages = context.outline.slides.filter(s => s.imageQuery);
 
     console.log(`[PptExecutor] Adding images to ${slidesWithImages.length} slides`);
 
@@ -230,10 +214,7 @@ export class PptExecutor {
   /**
    * Task: Finalize
    */
-  private async executeFinalize(
-    task: PptTask,
-    context: PptExecutionContext
-  ): Promise<void> {
+  private async executeFinalize(task: PptTask, context: PptExecutionContext): Promise<void> {
     if (!context.presentation) {
       throw new Error('No presentation to finalize');
     }

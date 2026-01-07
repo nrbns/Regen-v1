@@ -223,10 +223,7 @@ export class JobStateManager {
   /**
    * Update job progress
    */
-  async updateProgress(
-    jobId: string,
-    progress: { current: number; total: number }
-  ): Promise<Job> {
+  async updateProgress(jobId: string, progress: { current: number; total: number }): Promise<Job> {
     const job = await this.getJob(jobId);
 
     if (job.state !== 'running') {
@@ -333,7 +330,9 @@ export class JobStateManager {
 
     for (const job of runningJobs) {
       if (job.startedAt && now - job.startedAt > maxRuntimeMs) {
-        console.warn(`[JobState] Orphan job detected: ${job.id} (running for ${now - job.startedAt}ms)`);
+        console.warn(
+          `[JobState] Orphan job detected: ${job.id} (running for ${now - job.startedAt}ms)`
+        );
         await this.failJob(job.id, 'Job exceeded maximum runtime (orphaned)');
         cleaned++;
       }
@@ -432,7 +431,7 @@ export function createIndexedDBJobManager(dbName: string = 'regen-jobs'): JobSta
         resolve(db);
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const database = (event.target as IDBOpenDBRequest).result;
         if (!database.objectStoreNames.contains('jobs')) {
           const store = database.createObjectStore('jobs', { keyPath: 'id' });

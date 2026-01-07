@@ -22,4 +22,3 @@ extensions/
 1. Finalize the manifest schema (permissions, entrypoints, assets).
 2. Implement a loader that scans `extensions/` on startup, validates against the schema, and hot reloads in dev mode.
 3. Provide a CLI (`npm run extensions:new`) that scaffolds an extension boilerplate.
-

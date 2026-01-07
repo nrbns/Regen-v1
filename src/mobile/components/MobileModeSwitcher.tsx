@@ -35,7 +35,9 @@ export function MobileModeSwitcher({ onModeChange, defaultMode = 'grid' }: ModeS
             key={mode.id}
             onClick={() => handleModeChange(mode.id)}
             className={`flex items-center gap-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeMode === mode.id ? 'bg-white text-indigo-600 shadow' : 'text-gray-600 hover:text-gray-900'
+              activeMode === mode.id
+                ? 'bg-white text-indigo-600 shadow'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
             title={mode.label}
           >

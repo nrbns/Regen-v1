@@ -29,20 +29,20 @@ export class SlidesConnector {
    * Get OAuth authorization URL
    */
   getAuthUrl(): string {
-     return this.oauth2Client.generateAuthUrl({
+    return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
-     });
+    });
   }
 
   /**
    * Exchange authorization code for tokens
    */
   async authenticate(code: string): Promise<void> {
-     const { tokens } = await this.oauth2Client.getToken(code);
-     this.oauth2Client.setCredentials(tokens);
-     console.log('[SlidesConnector] Authenticated successfully');
+    const { tokens } = await this.oauth2Client.getToken(code);
+    this.oauth2Client.setCredentials(tokens);
+    console.log('[SlidesConnector] Authenticated successfully');
   }
 
   /**
@@ -56,18 +56,18 @@ export class SlidesConnector {
    * Create a new presentation
    */
   async createPresentation(title: string): Promise<GoogleSlidesPresentation> {
-      const response = await this.slides.presentations.create({
-        requestBody: { title },
-      });
-    
-      const presentationId = response.data.presentationId!;
-      console.log(`[SlidesConnector] Created presentation: ${presentationId}`);
+    const response = await this.slides.presentations.create({
+      requestBody: { title },
+    });
+
+    const presentationId = response.data.presentationId!;
+    console.log(`[SlidesConnector] Created presentation: ${presentationId}`);
 
     return {
       presentationId,
       title,
       url: `https://docs.google.com/presentation/d/${presentationId}/edit`,
-        slideCount: response.data.slides?.length || 1,
+      slideCount: response.data.slides?.length || 1,
       createdAt: new Date(),
     };
   }
@@ -75,26 +75,23 @@ export class SlidesConnector {
   /**
    * Add slides with content
    */
-  async addSlides(
-    presentationId: string,
-    slideContents: SlideContent[]
-  ): Promise<void> {
-      const requests = slideContents.map((content, index) => ({
-        createSlide: {
-          objectId: `slide_${index + 1}`,
-          insertionIndex: index + 1,
-          slideLayoutReference: {
-            predefinedLayout: 'TITLE_AND_BODY',
-          },
+  async addSlides(presentationId: string, slideContents: SlideContent[]): Promise<void> {
+    const requests = slideContents.map((content, index) => ({
+      createSlide: {
+        objectId: `slide_${index + 1}`,
+        insertionIndex: index + 1,
+        slideLayoutReference: {
+          predefinedLayout: 'TITLE_AND_BODY',
         },
-      }));
+      },
+    }));
 
-      await this.slides.presentations.batchUpdate({
-        presentationId,
-        requestBody: { requests },
-      });
-    
-      console.log(`[SlidesConnector] Added ${slideContents.length} slides to ${presentationId}`);
+    await this.slides.presentations.batchUpdate({
+      presentationId,
+      requestBody: { requests },
+    });
+
+    console.log(`[SlidesConnector] Added ${slideContents.length} slides to ${presentationId}`);
   }
 
   /**
@@ -197,10 +194,10 @@ export class SlidesConnector {
     const spreadsheetId = createRes.data.spreadsheetId!;
 
     // Build tabular data from ChartData
-    const header = ['Label', ...chartData.datasets.map((ds) => ds.label || 'Series')];
+    const header = ['Label', ...chartData.datasets.map(ds => ds.label || 'Series')];
     const rows = chartData.labels.map((label, rowIndex) => [
       label,
-      ...chartData.datasets.map((ds) => ds.data[rowIndex] ?? 0),
+      ...chartData.datasets.map(ds => ds.data[rowIndex] ?? 0),
     ]);
     const values = [header, ...rows];
 
@@ -226,10 +223,10 @@ export class SlidesConnector {
                       chartData.type === 'bar'
                         ? 'BAR'
                         : chartData.type === 'line'
-                        ? 'LINE'
-                        : chartData.type === 'pie'
-                        ? 'PIE'
-                        : 'COLUMN',
+                          ? 'LINE'
+                          : chartData.type === 'pie'
+                            ? 'PIE'
+                            : 'COLUMN',
                     legendPosition: 'BOTTOM_LEGEND',
                     domains: [
                       {

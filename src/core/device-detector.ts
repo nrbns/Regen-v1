@@ -1,13 +1,13 @@
 /**
  * DeviceDetector - Capability Detection for Universal Compatibility
- * 
+ *
  * Detects device capabilities to enable adaptive features:
  * - WASM support (for offline AI)
  * - WebGL support (for graphics)
  * - RAM estimation (for memory management)
  * - CPU cores (for performance optimization)
  * - Low-end device detection (for reduced features)
- * 
+ *
  * Usage:
  *   const detector = new DeviceDetector();
  *   const caps = detector.detectCapabilities();
@@ -73,12 +73,15 @@ export class DeviceDetector {
 
     // Detect battery status (if available)
     if ('getBattery' in navigator) {
-      (navigator as any).getBattery().then((battery: any) => {
-        capabilities.batteryLevel = battery.level;
-        capabilities.isCharging = battery.charging;
-      }).catch(() => {
-        // Battery API not available or failed
-      });
+      (navigator as any)
+        .getBattery()
+        .then((battery: any) => {
+          capabilities.batteryLevel = battery.level;
+          capabilities.isCharging = battery.charging;
+        })
+        .catch(() => {
+          // Battery API not available or failed
+        });
     }
 
     // Calculate if device is low-end
@@ -93,8 +96,7 @@ export class DeviceDetector {
    */
   private detectWASM(): boolean {
     try {
-      return typeof WebAssembly !== 'undefined' && 
-             typeof WebAssembly.instantiate === 'function';
+      return typeof WebAssembly !== 'undefined' && typeof WebAssembly.instantiate === 'function';
     } catch {
       return false;
     }
@@ -166,16 +168,21 @@ export class DeviceDetector {
     if ('deviceMemory' in navigator) {
       return (navigator as any).deviceMemory || 4;
     }
-    
+
     // Fallback: Estimate based on user agent and platform
     const ua = navigator.userAgent.toLowerCase();
     // const platform = navigator.platform.toLowerCase(); // Unused for now
-    
+
     // Mobile devices typically have 2-8GB
     if (this.detectMobile() || this.detectTablet()) {
       // High-end mobile: 6-8GB
-      if (ua.includes('iphone 1') || ua.includes('iphone 12') || ua.includes('iphone 13') || 
-          ua.includes('iphone 14') || ua.includes('iphone 15')) {
+      if (
+        ua.includes('iphone 1') ||
+        ua.includes('iphone 12') ||
+        ua.includes('iphone 13') ||
+        ua.includes('iphone 14') ||
+        ua.includes('iphone 15')
+      ) {
         return 6;
       }
       // Mid-range mobile: 4GB
@@ -185,7 +192,7 @@ export class DeviceDetector {
       // Low-end mobile: 2GB
       return 2;
     }
-    
+
     // Desktop: Assume 8GB minimum
     return 8;
   }
@@ -204,7 +211,7 @@ export class DeviceDetector {
     const ram = caps.ramEstimate || 4;
     const cores = caps.cpuCores || 2;
     const hasWASM = caps.hasWASM !== false;
-    
+
     // Low-end criteria:
     // - Less than 2GB RAM
     // - Less than 2 CPU cores
@@ -214,7 +221,7 @@ export class DeviceDetector {
     if (cores < 2) return true;
     if (!hasWASM && (caps.isMobile || caps.isTablet)) return true;
     if (ram < 4 && cores < 4 && (caps.isMobile || caps.isTablet)) return true;
-    
+
     return false;
   }
 
@@ -223,8 +230,9 @@ export class DeviceDetector {
    */
   private detectMobile(): boolean {
     const ua = navigator.userAgent.toLowerCase();
-    return /android|webos|iphone|ipod|blackberry|iemobile|opera mini/i.test(ua) &&
-           !this.detectTablet();
+    return (
+      /android|webos|iphone|ipod|blackberry|iemobile|opera mini/i.test(ua) && !this.detectTablet()
+    );
   }
 
   /**
@@ -251,7 +259,10 @@ export class DeviceDetector {
    */
   private detectConnectionType(): DeviceCapabilities['connectionType'] {
     if ('connection' in navigator) {
-      const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+      const conn =
+        (navigator as any).connection ||
+        (navigator as any).mozConnection ||
+        (navigator as any).webkitConnection;
       if (conn) {
         const effectiveType = conn.effectiveType;
         if (effectiveType === 'slow-2g' || effectiveType === '2g') return '2g';
@@ -259,7 +270,7 @@ export class DeviceDetector {
         if (effectiveType === '4g') return '4g';
       }
     }
-    
+
     // Fallback: Assume unknown
     return 'unknown';
   }
@@ -277,7 +288,7 @@ export class DeviceDetector {
     enableWebGL: boolean;
   } {
     const capabilities = caps || this.detectCapabilities();
-    
+
     return {
       useWASMAI: capabilities.hasWASM && !capabilities.isLowEnd,
       useCloudAI: !capabilities.isLowEnd && capabilities.ramEstimate >= 4,
@@ -323,4 +334,3 @@ export function detectDeviceCapabilities(): DeviceCapabilities {
 export function isLowEndDevice(): boolean {
   return getDeviceDetector().detectCapabilities().isLowEnd;
 }
-

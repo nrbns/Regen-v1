@@ -29,17 +29,13 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
       // Scroll to and highlight the text
       const content = contentRef.current;
       const text = highlightText.toLowerCase();
-      
+
       // Simple text highlighting approach
       if (content.textContent?.toLowerCase().includes(text)) {
         // Find and highlight the text
-        const walker = window.document.createTreeWalker(
-          content,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
+        const walker = window.document.createTreeWalker(content, NodeFilter.SHOW_TEXT, null);
         let node;
-        
+
         while ((node = walker.nextNode())) {
           if (node.textContent?.toLowerCase().includes(text)) {
             const parent = node.parentElement;
@@ -77,30 +73,26 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="w-full max-w-4xl max-h-[90vh] bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
+          className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 shadow-2xl"
+          onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-900">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="p-2 rounded-lg bg-blue-500/20 text-blue-400">
-                {document.type === 'pdf' ? (
-                  <FileText size={20} />
-                ) : (
-                  <BookOpen size={20} />
-                )}
+          <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900 p-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="rounded-lg bg-blue-500/20 p-2 text-blue-400">
+                {document.type === 'pdf' ? <FileText size={20} /> : <BookOpen size={20} />}
               </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-semibold text-gray-100 truncate">{document.title}</h2>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-lg font-semibold text-gray-100">{document.title}</h2>
                 {document.url && (
-                  <p className="text-xs text-gray-400 truncate mt-1">{document.url}</p>
+                  <p className="mt-1 truncate text-xs text-gray-400">{document.url}</p>
                 )}
               </div>
             </div>
@@ -108,7 +100,7 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
               {document.url && (
                 <button
                   onClick={handleOpenInTab}
-                  className="p-2 rounded-lg hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200"
                   title="Open in new tab"
                 >
                   <ExternalLink size={18} />
@@ -116,7 +108,7 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
               )}
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-slate-800 text-gray-400 hover:text-gray-200 transition-colors"
+                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-slate-800 hover:text-gray-200"
               >
                 <X size={18} />
               </button>
@@ -128,30 +120,29 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
             {document.content ? (
               <div
                 ref={contentRef}
-                className="prose prose-invert max-w-none text-gray-200 leading-relaxed"
+                className="prose prose-invert max-w-none leading-relaxed text-gray-200"
                 dangerouslySetInnerHTML={{ __html: document.content }}
               />
             ) : document.snippet ? (
-              <div className="text-gray-200 leading-relaxed">
-                <p className="text-lg mb-4">{document.snippet}</p>
+              <div className="leading-relaxed text-gray-200">
+                <p className="mb-4 text-lg">{document.snippet}</p>
                 <p className="text-sm text-gray-400">
-                  Full document content not available. Click "Open in new tab" to view the complete document.
+                  Full document content not available. Click "Open in new tab" to view the complete
+                  document.
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <FileText size={48} className="opacity-50 mb-4" />
+              <div className="flex h-full flex-col items-center justify-center text-gray-400">
+                <FileText size={48} className="mb-4 opacity-50" />
                 <p>No content available for this document.</p>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+          <div className="border-t border-slate-800 bg-slate-900/50 p-4">
             <div className="flex items-center justify-between text-xs text-gray-400">
-              <span className="px-2 py-1 rounded bg-slate-800 uppercase">
-                {document.type}
-              </span>
+              <span className="rounded bg-slate-800 px-2 py-1 uppercase">{document.type}</span>
               {highlightText && (
                 <span className="text-yellow-400">
                   Highlighted: "{highlightText.slice(0, 50)}..."
@@ -164,4 +155,3 @@ export function DocumentViewer({ isOpen, onClose, document, highlightText }: Doc
     </AnimatePresence>
   );
 }
-

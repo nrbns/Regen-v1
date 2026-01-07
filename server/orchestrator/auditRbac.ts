@@ -29,7 +29,7 @@ export interface RBACPolicy {
     maxConcurrentTasks?: number;
     allowedAgentTypes?: string[];
     timeWindowStart?: string; // ISO time
-    timeWindowEnd?: string;   // ISO time
+    timeWindowEnd?: string; // ISO time
   };
 }
 
@@ -111,11 +111,7 @@ export class AuditLogger {
   /**
    * Export audit logs (for compliance)
    */
-  exportLogs(
-    startDate?: Date,
-    endDate?: Date,
-    format: 'json' | 'csv' = 'json'
-  ): string {
+  exportLogs(startDate?: Date, endDate?: Date, format: 'json' | 'csv' = 'json'): string {
     let filtered = this.logs;
 
     if (startDate) {
@@ -139,9 +135,7 @@ export class AuditLogger {
         l.result,
         l.reason || '',
       ]);
-      const csv = [headers, ...rows]
-        .map(row => row.map(cell => `"${cell}"`).join(','))
-        .join('\n');
+      const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
       return csv;
     }
   }

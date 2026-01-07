@@ -1,13 +1,13 @@
 /**
  * Redis-backed PlanStore adapter (Week 3)
  * Provides distributed plan persistence with automatic expiry
- * 
+ *
  * Uses ioredis for:
  * - Connection pooling
  * - Automatic reconnection
  * - Pipeline support
  * - Cluster compatibility
- * 
+ *
  * Data structure:
  * - plan:{planId} → JSON string with plan + status
  * - plan:{planId}:results → List of task result JSON objects
@@ -20,14 +20,14 @@ import { TaskResult } from '../executor.js';
 
 /**
  * RedisPlanStore: Production-grade distributed plan store
- * 
+ *
  * Features:
  * - Automatic 7-day plan expiry
  * - Sorted set indexing for efficient listing
  * - Task result history (non-blocking appends)
  * - Connection pooling via ioredis
  * - Graceful error handling + retries
- * 
+ *
  * Performance:
  * - saveNewPlan: ~5ms (2 Redis operations)
  * - get: ~5-10ms (2 Redis operations)
@@ -92,7 +92,9 @@ export class RedisPlanStore implements PlanStore {
       await pipeline.exec();
     } catch (error) {
       console.error(`[RedisPlanStore] Failed to save plan ${planId}:`, error);
-      throw new Error(`Failed to persist plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to persist plan: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -157,7 +159,9 @@ export class RedisPlanStore implements PlanStore {
       await this.redis.setex(planKey, this.expirySeconds, JSON.stringify(data));
     } catch (error) {
       console.error(`[RedisPlanStore] Failed to update plan ${planId}:`, error);
-      throw new Error(`Failed to update plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to update plan: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

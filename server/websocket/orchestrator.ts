@@ -7,7 +7,13 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
 
 export interface StatusUpdate {
-  type: 'plan_created' | 'task_started' | 'task_completed' | 'task_failed' | 'plan_completed' | 'plan_failed';
+  type:
+    | 'plan_created'
+    | 'task_started'
+    | 'task_completed'
+    | 'task_failed'
+    | 'plan_completed'
+    | 'plan_failed';
   planId: string;
   taskId?: string;
   status?: string;
@@ -22,7 +28,7 @@ export class OrchestratorWebSocket {
   private clients: Map<string, Set<WebSocket>> = new Map();
 
   constructor(server: Server) {
-    this.wss = new WebSocketServer({ 
+    this.wss = new WebSocketServer({
       server,
       path: '/ws/orchestrator',
     });
@@ -58,23 +64,29 @@ export class OrchestratorWebSocket {
   private handleMessage(ws: WebSocket, data: any): void {
     if (data.type === 'subscribe' && data.planId) {
       this.subscribeClient(ws, data.planId);
-      ws.send(JSON.stringify({
-        type: 'subscribed',
-        planId: data.planId,
-        timestamp: new Date(),
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'subscribed',
+          planId: data.planId,
+          timestamp: new Date(),
+        })
+      );
     } else if (data.type === 'unsubscribe' && data.planId) {
       this.unsubscribeClient(ws, data.planId);
-      ws.send(JSON.stringify({
-        type: 'unsubscribed',
-        planId: data.planId,
-        timestamp: new Date(),
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'unsubscribed',
+          planId: data.planId,
+          timestamp: new Date(),
+        })
+      );
     } else if (data.type === 'ping') {
-      ws.send(JSON.stringify({
-        type: 'pong',
-        timestamp: new Date(),
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'pong',
+          timestamp: new Date(),
+        })
+      );
     }
   }
 
@@ -126,7 +138,7 @@ export class OrchestratorWebSocket {
     const message = JSON.stringify(update);
     let sentCount = 0;
 
-    clients.forEach((ws) => {
+    clients.forEach(ws => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(message);
         sentCount++;
@@ -134,7 +146,9 @@ export class OrchestratorWebSocket {
     });
 
     if (sentCount > 0) {
-      console.log(`[OrchestratorWS] Sent ${update.type} to ${sentCount} clients for plan ${update.planId}`);
+      console.log(
+        `[OrchestratorWS] Sent ${update.type} to ${sentCount} clients for plan ${update.planId}`
+      );
     }
   }
 
@@ -164,7 +178,7 @@ export class OrchestratorWebSocket {
     planSubscriptions: Record<string, number>;
   } {
     const planSubscriptions: Record<string, number> = {};
-    
+
     this.clients.forEach((clients, planId) => {
       planSubscriptions[planId] = clients.size;
     });

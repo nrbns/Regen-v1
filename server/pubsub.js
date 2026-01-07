@@ -66,9 +66,11 @@ export function subscribe(channel, handler) {
     _doSubscribe(channel, handler);
   } catch (err) {
     // Silently handle Redis errors - Redis is optional
-    if (!err.message?.includes('ECONNREFUSED') && 
-        !err.message?.includes('Stream isn\'t writeable') &&
-        !err.message?.includes('enableOfflineQueue')) {
+    if (
+      !err.message?.includes('ECONNREFUSED') &&
+      !err.message?.includes("Stream isn't writeable") &&
+      !err.message?.includes('enableOfflineQueue')
+    ) {
       console.error('[PubSub] subscribe error', err);
     }
   }
@@ -88,10 +90,12 @@ function _doSubscribe(channel, handler) {
     sub.subscribe(channel, err => {
       if (err) {
         // Only log non-connection errors
-        if (!err.message?.includes('ECONNREFUSED') && 
-            !err.message?.includes('Stream isn\'t writeable') &&
-            !err.message?.includes('enableOfflineQueue') &&
-            !err.message?.includes('Connection is closed')) {
+        if (
+          !err.message?.includes('ECONNREFUSED') &&
+          !err.message?.includes("Stream isn't writeable") &&
+          !err.message?.includes('enableOfflineQueue') &&
+          !err.message?.includes('Connection is closed')
+        ) {
           console.error('[PubSub] subscribe err', err);
         }
         // Silently fail for connection errors

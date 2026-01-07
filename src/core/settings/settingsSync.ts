@@ -39,7 +39,7 @@ export async function syncSettingsToBackend(): Promise<boolean> {
 
   try {
     const settings = useSettingsStore.getState();
-    
+
     // Phase 1, Day 4: Stub implementation - just save locally for now
     // In the future, this will POST to /api/settings/sync
     const settingsData = {
@@ -65,10 +65,10 @@ export async function syncSettingsToBackend(): Promise<boolean> {
 
     // For now, just update lastSyncTime
     lastSyncTime = Date.now();
-    
+
     // Store sync timestamp locally
     localStorage.setItem('regen:settings:lastSync', lastSyncTime.toString());
-    
+
     console.log('[SettingsSync] Settings synced (stub)', settingsData);
     return true;
   } catch (error) {
@@ -85,12 +85,12 @@ export function getLastSyncTime(): number | null {
   if (lastSyncTime) {
     return lastSyncTime;
   }
-  
+
   const stored = localStorage.getItem('regen:settings:lastSync');
   if (stored) {
     return parseInt(stored, 10);
   }
-  
+
   return null;
 }
 
@@ -105,17 +105,15 @@ export function setupAutoSync(): () => void {
   // Subscribe to settings changes
   // SECURITY: Fix Zustand subscribe - use listener pattern
   const unsubscribe = useSettingsStore.subscribe(() => {
-      // Debounce sync calls (wait 2 seconds after last change)
-      const syncTimer = setTimeout(() => {
-        syncSettingsToBackend().catch(() => {
-          // Silent fail - user will see error toast if needed
-        });
-      }, 2000);
+    // Debounce sync calls (wait 2 seconds after last change)
+    const syncTimer = setTimeout(() => {
+      syncSettingsToBackend().catch(() => {
+        // Silent fail - user will see error toast if needed
+      });
+    }, 2000);
 
-      return () => clearTimeout(syncTimer);
-    }
-  );
+    return () => clearTimeout(syncTimer);
+  });
 
   return unsubscribe;
 }
-

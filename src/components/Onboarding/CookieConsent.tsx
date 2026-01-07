@@ -144,11 +144,11 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
         className="fixed bottom-0 left-0 right-0 z-[10001] p-4"
         style={{ pointerEvents: 'auto' }}
       >
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           <motion.div
             initial={{ scale: 0.95 }}
             animate={{ scale: 1 }}
-            className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden"
+            className="overflow-hidden rounded-xl border border-gray-700 bg-gray-800 shadow-2xl"
             onClick={e => {
               // Completely ignore button clicks - don't interfere at all
               const target = e.target as HTMLElement;
@@ -175,13 +175,13 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
             }}
           >
             {/* Header */}
-            <div className="flex items-center gap-3 p-6 border-b border-gray-700">
-              <div className="p-2 bg-blue-500/20 rounded-lg">
+            <div className="flex items-center gap-3 border-b border-gray-700 p-6">
+              <div className="rounded-lg bg-blue-500/20 p-2">
                 <Cookie size={24} className="text-blue-400" />
               </div>
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-gray-100">Cookie Preferences</h2>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="mt-1 text-sm text-gray-400">
                   We use cookies to enhance your browsing experience and analyze usage.
                 </p>
               </div>
@@ -199,7 +199,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                  className="rounded-lg p-2 transition-colors hover:bg-gray-700"
                   aria-label="Close"
                   style={{
                     pointerEvents: 'auto',
@@ -214,12 +214,12 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
             </div>
 
             {/* Content */}
-            <div className="p-6 max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[60vh] overflow-y-auto p-6">
               {showDetails ? (
                 <div className="space-y-4">
-                  <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
                     <div className="flex items-start gap-2">
-                      <Info size={16} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                      <Info size={16} className="mt-0.5 flex-shrink-0 text-blue-400" />
                       <p className="text-sm text-blue-200">
                         <strong>Your Privacy Matters:</strong> Regen stores data locally on your
                         device by default. Cookies and similar technologies are used only for
@@ -232,30 +232,30 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                   {cookieCategories.map(category => (
                     <div
                       key={category.id}
-                      className={`p-4 rounded-lg border ${
+                      className={`rounded-lg border p-4 ${
                         preferences[category.id]
-                          ? 'bg-green-500/10 border-green-500/30'
-                          : 'bg-gray-900/50 border-gray-700'
+                          ? 'border-green-500/30 bg-green-500/10'
+                          : 'border-gray-700 bg-gray-900/50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="mb-2 flex items-center gap-2">
                             <h3 className="font-semibold text-gray-100">{category.name}</h3>
                             {category.required && (
-                              <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded">
+                              <span className="rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
                                 Required
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-400 mb-2">{category.description}</p>
+                          <p className="mb-2 text-sm text-gray-400">{category.description}</p>
                           <div className="text-xs text-gray-500">
                             <strong>Examples:</strong> {category.examples.join(', ')}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {category.required ? (
-                            <div className="px-3 py-1.5 bg-gray-700 text-gray-300 rounded text-sm font-medium">
+                            <div className="rounded bg-gray-700 px-3 py-1.5 text-sm font-medium text-gray-300">
                               Always On
                             </div>
                           ) : (
@@ -272,10 +272,10 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                                 (e as any).stopImmediatePropagation();
                                 e.stopPropagation();
                               }}
-                              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                              className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
                                 preferences[category.id]
-                                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                                  ? 'bg-green-600 text-white hover:bg-green-700'
+                                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                               }`}
                               style={{
                                 pointerEvents: 'auto',
@@ -299,9 +299,9 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     </div>
                   ))}
 
-                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
                     <div className="flex items-start gap-2">
-                      <AlertCircle size={16} className="text-yellow-400 mt-0.5 flex-shrink-0" />
+                      <AlertCircle size={16} className="mt-0.5 flex-shrink-0 text-yellow-400" />
                       <div className="text-sm text-yellow-200">
                         <strong>Note:</strong> Disabling non-essential cookies may limit some
                         features. Essential cookies are required for the app to function properly.
@@ -324,7 +324,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
             </div>
 
             {/* Footer Actions */}
-            <div className="flex items-center justify-between p-6 border-t border-gray-700 gap-4 bg-gray-900/50">
+            <div className="flex items-center justify-between gap-4 border-t border-gray-700 bg-gray-900/50 p-6">
               <button
                 type="button"
                 onClick={e => {
@@ -338,7 +338,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                   (e as any).stopImmediatePropagation();
                   e.stopPropagation();
                 }}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors flex items-center gap-2"
+                className="flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-600"
                 style={{
                   pointerEvents: 'auto',
                   cursor: 'pointer',
@@ -364,7 +364,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                     (e as any).stopImmediatePropagation();
                     e.stopPropagation();
                   }}
-                  className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors"
+                  className="rounded-lg bg-gray-700 px-6 py-2.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-600"
                   style={{
                     pointerEvents: 'auto',
                     cursor: 'pointer',
@@ -388,7 +388,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                       (e as any).stopImmediatePropagation();
                       e.stopPropagation();
                     }}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     style={{
                       pointerEvents: 'auto',
                       cursor: 'pointer',
@@ -413,7 +413,7 @@ export function CookieConsent({ onAccept, onDecline, showSettings = false }: Coo
                       (e as any).stopImmediatePropagation();
                       e.stopPropagation();
                     }}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
                     style={{
                       pointerEvents: 'auto',
                       cursor: 'pointer',

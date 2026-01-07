@@ -22,15 +22,18 @@ Create these labels in your GitHub repository:
 ## Core Issues to Create
 
 ### 1. LLM Adapter Enhancement
+
 **Labels:** `core-runtime`, `ai-llm`, `enhancement`
 **Priority:** High
 **Description:**
+
 - Add support for additional LLM providers (Mistral, DeepSeek, Qwen)
 - Implement streaming responses
 - Add retry logic with exponential backoff
 - Improve error handling and fallback mechanisms
 
 **Acceptance Criteria:**
+
 - [ ] Support for at least 3 LLM providers
 - [ ] Streaming responses work correctly
 - [ ] Retry logic handles transient failures
@@ -39,15 +42,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 2. Search Proxy Backend Enhancement
+
 **Labels:** `core-runtime`, `enhancement`
 **Priority:** High
 **Description:**
+
 - Add support for additional search engines (Brave Search, Bing)
 - Implement result caching
 - Add rate limiting
 - Improve citation accuracy
 
 **Acceptance Criteria:**
+
 - [ ] Support for at least 3 search engines
 - [ ] Results are cached appropriately
 - [ ] Rate limiting prevents abuse
@@ -56,15 +62,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 3. SuperMemory Vector Store Optimization
+
 **Labels:** `memory`, `enhancement`
 **Priority:** Medium
 **Description:**
+
 - Optimize vector search performance
 - Add batch operations
 - Implement vector compression
 - Improve IndexedDB migration handling
 
 **Acceptance Criteria:**
+
 - [ ] Vector search latency ≤150ms
 - [ ] Batch operations work correctly
 - [ ] Vector compression reduces storage by ≥30%
@@ -73,15 +82,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 4. Redix Event Log Persistence
+
 **Labels:** `redix`, `core-runtime`, `enhancement`
 **Priority:** Medium
 **Description:**
+
 - Implement persistent storage for event log
 - Add event log compression
 - Implement event log rotation
 - Add event log export/import
 
 **Acceptance Criteria:**
+
 - [ ] Event log persists across sessions
 - [ ] Compression reduces storage usage
 - [ ] Log rotation prevents unbounded growth
@@ -90,15 +102,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 5. Agent Executor Security Hardening
+
 **Labels:** `core-runtime`, `ai-llm`, `bug`
 **Priority:** High
 **Description:**
+
 - Enhance domain sandboxing
 - Improve permission checks
 - Add action risk assessment
 - Strengthen audit logging
 
 **Acceptance Criteria:**
+
 - [ ] Domain sandboxing prevents unauthorized access
 - [ ] Permission checks are comprehensive
 - [ ] Risk assessment is accurate
@@ -107,15 +122,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 6. Trading Mode Real Market Data Integration
+
 **Labels:** `trading-mode`, `enhancement`
 **Priority:** Medium
 **Description:**
+
 - Integrate real market data providers (Polygon, Binance)
 - Implement WebSocket connections
 - Add real-time quote updates
 - Handle market data errors gracefully
 
 **Acceptance Criteria:**
+
 - [ ] Real market data is displayed
 - [ ] WebSocket connections are stable
 - [ ] Real-time updates work correctly
@@ -124,15 +142,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 7. Mobile UI Improvements
+
 **Labels:** `ui-ux`, `enhancement`
 **Priority:** Medium
 **Description:**
+
 - Improve touch interactions
 - Optimize for smaller screens
 - Add swipe gestures
 - Improve mobile navigation
 
 **Acceptance Criteria:**
+
 - [ ] Touch interactions are smooth
 - [ ] UI is usable on screens <768px
 - [ ] Swipe gestures work correctly
@@ -141,15 +162,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 8. Voice Companion Wake Word Detection
+
 **Labels:** `ai-llm`, `ui-ux`, `enhancement`
 **Priority:** Low
 **Description:**
+
 - Implement wake word detection ("Hey Regen")
 - Add voice activity detection
 - Improve noise cancellation
 - Add offline wake word support
 
 **Acceptance Criteria:**
+
 - [ ] Wake word detection works reliably
 - [ ] Voice activity detection is accurate
 - [ ] Noise cancellation improves clarity
@@ -158,15 +182,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 9. Plugin Runtime Implementation
+
 **Labels:** `core-runtime`, `enhancement`
 **Priority:** Low
 **Description:**
+
 - Design plugin API
 - Implement plugin sandboxing
 - Add plugin marketplace
 - Create plugin development tools
 
 **Acceptance Criteria:**
+
 - [ ] Plugin API is well-documented
 - [ ] Sandboxing prevents security issues
 - [ ] Marketplace is functional
@@ -175,15 +202,18 @@ Create these labels in your GitHub repository:
 ---
 
 ### 10. E2EE Sync Implementation
+
 **Labels:** `core-runtime`, `enhancement`
 **Priority:** Medium
 **Description:**
+
 - Implement end-to-end encryption
 - Add sync conflict resolution
 - Implement sync status UI
 - Add sync error handling
 
 **Acceptance Criteria:**
+
 - [ ] Data is encrypted end-to-end
 - [ ] Conflicts are resolved correctly
 - [ ] Sync status is visible to users
@@ -206,4 +236,3 @@ Create these labels in your GitHub repository:
 2. **In Progress** - Issues currently being worked on
 3. **In Review** - Issues with PRs awaiting review
 4. **Done** - Issues that are completed and merged
-

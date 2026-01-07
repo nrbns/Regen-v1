@@ -24,14 +24,14 @@ export function getWorkspaceMemoryUsage(workspace: Workspace): number {
   // Estimate memory: ~50MB base + 100MB per tab
   const baseMemoryMB = 50;
   const perTabMemoryMB = 100;
-  const estimatedMemoryMB = baseMemoryMB + (workspace.tabs.length * perTabMemoryMB);
+  const estimatedMemoryMB = baseMemoryMB + workspace.tabs.length * perTabMemoryMB;
 
   // If we have actual memory monitoring, use it
   const actualMemory = getMemoryUsage();
   if (actualMemory && actualMemory.rss) {
     // Use actual RSS if available, but divide by workspace count as approximation
     const workspaceCount = useWorkspacesStore.getState().workspaces.length || 1;
-    return (actualMemory.rss / (1024 * 1024)) / workspaceCount;
+    return actualMemory.rss / (1024 * 1024) / workspaceCount;
   }
 
   return estimatedMemoryMB;
@@ -40,7 +40,10 @@ export function getWorkspaceMemoryUsage(workspace: Workspace): number {
 /**
  * Check if workspace exceeds memory cap
  */
-export function workspaceExceedsCap(workspace: Workspace, capMB: number = DEFAULT_MEMORY_CAP_MB): boolean {
+export function workspaceExceedsCap(
+  workspace: Workspace,
+  capMB: number = DEFAULT_MEMORY_CAP_MB
+): boolean {
   const usage = getWorkspaceMemoryUsage(workspace);
   return usage > capMB;
 }
@@ -54,7 +57,7 @@ export function getAllWorkspaceMemoryInfo(): WorkspaceMemoryInfo[] {
   return workspaces.map(workspace => {
     const usage = getWorkspaceMemoryUsage(workspace);
     const cap = (workspace as any).memoryCapMB || DEFAULT_MEMORY_CAP_MB;
-    
+
     return {
       workspaceId: workspace.id,
       memoryMB: usage,
@@ -73,15 +76,16 @@ export async function enforceWorkspaceMemoryCap(workspaceId: string): Promise<nu
   if (!workspace) return 0;
 
   const capMB = (workspace as any).memoryCapMB || DEFAULT_MEMORY_CAP_MB;
-  
+
   if (!workspaceExceedsCap(workspace, capMB)) {
     return 0; // Within limits
   }
 
   // Suspend oldest tabs until under cap
   const { hibernateTab } = await import('../tabHibernation/hibernationManager');
-  const sortedTabs = [...workspace.tabs]
-    .sort((a, b) => (a.lastActiveAt || 0) - (b.lastActiveAt || 0));
+  const sortedTabs = [...workspace.tabs].sort(
+    (a, b) => (a.lastActiveAt || 0) - (b.lastActiveAt || 0)
+  );
 
   let suspendedCount = 0;
   for (const tab of sortedTabs) {
@@ -95,4 +99,3 @@ export async function enforceWorkspaceMemoryCap(workspaceId: string): Promise<nu
 
   return suspendedCount;
 }
-

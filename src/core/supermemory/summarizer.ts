@@ -40,7 +40,8 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
     const contextParts: string[] = [];
     for (const [type, typeEvents] of eventsByType.entries()) {
       contextParts.push(`\n${type} events (${typeEvents.length}):`);
-      for (const event of typeEvents.slice(0, 10)) { // Limit to 10 per type
+      for (const event of typeEvents.slice(0, 10)) {
+        // Limit to 10 per type
         const value = typeof event.value === 'string' ? event.value : JSON.stringify(event.value);
         const title = event.metadata?.title || event.metadata?.url || value;
         contextParts.push(`- ${title}`);
@@ -56,7 +57,7 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
     try {
       // Try OpenAI/Hugging Face/Ollama endpoint
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      
+
       // First try the /redix/ask endpoint
       const response = await fetch(`${apiUrl}/redix/ask`, {
         method: 'POST',
@@ -75,7 +76,7 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
           return summary;
         }
       }
-      
+
       // Fallback: Try OpenAI endpoint directly
       try {
         const openaiResponse = await fetch(`${apiUrl}/openai/chat`, {
@@ -85,7 +86,8 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
             messages: [
               {
                 role: 'system',
-                content: 'You are a personal memory assistant that creates concise, insightful summaries of user activities.',
+                content:
+                  'You are a personal memory assistant that creates concise, insightful summaries of user activities.',
               },
               {
                 role: 'user',
@@ -96,7 +98,7 @@ async function summarizeEventsWithAI(events: MemoryEvent[]): Promise<string> {
             temperature: 0.5,
           }),
         });
-        
+
         if (openaiResponse.ok) {
           const openaiData = await openaiResponse.json();
           const summary = openaiData.response || openaiData.text || '';
@@ -139,15 +141,15 @@ function generateFallbackSummary(events: MemoryEvent[]): string {
 
   const parts: string[] = [];
   parts.push(`Summary of ${events.length} events:`);
-  
+
   for (const [type, count] of eventsByType.entries()) {
     parts.push(`${count} ${type} events`);
   }
-  
+
   if (urls.size > 0) {
     parts.push(`${urls.size} unique URLs visited`);
   }
-  
+
   if (queries.size > 0) {
     parts.push(`${queries.size} search queries`);
   }
@@ -160,7 +162,7 @@ function generateFallbackSummary(events: MemoryEvent[]): string {
  */
 export async function compressEvents(
   events: MemoryEvent[],
-  summaryType: 'daily' | 'weekly' | 'monthly' = 'daily',
+  summaryType: 'daily' | 'weekly' | 'monthly' = 'daily'
 ): Promise<MemorySummary> {
   if (events.length === 0) {
     throw new Error('No events to compress');
@@ -213,12 +215,12 @@ async function saveSummary(summary: MemorySummary): Promise<void> {
     if (!db) {
       throw new Error('Database not initialized');
     }
-    
+
     // Use IndexedDB for summaries (add summaries store if needed)
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['events'], 'readwrite');
       const store = transaction.objectStore('events');
-      
+
       // Store summary as a special event type
       const summaryEvent = {
         id: summary.id,
@@ -235,7 +237,7 @@ async function saveSummary(summary: MemorySummary): Promise<void> {
         ts: summary.createdAt,
         score: 1.0, // High score for summaries
       };
-      
+
       const request = store.put(summaryEvent);
       request.onsuccess = () => {
         // Also save to localStorage for quick access
@@ -276,7 +278,9 @@ async function saveSummary(summary: MemorySummary): Promise<void> {
 export async function getSummaries(limit?: number): Promise<MemorySummary[]> {
   try {
     const summaries = JSON.parse(localStorage.getItem('sm-summaries') || '[]');
-    const sorted = summaries.sort((a: MemorySummary, b: MemorySummary) => b.createdAt - a.createdAt);
+    const sorted = summaries.sort(
+      (a: MemorySummary, b: MemorySummary) => b.createdAt - a.createdAt
+    );
     return limit ? sorted.slice(0, limit) : sorted;
   } catch (error) {
     console.error('[Summarizer] Failed to get summaries:', error);
@@ -295,9 +299,9 @@ export async function runNightlySummarization(): Promise<{
 }> {
   try {
     const now = Date.now();
-    const oneDayAgo = now - (24 * 60 * 60 * 1000);
-    const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = now - (30 * 24 * 60 * 60 * 1000);
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
 
     // Get old events (older than 7 days, not pinned)
     const oldEvents = await superMemoryDB.getEvents({
@@ -354,13 +358,16 @@ export async function runNightlySummarization(): Promise<{
             await compressEvents(dayEvents, 'daily');
             summariesCreated++;
             eventsCompressed += dayEvents.length;
-            
+
             // Delete compressed events (keep summary)
             for (const event of dayEvents) {
               await superMemoryDB.deleteEvent(event.id);
             }
           } catch (error) {
-            console.error(`[Summarizer] Failed to compress daily events for ${new Date(dayStart).toISOString()}:`, error);
+            console.error(
+              `[Summarizer] Failed to compress daily events for ${new Date(dayStart).toISOString()}:`,
+              error
+            );
           }
         }
       }
@@ -374,7 +381,7 @@ export async function runNightlySummarization(): Promise<{
         weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week
         weekStart.setHours(0, 0, 0, 0);
         const weekStartTs = weekStart.getTime();
-        
+
         if (!eventsByWeek.has(weekStartTs)) {
           eventsByWeek.set(weekStartTs, []);
         }
@@ -388,13 +395,16 @@ export async function runNightlySummarization(): Promise<{
             await compressEvents(weekEvents, 'weekly');
             summariesCreated++;
             eventsCompressed += weekEvents.length;
-            
+
             // Delete compressed events
             for (const event of weekEvents) {
               await superMemoryDB.deleteEvent(event.id);
             }
           } catch (error) {
-            console.error(`[Summarizer] Failed to compress weekly events for ${new Date(weekStart).toISOString()}:`, error);
+            console.error(
+              `[Summarizer] Failed to compress weekly events for ${new Date(weekStart).toISOString()}:`,
+              error
+            );
           }
         }
       }
@@ -408,7 +418,7 @@ export async function runNightlySummarization(): Promise<{
         monthStart.setDate(1);
         monthStart.setHours(0, 0, 0, 0);
         const monthStartTs = monthStart.getTime();
-        
+
         if (!eventsByMonth.has(monthStartTs)) {
           eventsByMonth.set(monthStartTs, []);
         }
@@ -422,13 +432,16 @@ export async function runNightlySummarization(): Promise<{
             await compressEvents(monthEvents, 'monthly');
             summariesCreated++;
             eventsCompressed += monthEvents.length;
-            
+
             // Delete compressed events
             for (const event of monthEvents) {
               await superMemoryDB.deleteEvent(event.id);
             }
           } catch (error) {
-            console.error(`[Summarizer] Failed to compress monthly events for ${new Date(monthStart).toISOString()}:`, error);
+            console.error(
+              `[Summarizer] Failed to compress monthly events for ${new Date(monthStart).toISOString()}:`,
+              error
+            );
           }
         }
       }
@@ -460,25 +473,27 @@ export function initNightlySummarization(): void {
   const oneDayMs = 24 * 60 * 60 * 1000;
 
   // Run if never run before, or if last run was more than 24 hours ago
-  if (!lastRun || (now - parseInt(lastRun, 10)) > oneDayMs) {
+  if (!lastRun || now - parseInt(lastRun, 10) > oneDayMs) {
     // Run summarization asynchronously (don't block app startup)
     setTimeout(() => {
       runNightlySummarization()
-        .then((result) => {
+        .then(result => {
           console.log('[Summarizer] Nightly summarization completed:', result);
           localStorage.setItem('sm-last-summary-run', now.toString());
-          
+
           // Emit event for UI to show notification if needed
           if (result.summariesCreated > 0) {
-            window.dispatchEvent(new CustomEvent('memory-summarized', {
-              detail: {
-                summariesCreated: result.summariesCreated,
-                eventsCompressed: result.eventsCompressed,
-              },
-            }));
+            window.dispatchEvent(
+              new CustomEvent('memory-summarized', {
+                detail: {
+                  summariesCreated: result.summariesCreated,
+                  eventsCompressed: result.eventsCompressed,
+                },
+              })
+            );
           }
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('[Summarizer] Nightly summarization error:', error);
         });
     }, 5000); // Wait 5 seconds after app startup
@@ -512,4 +527,3 @@ export async function triggerSummarization(): Promise<{
   localStorage.setItem('sm-last-summary-run', Date.now().toString());
   return result;
 }
-

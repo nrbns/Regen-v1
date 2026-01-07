@@ -28,7 +28,7 @@ function getCommitsSinceLastTag() {
 // Categorize commits
 function categorizeCommit(message) {
   const lower = message.toLowerCase();
-  
+
   if (lower.includes('fix') || lower.includes('bug')) {
     return '🐛 Bug Fixes';
   }
@@ -53,7 +53,7 @@ function categorizeCommit(message) {
   if (lower.includes('ci') || lower.includes('workflow')) {
     return '🔧 CI/CD';
   }
-  
+
   return '📦 Other';
 }
 
@@ -61,25 +61,25 @@ function categorizeCommit(message) {
 function generateChangelog() {
   const commits = getCommitsSinceLastTag();
   const categorized = {};
-  
+
   commits.forEach(line => {
     const [hash, message, author] = line.split('|');
     const category = categorizeCommit(message);
-    
+
     if (!categorized[category]) {
       categorized[category] = [];
     }
-    
+
     categorized[category].push({
       hash: hash.substring(0, 7),
       message: message.replace(/^[a-z]+(\(.+?\))?: /i, ''), // Remove conventional commit prefix
       author,
     });
   });
-  
+
   const date = new Date().toISOString().split('T')[0];
   let changelog = `## [${VERSION}] - ${date}\n\n`;
-  
+
   // Order categories
   const categoryOrder = [
     '✨ Features',
@@ -92,7 +92,7 @@ function generateChangelog() {
     '📝 Documentation',
     '📦 Other',
   ];
-  
+
   categoryOrder.forEach(category => {
     if (categorized[category] && categorized[category].length > 0) {
       changelog += `### ${category}\n\n`;
@@ -102,22 +102,21 @@ function generateChangelog() {
       changelog += '\n';
     }
   });
-  
+
   // Read existing changelog
   let existingChangelog = '';
   if (fs.existsSync(CHANGELOG_PATH)) {
     existingChangelog = fs.readFileSync(CHANGELOG_PATH, 'utf-8');
   }
-  
+
   // Prepend new entry
   const newChangelog = changelog + '\n' + existingChangelog;
-  
+
   // Write to file
   fs.writeFileSync(CHANGELOG_PATH, newChangelog, 'utf-8');
-  
+
   // Also output to stdout for GitHub Actions
   console.log(changelog);
 }
 
 generateChangelog();
-

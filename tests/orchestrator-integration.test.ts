@@ -23,11 +23,11 @@ describe('Orchestrator Integration Tests', () => {
 
   afterAll(() => {
     console.log('Integration tests complete');
-    
+
     // Print monitoring stats
     const stats = monitoring.getPerformanceStats();
     console.log('Performance Stats:', stats);
-    
+
     const health = monitoring.getHealth();
     console.log('Health Status:', health);
   });
@@ -43,7 +43,9 @@ describe('Orchestrator Integration Tests', () => {
 
       expect(classification.primaryAgent).toBe('mail');
       expect(classification.confidence).toBeGreaterThan(0.8);
-      console.log(`✓ Classification: ${classification.primaryAgent} (${classification.confidence.toFixed(2)})`);
+      console.log(
+        `✓ Classification: ${classification.primaryAgent} (${classification.confidence.toFixed(2)})`
+      );
 
       // 2. Plan
       console.log('Step 2: Creating execution plan...');
@@ -76,7 +78,7 @@ describe('Orchestrator Integration Tests', () => {
       // 5. Check monitoring
       const totalTime = Date.now() - startTime;
       const perfStats = monitoring.getPerformanceStats();
-      
+
       expect(perfStats.count).toBeGreaterThan(0);
       expect(perfStats.successRate).toBeGreaterThan(90);
       console.log(`✓ Monitoring: ${perfStats.count} operations tracked`);
@@ -89,7 +91,7 @@ describe('Orchestrator Integration Tests', () => {
   describe('Full Workflow - PPT', () => {
     it('should complete full PPT workflow', async () => {
       const input = 'Create a PowerPoint presentation about AI trends in 2025';
-      
+
       console.log('Step 1: Classifying intent...');
       const classification = await intentRouter.classify(input);
       expect(classification.primaryAgent).toBe('ppt');
@@ -112,7 +114,7 @@ describe('Orchestrator Integration Tests', () => {
   describe('Full Workflow - Research', () => {
     it('should complete full research workflow', async () => {
       const input = 'Research the latest developments in quantum computing';
-      
+
       console.log('Step 1: Classifying intent...');
       const classification = await intentRouter.classify(input);
       expect(classification.primaryAgent).toBe('research');
@@ -148,7 +150,7 @@ describe('Orchestrator Integration Tests', () => {
 
       const errorsAfter = monitoring.getErrorStats().total;
       expect(errorsAfter).toBeGreaterThan(errorsBefore);
-      
+
       console.log('✓ Error tracking works');
     });
   });
@@ -161,7 +163,7 @@ describe('Orchestrator Integration Tests', () => {
       await intentRouter.classify('Test input for metrics');
 
       const metricsAfter = monitoring.getPerformanceStats();
-      
+
       expect(metricsAfter.count).toBeGreaterThan(metricsBefore.count);
       expect(metricsAfter.avgDurationMs).toBeDefined();
       expect(metricsAfter.p50).toBeDefined();
@@ -237,7 +239,7 @@ describe('Orchestrator Integration Tests', () => {
 
     it('should meet planning performance target (<5s)', async () => {
       const classification = await intentRouter.classify('Send email');
-      
+
       const start = Date.now();
       const plan = await taskPlanner.createPlan(classification, testUserId);
       const duration = Date.now() - start;

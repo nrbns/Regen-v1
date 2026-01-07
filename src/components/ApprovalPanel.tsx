@@ -14,21 +14,21 @@ interface ApprovalPanelProps {
   _onModify?: (planId: string, modifications: Partial<ExecutionPlan>) => void;
 }
 
-export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
-  plan,
-  onApprove,
-  onReject,
-}) => {
+export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({ plan, onApprove, onReject }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [isRejecting, setIsRejecting] = useState(false);
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'low': return 'text-green-600 bg-green-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      case 'high': return 'text-red-600 bg-red-50';
-      default: return 'text-gray-600 bg-gray-50';
+      case 'low':
+        return 'text-green-600 bg-green-50';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-50';
+      case 'high':
+        return 'text-red-600 bg-red-50';
+      default:
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -72,12 +72,14 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
   };
 
   return (
-    <div className="approval-panel bg-white rounded-lg shadow-lg border border-gray-200 max-w-4xl mx-auto">
+    <div className="approval-panel mx-auto max-w-4xl rounded-lg border border-gray-200 bg-white shadow-lg">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-lg">
+      <div className="rounded-t-lg bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-3xl">{getAgentIcon(plan.intent.suggestedAgents?.[0] || 'general')}</span>
+            <span className="text-3xl">
+              {getAgentIcon(plan.intent.suggestedAgents?.[0] || 'general')}
+            </span>
             <div>
               <h2 className="text-xl font-bold">Execution Plan Approval</h2>
               <p className="text-sm text-blue-100">
@@ -85,14 +87,16 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
               </p>
             </div>
           </div>
-          <div className={`px-3 py-1 rounded-full text-sm font-semibold ${getRiskColor(plan.riskLevel)}`}>
+          <div
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${getRiskColor(plan.riskLevel)}`}
+          >
             {plan.riskLevel.toUpperCase()} RISK
           </div>
         </div>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-gray-50 border-b">
+      <div className="grid grid-cols-3 gap-4 border-b bg-gray-50 px-6 py-4">
         <div className="text-center">
           <div className="text-2xl font-bold text-gray-900">{plan.tasks.length}</div>
           <div className="text-sm text-gray-600">Tasks</div>
@@ -113,11 +117,11 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
 
       {/* Task List */}
       <div className="px-6 py-4">
-        <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold">
           📋 Execution Steps
           <button
             onClick={() => setShowDetails(!showDetails)}
-            className="text-sm text-blue-600 hover:text-blue-700 ml-auto"
+            className="ml-auto text-sm text-blue-600 hover:text-blue-700"
           >
             {showDetails ? 'Hide Details' : 'Show Details'}
           </button>
@@ -125,12 +129,9 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
 
         <div className="space-y-3">
           {plan.tasks.map((task, index) => (
-            <div
-              key={task.taskId}
-              className={`border rounded-lg p-4 border-gray-200`}
-            >
+            <div key={task.taskId} className={`rounded-lg border border-gray-200 p-4`}>
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
                   {index + 1}
                 </div>
                 <div className="flex-1">
@@ -138,10 +139,10 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
                     <span className="text-lg">{getAgentIcon(task.agent)}</span>
                     <span className="font-semibold text-gray-900">{task.name}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                  
+                  <p className="mt-1 text-sm text-gray-600">{task.description}</p>
+
                   {showDetails && (
-                    <div className="mt-2 text-sm text-gray-600 space-y-1">
+                    <div className="mt-2 space-y-1 text-sm text-gray-600">
                       {task.estimatedDuration && (
                         <div>⏱️ Duration: {formatDuration(task.estimatedDuration)}</div>
                       )}
@@ -149,7 +150,7 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
                         <div>🔗 Depends on: {task.dependencies.join(', ')}</div>
                       )}
                       {task.parameters && (
-                        <div className="mt-2 bg-gray-100 rounded p-2 font-mono text-xs overflow-x-auto">
+                        <div className="mt-2 overflow-x-auto rounded bg-gray-100 p-2 font-mono text-xs">
                           {JSON.stringify(task.parameters, null, 2)}
                         </div>
                       )}
@@ -164,14 +165,14 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
 
       {/* Risk Warning */}
       {plan.riskLevel === 'high' && (
-        <div className="mx-6 mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <div className="mx-6 mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="flex items-start gap-3">
             <span className="text-2xl">⚠️</span>
             <div>
               <div className="font-semibold text-red-900">High Risk Operation</div>
-              <div className="text-sm text-red-700 mt-1">
+              <div className="mt-1 text-sm text-red-700">
                 This plan includes operations that may:
-                <ul className="list-disc ml-5 mt-1">
+                <ul className="ml-5 mt-1 list-disc">
                   <li>Make financial transactions</li>
                   <li>Delete or modify important data</li>
                   <li>Access external APIs with rate limits</li>
@@ -184,23 +185,24 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
       )}
 
       {/* Action Buttons */}
-      <div className="px-6 py-4 bg-gray-50 rounded-b-lg border-t flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-b-lg border-t bg-gray-50 px-6 py-4">
         <div className="text-sm text-gray-600">
-          Plan ID: <code className="font-mono text-xs bg-gray-200 px-2 py-1 rounded">{plan.planId}</code>
+          Plan ID:{' '}
+          <code className="rounded bg-gray-200 px-2 py-1 font-mono text-xs">{plan.planId}</code>
         </div>
-        
+
         <div className="flex gap-3">
           {!isRejecting ? (
             <>
               <button
                 onClick={() => setIsRejecting(true)}
-                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold transition-colors"
+                className="rounded-lg bg-gray-200 px-6 py-2 font-semibold text-gray-800 transition-colors hover:bg-gray-300"
               >
                 ❌ Reject
               </button>
               <button
                 onClick={handleApprove}
-                className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-semibold transition-colors shadow-md"
+                className="rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-6 py-2 font-semibold text-white shadow-md transition-colors hover:from-green-600 hover:to-green-700"
               >
                 ✅ Approve & Execute
               </button>
@@ -211,19 +213,19 @@ export const ApprovalPanel: React.FC<ApprovalPanelProps> = ({
                 type="text"
                 placeholder="Reason for rejection..."
                 value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={e => setRejectReason(e.target.value)}
+                className="rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
               <button
                 onClick={() => setIsRejecting(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold"
+                className="rounded-lg bg-gray-200 px-4 py-2 font-semibold text-gray-800 hover:bg-gray-300"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReject}
-                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold"
+                className="rounded-lg bg-red-600 px-6 py-2 font-semibold text-white hover:bg-red-700"
               >
                 Confirm Reject
               </button>

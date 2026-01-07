@@ -24,7 +24,8 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
  * Extract video ID from YouTube URL
  */
 function extractVideoId(url) {
-  const regex = /(?:\/\/(?:www\.)?(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11}))/;
+  const regex =
+    /(?:\/\/(?:www\.)?(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11}))/;
   const match = url.match(regex);
   return match ? match[1] : null;
 }
@@ -35,8 +36,10 @@ function extractVideoId(url) {
 async function getTranscript(videoId) {
   try {
     // Use youtube-transcript-api via Python
-    const { stdout } = await execAsync(`python3 -c "from youtube_transcript_api import YouTubeTranscriptApi; import json; transcript = YouTubeTranscriptApi.get_transcript('${videoId}', languages=['en', 'en-US']); print(json.dumps(transcript))"`);
-    
+    const { stdout } = await execAsync(
+      `python3 -c "from youtube_transcript_api import YouTubeTranscriptApi; import json; transcript = YouTubeTranscriptApi.get_transcript('${videoId}', languages=['en', 'en-US']); print(json.dumps(transcript))"`
+    );
+
     const transcript = JSON.parse(stdout);
     const fullText = transcript.map(item => item.text).join(' ');
     return { transcript, fullText };
@@ -87,7 +90,7 @@ async function downloadVideoAndExtractFrames(url, videoId) {
     for (let i = 0; i < frameCount; i++) {
       const timestamp = i * interval;
       const framePath = path.join(framesDir, `frame_${timestamp}.jpg`);
-      
+
       const ffmpegCommand = `ffmpeg -i "${videoPath}" -ss ${timestamp} -vframes 1 "${framePath}" -y -loglevel error`;
       try {
         await execAsync(ffmpegCommand);
@@ -159,13 +162,15 @@ async function analyzeWithGemini(prompt, frames) {
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${GEMINI_API_KEY}`,
       {
-        contents: [{
-          parts: [
-            { text: prompt },
-            // Note: Gemini vision would require base64 encoded images
-            // This is simplified - full implementation would encode frames
-          ],
-        }],
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              // Note: Gemini vision would require base64 encoded images
+              // This is simplified - full implementation would encode frames
+            ],
+          },
+        ],
         generationConfig: {
           temperature: 0.8,
         },
@@ -186,7 +191,7 @@ async function analyzeWithLocalLLM(prompt, frames) {
   try {
     // Use Ollama with vision model (llava) or text-only
     const model = frames.length > 0 ? 'llava' : 'llama3.1';
-    
+
     const response = await axios.post(
       `${OLLAMA_BASE_URL}/api/generate`,
       {
@@ -225,7 +230,10 @@ export async function analyzeYouTube(url) {
   const { transcript, fullText } = await getTranscript(videoId);
 
   // Step 2: Download video and extract frames
-  const { videoPath, frames, title, duration, info } = await downloadVideoAndExtractFrames(url, videoId);
+  const { videoPath, frames, title, duration, info } = await downloadVideoAndExtractFrames(
+    url,
+    videoId
+  );
 
   // Step 3: Analyze with AI
   let researchReport;
@@ -275,7 +283,3 @@ export function extractVideoScript(researchReport) {
   const insights = lines.filter(line => /^\d+\./.test(line.trim())).slice(0, 5);
   return insights.join('\n\n') + '\n\nThis is a 60-second response to the original video.';
 }
-
-
-
-

@@ -1,4 +1,3 @@
-
 // Performance Benchmark for GVE Optimizations
 // Run this in browser console or with Playwright
 
@@ -48,7 +47,7 @@ async function benchmarkGVE() {
   let frameCount = 0;
   let lastTime = performance.now();
   const frameRateStart = performance.now();
-  
+
   function countFrame() {
     frameCount++;
     const currentTime = performance.now();
@@ -69,7 +68,7 @@ async function benchmarkGVE() {
 benchmarkGVE().then(results => {
   console.log('\n📊 Benchmark Results:');
   console.log(JSON.stringify(results, null, 2));
-  
+
   // Save to window for external access
   window.benchmarkResults = results;
 });

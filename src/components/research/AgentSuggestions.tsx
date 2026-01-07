@@ -99,7 +99,9 @@ export function AgentSuggestions() {
           if (value.startsWith('http')) {
             await ipc.tabs.create(value);
           } else {
-            await ipc.tabs.create(`http://localhost:4000/api/search?q=${encodeURIComponent(value)}`);
+            await ipc.tabs.create(
+              `http://localhost:4000/api/search?q=${encodeURIComponent(value)}`
+            );
           }
           break;
 
@@ -128,7 +130,9 @@ export function AgentSuggestions() {
           // Summarize current page
           if (currentTab) {
             // Trigger summarization
-            window.dispatchEvent(new CustomEvent('summarize-page', { detail: { tabId: currentTab.id } }));
+            window.dispatchEvent(
+              new CustomEvent('summarize-page', { detail: { tabId: currentTab.id } })
+            );
           }
           break;
       }
@@ -143,13 +147,13 @@ export function AgentSuggestions() {
   const getActionIcon = (type: string) => {
     switch (type) {
       case 'search':
-        return <Search className="w-4 h-4" />;
+        return <Search className="h-4 w-4" />;
       case 'open':
-        return <BookOpen className="w-4 h-4" />;
+        return <BookOpen className="h-4 w-4" />;
       case 'reminder':
-        return <Clock className="w-4 h-4" />;
+        return <Clock className="h-4 w-4" />;
       default:
-        return <ArrowRight className="w-4 h-4" />;
+        return <ArrowRight className="h-4 w-4" />;
     }
   };
 
@@ -162,12 +166,12 @@ export function AgentSuggestions() {
   }
 
   return (
-    <div className="p-4 bg-gray-900 border-t border-gray-700">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="w-5 h-5 text-purple-400" />
+    <div className="border-t border-gray-700 bg-gray-900 p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-purple-400" />
         <h3 className="text-sm font-semibold text-white">Suggested Actions</h3>
         {isLoading && (
-          <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
         )}
       </div>
 
@@ -179,18 +183,18 @@ export function AgentSuggestions() {
             <button
               key={index}
               onClick={() => executeAction(action)}
-              className="w-full flex items-center gap-3 p-3 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors text-left group"
+              className="group flex w-full items-center gap-3 rounded-lg bg-gray-800 p-3 text-left transition-colors hover:bg-gray-700"
             >
               <div className="flex-shrink-0 text-purple-400 group-hover:text-purple-300">
                 {getActionIcon(action.type)}
               </div>
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-white">{action.label}</p>
                 {action.description && (
-                  <p className="text-xs text-gray-400 mt-1">{action.description}</p>
+                  <p className="mt-1 text-xs text-gray-400">{action.description}</p>
                 )}
               </div>
-              <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-white flex-shrink-0" />
+              <ArrowRight className="h-4 w-4 flex-shrink-0 text-gray-400 group-hover:text-white" />
             </button>
           ))}
         </div>
@@ -199,11 +203,10 @@ export function AgentSuggestions() {
       <button
         onClick={loadSuggestions}
         disabled={isLoading}
-        className="mt-3 w-full text-xs text-gray-400 hover:text-gray-300 transition-colors disabled:opacity-50"
+        className="mt-3 w-full text-xs text-gray-400 transition-colors hover:text-gray-300 disabled:opacity-50"
       >
         Refresh suggestions
       </button>
     </div>
   );
 }
-

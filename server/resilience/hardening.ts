@@ -22,8 +22,8 @@ export interface ResilienceConfig {
 }
 
 export enum CircuitBreakerState {
-  CLOSED = 'CLOSED',      // Normal operation
-  OPEN = 'OPEN',          // Failing, reject requests
+  CLOSED = 'CLOSED', // Normal operation
+  OPEN = 'OPEN', // Failing, reject requests
   HALF_OPEN = 'HALF_OPEN', // Testing recovery
 }
 
@@ -116,10 +116,7 @@ export class RateLimiter {
     const timePassed = (now - this.lastRefillTime) / 1000;
     const tokensToAdd = timePassed * this.config.requestsPerSecond;
 
-    this.tokens = Math.min(
-      this.config.burstSize,
-      this.tokens + tokensToAdd
-    );
+    this.tokens = Math.min(this.config.burstSize, this.tokens + tokensToAdd);
     this.lastRefillTime = now;
   }
 
@@ -139,10 +136,7 @@ export class RetryPolicy {
   /**
    * Execute with exponential backoff
    */
-  async executeWithRetry<T>(
-    fn: () => Promise<T>,
-    operationName: string = 'operation'
-  ): Promise<T> {
+  async executeWithRetry<T>(fn: () => Promise<T>, operationName: string = 'operation'): Promise<T> {
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= this.config.maxAttempts; attempt++) {
@@ -158,7 +152,9 @@ export class RetryPolicy {
           );
           await this.sleep(delay);
         } else {
-          console.error(`[RetryPolicy] ${operationName} failed after ${this.config.maxAttempts} attempts`);
+          console.error(
+            `[RetryPolicy] ${operationName} failed after ${this.config.maxAttempts} attempts`
+          );
         }
       }
     }
@@ -193,17 +189,12 @@ export class ProductionHardening {
   /**
    * Execute with full resilience stack
    */
-  async executeReliably<T>(
-    fn: () => Promise<T>,
-    operationName: string = 'operation'
-  ): Promise<T> {
+  async executeReliably<T>(fn: () => Promise<T>, operationName: string = 'operation'): Promise<T> {
     if (!this.rateLimiter.allowRequest()) {
       throw new Error('Rate limit exceeded');
     }
 
-    return this.circuitBreaker.execute(() =>
-      this.retryPolicy.executeWithRetry(fn, operationName)
-    );
+    return this.circuitBreaker.execute(() => this.retryPolicy.executeWithRetry(fn, operationName));
   }
 
   getHealthStatus(): {

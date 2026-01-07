@@ -159,10 +159,10 @@ async function testAnthropic() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-          model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4.5',
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'Say "Hello" in one word.' }],
-        }),
+        model: process.env.ANTHROPIC_MODEL || 'claude-haiku-4.5',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say "Hello" in one word.' }],
+      }),
       timeout: 30000,
     });
 

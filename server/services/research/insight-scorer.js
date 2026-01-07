@@ -111,13 +111,12 @@ export async function bestOfThree(topic, generateAnswerFunc) {
   ]);
 
   // Score all answers
-  const scored = await Promise.all(
-    answers.map(answer => scoreInsight(answer, topic))
-  );
+  const scored = await Promise.all(answers.map(answer => scoreInsight(answer, topic)));
 
   // Find best by score
-  const bestIdx = scored.reduce((best, current, idx) => 
-    (current.score || 0) > (scored[best].score || 0) ? idx : best, 0
+  const bestIdx = scored.reduce(
+    (best, current, idx) => ((current.score || 0) > (scored[best].score || 0) ? idx : best),
+    0
   );
 
   return {
@@ -136,13 +135,12 @@ export async function pickBestAnswer(answers, query) {
   if (answers.length === 1) return answers[0];
 
   // Score all answers in parallel
-  const scores = await Promise.all(
-    answers.map(answer => scoreInsight(answer, query))
-  );
+  const scores = await Promise.all(answers.map(answer => scoreInsight(answer, query)));
 
   // Find best by score (production format)
-  const bestIdx = scores.reduce((best, current, idx) => 
-    (current.score || 0) > (scores[best].score || 0) ? idx : best, 0
+  const bestIdx = scores.reduce(
+    (best, current, idx) => ((current.score || 0) > (scores[best].score || 0) ? idx : best),
+    0
   );
 
   return {
@@ -157,13 +155,30 @@ export async function pickBestAnswer(answers, query) {
 
 // Heuristic scoring functions (fallback)
 function estimateSurprise(answer) {
-  const surpriseWords = ['surprising', 'unexpected', 'contrary', 'shocking', 'reveals', 'hidden', 'secret'];
+  const surpriseWords = [
+    'surprising',
+    'unexpected',
+    'contrary',
+    'shocking',
+    'reveals',
+    'hidden',
+    'secret',
+  ];
   const count = surpriseWords.filter(word => answer.toLowerCase().includes(word)).length;
   return Math.min(10, 5 + count * 1.5);
 }
 
 function estimateNovelty(answer) {
-  const noveltyWords = ['new', 'latest', 'recent', '2024', '2025', 'cutting-edge', 'bleeding-edge', 'emerging'];
+  const noveltyWords = [
+    'new',
+    'latest',
+    'recent',
+    '2024',
+    '2025',
+    'cutting-edge',
+    'bleeding-edge',
+    'emerging',
+  ];
   const count = noveltyWords.filter(word => answer.toLowerCase().includes(word)).length;
   return Math.min(10, 4 + count * 1.2);
 }
@@ -180,8 +195,15 @@ function estimateActionability(answer) {
 }
 
 function estimateContrarian(answer) {
-  const contrarianWords = ['however', 'but', 'despite', 'contrary', 'disagrees', 'challenges', 'debate'];
+  const contrarianWords = [
+    'however',
+    'but',
+    'despite',
+    'contrary',
+    'disagrees',
+    'challenges',
+    'debate',
+  ];
   const count = contrarianWords.filter(word => answer.toLowerCase().includes(word)).length;
   return Math.min(10, 2 + count * 1.5);
 }
-

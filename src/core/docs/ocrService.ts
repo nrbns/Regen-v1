@@ -13,7 +13,7 @@ let tesseractModule: any = null;
 
 async function loadTesseract() {
   if (tesseractModule) return tesseractModule;
-  
+
   try {
     // Dynamic import to reduce initial bundle size
     // Use string variable to prevent Vite from analyzing the import at build time
@@ -29,7 +29,7 @@ async function loadTesseract() {
   }
 }
 
-export type OCRLanguage = 
+export type OCRLanguage =
   | 'eng' // English
   | 'hin' // Hindi
   | 'spa' // Spanish
@@ -76,10 +76,7 @@ export interface OCROptions {
 /**
  * Phase 2, Day 2: Extract text from scanned PDF using OCR
  */
-export async function ocrPdf(
-  file: File,
-  options: OCROptions = {}
-): Promise<OCRResult> {
+export async function ocrPdf(file: File, options: OCROptions = {}): Promise<OCRResult> {
   const { language = 'eng', psm = 6, oem = 3, dpi = 300, progressCallback } = options;
 
   try {
@@ -97,7 +94,7 @@ export async function ocrPdf(
 
     // Create worker
     const worker = await createWorker();
-    
+
     try {
       // Set language(s)
       const languages = Array.isArray(language) ? language : [language];
@@ -206,10 +203,7 @@ export async function ocrPdf(
 /**
  * Phase 2, Day 2: Extract text from image file using OCR
  */
-export async function ocrImage(
-  file: File,
-  options: OCROptions = {}
-): Promise<OCRResult> {
+export async function ocrImage(file: File, options: OCROptions = {}): Promise<OCRResult> {
   const { language = 'eng', psm = 6, oem = 3, progressCallback } = options;
 
   try {
@@ -302,7 +296,7 @@ export async function isScannedPdf(file: File): Promise<boolean> {
   try {
     const buf = await file.arrayBuffer();
     const pdf = await (pdfjsLib as any).getDocument({ data: buf }).promise;
-    
+
     // Check first few pages for extractable text
     const pagesToCheck = Math.min(3, pdf.numPages);
     let totalTextLength = 0;
@@ -330,7 +324,7 @@ export async function isScannedPdf(file: File): Promise<boolean> {
 async function fileToImageData(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       if (e.target?.result) {
         resolve(e.target.result as string);
       } else {
@@ -362,4 +356,3 @@ export function getAvailableLanguages(): Array<{ code: OCRLanguage; name: string
     { code: 'multi', name: 'Multiple Languages' },
   ];
 }
-

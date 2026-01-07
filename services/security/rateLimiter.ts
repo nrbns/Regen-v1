@@ -43,7 +43,7 @@ export class RateLimiter {
     const windowStart = new Date(now.getTime() - config.windowSizeSeconds * 1000);
 
     const recentRequests = requestLogs.filter(
-      (log) =>
+      log =>
         log.userId === userId &&
         log.action === action &&
         log.timestamp >= windowStart &&
@@ -64,7 +64,7 @@ export class RateLimiter {
     const windowStart = new Date(now.getTime() - config.windowSizeSeconds * 1000);
 
     const recentRequests = requestLogs.filter(
-      (log) =>
+      log =>
         log.userId === userId &&
         log.action === action &&
         log.timestamp >= windowStart &&
@@ -90,11 +90,7 @@ export class RateLimiter {
     today.setHours(0, 0, 0, 0);
 
     const todayRequests = requestLogs.filter(
-      (log) =>
-        log.userId === userId &&
-        log.action === action &&
-        log.timestamp >= today &&
-        log.success
+      log => log.userId === userId && log.action === action && log.timestamp >= today && log.success
     );
 
     return todayRequests.length < config.quotaPerDay;
@@ -113,7 +109,7 @@ export class RateLimiter {
 
     // Clean up old logs (keep last 24 hours)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const index = requestLogs.findIndex((log) => log.timestamp < oneDayAgo);
+    const index = requestLogs.findIndex(log => log.timestamp < oneDayAgo);
     if (index > 0) {
       requestLogs.splice(0, index);
     }
@@ -122,7 +118,10 @@ export class RateLimiter {
   /**
    * Get statistics
    */
-  async getStats(userId: string, action: string): Promise<{
+  async getStats(
+    userId: string,
+    action: string
+  ): Promise<{
     requestsThisHour: number;
     requestsToday: number;
     limit: RateLimitConfig;
@@ -135,22 +134,15 @@ export class RateLimiter {
     // Last hour
     const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
     const hourlyRequests = requestLogs.filter(
-      (log) =>
-        log.userId === userId &&
-        log.action === action &&
-        log.timestamp >= hourAgo &&
-        log.success
+      log =>
+        log.userId === userId && log.action === action && log.timestamp >= hourAgo && log.success
     );
 
     // Today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dailyRequests = requestLogs.filter(
-      (log) =>
-        log.userId === userId &&
-        log.action === action &&
-        log.timestamp >= today &&
-        log.success
+      log => log.userId === userId && log.action === action && log.timestamp >= today && log.success
     );
 
     return {

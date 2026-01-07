@@ -33,7 +33,9 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
   const [recorderJobId, setRecorderJobId] = useState<string | null>(null);
   const { jobs, createJob, addTaskToJob, deleteJob } = useBatchStore();
 
-  const selectedJob = selectedJobId ? jobs.find(j => j.id === selectedJobId) : jobs[jobs.length - 1];
+  const selectedJob = selectedJobId
+    ? jobs.find(j => j.id === selectedJobId)
+    : jobs[jobs.length - 1];
   const recorderJob = recorderJobId ? jobs.find(j => j.id === recorderJobId) : null;
 
   const handleCreateJob = () => {
@@ -114,7 +116,7 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
         <div className="flex flex-1 overflow-hidden">
           {/* Job list sidebar */}
           <div className="flex w-64 flex-col border-r border-slate-800/60 bg-slate-900/30">
-            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            <div className="flex-1 space-y-2 overflow-y-auto p-3">
               {jobs.length === 0 ? (
                 <div className="flex items-center justify-center py-8 text-sm text-slate-500">
                   No batch jobs yet
@@ -124,18 +126,18 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
                   <button
                     key={job.id}
                     onClick={() => setSelectedJobId(job.id)}
-                    className={`w-full text-left rounded-lg border px-3 py-2 transition-all ${
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-all ${
                       selectedJob?.id === job.id
                         ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-100'
                         : 'border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/50'
                     }`}
                   >
-                    <div className="text-xs font-semibold truncate">{job.name}</div>
+                    <div className="truncate text-xs font-semibold">{job.name}</div>
                     <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500">
                       <span>{job.tasks.length} tasks</span>
                       <span className="font-mono">{job.progress}%</span>
                     </div>
-                    <div className="mt-1 h-1 w-full rounded-full bg-slate-700/30 overflow-hidden">
+                    <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-700/30">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${job.progress}%` }}
@@ -154,7 +156,7 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
               {!selectedJob ? (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-widest text-slate-300 mb-1">
+                    <label className="mb-1 block text-xs font-semibold uppercase tracking-widest text-slate-300">
                       Job Name
                     </label>
                     <div className="flex gap-2">
@@ -181,7 +183,7 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
                 <>
                   {/* Job tasks */}
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="mb-3 flex items-center justify-between">
                       <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-300">
                         Tasks ({selectedJob.tasks.length})
                       </h3>
@@ -235,11 +237,11 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
 
                     {/* Progress bar */}
                     <div className="mb-3 rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
-                      <div className="flex items-center justify-between text-xs mb-2">
+                      <div className="mb-2 flex items-center justify-between text-xs">
                         <span className="text-slate-300">Progress</span>
                         <span className="font-mono font-semibold">{selectedJob.progress}%</span>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-slate-700/30 overflow-hidden">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700/30">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${selectedJob.progress}%` }}
@@ -254,7 +256,7 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
                     </div>
 
                     {/* Task list */}
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
+                    <div className="max-h-96 space-y-2 overflow-y-auto">
                       <AnimatePresence>
                         {selectedJob.tasks.map((task, idx) => (
                           <TaskRow key={task.id} task={task} index={idx} />
@@ -266,7 +268,7 @@ export function AgentBatchProcessor({ onExecute, onClose }: BatchProcessorProps)
                   {/* Add task form */}
                   {selectedJob.status !== 'running' && (
                     <div className="border-t border-slate-800/60 pt-4">
-                      <label className="block text-xs font-semibold uppercase tracking-widest text-slate-300 mb-2">
+                      <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-slate-300">
                         Add Task
                       </label>
                       <div className="flex gap-2">
@@ -309,7 +311,11 @@ function TaskRow({ task, index }: { task: BatchTask; index: number }) {
 
   const statusIcons = {
     pending: <Clock size={12} />,
-    running: <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }}><Zap size={12} /></motion.div>,
+    running: (
+      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity }}>
+        <Zap size={12} />
+      </motion.div>
+    ),
     completed: <CheckCircle2 size={12} />,
     failed: <AlertCircle size={12} />,
   };
@@ -323,12 +329,10 @@ function TaskRow({ task, index }: { task: BatchTask; index: number }) {
     >
       <div className="flex items-start gap-2">
         <div className="mt-1 flex-shrink-0">{statusIcons[task.status]}</div>
-        <div className="flex-1 min-w-0">
-          <div className="font-mono text-[10px] text-slate-500 mb-1">Task {index + 1}</div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 font-mono text-[10px] text-slate-500">Task {index + 1}</div>
           <div className="truncate font-medium">{task.goal}</div>
-          {task.error && (
-            <div className="mt-1 text-[10px] opacity-75">{task.error}</div>
-          )}
+          {task.error && <div className="mt-1 text-[10px] opacity-75">{task.error}</div>}
           {task.duration && (
             <div className="mt-1 text-[10px] opacity-60">{(task.duration / 1000).toFixed(1)}s</div>
           )}

@@ -198,14 +198,14 @@ export async function queryEnhancedResearch({
     // Pipeline is used when multiple tasks run in parallel
     try {
       const pipelineStart = Date.now();
-      
+
       summaryResult = await analyzeWithLLM({
         task: 'qa',
         inputText: context,
         question: `${query} — answer in ${getLanguageLabel(detection.language)}.`,
         language: detection.language,
       });
-      
+
       const pipelineLatency = Date.now() - pipelineStart;
       if (process.env.LOG_PERFORMANCE !== '0') {
         console.log(`[enhanced-research] LLM analysis latency: ${pipelineLatency}ms`);

@@ -5,16 +5,12 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { X, Play, Download, Trash2, Tag, Clock, Zap } from 'lucide-react';
 import {
-  X,
-  Play,
-  Download,
-  Trash2,
-  Tag,
-  Clock,
-  Zap,
-} from 'lucide-react';
-import { useWorkflowStore, type WorkflowTemplate, type WorkflowStep } from '../../core/agent/workflows';
+  useWorkflowStore,
+  type WorkflowTemplate,
+  type WorkflowStep,
+} from '../../core/agent/workflows';
 
 interface WorkflowBrowserProps {
   onExecute: (steps: WorkflowStep[], templateId: string) => void;
@@ -30,7 +26,8 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
     useWorkflowStore();
 
   const filteredTemplates = templates.filter(t => {
-    const matchesSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTag = !selectedTag || t.tags.includes(selectedTag);
     return matchesSearch && matchesTag;
@@ -99,7 +96,7 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                 className="flex w-full flex-col"
               >
                 {/* Search and filters */}
-                <div className="border-b border-slate-800/60 bg-slate-900/30 p-4 space-y-3">
+                <div className="space-y-3 border-b border-slate-800/60 bg-slate-900/30 p-4">
                   <input
                     type="text"
                     placeholder="Search workflows..."
@@ -129,7 +126,7 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                               : 'border border-slate-700/50 bg-slate-800/30 text-slate-300 hover:bg-slate-800/50'
                           }`}
                         >
-                          <Tag size={10} className="inline mr-1" />
+                          <Tag size={10} className="mr-1 inline" />
                           {tag}
                         </button>
                       ))}
@@ -150,10 +147,12 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-sm text-emerald-100">{template.name}</h3>
+                            <h3 className="text-sm font-semibold text-emerald-100">
+                              {template.name}
+                            </h3>
                             <p className="mt-1 text-xs text-slate-400">{template.description}</p>
                           </div>
-                          <div className="ml-2 rounded-lg bg-slate-700/50 p-1.5 text-slate-300 group-hover:bg-emerald-500/20 group-hover:text-emerald-300 transition-colors">
+                          <div className="ml-2 rounded-lg bg-slate-700/50 p-1.5 text-slate-300 transition-colors group-hover:bg-emerald-500/20 group-hover:text-emerald-300">
                             <Play size={12} />
                           </div>
                         </div>
@@ -181,9 +180,7 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                         </div>
 
                         {template.author && (
-                          <div className="text-[10px] text-slate-600">
-                            by {template.author}
-                          </div>
+                          <div className="text-[10px] text-slate-600">by {template.author}</div>
                         )}
                       </motion.button>
                     ))}
@@ -205,24 +202,24 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                 exit={{ opacity: 0, x: 20 }}
                 className="flex w-full flex-col overflow-y-auto"
               >
-                <div className="flex-1 px-6 py-4 space-y-4">
+                <div className="flex-1 space-y-4 px-6 py-4">
                   {/* Workflow description */}
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-300 mb-2">Description</h3>
+                    <h3 className="mb-2 text-sm font-semibold text-slate-300">Description</h3>
                     <p className="text-sm text-slate-400">{selectedTemplate.description}</p>
                   </div>
 
                   {/* Parameters */}
                   {selectedTemplate.parameters.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-300 mb-2">Parameters</h3>
+                      <h3 className="mb-2 text-sm font-semibold text-slate-300">Parameters</h3>
                       <div className="space-y-2">
                         {selectedTemplate.parameters.map(param => (
                           <div key={param.key}>
-                            <label className="block text-xs font-medium text-slate-400 mb-1">
+                            <label className="mb-1 block text-xs font-medium text-slate-400">
                               {param.label}
                               {param.description && (
-                                <span className="block text-[10px] text-slate-500 font-normal">
+                                <span className="block text-[10px] font-normal text-slate-500">
                                   {param.description}
                                 </span>
                               )}
@@ -246,25 +243,32 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
 
                   {/* Workflow steps */}
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-300 mb-2">
+                    <h3 className="mb-2 text-sm font-semibold text-slate-300">
                       Workflow Steps ({selectedTemplate.steps.length})
                     </h3>
                     <div className="space-y-2">
                       {selectedTemplate.steps
                         .sort((a, b) => a.order - b.order)
                         .map((step, idx) => (
-                          <div key={step.id} className="rounded-lg border border-slate-700/30 bg-slate-800/20 p-3">
+                          <div
+                            key={step.id}
+                            className="rounded-lg border border-slate-700/30 bg-slate-800/20 p-3"
+                          >
                             <div className="flex items-start gap-2">
-                              <div className="flex-shrink-0 rounded-full bg-emerald-500/20 h-6 w-6 flex items-center justify-center text-xs font-semibold text-emerald-300">
+                              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-300">
                                 {idx + 1}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-mono text-slate-500 capitalize mb-1">
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 font-mono text-xs capitalize text-slate-500">
                                   {step.type}
                                 </div>
-                                <div className="text-sm text-slate-200 break-words font-mono">{step.content}</div>
+                                <div className="break-words font-mono text-sm text-slate-200">
+                                  {step.content}
+                                </div>
                                 {step.description && (
-                                  <div className="mt-1 text-xs text-slate-400">{step.description}</div>
+                                  <div className="mt-1 text-xs text-slate-400">
+                                    {step.description}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -274,7 +278,7 @@ export function WorkflowTemplateBrowser({ onExecute, onClose }: WorkflowBrowserP
                   </div>
 
                   {/* Metadata */}
-                  <div className="text-xs text-slate-500 space-y-1">
+                  <div className="space-y-1 text-xs text-slate-500">
                     <div>Created: {new Date(selectedTemplate.createdAt).toLocaleDateString()}</div>
                     <div>Updated: {new Date(selectedTemplate.updatedAt).toLocaleDateString()}</div>
                     <div>Used: {selectedTemplate.usageCount} times</div>

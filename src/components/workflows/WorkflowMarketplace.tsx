@@ -157,10 +157,10 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative bg-[#1A1D28] border border-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+          className="relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-[#1A1D28] shadow-xl"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-800 p-4">
             <div className="flex items-center gap-3">
               <Workflow size={24} className="text-blue-400" />
               <div>
@@ -170,14 +170,14 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800/60 transition-colors"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-100"
             >
               <X size={20} />
             </button>
           </div>
 
           {/* Search and Filters */}
-          <div className="p-4 border-b border-gray-800 space-y-3">
+          <div className="space-y-3 border-b border-gray-800 p-4">
             <div className="relative">
               <Search
                 size={18}
@@ -188,14 +188,14 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search workflows..."
-                className="w-full pl-10 pr-4 py-2 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="w-full rounded-lg border border-gray-700/50 bg-gray-900/60 py-2 pl-10 pr-4 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               />
             </div>
             <div className="flex items-center gap-3">
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                className="px-3 py-1.5 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="rounded-lg border border-gray-700/50 bg-gray-900/60 px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
                 {categories.map(cat => (
                   <option key={cat.value} value={cat.value}>
@@ -206,7 +206,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
               <select
                 value={selectedLanguage}
                 onChange={e => setSelectedLanguage(e.target.value)}
-                className="px-3 py-1.5 bg-gray-900/60 border border-gray-700/50 rounded-lg text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                className="rounded-lg border border-gray-700/50 bg-gray-900/60 px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
               >
                 <option value="all">All Languages</option>
                 <option value="auto">Auto-detect</option>
@@ -221,36 +221,36 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
           {/* Workflows List */}
           <div className="flex-1 overflow-y-auto p-4">
             {filteredWorkflows.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
+              <div className="py-12 text-center text-gray-400">
                 <p>No workflows found.</p>
-                <p className="text-sm mt-2">Try adjusting your search or filters.</p>
+                <p className="mt-2 text-sm">Try adjusting your search or filters.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filteredWorkflows.map(workflow => (
                   <motion.div
                     key={workflow.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/50 hover:border-gray-700/50 transition-colors"
+                    className="rounded-lg border border-gray-800/50 bg-gray-900/60 p-4 transition-colors hover:border-gray-700/50"
                   >
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex items-start justify-between">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-100 mb-1">{workflow.name}</h3>
-                        <p className="text-sm text-gray-400 line-clamp-2">{workflow.description}</p>
+                        <h3 className="mb-1 font-semibold text-gray-100">{workflow.name}</h3>
+                        <p className="line-clamp-2 text-sm text-gray-400">{workflow.description}</p>
                       </div>
-                      <div className="flex items-center gap-1 text-yellow-400 ml-2">
+                      <div className="ml-2 flex items-center gap-1 text-yellow-400">
                         <Star size={14} className="fill-current" />
                         <span className="text-xs">{workflow.rating}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs px-2 py-0.5 bg-blue-900/30 text-blue-400 rounded">
+                    <div className="mb-3 flex items-center gap-2">
+                      <span className="rounded bg-blue-900/30 px-2 py-0.5 text-xs text-blue-400">
                         {workflow.category}
                       </span>
                       {workflow.language && (
-                        <span className="text-xs px-2 py-0.5 bg-green-900/30 text-green-400 rounded">
+                        <span className="rounded bg-green-900/30 px-2 py-0.5 text-xs text-green-400">
                           {workflow.language}
                         </span>
                       )}
@@ -261,7 +261,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
                       <button
                         onClick={() => handleInstall(workflow)}
                         disabled={loading}
-                        className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-700"
                       >
                         <Download size={14} />
                         Install
@@ -288,7 +288,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
                             toast.success('Workflow link copied to clipboard!');
                           }
                         }}
-                        className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                        className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm transition-colors hover:bg-gray-700"
                         title="Share workflow (Earn affiliates)"
                       >
                         <Share2 size={14} />
@@ -301,7 +301,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-800 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-gray-800 p-4">
             <div className="flex flex-col gap-1">
               <p className="text-xs text-gray-400">
                 Workflows run on your local n8n instance. Install n8n to use workflows.
@@ -312,7 +312,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
                   href="https://github.com/regenbrowser/workflows"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 underline"
+                  className="text-blue-400 underline hover:text-blue-300"
                 >
                   GitHub repo
                 </a>
@@ -320,7 +320,7 @@ export function WorkflowMarketplace({ open, onClose }: WorkflowMarketplaceProps)
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-700"
             >
               Close
             </button>

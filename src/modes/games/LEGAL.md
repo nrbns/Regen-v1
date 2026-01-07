@@ -9,6 +9,7 @@ This Game Hub uses **only legally obtainable games** from open-source repositori
 ### Open-Source Games (MIT/Compatible Licenses)
 
 All games in the catalog are sourced from:
+
 - **Phaser Examples**: MIT License - https://github.com/phaserjs/examples
 - **Lee Reilly Games Archive**: MIT License - https://github.com/leereilly/games
 - **Other Open-Source Repositories**: All games include proper attribution and license information
@@ -16,6 +17,7 @@ All games in the catalog are sourced from:
 ### Attribution Requirements
 
 Each game includes:
+
 - **Attribution**: Developer/author name
 - **License**: License type (MIT, etc.)
 - **Source**: Link to original repository
@@ -66,7 +68,7 @@ Subject: Request for Embedding Permission - [Game Name]
 
 Dear [Publisher/Developer],
 
-I am developing a browser-based game hub (similar to Friv) and would like to 
+I am developing a browser-based game hub (similar to Friv) and would like to
 request permission to embed [Game Name] in our platform.
 
 Our platform:
@@ -97,4 +99,3 @@ Best regards,
 ## Last Updated
 
 2024-01-01
-

@@ -20,7 +20,7 @@ async function isTopicBuzzing(topic) {
     // Check buzz cache first (updated by background monitor)
     const buzzKey = `buzz:${topic.toLowerCase().trim()}`;
     const buzzCount = CACHE.get(buzzKey);
-    
+
     if (buzzCount && Date.now() - buzzCount.timestamp < 3600 * 1000) {
       // Buzz data is fresh (< 1 hour old)
       return buzzCount.count > BUZZ_THRESHOLD;
@@ -34,7 +34,7 @@ async function isTopicBuzzing(topic) {
     });
 
     const count = tweets.length;
-    
+
     // Cache buzz count
     CACHE.set(buzzKey, {
       count,
@@ -63,10 +63,10 @@ function getCacheKey(query, options = {}) {
  */
 export async function getCachedOrCompute(key, computeFunc, ttl = 1800) {
   const cached = CACHE.get(key);
-  
+
   if (cached) {
     const data = JSON.parse(cached);
-    
+
     // Check if expired
     if (Date.now() - data.ts * 1000 > ttl * 1000) {
       CACHE.delete(key);
@@ -74,7 +74,7 @@ export async function getCachedOrCompute(key, computeFunc, ttl = 1800) {
       // If topic is trending on X right now → invalidate
       const buzzKey = `buzz:${key}`;
       const buzz = CACHE.get(buzzKey);
-      
+
       if (buzz && buzz.count > BUZZ_THRESHOLD) {
         console.log(`[CacheLayer] Cache invalidated due to buzz: ${key}`);
         CACHE.delete(key);
@@ -86,11 +86,14 @@ export async function getCachedOrCompute(key, computeFunc, ttl = 1800) {
 
   // Compute and cache
   const result = await computeFunc();
-  CACHE.set(key, JSON.stringify({
-    result,
-    ts: Date.now() / 1000,
-  }));
-  
+  CACHE.set(
+    key,
+    JSON.stringify({
+      result,
+      ts: Date.now() / 1000,
+    })
+  );
+
   // Set expiration
   setTimeout(() => {
     CACHE.delete(key);
@@ -110,7 +113,7 @@ export async function getCachedResult(query, options = {}) {
 
   try {
     const data = JSON.parse(cached);
-    
+
     // Check if expired
     if (Date.now() - data.ts * 1000 > (options.ttl || DEFAULT_TTL)) {
       CACHE.delete(key);
@@ -143,11 +146,14 @@ export function setCachedResult(query, data, options = {}) {
   const key = getCacheKey(query, options);
   const ttl = (options.ttl || DEFAULT_TTL) / 1000; // Convert to seconds
 
-  CACHE.set(key, JSON.stringify({
-    result: data,
-    ts: Date.now() / 1000,
-    query,
-  }));
+  CACHE.set(
+    key,
+    JSON.stringify({
+      result: data,
+      ts: Date.now() / 1000,
+      query,
+    })
+  );
 
   // Set expiration
   setTimeout(() => {
@@ -166,7 +172,7 @@ export function setCachedResult(query, data, options = {}) {
       }
     });
     entriesWithTs.sort((a, b) => a[1] - b[1]);
-    
+
     // Remove oldest 20%
     const toRemove = Math.floor(entriesWithTs.length * 0.2);
     for (let i = 0; i < toRemove; i++) {
@@ -188,10 +194,13 @@ export async function buzzMonitor() {
 // Start buzz monitor if not in test mode
 if (process.env.NODE_ENV !== 'test') {
   // Run buzz monitor every 2 minutes
-  setInterval(async () => {
-    // In production, this would check all cached topics
-    // For now, it's handled on-demand
-  }, 2 * 60 * 1000);
+  setInterval(
+    async () => {
+      // In production, this would check all cached topics
+      // For now, it's handled on-demand
+    },
+    2 * 60 * 1000
+  );
 }
 
 /**
@@ -234,4 +243,3 @@ export async function warmCache(_queries) {
   // Implementation depends on your needs
   console.log('[CacheLayer] Cache warming not implemented yet');
 }
-

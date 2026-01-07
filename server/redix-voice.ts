@@ -1,6 +1,6 @@
 /**
  * Redix Voice Endpoint - Voice Companion Backend
- * 
+ *
  * Handles voice commands with context awareness, eco-checking, and consent logging
  */
 
@@ -41,9 +41,9 @@ class EcoScorer {
   estimateEnergy(provider: string, tokens: number): number {
     const energyPer1K: Record<string, number> = {
       ollama: 0.01,
-      'openai': 0.05,
-      'anthropic': 0.06,
-      'mistral': 0.04,
+      openai: 0.05,
+      anthropic: 0.06,
+      mistral: 0.04,
     };
     const base = energyPer1K[provider] || 0.05;
     return (tokens / 1000) * base;
@@ -76,7 +76,10 @@ export class VoiceProcessor {
   }
 
   // Check if battery/memory constraints allow voice processing
-  private checkEcoConstraints(context?: VoiceRequest['context']): { allowed: boolean; reason?: string } {
+  private checkEcoConstraints(context?: VoiceRequest['context']): {
+    allowed: boolean;
+    reason?: string;
+  } {
     if (context?.batteryLevel !== undefined && context.batteryLevel < 0.3) {
       return { allowed: false, reason: 'Battery low (<30%). Voice paused to save power.' };
     }
@@ -104,7 +107,7 @@ export class VoiceProcessor {
   // Process voice command
   async processVoice(request: VoiceRequest): Promise<VoiceResponse> {
     const startTime = Date.now();
-    
+
     // Eco-check
     const ecoCheck = this.checkEcoConstraints(request.context);
     if (!ecoCheck.allowed) {
@@ -119,18 +122,25 @@ export class VoiceProcessor {
       // Build context-aware prompt
       const contextParts: string[] = [];
       if (request.url) contextParts.push(`Current page: ${request.title || request.url}`);
-      if (request.selection) contextParts.push(`Selected text: "${request.selection.substring(0, 200)}"`);
+      if (request.selection)
+        contextParts.push(`Selected text: "${request.selection.substring(0, 200)}"`);
       const context = contextParts.length > 0 ? contextParts.join('\n') : 'No page context';
 
       // Use Claude for ethical, concise responses
       const prompt = ChatPromptTemplate.fromMessages([
-        ['system', 'You are Regen, a helpful, ethical voice companion. Respond concisely (<100 tokens). Be proactive and context-aware.'],
-        ['human', 'User said: {transcript}\n\nContext:\n{context}\n\nRespond naturally and helpfully:'],
+        [
+          'system',
+          'You are Regen, a helpful, ethical voice companion. Respond concisely (<100 tokens). Be proactive and context-aware.',
+        ],
+        [
+          'human',
+          'User said: {transcript}\n\nContext:\n{context}\n\nRespond naturally and helpfully:',
+        ],
       ]);
 
       const model = this.getClaudeModel(0.3); // Lower temp for more focused responses
       const chain = prompt.pipe(model).pipe(new StringOutputParser());
-      
+
       const response = await chain.invoke({
         transcript: request.transcript,
         context,
@@ -138,7 +148,7 @@ export class VoiceProcessor {
 
       // Detect action
       const action = this.detectAction(request.transcript);
-      
+
       // Calculate eco score
       const tokensUsed = Math.ceil(response.length / 4);
       const energy = this.ecoScorer.estimateEnergy('anthropic', tokensUsed);
@@ -172,4 +182,3 @@ export function getVoiceProcessor(): VoiceProcessor {
   }
   return voiceProcessorInstance;
 }
-

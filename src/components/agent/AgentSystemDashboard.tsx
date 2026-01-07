@@ -268,7 +268,7 @@ function RiskBar({ label, count, color }: { label: string; count: number; color:
   return (
     <div className="flex items-center gap-2 text-[10px]">
       <span className="w-8 font-mono text-slate-400">{label}</span>
-      <div className="flex-1 rounded bg-slate-700/30 h-1.5 overflow-hidden">
+      <div className="h-1.5 flex-1 overflow-hidden rounded bg-slate-700/30">
         <div
           className={`h-full ${colorClasses[color as keyof typeof colorClasses]}`}
           style={{ width: `${percentage}%` }}
@@ -281,10 +281,7 @@ function RiskBar({ label, count, color }: { label: string; count: number; color:
 
 function HealthIndicator({ label, status }: { label: string; status: 'healthy' | 'ok' }) {
   const statusColor = status === 'healthy' ? 'text-emerald-400' : 'text-amber-400';
-  const dotColor =
-    status === 'healthy'
-      ? 'bg-emerald-400'
-      : 'bg-amber-400';
+  const dotColor = status === 'healthy' ? 'bg-emerald-400' : 'bg-amber-400';
 
   return (
     <div className="flex items-center gap-2 text-[10px]">
@@ -295,9 +292,7 @@ function HealthIndicator({ label, status }: { label: string; status: 'healthy' |
   );
 }
 
-function extractTopDomains(
-  auditEntries: Array<any>
-): Array<{ domain: string; count: number }> {
+function extractTopDomains(auditEntries: Array<any>): Array<{ domain: string; count: number }> {
   const domainMap = new Map<string, number>();
 
   auditEntries.forEach((entry: any) => {

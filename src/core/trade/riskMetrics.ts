@@ -30,7 +30,15 @@ export interface PositionParams {
  * Phase 1, Day 7: Calculate comprehensive risk metrics
  */
 export function calculateRiskMetrics(params: PositionParams): RiskMetrics {
-  const { entryPrice, quantity, stopLoss, takeProfit, orderType, side, marginMultiplier = 1 } = params;
+  const {
+    entryPrice,
+    quantity,
+    stopLoss,
+    takeProfit,
+    orderType,
+    side,
+    marginMultiplier = 1,
+  } = params;
 
   const positionValue = entryPrice * quantity;
   const marginRequired = orderType === 'market' ? positionValue * 0.1 * marginMultiplier : 0; // 10% margin for market orders
@@ -188,4 +196,3 @@ export function calculateOptimalPositionSize(
   const optimalQuantity = Math.floor(maxRiskAmount / priceDifference);
   return Math.max(1, optimalQuantity); // At least 1 unit
 }
-

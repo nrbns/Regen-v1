@@ -165,7 +165,12 @@ function isDomainAllowed(input: unknown, context?: SafetyContext): boolean {
 
 function extractUrl(input: unknown): string | null {
   if (typeof input === 'string') return input;
-  if (input && typeof input === 'object' && 'url' in input && typeof (input as any).url === 'string') {
+  if (
+    input &&
+    typeof input === 'object' &&
+    'url' in input &&
+    typeof (input as any).url === 'string'
+  ) {
     return (input as any).url as string;
   }
   return null;
