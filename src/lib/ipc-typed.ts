@@ -13,15 +13,21 @@ import apiClient from './api-client';
 // Only import invoke from @tauri-apps/api/core dynamically if in Tauri, using runtime-generated import path
 let invoke: ((...args: any[]) => Promise<any>) | undefined;
 if (isTauriRuntime()) {
-  // Use globalThis['import'] to avoid static analysis
-  (globalThis as any)
-    ['import']('@tauri-apps/api/core')
-    .then((mod: any) => {
-      invoke = mod.invoke;
-    })
-    .catch(() => {
-      // Tauri not available, ignore
-    });
+  // Use dynamic importer to avoid static analysis issues
+  try {
+    const importer = (globalThis as any)['import'];
+    if (typeof importer === 'function') {
+      importer('@tauri-apps/api/core')
+        .then((mod: any) => {
+          invoke = mod.invoke;
+        })
+        .catch(() => {
+          // Tauri not available, ignore
+        });
+    }
+  } catch {
+    // ignore
+  }
 }
 import type { EcoImpactForecast } from '../types/ecoImpact';
 import type { TrustSummary } from '../types/trustWeaver';
