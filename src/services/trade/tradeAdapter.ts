@@ -174,8 +174,7 @@ export function getAccountState(): AccountState {
         if (existing) {
           // Update average price
           const totalQty = existing.quantity + result.filledQuantity;
-          const totalCost =
-            existing.quantity * existing.avgPrice + result.filledQuantity * result.averagePrice;
+          const totalCost = existing.quantity * existing.avgPrice + result.filledQuantity * result.averagePrice;
           existing.quantity = totalQty;
           existing.avgPrice = totalCost / totalQty;
         } else {

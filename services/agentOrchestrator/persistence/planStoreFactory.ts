@@ -1,10 +1,10 @@
 /**
  * PlanStore factory with environment-based selection
- *
+ * 
  * PLAN_STORE_TYPE environment variable controls implementation:
  * - 'memory' (default for dev): InMemoryPlanStore (fast, non-persistent)
  * - 'redis' (production): RedisPlanStore (persistent, distributed)
- *
+ * 
  * This allows seamless switching between implementations
  * without changing application code
  */

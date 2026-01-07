@@ -11,16 +11,14 @@ export interface WorkspaceEvent {
 
 interface WorkspaceEventsState {
   events: WorkspaceEvent[];
-  pushEvent: (
-    event: Omit<WorkspaceEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: number }
-  ) => void;
+  pushEvent: (event: Omit<WorkspaceEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: number }) => void;
   clear: (workspaceId?: string | null) => void;
 }
 
-export const useWorkspaceEventsStore = create<WorkspaceEventsState>(set => ({
+export const useWorkspaceEventsStore = create<WorkspaceEventsState>((set) => ({
   events: [],
-  pushEvent: event =>
-    set(state => {
+  pushEvent: (event) =>
+    set((state) => {
       const timestamp = event.timestamp ?? Date.now();
       const id = event.id ?? `ws-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
       return {
@@ -37,11 +35,11 @@ export const useWorkspaceEventsStore = create<WorkspaceEventsState>(set => ({
         ].slice(-100),
       };
     }),
-  clear: workspaceId =>
-    set(state => {
+  clear: (workspaceId) =>
+    set((state) => {
       if (!workspaceId) {
         return { events: [] };
       }
-      return { events: state.events.filter(event => event.workspaceId !== workspaceId) };
+      return { events: state.events.filter((event) => event.workspaceId !== workspaceId) };
     }),
 }));

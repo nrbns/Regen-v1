@@ -118,7 +118,7 @@ export function Select({
     <div className={`relative ${className}`}>
       {label && (
         <label
-          className="mb-1.5 block text-[var(--text-primary)]"
+          className="block mb-1.5 text-[var(--text-primary)]"
           style={{ fontSize: tokens.fontSize.sm }}
         >
           {label}
@@ -133,10 +133,18 @@ export function Select({
           aria-label={ariaLabel || label}
           aria-expanded={isOpen}
           aria-haspopup="listbox"
-          className={`flex w-full items-center justify-between gap-2 rounded-md border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-3 py-2 text-[var(--text-primary)] transition-colors placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-[var(--surface-hover)]'} `}
+          className={`
+            w-full flex items-center justify-between gap-2
+            px-3 py-2 rounded-md
+            bg-[var(--surface-elevated)] border border-[var(--surface-border)]
+            text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
+            transition-colors
+            focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]
+            ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-[var(--surface-hover)]'}
+          `}
           style={{ fontSize: tokens.fontSize.sm }}
         >
-          <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="flex items-center gap-2 flex-1 min-w-0">
             {selectedOption?.icon && <span className="flex-shrink-0">{selectedOption.icon}</span>}
             <span className="truncate">{selectedOption?.label || placeholder}</span>
           </span>
@@ -155,7 +163,7 @@ export function Select({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-[var(--surface-border)] bg-[var(--surface-panel)] shadow-lg"
+              className="absolute z-50 w-full mt-1 bg-[var(--surface-panel)] border border-[var(--surface-border)] rounded-md shadow-lg max-h-60 overflow-auto"
               role="listbox"
               aria-label={ariaLabel || label}
             >
@@ -177,7 +185,13 @@ export function Select({
                         buttonRef.current?.focus();
                       }
                     }}
-                    className={`flex cursor-pointer items-center gap-2 px-3 py-2 transition-colors ${isSelected ? 'bg-[var(--color-primary-600)] text-white' : ''} ${isFocused && !isSelected ? 'bg-[var(--surface-hover)]' : ''} ${isDisabled ? 'cursor-not-allowed opacity-50' : ''} `}
+                    className={`
+                      flex items-center gap-2 px-3 py-2 cursor-pointer
+                      transition-colors
+                      ${isSelected ? 'bg-[var(--color-primary-600)] text-white' : ''}
+                      ${isFocused && !isSelected ? 'bg-[var(--surface-hover)]' : ''}
+                      ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
                     style={{ fontSize: tokens.fontSize.sm }}
                   >
                     {option.icon && <span className="flex-shrink-0">{option.icon}</span>}

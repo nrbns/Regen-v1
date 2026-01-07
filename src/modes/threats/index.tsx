@@ -1,14 +1,5 @@
 import { useState } from 'react';
-import {
-  Shield,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Search,
-  ExternalLink,
-  Lock,
-} from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ExternalLink, Lock } from 'lucide-react';
 import { useAgentExecutor } from '../../core/agents/useAgentRuntime';
 
 interface ThreatResult {
@@ -126,20 +117,20 @@ export default function ThreatsPanel() {
       {/* Scan Input */}
       <div className="border-b border-gray-800/40 px-6 py-4">
         <form onSubmit={handleScan} className="flex gap-3">
-          <div className="relative flex-1">
+          <div className="flex-1 relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="url"
               value={url}
-              onChange={e => setUrl(e.target.value)}
+              onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter URL to scan for threats..."
-              className="w-full rounded-lg border border-gray-700/50 bg-gray-800/50 py-2.5 pl-10 pr-4 text-sm text-gray-200 placeholder-gray-500 focus:border-red-500/50 focus:outline-none focus:ring-2 focus:ring-red-500/50"
+              className="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg pl-10 pr-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50"
             />
           </div>
           <button
             type="submit"
             disabled={loading || !url.trim()}
-            className="flex items-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="px-6 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -169,32 +160,31 @@ export default function ThreatsPanel() {
       {/* Results */}
       <div className="flex-1 overflow-y-auto p-6">
         {!result ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-4 rounded-full border border-dashed border-gray-700/60 bg-gray-800/30 p-8">
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="rounded-full border border-dashed border-gray-700/60 bg-gray-800/30 p-8 mb-4">
               <Shield size={48} className="text-gray-500" />
             </div>
-            <h3 className="mb-2 text-lg font-semibold text-gray-200">No scan results</h3>
-            <p className="max-w-md text-sm text-gray-400">
-              Enter a URL above to analyze security threats, vulnerabilities, and get threat
-              intelligence.
+            <h3 className="text-lg font-semibold text-gray-200 mb-2">No scan results</h3>
+            <p className="text-sm text-gray-400 max-w-md">
+              Enter a URL above to analyze security threats, vulnerabilities, and get threat intelligence.
             </p>
           </div>
         ) : (
-          <div className="mx-auto max-w-4xl space-y-6">
+          <div className="max-w-4xl mx-auto space-y-6">
             {/* Risk Summary */}
             <div className={`rounded-lg border p-4 ${getRiskColor(result.riskLevel)}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="mb-1 text-xs uppercase tracking-wide">Overall Risk Level</div>
+                  <div className="text-xs uppercase tracking-wide mb-1">Overall Risk Level</div>
                   <div className="text-2xl font-bold capitalize">{result.riskLevel}</div>
                 </div>
                 <div className="text-right">
-                  <div className="mb-1 text-xs text-gray-400">URL</div>
+                  <div className="text-xs text-gray-400 mb-1">URL</div>
                   <a
                     href={result.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm hover:underline"
+                    className="text-sm hover:underline flex items-center gap-1"
                   >
                     {result.url}
                     <ExternalLink size={14} />
@@ -206,8 +196,8 @@ export default function ThreatsPanel() {
             {/* AI Analysis */}
             {result.aiAnalysis && (
               <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4">
-                <div className="mb-2 text-xs font-semibold text-purple-300">AI Threat Analysis</div>
-                <div className="whitespace-pre-wrap text-sm text-gray-300">{result.aiAnalysis}</div>
+                <div className="text-xs font-semibold text-purple-300 mb-2">AI Threat Analysis</div>
+                <div className="text-sm text-gray-300 whitespace-pre-wrap">{result.aiAnalysis}</div>
               </div>
             )}
 
@@ -217,16 +207,16 @@ export default function ThreatsPanel() {
               {result.threats.map((threat, idx) => (
                 <div
                   key={idx}
-                  className="space-y-2 rounded-lg border border-gray-700/50 bg-gray-800/30 p-4"
+                  className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-4 space-y-2"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex flex-1 items-start gap-3">
+                    <div className="flex items-start gap-3 flex-1">
                       {getSeverityIcon(threat.severity)}
                       <div className="flex-1">
-                        <div className="mb-1 flex items-center gap-2">
+                        <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-semibold text-gray-200">{threat.type}</span>
                           <span
-                            className={`rounded-full border px-2 py-0.5 text-xs capitalize ${getRiskColor(
+                            className={`text-xs px-2 py-0.5 rounded-full border capitalize ${getRiskColor(
                               threat.severity as ThreatResult['riskLevel']
                             )}`}
                           >
@@ -234,9 +224,8 @@ export default function ThreatsPanel() {
                           </span>
                         </div>
                         <p className="text-sm text-gray-300">{threat.description}</p>
-                        <p className="mt-2 text-xs text-gray-400">
-                          <span className="font-semibold">Recommendation:</span>{' '}
-                          {threat.recommendation}
+                        <p className="text-xs text-gray-400 mt-2">
+                          <span className="font-semibold">Recommendation:</span> {threat.recommendation}
                         </p>
                       </div>
                     </div>
@@ -250,3 +239,5 @@ export default function ThreatsPanel() {
     </div>
   );
 }
+
+

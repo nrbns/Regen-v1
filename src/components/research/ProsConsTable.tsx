@@ -73,20 +73,20 @@ export function ProsConsTable({ pros, cons }: ProsConsTableProps) {
         ),
         cell: ({ row }) => {
           const item = row.original.pros;
-          if (!item) return <div className="text-sm text-gray-600">—</div>;
+          if (!item) return <div className="text-gray-600 text-sm">—</div>;
 
           return (
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0 text-green-400" />
-                <p className="flex-1 text-sm text-gray-200">{item.text}</p>
+                <CheckCircle2 size={14} className="text-green-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-gray-200 flex-1">{item.text}</p>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400">Source:</span>
                   <button
                     onClick={() => handleOpenUrl(item.sourceUrl)}
-                    className="flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline"
+                    className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
                   >
                     {item.source}
                     <ExternalLink size={12} />
@@ -111,20 +111,20 @@ export function ProsConsTable({ pros, cons }: ProsConsTableProps) {
         ),
         cell: ({ row }) => {
           const item = row.original.cons;
-          if (!item) return <div className="text-sm text-gray-600">—</div>;
+          if (!item) return <div className="text-gray-600 text-sm">—</div>;
 
           return (
             <div className="space-y-2">
               <div className="flex items-start gap-2">
-                <XCircle size={14} className="mt-0.5 flex-shrink-0 text-red-400" />
-                <p className="flex-1 text-sm text-gray-200">{item.text}</p>
+                <XCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-gray-200 flex-1">{item.text}</p>
               </div>
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400">Source:</span>
                   <button
                     onClick={() => handleOpenUrl(item.sourceUrl)}
-                    className="flex items-center gap-1 text-blue-400 hover:text-blue-300 hover:underline"
+                    className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
                   >
                     {item.source}
                     <ExternalLink size={12} />
@@ -153,7 +153,7 @@ export function ProsConsTable({ pros, cons }: ProsConsTableProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-800/50 bg-gray-900/60">
+    <div className="bg-gray-900/60 rounded-lg border border-gray-800/50 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse">
           <thead>
@@ -162,7 +162,7 @@ export function ProsConsTable({ pros, cons }: ProsConsTableProps) {
                 {headerGroup.headers.map(header => (
                   <th
                     key={header.id}
-                    className="bg-gray-800/30 px-4 py-3 text-left"
+                    className="px-4 py-3 text-left bg-gray-800/30"
                     style={{ width: header.id === 'pros' || header.id === 'cons' ? '50%' : 'auto' }}
                   >
                     {header.isPlaceholder
@@ -177,7 +177,7 @@ export function ProsConsTable({ pros, cons }: ProsConsTableProps) {
             {table.getRowModel().rows.map(row => (
               <tr
                 key={row.id}
-                className="border-b border-gray-800/30 transition-colors hover:bg-gray-800/20"
+                className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors"
               >
                 {row.getVisibleCells().map(cell => (
                   <td key={cell.id} className="px-4 py-3 align-top">

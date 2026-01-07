@@ -1,3 +1,5 @@
 {
-  "setup-worktree": ["npm install"]
+  "setup-worktree": [
+    "npm install"
+  ]
 }

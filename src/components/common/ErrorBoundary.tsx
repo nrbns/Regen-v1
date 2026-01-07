@@ -39,12 +39,12 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex min-h-[400px] flex-col items-center justify-center p-8 text-center">
-          <AlertCircle className="mb-4 h-16 w-16 text-red-500" />
-          <h2 className="mb-2 text-xl font-semibold text-[var(--text-primary)]">
+        <div className="flex flex-col items-center justify-center min-h-[400px] p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
             Something went wrong
           </h2>
-          <p className="mb-6 max-w-md text-sm text-[var(--text-muted)]">
+          <p className="text-sm text-[var(--text-muted)] mb-6 max-w-md">
             {this.state.error?.message ||
               'An unexpected error occurred. Please try refreshing the page.'}
           </p>
@@ -57,11 +57,11 @@ export class ErrorBoundary extends Component<Props, State> {
             </Button>
           </div>
           {process.env.NODE_ENV === 'development' && this.state.error && (
-            <details className="mt-6 w-full max-w-2xl text-left">
-              <summary className="mb-2 cursor-pointer text-xs text-[var(--text-muted)]">
+            <details className="mt-6 text-left max-w-2xl w-full">
+              <summary className="text-xs text-[var(--text-muted)] cursor-pointer mb-2">
                 Error details (development only)
               </summary>
-              <pre className="max-h-64 overflow-auto rounded-lg bg-[var(--surface-elevated)] p-4 text-xs">
+              <pre className="text-xs bg-[var(--surface-elevated)] p-4 rounded-lg overflow-auto max-h-64">
                 {this.state.error.stack}
               </pre>
             </details>

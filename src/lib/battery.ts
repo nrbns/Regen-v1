@@ -15,9 +15,7 @@ const carbonEndpoints: Record<string, string> = {
 
 let carbonTokenWarningLogged = false;
 
-async function fetchCarbonIntensity(
-  regionCode?: string | null
-): Promise<{ intensity: number | null; region: string | null }> {
+async function fetchCarbonIntensity(regionCode?: string | null): Promise<{ intensity: number | null; region: string | null }> {
   const defaultRegion = getEnvVar('CARBON_DEFAULT_REGION') || 'global';
   const region = regionCode ?? defaultRegion;
 
@@ -38,18 +36,17 @@ async function fetchCarbonIntensity(
 
   try {
     const response = await fetch(`${apiBase}${encodeURIComponent(region)}`, {
-      headers: apiToken ? { Authorization: `Bearer ${apiToken}` } : undefined,
+      headers: apiToken
+        ? { Authorization: `Bearer ${apiToken}` }
+        : undefined,
     });
 
     if (!response.ok) {
       return { intensity: null, region };
     }
 
-    const json = (await response.json()) as {
-      data?: { carbonIntensity?: number; intensity?: { forecast?: number; average?: number } };
-    };
-    const direct =
-      json.data?.carbonIntensity ?? json.data?.intensity?.forecast ?? json.data?.intensity?.average;
+    const json = await response.json() as { data?: { carbonIntensity?: number; intensity?: { forecast?: number; average?: number } } };
+    const direct = json.data?.carbonIntensity ?? json.data?.intensity?.forecast ?? json.data?.intensity?.average;
     if (typeof direct === 'number' && Number.isFinite(direct)) {
       return { intensity: direct, region };
     }
@@ -80,7 +77,7 @@ async function watchBattery(): Promise<void> {
 
     const pushUpdate = async (forceCarbon = false) => {
       const now = Date.now();
-      const needsCarbon = forceCarbon || now - lastCarbonFetch > 15 * 60 * 1000;
+      const needsCarbon = forceCarbon || (now - lastCarbonFetch > 15 * 60 * 1000);
 
       if (needsCarbon) {
         const { intensity, region } = await fetchCarbonIntensity(lastRegionCode);
@@ -95,9 +92,7 @@ async function watchBattery(): Promise<void> {
             level: typeof battery.level === 'number' ? battery.level : null,
             charging: battery.charging,
             chargingTime: Number.isFinite(battery.chargingTime) ? battery.chargingTime : null,
-            dischargingTime: Number.isFinite(battery.dischargingTime)
-              ? battery.dischargingTime
-              : null,
+            dischargingTime: Number.isFinite(battery.dischargingTime) ? battery.dischargingTime : null,
             carbonIntensity: lastCarbonValue,
             regionCode: lastRegionCode,
           });

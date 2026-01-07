@@ -271,3 +271,7 @@ https://www.tradingview.com/rest-api-docs/
 - ✅ Automatic fallback to Yahoo Finance
 
 Ready for production use! 🚀
+
+
+
+

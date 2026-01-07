@@ -79,3 +79,5 @@ export async function loadWebLLMModel(_config: any): Promise<void> {
 export async function generateWebLLM(_prompt: string, _options?: any): Promise<string> {
   throw new Error('WebLLM not installed. Run: npm install @mlc-ai/web-llm');
 }
+
+

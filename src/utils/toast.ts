@@ -88,10 +88,13 @@ const toastObj = {
     const promiseWithRetry = options?.retry
       ? (async () => {
           const { withNetworkRetry } = await import('../core/errors/errorRecovery');
-          return withNetworkRetry(() => promise, {
-            maxRetries: options.maxRetries || 3,
-            context: messages.loading,
-          });
+          return withNetworkRetry(
+            () => promise,
+            {
+              maxRetries: options.maxRetries || 3,
+              context: messages.loading,
+            }
+          );
         })()
       : promise;
 

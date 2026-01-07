@@ -27,16 +27,16 @@ export class MailAgentHandler {
     switch (action) {
       case 'compose_email':
         return await this.composeEmail(parameters);
-
+      
       case 'send_email':
         return await this.sendEmail(parameters);
-
+      
       case 'search_emails':
         return await this.searchEmails(parameters);
-
+      
       case 'summarize':
         return await this.summarizeEmails(parameters);
-
+      
       default:
         throw new Error(`Unknown mail action: ${action}`);
     }
@@ -44,7 +44,7 @@ export class MailAgentHandler {
 
   private async composeEmail(params: any) {
     const { to, subject, body } = params;
-
+    
     // Use existing mail service
     const draft = await mailService.createDraft({
       to,
@@ -100,7 +100,7 @@ export function setupAgents() {
   executor.registerAgent('mail', new MailAgentHandler());
   executor.registerAgent('ppt', new PPTAgentHandler());
   executor.registerAgent('booking', new BookingAgentHandler());
-
+  
   console.log('[Orchestrator] All agents registered');
 }
 ```
@@ -134,13 +134,13 @@ export class PPTAgentHandler {
     switch (action) {
       case 'gather_content':
         return await this.gatherContent(parameters);
-
+      
       case 'generate_outline':
         return await this.generateOutline(parameters);
-
+      
       case 'create_slides':
         return await this.createSlides(parameters);
-
+      
       default:
         throw new Error(`Unknown ppt action: ${action}`);
     }
@@ -182,13 +182,13 @@ export class BookingAgentHandler {
     switch (action) {
       case 'search_options':
         return await this.searchOptions(parameters);
-
+      
       case 'compare_and_select':
         return await this.compareOptions(parameters);
-
+      
       case 'complete_booking':
         return await this.completeBooking(parameters);
-
+      
       default:
         throw new Error(`Unknown booking action: ${action}`);
     }
@@ -196,19 +196,19 @@ export class BookingAgentHandler {
 
   private async searchOptions(params: any) {
     const { type, destination, dates } = params;
-
+    
     if (type === 'flight') {
       return await bookingService.searchFlights(destination, dates);
     } else if (type === 'hotel') {
       return await bookingService.searchHotels(destination, dates);
     }
-
+    
     throw new Error(`Unknown booking type: ${type}`);
   }
 
   private async compareOptions(params: any) {
     const { options } = params;
-
+    
     // Use AI to compare and select best option
     const comparison = await bookingService.compareOptions(options);
     return {
@@ -219,7 +219,7 @@ export class BookingAgentHandler {
 
   private async completeBooking(params: any) {
     const { selection, paymentInfo } = params;
-
+    
     // This is HIGH RISK - should always require approval
     const booking = await bookingService.book(selection, paymentInfo);
     return {
@@ -275,7 +275,7 @@ describe('Mail Agent Integration', () => {
     };
 
     const result = await executor.executePlan(plan);
-
+    
     expect(result.status).toBe('completed');
     expect(result.taskResults[0].output.draftId).toBeDefined();
   });
@@ -414,7 +414,6 @@ app.listen(3000, () => {
 ## Next Steps
 
 Once all agents are integrated:
-
 1. Run full integration tests
 2. Deploy to staging
 3. Invite 5 internal testers
@@ -424,5 +423,5 @@ Once all agents are integrated:
 
 ---
 
-_Integration Guide - Week 1 Day 5_
-_Ready for production integration_
+*Integration Guide - Week 1 Day 5*
+*Ready for production integration*

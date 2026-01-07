@@ -29,21 +29,21 @@ export function EmptyState({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex flex-col items-center justify-center px-6 py-16 text-center"
+      className="flex flex-col items-center justify-center py-16 px-6 text-center"
     >
       {illustration ? (
         <div className="mb-6">{illustration}</div>
       ) : (
-        <div className="mb-6 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10 p-4">
+        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-br from-purple-500/10 to-cyan-500/10">
           <Icon size={48} className="text-purple-300" />
         </div>
       )}
-      <h3 className="mb-2 text-xl font-semibold text-white">{title}</h3>
-      <p className="mb-6 max-w-md text-slate-400">{description}</p>
+      <h3 className="text-xl font-semibold text-white mb-2">{title}</h3>
+      <p className="text-slate-400 max-w-md mb-6">{description}</p>
       {action && (
         <button
           onClick={action.onClick}
-          className="rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 px-6 py-3 font-medium text-white shadow-lg shadow-purple-500/30 transition-all hover:from-purple-600 hover:to-cyan-600"
+          className="px-6 py-3 rounded-lg bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-medium hover:from-purple-600 hover:to-cyan-600 transition-all shadow-lg shadow-purple-500/30"
         >
           {action.label}
         </button>

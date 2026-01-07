@@ -20,13 +20,13 @@ export interface CredibilityFactor {
 // Phase 1, Day 6: Known credible domains
 const CREDIBLE_DOMAINS: Record<string, { type: ResearchSourceType; score: number }> = {
   // Academic
-  edu: { type: 'academic', score: 85 },
+  'edu': { type: 'academic', score: 85 },
   'scholar.google.com': { type: 'academic', score: 90 },
   'arxiv.org': { type: 'academic', score: 85 },
   'pubmed.ncbi.nlm.nih.gov': { type: 'academic', score: 90 },
   'ieee.org': { type: 'academic', score: 85 },
   'acm.org': { type: 'academic', score: 85 },
-
+  
   // News (reputable)
   'reuters.com': { type: 'news', score: 80 },
   'bbc.com': { type: 'news', score: 80 },
@@ -34,14 +34,14 @@ const CREDIBLE_DOMAINS: Record<string, { type: ResearchSourceType; score: number
   'theguardian.com': { type: 'news', score: 75 },
   'nytimes.com': { type: 'news', score: 75 },
   'washingtonpost.com': { type: 'news', score: 75 },
-
+  
   // Documentation
   'github.com': { type: 'documentation', score: 70 },
   'stackoverflow.com': { type: 'documentation', score: 65 },
   'developer.mozilla.org': { type: 'documentation', score: 80 },
   'docs.python.org': { type: 'documentation', score: 80 },
   'nodejs.org': { type: 'documentation', score: 75 },
-
+  
   // Forums (lower credibility)
   'reddit.com': { type: 'forum', score: 40 },
   'quora.com': { type: 'forum', score: 45 },
@@ -219,3 +219,4 @@ export function getCredibilityLabel(level: CredibilityScore['level']): string {
       return 'Unknown';
   }
 }
+

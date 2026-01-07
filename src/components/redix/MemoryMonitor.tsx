@@ -52,7 +52,7 @@ export function MemoryMonitor() {
         </button>
       </header>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="min-w-[200px] flex-1">
+        <div className="flex-1 min-w-[200px]">
           <div className="text-xs text-slate-400">Total usage</div>
           <div className="text-xl font-semibold text-white">
             {total.toFixed(0)} MB{' '}

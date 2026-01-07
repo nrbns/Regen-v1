@@ -104,14 +104,9 @@ export class OrchestratorWorker {
       });
 
       // Map result status to PlanStatus
-      const planStatus =
-        result.status === 'completed'
-          ? 'completed'
-          : result.status === 'failed'
-            ? 'failed'
-            : result.status === 'cancelled'
-              ? 'cancelled'
-              : 'completed';
+      const planStatus = result.status === 'completed' ? 'completed' : 
+                        result.status === 'failed' ? 'failed' :
+                        result.status === 'cancelled' ? 'cancelled' : 'completed';
 
       // Update store with final result
       await this.planStore.update(planId, {
@@ -125,12 +120,10 @@ export class OrchestratorWorker {
       const tasksFailed = result.taskResults.filter(r => r.status === 'failure').length;
 
       // Map ExecutionResult status to WorkerResult status
-      const workerStatus: WorkerResult['status'] =
-        result.status === 'completed'
-          ? 'success'
-          : result.status === 'failed'
-            ? 'failure'
-            : result.status;
+      const workerStatus: WorkerResult['status'] = 
+        result.status === 'completed' ? 'success' :
+        result.status === 'failed' ? 'failure' :
+        result.status;
 
       return {
         planId,

@@ -14,13 +14,13 @@ import { executeParallelAgents } from './parallel-agents.js';
  */
 const _GOLDEN_PROMPTS = [
   `Act as a world-class intelligence analyst with access to real-time web + X data. Use a multi-hop reasoning chain. First, list 8–12 highly specific, non-obvious search queries that would reveal hidden truths or cutting-edge developments on this topic (include arXiv, GitHub, patents, obscure forums, and deep X threads). Then execute the top 5 in parallel. Finally, synthesize into a surprising, defensible answer with live citations.`,
-
+  
   `Search X for the last 72 hours using 6 different advanced operators (from:, since:, filter:links, min_retweets:50, etc.). Look for takes from verified engineers, founders, or researchers with >10k followers. Extract signal vs noise. Quote the 4 most important tweets verbatim with links.`,
-
+  
   `Find the 3 strongest recent arguments AGAINST the current mainstream view on this topic. Prioritize sources that are credentialed but dissenting (e.g. Stanford professor vs consensus, leaked internal docs, etc.).`,
-
+  
   `Go directly to the original paper / commit / SEC filing / patent / court document. Quote the exact paragraph that matters. Never rely on secondary articles.`,
-
+  
   `Search arXiv, HuggingFace, GitHub "stars:>1000 created:>2025-09-01", and v0/vercel showcases for implementations that are <90 days old.`,
 ];
 
@@ -71,7 +71,7 @@ export async function executeLangGraphWorkflow(topic) {
   // Step 3: Final synthesis agent
   console.log('[LangGraphWorkflow] Running synthesis agent...');
   const synthesisContext = intermediate.join('\n\n---\n\n');
-
+  
   const synthesis = await analyzeWithLLM({
     task: 'qa',
     inputText: synthesisContext,
@@ -120,8 +120,7 @@ function parseStructuredAnswer(text) {
   }
 
   // Extract key insights (numbered or bulleted)
-  const insightsRegex =
-    /(?:^|\n)(?:\d+\.|\*|-)\s*\*\*([^*]+)\*\*|(?:^|\n)(?:\d+\.|\*|-)\s*([^\n]+)/gm;
+  const insightsRegex = /(?:^|\n)(?:\d+\.|\*|-)\s*\*\*([^*]+)\*\*|(?:^|\n)(?:\d+\.|\*|-)\s*([^\n]+)/gm;
   let match;
   while ((match = insightsRegex.exec(text)) !== null && result.insights.length < 5) {
     const insight = (match[1] || match[2] || '').trim();
@@ -135,9 +134,7 @@ function parseStructuredAnswer(text) {
   }
 
   // Extract counter argument
-  const counterMatch = text.match(
-    /(?:Strongest\s+)?Counter[-\s]?Argument[:-]?\s*([^\n]+(?:\n[^\n]+){0,3})/i
-  );
+  const counterMatch = text.match(/(?:Strongest\s+)?Counter[-\s]?Argument[:-]?\s*([^\n]+(?:\n[^\n]+){0,3})/i);
   if (counterMatch) {
     result.counterArgument = counterMatch[1].trim();
   }
@@ -153,3 +150,7 @@ function parseStructuredAnswer(text) {
 
   return result;
 }
+
+
+
+

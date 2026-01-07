@@ -26,11 +26,7 @@ const CHUNK_OVERLAP = 50;
 /**
  * Split text into chunks for embedding
  */
-export function chunkText(
-  text: string,
-  chunkSize: number = CHUNK_SIZE,
-  overlap: number = CHUNK_OVERLAP
-): string[] {
+export function chunkText(text: string, chunkSize: number = CHUNK_SIZE, overlap: number = CHUNK_OVERLAP): string[] {
   if (text.length <= chunkSize) {
     return [text];
   }
@@ -47,7 +43,7 @@ export function chunkText(
       const lastPeriod = chunk.lastIndexOf('.');
       const lastNewline = chunk.lastIndexOf('\n');
       const breakPoint = Math.max(lastPeriod, lastNewline);
-
+      
       if (breakPoint > chunkSize * 0.5) {
         chunk = text.slice(start, start + breakPoint + 1);
         start += breakPoint + 1;
@@ -81,7 +77,7 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
   try {
     // Extract text to embed based on event type
     let textToEmbed = '';
-
+    
     if (event.type === 'search') {
       textToEmbed = event.value; // Search query
     } else if (event.type === 'visit') {
@@ -98,12 +94,12 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
 
     // Chunk text if needed
     const chunks = chunkText(textToEmbed);
-
+    
     // Generate embeddings for each chunk
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const vector = await generateEmbedding(chunk);
-
+      
       const embedding: Embedding = {
         id: `${event.id}-chunk-${i}`,
         eventId: event.id,
@@ -120,7 +116,7 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
 
       // Store in cache
       embeddingCache.set(embedding.id, embedding);
-
+      
       // Store in IndexedDB (enhanced database)
       try {
         const { superMemoryDB } = await import('./db');
@@ -137,7 +133,7 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
         console.warn('[Embedding] Failed to save to IndexedDB, using localStorage:', error);
         MemoryStoreInstance.set(`embedding:${embedding.id}`, embedding);
       }
-
+      
       embeddingIds.push(embedding.id);
     }
   } catch (error) {
@@ -150,27 +146,24 @@ export async function embedMemoryEvent(event: MemoryEvent): Promise<string[]> {
 /**
  * Search embeddings by similarity
  */
-export async function searchEmbeddings(
-  query: string,
-  limit: number = 10
-): Promise<Array<{ embedding: Embedding; similarity: number }>> {
+export async function searchEmbeddings(query: string, limit: number = 10): Promise<Array<{ embedding: Embedding; similarity: number }>> {
   try {
     // Generate query embedding
     const queryVector = await generateEmbedding(query);
-
+    
     // Get all embeddings from store
     const allEmbeddings: Embedding[] = [];
-
+    
     // Load from cache first
     for (const embedding of embeddingCache.values()) {
       allEmbeddings.push(embedding);
     }
-
+    
     // Load from IndexedDB (enhanced database)
     try {
       const { superMemoryDB } = await import('./db');
       const dbEmbeddings = await superMemoryDB.getAllEmbeddings(1000);
-
+      
       for (const dbEmbedding of dbEmbeddings) {
         const embedding: Embedding = {
           id: dbEmbedding.id,
@@ -180,7 +173,7 @@ export async function searchEmbeddings(
           metadata: dbEmbedding.metadata,
           timestamp: dbEmbedding.timestamp,
         };
-
+        
         if (!embeddingCache.has(embedding.id)) {
           embeddingCache.set(embedding.id, embedding);
           allEmbeddings.push(embedding);
@@ -258,7 +251,7 @@ export async function batchEmbedEvents(events: MemoryEvent[]): Promise<void> {
 export async function clearEventEmbeddings(eventId: string): Promise<void> {
   // Find all embeddings for this event
   const toDelete: string[] = [];
-
+  
   for (const [id, embedding] of embeddingCache.entries()) {
     if (embedding.eventId === eventId) {
       toDelete.push(id);
@@ -271,3 +264,4 @@ export async function clearEventEmbeddings(eventId: string): Promise<void> {
     MemoryStoreInstance.set(`embedding:${id}`, null); // Clear from store
   }
 }
+

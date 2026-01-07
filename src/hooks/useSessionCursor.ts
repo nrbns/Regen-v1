@@ -82,46 +82,43 @@ export function useSessionCursor(): UseSessionCursorReturn {
   /**
    * Update cursor in Redis
    */
-  const updateCursor = useCallback(
-    async (newCursor: SessionCursor) => {
-      if (!sessionId) {
-        throw new Error('No session ID');
-      }
+  const updateCursor = useCallback(async (newCursor: SessionCursor) => {
+    if (!sessionId) {
+      throw new Error('No session ID');
+    }
 
-      try {
-        setError(null);
+    try {
+      setError(null);
 
-        const response = await fetch(`${API_BASE}/api/session/${sessionId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            cursor: newCursor,
-            workerId,
-          }),
-        });
+      const response = await fetch(`${API_BASE}/api/session/${sessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cursor: newCursor,
+          workerId,
+        }),
+      });
 
-        if (!response.ok) {
-          if (response.status === 409) {
-            throw new Error('Session locked by another tab');
-          }
-          if (response.status === 503) {
-            throw new Error('Sync service not available');
-          }
-          throw new Error(`Failed to update cursor: ${response.statusText}`);
+      if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error('Session locked by another tab');
         }
-
-        const data = await response.json();
-        setCursor(data.cursor);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(errorMessage);
-        throw err;
+        if (response.status === 503) {
+          throw new Error('Sync service not available');
+        }
+        throw new Error(`Failed to update cursor: ${response.statusText}`);
       }
-    },
-    [sessionId, workerId]
-  );
+
+      const data = await response.json();
+      setCursor(data.cursor);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(errorMessage);
+      throw err;
+    }
+  }, [sessionId, workerId]);
 
   /**
    * Refresh cursor

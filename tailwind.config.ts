@@ -12,30 +12,30 @@ export default {
     extend: {
       // SPRINT 0: 8px baseline grid spacing scale
       spacing: {
-        '0.5': '4px', // --spacing-1
-        '1': '8px', // --spacing-2
-        '1.5': '12px', // --spacing-3
-        '2': '16px', // --spacing-4
-        '3': '24px', // --spacing-5
-        '4': '32px', // --spacing-6
-        '6': '48px', // --spacing-7
-        '8': '64px', // --spacing-8
+        '0.5': '4px',   // --spacing-1
+        '1': '8px',     // --spacing-2
+        '1.5': '12px',  // --spacing-3
+        '2': '16px',    // --spacing-4
+        '3': '24px',    // --spacing-5
+        '4': '32px',    // --spacing-6
+        '6': '48px',    // --spacing-7
+        '8': '64px',    // --spacing-8
       },
       // SPRINT 0: Typography scale
       fontSize: {
-        xs: ['12px', { lineHeight: '1.5' }],
-        sm: ['14px', { lineHeight: '1.5' }],
-        base: ['16px', { lineHeight: '1.5' }], // Base content line-height
-        lg: ['18px', { lineHeight: '1.5' }],
-        xl: ['24px', { lineHeight: '1.4' }],
+        'xs': ['12px', { lineHeight: '1.5' }],
+        'sm': ['14px', { lineHeight: '1.5' }],
+        'base': ['16px', { lineHeight: '1.5' }],  // Base content line-height
+        'lg': ['18px', { lineHeight: '1.5' }],
+        'xl': ['24px', { lineHeight: '1.4' }],
         '2xl': ['32px', { lineHeight: '1.4' }],
         '3xl': ['48px', { lineHeight: '1.3' }],
       },
       // SPRINT 0: Border radius scale
       borderRadius: {
-        sm: '4px', // --radius-sm
-        md: '8px', // --radius-md
-        lg: '12px', // --radius-lg
+        'sm': '4px',   // --radius-sm
+        'md': '8px',   // --radius-md
+        'lg': '12px',  // --radius-lg
       },
       zIndex: {
         // Base layers (0-10): Content, UI elements
@@ -70,3 +70,5 @@ export default {
   },
   plugins: [],
 } satisfies Config;
+
+

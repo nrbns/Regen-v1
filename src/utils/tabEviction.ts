@@ -86,7 +86,10 @@ export async function unloadTab(tabId: string, tab: Tab): Promise<void> {
 /**
  * Restore a tab from snapshot (recreate webview)
  */
-export async function restoreTab(tabId: string, snapshot: TabSnapshot): Promise<void> {
+export async function restoreTab(
+  tabId: string,
+  snapshot: TabSnapshot
+): Promise<void> {
   try {
     // Recreate webview
     try {
@@ -136,7 +139,7 @@ export async function evictInactiveTabs(
 
   for (const tab of tabsToEvict) {
     const inactiveTime = Date.now() - (tab.lastActiveAt || tab.createdAt || Date.now());
-
+    
     // Only evict if inactive for threshold time
     if (inactiveTime > EVICTION_THRESHOLD_MS) {
       await unloadTab(tab.id, tab);
@@ -185,3 +188,4 @@ export async function restoreWebview(_tabId: string): Promise<void> {
   // This is a simplified version - should use restoreTab with TabSnapshot
   console.warn('[TabEviction] restoreWebview is deprecated, use restoreTab instead');
 }
+

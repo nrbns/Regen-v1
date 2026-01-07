@@ -6,9 +6,7 @@ vi.mock('googleapis', () => {
     google: {
       slides: vi.fn().mockReturnValue({
         presentations: {
-          create: vi
-            .fn()
-            .mockResolvedValue({ data: { presentationId: 'PRES1', slides: [{}, {}] } }),
+          create: vi.fn().mockResolvedValue({ data: { presentationId: 'PRES1', slides: [{}, {}] } }),
           batchUpdate: vi.fn().mockResolvedValue({ data: {} }),
         },
       }),

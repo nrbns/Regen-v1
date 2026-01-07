@@ -175,11 +175,11 @@ export function EnhancedRegenSidebar() {
   };
 
   return (
-    <div className="flex h-full flex-col border-l border-gray-700 bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-900 border-l border-gray-700">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-700 p-4">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-purple-400" />
+          <Sparkles className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-semibold text-gray-200">Regen</h2>
         </div>
         <button
@@ -187,14 +187,14 @@ export function EnhancedRegenSidebar() {
             const { useAppStore } = await import('../../state/appStore');
             useAppStore.getState().setRegenSidebarOpen(false);
           }}
-          className="text-gray-400 transition-colors hover:text-gray-300"
+          className="text-gray-400 hover:text-gray-300 transition-colors"
         >
-          <X className="h-5 w-5" />
+          <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-gray-700 p-2">
+      <div className="flex gap-1 p-2 border-b border-gray-700 overflow-x-auto">
         {[
           { id: 'chat' as SidebarTab, icon: Sparkles, label: 'Chat' },
           { id: 'notes' as SidebarTab, icon: FileText, label: 'Notes' },
@@ -209,13 +209,13 @@ export function EnhancedRegenSidebar() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors ${
+              className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="w-4 h-4" />
               <span className="hidden md:inline">{tab.label}</span>
             </button>
           );
@@ -225,10 +225,10 @@ export function EnhancedRegenSidebar() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'chat' && (
-          <div className="space-y-4 p-4">
+          <div className="p-4 space-y-4">
             {messages.length === 0 && (
-              <div className="mt-8 text-center text-gray-400">
-                <Sparkles className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <div className="text-center text-gray-400 mt-8">
+                <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-sm">Ask me anything</p>
               </div>
             )}
@@ -242,14 +242,14 @@ export function EnhancedRegenSidebar() {
                     msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200'
                   }`}
                 >
-                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 </div>
               </div>
             ))}
             {isLoading && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-gray-800 px-4 py-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <div className="bg-gray-800 rounded-lg px-4 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
                 </div>
               </div>
             )}
@@ -257,11 +257,11 @@ export function EnhancedRegenSidebar() {
         )}
 
         {activeTab === 'notes' && (
-          <div className="flex h-full flex-col">
+          <div className="flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-4">
               {notes.length === 0 ? (
-                <div className="mt-8 text-center text-gray-400">
-                  <FileText className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                <div className="text-center text-gray-400 mt-8">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p className="text-sm">No notes yet</p>
                 </div>
               ) : (
@@ -274,11 +274,11 @@ export function EnhancedRegenSidebar() {
                         setNoteTitle(note.title);
                         setNoteContent(note.content);
                       }}
-                      className="cursor-pointer rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+                      className="p-3 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
                     >
-                      <h3 className="mb-1 font-semibold text-white">{note.title}</h3>
-                      <p className="line-clamp-2 text-sm text-gray-400">{note.content}</p>
-                      <p className="mt-2 text-xs text-gray-500">
+                      <h3 className="font-semibold text-white mb-1">{note.title}</h3>
+                      <p className="text-sm text-gray-400 line-clamp-2">{note.content}</p>
+                      <p className="text-xs text-gray-500 mt-2">
                         {new Date(note.updatedAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -286,24 +286,24 @@ export function EnhancedRegenSidebar() {
                 </div>
               )}
             </div>
-            <div className="space-y-2 border-t border-gray-700 p-4">
+            <div className="p-4 border-t border-gray-700 space-y-2">
               <input
                 type="text"
                 value={noteTitle}
                 onChange={e => setNoteTitle(e.target.value)}
                 placeholder="Note title..."
-                className="w-full rounded-lg bg-gray-800 px-3 py-2 text-sm text-white"
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm"
               />
               <textarea
                 value={noteContent}
                 onChange={e => setNoteContent(e.target.value)}
                 placeholder="Write your note..."
-                className="min-h-[100px] w-full rounded-lg bg-gray-800 px-3 py-2 text-sm text-white"
+                className="w-full bg-gray-800 text-white rounded-lg px-3 py-2 text-sm min-h-[100px]"
               />
               <div className="flex gap-2">
                 <button
                   onClick={saveNote}
-                  className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm"
                 >
                   {selectedNote ? 'Update' : 'Save'} Note
                 </button>
@@ -314,7 +314,7 @@ export function EnhancedRegenSidebar() {
                       setNoteTitle('');
                       setNoteContent('');
                     }}
-                    className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm"
                   >
                     Cancel
                   </button>
@@ -327,16 +327,16 @@ export function EnhancedRegenSidebar() {
         {activeTab === 'research' && (
           <div className="p-4">
             {savedResearch.length === 0 ? (
-              <div className="mt-8 text-center text-gray-400">
-                <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <div className="text-center text-gray-400 mt-8">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-sm">No saved research yet</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {savedResearch.map(research => (
-                  <div key={research.id} className="rounded-lg bg-gray-800 p-4">
-                    <h3 className="mb-2 font-semibold text-white">{research.query}</h3>
-                    <p className="mb-2 text-sm text-gray-300">{research.summary}</p>
+                  <div key={research.id} className="p-4 bg-gray-800 rounded-lg">
+                    <h3 className="font-semibold text-white mb-2">{research.query}</h3>
+                    <p className="text-sm text-gray-300 mb-2">{research.summary}</p>
                     <div className="flex flex-wrap gap-2">
                       {research.sources.map((src, i) => (
                         <a
@@ -360,8 +360,8 @@ export function EnhancedRegenSidebar() {
         {activeTab === 'clipboard' && (
           <div className="p-4">
             {clipboardItems.length === 0 ? (
-              <div className="mt-8 text-center text-gray-400">
-                <Clipboard className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <div className="text-center text-gray-400 mt-8">
+                <Clipboard className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-sm">Clipboard history will appear here</p>
               </div>
             ) : (
@@ -369,18 +369,18 @@ export function EnhancedRegenSidebar() {
                 {clipboardItems.map(item => (
                   <div
                     key={item.id}
-                    className="rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+                    className="p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="line-clamp-3 flex-1 text-sm text-gray-300">{item.text}</p>
+                      <p className="text-sm text-gray-300 flex-1 line-clamp-3">{item.text}</p>
                       <button
                         onClick={() => copyToClipboard(item.text)}
-                        className="text-gray-400 transition-colors hover:text-white"
+                        className="text-gray-400 hover:text-white transition-colors"
                       >
-                        <Copy className="h-4 w-4" />
+                        <Copy className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 mt-2">
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </p>
                   </div>
@@ -393,18 +393,18 @@ export function EnhancedRegenSidebar() {
         {activeTab === 'downloads' && (
           <div className="p-4">
             {downloads.length === 0 ? (
-              <div className="mt-8 text-center text-gray-400">
-                <Download className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <div className="text-center text-gray-400 mt-8">
+                <Download className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p className="text-sm">No downloads yet</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {downloads.map(download => (
-                  <div key={download.id} className="rounded-lg bg-gray-800 p-3">
-                    <div className="mb-2 flex items-center justify-between">
+                  <div key={download.id} className="p-3 bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-white">{download.filename}</p>
                       <span
-                        className={`rounded px-2 py-1 text-xs ${
+                        className={`text-xs px-2 py-1 rounded ${
                           download.status === 'completed'
                             ? 'bg-green-600'
                             : download.status === 'failed'
@@ -416,9 +416,9 @@ export function EnhancedRegenSidebar() {
                       </span>
                     </div>
                     {download.status === 'downloading' && (
-                      <div className="h-2 w-full rounded-full bg-gray-700">
+                      <div className="w-full bg-gray-700 rounded-full h-2">
                         <div
-                          className="h-2 rounded-full bg-blue-600 transition-all"
+                          className="bg-blue-600 h-2 rounded-full transition-all"
                           style={{ width: `${download.progress}%` }}
                         />
                       </div>
@@ -431,7 +431,7 @@ export function EnhancedRegenSidebar() {
         )}
 
         {activeTab === 'tools' && (
-          <div className="space-y-3 p-4">
+          <div className="p-4 space-y-3">
             <QuickToolButton
               icon={Search}
               label="Quick Search"
@@ -472,7 +472,7 @@ export function EnhancedRegenSidebar() {
 
       {/* Chat Input (only for chat tab) */}
       {activeTab === 'chat' && (
-        <div className="border-t border-gray-700 p-4">
+        <div className="p-4 border-t border-gray-700">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -485,10 +485,10 @@ export function EnhancedRegenSidebar() {
                 }
               }}
               placeholder="Ask Regen anything..."
-              className="flex-1 rounded-lg bg-gray-800 px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 bg-gray-800 text-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
-            <button className="rounded-lg bg-purple-600 p-2 text-white hover:bg-purple-700">
-              <Send className="h-5 w-5" />
+            <button className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              <Send className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -509,9 +509,9 @@ function QuickToolButton({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+      className="w-full flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
     >
-      <Icon className="h-5 w-5 text-purple-400" />
+      <Icon className="w-5 h-5 text-purple-400" />
       <span className="text-sm text-white">{label}</span>
     </button>
   );

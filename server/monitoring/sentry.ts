@@ -76,19 +76,19 @@ export class OrchestratorSentry {
 
     try {
       const integrations = ProfilingIntegration ? [new ProfilingIntegration()] : [];
-
+      
       Sentry.init({
         dsn: this.config.dsn,
         environment: this.config.environment,
         release: this.config.releaseVersion,
-
+        
         // Performance monitoring
         tracesSampleRate: this.config.tracesSampleRate,
         profilesSampleRate: this.config.profilesSampleRate,
-
+        
         // Integrations
         integrations,
-
+        
         // Filter sensitive data
         beforeSend(event: any, _hint: any) {
           // Remove sensitive information
@@ -98,9 +98,13 @@ export class OrchestratorSentry {
           }
           return event;
         },
-
+        
         // Ignore certain errors
-        ignoreErrors: ['NetworkError', 'AbortError', 'TimeoutError'],
+        ignoreErrors: [
+          'NetworkError',
+          'AbortError',
+          'TimeoutError',
+        ],
       });
 
       this.initialized = true;
@@ -132,16 +136,16 @@ export class OrchestratorSentry {
     });
 
     Sentry.captureException(error, {
-      tags: {
-        planId,
+      tags: { 
+        planId, 
         agentType: context.agentType,
         taskId: context.taskId || 'unknown',
       },
-      contexts: {
+      contexts: { 
         orchestrator: {
           userId: context.userId,
           taskCount: context.taskCount,
-        },
+        } 
       },
       level: 'error',
     });
@@ -221,17 +225,17 @@ export class OrchestratorSentry {
     error.name = 'TaskExecutionError';
 
     Sentry.captureException(error, {
-      tags: {
-        planId,
+      tags: { 
+        planId, 
         taskId: result.taskId,
         taskAction: context.taskAction,
       },
-      contexts: {
-        task: {
-          action: context.taskAction,
+      contexts: { 
+        task: { 
+          action: context.taskAction, 
           retries: result.retryCount || 0,
           status: result.status,
-        },
+        } 
       },
       level: 'warning',
     });
@@ -247,9 +251,9 @@ export class OrchestratorSentry {
 
     Sentry.captureMessage(`Authorization failure: ${action} on ${resource}`, {
       level: 'warning',
-      tags: {
+      tags: { 
         userId: userId.substring(0, 8), // Truncate for privacy
-        action,
+        action, 
         resource,
         type: 'rbac_violation',
       },
@@ -301,10 +305,7 @@ export class OrchestratorSentry {
   /**
    * Create span for distributed tracing
    */
-  startSpan(
-    name: string,
-    context?: Record<string, any>
-  ): {
+  startSpan(name: string, context?: Record<string, any>): {
     end: () => void;
     setTag: (key: string, value: any) => void;
     setData: (key: string, value: any) => void;
@@ -375,10 +376,7 @@ export class OrchestratorSentry {
   /**
    * Capture exception with context
    */
-  captureException(
-    error: Error,
-    context?: { tags?: Record<string, string>; level?: string }
-  ): void {
+  captureException(error: Error, context?: { tags?: Record<string, string>; level?: string }): void {
     if (!this.initialized) return;
 
     Sentry.captureException(error, {

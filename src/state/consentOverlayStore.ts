@@ -38,11 +38,11 @@ async function fetchRecords(filter: ConsentOverlayState['filter']): Promise<Cons
   }
   let filtered = list;
   if (filter.status === 'pending') {
-    filtered = filtered.filter(record => !record.approved);
+    filtered = filtered.filter((record) => !record.approved);
   } else if (filter.status === 'approved') {
-    filtered = filtered.filter(record => record.approved && !record.revokedAt);
+    filtered = filtered.filter((record) => record.approved && !record.revokedAt);
   } else if (filter.status === 'revoked') {
-    filtered = filtered.filter(record => Boolean(record.revokedAt));
+    filtered = filtered.filter((record) => Boolean(record.revokedAt));
   }
   return filtered.sort((a, b) => b.timestamp - a.timestamp);
 }
@@ -83,7 +83,7 @@ export const useConsentOverlayStore = create<ConsentOverlayState>((set, get) => 
     }
   },
   async setFilter(partial) {
-    set(state => ({ filter: { ...state.filter, ...partial } }));
+    set((state) => ({ filter: { ...state.filter, ...partial } }));
     await get().refresh();
   },
   async approve(consentId) {

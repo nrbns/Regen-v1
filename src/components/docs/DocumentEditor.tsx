@@ -5,7 +5,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Sparkles, CheckCircle2, Loader2, Eye, Save, Wand2 } from 'lucide-react';
+import {
+  FileText,
+  Sparkles,
+  CheckCircle2,
+  Loader2,
+  Eye,
+  Save,
+  Wand2,
+} from 'lucide-react';
 import {
   generateEditSuggestions,
   applySuggestions,
@@ -194,13 +202,11 @@ export function DocumentEditor({ file, onSave, onClose }: DocumentEditorProps) {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Suggestions Panel */}
-        <aside className="w-96 overflow-y-auto border-r border-slate-800 bg-slate-900/50">
-          <div className="space-y-4 p-4">
+        <aside className="w-96 border-r border-slate-800 bg-slate-900/50 overflow-y-auto">
+          <div className="p-4 space-y-4">
             {/* Filters */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-gray-400">
-                Filter by Type
-              </label>
+              <label className="text-xs font-semibold text-gray-400 uppercase">Filter by Type</label>
               <select
                 value={filter}
                 onChange={e => setFilter(e.target.value as any)}
@@ -217,9 +223,7 @@ export function DocumentEditor({ file, onSave, onClose }: DocumentEditorProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-gray-400">
-                Filter by Severity
-              </label>
+              <label className="text-xs font-semibold text-gray-400 uppercase">Filter by Severity</label>
               <select
                 value={severityFilter}
                 onChange={e => setSeverityFilter(e.target.value as any)}
@@ -269,9 +273,9 @@ export function DocumentEditor({ file, onSave, onClose }: DocumentEditorProps) {
               <div className="p-8 text-center text-sm text-gray-500">
                 {suggestions.length === 0 ? (
                   <>
-                    <Sparkles className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+                    <Sparkles className="mx-auto h-8 w-8 text-gray-600 mb-2" />
                     <p>No suggestions yet</p>
-                    <p className="mt-1 text-xs">Click "Generate Suggestions" to start</p>
+                    <p className="text-xs mt-1">Click "Generate Suggestions" to start</p>
                   </>
                 ) : (
                   <p>No suggestions match the current filters</p>
@@ -351,12 +355,14 @@ function SuggestionItem({
   };
 
   return (
-    <li className="p-4 transition-colors hover:bg-slate-800/30">
+    <li className="p-4 hover:bg-slate-800/30 transition-colors">
       <div className="flex items-start gap-3">
         <button
           onClick={onToggle}
           className={`mt-1 flex-shrink-0 rounded border-2 p-1 transition-colors ${
-            isApplied ? 'border-emerald-500 bg-emerald-500/20' : 'border-slate-600 bg-slate-800'
+            isApplied
+              ? 'border-emerald-500 bg-emerald-500/20'
+              : 'border-slate-600 bg-slate-800'
           }`}
         >
           {isApplied ? (
@@ -365,8 +371,8 @@ function SuggestionItem({
             <div className="h-4 w-4" />
           )}
         </button>
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">{typeIcons[suggestion.type] || '📄'}</span>
             <span className="text-xs font-semibold uppercase text-gray-400">{suggestion.type}</span>
             <span
@@ -410,11 +416,7 @@ function EditorView({
   );
 }
 
-function PreviewView({
-  preview,
-}: {
-  preview: NonNullable<ReturnType<typeof generateEditPreview>>;
-}) {
+function PreviewView({ preview }: { preview: NonNullable<ReturnType<typeof generateEditPreview>> }) {
   return (
     <div className="space-y-6">
       <div>
@@ -444,3 +446,4 @@ function PreviewView({
     </div>
   );
 }
+

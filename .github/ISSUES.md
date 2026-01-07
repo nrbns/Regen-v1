@@ -10,14 +10,12 @@ Copy these into GitHub Issues for tracking:
 Remove build and test artifacts from git tracking to keep the repo clean.
 
 **Acceptance Criteria**:
-
 - [ ] Verify `.gitignore` includes `dist-web/`, `playwright-report/`, `test-results/`
 - [ ] Remove these directories from git index: `git rm -r --cached dist-web playwright-report test-results`
 - [ ] Commit the change
 - [ ] Verify they don't appear in `git status` after build/test runs
 
 **Files**:
-
 - `.gitignore` (already has entries, verify)
 - Root directory cleanup
 
@@ -31,7 +29,6 @@ Remove build and test artifacts from git tracking to keep the repo clean.
 Verify that the LLM adapter (`src/core/llm/adapter.ts`) and search proxy (`server/search-proxy.ts`) are fully integrated and working end-to-end.
 
 **Acceptance Criteria**:
-
 - [ ] LLM adapter handles all providers (OpenAI, Anthropic, Mistral, Ollama) with fallback
 - [ ] Search proxy aggregates DuckDuckGo/Bing results
 - [ ] Search proxy generates LLM summaries with citations
@@ -41,7 +38,6 @@ Verify that the LLM adapter (`src/core/llm/adapter.ts`) and search proxy (`serve
 - [ ] E2E test for search flow
 
 **Files**:
-
 - `src/core/llm/adapter.ts`
 - `server/search-proxy.ts`
 - `src/components/SearchBar.tsx`
@@ -57,7 +53,6 @@ Verify that the LLM adapter (`src/core/llm/adapter.ts`) and search proxy (`serve
 Verify SuperMemory implementation is complete and functional.
 
 **Acceptance Criteria**:
-
 - [ ] Memory store saves/retrieves events correctly
 - [ ] Tracker logs user events (search, visit, highlight)
 - [ ] Memory sidebar displays saved items
@@ -66,7 +61,6 @@ Verify SuperMemory implementation is complete and functional.
 - [ ] E2E test: Save page → appears in sidebar → searchable
 
 **Files**:
-
 - `src/core/supermemory/store.ts`
 - `src/core/supermemory/tracker.ts`
 - `src/core/supermemory/vectorStore.ts`
@@ -83,7 +77,6 @@ Verify SuperMemory implementation is complete and functional.
 Verify Redix runtime is complete with event log, reducers, and policies.
 
 **Acceptance Criteria**:
-
 - [ ] Event log appends events correctly
 - [ ] Reducers apply state changes deterministically
 - [ ] Undo/redo functionality works
@@ -93,7 +86,6 @@ Verify Redix runtime is complete with event log, reducers, and policies.
 - [ ] Integration with UI components verified
 
 **Files**:
-
 - `src/core/redix/runtime.ts`
 - `src/core/redix/event-log.ts`
 - `src/core/redix/reducers.ts`
@@ -110,7 +102,6 @@ Verify Redix runtime is complete with event log, reducers, and policies.
 Verify agent primitives and executor work for basic automation.
 
 **Acceptance Criteria**:
-
 - [ ] Agent primitives (read, click, fill) work correctly
 - [ ] Executor enforces permissions and consent
 - [ ] "Save & Summarise page" agent works end-to-end
@@ -119,7 +110,6 @@ Verify agent primitives and executor work for basic automation.
 - [ ] E2E test: Run agent → confirm permission → memory saved
 
 **Files**:
-
 - `src/core/agents/primitives.ts`
 - `src/core/agents/executor.ts`
 - `tests/e2e/agent-flow.spec.ts`
@@ -134,7 +124,6 @@ Verify agent primitives and executor work for basic automation.
 Ensure the AI omnibar (Omnibox) is the primary entry point for search and AI queries.
 
 **Acceptance Criteria**:
-
 - [ ] `Cmd/Ctrl + K` always focuses the omnibox
 - [ ] Omnibox placeholder: "Search web, ask AI, or search your memory..."
 - [ ] Omnibox is prominently visible in TopNav
@@ -142,7 +131,6 @@ Ensure the AI omnibar (Omnibox) is the primary entry point for search and AI que
 - [ ] Memory search integrated into omnibox suggestions
 
 **Files**:
-
 - `src/components/TopNav/Omnibox.tsx`
 - `src/components/layout/TopNav.tsx`
 - `src/components/layout/AppShell.tsx`
@@ -157,7 +145,6 @@ Ensure the AI omnibar (Omnibox) is the primary entry point for search and AI que
 Make SuperMemory sidebar easily accessible and visible.
 
 **Acceptance Criteria**:
-
 - [ ] Memory sidebar accessible via `Cmd/Ctrl + Shift + M`
 - [ ] Sidebar shows "Recent pages you saved"
 - [ ] Search bar in sidebar: "Search your memory"
@@ -165,7 +152,6 @@ Make SuperMemory sidebar easily accessible and visible.
 - [ ] Visual indicator when memory items are saved
 
 **Files**:
-
 - `src/components/supermemory/MemorySidebar.tsx`
 - `src/components/layout/AppShell.tsx`
 
@@ -179,14 +165,12 @@ Make SuperMemory sidebar easily accessible and visible.
 Reduce visual clutter by grouping less-used modes into a dropdown.
 
 **Acceptance Criteria**:
-
 - [ ] Primary modes visible: Home, Research, Trade
 - [ ] Secondary modes (Games, Docs, Images, Threats, GraphMind) in "More tools" dropdown
 - [ ] Mode switcher is clean and intuitive
 - [ ] Settings accessible from dropdown
 
 **Files**:
-
 - `src/components/ModeSwitcher.tsx`
 - `src/components/layout/TopNav.tsx`
 
@@ -200,7 +184,6 @@ Reduce visual clutter by grouping less-used modes into a dropdown.
 Add comprehensive e2e test for search functionality.
 
 **Acceptance Criteria**:
-
 - [ ] Test: Open app → type query → see search results
 - [ ] Test: AI summary appears with citations
 - [ ] Test: Click citation opens new tab
@@ -208,7 +191,6 @@ Add comprehensive e2e test for search functionality.
 - [ ] Test handles error cases (no API key, network failure)
 
 **Files**:
-
 - `tests/e2e/search-flow.spec.ts` (enhance existing)
 
 ---
@@ -221,14 +203,12 @@ Add comprehensive e2e test for search functionality.
 Add e2e test for memory functionality.
 
 **Acceptance Criteria**:
-
 - [ ] Test: Open page → click "Save to memory" → appears in sidebar
 - [ ] Test: Search memory → match result
 - [ ] Test: Memory persists after app restart
 - [ ] Test: Semantic search finds related items
 
 **Files**:
-
 - `tests/e2e/memory-flow.spec.ts` (create new)
 
 ---
@@ -241,14 +221,12 @@ Add e2e test for memory functionality.
 Add e2e test for agent automation.
 
 **Acceptance Criteria**:
-
 - [ ] Test: Run "Save & Summarise page" agent
 - [ ] Test: Permission prompt appears for risky actions
 - [ ] Test: Memory item contains summary after agent run
 - [ ] Test: Audit log captures agent actions
 
 **Files**:
-
 - `tests/e2e/agent-flow.spec.ts` (create new)
 
 ---
@@ -261,12 +239,11 @@ Add e2e test for agent automation.
 Add e2e test for trading mode functionality.
 
 **Acceptance Criteria**:
-
 - [ ] Test: Open Trade mode → chart renders
 - [ ] Test: AI insights panel shows text
 - [ ] Test: Order entry form works
 - [ ] Test: Market snapshots update
 
 **Files**:
-
 - `tests/e2e/trade-mode.spec.ts` (create new)
+

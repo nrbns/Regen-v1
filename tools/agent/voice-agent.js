@@ -37,15 +37,13 @@ function connect() {
     console.log('[VoiceAgent] Connected to bus');
 
     // Subscribe to audio frames
-    ws.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channel: AUDIO_CHANNEL,
-      })
-    );
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      channel: AUDIO_CHANNEL,
+    }));
   });
 
-  ws.on('message', data => {
+  ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
       handleMessage(message);
@@ -54,7 +52,7 @@ function connect() {
     }
   });
 
-  ws.on('error', error => {
+  ws.on('error', (error) => {
     console.error('[VoiceAgent] WebSocket error:', error);
   });
 
@@ -108,10 +106,9 @@ function handleAudioFrame(frame) {
   }
 
   // Process if final or buffer is large enough
-  if (isFinal || session.buffer.length > 16000) {
-    // ~1 second at 16kHz
+  if (isFinal || session.buffer.length > 16000) { // ~1 second at 16kHz
     processAudio(sessionId, session);
-
+    
     if (isFinal) {
       // Cleanup session
       if (session.process) {
@@ -190,13 +187,11 @@ function publishTranscript(sessionId, data) {
   }
 
   const channel = `${TRANSCRIPT_CHANNEL_PREFIX}.${sessionId}`;
-  ws.send(
-    JSON.stringify({
-      type: 'publish',
-      channel,
-      data,
-    })
-  );
+  ws.send(JSON.stringify({
+    type: 'publish',
+    channel,
+    data,
+  }));
 }
 
 /**
@@ -222,3 +217,4 @@ process.on('SIGTERM', () => {
   }
   process.exit(0);
 });
+

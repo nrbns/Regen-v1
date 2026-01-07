@@ -21,7 +21,7 @@ export class LRUCache<K, V> {
 
   get(key: K): V | undefined {
     const entry = this.cache.get(key);
-
+    
     if (!entry) {
       return undefined;
     }
@@ -34,7 +34,7 @@ export class LRUCache<K, V> {
 
     // Update last accessed time
     entry.lastAccessed = Date.now();
-
+    
     // Move to end (most recently used)
     this.cache.delete(key);
     this.cache.set(key, entry);
@@ -71,13 +71,13 @@ export class LRUCache<K, V> {
   has(key: K): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-
+    
     // Check TTL
     if (this.ttl && Date.now() - entry.lastAccessed > this.ttl) {
       this.cache.delete(key);
       return false;
     }
-
+    
     return true;
   }
 
@@ -100,17 +100,17 @@ export class LRUCache<K, V> {
   // Clean up expired entries
   cleanup(): number {
     if (!this.ttl) return 0;
-
+    
     let cleaned = 0;
     const now = Date.now();
-
+    
     for (const [key, entry] of this.cache.entries()) {
       if (now - entry.lastAccessed > this.ttl) {
         this.cache.delete(key);
         cleaned++;
       }
     }
-
+    
     return cleaned;
   }
 }
@@ -122,12 +122,10 @@ export const apiCache = new LRUCache<string, any>(200, 15 * 60 * 1000); // 200 e
 
 // Cleanup expired entries every 5 minutes
 if (typeof window !== 'undefined') {
-  setInterval(
-    () => {
-      searchCache.cleanup();
-      pageCache.cleanup();
-      apiCache.cleanup();
-    },
-    5 * 60 * 1000
-  );
+  setInterval(() => {
+    searchCache.cleanup();
+    pageCache.cleanup();
+    apiCache.cleanup();
+  }, 5 * 60 * 1000);
 }
+

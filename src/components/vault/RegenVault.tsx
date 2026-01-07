@@ -123,10 +123,10 @@ export function RegenVault() {
 
   if (!isUnlocked) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-900 p-8">
-        <Shield className="mb-4 h-16 w-16 text-purple-400" />
-        <h2 className="mb-2 text-2xl font-bold text-white">Regen Vault</h2>
-        <p className="mb-6 text-gray-400">Enter password to unlock private tabs</p>
+      <div className="flex flex-col items-center justify-center h-full bg-gray-900 p-8">
+        <Shield className="w-16 h-16 text-purple-400 mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Regen Vault</h2>
+        <p className="text-gray-400 mb-6">Enter password to unlock private tabs</p>
         <div className="w-full max-w-sm space-y-4">
           <input
             type="password"
@@ -134,11 +134,11 @@ export function RegenVault() {
             onChange={e => setPassword(e.target.value)}
             onKeyPress={e => e.key === 'Enter' && unlock()}
             placeholder="Vault password"
-            className="w-full rounded-lg bg-gray-800 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full bg-gray-800 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
           <button
             onClick={unlock}
-            className="w-full rounded-lg bg-purple-600 px-4 py-3 font-semibold text-white hover:bg-purple-700"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-semibold"
           >
             Unlock Vault
           </button>
@@ -148,11 +148,11 @@ export function RegenVault() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-700 p-4">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <Lock className="h-5 w-5 text-purple-400" />
+          <Lock className="w-5 h-5 text-purple-400" />
           <h2 className="text-lg font-semibold text-white">Vault</h2>
           <span className="text-xs text-gray-400">({vaultTabs.length} tabs)</span>
         </div>
@@ -170,7 +170,7 @@ export function RegenVault() {
             <select
               value={deleteAfter}
               onChange={e => setDeleteAfter(Number(e.target.value))}
-              className="rounded bg-gray-800 px-2 py-1 text-xs text-white"
+              className="bg-gray-800 text-white text-xs rounded px-2 py-1"
             >
               <option value={5}>5 min</option>
               <option value={15}>15 min</option>
@@ -180,9 +180,9 @@ export function RegenVault() {
           )}
           <button
             onClick={clearAll}
-            className="p-2 text-red-400 transition-colors hover:text-red-300"
+            className="p-2 text-red-400 hover:text-red-300 transition-colors"
           >
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -190,41 +190,41 @@ export function RegenVault() {
       {/* Tabs List */}
       <div className="flex-1 overflow-y-auto p-4">
         {vaultTabs.length === 0 ? (
-          <div className="mt-8 text-center text-gray-400">
-            <Shield className="mx-auto mb-4 h-12 w-12 opacity-50" />
+          <div className="text-center text-gray-400 mt-8">
+            <Shield className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm">No vault tabs yet</p>
-            <p className="mt-2 text-xs">Create a private tab to add it to the vault</p>
+            <p className="text-xs mt-2">Create a private tab to add it to the vault</p>
           </div>
         ) : (
           <div className="space-y-2">
             {vaultTabs.map(tab => (
               <div
                 key={tab.id}
-                className="flex items-center justify-between rounded-lg bg-gray-800 p-3 transition-colors hover:bg-gray-700"
+                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
               >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-white">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">
                     {decrypt(tab.title, encryptionKey) || 'Untitled'}
                   </p>
-                  <p className="truncate text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 truncate">
                     {decrypt(tab.url, encryptionKey)}
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 mt-1">
                     Expires: {new Date(tab.expiresAt).toLocaleTimeString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openVaultTab(tab)}
-                    className="p-2 text-blue-400 transition-colors hover:text-blue-300"
+                    className="p-2 text-blue-400 hover:text-blue-300 transition-colors"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => deleteVaultTab(tab.id)}
-                    className="p-2 text-red-400 transition-colors hover:text-red-300"
+                    className="p-2 text-red-400 hover:text-red-300 transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

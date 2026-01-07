@@ -29,7 +29,7 @@ const loadInitialHistory = (): HistoryEntry[] => {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter(item => item && typeof item.id === 'string')
+      .filter((item) => item && typeof item.id === 'string')
       .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
       .slice(0, MAX_ENTRIES);
   } catch {
@@ -48,13 +48,13 @@ const persistHistory = (entries: HistoryEntry[]) => {
 
 export const useHistoryStore = create<HistoryStore>((set, get) => ({
   entries: loadInitialHistory(),
-  addEntry: entry => {
+  addEntry: (entry) => {
     const newEntry: HistoryEntry = {
       ...entry,
       id: `${entry.type}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       timestamp: Date.now(),
     };
-    set(state => {
+    set((state) => {
       const next = [newEntry, ...state.entries].slice(0, MAX_ENTRIES);
       persistHistory(next);
       return { entries: next };

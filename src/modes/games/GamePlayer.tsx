@@ -411,7 +411,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
         <motion.div
           ref={containerRef}
           onMouseMove={registerActivity}
@@ -419,23 +419,23 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className={`flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f111a] shadow-2xl ${
-            isFullscreen ? 'h-full w-full rounded-none' : 'h-[90vh] w-full max-w-6xl'
+          className={`bg-[#0f111a] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden ${
+            isFullscreen ? 'w-full h-full rounded-none' : 'w-full max-w-6xl h-[90vh]'
           }`}
         >
           {/* Header */}
           <div
-            className={`flex items-center justify-between border-b border-white/10 bg-[#111422] px-6 py-4 transition-opacity duration-300 ${
-              isFullscreen && !showChrome ? 'pointer-events-none opacity-0' : 'opacity-100'
+            className={`flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#111422] transition-opacity duration-300 ${
+              isFullscreen && !showChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="rounded-lg bg-purple-500/20 p-1.5">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="p-1.5 rounded-lg bg-purple-500/20">
                 <span className="text-lg">🎮</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-lg font-semibold text-white">{game.title}</h2>
-                <p className="truncate text-xs text-gray-400">{game.description}</p>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-white truncate">{game.title}</h2>
+                <p className="text-xs text-gray-400 truncate">{game.description}</p>
               </div>
             </div>
 
@@ -443,7 +443,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               {hasSaveState && (
                 <button
                   onClick={handleLoadState}
-                  className="rounded-lg p-2 text-purple-400 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                  className="p-2 rounded-lg text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 transition-colors"
                   title="Load saved game state"
                 >
                   <FileDown size={16} />
@@ -451,10 +451,10 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               )}
               <button
                 onClick={handleSaveState}
-                className={`rounded-lg p-2 transition-colors ${
+                className={`p-2 rounded-lg transition-colors ${
                   hasSaveState
-                    ? 'text-green-400 hover:bg-green-500/20 hover:text-green-300'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                    ? 'text-green-400 hover:text-green-300 hover:bg-green-500/20'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
                 title="Save game state"
               >
@@ -463,7 +463,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               {hasSaveState && (
                 <button
                   onClick={handleClearState}
-                  className="rounded-lg p-2 text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300"
+                  className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors"
                   title="Clear saved state"
                 >
                   <X size={14} />
@@ -471,7 +471,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               )}
               {game.offline_capable && (
                 <button
-                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-green-400"
+                  className="p-2 rounded-lg text-gray-400 hover:text-green-400 hover:bg-white/5 transition-colors"
                   title="Available offline"
                 >
                   <Download size={16} />
@@ -479,21 +479,21 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               )}
               <button
                 onClick={handleReload}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                 title="Reload game"
               >
                 <RotateCcw size={16} />
               </button>
               <button
                 onClick={toggleFullscreen}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                 title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
               >
                 {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               </button>
               <button
                 onClick={onClose}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
                 title="Close game"
               >
                 <X size={20} />
@@ -502,19 +502,19 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
           </div>
 
           {/* Game Container */}
-          <div className="relative flex-1 overflow-hidden bg-black">
+          <div className="flex-1 relative bg-black overflow-hidden">
             {isLoading && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0f111a]">
-                <div className="space-y-3 text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0f111a] z-10">
+                <div className="text-center space-y-3">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-purple-500 border-t-transparent" />
                   <p className="text-sm text-gray-400">Loading game...</p>
                 </div>
               </div>
             )}
 
             <div
-              className={`absolute right-3 top-3 z-30 space-y-2 text-xs transition-opacity duration-300 ${
-                isFullscreen && !showChrome ? 'pointer-events-none opacity-0' : 'opacity-100'
+              className={`absolute top-3 right-3 z-30 space-y-2 text-xs transition-opacity duration-300 ${
+                isFullscreen && !showChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'
               }`}
             >
               <div className="rounded-full bg-black/70 px-3 py-1.5 text-gray-100 backdrop-blur">
@@ -532,15 +532,15 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
             </div>
 
             {isFullscreen && showFullscreenHint && (
-              <div className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-white/10 px-4 py-1 text-[11px] uppercase tracking-[0.28em] text-white/80">
+              <div className="absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-full bg-white/10 px-4 py-1 text-[11px] uppercase tracking-[0.28em] text-white/80">
                 Full-screen — F11 or Esc to exit
               </div>
             )}
 
             {error && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0f111a]">
-                <div className="max-w-md space-y-3 px-6 text-center">
-                  <div className="mx-auto w-fit rounded-full bg-red-500/20 p-3 text-red-400">
+              <div className="absolute inset-0 flex items-center justify-center bg-[#0f111a] z-10">
+                <div className="text-center space-y-3 max-w-md px-6">
+                  <div className="p-3 rounded-full bg-red-500/20 text-red-400 mx-auto w-fit">
                     <X size={24} />
                   </div>
                   <p className="text-sm text-red-200">{error}</p>
@@ -550,7 +550,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
                   </p>
                   <button
                     onClick={handleReload}
-                    className="rounded-lg border border-purple-500/30 bg-purple-600/20 px-4 py-2 text-sm text-purple-200 transition-colors hover:bg-purple-600/30"
+                    className="px-4 py-2 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-lg text-sm text-purple-200 transition-colors"
                   >
                     Retry
                   </button>
@@ -564,7 +564,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
                 ref={webviewRef}
                 src={sandboxSession?.targetUrl ?? defaultGameUrl}
                 partition={sandboxSession.partition}
-                className="h-full w-full border-0"
+                className="w-full h-full border-0"
                 allowpopups="false"
                 webpreferences="contextIsolation=yes"
               />
@@ -572,7 +572,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
               <iframe
                 ref={iframeRef}
                 src={sandboxSession?.targetUrl ?? defaultGameUrl}
-                className="h-full w-full border-0"
+                className="w-full h-full border-0"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
                 allow="fullscreen"
                 onLoad={() => {
@@ -589,8 +589,8 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
 
             {/* Attribution (if required) */}
             {game.attribution && (
-              <div className="absolute bottom-2 right-2 rounded-lg bg-black/60 px-3 py-1.5 text-xs text-gray-400 backdrop-blur-sm">
-                <Info size={12} className="mr-1.5 inline" />
+              <div className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-lg text-xs text-gray-400">
+                <Info size={12} className="inline mr-1.5" />
                 {game.attribution} ({game.license})
               </div>
             )}
@@ -598,8 +598,8 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
 
           {/* Footer Info */}
           <div
-            className={`border-t border-white/10 bg-[#111422] px-6 py-3 text-xs text-gray-400 transition-opacity duration-300 ${
-              isFullscreen && !showChrome ? 'pointer-events-none opacity-0' : 'opacity-100'
+            className={`px-6 py-3 border-t border-white/10 bg-[#111422] text-xs text-gray-400 transition-opacity duration-300 ${
+              isFullscreen && !showChrome ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -618,7 +618,7 @@ export function GamePlayer({ game, onClose }: GamePlayerProps) {
                 href={game.source}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-400 transition-colors hover:text-purple-300"
+                className="text-purple-400 hover:text-purple-300 transition-colors"
               >
                 View Source →
               </a>

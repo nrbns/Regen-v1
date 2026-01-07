@@ -60,12 +60,12 @@ export const useTrustWeaverStore = create<TrustWeaverState>((set, get) => ({
       });
     }
   },
-  submit: async signal => {
+  submit: async (signal) => {
     try {
       set({ submitting: true, error: null });
       const { summary } = await ipc.trust.submit(signal);
       if (summary) {
-        const records = get().records.filter(record => record.domain !== summary.domain);
+        const records = get().records.filter((record) => record.domain !== summary.domain);
         records.push(summary);
         records.sort((a, b) => b.signals - a.signals || b.score - a.score);
         set({

@@ -1,6 +1,6 @@
 /**
  * Layer 2: UI/UX Performance Tests
- *
+ * 
  * Tests for:
  * 1. Layout optimization and reflow prevention
  * 2. Virtual scrolling for large lists
@@ -38,7 +38,7 @@ describe('Layer 2: UI/UX Performance', () => {
       optimizer.clear();
     });
 
-    it('should batch DOM reads and writes', done => {
+    it('should batch DOM reads and writes', (done) => {
       let readExecuted = false;
       let writeExecuted = false;
       let readFirst = true;
@@ -72,7 +72,7 @@ describe('Layer 2: UI/UX Performance', () => {
       optimizer.read(() => operations.push('read2'));
       optimizer.write(() => operations.push('write2'));
 
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         requestAnimationFrame(() => {
           // All reads should come before all writes
           expect(operations).toEqual(['read1', 'read2', 'write1', 'write2']);
@@ -101,7 +101,7 @@ describe('Layer 2: UI/UX Performance', () => {
 
     it('should calculate visible range correctly', () => {
       const range = scroller.getVisibleRange(100, 0);
-
+      
       // With overscan=2, containerHeight=500, itemHeight=50:
       // Visible items: 500/50 = 10
       // Start: max(0, 0 - 2) = 0
@@ -114,7 +114,7 @@ describe('Layer 2: UI/UX Performance', () => {
     it('should handle scrolling with overscan', () => {
       // Scroll to middle of list
       const range = scroller.getVisibleRange(100, 1000);
-
+      
       // Start: floor(1000/50) - 2 = 20 - 2 = 18
       // End: min(100, 18 + 10 + 4) = 32
       expect(range.start).toBe(18);
@@ -149,7 +149,7 @@ describe('Layer 2: UI/UX Performance', () => {
       await preloader.preload('https://example.com', { priority: 'high' });
       // Verify it doesn't preload twice
       await preloader.preload('https://example.com', { priority: 'high' });
-
+      
       // Internal state should only have one entry
       expect(true).toBe(true); // Placeholder - preloadedUrls is private
     });
@@ -197,7 +197,7 @@ describe('Layer 2: UI/UX Performance', () => {
       batcher.queueUpdate('component3', () => updates.push('update3'));
 
       // Wait for batch to flush (16ms + RAF)
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(updates.length).toBe(3);
       expect(updates).toContain('update1');
@@ -211,7 +211,7 @@ describe('Layer 2: UI/UX Performance', () => {
       batcher.queueUpdate('component1', () => updates.push('update1'));
       batcher.queueUpdate('component1', () => updates.push('update2')); // Should replace update1
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Only the second update should execute
       expect(updates.length).toBe(1);
@@ -226,7 +226,7 @@ describe('Layer 2: UI/UX Performance', () => {
       });
       batcher.queueUpdate('component2', () => updates.push('update2'));
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Second update should still execute despite first error
       expect(updates).toContain('update2');
@@ -294,10 +294,10 @@ describe('Layer 2: UI/UX Performance', () => {
   describe('Performance Metrics', () => {
     it('should validate consistent breakpoints across CSS', () => {
       const validation = validateResponsiveBreakpoints();
-
+      
       // Should have no errors (warnings are acceptable for edge cases)
       expect(validation.errors.length).toBe(0);
-
+      
       // Log warnings for review
       if (validation.warnings.length > 0) {
         console.warn('[Layer2 Tests] Breakpoint warnings:', validation.warnings);

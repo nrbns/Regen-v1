@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 /**
  * End-to-End Test Suite: Mail Agent Flow
- *
+ * 
  * Tests the complete workflow:
  * 1. Create plan (read emails, summarize)
  * 2. User approves
@@ -90,7 +90,9 @@ describe('E2E: Mail Agent Flow', () => {
     let status = 'running';
 
     for (let i = 0; i < maxRetries; i++) {
-      const response = await fetch(`${apiUrl}/api/orchestrate/status/${executionId}`);
+      const response = await fetch(
+        `${apiUrl}/api/orchestrate/status/${executionId}`
+      );
 
       expect(response.status).toBe(200);
       const data = await response.json();
@@ -106,7 +108,7 @@ describe('E2E: Mail Agent Flow', () => {
       }
 
       // Wait 1s before retry
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
     }
 
     expect(['completed', 'failed']).toContain(status);
@@ -223,7 +225,9 @@ describe('E2E: Error Handling', () => {
   });
 
   it('should handle non-existent plan', async () => {
-    const response = await fetch(`${apiUrl}/api/orchestrate/audit/non_existent_plan`);
+    const response = await fetch(
+      `${apiUrl}/api/orchestrate/audit/non_existent_plan`
+    );
 
     expect(response.status).toBe(404);
   });

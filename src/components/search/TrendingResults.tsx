@@ -66,14 +66,11 @@ export function TrendingResults({
 
   return (
     <ResponsiveCard
-      className={cn(
-        'border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-red-500/10',
-        className
-      )}
+      className={cn('bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20', className)}
       padding="md"
     >
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Flame size={18} className="text-orange-400" />
           <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -88,39 +85,42 @@ export function TrendingResults({
             key={idx}
             onClick={() => onSelect?.(item.query)}
             className={cn(
-              'w-full rounded-lg border p-3 text-left transition-all',
-              'border-slate-700 bg-slate-800/50 hover:border-orange-500/50 hover:bg-slate-800',
-              'group flex items-center justify-between gap-3'
+              'w-full text-left p-3 rounded-lg border transition-all',
+              'bg-slate-800/50 border-slate-700 hover:border-orange-500/50 hover:bg-slate-800',
+              'flex items-center justify-between gap-3 group'
             )}
           >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               <div
                 className={cn(
-                  'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold',
+                  'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm',
                   idx === 0
                     ? 'bg-orange-500/20 text-orange-300'
                     : idx === 1
-                      ? 'bg-red-500/20 text-red-300'
-                      : idx === 2
-                        ? 'bg-purple-500/20 text-purple-300'
-                        : 'bg-slate-700 text-slate-400'
+                    ? 'bg-red-500/20 text-red-300'
+                    : idx === 2
+                    ? 'bg-purple-500/20 text-purple-300'
+                    : 'bg-slate-700 text-slate-400'
                 )}
               >
                 {idx + 1}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-white transition-colors group-hover:text-orange-300">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate group-hover:text-orange-300 transition-colors">
                   {item.query}
                 </p>
-                <div className="mt-1 flex items-center gap-2">
-                  {item.category && <span className="text-xs text-slate-500">{item.category}</span>}
+                <div className="flex items-center gap-2 mt-1">
+                  {item.category && (
+                    <span className="text-xs text-slate-500">{item.category}</span>
+                  )}
                   {item.change === 'up' && item.changePercent && (
-                    <span className="flex items-center gap-1 text-xs text-emerald-400">
-                      <TrendingUp size={12} />+{item.changePercent}%
+                    <span className="text-xs text-emerald-400 flex items-center gap-1">
+                      <TrendingUp size={12} />
+                      +{item.changePercent}%
                     </span>
                   )}
                   {item.change === 'down' && item.changePercent && (
-                    <span className="flex items-center gap-1 text-xs text-red-400">
+                    <span className="text-xs text-red-400 flex items-center gap-1">
                       <TrendingUp size={12} className="rotate-180" />
                       {item.changePercent}%
                     </span>
@@ -130,7 +130,7 @@ export function TrendingResults({
             </div>
             <ArrowRight
               size={16}
-              className="flex-shrink-0 text-slate-400 transition-colors group-hover:text-orange-400"
+              className="text-slate-400 group-hover:text-orange-400 transition-colors flex-shrink-0"
             />
           </button>
         ))}
@@ -138,3 +138,5 @@ export function TrendingResults({
     </ResponsiveCard>
   );
 }
+
+

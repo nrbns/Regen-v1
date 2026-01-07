@@ -161,7 +161,10 @@ export class BookingExecutor {
   /**
    * Task: Filter and sort results
    */
-  private async executeFilter(task: BookingTask, context: BookingExecutionContext): Promise<void> {
+  private async executeFilter(
+    task: BookingTask,
+    context: BookingExecutionContext
+  ): Promise<void> {
     const { criteria } = task.input;
 
     // Filter
@@ -200,22 +203,23 @@ export class BookingExecutor {
     }
 
     context.selectedOption = selected;
-    console.log(
-      `[BookingExecutor] Selected flight ${selected.id}: ${selected.airline} ${selected.flightNumber}`
-    );
+    console.log(`[BookingExecutor] Selected flight ${selected.id}: ${selected.airline} ${selected.flightNumber}`);
   }
 
   /**
    * Task: Book selected option
    */
-  private async executeBook(task: BookingTask, context: BookingExecutionContext): Promise<void> {
+  private async executeBook(
+    task: BookingTask,
+    context: BookingExecutionContext
+  ): Promise<void> {
     if (!context.selectedOption) {
       throw new Error('No option selected for booking');
     }
 
     // In production: call booking API with payment
     // For now: simulate booking
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const confirmationCode = `BOOK${Date.now().toString().slice(-6)}`;
     const bookingId = `booking-${Date.now()}`;
@@ -231,15 +235,16 @@ export class BookingExecutor {
   /**
    * Task: Send confirmation
    */
-  private async executeConfirm(task: BookingTask, context: BookingExecutionContext): Promise<void> {
+  private async executeConfirm(
+    task: BookingTask,
+    context: BookingExecutionContext
+  ): Promise<void> {
     if (!context.bookingConfirmation) {
       throw new Error('No booking to confirm');
     }
 
     // In production: send email confirmation
-    console.log(
-      `[BookingExecutor] Confirmation sent for ${context.bookingConfirmation.confirmationCode}`
-    );
+    console.log(`[BookingExecutor] Confirmation sent for ${context.bookingConfirmation.confirmationCode}`);
   }
 
   /**

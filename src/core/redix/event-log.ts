@@ -58,7 +58,7 @@ export async function initPersistence(): Promise<void> {
           const eventsToLoad = parsed.events.slice(-MAX_PERSISTED_EVENTS);
           eventLog.length = 0;
           eventLog.push(...eventsToLoad);
-
+          
           // Restore state snapshots if available
           if (parsed.snapshots) {
             stateSnapshots.clear();
@@ -66,10 +66,10 @@ export async function initPersistence(): Promise<void> {
               stateSnapshots.set(Number(index), state as RedixState);
             }
           }
-
+          
           // Replay events to rebuild current state
           replayEvents();
-
+          
           console.log(`[Redix] Loaded ${eventLog.length} events from storage`);
         }
       }
@@ -90,21 +90,18 @@ function persistEventLog(): void {
     if (typeof window !== 'undefined' && window.localStorage) {
       // Only persist last N events
       const eventsToPersist = eventLog.slice(-MAX_PERSISTED_EVENTS);
-
+      
       // Convert snapshots to plain object
       const snapshotsObj: Record<string, RedixState> = {};
       for (const [index, state] of stateSnapshots.entries()) {
         snapshotsObj[index] = state;
       }
-
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          events: eventsToPersist,
-          snapshots: snapshotsObj,
-          lastUpdated: Date.now(),
-        })
-      );
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        events: eventsToPersist,
+        snapshots: snapshotsObj,
+        lastUpdated: Date.now(),
+      }));
     }
   } catch (error) {
     console.warn('[Redix] Failed to persist event log:', error);
@@ -273,7 +270,7 @@ export function undo(): RedixState | null {
   // Pop from event log and add to undo stack
   const event = eventLog.pop()!;
   undoStack.push(event);
-
+  
   // Limit undo stack size
   if (undoStack.length > MAX_UNDO_STACK) {
     undoStack.shift();
@@ -343,15 +340,11 @@ export function getSnapshotCount(): number {
  * Export event log (for debugging/analysis)
  */
 export function exportEventLog(): string {
-  return JSON.stringify(
-    {
-      events: eventLog,
-      state: currentState,
-      snapshotIndices: Array.from(stateSnapshots.keys()),
-    },
-    null,
-    2
-  );
+  return JSON.stringify({
+    events: eventLog,
+    state: currentState,
+    snapshotIndices: Array.from(stateSnapshots.keys()),
+  }, null, 2);
 }
 
 /**
@@ -370,3 +363,4 @@ export function importEventLog(data: string): void {
     throw new Error(`Failed to import event log: ${error}`);
   }
 }
+

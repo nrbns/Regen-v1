@@ -16,13 +16,9 @@ export function NetworkButton() {
   });
 
   // Listen for network status updates
-  useIPCEvent<NetworkStatus>(
-    'net:status',
-    data => {
-      setStatus(data);
-    },
-    []
-  );
+  useIPCEvent<NetworkStatus>('net:status', (data) => {
+    setStatus(data);
+  }, []);
 
   // Load initial status (wait for IPC)
   useEffect(() => {
@@ -33,7 +29,7 @@ export function NetworkButton() {
         setTimeout(loadStatus, 500);
         return;
       }
-
+      
       try {
         const s = await ipc.dns.status();
         setStatus(prev => ({ ...prev, doh: s as any }));
@@ -41,7 +37,7 @@ export function NetworkButton() {
         // Silently handle - will retry if needed
       }
     };
-
+    
     // Delay initial load to allow IPC to initialize
     setTimeout(loadStatus, 300);
   }, []);
@@ -54,8 +50,7 @@ export function NetworkButton() {
     }
   };
 
-  const hasActiveConnection =
-    status.tor?.circuitEstablished || status.vpn?.connected || status.proxy?.enabled;
+  const hasActiveConnection = status.tor?.circuitEstablished || status.vpn?.connected || status.proxy?.enabled;
 
   return (
     <div className="relative">
@@ -64,12 +59,16 @@ export function NetworkButton() {
         onClick={() => setOpen(!open)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className={`relative flex items-center gap-2 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-gray-300 transition-colors hover:bg-gray-800/80 hover:text-gray-100`}
+        className={`
+          relative flex items-center gap-2 px-3 py-1.5 rounded-lg
+          bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50
+          text-gray-300 hover:text-gray-100 transition-colors
+        `}
       >
         <Network size={16} className={hasActiveConnection ? 'text-green-400' : 'text-gray-500'} />
         {hasActiveConnection && (
           <motion.div
-            className="h-2 w-2 rounded-full bg-green-400"
+            className="w-2 h-2 bg-green-400 rounded-full"
             animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
@@ -91,9 +90,9 @@ export function NetworkButton() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-700/50 bg-gray-900/95 shadow-2xl backdrop-blur-xl"
+              className="absolute top-full right-0 mt-2 w-72 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl z-50"
             >
-              <div className="space-y-4 p-4">
+              <div className="p-4 space-y-4">
                 {/* Tor */}
                 {status.tor && (
                   <div className="space-y-2">
@@ -110,12 +109,10 @@ export function NetworkButton() {
                     </div>
                     {status.tor.enabled && status.tor.circuitEstablished && (
                       <div className="space-y-1">
-                        <div className="text-xs text-gray-400">
-                          Identity: {status.tor.identity.slice(0, 8)}...
-                        </div>
+                        <div className="text-xs text-gray-400">Identity: {status.tor.identity.slice(0, 8)}...</div>
                         <button
                           onClick={handleNewTorIdentity}
-                          className="flex w-full items-center justify-center gap-2 rounded border border-purple-500/30 bg-purple-600/20 px-3 py-1.5 text-xs text-purple-300 transition-colors hover:bg-purple-600/30"
+                          className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded text-xs text-purple-300 transition-colors"
                         >
                           <RefreshCw size={14} />
                           New Identity
@@ -156,9 +153,7 @@ export function NetworkButton() {
                       <CheckCircle size={16} className="text-green-400" />
                     </div>
                     {status.proxy.host && (
-                      <div className="text-xs text-gray-400">
-                        {status.proxy.type.toUpperCase()}: {status.proxy.host}
-                      </div>
+                      <div className="text-xs text-gray-400">{status.proxy.type.toUpperCase()}: {status.proxy.host}</div>
                     )}
                   </div>
                 )}
@@ -190,3 +185,4 @@ export function NetworkButton() {
     </div>
   );
 }
+

@@ -1,6 +1,6 @@
 /**
  * Privacy Auto-Toggle - Automatically switch to Private mode on sensitive sites
- *
+ * 
  * Uses Redix threat scanning to detect sensitive content and auto-enable privacy
  */
 
@@ -53,7 +53,7 @@ export async function checkSensitivity(url: string): Promise<{
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname.toLowerCase();
-
+    
     let score = 0;
     const reasons: string[] = [];
 
@@ -104,31 +104,24 @@ export async function checkSensitivity(url: string): Promise<{
 /**
  * Auto-enable privacy mode for sensitive sites
  */
-export async function autoTogglePrivacy(
-  url: string,
-  currentMode: 'Normal' | 'Private' | 'Ghost'
-): Promise<'Normal' | 'Private' | 'Ghost' | null> {
+export async function autoTogglePrivacy(url: string, currentMode: 'Normal' | 'Private' | 'Ghost'): Promise<'Normal' | 'Private' | 'Ghost' | null> {
   if (!currentConfig.enabled || currentMode !== 'Normal') {
     return null; // Already in privacy mode or auto-toggle disabled
   }
 
   const sensitivity = await checkSensitivity(url);
-
+  
   if (!sensitivity.isSensitive) {
     return null; // Not sensitive enough
   }
 
-  console.debug(
-    `[PrivacyAutoToggle] Sensitive site detected (score: ${sensitivity.score}):`,
-    url,
-    sensitivity.reasons
-  );
+  console.debug(`[PrivacyAutoToggle] Sensitive site detected (score: ${sensitivity.score}):`, url, sensitivity.reasons);
 
   // Auto-enable Ghost mode (Tor) for maximum privacy
   if (currentConfig.autoGhost) {
     try {
       // Check if Tor is available
-      const torStatus = (await ipc.tor.status()) as any;
+      const torStatus = await ipc.tor.status() as any;
       if (torStatus && !torStatus.stub) {
         // Start Tor if not running
         if (!torStatus.running) {
@@ -169,3 +162,4 @@ export function updateConfig(config: Partial<PrivacyAutoToggleConfig>): void {
 export function getConfig(): PrivacyAutoToggleConfig {
   return { ...currentConfig };
 }
+

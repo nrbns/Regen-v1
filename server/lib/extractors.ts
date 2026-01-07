@@ -73,9 +73,9 @@ function extractCanonicalUrl(html: string, baseUrl: string): string | undefined 
 
   try {
     const $ = cheerio.load(html);
-    const canonical =
-      $('link[rel="canonical"]').attr('href') || $('meta[property="og:url"]').attr('content');
-
+    const canonical = $('link[rel="canonical"]').attr('href') ||
+                     $('meta[property="og:url"]').attr('content');
+    
     if (canonical) {
       try {
         return new URL(canonical, baseUrl).href;
@@ -98,25 +98,21 @@ function extractMetadata(html: string): ExtractedContent['metadata'] {
 
   try {
     const $ = cheerio.load(html);
-
+    
     return {
-      author:
-        $('meta[name="author"]').attr('content') ||
-        $('meta[property="article:author"]').attr('content') ||
-        $('[rel="author"]').text().trim() ||
-        undefined,
-      publishedTime:
-        $('meta[property="article:published_time"]').attr('content') ||
-        $('time[datetime]').attr('datetime') ||
-        undefined,
-      description:
-        $('meta[name="description"]').attr('content') ||
-        $('meta[property="og:description"]').attr('content') ||
-        undefined,
-      image:
-        $('meta[property="og:image"]').attr('content') ||
-        $('meta[name="twitter:image"]').attr('content') ||
-        undefined,
+      author: $('meta[name="author"]').attr('content') ||
+              $('meta[property="article:author"]').attr('content') ||
+              $('[rel="author"]').text().trim() ||
+              undefined,
+      publishedTime: $('meta[property="article:published_time"]').attr('content') ||
+                     $('time[datetime]').attr('datetime') ||
+                     undefined,
+      description: $('meta[name="description"]').attr('content') ||
+                   $('meta[property="og:description"]').attr('content') ||
+                   undefined,
+      image: $('meta[property="og:image"]').attr('content') ||
+             $('meta[name="twitter:image"]').attr('content') ||
+             undefined,
     };
   } catch {
     return undefined;
@@ -128,18 +124,16 @@ function extractMetadata(html: string): ExtractedContent['metadata'] {
  */
 function cleanHtml(html: string, $?: any): string {
   if (!$ && !cheerio) return html;
-
+  
   try {
     const $el = $ || cheerio.load(html);
-
+    
     // Remove common noise elements
-    $el(
-      'nav, header, footer, aside, .sidebar, .ad, .advertisement, .ads, [class*="ad-"], [id*="ad-"]'
-    ).remove();
+    $el('nav, header, footer, aside, .sidebar, .ad, .advertisement, .ads, [class*="ad-"], [id*="ad-"]').remove();
     $el('script, style, noscript, iframe, embed, object').remove();
     $el('[class*="comment"], [class*="social"], [class*="share"]').remove();
     $el('[class*="newsletter"], [class*="subscribe"], [class*="popup"]').remove();
-
+    
     return $el.html() || html;
   } catch {
     return html;
@@ -149,10 +143,7 @@ function cleanHtml(html: string, $?: any): string {
 /**
  * Extract main article content using Readability or fallback
  */
-async function extractArticleContent(
-  html: string,
-  url: string
-): Promise<{ title: string; text: string; excerpt?: string }> {
+async function extractArticleContent(html: string, url: string): Promise<{ title: string; text: string; excerpt?: string }> {
   await loadDependencies();
 
   // Try Readability first (best quality)
@@ -181,12 +172,10 @@ async function extractArticleContent(
     try {
       const cleaned = cleanHtml(html);
       const $ = cheerio.load(cleaned);
-
+      
       // Try to find main content area
-      let mainContent = $(
-        'main, article, [role="main"], .content, .post, .entry-content, #content'
-      ).first();
-
+      let mainContent = $('main, article, [role="main"], .content, .post, .entry-content, #content').first();
+      
       if (mainContent.length === 0) {
         // Fallback to body
         mainContent = $('body');
@@ -195,13 +184,14 @@ async function extractArticleContent(
       // Remove remaining noise
       mainContent.find('nav, header, footer, aside, .sidebar, .ad, script, style').remove();
 
-      const text = mainContent.text().replace(/\s+/g, ' ').trim();
+      const text = mainContent.text()
+        .replace(/\s+/g, ' ')
+        .trim();
 
-      const title =
-        $('title').text().trim() ||
-        $('h1').first().text().trim() ||
-        $('meta[property="og:title"]').attr('content') ||
-        '';
+      const title = $('title').text().trim() ||
+                    $('h1').first().text().trim() ||
+                    $('meta[property="og:title"]').attr('content') ||
+                    '';
 
       const excerpt = text.slice(0, 200) + (text.length > 200 ? '...' : '');
 
@@ -215,7 +205,7 @@ async function extractArticleContent(
   // Last resort: basic text extraction
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   const title = titleMatch ? titleMatch[1] : '';
-
+  
   const text = html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -249,7 +239,7 @@ export async function extractContent(
       signal: controller.signal,
       headers: {
         'User-Agent': userAgent,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
       },
       redirect: 'follow',
@@ -267,7 +257,7 @@ export async function extractContent(
     }
 
     const html = await response.text();
-
+    
     await loadDependencies();
 
     // Extract canonical URL
@@ -380,3 +370,5 @@ function detectLanguageFromText(text: string): string {
 
   return 'en'; // Default
 }
+
+

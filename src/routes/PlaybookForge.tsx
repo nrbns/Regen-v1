@@ -39,7 +39,7 @@ export default function PlaybookForge() {
   const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
-
+  
   // Phase 1, Day 8: Chain execution state
   const [chainExecution, setChainExecution] = useState<ChainExecutionState | null>(null);
   const [chainExecutor] = useState(() => getChainExecutor());
@@ -78,7 +78,7 @@ export default function PlaybookForge() {
     try {
       // Phase 1, Day 8: Try chain executor first
       const chain = parseChainDefinition(pb.yaml);
-
+      
       if (chain) {
         // Execute as agent chain
         setChainExecution({
@@ -90,12 +90,12 @@ export default function PlaybookForge() {
           results: [],
         });
 
-        const state = await chainExecutor.execute(chain, progressState => {
+        const state = await chainExecutor.execute(chain, (progressState) => {
           setChainExecution(progressState);
         });
 
         setChainExecution(state);
-
+        
         if (state.status === 'completed') {
           toast.success(`Chain "${chain.name}" completed successfully`);
         } else if (state.status === 'failed') {
@@ -177,7 +177,7 @@ export default function PlaybookForge() {
         <div className="flex items-center justify-between">
           <h3 className="font-medium text-white">Create Workflow</h3>
           <button
-            className="flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-purple-700"
+            className="flex items-center gap-2 rounded-lg bg-purple-600 px-3 py-1.5 text-xs text-white hover:bg-purple-700 transition-colors"
             onClick={() => setShowTemplateGallery(true)}
           >
             <Sparkles className="h-3 w-3" />
@@ -187,7 +187,10 @@ export default function PlaybookForge() {
 
         {/* Phase 2, Day 3: Template Gallery */}
         {showTemplateGallery && (
-          <TemplateGallery onSelect={loadTemplate} onClose={() => setShowTemplateGallery(false)} />
+          <TemplateGallery
+            onSelect={loadTemplate}
+            onClose={() => setShowTemplateGallery(false)}
+          />
         )}
 
         {/* Phase 1, Day 8: Chain execution progress */}

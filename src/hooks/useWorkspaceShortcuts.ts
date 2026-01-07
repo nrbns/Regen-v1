@@ -30,11 +30,12 @@ export function useWorkspaceShortcuts() {
           e.preventDefault();
 
           // Get pinned workspaces first, then regular ones
-          const sortedWorkspaces = [...workspaces].sort((a, b) => {
-            if (a.isPinned && !b.isPinned) return -1;
-            if (!a.isPinned && b.isPinned) return 1;
-            return 0;
-          });
+          const sortedWorkspaces = [...workspaces]
+            .sort((a, b) => {
+              if (a.isPinned && !b.isPinned) return -1;
+              if (!a.isPinned && b.isPinned) return 1;
+              return 0;
+            });
 
           const workspaceIndex = num - 1;
           if (workspaceIndex < sortedWorkspaces.length) {
@@ -88,3 +89,4 @@ export function useWorkspaceShortcuts() {
     };
   }, [workspaces, getWorkspace, tabsStore, setMode]);
 }
+

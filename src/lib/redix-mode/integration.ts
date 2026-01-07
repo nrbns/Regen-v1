@@ -28,7 +28,7 @@ export async function initializeRedixMode(): Promise<void> {
   });
 
   // Set up memory monitoring
-  profiler.onWarning(snapshot => {
+  profiler.onWarning((snapshot) => {
     console.warn('[Redix] Memory warning:', Math.round(snapshot.total / (1024 * 1024)), 'MB');
   });
 
@@ -41,7 +41,7 @@ export async function initializeRedixMode(): Promise<void> {
 
   // Apply optimizations
   optimizer.applyRenderOptimizations();
-
+  
   console.log('[Redix] Redix mode initialized');
 }
 
@@ -50,7 +50,7 @@ export async function initializeRedixMode(): Promise<void> {
  */
 export function registerTabForRedix(tabId: string): void {
   if (!isRedixMode()) return;
-
+  
   const optimizer = getRedixOptimizer();
   optimizer.registerTab(tabId);
 }
@@ -60,7 +60,7 @@ export function registerTabForRedix(tabId: string): void {
  */
 export function markTabAccessed(tabId: string): void {
   if (!isRedixMode()) return;
-
+  
   const optimizer = getRedixOptimizer();
   optimizer.markTabAccessed(tabId);
 }
@@ -70,7 +70,7 @@ export function markTabAccessed(tabId: string): void {
  */
 export function unregisterTabFromRedix(tabId: string): void {
   if (!isRedixMode()) return;
-
+  
   const optimizer = getRedixOptimizer();
   optimizer.unregisterTab(tabId);
 }
@@ -101,7 +101,9 @@ export function getRedixStats() {
  */
 export async function forceRedixCleanup(): Promise<void> {
   if (!isRedixMode()) return;
-
+  
   const optimizer = getRedixOptimizer();
   await optimizer.performAggressiveCleanup();
 }
+
+

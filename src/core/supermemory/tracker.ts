@@ -5,24 +5,10 @@
 
 // import { MemoryStore } from './store'; // Unused for now
 import { processMemoryEvent } from './pipeline';
-import type {
-  MemoryEvent,
-  SearchEventMetadata,
-  VisitEventMetadata,
-  HighlightEventMetadata,
-  ScreenshotEventMetadata,
-  NoteEventMetadata,
-} from './event-types';
+import type { MemoryEvent, SearchEventMetadata, VisitEventMetadata, HighlightEventMetadata, ScreenshotEventMetadata, NoteEventMetadata } from './event-types';
 
 // Re-export types for convenience
-export type {
-  MemoryEvent,
-  SearchEventMetadata,
-  VisitEventMetadata,
-  HighlightEventMetadata,
-  ScreenshotEventMetadata,
-  NoteEventMetadata,
-} from './event-types';
+export type { MemoryEvent, SearchEventMetadata, VisitEventMetadata, HighlightEventMetadata, ScreenshotEventMetadata, NoteEventMetadata } from './event-types';
 
 // Deduplication: track recent events to prevent duplicates
 const recentEvents = new Map<string, number>(); // key -> timestamp
@@ -42,44 +28,42 @@ function isDuplicate(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): boolean {
   const key = getDedupKey(event);
   const lastTime = recentEvents.get(key);
   const now = Date.now();
-
-  if (lastTime && now - lastTime < DEDUP_WINDOW_MS) {
+  
+  if (lastTime && (now - lastTime) < DEDUP_WINDOW_MS) {
     return true; // Duplicate within window
   }
-
+  
   // Update last seen time
   recentEvents.set(key, now);
-
+  
   // Cleanup old entries (older than 5 seconds)
   for (const [k, t] of recentEvents.entries()) {
     if (now - t > 5000) {
       recentEvents.delete(k);
     }
   }
-
+  
   return false;
 }
 
 /**
  * Track a user event
  */
-export async function trackUserEvent(
-  event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>
-): Promise<string> {
+export async function trackUserEvent(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): Promise<string> {
   // Check for duplicates
   if (isDuplicate(event)) {
     // Return existing event ID (we'd need to look it up, but for now just skip)
     return '';
   }
-
+  
   // Use pipeline for complete write→embed→store flow
   const result = await processMemoryEvent(event);
-
+  
   if (!result.success) {
     console.warn('[SuperMemory] Failed to process event:', result.error);
     return '';
   }
-
+  
   return result.eventId;
 }
 
@@ -87,7 +71,7 @@ export async function trackUserEvent(
  * Track a search query
  */
 export async function trackSearch(
-  query: string,
+  query: string, 
   metadata?: Partial<SearchEventMetadata>
 ): Promise<string> {
   return trackUserEvent({
@@ -105,8 +89,8 @@ export async function trackSearch(
  * Enhanced with duration and interaction tracking
  */
 export async function trackVisit(
-  url: string,
-  title?: string,
+  url: string, 
+  title?: string, 
   metadata?: Partial<VisitEventMetadata>
 ): Promise<string> {
   return trackUserEvent({
@@ -147,7 +131,7 @@ export async function trackBookmark(url: string, metadata?: { title?: string }):
  * Enhanced with preview and tags
  */
 export async function trackNote(
-  url: string,
+  url: string, 
   metadata?: Partial<NoteEventMetadata>
 ): Promise<string> {
   const noteText = metadata?.notePreview || '';
@@ -166,10 +150,7 @@ export async function trackNote(
 /**
  * Track a prefetch action
  */
-export async function trackPrefetch(
-  url: string,
-  metadata?: { success?: boolean }
-): Promise<string> {
+export async function trackPrefetch(url: string, metadata?: { success?: boolean }): Promise<string> {
   return trackUserEvent({
     type: 'prefetch',
     value: url,
@@ -231,12 +212,7 @@ export async function trackScreenshot(
  */
 export async function trackTask(
   task: string,
-  metadata?: {
-    completed?: boolean;
-    priority?: 'low' | 'medium' | 'high';
-    dueDate?: number;
-    url?: string;
-  }
+  metadata?: { completed?: boolean; priority?: 'low' | 'medium' | 'high'; dueDate?: number; url?: string }
 ): Promise<string> {
   return trackUserEvent({
     type: 'task',
@@ -258,3 +234,4 @@ export async function trackAgent(
     metadata: { ...metadata },
   });
 }
+

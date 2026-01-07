@@ -21,50 +21,32 @@ export function useStagehand(options: UseStagehandOptions = {}) {
   /**
    * Execute action sequence
    */
-  const execute = useCallback(
-    async (actions: Action[]) => {
-      return await stagehand.sequence(actions);
-    },
-    [stagehand]
-  );
+  const execute = useCallback(async (actions: Action[]) => {
+    return await stagehand.sequence(actions);
+  }, [stagehand]);
 
   /**
    * Quick actions
    */
-  const click = useCallback(
-    async (selector: any) => {
-      await stagehand.click(selector);
-    },
-    [stagehand]
-  );
+  const click = useCallback(async (selector: any) => {
+    await stagehand.click(selector);
+  }, [stagehand]);
 
-  const type = useCallback(
-    async (selector: any, text: string) => {
-      await stagehand.type(selector, text);
-    },
-    [stagehand]
-  );
+  const type = useCallback(async (selector: any, text: string) => {
+    await stagehand.type(selector, text);
+  }, [stagehand]);
 
-  const wait = useCallback(
-    async (selector: any, timeout?: number) => {
-      return await stagehand.wait(selector, timeout);
-    },
-    [stagehand]
-  );
+  const wait = useCallback(async (selector: any, timeout?: number) => {
+    return await stagehand.wait(selector, timeout);
+  }, [stagehand]);
 
-  const extract = useCallback(
-    async (selector: any, attribute?: string) => {
-      return await stagehand.extract(selector, attribute);
-    },
-    [stagehand]
-  );
+  const extract = useCallback(async (selector: any, attribute?: string) => {
+    return await stagehand.extract(selector, attribute);
+  }, [stagehand]);
 
-  const navigate = useCallback(
-    async (url: string) => {
-      await stagehand.navigate(url);
-    },
-    [stagehand]
-  );
+  const navigate = useCallback(async (url: string) => {
+    await stagehand.navigate(url);
+  }, [stagehand]);
 
   return {
     stagehand,
@@ -77,3 +59,4 @@ export function useStagehand(options: UseStagehandOptions = {}) {
     getState: () => stagehand.getState(),
   };
 }
+

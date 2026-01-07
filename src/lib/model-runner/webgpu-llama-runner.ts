@@ -116,7 +116,10 @@ export class WebGPULlamaRunner {
   /**
    * Generate text using WebGPU
    */
-  async generate(options: GenerationOptions, onToken?: TokenCallback): Promise<GenerationResult> {
+  async generate(
+    options: GenerationOptions,
+    onToken?: TokenCallback
+  ): Promise<GenerationResult> {
     if (!this.modelLoaded || !this.gpuDevice) {
       throw new Error('Model not loaded. Call loadModel first.');
     }
@@ -201,3 +204,5 @@ export function getWebGPULlamaRunner(): WebGPULlamaRunner {
   }
   return webgpuRunnerInstance;
 }
+
+

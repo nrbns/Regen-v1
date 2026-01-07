@@ -31,9 +31,7 @@ export async function detectSystemCapabilities() {
 
   // Detect GPU (NVIDIA)
   try {
-    const { stdout } = await execAsync(
-      'nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits'
-    );
+    const { stdout } = await execAsync('nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits');
     const gpuMemory = parseInt(stdout.trim(), 10);
     if (gpuMemory > 0) {
       capabilities.gpu = true;
@@ -90,3 +88,8 @@ export function isOffline() {
 export function isOnline() {
   return !IS_OFFLINE;
 }
+
+
+
+
+

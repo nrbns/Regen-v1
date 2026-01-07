@@ -93,7 +93,11 @@ describe('Workflow Recording', () => {
   it('should track usage count when workflow is executed', () => {
     const store = useWorkflowStore.getState();
 
-    const templateId = store.createTemplate('Test Workflow', 'Testing usage tracking', []);
+    const templateId = store.createTemplate(
+      'Test Workflow',
+      'Testing usage tracking',
+      []
+    );
 
     const template = store.getTemplate(templateId);
     expect(template?.usageCount).toBe(0);
@@ -112,7 +116,11 @@ describe('Workflow Recording', () => {
       { type: 'research' as const, content: 'Third task', order: 3 },
     ];
 
-    const templateId = store.createTemplate('Ordered Workflow', 'Test step ordering', []);
+    const templateId = store.createTemplate(
+      'Ordered Workflow',
+      'Test step ordering',
+      []
+    );
 
     steps.forEach(step => {
       store.addStepToTemplate(templateId, step);
@@ -120,7 +128,7 @@ describe('Workflow Recording', () => {
 
     const saved = store.getTemplate(templateId);
     const sortedSteps = saved?.steps.sort((a, b) => a.order - b.order) || [];
-
+    
     expect(sortedSteps[0].content).toBe('First task');
     expect(sortedSteps[1].content).toBe('Second task');
     expect(sortedSteps[2].content).toBe('Third task');
@@ -129,11 +137,11 @@ describe('Workflow Recording', () => {
   it('should allow custom tags when saving workflow', () => {
     const store = useWorkflowStore.getState();
 
-    const templateId = store.createTemplate('Tagged Workflow', 'Test custom tags', [
-      'market-research',
-      'priority-high',
-      'quarterly',
-    ]);
+    const templateId = store.createTemplate(
+      'Tagged Workflow',
+      'Test custom tags',
+      ['market-research', 'priority-high', 'quarterly']
+    );
 
     const saved = store.getTemplate(templateId);
     expect(saved?.tags).toContain('market-research');

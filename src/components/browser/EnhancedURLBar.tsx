@@ -56,16 +56,15 @@ export function EnhancedURLBar({
   const tab = useTabsStore(state => (tabId ? state.tabs.find(t => t.id === tabId) : null));
   const historyEntries = useHistoryStore(state => state.getRecent(20));
   const { navigateTab } = useTabsStore();
-
+  
   // SPRINT 0: Get loading state from store
-  const tabLoadingState = useTabLoadingStore(state =>
+  const tabLoadingState = useTabLoadingStore(state => 
     tabId ? state.getLoading(tabId) : { isLoading: false }
   );
-
+  
   // Use provided props or fallback to store state
   const finalIsLoading = isLoadingProp !== undefined ? isLoadingProp : tabLoadingState.isLoading;
-  const finalLoadProgress =
-    loadProgressProp !== undefined ? loadProgressProp : tabLoadingState.progress;
+  const finalLoadProgress = loadProgressProp !== undefined ? loadProgressProp : tabLoadingState.progress;
 
   const displayValue = controlledValue !== undefined ? controlledValue : localValue;
   const currentUrl = tab?.url || '';
@@ -236,7 +235,7 @@ export function EnhancedURLBar({
               <X size={16} />
             </button>
           )}
-
+          
           {/* SPRINT 0: Page load progress bar */}
           <URLBarProgress isLoading={finalIsLoading} progress={finalLoadProgress} />
         </div>

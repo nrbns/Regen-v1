@@ -44,7 +44,9 @@ export async function executePlan(plan: ExecutionPlan): Promise<ExecutionResult>
   while (executed.size < plan.steps.length) {
     // Find steps that can be executed (all dependencies completed)
     const readySteps = plan.steps.filter(
-      step => !executed.has(step.id) && step.dependencies.every(dep => executed.has(dep) || !dep)
+      step =>
+        !executed.has(step.id) &&
+        step.dependencies.every(dep => executed.has(dep) || !dep)
     );
 
     if (readySteps.length === 0) {
@@ -124,7 +126,7 @@ async function executeStep(step: TaskStep, context: ExecutionContext): Promise<a
 
 async function executeSearchStep(step: TaskStep, _context: ExecutionContext): Promise<any> {
   const query = step.inputs.query as string;
-
+  
   const API_BASE = process.env.API_BASE_URL || 'http://127.0.0.1:4000';
   const response = await fetch(`${API_BASE}/api/search`, {
     method: 'POST',
@@ -303,3 +305,5 @@ function formatAsMarkdown(synthesis: any): string {
 
   return markdown;
 }
+
+

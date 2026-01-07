@@ -187,7 +187,7 @@ export class TTSService {
    * Browser Web Speech API (fallback)
    */
   private async synthesizeWithBrowser(text: string): Promise<TTSResult> {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = this.options.language;
       utterance.rate = this.options.speed;
@@ -200,7 +200,7 @@ export class TTSService {
 
       const chunks: BlobPart[] = [];
 
-      mediaRecorder.ondataavailable = event => {
+      mediaRecorder.ondataavailable = (event) => {
         chunks.push(event.data);
       };
 

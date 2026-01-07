@@ -24,7 +24,9 @@ type SessionStore = {
 };
 
 const buildHash = (tabs: SnapshotTab[], activeId: string | null) => {
-  const base = tabs.map(tab => `${tab.appMode ?? 'all'}|${tab.url ?? 'about:blank'}`).join('::');
+  const base = tabs
+    .map((tab) => `${tab.appMode ?? 'all'}|${tab.url ?? 'about:blank'}`)
+    .join('::');
   return `${activeId ?? 'none'}#${base}`;
 };
 
@@ -37,7 +39,7 @@ export const useSessionStore = create<SessionStore>()(
           set({ snapshot: null });
           return;
         }
-        const snapshotTabs: SnapshotTab[] = tabs.map(tab => ({
+        const snapshotTabs: SnapshotTab[] = tabs.map((tab) => ({
           id: tab.id,
           url: tab.url,
           title: tab.title,
@@ -56,7 +58,7 @@ export const useSessionStore = create<SessionStore>()(
             updatedAt: Date.now(),
             tabCount: snapshotTabs.length,
             tabs: snapshotTabs,
-            activeId: snapshotTabs.some(tab => tab.id === activeId) ? activeId : snapshotTabs[0].id,
+            activeId: snapshotTabs.some((tab) => tab.id === activeId) ? activeId : snapshotTabs[0].id,
             hash,
           },
         });
@@ -74,11 +76,7 @@ export const useSessionStore = create<SessionStore>()(
           try {
             const result = await ipc.tabs.create(targetUrl);
             const resolvedId =
-              typeof result === 'string'
-                ? result
-                : result && typeof result === 'object'
-                  ? (result as any).id
-                  : null;
+              typeof result === 'string' ? result : (result && typeof result === 'object' ? (result as any).id : null);
             if (resolvedId) {
               tabsStore.updateTab(resolvedId, {
                 title: saved.title,
@@ -96,11 +94,9 @@ export const useSessionStore = create<SessionStore>()(
         if (createdTabIds.length === 0) {
           return { restored: false, tabCount: 0 };
         }
-        const snapshotActiveIndex = snapshot.tabs.findIndex(tab => tab.id === snapshot.activeId);
+        const snapshotActiveIndex = snapshot.tabs.findIndex((tab) => tab.id === snapshot.activeId);
         const resolvedActive =
-          snapshotActiveIndex >= 0
-            ? createdTabIds[snapshotActiveIndex]
-            : createdTabIds[createdTabIds.length - 1];
+          snapshotActiveIndex >= 0 ? createdTabIds[snapshotActiveIndex] : createdTabIds[createdTabIds.length - 1];
         if (resolvedActive) {
           tabsStore.setActive(resolvedActive);
           try {
@@ -115,6 +111,6 @@ export const useSessionStore = create<SessionStore>()(
     {
       name: 'regen:session-snapshot',
       version: 1,
-    }
-  )
+    },
+  ),
 );

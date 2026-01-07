@@ -1,11 +1,6 @@
 import { create } from 'zustand';
 import { ipc } from '../lib/ipc-typed';
-import {
-  ipcEvents,
-  ProfileInfo,
-  ProfilePolicy,
-  ProfilePolicyBlockedEvent,
-} from '../lib/ipc-events';
+import { ipcEvents, ProfileInfo, ProfilePolicy, ProfilePolicyBlockedEvent } from '../lib/ipc-events';
 
 type ProfilesMap = Record<string, ProfileInfo>;
 type PoliciesMap = Record<string, ProfilePolicy>;
@@ -49,7 +44,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
 
     set({ loading: true });
     try {
-      const [list, active] = await Promise.all([ipc.profiles.list(), ipc.profiles.getActive()]);
+      const [list, active] = await Promise.all([
+        ipc.profiles.list(),
+        ipc.profiles.getActive(),
+      ]);
 
       const updatedProfilesById = mergeProfiles(get().profilesById, list);
       if (active) {
@@ -90,10 +88,10 @@ const useProfileStore = create<ProfileState>((set, get) => ({
       const result = await ipc.profiles.setActive(profileId);
       const policy = result.policy ?? (await ipc.profiles.getPolicy(result.id));
       const nextProfilesById = mergeProfiles(get().profilesById, [result]);
-      set(state => ({
+      set((state) => ({
         activeProfileId: result.id,
         profilesById: nextProfilesById,
-        profiles: state.profiles.map(profile =>
+        profiles: state.profiles.map((profile) =>
           profile.id === result.id ? { ...profile, ...result } : profile
         ),
         policies: {
@@ -112,17 +110,17 @@ const useProfileStore = create<ProfileState>((set, get) => ({
   },
 }));
 
-ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', payload => {
+ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', (payload) => {
   if (!payload?.profileId) return;
   const state = useProfileStore.getState();
   const { profileId, profile } = payload;
   const policy = profile.policy;
 
-  useProfileStore.setState(prev => ({
+  useProfileStore.setState((prev) => ({
     activeProfileId: profileId,
     profilesById: mergeProfiles(prev.profilesById, [profile]),
-    profiles: prev.profiles.some(p => p.id === profileId)
-      ? prev.profiles.map(p => (p.id === profileId ? { ...p, ...profile } : p))
+    profiles: prev.profiles.some((p) => p.id === profileId)
+      ? prev.profiles.map((p) => (p.id === profileId ? { ...p, ...profile } : p))
       : [...prev.profiles, profile],
     policies: policy
       ? {
@@ -136,7 +134,7 @@ ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', pay
     ipc.profiles
       .getPolicy(profileId)
       .then((policyResponse: any) => {
-        useProfileStore.setState(prev => ({
+        useProfileStore.setState((prev) => ({
           policies: {
             ...prev.policies,
             [profileId]: policyResponse,
@@ -147,7 +145,7 @@ ipcEvents.on<{ profileId: string; profile: ProfileInfo }>('profiles:active', pay
   }
 });
 
-ipcEvents.on<ProfilePolicyBlockedEvent>('profiles:policy-blocked', payload => {
+ipcEvents.on<ProfilePolicyBlockedEvent>('profiles:policy-blocked', (payload) => {
   if (!payload?.profileId || !payload?.action) return;
   useProfileStore.setState({
     lastPolicyBlock: {
@@ -163,3 +161,4 @@ export function ensureProfilesLoaded() {
 }
 
 export { useProfileStore };
+

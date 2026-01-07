@@ -61,10 +61,10 @@ export function disconnectRealtimeService(): void {
 
 /**
  * Example: Initialize on user login
- *
+ * 
  * ```tsx
  * import { initializeRealtimeService } from './services/realtimeInit';
- *
+ * 
  * async function handleLogin(token: string) {
  *   await initializeRealtimeService(token);
  *   // Now realtime features are available

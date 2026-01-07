@@ -27,7 +27,10 @@ export interface ParsedIntent {
 /**
  * Parse natural language command into structured actions
  */
-export async function parseIntent(command: string, snapshot: PageSnapshot): Promise<ParsedIntent> {
+export async function parseIntent(
+  command: string,
+  snapshot: PageSnapshot
+): Promise<ParsedIntent> {
   const prompt = buildIntentPrompt(command, snapshot);
 
   try {
@@ -213,16 +216,11 @@ function fallbackParse(command: string, snapshot: PageSnapshot): ParsedIntent {
 
   return {
     intent: command,
-    actions:
-      actions.length > 0
-        ? actions
-        : [
-            {
-              kind: 'click',
-              description: `Could not parse: ${command}`,
-              confidence: 0.1,
-            },
-          ],
+    actions: actions.length > 0 ? actions : [{
+      kind: 'click',
+      description: `Could not parse: ${command}`,
+      confidence: 0.1,
+    }],
     confidence: actions.length > 0 ? 0.5 : 0.1,
     raw: 'fallback',
   };

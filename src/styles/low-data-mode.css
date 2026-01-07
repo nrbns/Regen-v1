@@ -13,29 +13,29 @@
     transition-duration: 0s !important;
     transition-delay: 0s !important;
   }
-
+  
   /* Reduce shadows (less rendering work) */
   * {
     box-shadow: none !important;
     text-shadow: none !important;
   }
-
+  
   /* Simplify gradients to solid colors */
   * {
     background-image: none !important;
   }
-
+  
   /* Disable backdrop filters (performance heavy) */
   * {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-
+  
   /* Reduce border radius for simpler rendering */
   * {
     border-radius: 2px !important;
   }
-
+  
   /* Simplify font rendering */
   * {
     text-rendering: optimizeSpeed !important;
@@ -60,3 +60,4 @@
   /* Reduce iframe complexity */
   transform: none !important;
 }
+

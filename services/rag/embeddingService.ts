@@ -45,14 +45,14 @@ export class EmbeddingService {
 
     // Normalize
     const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
-    return embedding.map(val => val / magnitude);
+    return embedding.map((val) => val / magnitude);
   }
 
   /**
    * Batch embed multiple texts
    */
   async embedBatch(texts: string[]): Promise<Vector[]> {
-    return Promise.all(texts.map(text => this.embed(text)));
+    return Promise.all(texts.map((text) => this.embed(text)));
   }
 
   /**

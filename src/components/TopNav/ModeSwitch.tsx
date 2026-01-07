@@ -2,17 +2,7 @@
  * ModeSwitch - Browser mode selector with grouped secondary modes
  */
 
-import {
-  Brain,
-  TrendingUp,
-  Gamepad2,
-  Zap,
-  FileText,
-  Image,
-  Shield,
-  Network,
-  ChevronDown,
-} from 'lucide-react';
+import { Brain, TrendingUp, Gamepad2, Zap, FileText, Image, Shield, Network, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../../state/appStore';
 import { useNavigate } from 'react-router-dom';
@@ -42,82 +32,21 @@ type ModeConfig<T extends string> = {
 
 // Primary modes - always visible
 const primaryModes: ModeConfig<'Browse' | 'Research' | 'Trade'>[] = [
-  {
-    id: 'Browse',
-    icon: Zap,
-    label: 'Browse',
-    color: 'text-cyan-400',
-    glowColor: 'from-cyan-500 via-blue-600 to-cyan-500',
-    status: 'ready',
-  },
-  {
-    id: 'Research',
-    icon: Brain,
-    label: 'Research',
-    color: 'text-purple-400',
-    glowColor: 'from-purple-500 via-purple-600 to-purple-500',
-    status: 'ready',
-  },
-  {
-    id: 'Trade',
-    icon: TrendingUp,
-    label: 'Trade',
-    color: 'text-green-400',
-    glowColor: 'from-green-500 via-emerald-600 to-green-500',
-    status: 'ready',
-  },
+  { id: 'Browse', icon: Zap, label: 'Browse', color: 'text-cyan-400', glowColor: 'from-cyan-500 via-blue-600 to-cyan-500', status: 'ready' },
+  { id: 'Research', icon: Brain, label: 'Research', color: 'text-purple-400', glowColor: 'from-purple-500 via-purple-600 to-purple-500', status: 'ready' },
+  { id: 'Trade', icon: TrendingUp, label: 'Trade', color: 'text-green-400', glowColor: 'from-green-500 via-emerald-600 to-green-500', status: 'ready' },
 ];
 
 // Secondary modes - grouped in dropdown
 const secondaryModes: ModeConfig<'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind'>[] = [
-  {
-    id: 'Games',
-    icon: Gamepad2,
-    label: 'Games',
-    color: 'text-yellow-400',
-    glowColor: 'from-yellow-500 via-amber-600 to-yellow-500',
-    status: 'soon',
-    description: 'Arcade layer coming soon',
-  },
-  {
-    id: 'Docs',
-    icon: FileText,
-    label: 'Docs',
-    color: 'text-blue-400',
-    glowColor: 'from-blue-500 via-indigo-600 to-blue-500',
-    status: 'soon',
-    description: 'Knowledge workspace in progress',
-  },
-  {
-    id: 'Images',
-    icon: Image,
-    label: 'Images',
-    color: 'text-pink-400',
-    glowColor: 'from-pink-500 via-rose-600 to-pink-500',
-    status: 'soon',
-    description: 'AI image search coming soon',
-  },
-  {
-    id: 'Threats',
-    icon: Shield,
-    label: 'Threats',
-    color: 'text-red-400',
-    glowColor: 'from-red-500 via-orange-600 to-red-500',
-    status: 'soon',
-    description: 'Threat intelligence dashboard',
-  },
-  {
-    id: 'GraphMind',
-    icon: Network,
-    label: 'GraphMind',
-    color: 'text-indigo-400',
-    glowColor: 'from-indigo-500 via-purple-600 to-indigo-500',
-    status: 'soon',
-    description: 'Knowledge graph explorer',
-  },
+  { id: 'Games', icon: Gamepad2, label: 'Games', color: 'text-yellow-400', glowColor: 'from-yellow-500 via-amber-600 to-yellow-500', status: 'soon', description: 'Arcade layer coming soon' },
+  { id: 'Docs', icon: FileText, label: 'Docs', color: 'text-blue-400', glowColor: 'from-blue-500 via-indigo-600 to-blue-500', status: 'soon', description: 'Knowledge workspace in progress' },
+  { id: 'Images', icon: Image, label: 'Images', color: 'text-pink-400', glowColor: 'from-pink-500 via-rose-600 to-pink-500', status: 'soon', description: 'AI image search coming soon' },
+  { id: 'Threats', icon: Shield, label: 'Threats', color: 'text-red-400', glowColor: 'from-red-500 via-orange-600 to-red-500', status: 'soon', description: 'Threat intelligence dashboard' },
+  { id: 'GraphMind', icon: Network, label: 'GraphMind', color: 'text-indigo-400', glowColor: 'from-indigo-500 via-purple-600 to-indigo-500', status: 'soon', description: 'Knowledge graph explorer' },
 ];
 
-type ModeId = (typeof primaryModes)[number]['id'] | (typeof secondaryModes)[number]['id'];
+type ModeId = typeof primaryModes[number]['id'] | typeof secondaryModes[number]['id'];
 
 const resolveModeConfig = <T extends ModeId>(config: ModeConfig<T>): ModeConfig<T> => {
   const flag = getModeFlag(config.id);
@@ -152,40 +81,41 @@ export function ModeSwitch() {
 
   const resolvedPrimary = primaryModes
     .map(resolveModeConfig)
-    .filter(mode => mode.status !== 'hidden');
+    .filter((mode) => mode.status !== 'hidden');
   const resolvedSecondary = secondaryModes
     .map(resolveModeConfig)
-    .filter(mode => mode.status !== 'hidden');
+    .filter((mode) => mode.status !== 'hidden');
 
   const currentMode = mode || 'Browse';
   const isSecondaryMode = resolvedSecondary.some(m => m.id === currentMode);
-  const currentModeConfig = [...resolvedPrimary, ...resolvedSecondary].find(
-    m => m.id === currentMode
-  );
+  const currentModeConfig = [...resolvedPrimary, ...resolvedSecondary].find(m => m.id === currentMode);
   const activeSecondaryMode = resolvedSecondary.find(m => m.id === currentMode);
 
   return (
-    <div className="flex items-center gap-1 rounded-lg border border-gray-700/50 bg-gray-800/60 p-1 shadow-sm">
+    <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-1 border border-gray-700/50 shadow-sm">
       {/* Primary modes - always visible */}
-      {resolvedPrimary.map(m => {
+      {resolvedPrimary.map((m) => {
         const Icon = m.icon;
         const isActive = currentMode === m.id;
         const isDisabled = m.status === 'soon';
         const isBeta = m.status === 'beta';
-
+        
         return (
           <motion.button
             key={m.id}
             onClick={() => handleModeChange(m)}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className={`relative flex cursor-pointer items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-              isActive
+            className={`
+              relative flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium
+              transition-all duration-200 cursor-pointer
+              ${isActive
                 ? `bg-gradient-to-r ${m.glowColor} text-white shadow-lg`
                 : isDisabled
-                  ? 'cursor-not-allowed text-gray-500 opacity-60'
-                  : 'text-gray-400 hover:bg-gray-700/30 hover:text-gray-200'
-            } `}
+                  ? 'text-gray-500 cursor-not-allowed opacity-60'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30'
+              }
+            `}
             title={isDisabled ? `${m.label} (coming soon)` : m.label}
             disabled={isDisabled}
           >
@@ -197,7 +127,7 @@ export function ModeSwitch() {
               </span>
             )}
             {isDisabled && (
-              <span className="hidden text-[10px] uppercase tracking-wide text-slate-400/80 lg:inline">
+              <span className="hidden lg:inline text-[10px] uppercase tracking-wide text-slate-400/80">
                 Soon
               </span>
             )}
@@ -219,19 +149,19 @@ export function ModeSwitch() {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className={`relative flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-              isSecondaryMode && currentModeConfig
+            className={`
+              relative flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
+              transition-all duration-200 cursor-pointer
+              ${isSecondaryMode && currentModeConfig
                 ? `bg-gradient-to-r ${currentModeConfig.glowColor} text-white shadow-lg`
-                : 'text-gray-400 hover:bg-gray-700/30 hover:text-gray-200'
-            } `}
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/30'
+              }
+            `}
             title="More modes"
           >
             {activeSecondaryMode ? (
               <>
-                <activeSecondaryMode.icon
-                  size={14}
-                  className={isSecondaryMode ? 'text-white' : activeSecondaryMode.color}
-                />
+                <activeSecondaryMode.icon size={14} className={isSecondaryMode ? 'text-white' : activeSecondaryMode.color} />
                 <span className="hidden sm:inline">{activeSecondaryMode.label}</span>
               </>
             ) : (
@@ -255,27 +185,33 @@ export function ModeSwitch() {
             Additional Modes
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {resolvedSecondary.map(m => {
+            {resolvedSecondary.map((m) => {
             const Icon = m.icon;
             const isActive = currentMode === m.id;
-            const isDisabled = m.status === 'soon';
-            const isBeta = m.status === 'beta';
-
+              const isDisabled = m.status === 'soon';
+              const isBeta = m.status === 'beta';
+            
             return (
               <DropdownMenuItem
                 key={m.id}
-                onClick={() => handleModeChange(m)}
-                className={`flex cursor-pointer items-center gap-2 ${isActive ? 'bg-slate-800/60' : ''} ${isDisabled ? 'cursor-not-allowed opacity-60' : ''} `}
+                  onClick={() => handleModeChange(m)}
+                className={`
+                  flex items-center gap-2 cursor-pointer
+                  ${isActive ? 'bg-slate-800/60' : ''}
+                  ${isDisabled ? 'opacity-60 cursor-not-allowed' : ''}
+                `}
                 disabled={isDisabled}
               >
                 <Icon size={14} className={isActive ? m.color : 'text-slate-400'} />
                 <div className="flex flex-col">
                   <span className={isActive ? 'font-semibold' : ''}>{m.label}</span>
-                  {isBeta && !isDisabled && (
-                    <span className="text-[10px] uppercase tracking-wide text-amber-300">Beta</span>
-                  )}
+                    {isBeta && !isDisabled && (
+                      <span className="text-[10px] uppercase text-amber-300 tracking-wide">
+                        Beta
+                      </span>
+                    )}
                   {isDisabled && (
-                    <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                    <span className="text-[10px] uppercase text-slate-500 tracking-wide">
                       Coming soon
                     </span>
                   )}
@@ -288,3 +224,4 @@ export function ModeSwitch() {
     </div>
   );
 }
+

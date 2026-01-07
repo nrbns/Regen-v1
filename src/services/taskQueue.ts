@@ -24,7 +24,10 @@ class TaskQueue {
   /**
    * Add a task to the queue
    */
-  async enqueue<T>(fn: () => Promise<T>, priority: TaskPriority = 'medium'): Promise<T> {
+  async enqueue<T>(
+    fn: () => Promise<T>,
+    priority: TaskPriority = 'medium'
+  ): Promise<T> {
     const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const task: QueuedTask = {
       id: taskId,
@@ -134,3 +137,4 @@ class TaskQueue {
 }
 
 export const taskQueue = new TaskQueue();
+

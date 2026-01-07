@@ -9,8 +9,7 @@ import { describe, it, expect } from 'vitest';
 describe('Service Module Exports', () => {
   describe('Mail Agent Services', () => {
     it('should export all mail agent services', async () => {
-      const { AgentExecutor, MailAgentHandler, MailSummarizer, GmailConnector } =
-        await import('../../services/mailAgent');
+      const { AgentExecutor, MailAgentHandler, MailSummarizer, GmailConnector } = await import('../../services/mailAgent');
       expect(AgentExecutor).toBeDefined();
       expect(MailAgentHandler).toBeDefined();
       expect(MailSummarizer).toBeDefined();
@@ -35,8 +34,7 @@ describe('Service Module Exports', () => {
 
   describe('PPT Agent Services', () => {
     it('should export ppt agent services', async () => {
-      const { PptExecutor, OutlineGenerator, SlidesConnector } =
-        await import('../../services/pptAgent');
+      const { PptExecutor, OutlineGenerator, SlidesConnector } = await import('../../services/pptAgent');
       expect(PptExecutor).toBeDefined();
       expect(OutlineGenerator).toBeDefined();
       expect(SlidesConnector).toBeDefined();
@@ -45,8 +43,7 @@ describe('Service Module Exports', () => {
 
   describe('Orchestrator Services', () => {
     it('should export orchestrator services', async () => {
-      const { TaskExecutor, TaskPlanner, IntentRouter, LoadBalancer } =
-        await import('../../services/agentOrchestrator');
+      const { TaskExecutor, TaskPlanner, IntentRouter, LoadBalancer } = await import('../../services/agentOrchestrator');
       expect(TaskExecutor).toBeDefined();
       expect(TaskPlanner).toBeDefined();
       expect(IntentRouter).toBeDefined();
@@ -56,8 +53,7 @@ describe('Service Module Exports', () => {
 
   describe('RAG Services', () => {
     it('should export rag services', async () => {
-      const { RAGEngine, VectorStore, EmbeddingService, EmailRAGService } =
-        await import('../../services/rag');
+      const { RAGEngine, VectorStore, EmbeddingService, EmailRAGService } = await import('../../services/rag');
       expect(RAGEngine).toBeDefined();
       expect(VectorStore).toBeDefined();
       expect(EmbeddingService).toBeDefined();
@@ -65,8 +61,7 @@ describe('Service Module Exports', () => {
     });
 
     it('should export global RAG singletons', async () => {
-      const { globalRAGEngine, globalVectorStore, globalEmbeddingService } =
-        await import('../../services/rag');
+      const { globalRAGEngine, globalVectorStore, globalEmbeddingService } = await import('../../services/rag');
       expect(globalRAGEngine).toBeDefined();
       expect(globalVectorStore).toBeDefined();
       expect(globalEmbeddingService).toBeDefined();
@@ -75,8 +70,7 @@ describe('Service Module Exports', () => {
 
   describe('Security Services', () => {
     it('should export security services', async () => {
-      const { PermissionControl, TokenVault, TwoFactorAuth, RateLimiter } =
-        await import('../../services/security');
+      const { PermissionControl, TokenVault, TwoFactorAuth, RateLimiter } = await import('../../services/security');
       expect(PermissionControl).toBeDefined();
       expect(TokenVault).toBeDefined();
       expect(TwoFactorAuth).toBeDefined();

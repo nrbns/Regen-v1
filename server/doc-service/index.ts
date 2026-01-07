@@ -1,7 +1,7 @@
 /**
  * Document Auto-Edit Service
  * AI-driven document transformation (Word/PDF/Excel)
- *
+ * 
  * Features:
  * - Text editing (rewrite, grammar, summarize, translate)
  * - Format conversion (DOCX ↔ PDF ↔ TXT)
@@ -65,14 +65,12 @@ router.post('/edit', upload.single('file'), async (req, res) => {
     const fileSize = req.file.size;
     const useAsync = fileSize > 10 * 1024 * 1024; // Use async for files > 10MB
 
-    console.log(
-      `[DocService] Processing ${fileType} file: ${req.file.originalname} (task: ${task}, async: ${useAsync})`
-    );
+    console.log(`[DocService] Processing ${fileType} file: ${req.file.originalname} (task: ${task}, async: ${useAsync})`);
 
     if (useAsync) {
       // Queue for async processing
       const jobId = await queueDocumentEdit(filePath, fileType, task, options);
-
+      
       res.json({
         id: fileId,
         jobId,
@@ -85,7 +83,7 @@ router.post('/edit', upload.single('file'), async (req, res) => {
 
     // Process synchronously for small files
     let result: EditResult;
-
+    
     switch (fileType) {
       case 'docx':
         result = await docxService.edit(filePath, task, options);
@@ -146,7 +144,7 @@ router.get('/status/:jobId', async (req, res) => {
   try {
     const { jobId } = req.params;
     const status = await getJobStatus(jobId);
-
+    
     if (!status) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -178,11 +176,11 @@ router.get('/preview/:id', async (req, res) => {
 router.get('/download/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
+    
     // Try to find file in processed directory
     const processedPath = path.join('temp/processed', id);
     let filePath: string;
-
+    
     try {
       await fs.access(processedPath);
       filePath = processedPath;
@@ -199,7 +197,7 @@ router.get('/download/:id', async (req, res) => {
 
     const fileBuffer = await fs.readFile(filePath);
     const fileName = path.basename(filePath);
-
+    
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.send(fileBuffer);
@@ -242,7 +240,7 @@ router.post('/batch', upload.array('files', 10), async (req, res) => {
     };
 
     const results = await Promise.all(
-      req.files.map(async file => {
+      req.files.map(async (file) => {
         const fileType = detectFileType(file.originalname, file.mimetype);
         // Process each file (simplified - should use worker queue for large batches)
         return {
@@ -264,7 +262,7 @@ router.post('/batch', upload.array('files', 10), async (req, res) => {
  */
 function detectFileType(filename: string, mimetype: string): string {
   const ext = path.extname(filename).toLowerCase();
-
+  
   const typeMap: Record<string, string> = {
     '.docx': 'docx',
     '.doc': 'doc',
@@ -280,3 +278,4 @@ function detectFileType(filename: string, mimetype: string): string {
 }
 
 export { router as docServiceRouter };
+

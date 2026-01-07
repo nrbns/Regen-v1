@@ -97,31 +97,26 @@ changes
 ## 🎯 Areas for Contribution
 
 ### 🐛 Bug Fixes
-
 - Check [Issues](https://github.com/nrbns/Regenbrowser/issues) for bugs
 - Link PR to issue
 - Add test to prevent regression
 
 ### ✨ New Features
-
 - **Discuss in issue first** (avoid wasted work)
 - Follow 3-layer architecture (see DEVELOPERS.md)
 - Add tests for critical paths
 - Update docs
 
 ### 📚 Documentation
-
 - Fix typos, clarify guides
 - Add architecture diagrams
 - Document new features
 
 ### 🌍 Translations
-
 - Add language support in WISPR
 - Translate docs
 
 ### ⚡ Performance
-
 - Profile before/after
 - Optimize render bottlenecks
 - Reduce bundle size
@@ -159,7 +154,7 @@ static createNewsTool() {
 // In researchWorkflow()
 const tools = [
   AgentTools.createSearchTool(),
-  AgentTools.createNewsTool(), // ← Add
+  AgentTools.createNewsTool(),  // ← Add
 ];
 ```
 
@@ -233,14 +228,12 @@ Contributors are recognized in:
 ## Development Guidelines
 
 ### Code Style
-
 - Follow existing code style
 - Use TypeScript for type safety
 - Add JSDoc comments for public APIs
 - Run `npm run lint` before committing
 
 ### Testing
-
 - Add tests for new features
 - Ensure all tests pass: `npm run test`
 - Test on multiple platforms if possible

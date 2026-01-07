@@ -3,12 +3,8 @@
 import { ipc } from '../../lib/ipc-typed';
 
 export interface ResearchProvider {
-  search(
-    query: string
-  ): { title: string; url: string }[] | Promise<{ title: string; url: string }[]>;
-  getAnswer?(
-    query: string
-  ): Promise<{ answer: string; citations?: Array<{ title: string; url: string }> }>;
+  search(query: string): { title: string; url: string }[] | Promise<{ title: string; url: string }[]>;
+  getAnswer?(query: string): Promise<{ answer: string; citations?: Array<{ title: string; url: string }> }>;
 }
 
 export class MockResearchProvider implements ResearchProvider {
@@ -40,9 +36,7 @@ export class HybridSearchProvider implements ResearchProvider {
     }
   }
 
-  async getAnswer(
-    query: string
-  ): Promise<{ answer: string; citations?: Array<{ title: string; url: string }> }> {
+  async getAnswer(query: string): Promise<{ answer: string; citations?: Array<{ title: string; url: string }> }> {
     try {
       // Use agent ask with RAG context
       const result = await ipc.agent.ask(query);
@@ -56,3 +50,5 @@ export class HybridSearchProvider implements ResearchProvider {
     }
   }
 }
+
+

@@ -33,3 +33,4 @@ if (!isDev && typeof window !== 'undefined') {
   console.debug = () => {};
   // Keep console.error for critical errors
 }
+

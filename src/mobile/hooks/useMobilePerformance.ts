@@ -39,11 +39,7 @@ export function useMobilePerformance(): PerformanceMetrics {
     if ((performance as any).memory) {
       setMetrics(prev => ({
         ...prev,
-        memoryUsage: Math.round(
-          ((performance as any).memory.usedJSHeapSize /
-            (performance as any).memory.jsHeapSizeLimit) *
-            100
-        ),
+        memoryUsage: Math.round(((performance as any).memory.usedJSHeapSize / (performance as any).memory.jsHeapSizeLimit) * 100),
       }));
     }
 

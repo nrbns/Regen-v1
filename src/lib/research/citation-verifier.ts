@@ -1,7 +1,7 @@
 /**
  * Citation Verifier - Research-grade citation coverage checker
  * Ensures every sentence in generated text has at least one citation token
- *
+ * 
  * AC: All sample queries show flagged uncited sentences
  * Metric: Citation coverage > 95% on internal benchmark
  */
@@ -72,11 +72,9 @@ function extractSentences(text: string): Array<{ text: string; start: number; en
 /**
  * Find citation tokens in text (e.g., [1], [2], [1,2], [source-1])
  */
-function findCitationTokens(
-  text: string
-): Array<{ index: number; match: string; citationIndices: number[] }> {
+function findCitationTokens(text: string): Array<{ index: number; match: string; citationIndices: number[] }> {
   const citations: Array<{ index: number; match: string; citationIndices: number[] }> = [];
-
+  
   // Match patterns like [1], [2], [1,2], [1-3], [source-1]
   const citationPattern = /\[([\d\s,\-]+|source-[\w-]+)\]/g;
   let match: RegExpExecArray | null;
@@ -84,7 +82,7 @@ function findCitationTokens(
   while ((match = citationPattern.exec(text)) !== null) {
     const citationStr = match[1];
     const indices: number[] = [];
-
+    
     // Parse numeric citations (e.g., "1", "1,2", "1-3")
     if (/^\d+([,\-]\d+)*$/.test(citationStr)) {
       const parts = citationStr.split(/[,\-]/);
@@ -119,12 +117,12 @@ function sentenceHasCitation(
 ): { hasCitation: boolean; citationIndices: number[] } {
   const sentenceStart = sentence.start;
   const sentenceEnd = sentence.end;
-
+  
   // Look for citations within the sentence or up to 10 chars after (for trailing citations)
   const searchEnd = sentenceEnd + 10;
-
+  
   const relevantCitations = citations.filter(
-    cit => cit.index >= sentenceStart && cit.index < searchEnd
+    (cit) => cit.index >= sentenceStart && cit.index < searchEnd
   );
 
   if (relevantCitations.length === 0) {
@@ -152,7 +150,7 @@ function sentenceHasCitation(
 
 /**
  * Verify citation coverage in research summary text
- *
+ * 
  * @param summary - The generated summary text
  * @param citations - Array of citation objects with index and sourceIndex
  * @returns Verification result with coverage metrics and uncited sentence issues
@@ -173,7 +171,7 @@ export function verifyCitationCoverage(
 
   const sentences = extractSentences(summary);
   const citationTokens = findCitationTokens(summary);
-
+  
   const analyses: SentenceAnalysis[] = [];
   const issues: VerificationResult['issues'] = [];
 
@@ -201,7 +199,7 @@ export function verifyCitationCoverage(
   }
 
   const totalSentences = analyses.length;
-  const citedSentences = analyses.filter(a => a.hasCitation).length;
+  const citedSentences = analyses.filter((a) => a.hasCitation).length;
   const uncitedSentences = totalSentences - citedSentences;
   const citationCoverage = totalSentences > 0 ? citedSentences / totalSentences : 1.0;
 
@@ -224,15 +222,14 @@ export function verifyCitationsWithSources(
   totalSources: number
 ): VerificationResult & { invalidCitations: number } {
   const base = verifyCitationCoverage(summary, citations);
-
+  
   // Check for citations that reference non-existent sources
   // const validSourceIndices = new Set(citations.map((c) => c.sourceIndex)); // Reserved for future use
-  const invalidCount = citations.filter(
-    c => c.sourceIndex < 0 || c.sourceIndex >= totalSources
-  ).length;
+  const invalidCount = citations.filter((c) => c.sourceIndex < 0 || c.sourceIndex >= totalSources).length;
 
   return {
     ...base,
     invalidCitations: invalidCount,
   };
 }
+

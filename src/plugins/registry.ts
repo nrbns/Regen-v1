@@ -19,3 +19,5 @@ export function listPlugins(): PluginManifest[] {
   const manifestWithId = { ...manifest, id: manifest.id || manifest.name } as PluginManifest;
   return [manifestWithId];
 }
+
+

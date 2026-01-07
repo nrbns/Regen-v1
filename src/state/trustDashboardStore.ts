@@ -133,12 +133,10 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
           }
           return stats;
         },
-        { total: 0, pending: 0, approved: 0, revoked: 0 }
+        { total: 0, pending: 0, approved: 0, revoked: 0 },
       );
 
-      const consentTimeline = [...consentRecords]
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 20);
+      const consentTimeline = [...consentRecords].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
 
       const trustSignals = Array.isArray(trustRecords)
         ? [...trustRecords].sort((a, b) => {
@@ -184,3 +182,4 @@ export const useTrustDashboardStore = create<TrustDashboardState>((set, get) => 
     });
   },
 }));
+

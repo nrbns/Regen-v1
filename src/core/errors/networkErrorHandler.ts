@@ -35,7 +35,7 @@ export async function handleNetworkError<T>(
     return await withNetworkRetry(fn, {
       maxRetries,
       retryDelay,
-      onRetry: attempt => {
+      onRetry: (attempt) => {
         if (showToast) {
           toast.info(`Retrying... (${attempt}/${maxRetries})`, { duration: 2000 });
         }
@@ -77,7 +77,7 @@ export function isOnline(): boolean {
  * Phase 1, Day 3: Wait for network connection
  */
 export function waitForNetwork(timeout = 10000): Promise<boolean> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     if (isOnline()) {
       resolve(true);
       return;
@@ -114,8 +114,12 @@ export async function fetchWithRetry(
     }
   }
 
-  return handleNetworkError(() => fetch(url, options), {
-    ...networkOptions,
-    context: `Fetch ${url}`,
-  });
+  return handleNetworkError(
+    () => fetch(url, options),
+    {
+      ...networkOptions,
+      context: `Fetch ${url}`,
+    }
+  );
 }
+

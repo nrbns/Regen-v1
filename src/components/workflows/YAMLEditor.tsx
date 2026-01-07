@@ -19,11 +19,7 @@ interface YAMLEditorProps {
 /**
  * Phase 2, Day 3: Simple YAML/JSON validator
  */
-function validateYAMLOrJSON(text: string): {
-  valid: boolean;
-  error?: string;
-  format: 'yaml' | 'json';
-} {
+function validateYAMLOrJSON(text: string): { valid: boolean; error?: string; format: 'yaml' | 'json' } {
   if (!text.trim()) {
     return { valid: true, format: 'yaml' };
   }
@@ -78,9 +74,9 @@ function highlightSyntax(text: string): string {
     div.textContent = str;
     return div.innerHTML;
   };
-
+  
   const escaped = escapeHtml(text);
-
+  
   // Very basic syntax highlighting using HTML (only safe span tags)
   return escaped
     .replace(/("(?:[^"\\]|\\.)*"):/g, '<span class="text-purple-400">$1</span>:')
@@ -99,11 +95,7 @@ export function YAMLEditor({
   placeholder = 'Enter YAML or JSON workflow definition...',
   height = '400px',
 }: YAMLEditorProps) {
-  const [validation, setValidation] = useState<{
-    valid: boolean;
-    error?: string;
-    format?: 'yaml' | 'json';
-  }>({
+  const [validation, setValidation] = useState<{ valid: boolean; error?: string; format?: 'yaml' | 'json' }>({
     valid: true,
   });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -202,3 +194,4 @@ export function YAMLEditor({
     </div>
   );
 }
+

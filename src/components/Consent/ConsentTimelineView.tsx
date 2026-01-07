@@ -5,15 +5,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Clock,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react';
+import { Clock, Shield, ShieldCheck, ShieldAlert, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTrustDashboardStore } from '../../state/trustDashboardStore';
 
@@ -47,7 +39,7 @@ export function ConsentTimelineView() {
     const oneHour = 60 * 60 * 1000;
     const oneDay = 24 * oneHour;
 
-    consentTimeline.forEach(record => {
+    consentTimeline.forEach((record) => {
       const age = now - record.timestamp;
       let group: string;
 
@@ -91,48 +83,32 @@ export function ConsentTimelineView() {
             <Shield size={14} />
             Consent Timeline
           </div>
-          <h1 className="mt-2 text-xl font-semibold text-white sm:text-2xl">
-            Privacy Decisions History
-          </h1>
+          <h1 className="mt-2 text-xl sm:text-2xl font-semibold text-white">Privacy Decisions History</h1>
           <p className="mt-1 text-sm text-gray-400">
             Complete audit trail of all consent requests and approvals
           </p>
         </header>
 
         {consentTimeline.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-8 text-center sm:p-12">
+          <div className="rounded-2xl border border-slate-800/60 bg-slate-900/70 p-8 sm:p-12 text-center">
             <Clock size={48} className="mx-auto mb-4 text-gray-600" />
-            <h3 className="mb-2 text-lg font-semibold text-gray-300">No consent activity yet</h3>
+            <h3 className="text-lg font-semibold text-gray-300 mb-2">No consent activity yet</h3>
             <p className="text-sm text-gray-500">
               Privacy decisions will appear here as you browse and interact with sites.
             </p>
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
-            {groupedTimeline.map(group => (
+            {groupedTimeline.map((group) => (
               <section key={group.label} className="space-y-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                  {group.label}
-                </h2>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">{group.label}</h2>
                 <div className="space-y-2">
-                  {group.items.map(record => {
+                  {group.items.map((record) => {
                     const status = record.revokedAt
-                      ? {
-                          label: 'Revoked',
-                          icon: XCircle,
-                          tone: 'text-red-300 border-red-400/40 bg-red-500/10',
-                        }
+                      ? { label: 'Revoked', icon: XCircle, tone: 'text-red-300 border-red-400/40 bg-red-500/10' }
                       : record.approved
-                        ? {
-                            label: 'Approved',
-                            icon: ShieldCheck,
-                            tone: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10',
-                          }
-                        : {
-                            label: 'Pending',
-                            icon: Clock,
-                            tone: 'text-amber-300 border-amber-400/40 bg-amber-500/10',
-                          };
+                        ? { label: 'Approved', icon: ShieldCheck, tone: 'text-emerald-300 border-emerald-400/40 bg-emerald-500/10' }
+                        : { label: 'Pending', icon: Clock, tone: 'text-amber-300 border-amber-400/40 bg-amber-500/10' };
 
                     const riskIcon =
                       record.action.risk === 'high'
@@ -149,37 +125,30 @@ export function ConsentTimelineView() {
                         key={record.id}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="rounded-xl border border-slate-800/60 bg-slate-900/70 p-3 transition-colors hover:bg-slate-900/90 sm:p-4"
+                        className="rounded-xl border border-slate-800/60 bg-slate-900/70 p-3 sm:p-4 hover:bg-slate-900/90 transition-colors"
                       >
                         <div className="flex items-start gap-3 sm:gap-4">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-800/70 bg-slate-900/80 sm:h-12 sm:w-12">
-                            <RiskIcon size={18} className="text-emerald-300 sm:h-5 sm:w-5" />
+                          <div className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl border border-slate-800/70 bg-slate-900/80">
+                            <RiskIcon size={18} className="sm:w-5 sm:h-5 text-emerald-300" />
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                              <span className="text-sm font-medium text-gray-200 sm:text-base">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                              <span className="font-medium text-sm sm:text-base text-gray-200">
                                 {ACTION_LABELS[record.action.type] ?? record.action.type}
                               </span>
                               <span className="text-xs text-slate-500">
                                 {formatDistanceToNow(record.timestamp, { addSuffix: true })}
                               </span>
                             </div>
-                            <div className="mb-2 text-xs text-gray-400 sm:text-sm">
-                              {record.action.description}
-                            </div>
+                            <div className="text-xs sm:text-sm text-gray-400 mb-2">{record.action.description}</div>
                             {record.action.target && (
-                              <div
-                                className="truncate text-xs text-slate-500"
-                                title={record.action.target}
-                              >
+                              <div className="text-xs text-slate-500 truncate" title={record.action.target}>
                                 {record.action.target}
                               </div>
                             )}
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs sm:px-2.5 ${status.tone}`}
-                            >
+                            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 sm:px-2.5 py-1 text-xs ${status.tone}`}>
                               <StatusIcon size={12} />
                               <span className="hidden sm:inline">{status.label}</span>
                             </span>
@@ -202,3 +171,4 @@ export function ConsentTimelineView() {
     </div>
   );
 }
+

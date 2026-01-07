@@ -7,33 +7,27 @@ Complete API reference for RegenBrowser Tauri commands and frontend services.
 ### Research
 
 #### `research_stream(query: string)`
-
 Stream research results for a query.
 
 **Parameters:**
-
 - `query` (string): Research query
 
 **Events Emitted:**
-
 - `research-start`: Research started
 - `research-token`: Partial result token
 - `research-metrics`: Citations and hallucination metrics
 - `research-end`: Research completed
 
 **Example:**
-
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
 await invoke('research_stream', { query: 'Bitcoin price analysis' });
 ```
 
 #### `research_api(query: string)`
-
 Get research results synchronously.
 
 **Returns:**
-
 ```typescript
 {
   answer: string;
@@ -48,26 +42,21 @@ Get research results synchronously.
 ### Trade
 
 #### `trade_stream(symbol: string)`
-
 Stream live trading data and AI signals.
 
 **Parameters:**
-
 - `symbol` (string): Trading symbol (e.g., "NIFTY", "BANKNIFTY")
 
 **Events Emitted:**
-
 - `trade-price`: Price update
 - `trade-stream-start`: Stream started
 - `trade-token`: AI signal token
 - `trade-stream-end`: Stream ended
 
 #### `trade_api(symbol: string)`
-
 Get current trading data.
 
 **Returns:**
-
 ```typescript
 {
   chart: {
@@ -84,11 +73,9 @@ Get current trading data.
 ### Search
 
 #### `search_proxy(query: string)`
-
 Proxy search query to DuckDuckGo (bypasses CORS).
 
 **Returns:**
-
 ```typescript
 {
   AbstractText: string;
@@ -99,11 +86,9 @@ Proxy search query to DuckDuckGo (bypasses CORS).
 ### Agent
 
 #### `research_agent(request: ResearchAgentRequest)`
-
 Execute research agent.
 
 **Parameters:**
-
 ```typescript
 {
   query: string;
@@ -114,7 +99,6 @@ Execute research agent.
 ```
 
 **Returns:**
-
 ```typescript
 {
   agent_version: string;
@@ -137,11 +121,9 @@ Execute research agent.
 ```
 
 #### `execute_agent(request: ExecuteRequest)`
-
 Execute agent actions.
 
 **Parameters:**
-
 ```typescript
 {
   actions: Array<{
@@ -160,7 +142,6 @@ Execute agent actions.
 #### Agent WebSocket (`ws://127.0.0.1:18080/agent_ws`)
 
 **Message Format:**
-
 ```typescript
 {
   type: 'start_agent' | 'ping';
@@ -173,7 +154,6 @@ Execute agent actions.
 ```
 
 **Response Events:**
-
 - `connected`: Connection confirmed
 - `agent_start`: Agent started
 - `partial_summary`: Partial summary token
@@ -188,11 +168,9 @@ Execute agent actions.
 ### Search Services
 
 #### `multiSourceSearch(query: string, options?)`
-
 Multi-source search with fallback.
 
 **Parameters:**
-
 ```typescript
 {
   query: string;
@@ -204,7 +182,6 @@ Multi-source search with fallback.
 ```
 
 **Returns:**
-
 ```typescript
 Array<{
   title: string;
@@ -213,15 +190,13 @@ Array<{
   source: string;
   score: number;
   domain: string;
-}>;
+}>
 ```
 
 #### `performLiveWebSearch(query: string, options?)`
-
 Live web search using Bing/DuckDuckGo.
 
 **Parameters:**
-
 ```typescript
 {
   query: string;
@@ -236,19 +211,15 @@ Live web search using Bing/DuckDuckGo.
 ### Agent Client
 
 #### `researchAgent(request: ResearchAgentRequest)`
-
 Call research agent via Tauri.
 
 #### `executeAgent(request: ExecuteRequest)`
-
 Execute agent actions.
 
 #### `researchAgentStream(request: ResearchAgentRequest)`
-
 Start streaming agent research.
 
 #### `onAgentEventStream(callback)`
-
 Listen for agent events.
 
 ## IPC Typed Interface
@@ -294,7 +265,7 @@ Listen for Tauri window events:
 ```typescript
 import { listen } from '@tauri-apps/api/event';
 
-const unlisten = await listen('research-token', event => {
+const unlisten = await listen('research-token', (event) => {
   console.log('Token:', event.payload);
 });
 
@@ -320,3 +291,4 @@ unlisten();
 - `docs/API_CONFIG.md` - API key configuration
 - `docs/TRADINGVIEW_API.md` - TradingView integration
 - `src/lib/ipc-typed.ts` - Full TypeScript definitions
+

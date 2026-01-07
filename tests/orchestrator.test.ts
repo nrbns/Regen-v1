@@ -17,7 +17,7 @@ describe('IntentRouter', () => {
 
   it('should classify email intent correctly', async () => {
     const result = await router.classify('Send an email to john@example.com');
-
+    
     expect(result.primaryAgent).toBe('mail');
     expect(result.confidence).toBeGreaterThan(0.8);
     expect(result.intent).toContain('email');
@@ -25,37 +25,41 @@ describe('IntentRouter', () => {
 
   it('should classify presentation intent correctly', async () => {
     const result = await router.classify('Create a presentation about Q4 results');
-
+    
     expect(result.primaryAgent).toBe('ppt');
     expect(result.confidence).toBeGreaterThan(0.8);
   });
 
   it('should classify booking intent correctly', async () => {
     const result = await router.classify('Book a flight to New York next week');
-
+    
     expect(result.primaryAgent).toBe('booking');
     expect(result.confidence).toBeGreaterThan(0.8);
   });
 
   it('should classify research intent correctly', async () => {
     const result = await router.classify('What is quantum computing?');
-
+    
     expect(result.primaryAgent).toBe('research');
     expect(result.confidence).toBeGreaterThan(0.8);
   });
 
   it('should classify trading intent correctly', async () => {
     const result = await router.classify('Buy 100 shares of AAPL');
-
+    
     expect(result.primaryAgent).toBe('trading');
     expect(result.confidence).toBeGreaterThan(0.8);
   });
 
   it('should handle batch classification', async () => {
-    const inputs = ['Send email', 'Create slides', 'Book flight'];
+    const inputs = [
+      'Send email',
+      'Create slides',
+      'Book flight',
+    ];
 
     const results = await router.classifyBatch(inputs);
-
+    
     expect(results).toHaveLength(3);
     expect(results[0].primaryAgent).toBe('mail');
     expect(results[1].primaryAgent).toBe('ppt');
@@ -66,13 +70,13 @@ describe('IntentRouter', () => {
     const start = Date.now();
     await router.classify('Quick test');
     const duration = Date.now() - start;
-
+    
     expect(duration).toBeLessThan(100);
   });
 
   it('should provide alternative agents', async () => {
     const result = await router.classify('Search for something');
-
+    
     expect(result.alternativeAgents).toBeDefined();
     expect(Array.isArray(result.alternativeAgents)).toBe(true);
   });
@@ -101,7 +105,7 @@ describe('TaskPlanner', () => {
     };
 
     const plan = await planner.createPlan(intent, 'user123');
-
+    
     expect(plan.planId).toBeDefined();
     expect(plan.tasks.length).toBeGreaterThan(0);
     expect(plan.intent).toBe(intent);
@@ -119,10 +123,10 @@ describe('TaskPlanner', () => {
     };
 
     const plan = await planner.createPlan(intent, 'user123');
-
+    
     // PPT plan should have multiple tasks with dependencies
     expect(plan.tasks.length).toBeGreaterThan(1);
-
+    
     const hasDependent = plan.tasks.some(t => t.dependencies.length > 0);
     expect(hasDependent).toBe(true);
   });
@@ -131,14 +135,14 @@ describe('TaskPlanner', () => {
     const intent = {
       primaryAgent: 'booking' as const,
       intent: 'search_and_book',
-      confidence: 0.9,
+      confidence: 0.90,
       alternativeAgents: [],
       parameters: { type: 'flight' },
       reasoning: 'Booking keywords',
     };
 
     const plan = await planner.createPlan(intent, 'user123');
-
+    
     expect(plan.riskLevel).toBe('high');
     expect(plan.requiresApproval).toBe(true);
   });
@@ -155,7 +159,7 @@ describe('TaskPlanner', () => {
 
     const plan = await planner.createPlan(intent, 'user123');
     const validation = planner.validatePlan(plan);
-
+    
     expect(validation.valid).toBe(true);
     expect(validation.errors).toHaveLength(0);
   });
@@ -172,9 +176,9 @@ describe('TaskPlanner', () => {
 
     const plan = await planner.createPlan(intent, 'user123');
     const order = planner.getExecutionOrder(plan);
-
+    
     expect(order.length).toBe(plan.tasks.length);
-
+    
     // First task should have no dependencies
     expect(order[0].dependencies).toHaveLength(0);
   });
@@ -190,7 +194,7 @@ describe('TaskPlanner', () => {
     };
 
     const plan = await planner.createPlan(intent, 'user123');
-
+    
     expect(plan.totalEstimatedDuration).toBeGreaterThan(0);
     expect(plan.totalEstimatedDuration).toBeLessThan(300); // Under 5 min
   });
@@ -199,7 +203,7 @@ describe('TaskPlanner', () => {
     const intent = {
       primaryAgent: 'research' as const,
       intent: 'web_search',
-      confidence: 0.9,
+      confidence: 0.90,
       alternativeAgents: [],
       parameters: { query: 'test' },
       reasoning: 'Research',
@@ -208,7 +212,7 @@ describe('TaskPlanner', () => {
     const start = Date.now();
     await planner.createPlan(intent, 'user123');
     const duration = Date.now() - start;
-
+    
     expect(duration).toBeLessThan(5000);
   });
 });
@@ -266,7 +270,7 @@ describe('TaskExecutor', () => {
     };
 
     const result = await executor.executePlan(plan);
-
+    
     expect(result.status).toBe('completed');
     expect(result.taskResults).toHaveLength(1);
     expect(result.taskResults[0].status).toBe('success');
@@ -307,10 +311,10 @@ describe('TaskExecutor', () => {
     };
 
     const result = await executor.executePlan(plan);
-
+    
     expect(result.status).toBe('completed');
     expect(result.taskResults).toHaveLength(2);
-
+    
     // Task 2 should execute after task 1
     const task1End = result.taskResults[0].endTime.getTime();
     const task2Start = result.taskResults[1].startTime.getTime();
@@ -319,7 +323,7 @@ describe('TaskExecutor', () => {
 
   it('should retry failed tasks', async () => {
     let attemptCount = 0;
-
+    
     executor.registerAgent('flaky', {
       execute: async () => {
         attemptCount++;
@@ -353,7 +357,7 @@ describe('TaskExecutor', () => {
     };
 
     const result = await executor.executePlan(plan);
-
+    
     expect(result.taskResults[0].status).toBe('success');
     expect(result.taskResults[0].retryCount).toBeGreaterThan(0);
     expect(attemptCount).toBe(3);
@@ -399,7 +403,7 @@ describe('TaskExecutor', () => {
     };
 
     const result = await executor.executePlan(plan);
-
+    
     expect(result.taskResults[0].status).toBe('failure');
     expect(result.taskResults[1].status).toBe('skipped');
   });
@@ -428,7 +432,7 @@ describe('TaskExecutor', () => {
     };
 
     await executor.executePlan(plan);
-
+    
     const state = executor.getExecutionState('task_1');
     expect(state).toBe('completed');
   });

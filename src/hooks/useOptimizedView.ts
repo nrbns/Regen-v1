@@ -16,7 +16,13 @@ interface UseOptimizedViewOptions {
 }
 
 export function useOptimizedView(options: UseOptimizedViewOptions = {}) {
-  const { iframeId, lazy = true, sandbox, onResize, onMessage } = options;
+  const {
+    iframeId,
+    lazy = true,
+    sandbox,
+    onResize,
+    onMessage,
+  } = options;
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const renderer = useMemo(() => getViewRenderer(), []);
@@ -80,16 +86,13 @@ export function useOptimizedView(options: UseOptimizedViewOptions = {}) {
   /**
    * Queue render update
    */
-  const queueUpdate = useCallback(
-    (callback: () => void) => {
-      const endTiming = monitor.start('view-update');
-      renderer.queueRender(() => {
-        callback();
-        endTiming();
-      });
-    },
-    [renderer, monitor]
-  );
+  const queueUpdate = useCallback((callback: () => void) => {
+    const endTiming = monitor.start('view-update');
+    renderer.queueRender(() => {
+      callback();
+      endTiming();
+    });
+  }, [renderer, monitor]);
 
   /**
    * Optimized resize handler
@@ -119,3 +122,4 @@ export function useOptimizedView(options: UseOptimizedViewOptions = {}) {
     getMetrics: () => monitor.getMetrics(),
   };
 }
+

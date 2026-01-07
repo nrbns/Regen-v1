@@ -3,16 +3,7 @@
   "title": "AI Trading Signal",
   "description": "Schema for AI-generated trading signals with explainability",
   "type": "object",
-  "required": [
-    "id",
-    "symbol",
-    "action",
-    "confidence",
-    "entryPrice",
-    "rationale",
-    "modelVersion",
-    "generatedAt"
-  ],
+  "required": ["id", "symbol", "action", "confidence", "entryPrice", "rationale", "modelVersion", "generatedAt"],
   "properties": {
     "id": {
       "type": "string",
@@ -39,17 +30,17 @@
     "entryPrice": {
       "type": "number",
       "description": "Recommended entry price",
-      "example": 149.5
+      "example": 149.50
     },
     "stopLoss": {
       "type": "number",
       "description": "Recommended stop loss price",
-      "example": 146.0
+      "example": 146.00
     },
     "takeProfit": {
       "type": "number",
       "description": "Recommended take profit price",
-      "example": 155.0
+      "example": 155.00
     },
     "positionSize": {
       "type": "number",
@@ -76,13 +67,7 @@
           "factor": {
             "type": "string",
             "description": "Factor name",
-            "examples": [
-              "volume_spike",
-              "rsi_oversold",
-              "macd_crossover",
-              "volatility_compression",
-              "news_sentiment"
-            ]
+            "examples": ["volume_spike", "rsi_oversold", "macd_crossover", "volatility_compression", "news_sentiment"]
           },
           "weight": {
             "type": "number",
@@ -235,3 +220,4 @@
     }
   }
 }
+

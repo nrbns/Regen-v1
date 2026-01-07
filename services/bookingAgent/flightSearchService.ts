@@ -9,14 +9,14 @@ import type { FlightSearchParams, FlightOption } from './types';
 export class FlightSearchService {
   private amadeus: any;
 
-  constructor() {
-    // Initialize Amadeus with credentials from environment
-    this.amadeus = new Amadeus({
-      clientId: process.env.AMADEUS_CLIENT_ID || '',
-      clientSecret: process.env.AMADEUS_CLIENT_SECRET || '',
-      hostname: process.env.AMADEUS_ENVIRONMENT === 'production' ? 'production' : 'test',
-    });
-  }
+    constructor() {
+      // Initialize Amadeus with credentials from environment
+      this.amadeus = new Amadeus({
+        clientId: process.env.AMADEUS_CLIENT_ID || '',
+        clientSecret: process.env.AMADEUS_CLIENT_SECRET || '',
+        hostname: process.env.AMADEUS_ENVIRONMENT === 'production' ? 'production' : 'test',
+      });
+    }
 
   /**
    * Search for flights
@@ -40,9 +40,7 @@ export class FlightSearchService {
       return flights;
     } catch (error) {
       console.error('[FlightSearch] Search failed:', error);
-      throw new Error(
-        `Flight search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      throw new Error(`Flight search failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -88,24 +86,25 @@ export class FlightSearchService {
     let filtered = flights;
 
     if (criteria.maxPrice) {
-      filtered = filtered.filter(f => f.price.amount <= criteria.maxPrice!);
+      filtered = filtered.filter((f) => f.price.amount <= criteria.maxPrice!);
     }
 
     if (criteria.maxStops !== undefined) {
-      filtered = filtered.filter(f => f.stops <= criteria.maxStops!);
+      filtered = filtered.filter((f) => f.stops <= criteria.maxStops!);
     }
 
     if (criteria.airlines && criteria.airlines.length > 0) {
-      filtered = filtered.filter(f =>
-        criteria.airlines!.some(a => f.airline.toLowerCase().includes(a.toLowerCase()))
+      filtered = filtered.filter((f) =>
+        criteria.airlines!.some((a) => f.airline.toLowerCase().includes(a.toLowerCase()))
       );
     }
 
     if (criteria.departureTimeRange) {
-      filtered = filtered.filter(f => {
+      filtered = filtered.filter((f) => {
         const hour = new Date(f.departure.time).getHours();
         return (
-          hour >= criteria.departureTimeRange!.start && hour <= criteria.departureTimeRange!.end
+          hour >= criteria.departureTimeRange!.start &&
+          hour <= criteria.departureTimeRange!.end
         );
       });
     }
@@ -134,7 +133,8 @@ export class FlightSearchService {
 
       case 'departure':
         return sorted.sort(
-          (a, b) => new Date(a.departure.time).getTime() - new Date(b.departure.time).getTime()
+          (a, b) =>
+            new Date(a.departure.time).getTime() - new Date(b.departure.time).getTime()
         );
 
       default:
@@ -143,10 +143,10 @@ export class FlightSearchService {
   }
 
   /**
-   * Parse Amadeus API response into FlightOption format
+  * Parse Amadeus API response into FlightOption format
    */
   private parseAmadeusResponse(data: any[]): FlightOption[] {
-    return data.map(offer => {
+    return data.map((offer) => {
       const itinerary = offer.itineraries[0];
       const segment = itinerary.segments[0];
       const lastSegment = itinerary.segments[itinerary.segments.length - 1];
@@ -175,15 +175,11 @@ export class FlightSearchService {
           amount: parseFloat(price.total),
           currency: price.currency,
         },
-        class:
-          offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]?.cabin?.toLowerCase() || 'economy',
+        class: offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]?.cabin?.toLowerCase() || 'economy',
         availableSeats: offer.numberOfBookableSeats || 9,
         baggage: {
           carry: 1,
-          checked: parseInt(
-            offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]?.includedCheckedBags?.quantity ||
-              '1'
-          ),
+          checked: parseInt(offer.travelerPricings?.[0]?.fareDetailsBySegment?.[0]?.includedCheckedBags?.quantity || '1'),
         },
       };
     });

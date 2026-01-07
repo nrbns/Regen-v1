@@ -10,8 +10,8 @@ class OrchestratorWebSocket {
     this.wss = new WebSocketServer({ server, path: '/ws/orchestrator' });
     this.clients = new Map(); // planId -> Set<WebSocket>
 
-    this.wss.on('connection', ws => {
-      ws.on('message', message => {
+    this.wss.on('connection', (ws) => {
+      ws.on('message', (message) => {
         try {
           const data = JSON.parse(message.toString());
           this.#handleMessage(ws, data);
@@ -90,46 +90,19 @@ export function sendTaskStarted(planId, taskId, message) {
 }
 
 export function sendTaskCompleted(planId, taskId, data) {
-  wsInstance?.sendUpdate({
-    type: 'task_completed',
-    planId,
-    taskId,
-    status: 'completed',
-    timestamp: new Date(),
-    data,
-  });
+  wsInstance?.sendUpdate({ type: 'task_completed', planId, taskId, status: 'completed', timestamp: new Date(), data });
 }
 
 export function sendTaskFailed(planId, taskId, message) {
-  wsInstance?.sendUpdate({
-    type: 'task_failed',
-    planId,
-    taskId,
-    status: 'failed',
-    message,
-    timestamp: new Date(),
-  });
+  wsInstance?.sendUpdate({ type: 'task_failed', planId, taskId, status: 'failed', message, timestamp: new Date() });
 }
 
 export function sendPlanCompleted(planId, data) {
-  wsInstance?.sendUpdate({
-    type: 'plan_completed',
-    planId,
-    status: 'completed',
-    progress: 100,
-    timestamp: new Date(),
-    data,
-  });
+  wsInstance?.sendUpdate({ type: 'plan_completed', planId, status: 'completed', progress: 100, timestamp: new Date(), data });
 }
 
 export function sendPlanFailed(planId, message) {
-  wsInstance?.sendUpdate({
-    type: 'plan_failed',
-    planId,
-    status: 'failed',
-    message,
-    timestamp: new Date(),
-  });
+  wsInstance?.sendUpdate({ type: 'plan_failed', planId, status: 'failed', message, timestamp: new Date() });
 }
 
 export default OrchestratorWebSocket;

@@ -4,16 +4,7 @@
  */
 
 export type UserRole = 'viewer' | 'editor' | 'admin';
-export type ActionType =
-  | 'read'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'send'
-  | 'book'
-  | 'export'
-  | 'execute'
-  | 'approve';
+export type ActionType = 'read' | 'create' | 'update' | 'delete' | 'send' | 'book' | 'export' | 'execute' | 'approve';
 
 /**
  * User quota configuration
@@ -173,9 +164,7 @@ export class PermissionControl {
     };
 
     actionAudits.push(audit);
-    console.log(
-      `[PermissionControl] Audited ${action} by ${userId}: ${approved ? 'approved' : 'denied'}`
-    );
+    console.log(`[PermissionControl] Audited ${action} by ${userId}: ${approved ? 'approved' : 'denied'}`);
   }
 
   /**
@@ -183,7 +172,7 @@ export class PermissionControl {
    */
   async getActionHistory(userId: string, limit: number = 100): Promise<ActionAudit[]> {
     return actionAudits
-      .filter(a => a.userId === userId)
+      .filter((a) => a.userId === userId)
       .slice(-limit)
       .reverse();
   }
@@ -206,9 +195,9 @@ export class PermissionControl {
 
     // Check concurrent executions
     if (perms.currentExecutions >= perms.quota.maxConcurrentExecutions) {
-      return {
-        allowed: false,
-        reason: `Maximum concurrent executions reached (${perms.quota.maxConcurrentExecutions})`,
+      return { 
+        allowed: false, 
+        reason: `Maximum concurrent executions reached (${perms.quota.maxConcurrentExecutions})` 
       };
     }
 
@@ -219,9 +208,9 @@ export class PermissionControl {
     this.cleanupExpiredTrackers(tracker);
 
     if (tracker.dailyCount >= perms.quota.maxDailyExecutions) {
-      return {
-        allowed: false,
-        reason: `Daily execution limit reached (${perms.quota.maxDailyExecutions})`,
+      return { 
+        allowed: false, 
+        reason: `Daily execution limit reached (${perms.quota.maxDailyExecutions})` 
       };
     }
 
@@ -235,15 +224,13 @@ export class PermissionControl {
     const perms = userPermissions.get(userId);
     if (perms) {
       perms.currentExecutions++;
-
+      
       const tracker = rateLimitTrackers.get(userId) || this.initializeTracker();
       tracker.count++;
       tracker.dailyCount++;
       rateLimitTrackers.set(userId, tracker);
-
-      console.log(
-        `[PermissionControl] User ${userId} executions: ${perms.currentExecutions}/${perms.quota.maxConcurrentExecutions}`
-      );
+      
+      console.log(`[PermissionControl] User ${userId} executions: ${perms.currentExecutions}/${perms.quota.maxConcurrentExecutions}`);
     }
   }
 
@@ -254,9 +241,7 @@ export class PermissionControl {
     const perms = userPermissions.get(userId);
     if (perms && perms.currentExecutions > 0) {
       perms.currentExecutions--;
-      console.log(
-        `[PermissionControl] User ${userId} executions: ${perms.currentExecutions}/${perms.quota.maxConcurrentExecutions}`
-      );
+      console.log(`[PermissionControl] User ${userId} executions: ${perms.currentExecutions}/${perms.quota.maxConcurrentExecutions}`);
     }
   }
 

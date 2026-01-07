@@ -14,13 +14,7 @@ import {
 
 // Re-export RAGResult for convenience
 export type { RAGResult } from '../lib/offline-store/rag';
-import {
-  getDocument,
-  listDocuments,
-  getDocumentCount,
-  getStorageSize,
-  type StoredDocument,
-} from '../lib/offline-store/indexedDB';
+import { getDocument, listDocuments, getDocumentCount, getStorageSize, type StoredDocument } from '../lib/offline-store/indexedDB';
 
 /**
  * Store current page or URL for offline access
@@ -48,7 +42,7 @@ export async function savePageForOffline(options: {
       if (response.ok) {
         const data = await response.json();
         const summary = data.summaries?.[0];
-
+        
         if (summary) {
           return await storePageForRAG({
             url,
@@ -96,12 +90,10 @@ export async function getOfflineContext(query: string): Promise<string> {
 /**
  * List all stored documents
  */
-export async function listStoredDocuments(
-  options: {
-    limit?: number;
-    offset?: number;
-  } = {}
-): Promise<StoredDocument[]> {
+export async function listStoredDocuments(options: {
+  limit?: number;
+  offset?: number;
+} = {}): Promise<StoredDocument[]> {
   return await listDocuments(options);
 }
 
@@ -127,7 +119,10 @@ export async function getStorageStats(): Promise<{
   storageSize: number; // bytes
   storageSizeMB: number;
 }> {
-  const [count, size] = await Promise.all([getDocumentCount(), getStorageSize()]);
+  const [count, size] = await Promise.all([
+    getDocumentCount(),
+    getStorageSize(),
+  ]);
 
   return {
     documentCount: count,
@@ -135,3 +130,5 @@ export async function getStorageStats(): Promise<{
     storageSizeMB: Math.round((size / (1024 * 1024)) * 100) / 100,
   };
 }
+
+

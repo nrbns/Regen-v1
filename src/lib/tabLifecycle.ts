@@ -37,7 +37,7 @@ export async function reopenClosedTab(entry?: ClosedTab) {
         containerName: target.containerName,
         containerColor: target.containerColor,
         mode: target.mode,
-        title: target.title || store.tabs.find(t => t.id === newId)?.title,
+        title: target.title || store.tabs.find((t) => t.id === newId)?.title,
         url: target.url,
       });
       store.setActive(newId);
@@ -56,3 +56,4 @@ export async function reopenClosedTab(entry?: ClosedTab) {
 export async function reopenMostRecentClosedTab() {
   return reopenClosedTab();
 }
+

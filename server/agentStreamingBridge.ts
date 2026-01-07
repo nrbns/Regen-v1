@@ -1,6 +1,6 @@
 /**
  * Agent Streaming Bridge - Wires LangChain agent callbacks to Socket.IO events
- *
+ * 
  * Converts agent StreamCallback events to:
  * - MODEL_CHUNK: Token-by-token output
  * - JOB_PROGRESS: Step changes (thinking/searching/writing)
@@ -29,7 +29,7 @@ export function createAgentStreamCallback(options: StreamBridgeOptions): StreamC
   let sequence = 0;
   let currentStep = 'idle';
 
-  return async chunk => {
+  return async (chunk) => {
     sequence++;
 
     try {
@@ -145,11 +145,11 @@ export function createAgentStreamCallback(options: StreamBridgeOptions): StreamC
 function calculateProgress(step: number): number {
   // Map step number to progress
   const stepMap: Record<number, number> = {
-    0: 10, // thinking
-    1: 30, // searching
-    2: 60, // summarizing/writing
-    3: 80, // ethics/validation
-    4: 95, // finalizing
+    0: 10,  // thinking
+    1: 30,  // searching
+    2: 60,  // summarizing/writing
+    3: 80,  // ethics/validation
+    4: 95,  // finalizing
   };
   return stepMap[step] || Math.min(step * 20, 95);
 }
@@ -188,7 +188,7 @@ export async function emitJobStarted(
 
 /**
  * Example usage:
- *
+ * 
  * ```typescript
  * const streamCallback = createAgentStreamCallback({
  *   jobId: 'job-123',
@@ -196,9 +196,9 @@ export async function emitJobStarted(
  *   io: socketIOServer,
  *   redis: redisClient,
  * });
- *
+ * 
  * await emitJobStarted({ jobId, userId, io, redis }, 'research', { query: 'test' });
- *
+ * 
  * const result = await agentEngine.runWorkflow({
  *   query: 'What is quantum computing?',
  *   workflowType: 'research',

@@ -17,12 +17,7 @@ import {
   TrendingUp,
   ChevronRight,
 } from 'lucide-react';
-import {
-  getTemplates,
-  getTemplatesByCategory,
-  fillTemplate,
-  type GoalTemplate,
-} from '../../core/agent/templates';
+import { getTemplates, getTemplatesByCategory, fillTemplate, type GoalTemplate } from '../../core/agent/templates';
 
 interface TemplateFormProps {
   onSubmit: (goal: string, safety: any) => void;
@@ -117,9 +112,7 @@ export function AgentTemplateSelector({ onSubmit, onClose }: TemplateFormProps) 
                             />
                           </div>
                           <div>
-                            <h4 className="text-sm font-semibold text-emerald-100">
-                              {template.name}
-                            </h4>
+                            <h4 className="font-semibold text-sm text-emerald-100">{template.name}</h4>
                             <p className="mt-1 text-xs text-slate-400">{template.description}</p>
                           </div>
                           {template.suggestedDomains && template.suggestedDomains.length > 0 && (
@@ -151,8 +144,7 @@ export function AgentTemplateSelector({ onSubmit, onClose }: TemplateFormProps) 
                 <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
                   <div className="text-sm text-slate-300">{selectedTemplate.description}</div>
                   <div className="mt-2 text-xs text-slate-500">
-                    Expected output:{' '}
-                    <span className="capitalize">{selectedTemplate.expectedOutputType}</span>
+                    Expected output: <span className="capitalize">{selectedTemplate.expectedOutputType}</span>
                   </div>
                 </div>
 
@@ -192,24 +184,23 @@ export function AgentTemplateSelector({ onSubmit, onClose }: TemplateFormProps) 
                   ))}
                 </div>
 
-                {selectedTemplate.suggestedDomains &&
-                  selectedTemplate.suggestedDomains.length > 0 && (
-                    <div className="rounded-lg border border-slate-700/30 bg-slate-900/30 p-3">
-                      <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                        Suggested Domains
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {selectedTemplate.suggestedDomains.map((domain, i) => (
-                          <span
-                            key={i}
-                            className="inline-block rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200"
-                          >
-                            {domain}
-                          </span>
-                        ))}
-                      </div>
+                {selectedTemplate.suggestedDomains && selectedTemplate.suggestedDomains.length > 0 && (
+                  <div className="rounded-lg border border-slate-700/30 bg-slate-900/30 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Suggested Domains
                     </div>
-                  )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {selectedTemplate.suggestedDomains.map((domain, i) => (
+                        <span
+                          key={i}
+                          className="inline-block rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-200"
+                        >
+                          {domain}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -233,7 +224,10 @@ export function AgentTemplateSelector({ onSubmit, onClose }: TemplateFormProps) 
             <button
               onClick={handleSubmit}
               disabled={
-                loading || selectedTemplate.placeholders.some(p => p.required && !inputs[p.key])
+                loading ||
+                selectedTemplate.placeholders.some(
+                  p => p.required && !inputs[p.key]
+                )
               }
               className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >

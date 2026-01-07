@@ -56,7 +56,7 @@ export function detectHardwareCapabilities(): HardwareCapabilities {
  */
 function detectWebGPU(): boolean {
   if (typeof navigator === 'undefined') return false;
-
+  
   // Check for WebGPU
   if ('gpu' in navigator) {
     return true;
@@ -160,7 +160,10 @@ function detectDeviceType(): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
   }
 
   // Desktop
-  if (/win|mac|linux/i.test(platform) || /windows|macintosh|linux/i.test(userAgent)) {
+  if (
+    /win|mac|linux/i.test(platform) ||
+    /windows|macintosh|linux/i.test(userAgent)
+  ) {
     return 'desktop';
   }
 
@@ -294,9 +297,7 @@ export function isModelCompatible(
 /**
  * Get recommended runtime based on capabilities
  */
-export function getRecommendedRuntime(
-  capabilities: HardwareCapabilities
-): 'webgpu' | 'wasm' | 'native' | 'cloud' {
+export function getRecommendedRuntime(capabilities: HardwareCapabilities): 'webgpu' | 'wasm' | 'native' | 'cloud' {
   // Check if we're in Tauri (native available)
   try {
     if (typeof window !== 'undefined' && (window as any).__TAURI__) {
@@ -316,3 +317,4 @@ export function getRecommendedRuntime(
 
   return 'cloud';
 }
+

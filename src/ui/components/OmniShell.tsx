@@ -52,7 +52,12 @@ export function OmniShell({
 
   return (
     <div
-      className={`flex h-screen w-screen flex-col overflow-hidden bg-[var(--surface-root)] text-[var(--text-primary)] ${className} `}
+      className={`
+        flex flex-col h-screen w-screen
+        bg-[var(--surface-root)] text-[var(--text-primary)]
+        overflow-hidden
+        ${className}
+      `}
       role="application"
       aria-label="Regen"
     >
@@ -67,7 +72,7 @@ export function OmniShell({
 
       {/* Main Content Area */}
       <main
-        className="relative flex flex-1 overflow-hidden"
+        className="flex-1 flex overflow-hidden relative"
         role="main"
         style={{
           minHeight: 0, // Allows flex children to shrink
@@ -83,7 +88,7 @@ export function OmniShell({
               duration: 0.18,
               ease: [0.2, 0.9, 0.3, 1],
             }}
-            className="flex flex-1 flex-col overflow-hidden"
+            className="flex-1 flex flex-col overflow-hidden"
             style={{
               // Respect reduced motion
               transition: 'opacity 180ms cubic-bezier(0.2, 0.9, 0.3, 1)',

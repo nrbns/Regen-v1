@@ -21,11 +21,9 @@ npm install express multer uuid mammoth docx pdf-lib xlsx tesseract.js
 ## API Endpoints
 
 ### POST /api/doc/edit
-
 Upload and edit a document.
 
 **Request:**
-
 - `file`: FormData file upload
 - `task`: Edit task (rewrite, grammar, summarize, etc.)
 - `style`: Style option (formal, casual, concise, etc.)
@@ -34,7 +32,6 @@ Upload and edit a document.
 - `output`: Output format (original, docx, pdf, txt)
 
 **Response:**
-
 ```json
 {
   "id": "uuid",
@@ -54,15 +51,12 @@ Upload and edit a document.
 ```
 
 ### GET /api/doc/download/:id
-
 Download processed file.
 
 ### GET /api/doc/preview/:id
-
 Get preview/diff of edits.
 
 ### POST /api/doc/batch
-
 Batch process multiple files.
 
 ## Usage
@@ -103,3 +97,4 @@ app.use('/api/doc', docServiceRouter);
 - [ ] Template filling
 - [ ] Layout preservation for PDFs
 - [ ] Multi-language OCR support
+

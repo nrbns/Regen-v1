@@ -59,9 +59,9 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
 
   if (!content) {
     return (
-      <div className="flex h-full items-center justify-center text-gray-400">
+      <div className="flex items-center justify-center h-full text-gray-400">
         <div className="text-center">
-          <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
+          <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>Extracting content...</p>
         </div>
       </div>
@@ -69,15 +69,15 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
   }
 
   return (
-    <div className="flex h-full flex-col bg-gray-950 text-gray-100">
+    <div className="flex flex-col h-full bg-gray-950 text-gray-100">
       {/* Header */}
       <div className="border-b border-gray-800 p-6">
-        <div className="mb-4 flex items-start justify-between">
+        <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h1 className="mb-2 text-2xl font-bold">{content.title || propTitle}</h1>
+            <h1 className="text-2xl font-bold mb-2">{content.title || propTitle}</h1>
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+                <Clock className="w-4 h-4" />
                 <span>{content.readingTime} min read</span>
               </div>
               <div>{content.wordCount.toLocaleString()} words</div>
@@ -89,16 +89,16 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
         <div className="flex items-center gap-2">
           <button
             onClick={isPlaying && !isPaused ? handlePause : handlePlay}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
           >
             {isPlaying && !isPaused ? (
               <>
-                <Pause className="h-4 w-4" />
+                <Pause className="w-4 h-4" />
                 Pause
               </>
             ) : (
               <>
-                <Play className="h-4 w-4" />
+                <Play className="w-4 h-4" />
                 Play
               </>
             )}
@@ -106,14 +106,14 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
           {isPlaying && (
             <button
               onClick={handleStop}
-              className="flex items-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-white transition-colors hover:bg-gray-600"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             >
-              <Square className="h-4 w-4" />
+              <Square className="w-4 h-4" />
               Stop
             </button>
           )}
           <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Volume2 className="h-4 w-4" />
+            <Volume2 className="w-4 h-4" />
             <span>Text-to-Speech</span>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-8">
         <div
-          className="prose prose-invert prose-lg prose-slate max-w-none"
+          className="prose prose-invert max-w-none prose-lg prose-slate"
           dangerouslySetInnerHTML={{ __html: content.html }}
           style={{
             fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -134,3 +134,4 @@ export function ReaderModeView({ html, url, title: propTitle }: ReaderModeViewPr
     </div>
   );
 }
+

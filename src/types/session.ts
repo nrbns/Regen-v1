@@ -7,3 +7,4 @@ export interface BrowserSession {
   activeTabId?: string;
   color?: string;
 }
+

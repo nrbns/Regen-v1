@@ -42,7 +42,7 @@ export const useExtensionNexusStore = create<ExtensionNexusState>((set, get) => 
       set({ loading: false, error: error instanceof Error ? error.message : String(error) });
     }
   },
-  publish: async metadata => {
+  publish: async (metadata) => {
     try {
       set({ loading: true, error: null });
       await ipc.extensionNexus.publish(metadata);
@@ -54,8 +54,8 @@ export const useExtensionNexusStore = create<ExtensionNexusState>((set, get) => 
   toggleTrust: async (pluginId, trusted) => {
     try {
       await ipc.extensionNexus.trust(pluginId, trusted);
-      const plugins = get().plugins.map(plugin =>
-        plugin.pluginId === pluginId ? { ...plugin, trusted } : plugin
+      const plugins = get().plugins.map((plugin) =>
+        plugin.pluginId === pluginId ? { ...plugin, trusted } : plugin,
       );
       set({ plugins });
     } catch (error) {

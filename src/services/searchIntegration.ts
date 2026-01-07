@@ -1,6 +1,6 @@
 /**
  * Layer 4: Search Integration Service
- *
+ * 
  * Integrates Layer 4 local search with:
  * - Existing tab management (tabsStore)
  * - Layer 3 offline queue
@@ -43,7 +43,7 @@ export async function indexTab(tab: Tab): Promise<void> {
  * Index multiple tabs in batch
  */
 export async function indexTabs(tabs: Tab[]): Promise<void> {
-  const docs: SearchDocument[] = tabs.map(tab => ({
+  const docs: SearchDocument[] = tabs.map((tab) => ({
     id: tab.id,
     type: 'tab',
     title: tab.title || tab.url || 'Untitled',
@@ -146,7 +146,9 @@ export async function indexNote(note: {
 /**
  * Queue search index update when offline
  */
-export async function queueSearchIndexUpdate(doc: SearchDocument): Promise<void> {
+export async function queueSearchIndexUpdate(
+  doc: SearchDocument
+): Promise<void> {
   if (!navigator.onLine) {
     // Queue the index operation for later
     await offlineQueue.add('/api/search/index', {
@@ -286,7 +288,7 @@ export async function rebuildSearchIndex(data: {
 
   // Index tabs
   if (data.tabs) {
-    data.tabs.forEach(tab => {
+    data.tabs.forEach((tab) => {
       allDocs.push({
         id: tab.id,
         type: 'tab',
@@ -301,7 +303,7 @@ export async function rebuildSearchIndex(data: {
 
   // Index bookmarks
   if (data.bookmarks) {
-    data.bookmarks.forEach(bookmark => {
+    data.bookmarks.forEach((bookmark) => {
       allDocs.push({
         id: bookmark.id,
         type: 'bookmark',
@@ -316,7 +318,7 @@ export async function rebuildSearchIndex(data: {
 
   // Index notes
   if (data.notes) {
-    data.notes.forEach(note => {
+    data.notes.forEach((note) => {
       allDocs.push({
         id: note.id,
         type: 'note',
@@ -330,7 +332,7 @@ export async function rebuildSearchIndex(data: {
 
   // Index research
   if (data.research) {
-    data.research.forEach(doc => {
+    data.research.forEach((doc) => {
       allDocs.push({
         id: doc.id,
         type: 'research',

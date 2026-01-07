@@ -27,7 +27,11 @@ export async function enhancedSearch(
   query: string,
   options: EnhancedRAGOptions & { limit?: number } = {}
 ): Promise<any> {
-  const { method = 'hybrid', limit = 10, useEmbeddings: _useEmbeddings = true } = options;
+  const {
+    method = 'hybrid',
+    limit = 10,
+    useEmbeddings: _useEmbeddings = true,
+  } = options;
 
   switch (method) {
     case 'semantic':
@@ -103,3 +107,5 @@ export async function getEnhancedRAGContext(
 
   return contextParts.join('\n\n');
 }
+
+

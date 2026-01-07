@@ -8,7 +8,7 @@ export function useTabManager() {
   );
 
   useEffect(() => {
-    const unsub = tabManager.subscribe(info => {
+    const unsub = tabManager.subscribe((info) => {
       setTabId(info.id);
       setActiveJobId(info.activeJobId);
     });

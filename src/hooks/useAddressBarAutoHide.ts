@@ -75,3 +75,4 @@ export function useAddressBarAutoHide({
 
   return { isVisible, show: () => setIsVisible(true), hide: () => setIsVisible(false) };
 }
+

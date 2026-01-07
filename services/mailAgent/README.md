@@ -11,7 +11,7 @@
 ✅ **Executor** — Runs tasks with approval gates for high-risk actions  
 ✅ **Audit Logging** — Immutable append-only log for compliance  
 ✅ **Action Card UI** — React component for approval workflow  
-✅ **End-to-End Tests** — Integration tests with real APIs
+✅ **End-to-End Tests** — Integration tests with real APIs  
 
 ## 📁 Structure
 
@@ -93,10 +93,10 @@ console.log(`Created ${context.summaries.length} summaries`);
 const plan = planner.createPlan('user@example.com', 'draft reply to latest email');
 
 // Custom approval handler
-const approvalHandler = async req => {
+const approvalHandler = async (req) => {
   console.log(`Approval needed for: ${req.taskType}`);
   console.log(req.preview);
-
+  
   // Show UI modal, wait for user action
   return await getUserApproval(req);
 };
@@ -140,7 +140,7 @@ const plan = planner.createPlan('user@example.com', 'summarize emails');
 Executes a plan with approval gates.
 
 ```typescript
-const context = await executor.execute(userId, plan, async req => {
+const context = await executor.execute(userId, plan, async (req) => {
   // Show approval UI
   return userApproved;
 });
@@ -180,8 +180,8 @@ Shows a single agent action with approve/reject buttons.
 ```tsx
 <ActionCard
   plan={plan}
-  onApprove={planId => handleApprove(planId)}
-  onReject={planId => handleReject(planId)}
+  onApprove={(planId) => handleApprove(planId)}
+  onReject={(planId) => handleReject(planId)}
   isExecuting={false}
 />
 ```
@@ -209,11 +209,11 @@ Displays multiple action cards.
 
 ## 📊 Risk Levels
 
-| Level      | Description                            | Requires Approval             |
-| ---------- | -------------------------------------- | ----------------------------- |
-| **Low**    | Read-only operations (read, summarize) | ❌ Auto-execute               |
-| **Medium** | Draft creation                         | ✅ Optional                   |
-| **High**   | Sending emails, archiving, deleting    | ✅ Required (2FA recommended) |
+| Level | Description | Requires Approval |
+|-------|-------------|-------------------|
+| **Low** | Read-only operations (read, summarize) | ❌ Auto-execute |
+| **Medium** | Draft creation | ✅ Optional |
+| **High** | Sending emails, archiving, deleting | ✅ Required (2FA recommended) |
 
 ## 🧪 Testing
 

@@ -124,20 +124,20 @@ export function AgentCard({
       padding="md"
     >
       {/* Header */}
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
           {/* Icon */}
-          <div className={cn('flex-shrink-0 rounded-lg p-2', config.bgColor)}>
+          <div className={cn('p-2 rounded-lg flex-shrink-0', config.bgColor)}>
             {icon || config.icon}
           </div>
 
           {/* Info */}
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-center gap-2">
-              <h3 className="truncate text-base font-semibold text-white">{name}</h3>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-base font-semibold text-white truncate">{name}</h3>
               <span
                 className={cn(
-                  'flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium',
+                  'px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1',
                   config.color,
                   config.bgColor
                 )}
@@ -146,16 +146,18 @@ export function AgentCard({
                 {config.label}
               </span>
             </div>
-            {description && <p className="line-clamp-2 text-sm text-slate-400">{description}</p>}
+            {description && (
+              <p className="text-sm text-slate-400 line-clamp-2">{description}</p>
+            )}
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-shrink-0 items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {status === 'idle' && onRun && (
             <button
               onClick={onRun}
-              className="rounded-lg bg-purple-600 p-2 text-white transition-colors hover:bg-purple-700"
+              className="p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
               aria-label="Run agent"
             >
               <Play size={16} />
@@ -166,7 +168,7 @@ export function AgentCard({
               {onPause && (
                 <button
                   onClick={onPause}
-                  className="rounded-lg bg-amber-600 p-2 text-white transition-colors hover:bg-amber-700"
+                  className="p-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white transition-colors"
                   aria-label="Pause agent"
                 >
                   <Pause size={16} />
@@ -175,7 +177,7 @@ export function AgentCard({
               {onCancel && (
                 <button
                   onClick={onCancel}
-                  className="rounded-lg bg-red-600 p-2 text-white transition-colors hover:bg-red-700"
+                  className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
                   aria-label="Cancel agent"
                 >
                   <Square size={16} />
@@ -186,7 +188,7 @@ export function AgentCard({
           {status === 'completed' && onViewResult && (
             <button
               onClick={onViewResult}
-              className="rounded-lg bg-slate-700 p-2 text-slate-300 transition-colors hover:bg-slate-600"
+              className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
               aria-label="View result"
             >
               <Sparkles size={16} />
@@ -198,13 +200,13 @@ export function AgentCard({
       {/* Progress Bar */}
       {status === 'running' && progress !== undefined && (
         <div className="mb-3">
-          <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+          <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
-          <p className="mt-1 text-xs text-slate-400">{progress.toFixed(0)}% complete</p>
+          <p className="text-xs text-slate-400 mt-1">{progress.toFixed(0)}% complete</p>
         </div>
       )}
 
@@ -213,7 +215,7 @@ export function AgentCard({
         <div className="mb-3">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300"
+            className="text-xs text-slate-400 hover:text-slate-300 flex items-center gap-1"
           >
             {expanded ? 'Hide' : 'Show'} steps ({steps.length})
           </button>
@@ -222,21 +224,27 @@ export function AgentCard({
               {steps.map((step, idx) => (
                 <div
                   key={step.id || idx}
-                  className="flex items-center gap-2 rounded bg-slate-800/50 p-2"
+                  className="flex items-center gap-2 p-2 bg-slate-800/50 rounded"
                 >
                   <div className="flex-shrink-0">
                     {step.status === 'completed' && (
                       <CheckCircle2 size={14} className="text-emerald-400" />
                     )}
                     {step.status === 'running' && (
-                      <Loader2 size={14} className="animate-spin text-blue-400" />
+                      <Loader2 size={14} className="text-blue-400 animate-spin" />
                     )}
-                    {step.status === 'pending' && <Clock size={14} className="text-slate-500" />}
-                    {step.status === 'error' && <XCircle size={14} className="text-red-400" />}
+                    {step.status === 'pending' && (
+                      <Clock size={14} className="text-slate-500" />
+                    )}
+                    {step.status === 'error' && (
+                      <XCircle size={14} className="text-red-400" />
+                    )}
                   </div>
-                  <span className="flex-1 text-xs text-slate-300">{step.name}</span>
+                  <span className="text-xs text-slate-300 flex-1">{step.name}</span>
                   {step.duration !== undefined && (
-                    <span className="text-xs text-slate-500">{step.duration}ms</span>
+                    <span className="text-xs text-slate-500">
+                      {step.duration}ms
+                    </span>
                   )}
                 </div>
               ))}
@@ -249,22 +257,24 @@ export function AgentCard({
       {result && status === 'completed' && (
         <div
           className={cn(
-            'rounded-lg border p-3',
+            'p-3 rounded-lg border',
             result.type === 'success'
-              ? 'border-emerald-500/20 bg-emerald-500/10'
+              ? 'bg-emerald-500/10 border-emerald-500/20'
               : result.type === 'error'
-                ? 'border-red-500/20 bg-red-500/10'
-                : 'border-amber-500/20 bg-amber-500/10'
+              ? 'bg-red-500/10 border-red-500/20'
+              : 'bg-amber-500/10 border-amber-500/20'
           )}
         >
           <div className="flex items-start gap-2">
             {result.type === 'success' && <CheckCircle2 size={16} className="text-emerald-400" />}
             {result.type === 'error' && <XCircle size={16} className="text-red-400" />}
             {result.type === 'partial' && <AlertTriangle size={16} className="text-amber-400" />}
-            <p className="flex-1 text-sm text-slate-300">{result.message}</p>
+            <p className="text-sm text-slate-300 flex-1">{result.message}</p>
           </div>
         </div>
       )}
     </ResponsiveCard>
   );
 }
+
+

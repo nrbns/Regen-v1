@@ -83,15 +83,15 @@ export async function batchGenerateEmbeddings(
 function generateFallbackEmbedding(text: string): number[] {
   const vector: number[] = new Array(EMBEDDING_DIMENSIONS).fill(0);
   const words = text.toLowerCase().split(/\s+/);
-
+  
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
     let hash = 0;
     for (let j = 0; j < word.length; j++) {
-      hash = (hash << 5) - hash + word.charCodeAt(j);
+      hash = ((hash << 5) - hash) + word.charCodeAt(j);
       hash = hash & hash; // Convert to 32-bit integer
     }
-
+    
     const dim = Math.abs(hash) % EMBEDDING_DIMENSIONS;
     vector[dim] += 1 / (i + 1); // Weight by position
   }
@@ -115,11 +115,11 @@ export async function checkHuggingFaceAvailable(): Promise<boolean> {
     const response = await fetch(`${HUGGINGFACE_API_URL}/status`, {
       method: 'GET',
     });
-
+    
     if (!response.ok) {
       return false;
     }
-
+    
     const data = await response.json();
     return data.available === true;
   } catch (error) {
@@ -127,3 +127,4 @@ export async function checkHuggingFaceAvailable(): Promise<boolean> {
     return false;
   }
 }
+

@@ -101,7 +101,16 @@ export function getOrchestratorHealth() {
   return {
     initialized,
     timestamp: new Date(),
-    agents: ['mail', 'ppt', 'booking', 'research', 'browser', 'file', 'trading', 'general'],
+    agents: [
+      'mail',
+      'ppt',
+      'booking',
+      'research',
+      'browser',
+      'file',
+      'trading',
+      'general',
+    ],
   };
 }
 

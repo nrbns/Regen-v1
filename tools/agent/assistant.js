@@ -58,12 +58,10 @@ function connect() {
     console.log('[Assistant] Connected to bus');
 
     // Subscribe to request channel
-    ws.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channel: REQUEST_CHANNEL,
-      })
-    );
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      channel: REQUEST_CHANNEL,
+    }));
 
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
@@ -71,7 +69,7 @@ function connect() {
     }
   });
 
-  ws.on('message', data => {
+  ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
       handleMessage(message);
@@ -80,7 +78,7 @@ function connect() {
     }
   });
 
-  ws.on('error', error => {
+  ws.on('error', (error) => {
     console.error('[Assistant] WebSocket error:', error);
     isConnected = false;
   });
@@ -178,6 +176,7 @@ async function handleRequest(request) {
     setTimeout(() => {
       requestContexts.delete(contextId);
     }, 60000); // Keep for 1 minute
+
   } catch (error) {
     console.error(`[Assistant] Request ${id} failed:`, error);
     sendError(id, error.message);
@@ -191,10 +190,10 @@ async function routeRequest(context) {
   const { query, tools, context: requestContext } = context;
 
   // Determine which agents to use
-  const needsSummarize =
-    query.toLowerCase().includes('summarize') || query.toLowerCase().includes('summary');
-  const needsSearch =
-    query.toLowerCase().includes('search') || query.toLowerCase().includes('find');
+  const needsSummarize = query.toLowerCase().includes('summarize') || 
+                         query.toLowerCase().includes('summary');
+  const needsSearch = query.toLowerCase().includes('search') ||
+                      query.toLowerCase().includes('find');
   const needsVision = tools.includes('vision') || tools.includes('screenshot');
 
   const responses = [];
@@ -239,12 +238,10 @@ function callAgent(agentName, request) {
     const responseChannel = `${agentName}.responses.${request.id}`;
 
     // Subscribe to response channel
-    ws.send(
-      JSON.stringify({
-        type: 'subscribe',
-        channel: responseChannel,
-      })
-    );
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      channel: responseChannel,
+    }));
 
     // Set timeout
     const timeout = setTimeout(() => {
@@ -253,7 +250,7 @@ function callAgent(agentName, request) {
 
     // Listen for response
     const originalOnMessage = ws.onmessage;
-    ws.onmessage = event => {
+    ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
         if (message.type === 'message' && message.channel === responseChannel) {
@@ -267,13 +264,11 @@ function callAgent(agentName, request) {
     };
 
     // Publish request
-    ws.send(
-      JSON.stringify({
-        type: 'publish',
-        channel: agentChannel,
-        data: request,
-      })
-    );
+    ws.send(JSON.stringify({
+      type: 'publish',
+      channel: agentChannel,
+      data: request,
+    }));
   });
 }
 
@@ -338,13 +333,11 @@ function sendResponse(requestId, data) {
   }
 
   const channel = `${RESPONSE_CHANNEL_PREFIX}.${requestId}`;
-  ws.send(
-    JSON.stringify({
-      type: 'publish',
-      channel,
-      data,
-    })
-  );
+  ws.send(JSON.stringify({
+    type: 'publish',
+    channel,
+    data,
+  }));
 }
 
 /**
@@ -377,3 +370,4 @@ process.on('SIGTERM', () => {
   }
   process.exit(0);
 });
+

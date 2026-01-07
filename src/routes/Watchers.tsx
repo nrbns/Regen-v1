@@ -41,15 +41,15 @@ export default function WatchersPage() {
     };
 
     load();
-    const unsubscribeUpdated = ipcEvents.on<PageWatcher[]>('watchers:updated', payload => {
+    const unsubscribeUpdated = ipcEvents.on<PageWatcher[]>('watchers:updated', (payload) => {
       if (Array.isArray(payload)) {
         setWatchers(payload);
       }
     });
-    const unsubscribeChanged = ipcEvents.on<PageWatcher>('watchers:changed', payload => {
+    const unsubscribeChanged = ipcEvents.on<PageWatcher>('watchers:changed', (payload) => {
       if (payload?.id) {
-        setWatchers(prev =>
-          prev.map(watcher => (watcher.id === payload.id ? { ...watcher, ...payload } : watcher))
+        setWatchers((prev) =>
+          prev.map((watcher) => (watcher.id === payload.id ? { ...watcher, ...payload } : watcher)),
         );
       }
     });
@@ -67,7 +67,7 @@ export default function WatchersPage() {
         const bTime = b.lastChangeAt || b.lastCheckedAt || b.createdAt;
         return bTime - aTime;
       }),
-    [watchers]
+    [watchers],
   );
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -106,48 +106,42 @@ export default function WatchersPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-[#1A1D28] text-gray-100">
-      <header className="flex items-center justify-between border-b border-gray-800/50 p-6">
+    <div className="h-full w-full bg-[#1A1D28] text-gray-100 flex flex-col">
+      <header className="p-6 border-b border-gray-800/50 flex items-center justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-2xl font-bold">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
             <Activity size={22} className="text-emerald-400" />
             Page Change Watchers
           </h2>
-          <p className="mt-1 text-sm text-gray-400">
-            Receive alerts when tracked pages change. Checks run automatically at the interval you
-            choose.
+          <p className="text-sm text-gray-400 mt-1">
+            Receive alerts when tracked pages change. Checks run automatically at the interval you choose.
           </p>
         </div>
       </header>
 
-      <main className="flex-1 space-y-6 overflow-y-auto p-6">
-        <section className="rounded-xl border border-gray-800/60 bg-gray-900/70 p-5 shadow-lg shadow-black/20">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-200">
+      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <section className="bg-gray-900/70 rounded-xl border border-gray-800/60 p-5 shadow-lg shadow-black/20">
+          <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
             <AlarmPlus size={18} />
             Add watcher
           </h3>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="text-sm text-gray-400 mt-1">
             We’ll keep a hash of the page content and alert you whenever it changes.
           </p>
-          <form
-            onSubmit={handleSubmit}
-            className="mt-4 flex flex-col gap-3 md:flex-row md:items-end"
-          >
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 md:flex-row md:items-end">
             <div className="flex-1">
-              <label className="mb-2 block text-xs uppercase tracking-wide text-gray-500">
-                Page URL
-              </label>
+              <label className="block text-xs uppercase tracking-wide text-gray-500 mb-2">Page URL</label>
               <input
                 type="url"
                 required
                 value={form.url}
-                onChange={e => setForm(prev => ({ ...prev, url: e.target.value }))}
+                onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
                 placeholder="https://example.com/page"
-                className="w-full rounded-lg border border-gray-700/60 bg-gray-800/80 px-4 py-2.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                className="w-full px-4 py-2.5 rounded-lg bg-gray-800/80 border border-gray-700/60 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               />
             </div>
             <div className="w-full md:w-36">
-              <label className="mb-2 block text-xs uppercase tracking-wide text-gray-500">
+              <label className="block text-xs uppercase tracking-wide text-gray-500 mb-2">
                 Check every (minutes)
               </label>
               <input
@@ -155,56 +149,51 @@ export default function WatchersPage() {
                 min={1}
                 max={1440}
                 value={form.intervalMinutes}
-                onChange={e =>
-                  setForm(prev => ({
-                    ...prev,
-                    intervalMinutes: Number.parseInt(e.target.value || '15', 10),
-                  }))
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, intervalMinutes: Number.parseInt(e.target.value || '15', 10) }))
                 }
-                className="w-full rounded-lg border border-gray-700/60 bg-gray-800/80 px-4 py-2.5 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                className="w-full px-4 py-2.5 rounded-lg bg-gray-800/80 border border-gray-700/60 text-sm text-gray-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               />
             </div>
             <button
               type="submit"
               disabled={adding}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold transition hover:bg-emerald-500 disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition disabled:opacity-60 text-sm font-semibold"
             >
               {adding ? 'Adding…' : 'Add watcher'}
             </button>
           </form>
-          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-400 mt-3">{error}</p>}
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
               Active watchers
               <span className="text-xs text-gray-500">({watchers.length})</span>
             </h3>
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-20 text-sm text-gray-400">
-              Loading watchers…
-            </div>
+            <div className="flex items-center justify-center py-20 text-gray-400 text-sm">Loading watchers…</div>
           ) : sortedWatchers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center text-gray-500">
               <p className="text-sm">No watchers yet. Add a page to start monitoring changes.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {sortedWatchers.map(watcher => (
+              {sortedWatchers.map((watcher) => (
                 <motion.div
                   key={watcher.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="rounded-lg border border-gray-800/60 bg-gray-900/60 p-4 transition-all hover:bg-gray-900/80"
+                  className="bg-gray-900/60 border border-gray-800/60 rounded-lg p-4 hover:bg-gray-900/80 transition-all"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${statusColors[watcher.status]}`}
+                          className={`text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${statusColors[watcher.status]}`}
                         >
                           {watcher.status}
                         </span>
@@ -217,16 +206,14 @@ export default function WatchersPage() {
                         href={watcher.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="truncate text-sm font-medium text-emerald-200 hover:underline"
+                        className="text-sm font-medium text-emerald-200 truncate hover:underline"
                         title={watcher.url}
                       >
                         {watcher.url}
                       </a>
-                      <div className="mt-1 space-x-3 text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 mt-1 space-x-3">
                         {watcher.lastCheckedAt && (
-                          <span>
-                            Last check: {new Date(watcher.lastCheckedAt).toLocaleString()}
-                          </span>
+                          <span>Last check: {new Date(watcher.lastCheckedAt).toLocaleString()}</span>
                         )}
                         {watcher.lastChangeAt && (
                           <span className="text-amber-300">
@@ -235,7 +222,9 @@ export default function WatchersPage() {
                         )}
                       </div>
                       {watcher.error && (
-                        <div className="mt-2 text-xs text-red-400">Error: {watcher.error}</div>
+                        <div className="mt-2 text-xs text-red-400">
+                          Error: {watcher.error}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -243,7 +232,7 @@ export default function WatchersPage() {
                         onClick={() => handleTrigger(watcher.id)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="rounded-lg border border-gray-700/60 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-blue-400"
+                        className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/60 text-gray-300 hover:text-blue-400 transition-colors"
                         title="Run check now"
                       >
                         <RefreshCw size={16} />
@@ -252,7 +241,7 @@ export default function WatchersPage() {
                         onClick={() => handleRemove(watcher.id)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="rounded-lg border border-gray-700/60 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-red-400"
+                        className="p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/60 text-gray-300 hover:text-red-400 transition-colors"
                         title="Remove watcher"
                       >
                         <Trash2 size={16} />
@@ -268,3 +257,4 @@ export default function WatchersPage() {
     </div>
   );
 }
+

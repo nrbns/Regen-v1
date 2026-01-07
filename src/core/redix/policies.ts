@@ -55,7 +55,7 @@ class PolicyEngine {
   setMode(mode: PolicyMode): void {
     this.currentMode = mode;
     this.activePolicies = this.getPolicyRules(mode);
-
+    
     dispatch({
       type: 'redix:policy:mode-changed',
       payload: { mode, policies: this.activePolicies },
@@ -135,8 +135,13 @@ class PolicyEngine {
    */
   private evaluatePolicies(): void {
     const { memoryUsage, cpuUsage, batteryLevel, isWifi } = this.metrics;
-    const { memoryThreshold, cpuThreshold, batteryThreshold, prefetchEnabled, prefetchOnWifiOnly } =
-      this.activePolicies;
+    const {
+      memoryThreshold,
+      cpuThreshold,
+      batteryThreshold,
+      prefetchEnabled,
+      prefetchOnWifiOnly,
+    } = this.activePolicies;
 
     // Check if we should disable prefetch due to battery or network
     if (prefetchEnabled) {
@@ -271,7 +276,7 @@ export const getPolicyMetrics = () => policyEngine.getMetrics();
 export const getPolicyRules = (mode?: PolicyMode) => policyEngine.getPolicyRules(mode);
 
 // Listen for performance events
-Redix.watch('redix:performance:low', event => {
+Redix.watch('redix:performance:low', (event) => {
   const { memory, cpu, battery } = event.payload;
   policyEngine.updateMetrics({
     memoryUsage: memory,
@@ -279,3 +284,4 @@ Redix.watch('redix:performance:low', event => {
     batteryLevel: battery,
   });
 });
+

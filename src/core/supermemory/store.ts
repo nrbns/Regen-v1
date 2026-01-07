@@ -31,7 +31,7 @@ class MemoryStore {
       const { superMemoryDB } = await import('./db');
       await superMemoryDB.init();
       this.useIndexedDB = true;
-
+      
       // Get database instance for backward compatibility
       this.db = (superMemoryDB as any).db;
     } catch (error) {
@@ -80,12 +80,12 @@ class MemoryStore {
       }
       const arr = this.get<any[]>(key) || [];
       arr.unshift(item); // Add to beginning
-
+      
       // Limit array size
       if (arr.length > MAX_EVENTS) {
         arr.splice(MAX_EVENTS);
       }
-
+      
       this.set(key, arr);
     } catch (error) {
       console.error('[SuperMemory] Failed to push:', key, error);
@@ -159,9 +159,9 @@ class MemoryStore {
       filtered = filtered.filter(e => Boolean(e.metadata?.pinned) === filters.pinned);
     }
     if (filters?.tags && filters.tags.length > 0) {
-      filtered = filtered.filter(e => {
+      filtered = filtered.filter((e) => {
         const eventTags = e.metadata?.tags || [];
-        return filters.tags!.every(tag => eventTags.includes(tag));
+        return filters.tags!.every((tag) => eventTags.includes(tag));
       });
     }
 
@@ -173,16 +173,17 @@ class MemoryStore {
    */
   private calculateScore(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): number {
     const allEvents = this.get<MemoryEvent[]>('events') || [];
-
+    
     // Frequency: how many times this value appeared
-    const frequency = allEvents.filter(
-      e => e.type === event.type && JSON.stringify(e.value) === JSON.stringify(event.value)
+    const frequency = allEvents.filter(e => 
+      e.type === event.type && 
+      JSON.stringify(e.value) === JSON.stringify(event.value)
     ).length;
-
+    
     // Recency: newer events get higher score (decay over time)
     // const now = Date.now(); // Unused for now
     const recency = 1; // Current event is most recent
-
+    
     // Combined score (frequency * 0.6 + recency * 0.4)
     return frequency * 0.6 + recency * 0.4;
   }
@@ -197,14 +198,14 @@ class MemoryStore {
       const transaction = this.db.transaction(['events'], 'readwrite');
       const store = transaction.objectStore('events');
       const index = store.index('ts');
-
+      
       // Delete events older than 90 days
-      const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+      const cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
       const range = IDBKeyRange.upperBound(cutoff);
-
+      
       return new Promise((resolve, reject) => {
         const request = index.openCursor(range);
-        request.onsuccess = e => {
+        request.onsuccess = (e) => {
           const cursor = (e.target as IDBRequest).result;
           if (cursor) {
             cursor.delete();
@@ -228,16 +229,16 @@ class MemoryStore {
       return;
     }
     const events = this.get<MemoryEvent[]>('events') || [];
-
+    
     // Remove events older than 90 days
-    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - (90 * 24 * 60 * 60 * 1000);
     const filtered = events.filter(e => e.ts >= cutoff);
-
+    
     // Limit total events
     if (filtered.length > MAX_EVENTS) {
       filtered.splice(MAX_EVENTS);
     }
-
+    
     this.set('events', filtered);
   }
 
@@ -254,7 +255,7 @@ class MemoryStore {
         console.warn('[SuperMemory] Failed to clear IndexedDB:', error);
       }
     }
-
+    
     if (typeof window !== 'undefined' && window.localStorage) {
       localStorage.removeItem(STORAGE_PREFIX + 'events');
     }
@@ -276,16 +277,13 @@ class MemoryStore {
         const { superMemoryDB } = await import('./db');
         return await superMemoryDB.getEvent(eventId);
       } catch (error) {
-        console.warn(
-          '[SuperMemory] IndexedDB getEvent failed, falling back to localStorage:',
-          error
-        );
+        console.warn('[SuperMemory] IndexedDB getEvent failed, falling back to localStorage:', error);
         this.useIndexedDB = false;
       }
     }
 
     const allEvents = this.get<MemoryEvent[]>('events') || [];
-    return allEvents.find(event => event.id === eventId) || null;
+    return allEvents.find((event) => event.id === eventId) || null;
   }
 
   /**
@@ -299,17 +297,16 @@ class MemoryStore {
         const { superMemoryDB } = await import('./db');
         return await superMemoryDB.getEventsByIds(eventIds);
       } catch (error) {
-        console.warn(
-          '[SuperMemory] IndexedDB getEventsByIds failed, falling back to localStorage:',
-          error
-        );
+        console.warn('[SuperMemory] IndexedDB getEventsByIds failed, falling back to localStorage:', error);
         this.useIndexedDB = false;
       }
     }
 
     const allEvents = this.get<MemoryEvent[]>('events') || [];
-    const map = new Map(allEvents.map(event => [event.id, event]));
-    return eventIds.map(id => map.get(id)).filter((event): event is MemoryEvent => Boolean(event));
+    const map = new Map(allEvents.map((event) => [event.id, event]));
+    return eventIds
+      .map((id) => map.get(id))
+      .filter((event): event is MemoryEvent => Boolean(event));
   }
 }
 
@@ -322,3 +319,4 @@ export { MemoryStore }; // Export class for type usage
 if (typeof window !== 'undefined') {
   memoryStoreInstance.init().catch(console.error);
 }
+

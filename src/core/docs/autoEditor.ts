@@ -146,7 +146,7 @@ Return only valid JSON array, no markdown formatting.`;
       // Validate position
       if (s.position.start < 0 || s.position.end > content.length) return false;
       if (s.position.start >= s.position.end) return false;
-
+      
       // Validate text matches
       const actualText = content.substring(s.position.start, s.position.end);
       if (actualText.trim() !== s.originalText.trim()) {
@@ -204,10 +204,7 @@ function generateHeuristicSuggestions(
       }
 
       // Wordiness detection
-      if (
-        /\b(very|really|quite|rather|pretty)\s+\w+/i.test(trimmed) &&
-        trimmed.split(/\s+/).length > 15
-      ) {
+      if (/\b(very|really|quite|rather|pretty)\s+\w+/i.test(trimmed) && trimmed.split(/\s+/).length > 15) {
         suggestions.push({
           id: `heuristic-${idx}-wordy`,
           type: 'clarity',
@@ -318,3 +315,4 @@ export async function parseDocument(file: File): Promise<{ content: string; type
 
   return { content, type };
 }
+

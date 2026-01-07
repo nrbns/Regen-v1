@@ -12,3 +12,4 @@ export function useIPCEvent<T>(event: string, callback: (data: T) => void, deps:
     return unsubscribe;
   }, [event, ...deps]);
 }
+

@@ -18,11 +18,11 @@ export const useEcoImpactStore = create<EcoImpactState>((set, get) => ({
   forecast: null,
   horizonMinutes: 120,
   lastUpdated: null,
-  setHorizon: minutes => {
+  setHorizon: (minutes) => {
     set({ horizonMinutes: minutes });
     void get().fetch({ horizonMinutes: minutes });
   },
-  fetch: async options => {
+  fetch: async (options) => {
     const horizonMinutes = options?.horizonMinutes ?? get().horizonMinutes;
     try {
       set({ loading: true, error: null });

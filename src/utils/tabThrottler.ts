@@ -37,3 +37,4 @@ export function shouldThrottleTab(tabId: string | null): boolean {
   // Throttle if tab is not active or page is hidden
   return !isActive || !isVisible;
 }
+

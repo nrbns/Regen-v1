@@ -29,9 +29,9 @@ if (!fs.existsSync(docsDir)) {
 }
 
 // Find all markdown and HTML files
-const files = fs
-  .readdirSync(docsDir)
-  .filter(f => f.endsWith('.md') || f.endsWith('.html') || f.endsWith('.txt'));
+const files = fs.readdirSync(docsDir).filter(f => 
+  f.endsWith('.md') || f.endsWith('.html') || f.endsWith('.txt')
+);
 
 if (files.length === 0) {
   console.warn('No markdown/html files found in docs directory');
@@ -60,17 +60,17 @@ builder.ref('id');
 files.forEach((file, i) => {
   const fullPath = path.join(docsDir, file);
   let content = '';
-
+  
   try {
     content = fs.readFileSync(fullPath, 'utf8');
   } catch (err) {
     console.warn(`Failed to read ${file}:`, err.message);
     return;
   }
-
+  
   // Extract title from filename or first heading
   let title = file.replace(/[-_]/g, ' ').replace(/\.(md|html|txt)$/, '');
-
+  
   // Try to extract title from markdown
   if (file.endsWith('.md')) {
     const headingMatch = content.match(/^#+\s+(.+)$/m);
@@ -78,19 +78,19 @@ files.forEach((file, i) => {
       title = headingMatch[1].trim();
     }
   }
-
+  
   // Try to extract title from HTML
   if (file.endsWith('.html')) {
-    const titleMatch =
-      content.match(/<title>(.*?)<\/title>/i) || content.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const titleMatch = content.match(/<title>(.*?)<\/title>/i) || 
+                       content.match(/<h1[^>]*>(.*?)<\/h1>/i);
     if (titleMatch) {
       title = titleMatch[1].replace(/<[^>]+>/g, '').trim();
     }
   }
-
+  
   const id = String(i);
   documents[id] = { id, title, body: content };
-
+  
   builder.add({ id, title, body: content });
   console.log(`  ✓ Indexed: ${title}`);
 });
@@ -103,3 +103,4 @@ const output = {
 
 fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
 console.log(`\n✓ Wrote index with ${Object.keys(documents).length} documents to ${outputPath}`);
+

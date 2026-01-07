@@ -1,12 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import ReactFlow, {
-  Background,
-  Controls,
-  useNodesState,
-  type Edge,
-  type Node,
-  type NodeProps,
-} from 'reactflow';
+import ReactFlow, { Background, Controls, useNodesState, type Edge, type Node, type NodeProps } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { ShieldAlert, ShieldCheck, AlertTriangle } from 'lucide-react';
 import type { ConsentRecord, ConsentRisk } from '../../types/consent';
@@ -60,16 +53,15 @@ const ConsentNode = ({ data }: NodeProps<ConsentNodeData>) => {
       className={`w-56 rounded-2xl border px-4 py-3 shadow-lg shadow-black/30 transition-colors duration-200 ${statusClasses[status]}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="line-clamp-1 text-xs font-semibold leading-tight">{label}</span>
+        <span className="text-xs font-semibold leading-tight line-clamp-1">{label}</span>
         {renderRiskIcon(risk)}
       </div>
-      <div className="mt-2 line-clamp-3 text-[11px] leading-snug text-gray-300/80">
+      <div className="mt-2 text-[11px] leading-snug text-gray-300/80 line-clamp-3">
         {description || 'No additional context provided.'}
       </div>
       {status === 'pending' && (
         <div className="mt-3 rounded-lg border border-dashed border-amber-400/60 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-100">
-          Drag into <span className="font-semibold">Approve</span> or{' '}
-          <span className="font-semibold">Reject</span> lanes
+          Drag into <span className="font-semibold">Approve</span> or <span className="font-semibold">Reject</span> lanes
         </div>
       )}
       {status === 'approved' && (
@@ -100,29 +92,26 @@ function buildNodes(records: ConsentRecord[]): Node<ConsentNodeData>[] {
     approved: [],
     revoked: [],
   };
-  records.forEach(record => {
+  records.forEach((record) => {
     const status = resolveStatus(record);
     grouped[status].push(record);
   });
 
-  return (['pending', 'approved', 'revoked'] as ConsentNodeStatus[]).flatMap(status => {
+  return (['pending', 'approved', 'revoked'] as ConsentNodeStatus[]).flatMap((status) => {
     const items = grouped[status];
-    return items.slice(0, 6).map(
-      (record, index) =>
-        ({
-          id: record.id,
-          type: 'consent',
-          position: { x: LANE_X[status], y: NODE_Y_START + index * NODE_Y_GAP },
-          data: {
-            record,
-            label: CONSENT_ACTION_LABELS[record.action.type] ?? record.action.type,
-            description: record.action.description ?? '—',
-            status,
-            risk: record.action.risk,
-          },
-          draggable: status === 'pending',
-        }) as Node<ConsentNodeData>
-    );
+    return items.slice(0, 6).map((record, index) => ({
+      id: record.id,
+      type: 'consent',
+      position: { x: LANE_X[status], y: NODE_Y_START + index * NODE_Y_GAP },
+      data: {
+        record,
+        label: CONSENT_ACTION_LABELS[record.action.type] ?? record.action.type,
+        description: record.action.description ?? '—',
+        status,
+        risk: record.action.risk,
+      },
+      draggable: status === 'pending',
+    }) as Node<ConsentNodeData>);
   });
 }
 
@@ -135,8 +124,8 @@ export function ConsentFlowGraph({ records, onApprove, onRevoke, loading }: Cons
   }, [records, setNodes]);
 
   const moveNodeToLane = (nodeId: string, status: ConsentNodeStatus, y: number) => {
-    setNodes(current =>
-      current.map(node =>
+    setNodes((current) =>
+      current.map((node) =>
         node.id === nodeId
           ? {
               ...node,
@@ -144,8 +133,8 @@ export function ConsentFlowGraph({ records, onApprove, onRevoke, loading }: Cons
               data: { ...node.data, status },
               draggable: status === 'pending',
             }
-          : node
-      )
+          : node,
+      ),
     );
   };
 

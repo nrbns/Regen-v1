@@ -94,7 +94,7 @@ function generateSelector(element: Element): string {
 function isInteractive(element: Element): boolean {
   const tag = element.tagName.toLowerCase();
   const interactiveTags = ['a', 'button', 'input', 'select', 'textarea', 'details', 'summary'];
-
+  
   if (interactiveTags.includes(tag)) {
     return true;
   }
@@ -106,11 +106,9 @@ function isInteractive(element: Element): boolean {
   }
 
   // Check for event handlers (simplified)
-  const hasClick = !!(
-    element.getAttribute('onclick') ||
-    element.getAttribute('data-action') ||
-    (element instanceof HTMLElement && window.getComputedStyle(element).cursor === 'pointer')
-  );
+  const hasClick = !!(element.getAttribute('onclick') || 
+                   element.getAttribute('data-action') ||
+                   (element instanceof HTMLElement && window.getComputedStyle(element).cursor === 'pointer'));
 
   return hasClick;
 }
@@ -154,10 +152,8 @@ export function analyzeDOM(doc: Document = window.document): PageSnapshot {
     // Extract attributes
     const attributes: Record<string, string> = {};
     Array.from(element.attributes).forEach(attr => {
-      if (
-        attr.name.startsWith('data-') ||
-        ['id', 'class', 'type', 'name', 'value', 'href', 'src', 'alt', 'title'].includes(attr.name)
-      ) {
+      if (attr.name.startsWith('data-') || 
+          ['id', 'class', 'type', 'name', 'value', 'href', 'src', 'alt', 'title'].includes(attr.name)) {
         attributes[attr.name] = attr.value;
       }
     });

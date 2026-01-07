@@ -79,12 +79,14 @@ export async function summarize(options: SummarizeOptions): Promise<SummarizeRes
         : import.meta.env.VITE_API_BASE_URL ||
           import.meta.env.VITE_APP_API_URL ||
           'http://127.0.0.1:4000';
-
-    const response = await fetch(`${apiBaseUrl}/api/summarize`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, text, question, waitFor: 2 }),
-    });
+    
+    const response = await fetch(`${apiBaseUrl}/api/summarize`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, text, question, waitFor: 2 }),
+      }
+    );
 
     // If 202, job is enqueued - subscribe to SSE for results
     if (response.status === 202) {

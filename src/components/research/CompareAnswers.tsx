@@ -147,7 +147,7 @@ export function CompareAnswersPanel({
                     {new Date(answer.createdAt).toLocaleTimeString()}
                   </span>
                 </header>
-                <p className="mt-3 whitespace-pre-line text-sm text-gray-200">{answer.summary}</p>
+                <p className="mt-3 text-sm text-gray-200 whitespace-pre-line">{answer.summary}</p>
                 <div className="mt-3 grid gap-2 text-xs text-gray-400 sm:grid-cols-3">
                   <StatBlock label="Confidence" value={formatPercent(answer.confidence)} />
                   <StatBlock label="Sources" value={`${answer.sources.length}`} />

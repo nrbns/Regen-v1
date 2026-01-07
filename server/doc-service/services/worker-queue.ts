@@ -51,7 +51,7 @@ export const docEditQueue = new Queue<JobData>('doc-edit', {
 // Create worker
 export const docEditWorker = new Worker<JobData>(
   'doc-edit',
-  async job => {
+  async (job) => {
     const { filePath, fileType, task, options } = job.data;
 
     // Update progress
@@ -63,11 +63,7 @@ export const docEditWorker = new Worker<JobData>(
       // Process based on file type
       switch (fileType) {
         case 'docx':
-          await job.updateProgress({
-            stage: 'editing',
-            progress: 30,
-            message: 'Editing document...',
-          });
+          await job.updateProgress({ stage: 'editing', progress: 30, message: 'Editing document...' });
           result = await docxService.edit(filePath, task, options);
           break;
         case 'pdf':
@@ -76,22 +72,14 @@ export const docEditWorker = new Worker<JobData>(
           break;
         case 'xlsx':
         case 'xls':
-          await job.updateProgress({
-            stage: 'editing',
-            progress: 30,
-            message: 'Normalizing spreadsheet...',
-          });
+          await job.updateProgress({ stage: 'editing', progress: 30, message: 'Normalizing spreadsheet...' });
           result = await excelService.edit(filePath, task, options);
           break;
         default:
           throw new Error(`Unsupported file type: ${fileType}`);
       }
 
-      await job.updateProgress({
-        stage: 'generating',
-        progress: 80,
-        message: 'Generating output...',
-      });
+      await job.updateProgress({ stage: 'generating', progress: 80, message: 'Generating output...' });
       await job.updateProgress({ stage: 'complete', progress: 100, message: 'Complete!' });
 
       return result;
@@ -148,3 +136,4 @@ export async function getJobStatus(jobId: string) {
     error: job.failedReason || null,
   };
 }
+

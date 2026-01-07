@@ -34,7 +34,9 @@ export function LanguageSelector() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Globe className="h-5 w-5 text-gray-400" />
-        <label className="text-sm font-medium text-gray-200">Language / भाषा / மொழி / భాష</label>
+        <label className="text-sm font-medium text-gray-200">
+          Language / भाषा / மொழி / భాష
+        </label>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -52,12 +54,17 @@ export function LanguageSelector() {
                   : 'border-gray-700 bg-gray-800/50 text-gray-300 hover:border-gray-600 hover:bg-gray-800'
               }`}
             >
-              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: meta.accent }} />
+              <div
+                className="h-3 w-3 rounded-full"
+                style={{ backgroundColor: meta.accent }}
+              />
               <div className="flex-1">
                 <div className="font-medium">{lang.nativeName}</div>
                 <div className="text-xs opacity-70">{lang.name}</div>
               </div>
-              {isSelected && <div className="h-2 w-2 rounded-full bg-purple-500" />}
+              {isSelected && (
+                <div className="h-2 w-2 rounded-full bg-purple-500" />
+              )}
             </button>
           );
         })}
@@ -69,3 +76,4 @@ export function LanguageSelector() {
     </div>
   );
 }
+

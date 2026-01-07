@@ -130,3 +130,4 @@ export function getApisForMode(mode: OmniMode): ExternalAPI[] {
     api => api.mode === mode || (Array.isArray(api.mode) && api.mode.includes(mode))
   );
 }
+

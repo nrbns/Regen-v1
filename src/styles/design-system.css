@@ -127,14 +127,14 @@
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 400ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
+  
   /* Animation Durations */
   --duration-instant: 100ms;
   --duration-fast: 150ms;
   --duration-base: 200ms;
   --duration-slow: 300ms;
   --duration-slower: 500ms;
-
+  
   /* Easing Functions */
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
@@ -151,7 +151,7 @@
   --z-popover: 1060;
   --z-tooltip: 1070;
   --z-toast: 1080;
-
+  
   /* Spacing Utilities - Responsive */
   --spacing-xs: var(--space-1);
   --spacing-sm: var(--space-2);
@@ -159,13 +159,13 @@
   --spacing-lg: var(--space-6);
   --spacing-xl: var(--space-8);
   --spacing-2xl: var(--space-12);
-
+  
   /* Component Spacing */
   --component-padding-sm: var(--space-2);
   --component-padding-md: var(--space-4);
   --component-padding-lg: var(--space-6);
   --component-padding-xl: var(--space-8);
-
+  
   /* Gap Utilities */
   --gap-xs: var(--space-1);
   --gap-sm: var(--space-2);
@@ -297,10 +297,7 @@
 }
 
 .transition-colors-smooth {
-  transition:
-    color var(--transition-smooth),
-    background-color var(--transition-smooth),
-    border-color var(--transition-smooth);
+  transition: color var(--transition-smooth), background-color var(--transition-smooth), border-color var(--transition-smooth);
 }
 
 .transition-transform-smooth {
@@ -313,9 +310,7 @@
 
 /* Hover Effects */
 .hover-lift {
-  transition:
-    transform var(--transition-base),
-    box-shadow var(--transition-base);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .hover-lift:hover {
@@ -367,24 +362,12 @@
   animation-fill-mode: both;
 }
 
-.stagger-children > *:nth-child(1) {
-  animation-delay: 0ms;
-}
-.stagger-children > *:nth-child(2) {
-  animation-delay: 50ms;
-}
-.stagger-children > *:nth-child(3) {
-  animation-delay: 100ms;
-}
-.stagger-children > *:nth-child(4) {
-  animation-delay: 150ms;
-}
-.stagger-children > *:nth-child(5) {
-  animation-delay: 200ms;
-}
-.stagger-children > *:nth-child(n + 6) {
-  animation-delay: 250ms;
-}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(n+6) { animation-delay: 250ms; }
 
 /* Consistent Spacing Utilities */
 .space-y-consistent > * + * {
@@ -404,11 +387,11 @@
   .space-y-consistent > * + * {
     margin-top: var(--spacing-sm);
   }
-
+  
   .space-x-consistent > * + * {
     margin-left: var(--spacing-sm);
   }
-
+  
   .gap-consistent {
     gap: var(--spacing-sm);
   }
@@ -423,7 +406,7 @@ html {
   html {
     scroll-behavior: auto;
   }
-
+  
   *,
   *::before,
   *::after {

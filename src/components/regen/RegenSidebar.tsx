@@ -234,16 +234,16 @@ export function RegenSidebar() {
   };
 
   return (
-    <div className="flex h-full flex-col border-l border-gray-700 bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-900 border-l border-gray-700">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-700 p-4">
+      <div className="flex items-center justify-between p-4 border-b border-gray-700">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-blue-500" />
+          <Sparkles className="w-5 h-5 text-blue-500" />
           <h2 className="text-lg font-semibold text-gray-200">Regen</h2>
           {isConnected ? (
-            <Wifi className="h-4 w-4 text-green-500" aria-label="Connected" />
+            <Wifi className="w-4 h-4 text-green-500" aria-label="Connected" />
           ) : (
-            <WifiOff className="h-4 w-4 text-red-500" aria-label="Disconnected" />
+            <WifiOff className="w-4 h-4 text-red-500" aria-label="Disconnected" />
           )}
         </div>
         <button
@@ -252,47 +252,47 @@ export function RegenSidebar() {
             const { useAppStore } = await import('../../state/appStore');
             useAppStore.getState().setRegenSidebarOpen(false);
           }}
-          className="text-gray-400 transition-colors hover:text-gray-300"
+          className="text-gray-400 hover:text-gray-300 transition-colors"
           aria-label="Close"
         >
-          <X className="h-5 w-5" />
+          <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Mode Toggles */}
-      <div className="flex gap-2 border-b border-gray-700 p-3">
+      <div className="flex gap-2 p-3 border-b border-gray-700">
         <button
           onClick={() => setMode('research')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
             mode === 'research'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
           }`}
         >
-          <Search className="h-4 w-4" />
+          <Search className="w-4 h-4" />
           <span className="text-sm font-medium">Research</span>
         </button>
         <button
           onClick={() => setMode('trade')}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-colors ${
             mode === 'trade'
               ? 'bg-green-600 text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
           }`}
         >
-          <TrendingUp className="h-4 w-4" />
+          <TrendingUp className="w-4 h-4" />
           <span className="text-sm font-medium">Trade</span>
         </button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
-          <div className="mt-8 text-center text-gray-400">
-            <Sparkles className="mx-auto mb-4 h-12 w-12 opacity-50" />
+          <div className="text-center text-gray-400 mt-8">
+            <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm">Ask me anything or use voice commands</p>
-            {_currentStatus && <p className="mt-2 text-xs text-blue-400">{_currentStatus}</p>}
-            <p className="mt-2 text-xs text-gray-500">
+            {_currentStatus && <p className="text-xs mt-2 text-blue-400">{_currentStatus}</p>}
+            <p className="text-xs mt-2 text-gray-500">
               {mode === 'research' ? (
                 <>
                   Try: "Find 5 best brokers for intraday trading in India and give detailed
@@ -321,7 +321,7 @@ export function RegenSidebar() {
                 msg.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-200'
               }`}
             >
-              <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
               {msg.commands && msg.commands.length > 0 && (
                 <div className="mt-2 text-xs opacity-75">
                   {msg.commands.length} command(s) executed
@@ -333,8 +333,8 @@ export function RegenSidebar() {
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="rounded-lg bg-gray-800 px-4 py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            <div className="bg-gray-800 rounded-lg px-4 py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
             </div>
           </div>
         )}
@@ -343,42 +343,42 @@ export function RegenSidebar() {
       </div>
 
       {/* Hands-Free Mode Toggle */}
-      <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800/50 px-4 py-2">
+      <div className="px-4 py-2 border-t border-gray-700 flex items-center justify-between bg-gray-800/50">
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">Hands-Free Mode</span>
           <button
             onClick={() => setHandsFreeMode(!handsFreeMode)}
-            className={`relative h-5 w-10 rounded-full transition-colors ${
+            className={`relative w-10 h-5 rounded-full transition-colors ${
               handsFreeMode ? 'bg-blue-600' : 'bg-gray-700'
             }`}
             aria-label="Toggle hands-free mode"
           >
             <span
-              className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
                 handsFreeMode ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
         </div>
         {handsFreeMode && (
-          <div className="flex animate-pulse items-center gap-1 text-xs text-blue-400">
-            <Mic className="h-3 w-3" />
+          <div className="text-xs text-blue-400 animate-pulse flex items-center gap-1">
+            <Mic className="w-3 h-3" />
             <span>Listening...</span>
           </div>
         )}
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-700 p-4">
+      <div className="p-4 border-t border-gray-700">
         <div className="flex items-center gap-2">
           <button
             onClick={handleVoiceToggle}
-            className={`rounded p-2 transition-colors ${
+            className={`p-2 rounded transition-colors ${
               isListening ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
             }`}
             aria-label={isListening ? 'Stop listening' : 'Start voice input'}
           >
-            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
           </button>
           <input
             type="text"
@@ -386,16 +386,16 @@ export function RegenSidebar() {
             onChange={e => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask Regen anything..."
-            className="flex-1 rounded-lg bg-gray-800 px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 bg-gray-800 text-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isLoading}
           />
           <button
             onClick={() => handleSend()}
             disabled={isLoading || !input.trim()}
-            className="rounded-lg bg-blue-600 p-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             aria-label="Send"
           >
-            <Send className="h-5 w-5" />
+            <Send className="w-5 h-5" />
           </button>
         </div>
       </div>

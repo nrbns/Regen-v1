@@ -9,7 +9,7 @@ const listeners = new Set<Listener>();
 let isHydrated = false;
 
 function emitChange() {
-  listeners.forEach(listener => {
+  listeners.forEach((listener) => {
     try {
       listener();
     } catch (error) {
@@ -20,9 +20,7 @@ function emitChange() {
 
 export function registerCommand(command: CommandDescriptor): () => void {
   if (commandMap.has(command.id)) {
-    console.warn(
-      `[CommandRegistry] Command with id "${command.id}" already registered. Overwriting.`
-    );
+    console.warn(`[CommandRegistry] Command with id "${command.id}" already registered. Overwriting.`);
   }
   commandMap.set(command.id, command);
   emitChange();
@@ -35,9 +33,7 @@ export function registerCommand(command: CommandDescriptor): () => void {
 
 export function registerCommandSource(source: CommandSource): () => void {
   if (sources.has(source.id)) {
-    console.warn(
-      `[CommandRegistry] Command source with id "${source.id}" already registered. Overwriting.`
-    );
+    console.warn(`[CommandRegistry] Command source with id "${source.id}" already registered. Overwriting.`);
   }
   sources.set(source.id, source);
   emitChange();
@@ -51,18 +47,15 @@ export function registerCommandSource(source: CommandSource): () => void {
 export async function getAllCommands(): Promise<CommandDescriptor[]> {
   const staticCommands = Array.from(commandMap.values());
   const dynamicResults = await Promise.all(
-    Array.from(sources.values()).map(async source => {
+    Array.from(sources.values()).map(async (source) => {
       try {
         const results = await source.getCommands();
         return results;
       } catch (error) {
-        console.error(
-          `[CommandRegistry] Failed to load commands from source "${source.id}":`,
-          error
-        );
+        console.error(`[CommandRegistry] Failed to load commands from source "${source.id}":`, error);
         return [];
       }
-    })
+    }),
   );
 
   return [...staticCommands, ...dynamicResults.flat()];
@@ -86,3 +79,5 @@ export function commandsHydrated(): boolean {
 export function notifyCommandsChanged() {
   emitChange();
 }
+
+

@@ -6,15 +6,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
-export type AgentType =
-  | 'mail'
-  | 'ppt'
-  | 'booking'
-  | 'research'
-  | 'trading'
-  | 'browser'
-  | 'file'
-  | 'general';
+export type AgentType = 'mail' | 'ppt' | 'booking' | 'research' | 'trading' | 'browser' | 'file' | 'general';
 
 export interface IntentClassification {
   primaryAgent: AgentType;
@@ -125,7 +117,7 @@ Be decisive. Always choose the most likely agent even if confidence is moderate.
       return {
         primaryAgent: 'ppt',
         intent: 'create_presentation',
-        confidence: 0.9,
+        confidence: 0.90,
         alternativeAgents: [],
         parameters: { topic: input },
         reasoning: 'Contains presentation keywords',
@@ -161,7 +153,7 @@ Be decisive. Always choose the most likely agent even if confidence is moderate.
       return {
         primaryAgent: 'trading',
         intent: 'market_analysis',
-        confidence: 0.9,
+        confidence: 0.90,
         alternativeAgents: ['research'],
         parameters: { query: input },
         reasoning: 'Contains trading keywords',
@@ -203,7 +195,7 @@ Be decisive. Always choose the most likely agent even if confidence is moderate.
     }
 
     const classification = JSON.parse(jsonMatch[0]);
-
+    
     // Validate response
     if (!classification.primaryAgent || !classification.intent) {
       throw new Error('Invalid classification response');

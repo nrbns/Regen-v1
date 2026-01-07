@@ -12,6 +12,9 @@ export { default as OrchestratorVersionControl } from './versionControl';
 export { getPlanStore } from './persistence/planStoreFactory';
 export { RedisPlanStore } from './persistence/redisPlanStore';
 
-export type { ExecutionResult, TaskResult } from './executor';
+export type {
+  ExecutionResult,
+  TaskResult,
+} from './executor';
 
 export type { IntentClassification } from './intentRouter';

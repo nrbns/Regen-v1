@@ -145,3 +145,4 @@ export function shouldLoadModule(moduleName: string): boolean {
 
   return !blockedModules.some(blocked => moduleName.includes(blocked));
 }
+

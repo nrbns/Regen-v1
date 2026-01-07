@@ -21,7 +21,7 @@ interface TabLoadingStore {
 
 export const useTabLoadingStore = create<TabLoadingStore>((set, get) => ({
   loadingStates: {},
-
+  
   setLoading: (tabId: string, isLoading: boolean, progress?: number) => {
     set(state => ({
       loadingStates: {
@@ -32,7 +32,7 @@ export const useTabLoadingStore = create<TabLoadingStore>((set, get) => ({
         },
       },
     }));
-
+    
     // Clear loading state after 300ms when loading completes
     if (!isLoading) {
       setTimeout(() => {
@@ -40,14 +40,14 @@ export const useTabLoadingStore = create<TabLoadingStore>((set, get) => ({
       }, 300);
     }
   },
-
+  
   getLoading: (tabId: string | null) => {
     if (!tabId) {
       return { isLoading: false };
     }
     return get().loadingStates[tabId] || { isLoading: false };
   },
-
+  
   clearLoading: (tabId: string) => {
     set(state => {
       const newStates = { ...state.loadingStates };
@@ -56,3 +56,4 @@ export const useTabLoadingStore = create<TabLoadingStore>((set, get) => ({
     });
   },
 }));
+

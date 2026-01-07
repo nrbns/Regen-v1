@@ -50,26 +50,22 @@ export function startStabilityTest(durationMinutes: number = 60): void {
   console.log(`[StabilityTest] Starting ${durationMinutes}-minute stability test`);
 
   // Monitor memory every 5 minutes
-  const memoryInterval = setInterval(
-    () => {
-      if (typeof performance !== 'undefined' && (performance as any).memory) {
-        const memInfo = (performance as any).memory;
-        const usedMB = memInfo.usedJSHeapSize / 1048576;
-        stabilityMetrics.memoryLeaks.push(usedMB);
-
-        // Check for memory leak (continuous growth)
-        if (stabilityMetrics.memoryLeaks.length > 2) {
-          const recent = stabilityMetrics.memoryLeaks.slice(-3);
-          const growth = recent[recent.length - 1] - recent[0];
-          if (growth > 100) {
-            // 100MB growth in 15 minutes
-            console.warn('[StabilityTest] Potential memory leak detected:', growth, 'MB');
-          }
+  const memoryInterval = setInterval(() => {
+    if (typeof performance !== 'undefined' && (performance as any).memory) {
+      const memInfo = (performance as any).memory;
+      const usedMB = memInfo.usedJSHeapSize / 1048576;
+      stabilityMetrics.memoryLeaks.push(usedMB);
+      
+      // Check for memory leak (continuous growth)
+      if (stabilityMetrics.memoryLeaks.length > 2) {
+        const recent = stabilityMetrics.memoryLeaks.slice(-3);
+        const growth = recent[recent.length - 1] - recent[0];
+        if (growth > 100) { // 100MB growth in 15 minutes
+          console.warn('[StabilityTest] Potential memory leak detected:', growth, 'MB');
         }
       }
-    },
-    5 * 60 * 1000
-  );
+    }
+  }, 5 * 60 * 1000);
 
   // Monitor tab count
   const tabInterval = setInterval(() => {
@@ -83,12 +79,9 @@ export function startStabilityTest(durationMinutes: number = 60): void {
   activeIntervals = [memoryInterval, tabInterval];
 
   // Stop test after duration
-  activeTimeout = setTimeout(
-    () => {
-      stopStabilityTest();
-    },
-    durationMinutes * 60 * 1000
-  );
+  activeTimeout = setTimeout(() => {
+    stopStabilityTest();
+  }, durationMinutes * 60 * 1000);
 }
 
 /**
@@ -119,10 +112,12 @@ export function stopStabilityTest(): void {
   stabilityTestRunning = false;
   stabilityMetrics.duration = Date.now() - stabilityMetrics.startTime;
   console.log('[StabilityTest] Test stopped:', stabilityMetrics);
-
+  
   // Report results
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('stability-test-complete', { detail: stabilityMetrics }));
+    window.dispatchEvent(
+      new CustomEvent('stability-test-complete', { detail: stabilityMetrics })
+    );
   }
 }
 
@@ -142,3 +137,4 @@ export function recordStabilityError(): void {
 export function isStabilityTestRunning(): boolean {
   return stabilityTestRunning;
 }
+

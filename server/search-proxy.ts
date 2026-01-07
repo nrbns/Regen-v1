@@ -575,9 +575,12 @@ server.get<{
   // Validate and sanitize input
   const sanitizedQuery = sanitizeQuery(q);
   if (!sanitizedQuery) {
-    return reply.code(400).send({
-      error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
-    });
+    return reply
+      .code(400)
+      .send({
+        error:
+          'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
+      });
   }
 
   try {
@@ -722,9 +725,12 @@ server.get<{
   // Validate and sanitize input
   const sanitizedQuery = sanitizeQuery(q);
   if (!sanitizedQuery) {
-    return reply.code(400).send({
-      error: 'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
-    });
+    return reply
+      .code(400)
+      .send({
+        error:
+          'Invalid query parameter. Query must be a non-empty string between 1-500 characters.',
+      });
   }
 
   try {

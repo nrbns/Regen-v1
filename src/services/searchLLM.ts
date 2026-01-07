@@ -30,3 +30,4 @@ export async function fetchSearchLLM(query: string): Promise<SearchLLMResponse> 
 
   return res.json();
 }
+

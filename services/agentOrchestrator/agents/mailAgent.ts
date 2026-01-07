@@ -45,22 +45,22 @@ export class MailAgentHandler {
     switch (action) {
       case 'compose_email':
         return await this.composeEmail(parameters);
-
+      
       case 'send_email':
         return await this.sendEmail(parameters);
-
+      
       case 'search_emails':
         return await this.searchEmails(parameters);
-
+      
       case 'summarize_emails':
         return await this.summarizeEmails(parameters);
-
+      
       case 'generate_reply':
         return await this.generateReply(parameters);
-
+      
       case 'list_recent':
         return await this.listRecent(parameters);
-
+      
       default:
         throw new Error(`Unknown mail action: ${action}`);
     }

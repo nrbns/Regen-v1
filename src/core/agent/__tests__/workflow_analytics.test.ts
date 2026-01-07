@@ -23,12 +23,12 @@ describe('Workflow Analytics', () => {
     const workflowState = useWorkflowStore.getState();
     // Only remove user-created templates (not built-in ones)
     workflowState.templates = workflowState.templates.filter(t => t.id.startsWith('builtin-'));
-
+    
     // Reset usage counts for built-in templates to prevent accumulation
     workflowState.templates.forEach(t => {
       t.usageCount = 0;
     });
-
+    
     // Clear batch jobs
     useBatchStore.getState().jobs = [];
   });
@@ -37,9 +37,11 @@ describe('Workflow Analytics', () => {
     const workflowStore = useWorkflowStore.getState();
 
     // Create template
-    const templateId = workflowStore.createTemplate('Test Workflow', 'For testing metrics', [
-      'test',
-    ]);
+    const templateId = workflowStore.createTemplate(
+      'Test Workflow',
+      'For testing metrics',
+      ['test']
+    );
 
     // Increment usage
     workflowStore.incrementUsageCount(templateId);
@@ -54,8 +56,16 @@ describe('Workflow Analytics', () => {
     const workflowStore = useWorkflowStore.getState();
 
     // Create two templates with delays to ensure unique IDs
-    const template1 = await createTemplateWithDelay('Popular Workflow', 'Frequently used', []);
-    const template2 = await createTemplateWithDelay('Rare Workflow', 'Rarely used', []);
+    const template1 = await createTemplateWithDelay(
+      'Popular Workflow',
+      'Frequently used',
+      []
+    );
+    const template2 = await createTemplateWithDelay(
+      'Rare Workflow',
+      'Rarely used',
+      []
+    );
 
     // Different usage counts
     for (let i = 0; i < 10; i++) {
@@ -79,9 +89,21 @@ describe('Workflow Analytics', () => {
     const workflowStore = useWorkflowStore.getState();
 
     // Create three templates with varying usage
-    const avgUsageTemplate = await createTemplateWithDelay('Average Workflow', 'Average usage', []);
-    const highUsageTemplate = await createTemplateWithDelay('Popular Workflow', 'High usage', []);
-    const lowUsageTemplate = await createTemplateWithDelay('Rare Workflow', 'Low usage', []);
+    const avgUsageTemplate = await createTemplateWithDelay(
+      'Average Workflow',
+      'Average usage',
+      []
+    );
+    const highUsageTemplate = await createTemplateWithDelay(
+      'Popular Workflow',
+      'High usage',
+      []
+    );
+    const lowUsageTemplate = await createTemplateWithDelay(
+      'Rare Workflow',
+      'Low usage',
+      []
+    );
 
     // Set usage counts: 5, 5, 1
     for (let i = 0; i < 5; i++) {
@@ -94,7 +116,7 @@ describe('Workflow Analytics', () => {
     const low = workflowStore.getTemplate(lowUsageTemplate);
     const avg = workflowStore.getTemplate(avgUsageTemplate);
     const high = workflowStore.getTemplate(highUsageTemplate);
-
+    
     expect(low?.usageCount).toBe(1);
     expect(avg?.usageCount).toBe(5);
     expect(high?.usageCount).toBe(5);
@@ -106,9 +128,11 @@ describe('Workflow Analytics', () => {
   it('should track workflow success rate', () => {
     const batchStore = useBatchStore.getState();
 
-    const _templateId = useWorkflowStore
-      .getState()
-      .createTemplate('Success Test Workflow', 'Testing success rate', []);
+    const _templateId = useWorkflowStore.getState().createTemplate(
+      'Success Test Workflow',
+      'Testing success rate',
+      []
+    );
 
     // Create a batch job with mixed results
     const jobId = batchStore.createJob('Test Job');
@@ -138,7 +162,11 @@ describe('Workflow Analytics', () => {
     const workflowStore = useWorkflowStore.getState();
 
     // Create workflows with different characteristics
-    const _slowTemplate = workflowStore.createTemplate('Slow Workflow', 'Takes a long time', []);
+    const _slowTemplate = workflowStore.createTemplate(
+      'Slow Workflow',
+      'Takes a long time',
+      []
+    );
 
     // Add slow steps (simulating long duration)
     for (let i = 0; i < 3; i++) {
@@ -152,7 +180,7 @@ describe('Workflow Analytics', () => {
 
     const template = workflowStore.getTemplate(_slowTemplate);
     expect(template?.steps.length).toBe(3);
-
+    
     // Check if any steps have high timeout (indicates slow workflow)
     const hasSlowSteps = template?.steps.some(s => (s.timeout || 300) > 400);
     expect(hasSlowSteps).toBe(true);
@@ -169,14 +197,14 @@ describe('Workflow Analytics', () => {
 
     // Set usage: 1, 2, 3, 4 (avg = 2.5)
     workflowStore.incrementUsageCount(template1);
-
+    
     workflowStore.incrementUsageCount(template2);
     workflowStore.incrementUsageCount(template2);
-
+    
     workflowStore.incrementUsageCount(template3);
     workflowStore.incrementUsageCount(template3);
     workflowStore.incrementUsageCount(template3);
-
+    
     workflowStore.incrementUsageCount(template4);
     workflowStore.incrementUsageCount(template4);
     workflowStore.incrementUsageCount(template4);
@@ -187,12 +215,12 @@ describe('Workflow Analytics', () => {
     const t2 = workflowStore.getTemplate(template2);
     const t3 = workflowStore.getTemplate(template3);
     const t4 = workflowStore.getTemplate(template4);
-
+    
     expect(t1?.usageCount).toBe(1);
     expect(t2?.usageCount).toBe(2);
     expect(t3?.usageCount).toBe(3);
     expect(t4?.usageCount).toBe(4);
-
+    
     // Verify average
     const avgUsage = (1 + 2 + 3 + 4) / 4;
     expect(avgUsage).toBe(2.5);
@@ -208,7 +236,7 @@ describe('Workflow Analytics', () => {
     );
 
     const template = workflowStore.getTemplate(templateId);
-
+    
     expect(template?.name).toBe('Metadata Test');
     expect(template?.description).toBe('Testing metadata preservation');
     expect(template?.tags).toContain('analytics');

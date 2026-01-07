@@ -44,7 +44,7 @@ export type ChainProgressCallback = (state: ChainExecutionState) => void;
 export function parseChainDefinition(yamlOrJson: string): ChainDefinition | null {
   try {
     let parsed: any;
-
+    
     // Try JSON first
     try {
       parsed = JSON.parse(yamlOrJson);
@@ -122,7 +122,7 @@ function parseSimpleYAML(yaml: string): any {
       const [key, ...valueParts] = trimmed.split(':');
       currentKey = key.trim();
       const value = valueParts.join(':').trim();
-
+      
       if (value.startsWith('[') || value.startsWith('{')) {
         try {
           result[currentKey] = JSON.parse(value);
@@ -182,7 +182,7 @@ export class ChainExecutor {
 
     try {
       await this.executeSteps(chain.steps, chain.variables || {});
-
+      
       if (!this.cancelled) {
         this.executionState.status = 'completed';
         this.executionState.progress = 100;
@@ -221,7 +221,10 @@ export class ChainExecutor {
   /**
    * Execute chain steps recursively
    */
-  private async executeSteps(steps: ChainStep[], variables: Record<string, any>): Promise<void> {
+  private async executeSteps(
+    steps: ChainStep[],
+    variables: Record<string, any>
+  ): Promise<void> {
     for (const step of steps) {
       if (this.cancelled) break;
 
@@ -236,7 +239,7 @@ export class ChainExecutor {
 
       try {
         const result = await this.executeStep(step, variables);
-
+        
         if (this.executionState) {
           this.executionState.results.push({
             stepId: step.id,
@@ -272,7 +275,10 @@ export class ChainExecutor {
   /**
    * Execute a single step
    */
-  private async executeStep(step: ChainStep, variables: Record<string, any>): Promise<any> {
+  private async executeStep(
+    step: ChainStep,
+    variables: Record<string, any>
+  ): Promise<any> {
     switch (step.type) {
       case 'action':
         return await this.executeAction(step, variables);
@@ -290,7 +296,10 @@ export class ChainExecutor {
   /**
    * Execute an action step
    */
-  private async executeAction(step: ChainStep, variables: Record<string, any>): Promise<any> {
+  private async executeAction(
+    step: ChainStep,
+    variables: Record<string, any>
+  ): Promise<any> {
     if (!step.action) {
       throw new Error('Action step requires an action');
     }
@@ -321,10 +330,7 @@ export class ChainExecutor {
   /**
    * Resolve variables in arguments
    */
-  private resolveVariables(
-    args: Record<string, any>,
-    variables: Record<string, any>
-  ): Record<string, any> {
+  private resolveVariables(args: Record<string, any>, variables: Record<string, any>): Record<string, any> {
     const resolved: Record<string, any> = {};
     for (const [key, value] of Object.entries(args)) {
       if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
@@ -343,12 +349,12 @@ export class ChainExecutor {
   private async actionNavigate(args: Record<string, any>): Promise<any> {
     const url = args.url;
     if (!url) throw new Error('Navigate action requires url');
-
+    
     // Use tabs store to navigate
     const { useTabsStore } = await import('../../state/tabsStore');
     const tabsStore = useTabsStore.getState();
     const activeTab = tabsStore.tabs.find(t => t.id === tabsStore.activeId);
-
+    
     if (activeTab) {
       tabsStore.navigateTab(activeTab.id, url);
       return { success: true, url };
@@ -375,11 +381,11 @@ export class ChainExecutor {
   private async actionResearch(args: Record<string, any>): Promise<any> {
     const query = args.query;
     if (!query) throw new Error('Research action requires query');
-
+    
     // Trigger research mode
     const { useAppStore } = await import('../../state/appStore');
     useAppStore.getState().setMode('Research');
-
+    
     return { success: true, query };
   }
 
@@ -387,7 +393,7 @@ export class ChainExecutor {
     // Trigger trade mode
     const { useAppStore } = await import('../../state/appStore');
     useAppStore.getState().setMode('Trade');
-
+    
     return { success: true };
   }
 
@@ -396,12 +402,12 @@ export class ChainExecutor {
     const { multiAgentSystem } = await import('./multiAgentSystem');
     const context = { mode: 'workflow' as const };
     const agent = multiAgentSystem.getAgent('workflow', context);
-
+    
     if (agent && typeof agent.execute === 'function') {
       // SECURITY: Execute with single object parameter (safer)
       return await (agent.execute as any)({ action, ...args });
     }
-
+    
     throw new Error(`Unknown action: ${action}`);
   }
 
@@ -424,13 +430,13 @@ export class ChainExecutor {
         const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
         condition = condition.replace(regex, String(value));
       }
-
+      
       // Basic condition evaluation (safe operations only)
       // Support: ==, !=, <, >, <=, >=, &&, ||, true, false
       // For production, use a proper expression evaluator library
       if (condition === 'true') return true;
       if (condition === 'false') return false;
-
+      
       // Simple comparisons
       if (condition.includes('==')) {
         const [left, right] = condition.split('==').map(s => s.trim());
@@ -440,7 +446,7 @@ export class ChainExecutor {
         const [left, right] = condition.split('!=').map(s => s.trim());
         return left !== right;
       }
-
+      
       // Default: return true if condition is not empty
       return condition.length > 0;
     } catch (error) {
@@ -459,7 +465,10 @@ export class ChainExecutor {
   /**
    * Execute loop step
    */
-  private async executeLoop(step: ChainStep, variables: Record<string, any>): Promise<any[]> {
+  private async executeLoop(
+    step: ChainStep,
+    variables: Record<string, any>
+  ): Promise<any[]> {
     if (!step.steps || step.steps.length === 0) {
       throw new Error('Loop step requires nested steps');
     }
@@ -525,3 +534,4 @@ export function getChainExecutor(): ChainExecutor {
   }
   return executorInstance;
 }
+

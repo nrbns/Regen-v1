@@ -77,63 +77,63 @@ export default function BrowseMode() {
   }
 
   return (
-    <div className="flex h-full overflow-hidden bg-gradient-to-br from-purple-950 via-black to-pink-950 text-white">
+    <div className="h-full bg-gradient-to-br from-purple-950 via-black to-pink-950 text-white flex overflow-hidden">
       {/* LEFT SIDEBAR - Arc Style */}
       <motion.div
         initial={{ x: -100 }}
         animate={{ x: 0 }}
-        className="flex w-20 flex-shrink-0 flex-col items-center gap-8 border-r border-purple-800 bg-black/40 py-8 backdrop-blur-xl"
+        className="w-20 bg-black/40 backdrop-blur-xl border-r border-purple-800 flex flex-col items-center py-8 gap-8 flex-shrink-0"
       >
         <motion.div
           whileHover={{ scale: 1.1, rotate: 5 }}
-          className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 text-2xl font-bold"
+          className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-2xl font-bold cursor-pointer"
         >
           R
         </motion.div>
         <motion.button
           whileHover={{ scale: 1.1 }}
-          className="rounded-lg p-2 transition hover:bg-white/10"
+          className="p-2 rounded-lg hover:bg-white/10 transition"
           title="Browse"
         >
-          <Globe className="h-6 w-6 text-purple-400" />
+          <Globe className="w-6 h-6 text-purple-400" />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.1 }}
-          className="rounded-lg p-2 transition hover:bg-white/10"
+          className="p-2 rounded-lg hover:bg-white/10 transition"
           title="Bookmarks"
         >
-          <Bookmark className="h-6 w-6 text-gray-400" />
+          <Bookmark className="w-6 h-6 text-gray-400" />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.1 }}
-          className="rounded-lg p-2 transition hover:bg-white/10"
+          className="p-2 rounded-lg hover:bg-white/10 transition"
           title="Split View"
         >
-          <Split className="h-6 w-6 text-gray-400" />
+          <Split className="w-6 h-6 text-gray-400" />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.1 }}
           onClick={() => setMode('Research')}
-          className="rounded-lg p-2 transition hover:bg-white/10"
+          className="p-2 rounded-lg hover:bg-white/10 transition"
           title="AI Research"
         >
-          <Sparkles className="h-6 w-6 text-pink-400" />
+          <Sparkles className="w-6 h-6 text-pink-400" />
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.1 }}
           onClick={() => setMode('Trade')}
-          className="rounded-lg p-2 transition hover:bg-white/10"
+          className="p-2 rounded-lg hover:bg-white/10 transition"
           title="Trade"
         >
-          <TrendingUp className="h-6 w-6 text-emerald-400" />
+          <TrendingUp className="w-6 h-6 text-emerald-400" />
         </motion.button>
       </motion.div>
 
       {/* MAIN CONTENT */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Glowing Tab Bar */}
-        <div className="flex flex-shrink-0 items-center gap-4 border-b border-purple-800 bg-black/50 px-6 py-3 backdrop-blur-xl">
-          <div className="scrollbar-hide flex flex-1 gap-3 overflow-x-auto">
+        <div className="bg-black/50 backdrop-blur-xl border-b border-purple-800 px-6 py-3 flex items-center gap-4 flex-shrink-0">
+          <div className="flex gap-3 flex-1 overflow-x-auto scrollbar-hide">
             {tabs.slice(0, 5).map(tab => (
               <motion.div
                 key={tab.id}
@@ -141,22 +141,22 @@ export default function BrowseMode() {
                 onClick={async () => {
                   await ipc.tabs.activate({ id: tab.id });
                 }}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl px-6 py-2 font-semibold shadow-lg transition-all ${
+                className={`px-6 py-2 rounded-xl font-semibold flex items-center gap-3 shadow-lg transition-all cursor-pointer ${
                   tab.id === activeId
                     ? 'bg-gradient-to-r from-purple-600 to-pink-600'
                     : 'bg-white/10 hover:bg-white/20'
                 }`}
               >
-                <div className="h-3 w-3 rounded-full bg-white/30" />
-                <span className="whitespace-nowrap text-sm">{tab.title || 'New Tab'}</span>
+                <div className="w-3 h-3 bg-white/30 rounded-full" />
+                <span className="text-sm whitespace-nowrap">{tab.title || 'New Tab'}</span>
                 <button
                   onClick={async e => {
                     e.stopPropagation();
                     await ipc.tabs.close({ id: tab.id });
                   }}
-                  className="flex h-4 w-4 items-center justify-center rounded-full transition hover:bg-white/20"
+                  className="w-4 h-4 hover:bg-white/20 rounded-full flex items-center justify-center transition"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="w-3 h-3" />
                 </button>
               </motion.div>
             ))}
@@ -167,37 +167,37 @@ export default function BrowseMode() {
             onClick={async () => {
               await ipc.tabs.create('about:blank');
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl font-bold transition hover:bg-white/20"
+            className="w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center font-bold text-xl transition"
           >
             +
           </motion.button>
         </div>
 
         {/* BEAUTIFUL NEW TAB PAGE */}
-        <div className="flex flex-1 items-center justify-center overflow-y-auto px-10">
-          <div className="w-full max-w-4xl">
+        <div className="flex-1 flex items-center justify-center px-10 overflow-y-auto">
+          <div className="max-w-4xl w-full">
             {/* Clock + Greeting */}
             <motion.div
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-16 text-center"
+              className="text-center mb-16"
             >
               <motion.h1
                 key={currentTime.toLocaleTimeString()}
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-7xl font-black text-transparent md:text-8xl"
+                className="text-7xl md:text-8xl font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
               >
                 {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </motion.h1>
-              <p className="mt-4 text-2xl text-purple-300 md:text-3xl">{greeting}, Trader</p>
+              <p className="text-2xl md:text-3xl mt-4 text-purple-300">{greeting}, Trader</p>
             </motion.div>
 
             {/* AI Search Bar */}
             <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              className="relative mx-auto mb-16 max-w-3xl"
+              className="relative max-w-3xl mx-auto mb-16"
             >
               <input
                 type="text"
@@ -209,30 +209,30 @@ export default function BrowseMode() {
                   }
                 }}
                 placeholder="Ask AI or search anything... (हिंदी में भी)"
-                className="w-full rounded-full bg-white/10 px-8 py-6 text-xl text-white placeholder-purple-300 backdrop-blur-xl focus:outline-none focus:ring-4 focus:ring-purple-500/50 md:text-2xl"
+                className="w-full px-8 py-6 bg-white/10 backdrop-blur-xl rounded-full text-xl md:text-2xl placeholder-purple-300 focus:outline-none focus:ring-4 focus:ring-purple-500/50 text-white"
                 autoFocus
               />
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="absolute right-20 top-1/2 -translate-y-1/2 rounded-full p-2 transition hover:bg-white/10"
+                className="absolute right-20 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-white/10 transition"
                 title="Voice Search"
               >
-                <Mic className="h-6 w-6 text-purple-400 hover:text-pink-400 md:h-8 md:w-8" />
+                <Mic className="w-6 h-6 md:w-8 md:h-8 text-purple-400 hover:text-pink-400" />
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => handleSearch(url)}
-                className="absolute right-8 top-1/2 -translate-y-1/2 rounded-full p-2 transition hover:bg-white/10"
+                className="absolute right-8 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-white/10 transition"
                 title="AI Search"
               >
-                <Sparkles className="h-6 w-6 animate-pulse text-pink-400 md:h-8 md:w-8" />
+                <Sparkles className="w-6 h-6 md:w-8 md:h-8 text-pink-400 animate-pulse" />
               </motion.button>
             </motion.div>
 
             {/* Quick Links */}
-            <div className="grid grid-cols-3 gap-4 md:grid-cols-4 md:gap-6 lg:grid-cols-6">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
               {quickLinks.map(link => (
                 <motion.a
                   key={link.name}
@@ -243,10 +243,10 @@ export default function BrowseMode() {
                   }}
                   whileHover={{ scale: 1.1, y: -5 }}
                   whileTap={{ scale: 0.95 }}
-                  className="cursor-pointer rounded-3xl bg-white/10 p-6 text-center backdrop-blur-xl transition-all hover:bg-white/20 md:p-8"
+                  className="bg-white/10 backdrop-blur-xl rounded-3xl p-6 md:p-8 text-center hover:bg-white/20 transition-all cursor-pointer"
                 >
-                  <div className="mb-3 text-4xl md:mb-4 md:text-5xl">{link.icon}</div>
-                  <p className="text-sm font-semibold md:text-lg">{link.name}</p>
+                  <div className="text-4xl md:text-5xl mb-3 md:mb-4">{link.icon}</div>
+                  <p className="text-sm md:text-lg font-semibold">{link.name}</p>
                 </motion.a>
               ))}
             </div>

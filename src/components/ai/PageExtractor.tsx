@@ -77,8 +77,8 @@ export function PageExtractor({ url, onExtract, autoExtract = true }: PageExtrac
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-gray-800/50 bg-gray-900/60 p-8">
-        <Loader size={24} className="mr-3 animate-spin text-blue-400" />
+      <div className="flex items-center justify-center p-8 bg-gray-900/60 rounded-lg border border-gray-800/50">
+        <Loader size={24} className="text-blue-400 animate-spin mr-3" />
         <span className="text-gray-300">Extracting page content...</span>
       </div>
     );
@@ -86,15 +86,15 @@ export function PageExtractor({ url, onExtract, autoExtract = true }: PageExtrac
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6">
-        <div className="mb-2 flex items-center gap-2">
+      <div className="p-6 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <div className="flex items-center gap-2 mb-2">
           <AlertCircle size={20} className="text-red-400" />
-          <h3 className="font-semibold text-red-300">Extraction Failed</h3>
+          <h3 className="text-red-300 font-semibold">Extraction Failed</h3>
         </div>
-        <p className="text-sm text-red-200">{error}</p>
+        <p className="text-red-200 text-sm">{error}</p>
         <button
           onClick={extractContent}
-          className="mt-4 rounded-lg border border-red-500/40 bg-red-500/20 px-4 py-2 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/30"
+          className="mt-4 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-red-200 text-sm font-medium transition-colors"
         >
           Retry
         </button>
@@ -104,12 +104,12 @@ export function PageExtractor({ url, onExtract, autoExtract = true }: PageExtrac
 
   if (!content) {
     return (
-      <div className="rounded-lg border border-gray-800/50 bg-gray-900/60 p-6 text-center">
-        <FileText size={32} className="mx-auto mb-3 text-gray-500" />
-        <p className="mb-4 text-sm text-gray-400">No content extracted yet</p>
+      <div className="p-6 bg-gray-900/60 rounded-lg border border-gray-800/50 text-center">
+        <FileText size={32} className="text-gray-500 mx-auto mb-3" />
+        <p className="text-gray-400 text-sm mb-4">No content extracted yet</p>
         <button
           onClick={extractContent}
-          className="rounded-lg border border-blue-500/40 bg-blue-500/20 px-4 py-2 text-sm font-medium text-blue-200 transition-colors hover:bg-blue-500/30"
+          className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/40 rounded-lg text-blue-200 text-sm font-medium transition-colors"
         >
           Extract Content
         </button>
@@ -121,18 +121,18 @@ export function PageExtractor({ url, onExtract, autoExtract = true }: PageExtrac
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-lg border border-gray-800/50 bg-gray-900/60"
+      className="bg-gray-900/60 rounded-lg border border-gray-800/50 overflow-hidden"
     >
       {/* Header */}
-      <div className="border-b border-gray-800/50 bg-gray-900/40 p-4">
+      <div className="p-4 border-b border-gray-800/50 bg-gray-900/40">
         <div className="flex items-center justify-between">
-          <div className="min-w-0 flex-1">
-            <h3 className="mb-1 truncate font-semibold text-white">{content.title}</h3>
-            <p className="truncate text-xs text-gray-400">{content.url}</p>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-semibold truncate mb-1">{content.title}</h3>
+            <p className="text-gray-400 text-xs truncate">{content.url}</p>
           </div>
           <button
             onClick={handleCopy}
-            className="ml-3 rounded-lg border border-gray-700/50 bg-gray-800/60 p-2 text-gray-300 transition-colors hover:bg-gray-800 hover:text-blue-400"
+            className="ml-3 p-2 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-colors"
             title="Copy content"
           >
             {copied ? <Check size={18} /> : <Copy size={18} />}
@@ -141,14 +141,14 @@ export function PageExtractor({ url, onExtract, autoExtract = true }: PageExtrac
       </div>
 
       {/* Content */}
-      <div className="max-h-96 overflow-y-auto p-4">
-        <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-200">
+      <div className="p-4 max-h-96 overflow-y-auto">
+        <div className="text-gray-200 text-sm whitespace-pre-wrap leading-relaxed">
           {content.content}
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between border-t border-gray-800/50 bg-gray-900/40 p-3 text-xs text-gray-400">
+      <div className="p-3 border-t border-gray-800/50 bg-gray-900/40 flex items-center justify-between text-xs text-gray-400">
         <span>{content.content.length.toLocaleString()} characters</span>
         <span>Language: {content.lang}</span>
       </div>

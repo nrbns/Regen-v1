@@ -131,14 +131,14 @@ export function MiniHoverAI({ enabled = true, onAction }: MiniHoverAIProps) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.8, y: 10 }}
           transition={{ duration: 0.2 }}
-          className="pointer-events-auto fixed z-[9999]"
+          className="fixed z-[9999] pointer-events-auto"
           style={{
             left: `${position.x}px`,
             top: `${position.y}px`,
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <div className="flex items-center gap-1 rounded-lg border border-gray-700/50 bg-gray-900/95 p-2 shadow-2xl backdrop-blur-xl">
+          <div className="bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-lg shadow-2xl p-2 flex items-center gap-1">
             {isProcessing ? (
               <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300">
                 <Loader2 size={16} className="animate-spin text-blue-400" />
@@ -152,7 +152,7 @@ export function MiniHoverAI({ enabled = true, onAction }: MiniHoverAIProps) {
                     onClick={() => handleAction(action.id)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1.5 rounded-md border border-gray-700/50 bg-gray-800/60 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700/80 hover:text-blue-400"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-gray-800/60 hover:bg-gray-700/80 border border-gray-700/50 text-gray-300 hover:text-blue-400 transition-colors text-xs font-medium"
                     title={action.label}
                   >
                     {action.icon}
@@ -166,7 +166,7 @@ export function MiniHoverAI({ enabled = true, onAction }: MiniHoverAIProps) {
                     setPosition(null);
                     window.getSelection()?.removeAllRanges();
                   }}
-                  className="rounded-md p-2 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-200"
+                  className="p-2 rounded-md text-gray-400 hover:text-gray-200 hover:bg-gray-800/60 transition-colors"
                   title="Close"
                 >
                   <X size={14} />
@@ -175,7 +175,7 @@ export function MiniHoverAI({ enabled = true, onAction }: MiniHoverAIProps) {
             )}
           </div>
           {/* Arrow pointing to selection */}
-          <div className="absolute bottom-0 left-1/2 h-0 w-0 -translate-x-1/2 translate-y-full border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-700/50" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-700/50" />
         </motion.div>
       )}
     </AnimatePresence>

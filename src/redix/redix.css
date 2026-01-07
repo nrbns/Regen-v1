@@ -12,8 +12,7 @@
   box-sizing: border-box;
 }
 
-html,
-body {
+html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
@@ -310,16 +309,16 @@ body {
   .redix-nav {
     flex-wrap: wrap;
   }
-
+  
   .redix-omnibar {
     width: 100%;
     order: 1;
   }
-
+  
   .redix-button {
     order: 0;
   }
-
+  
   .redix-content-article {
     padding: var(--space-4);
   }
@@ -333,3 +332,4 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+

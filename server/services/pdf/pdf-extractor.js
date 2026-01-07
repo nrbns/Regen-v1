@@ -31,22 +31,24 @@ async function extractTextWithPDFJS(pdfBytes) {
 
   const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
   const pdf = await loadingTask.promise;
-
+  
   let fullText = '';
   const tables = [];
-
+  
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const textContent = await page.getTextContent();
-
+    
     // Extract text
-    const pageText = textContent.items.map(item => item.str).join(' ');
+    const pageText = textContent.items
+      .map(item => item.str)
+      .join(' ');
     fullText += pageText + '\n';
-
+    
     // Note: Table extraction would require additional processing
     // For now, we extract text and let LLM handle structure
   }
-
+  
   return {
     text: fullText,
     pages: pdf.numPages,
@@ -60,24 +62,24 @@ async function extractTextWithPDFJS(pdfBytes) {
 async function extractTextFallback(pdfBytes) {
   // Save to temp file and use external tool
   const tempFile = path.join(__dirname, '../../tmp', `pdf_${Date.now()}.pdf`);
-
+  
   // Ensure tmp directory exists
   const tmpDir = path.dirname(tempFile);
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
   }
-
+  
   fs.writeFileSync(tempFile, pdfBytes);
-
+  
   try {
     // Try pdftotext (requires poppler-utils)
     const { exec } = await import('child_process');
     const { promisify } = await import('util');
     const execAsync = promisify(exec);
-
+    
     const { stdout } = await execAsync(`pdftotext "${tempFile}" -`);
     fs.unlinkSync(tempFile);
-
+    
     return {
       text: stdout,
       pages: 0, // Unknown
@@ -88,7 +90,7 @@ async function extractTextFallback(pdfBytes) {
     if (fs.existsSync(tempFile)) {
       fs.unlinkSync(tempFile);
     }
-
+    
     // Last resort: Return error
     throw new Error(`PDF extraction failed: ${error.message}`);
   }
@@ -103,7 +105,7 @@ export async function extractPDF(pdfBytes, _filename = 'document.pdf') {
     if (pdfjsLib) {
       return await extractTextWithPDFJS(pdfBytes);
     }
-
+    
     // Fallback to external tool
     return await extractTextFallback(pdfBytes);
   } catch (error) {
@@ -117,15 +119,14 @@ export async function extractPDF(pdfBytes, _filename = 'document.pdf') {
  */
 export async function autoResearchPDF(extractedText, options = {}) {
   const { executeLangGraphWorkflow } = await import('../research/langgraph-workflow.js');
-
+  
   // Create research query from PDF content
-  const query =
-    options.customQuery ||
+  const query = options.customQuery || 
     `Key insights and criticisms of this paper: ${extractedText.substring(0, 12000)}`;
-
+  
   // Trigger research
   const researchResult = await executeLangGraphWorkflow(query);
-
+  
   return {
     researchResult,
     query,
@@ -138,10 +139,10 @@ export async function autoResearchPDF(extractedText, options = {}) {
  */
 export async function processPDFUpload(file, options = {}) {
   const { autoResearch = true } = options;
-
+  
   // Extract content
   const extracted = await extractPDF(file.buffer || file.data, file.filename);
-
+  
   // Auto-trigger research if enabled
   let researchTask = null;
   if (autoResearch && extracted.text) {
@@ -151,7 +152,7 @@ export async function processPDFUpload(file, options = {}) {
       console.warn('[PDFProcessor] Auto-research failed:', error.message);
     }
   }
-
+  
   return {
     title: file.filename || 'document.pdf',
     pages: extracted.pages,
@@ -162,3 +163,10 @@ export async function processPDFUpload(file, options = {}) {
     extracted_text: extracted.text.substring(0, 1000), // First 1000 chars as preview
   };
 }
+
+
+
+
+
+
+

@@ -79,7 +79,7 @@ export default function SymbolSearch({ activeSymbol, recentSymbols, onSelect }: 
                 toast.error(result.error || 'Failed to start research');
               }
             }}
-            className="flex items-center gap-1 rounded-lg bg-blue-600 px-2 py-1 text-xs text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             title={`Research ${activeSymbol} in Research mode`}
           >
             <BookOpen size={12} />

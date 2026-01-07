@@ -63,7 +63,9 @@ export async function runReasoningAndSummarization(
 /**
  * Run multiple independent AI tasks in parallel
  */
-export async function runParallelTasks(requests: AITaskRequest[]): Promise<ParallelTaskResult> {
+export async function runParallelTasks(
+  requests: AITaskRequest[]
+): Promise<ParallelTaskResult> {
   const startTime = Date.now();
 
   const results = await aiEngine.runParallelTasks(requests);
@@ -88,7 +90,7 @@ export async function runParallelTasks(requests: AITaskRequest[]): Promise<Paral
 export async function runParallelResearchAnalysis(
   sources: Array<{ title: string; content: string; url?: string }>,
   query: string
-): Promise<Array<{ source: (typeof sources)[0]; analysis: AITaskResult }>> {
+): Promise<Array<{ source: typeof sources[0]; analysis: AITaskResult }>> {
   const tasks: AITaskRequest[] = sources.map(source => ({
     kind: 'agent' as const,
     prompt: `Analyze this source in relation to: ${query}\n\nSource: ${source.title}\n${source.content.substring(0, 2000)}`,
@@ -106,3 +108,4 @@ export async function runParallelResearchAnalysis(
     analysis: results[index],
   }));
 }
+

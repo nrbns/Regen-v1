@@ -16,14 +16,18 @@ export const pdfService = {
   /**
    * Edit a PDF file
    */
-  async edit(filePath: string, task: EditTask, options: EditOptions): Promise<EditResult> {
+  async edit(
+    filePath: string,
+    task: EditTask,
+    options: EditOptions
+  ): Promise<EditResult> {
     const startTime = Date.now();
 
     // 1. Extract text from PDF using pdf-parse (better than pdf-lib for extraction)
     const buffer = await fs.readFile(filePath);
     const pdfDoc = await PDFDocument.load(buffer);
     let pageCount = pdfDoc.getPageCount();
-
+    
     let extractedText = '';
 
     // Try pdf-parse first (works for text-based PDFs)
@@ -31,7 +35,7 @@ export const pdfService = {
       const pdfData = await pdfParse(buffer);
       extractedText = pdfData.text;
       pageCount = pdfData.numpages || pageCount;
-
+      
       if (extractedText && extractedText.trim().length > 10) {
         console.log('[PDFService] Successfully extracted text using pdf-parse');
       }
@@ -103,11 +107,11 @@ export const pdfService = {
       // Wrap long lines
       const words = line.split(' ');
       let currentLine = '';
-
+      
       for (const word of words) {
         const testLine = currentLine ? `${currentLine} ${word}` : word;
         const textWidth = font.widthOfTextAtSize(testLine, fontSize);
-
+        
         if (textWidth > maxWidth && currentLine) {
           currentPage.drawText(currentLine, {
             x: margin,
@@ -117,7 +121,7 @@ export const pdfService = {
           });
           y -= lineHeight;
           currentLine = word;
-
+          
           if (y < margin + lineHeight) {
             currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
             y = pageHeight - margin;
@@ -126,7 +130,7 @@ export const pdfService = {
           currentLine = testLine;
         }
       }
-
+      
       if (currentLine) {
         currentPage.drawText(currentLine, {
           x: margin,
@@ -179,9 +183,10 @@ export const pdfService = {
 
   calculateConfidence(changes: Change[], originalLength: number): 'high' | 'medium' | 'low' {
     const changeRatio = changes.length / Math.max(originalLength / 100, 1);
-
+    
     if (changeRatio < 0.1) return 'high';
     if (changeRatio < 0.3) return 'medium';
     return 'low';
   },
 };
+

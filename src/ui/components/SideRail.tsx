@@ -47,7 +47,12 @@ export function SideRail({
             duration: 0.18,
             ease: [0.2, 0.9, 0.3, 1],
           }}
-          className={`fixed bottom-0 left-0 top-0 z-40 flex flex-col border-r border-[var(--surface-border)] bg-[var(--surface-panel)] ${className} `}
+          className={`
+            fixed left-0 top-0 bottom-0 z-40
+            bg-[var(--surface-panel)] border-r border-[var(--surface-border)]
+            flex flex-col
+            ${className}
+          `}
           style={{
             width: `${width}px`,
             padding: tokens.spacing(3),
@@ -56,7 +61,7 @@ export function SideRail({
           aria-label="Mode tools"
         >
           {/* Header */}
-          <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <h2
               className="font-semibold text-[var(--text-primary)]"
               style={{ fontSize: tokens.fontSize.sm }}
@@ -66,7 +71,7 @@ export function SideRail({
             {onClose && (
               <button
                 onClick={onClose}
-                className="rounded-md p-1 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                 aria-label="Close side rail"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -88,7 +93,7 @@ export function SideRail({
                 tools.map((tool, index) => <div key={index}>{tool}</div>)
               ) : (
                 <div
-                  className="py-8 text-center text-[var(--text-muted)]"
+                  className="text-[var(--text-muted)] text-center py-8"
                   style={{ fontSize: tokens.fontSize.sm }}
                 >
                   No tools available for this mode

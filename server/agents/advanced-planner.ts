@@ -27,15 +27,16 @@ export interface ExecutionPlan {
 /**
  * Plan a research task
  */
-export function planResearchTask(
-  query: string,
-  options: {
-    includeCounterpoints?: boolean;
-    maxSteps?: number;
-    complexity?: 'simple' | 'medium' | 'complex';
-  } = {}
-): ExecutionPlan {
-  const { includeCounterpoints = false, maxSteps = 10, complexity = 'medium' } = options;
+export function planResearchTask(query: string, options: {
+  includeCounterpoints?: boolean;
+  maxSteps?: number;
+  complexity?: 'simple' | 'medium' | 'complex';
+} = {}): ExecutionPlan {
+  const {
+    includeCounterpoints = false,
+    maxSteps = 10,
+    complexity = 'medium',
+  } = options;
 
   const steps: TaskStep[] = [];
   let stepId = 1;
@@ -99,7 +100,9 @@ export function planResearchTask(
     id: `step-${stepId++}`,
     type: 'synthesize',
     description: 'Synthesize information into final answer',
-    dependencies: steps.filter(s => s.type === 'summarize' || s.type === 'analyze').map(s => s.id),
+    dependencies: steps
+      .filter(s => s.type === 'summarize' || s.type === 'analyze')
+      .map(s => s.id),
     inputs: {},
     status: 'pending',
   });
@@ -268,3 +271,5 @@ export function optimizePlan(plan: ExecutionPlan): ExecutionPlan {
     estimatedCost: estimateCost(optimizedSteps),
   };
 }
+
+

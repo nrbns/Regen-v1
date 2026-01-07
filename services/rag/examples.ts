@@ -100,7 +100,8 @@ export async function example3_ContextAwareSummary() {
   // Create sample email history
   const emailHistory = [
     {
-      content: 'Project X initial scope: Build user authentication, dashboard, and reporting.',
+      content:
+        'Project X initial scope: Build user authentication, dashboard, and reporting.',
       metadata: { date: '2025-10-01', type: 'project_kickoff' },
     },
     {
@@ -144,12 +145,12 @@ export async function example3_ContextAwareSummary() {
   console.log(`  Context Awareness: ${(summary.contextAwarenessScore * 100).toFixed(0)}%`);
   console.log(`  Related Emails: ${summary.relatedEmails.length} found`);
   console.log(`\n  Key Points:`);
-  summary.keyPoints.forEach(point => {
+  summary.keyPoints.forEach((point) => {
     console.log(`    • ${point}`);
   });
   if (summary.actionItems.length > 0) {
     console.log(`\n  Action Items:`);
-    summary.actionItems.forEach(item => {
+    summary.actionItems.forEach((item) => {
       console.log(`    ✓ ${item}`);
     });
   }
@@ -167,10 +168,7 @@ export async function example4_FindRelatedEmails() {
   const emails = [
     { content: 'Meeting with sales team about Q4 targets and revenue goals.', topic: 'sales' },
     { content: 'Engineering architecture review for new microservices platform.', topic: 'tech' },
-    {
-      content: 'HR announcement: New benefits program including dental and vision coverage.',
-      topic: 'hr',
-    },
+    { content: 'HR announcement: New benefits program including dental and vision coverage.', topic: 'hr' },
     { content: 'Sales strategy discussion: How to approach enterprise customers.', topic: 'sales' },
     { content: 'Product roadmap update: Q1 priorities and feature planning.', topic: 'product' },
   ];

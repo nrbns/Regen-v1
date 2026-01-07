@@ -48,25 +48,23 @@ function subscribe(client, channel) {
     channels.set(channel, new Set());
   }
   channels.get(channel).add(client);
-
+  
   const clientInfo = clients.get(client);
   if (clientInfo) {
     clientInfo.channels.add(channel);
   }
-
+  
   // Send recent history if available
   const history = messageHistory.get(channel);
   if (history && history.length > 0) {
     const recent = history.slice(-10); // Last 10 messages
-    client.send(
-      JSON.stringify({
-        type: 'history',
-        channel,
-        messages: recent,
-      })
-    );
+    client.send(JSON.stringify({
+      type: 'history',
+      channel,
+      messages: recent,
+    }));
   }
-
+  
   console.log(`[Bus] Client ${clientInfo?.id || 'unknown'} subscribed to ${channel}`);
 }
 
@@ -81,7 +79,7 @@ function unsubscribe(client, channel) {
       channels.delete(channel);
     }
   }
-
+  
   const clientInfo = clients.get(client);
   if (clientInfo) {
     clientInfo.channels.delete(channel);
@@ -96,7 +94,7 @@ function publish(channel, message, sender = null) {
   if (!channelClients || channelClients.size === 0) {
     return 0; // No subscribers
   }
-
+  
   const payload = {
     type: 'message',
     channel,
@@ -104,12 +102,12 @@ function publish(channel, message, sender = null) {
     data: message,
     sender: sender || 'system',
   };
-
+  
   const payloadStr = JSON.stringify(payload);
   let delivered = 0;
-
+  
   // Broadcast to all subscribers
-  channelClients.forEach(client => {
+  channelClients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
       try {
         client.send(payloadStr);
@@ -120,7 +118,7 @@ function publish(channel, message, sender = null) {
       }
     }
   });
-
+  
   // Store in history
   if (!messageHistory.has(channel)) {
     messageHistory.set(channel, []);
@@ -133,11 +131,11 @@ function publish(channel, message, sender = null) {
   if (history.length > MAX_HISTORY) {
     history.shift();
   }
-
+  
   // Update metrics
   metrics.messagesTotal++;
   metrics.messagesByChannel.set(channel, (metrics.messagesByChannel.get(channel) || 0) + 1);
-
+  
   return delivered;
 }
 
@@ -153,111 +151,97 @@ wss.on('connection', (ws, req) => {
     origin: req.headers.origin,
     ...query,
   };
-
+  
   clients.set(ws, {
     id: clientId,
     channels: new Set(),
     metadata,
     connectedAt: Date.now(),
   });
-
+  
   metrics.connectionsTotal++;
   metrics.activeConnections++;
-
+  
   console.log(`[Bus] Client connected: ${clientId}`);
-
+  
   // Send welcome message
-  ws.send(
-    JSON.stringify({
-      type: 'connected',
-      clientId,
-      timestamp: Date.now(),
-      server: 'realtime-bus',
-      version: '1.0.0',
-    })
-  );
-
+  ws.send(JSON.stringify({
+    type: 'connected',
+    clientId,
+    timestamp: Date.now(),
+    server: 'realtime-bus',
+    version: '1.0.0',
+  }));
+  
   // Handle messages
-  ws.on('message', data => {
+  ws.on('message', (data) => {
     try {
       const message = JSON.parse(data.toString());
-
+      
       switch (message.type) {
         case 'subscribe':
           if (message.channel) {
             subscribe(ws, message.channel);
-            ws.send(
-              JSON.stringify({
-                type: 'subscribed',
-                channel: message.channel,
-              })
-            );
+            ws.send(JSON.stringify({
+              type: 'subscribed',
+              channel: message.channel,
+            }));
           }
           break;
-
+          
         case 'unsubscribe':
           if (message.channel) {
             unsubscribe(ws, message.channel);
-            ws.send(
-              JSON.stringify({
-                type: 'unsubscribed',
-                channel: message.channel,
-              })
-            );
+            ws.send(JSON.stringify({
+              type: 'unsubscribed',
+              channel: message.channel,
+            }));
           }
           break;
-
+          
         case 'publish':
           if (message.channel && message.data) {
             const clientInfo = clients.get(ws);
             const delivered = publish(message.channel, message.data, clientInfo?.id);
-            ws.send(
-              JSON.stringify({
-                type: 'published',
-                channel: message.channel,
-                delivered,
-              })
-            );
+            ws.send(JSON.stringify({
+              type: 'published',
+              channel: message.channel,
+              delivered,
+            }));
           }
           break;
-
+          
         case 'ping':
-          ws.send(
-            JSON.stringify({
-              type: 'pong',
-              timestamp: Date.now(),
-            })
-          );
+          ws.send(JSON.stringify({
+            type: 'pong',
+            timestamp: Date.now(),
+          }));
           break;
-
+          
         case 'get_metrics':
-          ws.send(
-            JSON.stringify({
-              type: 'metrics',
-              metrics: {
-                ...metrics,
-                activeChannels: channels.size,
-                messagesByChannel: Object.fromEntries(metrics.messagesByChannel),
-              },
-            })
-          );
+          ws.send(JSON.stringify({
+            type: 'metrics',
+            metrics: {
+              ...metrics,
+              activeChannels: channels.size,
+              messagesByChannel: Object.fromEntries(metrics.messagesByChannel),
+            },
+          }));
           break;
-
+          
         default:
           console.warn(`[Bus] Unknown message type: ${message.type}`);
       }
     } catch (error) {
       console.error(`[Bus] Message parse error:`, error);
       metrics.errors++;
-      ws.send(
-        JSON.stringify({
-          type: 'error',
-          error: 'Invalid message format',
-        })
-      );
+      ws.send(JSON.stringify({
+        type: 'error',
+        error: 'Invalid message format',
+      }));
     }
   });
-
+  
   // Handle disconnect
   ws.on('close', () => {
     const clientInfo = clients.get(ws);
@@ -271,8 +255,8 @@ wss.on('connection', (ws, req) => {
     metrics.activeConnections--;
     console.log(`[Bus] Client disconnected: ${clientId}`);
   });
-
-  ws.on('error', error => {
+  
+  ws.on('error', (error) => {
     console.error(`[Bus] WebSocket error:`, error);
     metrics.errors++;
   });
@@ -284,38 +268,34 @@ wss.on('connection', (ws, req) => {
 server.on('request', (req, res) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        status: 'ok',
-        timestamp: Date.now(),
-        metrics: {
-          activeConnections: metrics.activeConnections,
-          totalConnections: metrics.connectionsTotal,
-          totalMessages: metrics.messagesTotal,
-          activeChannels: channels.size,
-        },
-      })
-    );
+    res.end(JSON.stringify({
+      status: 'ok',
+      timestamp: Date.now(),
+      metrics: {
+        activeConnections: metrics.activeConnections,
+        totalConnections: metrics.connectionsTotal,
+        totalMessages: metrics.messagesTotal,
+        activeChannels: channels.size,
+      },
+    }));
     return;
   }
-
+  
   if (req.url === '/metrics') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        ...metrics,
-        activeChannels: channels.size,
-        messagesByChannel: Object.fromEntries(metrics.messagesByChannel),
-        clients: Array.from(clients.values()).map(c => ({
-          id: c.id,
-          channels: Array.from(c.channels),
-          connectedAt: c.connectedAt,
-        })),
-      })
-    );
+    res.end(JSON.stringify({
+      ...metrics,
+      activeChannels: channels.size,
+      messagesByChannel: Object.fromEntries(metrics.messagesByChannel),
+      clients: Array.from(clients.values()).map(c => ({
+        id: c.id,
+        channels: Array.from(c.channels),
+        connectedAt: c.connectedAt,
+      })),
+    }));
     return;
   }
-
+  
   res.writeHead(404);
   res.end('Not found');
 });
@@ -338,3 +318,4 @@ process.on('SIGTERM', () => {
     });
   });
 });
+

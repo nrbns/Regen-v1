@@ -16,19 +16,19 @@ export class ResearchAgentHandler {
       case 'search':
       case 'web_search':
         return await this.webSearch(parameters);
-
+      
       case 'summarize':
         return await this.summarize(parameters);
-
+      
       case 'gather_content':
         return await this.gatherContent(parameters);
-
+      
       case 'analyze':
         return await this.analyze(parameters);
-
+      
       case 'fact_check':
         return await this.factCheck(parameters);
-
+      
       default:
         throw new Error(`Unknown research action: ${action}`);
     }
@@ -91,7 +91,11 @@ export class ResearchAgentHandler {
       success: true,
       action: 'summarize',
       summary: content,
-      keyPoints: ['Key point 1', 'Key point 2', 'Key point 3'],
+      keyPoints: [
+        'Key point 1',
+        'Key point 2',
+        'Key point 3',
+      ],
       length: maxLength,
     };
   }
@@ -142,7 +146,10 @@ export class ResearchAgentHandler {
       success: true,
       action: 'analyze',
       analysisType,
-      insights: ['Insight 1 from analysis', 'Insight 2 from analysis'],
+      insights: [
+        'Insight 1 from analysis',
+        'Insight 2 from analysis',
+      ],
       metrics: metrics.map((m: string) => ({
         name: m,
         value: Math.random() * 100,

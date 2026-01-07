@@ -51,7 +51,6 @@ console.log('Tabs reused:', stats.tabsReused);
 ## Build Output
 
 After building, `dist-redix/` contains:
-
 - `index.html` - Entry point
 - `redix.js` - Main bundle (< 12KB target)
 - `redix.css` - Styles (uses design tokens)
@@ -62,3 +61,4 @@ After building, `dist-redix/` contains:
 - **No dependencies** (vanilla JS only)
 - **Progressive enhancement** (works without JS, degrades gracefully)
 - **Service Worker** (offline support, WASM caching)
+

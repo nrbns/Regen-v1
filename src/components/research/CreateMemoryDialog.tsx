@@ -189,7 +189,7 @@ export function CreateMemoryDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
             aria-hidden="true"
           />
 
@@ -205,7 +205,7 @@ export function CreateMemoryDialog({
             aria-labelledby="create-memory-title"
           >
             <div
-              className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface-root)] shadow-2xl"
+              className="w-full max-w-lg bg-[var(--surface-root)] border border-[var(--surface-border)] rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -217,7 +217,7 @@ export function CreateMemoryDialog({
                   {selectedTypeInfo && (
                     <selectedTypeInfo.icon
                       size={20}
-                      className="flex-shrink-0 text-[var(--color-primary-400)]"
+                      className="text-[var(--color-primary-400)] flex-shrink-0"
                     />
                   )}
                   <h2
@@ -239,7 +239,7 @@ export function CreateMemoryDialog({
                     e.stopPropagation();
                   }}
                   disabled={loading}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close dialog"
                 >
@@ -267,11 +267,15 @@ export function CreateMemoryDialog({
                           (e as any).stopImmediatePropagation();
                           e.stopPropagation();
                         }}
-                        className={`flex flex-1 flex-col items-center gap-2 rounded-lg border px-3 py-2.5 transition-all ${
-                          type === typeOption.value
-                            ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-600)] text-white'
-                            : 'border-[var(--surface-border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                        } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
+                        className={`
+                          flex-1 flex flex-col items-center gap-2 px-3 py-2.5 rounded-lg border transition-all
+                          ${
+                            type === typeOption.value
+                              ? 'bg-[var(--color-primary-600)] border-[var(--color-primary-500)] text-white'
+                              : 'bg-[var(--surface-elevated)] border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                          }
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                        `}
                         style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={type === typeOption.value}
                       >
@@ -322,7 +326,7 @@ export function CreateMemoryDialog({
                   <div>
                     <label
                       htmlFor="memory-title"
-                      className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                      className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                       style={{ fontSize: tokens.fontSize.sm }}
                     >
                       Title {type === 'task' && <span className="text-red-400">*</span>}
@@ -342,13 +346,13 @@ export function CreateMemoryDialog({
                     <div>
                       <label
                         htmlFor="memory-url"
-                        className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                        className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                         style={{ fontSize: tokens.fontSize.sm }}
                       >
                         URL {type === 'bookmark' && <span className="text-red-400">*</span>}
                       </label>
                       <div className="flex items-center gap-2">
-                        <Link size={16} className="flex-shrink-0 text-[var(--text-muted)]" />
+                        <Link size={16} className="text-[var(--text-muted)] flex-shrink-0" />
                         <Input
                           id="memory-url"
                           type="url"
@@ -367,7 +371,7 @@ export function CreateMemoryDialog({
                     <div>
                       <label
                         htmlFor="memory-content"
-                        className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                        className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                         style={{ fontSize: tokens.fontSize.sm }}
                       >
                         {type === 'note' ? 'Content' : 'Notes'}{' '}
@@ -391,7 +395,7 @@ export function CreateMemoryDialog({
                       <div>
                         <label
                           htmlFor="memory-priority"
-                          className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                          className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                           style={{ fontSize: tokens.fontSize.sm }}
                         >
                           Priority
@@ -400,7 +404,7 @@ export function CreateMemoryDialog({
                           id="memory-priority"
                           value={priority}
                           onChange={e => setPriority(e.target.value as 'low' | 'medium' | 'high')}
-                          className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface-panel)] px-3 py-2 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
+                          className="w-full px-3 py-2 rounded-lg bg-[var(--surface-panel)] border border-[var(--surface-border)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]"
                           style={{ fontSize: tokens.fontSize.sm }}
                           disabled={loading}
                         >
@@ -412,7 +416,7 @@ export function CreateMemoryDialog({
                       <div>
                         <label
                           htmlFor="memory-due-date"
-                          className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                          className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                           style={{ fontSize: tokens.fontSize.sm }}
                         >
                           Due Date
@@ -432,13 +436,13 @@ export function CreateMemoryDialog({
                   <div>
                     <label
                       htmlFor="memory-tags"
-                      className="mb-1.5 block text-sm font-medium text-[var(--text-primary)]"
+                      className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"
                       style={{ fontSize: tokens.fontSize.sm }}
                     >
                       Tags
                     </label>
-                    <div className="mb-2 flex items-center gap-2">
-                      <Tag size={16} className="flex-shrink-0 text-[var(--text-muted)]" />
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag size={16} className="text-[var(--text-muted)] flex-shrink-0" />
                       <Input
                         id="memory-tags"
                         value={tagInput}
@@ -472,7 +476,7 @@ export function CreateMemoryDialog({
                         {tags.map(tag => (
                           <span
                             key={tag}
-                            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--color-primary-300)]"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface-elevated)] text-[var(--color-primary-300)] text-xs"
                             style={{ fontSize: tokens.fontSize.xs }}
                           >
                             {tag}
@@ -487,7 +491,7 @@ export function CreateMemoryDialog({
                                 (e as any).stopImmediatePropagation();
                                 e.stopPropagation();
                               }}
-                              className="transition-colors hover:text-red-400"
+                              className="hover:text-red-400 transition-colors"
                               style={{ zIndex: 10011, isolation: 'isolate' }}
                               aria-label={`Remove tag ${tag}`}
                             >

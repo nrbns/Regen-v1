@@ -58,7 +58,7 @@ export function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[90] bg-black/50"
+            className="fixed inset-0 bg-black/50 z-[90]"
             onClick={onClose}
           />
 
@@ -67,17 +67,17 @@ export function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed left-1/2 top-1/2 z-[100] max-h-[80vh] w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl bg-white rounded-2xl shadow-2xl z-[100] p-6 max-h-[80vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
                 <Palette size={24} />
                 Customize Theme
               </h2>
               <button
                 onClick={onClose}
-                className="rounded-full p-2 transition-colors hover:bg-gray-100"
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
                 aria-label="Close"
               >
                 <X size={20} className="text-gray-600" />
@@ -86,10 +86,10 @@ export function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
 
             {/* Upload Custom Image */}
             <div className="mb-6">
-              <label className="mb-2 block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Upload Custom Background
               </label>
-              <label className="flex h-32 w-full cursor-pointer items-center justify-center gap-3 rounded-lg border-2 border-dashed border-gray-300 transition-colors hover:border-blue-500 hover:bg-blue-50/50">
+              <label className="flex items-center justify-center gap-3 w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-colors">
                 <input
                   type="file"
                   accept="image/*"
@@ -110,20 +110,20 @@ export function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
 
             {/* Theme Presets */}
             <div>
-              <label className="mb-3 block text-sm font-medium text-gray-700">Preset Themes</label>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <label className="block text-sm font-medium text-gray-700 mb-3">Preset Themes</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {availableThemes.map(theme => (
                   <button
                     key={theme.name || 'default'}
                     onClick={() => theme.name && handleThemeSelect(theme.name)}
-                    className={`relative rounded-lg border-2 p-4 transition-all ${
+                    className={`relative p-4 rounded-lg border-2 transition-all ${
                       themeName === theme.name
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     <div
-                      className="mb-2 h-20 w-full rounded"
+                      className="w-full h-20 rounded mb-2"
                       style={{
                         backgroundColor: theme.themeColor,
                         backgroundImage: theme.backgroundImage
@@ -135,7 +135,7 @@ export function ThemeSelector({ isOpen, onClose }: ThemeSelectorProps) {
                     />
                     <div className="text-sm font-medium text-gray-900">{theme.name}</div>
                     {themeName === theme.name && (
-                      <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-500">
+                      <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                         <Check size={14} className="text-white" />
                       </div>
                     )}

@@ -46,12 +46,8 @@ class AgentRuntime {
     return () => this.listeners.delete(cb);
   }
 
-  async execute(
-    request: AgentExecutionInput & { agentId?: string; signal?: AbortSignal }
-  ): Promise<AgentExecutionResult> {
-    const agent = request.agentId
-      ? this.agents.get(request.agentId)
-      : this.selectAgentForPrompt(request.prompt);
+  async execute(request: AgentExecutionInput & { agentId?: string; signal?: AbortSignal }): Promise<AgentExecutionResult> {
+    const agent = request.agentId ? this.agents.get(request.agentId) : this.selectAgentForPrompt(request.prompt);
     if (!agent) {
       return { success: false, error: 'No agent available for this request.' };
     }
@@ -136,7 +132,7 @@ class AgentRuntime {
 
   private updateRun(run: AgentRunRecord) {
     this.runs.set(run.id, run);
-    this.listeners.forEach(listener => {
+    this.listeners.forEach((listener) => {
       try {
         listener(run);
       } catch (error) {
@@ -148,7 +144,7 @@ class AgentRuntime {
   private selectAgentForPrompt(prompt: string): AgentConfig | undefined {
     const lower = prompt.toLowerCase();
     for (const agent of this.agents.values()) {
-      if (agent.trigger?.keywords?.some(kw => lower.includes(kw))) {
+      if (agent.trigger?.keywords?.some((kw) => lower.includes(kw))) {
         return agent;
       }
     }
@@ -161,11 +157,9 @@ class AgentRuntime {
     for (const toolId of agent.tools) {
       const tool = agentTools[toolId];
       if (!tool) continue;
-      const missing = tool.requiredCapabilities.filter(cap => !agent.capabilities.includes(cap));
+      const missing = tool.requiredCapabilities.filter((cap) => !agent.capabilities.includes(cap));
       if (missing.length > 0) {
-        console.warn(
-          `[AgentRuntime] Agent ${agent.id} missing capabilities for tool ${toolId}: ${missing.join(',')}`
-        );
+        console.warn(`[AgentRuntime] Agent ${agent.id} missing capabilities for tool ${toolId}: ${missing.join(',')}`);
         continue;
       }
       toolset[toolId] = async (input, overrides = {}) => {
@@ -198,9 +192,7 @@ class AgentRuntime {
       async entryPoint(input, env) {
         const steps = [];
         const memoryExecutor = env.tools['memory.search'];
-        const memoryResults = memoryExecutor
-          ? ((await memoryExecutor({ query: input.prompt })) as any[])
-          : [];
+        const memoryResults = memoryExecutor ? ((await memoryExecutor({ query: input.prompt })) as any[]) : [];
 
         steps.push({
           toolId: 'memory.search',
@@ -239,31 +231,19 @@ class AgentRuntime {
       capabilities: ['memory:read', 'web:fetch', 'redix:ask'],
       tools: ['memory.search', 'redix.ask', 'web.fetch', 'trade.fetchQuote'],
       trigger: {
-        keywords: [
-          'trade',
-          'stock',
-          'ticker',
-          'invest',
-          'price',
-          'market',
-          'AAPL',
-          'TSLA',
-          'NVDA',
-          'MSFT',
-          'GOOGL',
-        ],
+        keywords: ['trade', 'stock', 'ticker', 'invest', 'price', 'market', 'AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL'],
         intent: ['comparison', 'fact'],
       },
       maxSteps: 5,
       async entryPoint(input, env) {
         const steps = [];
         const prompt = input.prompt || '';
-
+        
         // Extract stock symbols from the query (simple regex for common tickers)
         const tickerRegex = /\b([A-Z]{1,5})\b/g;
         const matches = prompt.match(tickerRegex) || [];
-        const potentialSymbols = matches.filter(m => m.length >= 1 && m.length <= 5);
-
+        const potentialSymbols = matches.filter((m) => m.length >= 1 && m.length <= 5);
+        
         // Try to fetch trade data for detected symbols using tool
         let tradeDataContext = '';
         if (potentialSymbols.length > 0) {
@@ -271,13 +251,13 @@ class AgentRuntime {
             const tradeTool = env.tools['trade.fetchQuote'];
             if (tradeTool) {
               const quotes = await Promise.allSettled(
-                potentialSymbols.slice(0, 3).map(symbol => tradeTool({ symbol }))
+                potentialSymbols.slice(0, 3).map((symbol) => tradeTool({ symbol }))
               );
-
+              
               const successfulQuotes = quotes
                 .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-                .map(r => r.value);
-
+                .map((r) => r.value);
+              
               if (successfulQuotes.length > 0) {
                 tradeDataContext = successfulQuotes
                   .map((quote: any) => {
@@ -285,7 +265,7 @@ class AgentRuntime {
                     return `${quote.symbol}: $${quote.price.toFixed(2)} (${changeSign}${quote.change.toFixed(2)}, ${changeSign}${quote.changePercent.toFixed(2)}%) - ${quote.sentiment} sentiment`;
                   })
                   .join('\n');
-
+                
                 steps.push({
                   toolId: 'trade.fetchQuote',
                   input: { symbols: potentialSymbols.slice(0, 3) },
@@ -299,7 +279,7 @@ class AgentRuntime {
             console.warn('[TradeAgent] Failed to fetch trade data:', error);
           }
         }
-
+        
         // Build enhanced prompt with trade data
         const enhancedPrompt = `You are the Trade Mode assistant. Provide price action, key levels, and risk notes for trading queries.
 
@@ -315,7 +295,7 @@ Provide a concise analysis with:
         if (!redixExecutor) {
           return { success: false, error: 'Trade agent missing redix.ask tool' };
         }
-
+        
         const output = await redixExecutor({ prompt: enhancedPrompt });
         steps.push({
           toolId: 'redix.ask',
@@ -324,7 +304,7 @@ Provide a concise analysis with:
           startedAt: Date.now(),
           finishedAt: Date.now(),
         });
-
+        
         return {
           success: true,
           output: typeof output === 'string' ? output : JSON.stringify(output),
@@ -332,7 +312,7 @@ Provide a concise analysis with:
         };
       },
     });
-
+    
     // GraphMind Agent - Knowledge graph queries and visualization
     this.registerAgent({
       id: 'graphmind.agent',
@@ -349,10 +329,8 @@ Provide a concise analysis with:
       async entryPoint(input, env) {
         const steps = [];
         const memoryExecutor = env.tools['memory.search'];
-        const memoryResults = memoryExecutor
-          ? ((await memoryExecutor({ query: input.prompt })) as any[])
-          : [];
-
+        const memoryResults = memoryExecutor ? ((await memoryExecutor({ query: input.prompt })) as any[]) : [];
+        
         steps.push({
           toolId: 'memory.search',
           input: { query: input.prompt },
@@ -360,19 +338,16 @@ Provide a concise analysis with:
           startedAt: Date.now(),
           finishedAt: Date.now(),
         });
-
+        
         const redixExecutor = env.tools['redix.ask'];
-        const context =
-          memoryResults.length > 0
-            ? `Found ${memoryResults.length} related memories. Use these to build connections in the knowledge graph.\n\nUser query: ${input.prompt}`
-            : input.prompt;
-
+        const context = memoryResults.length > 0 
+          ? `Found ${memoryResults.length} related memories. Use these to build connections in the knowledge graph.\n\nUser query: ${input.prompt}`
+          : input.prompt;
+        
         const output = redixExecutor
-          ? await redixExecutor({
-              prompt: `You are the GraphMind assistant. Help users explore their knowledge graph by identifying connections, relationships, and patterns in their SuperMemory.\n\n${context}`,
-            })
+          ? await redixExecutor({ prompt: `You are the GraphMind assistant. Help users explore their knowledge graph by identifying connections, relationships, and patterns in their SuperMemory.\n\n${context}` })
           : 'GraphMind agent requires Redix connection.';
-
+        
         return {
           success: true,
           output: typeof output === 'string' ? output : JSON.stringify(output),
@@ -380,13 +355,12 @@ Provide a concise analysis with:
         };
       },
     });
-
+    
     // Docs Agent - Document summarization and search
     this.registerAgent({
       id: 'docs.agent',
       name: 'Docs Agent',
-      description:
-        'Summarizes documents, extracts key information, and helps with documentation queries.',
+      description: 'Summarizes documents, extracts key information, and helps with documentation queries.',
       version: '1.0.0',
       capabilities: ['memory:read', 'memory:write', 'redix:ask'],
       tools: ['memory.search', 'memory.saveNote', 'redix.ask', 'doc.summarize'],
@@ -401,9 +375,9 @@ Provide a concise analysis with:
         if (!redixExecutor) {
           return { success: false, error: 'Docs agent missing redix.ask tool' };
         }
-
+        
         const prompt = `You are the Docs Mode assistant. Summarize documents, extract key information, and help with documentation queries.\n\nUser query: ${input.prompt}\n\nProvide a structured summary with:\n1. Key points\n2. Important details\n3. Action items (if any)`;
-
+        
         const output = await redixExecutor({ prompt });
         steps.push({
           toolId: 'redix.ask',
@@ -412,7 +386,7 @@ Provide a concise analysis with:
           startedAt: Date.now(),
           finishedAt: Date.now(),
         });
-
+        
         return {
           success: true,
           output: typeof output === 'string' ? output : JSON.stringify(output),
@@ -420,7 +394,7 @@ Provide a concise analysis with:
         };
       },
     });
-
+    
     // Images Agent - Image search and analysis
     this.registerAgent({
       id: 'images.agent',
@@ -440,9 +414,9 @@ Provide a concise analysis with:
         if (!redixExecutor) {
           return { success: false, error: 'Images agent missing redix.ask tool' };
         }
-
+        
         const prompt = `You are the Images Mode assistant. Help users find and analyze images, create inspiration boards, and work with visual content.\n\nUser query: ${input.prompt}`;
-
+        
         const output = await redixExecutor({ prompt });
         steps.push({
           toolId: 'redix.ask',
@@ -451,7 +425,7 @@ Provide a concise analysis with:
           startedAt: Date.now(),
           finishedAt: Date.now(),
         });
-
+        
         return {
           success: true,
           output: typeof output === 'string' ? output : JSON.stringify(output),
@@ -459,13 +433,12 @@ Provide a concise analysis with:
         };
       },
     });
-
+    
     // Threats Agent - Security analysis and threat detection
     this.registerAgent({
       id: 'threats.agent',
       name: 'Threats Agent',
-      description:
-        'Analyzes security threats, provides threat intelligence, and helps with network isolation.',
+      description: 'Analyzes security threats, provides threat intelligence, and helps with network isolation.',
       version: '1.0.0',
       capabilities: ['web:fetch', 'redix:ask'],
       tools: ['web.fetch', 'redix.ask', 'threat.scan'],
@@ -480,9 +453,9 @@ Provide a concise analysis with:
         if (!redixExecutor) {
           return { success: false, error: 'Threats agent missing redix.ask tool' };
         }
-
+        
         const prompt = `You are the Threats Mode assistant. Analyze security threats, provide threat intelligence, and help with security analysis.\n\nUser query: ${input.prompt}\n\nProvide:\n1. Threat assessment\n2. Risk level\n3. Recommended actions\n4. Security best practices`;
-
+        
         const output = await redixExecutor({ prompt });
         steps.push({
           toolId: 'redix.ask',
@@ -491,7 +464,7 @@ Provide a concise analysis with:
           startedAt: Date.now(),
           finishedAt: Date.now(),
         });
-
+        
         return {
           success: true,
           output: typeof output === 'string' ? output : JSON.stringify(output),
@@ -511,15 +484,17 @@ Provide a concise analysis with:
     durationMs?: number;
   }) {
     try {
-      useAgentMemoryStore.getState().addEntry({
-        agentId: params.agentId,
-        runId: params.runId,
-        prompt: params.prompt,
-        response: params.output,
-        error: params.error,
-        success: params.success,
-        tokens: undefined,
-      });
+      useAgentMemoryStore
+        .getState()
+        .addEntry({
+          agentId: params.agentId,
+          runId: params.runId,
+          prompt: params.prompt,
+          response: params.output,
+          error: params.error,
+          success: params.success,
+          tokens: undefined,
+        });
     } catch (storeError) {
       console.warn('[AgentRuntime] Failed to update agent memory store:', storeError);
     }
@@ -554,11 +529,11 @@ Provide a concise analysis with:
         overrides?.memorySearch ||
         (async (query: string) => {
           const results = await semanticSearchMemories(query, { limit: 12 });
-          return results.map(r => r.event);
+          return results.map((r) => r.event);
         }),
       saveMemory:
         overrides?.saveMemory ||
-        (async event => {
+        (async (event) => {
           const result = await processMemoryEvent(event);
           return result.eventId;
         }),
@@ -570,10 +545,10 @@ Provide a concise analysis with:
 
 function buildContextPrompt(prompt: string, memoryResults?: any[]): string {
   if (!memoryResults || memoryResults.length === 0) return prompt;
-  const contextLines = memoryResults
-    .slice(0, 5)
-    .map(result => `- ${result.title || result.snippet || result.id}`);
+  const contextLines = memoryResults.slice(0, 5).map((result) => `- ${result.title || result.snippet || result.id}`);
   return `Context:\n${contextLines.join('\n')}\n\nUser Prompt: ${prompt}`;
 }
 
 export const agentRuntime = new AgentRuntime();
+
+

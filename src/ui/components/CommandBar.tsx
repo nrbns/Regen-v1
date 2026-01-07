@@ -174,7 +174,7 @@ export function CommandBar({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
         aria-hidden="true"
       />
 
@@ -187,7 +187,13 @@ export function CommandBar({
           duration: 0.18,
           ease: [0.2, 0.9, 0.3, 1],
         }}
-        className={`fixed left-1/2 top-1/2 z-50 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[var(--surface-border)] bg-[var(--surface-panel)] shadow-2xl ${className} `}
+        className={`
+          fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+          w-full max-w-2xl
+          bg-[var(--surface-panel)] border border-[var(--surface-border)]
+          rounded-lg shadow-2xl
+          ${className}
+        `}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
@@ -197,7 +203,7 @@ export function CommandBar({
           className="flex items-center gap-3 border-b border-[var(--surface-border)]"
           style={{ padding: tokens.spacing(3) }}
         >
-          <Search size={18} className="flex-shrink-0 text-[var(--text-muted)]" />
+          <Search size={18} className="text-[var(--text-muted)] flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -208,8 +214,8 @@ export function CommandBar({
             style={{ fontSize: tokens.fontSize.base }}
             aria-label="Command search"
           />
-          <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
-            <kbd className="rounded border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-1.5 py-0.5">
+          <div className="flex items-center gap-1 text-[var(--text-muted)] text-xs">
+            <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-elevated)] border border-[var(--surface-border)]">
               Esc
             </kbd>
             <span>to close</span>
@@ -220,7 +226,7 @@ export function CommandBar({
         <div className="max-h-96 overflow-y-auto" style={{ padding: tokens.spacing(2) }}>
           {filteredCommands.length === 0 ? (
             <div
-              className="py-8 text-center text-[var(--text-muted)]"
+              className="text-center text-[var(--text-muted)] py-8"
               style={{ fontSize: tokens.fontSize.sm }}
             >
               No commands found
@@ -235,11 +241,16 @@ export function CommandBar({
                     key={command.id}
                     onClick={() => handleCommandSelect(command)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex items-center gap-3 rounded-md px-3 py-2 transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] ${
-                      isSelected
-                        ? 'bg-[var(--surface-hover)] text-[var(--text-primary)]'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]'
-                    } `}
+                    className={`
+                      flex items-center gap-3 px-3 py-2 rounded-md
+                      transition-colors
+                      focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]
+                      ${
+                        isSelected
+                          ? 'bg-[var(--surface-hover)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)]'
+                      }
+                    `}
                     style={{ fontSize: tokens.fontSize.sm }}
                   >
                     {/* Icon */}
@@ -248,11 +259,11 @@ export function CommandBar({
                     </div>
 
                     {/* Content */}
-                    <div className="min-w-0 flex-1 text-left">
-                      <div className="truncate font-medium">{command.label}</div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="font-medium truncate">{command.label}</div>
                       {command.description && (
                         <div
-                          className="truncate text-[var(--text-muted)]"
+                          className="text-[var(--text-muted)] truncate"
                           style={{ fontSize: tokens.fontSize.xs }}
                         >
                           {command.description}
@@ -264,7 +275,7 @@ export function CommandBar({
                     {command.shortcut && (
                       <div className="flex-shrink-0">
                         <kbd
-                          className="rounded border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[var(--text-muted)]"
+                          className="px-1.5 py-0.5 rounded bg-[var(--surface-elevated)] border border-[var(--surface-border)] text-[var(--text-muted)]"
                           style={{ fontSize: tokens.fontSize.xs }}
                         >
                           {command.shortcut}

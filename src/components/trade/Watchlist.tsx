@@ -194,7 +194,7 @@ export default function Watchlist({ activeSymbol, onSelectSymbol }: WatchlistPro
             // Allow mousedown to proceed normally for form submission
             e.stopPropagation();
           }}
-          className="inline-flex items-center gap-1 rounded-xl bg-indigo-500/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-xl bg-indigo-500/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ zIndex: 10011, isolation: 'isolate', pointerEvents: 'auto' }}
         >
           <Plus size={14} />

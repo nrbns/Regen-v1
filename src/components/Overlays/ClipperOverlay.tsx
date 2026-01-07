@@ -36,7 +36,7 @@ export function ClipperOverlay({ active, onCancel, onCreateHighlight }: ClipperO
       color,
       borderColor: `${color}66`,
     }),
-    [color]
+    [color],
   );
 
   return (
@@ -57,40 +57,40 @@ export function ClipperOverlay({ active, onCancel, onCreateHighlight }: ClipperO
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="fixed bottom-12 left-1/2 z-[71] w-[520px] max-w-[90vw] -translate-x-1/2 rounded-xl border border-gray-700/50 bg-gray-900/95 px-5 py-4 shadow-2xl backdrop-blur-xl"
+            className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[71] w-[520px] max-w-[90vw] px-5 py-4 bg-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-xl shadow-2xl"
           >
             <div className="flex items-start gap-4">
-              <div className="min-w-0 flex-1">
-                <div className="mb-2 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm font-medium text-gray-200">Web Clipper</span>
                   <span className="text-[11px] uppercase tracking-wide text-gray-500">
                     Ctrl ⌃ / Cmd ⌘ + Shift ⇧ + H
                   </span>
                 </div>
-                <p className="mb-3 text-xs text-gray-400">
-                  Highlight text on the current page and save it as a note. We’ll store it with the
-                  page so you can revisit later.
+                <p className="text-xs text-gray-400 mb-3">
+                  Highlight text on the current page and save it as a note. We’ll store it with the page so you can
+                  revisit later.
                 </p>
                 {selection ? (
                   <div
-                    className="max-h-28 overflow-y-auto rounded-lg border px-3 py-2 text-xs transition-colors"
+                    className="text-xs border rounded-lg px-3 py-2 max-h-28 overflow-y-auto transition-colors"
                     style={previewStyle}
                   >
                     {selection}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-gray-700 px-3 py-6 text-center text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 border border-dashed border-gray-700 rounded-lg px-3 py-6 text-center">
                     Select text on the page to capture it.
                   </div>
                 )}
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex items-center gap-2">
-                  {colors.map(swatch => (
+                  {colors.map((swatch) => (
                     <button
                       key={swatch}
                       type="button"
-                      className={`h-6 w-6 rounded-full border-2 transition-transform ${
+                      className={`w-6 h-6 rounded-full border-2 transition-transform ${
                         color === swatch ? 'scale-110 border-gray-200' : 'border-transparent'
                       }`}
                       style={{ backgroundColor: swatch }}
@@ -102,7 +102,7 @@ export function ClipperOverlay({ active, onCancel, onCreateHighlight }: ClipperO
                 <div className="flex items-center gap-2">
                   <button
                     onClick={onCancel}
-                    className="rounded border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/80 hover:text-gray-100"
+                    className="px-3 py-1.5 text-sm text-gray-300 hover:text-gray-100 bg-gray-800/60 hover:bg-gray-800/80 border border-gray-700/50 rounded transition-colors"
                   >
                     Cancel
                   </button>
@@ -119,7 +119,7 @@ export function ClipperOverlay({ active, onCancel, onCreateHighlight }: ClipperO
                       setColor(colors[0]);
                     }}
                     disabled={!selection}
-                    className="rounded border border-emerald-500/40 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/30 disabled:text-gray-500"
+                    className="px-3 py-1.5 text-sm font-semibold text-emerald-200 disabled:text-gray-500 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded transition-colors"
                   >
                     Save highlight
                   </button>
@@ -132,3 +132,4 @@ export function ClipperOverlay({ active, onCancel, onCreateHighlight }: ClipperO
     </AnimatePresence>
   );
 }
+

@@ -14,15 +14,14 @@ export async function summarizeTab(tabId: string): Promise<void> {
       content = '';
     }
 
-    const prompt =
-      `Summarize this page in 6-8 bullet points.\nTitle: ${title}\nURL: ${url}\n` +
+    const prompt = `Summarize this page in 6-8 bullet points.\nTitle: ${title}\nURL: ${url}\n` +
       (content ? `HTML snippet:\n${content.slice(0, 5000)}` : '');
 
     // Try to use an LLM client if present; otherwise fallback
     let summary = '';
     try {
       const maybe = await import('./LLMRouter').catch(() => null);
-      const client = maybe && (maybe as any).LLMRouter ? (maybe as any).LLMRouter : null;
+      const client = (maybe && (maybe as any).LLMRouter) ? (maybe as any).LLMRouter : null;
       if (client && typeof client.complete === 'function') {
         summary = await client.complete(prompt, { maxTokens: 400 }).catch(() => '');
       }
@@ -33,17 +32,13 @@ export async function summarizeTab(tabId: string): Promise<void> {
     }
 
     // Emit UI event for renderer to show
-    window.dispatchEvent(
-      new CustomEvent('omnibrowser:tab_summary', {
-        detail: { tabId, title, url, summary },
-      })
-    );
+    window.dispatchEvent(new CustomEvent('omnibrowser:tab_summary', {
+      detail: { tabId, title, url, summary }
+    }));
   } catch (error) {
     console.warn('[agentService] summarizeTab failed', error);
-    window.dispatchEvent(
-      new CustomEvent('omnibrowser:tab_summary_error', {
-        detail: { tabId, error: String(error) },
-      })
-    );
+    window.dispatchEvent(new CustomEvent('omnibrowser:tab_summary_error', {
+      detail: { tabId, error: String(error) }
+    }));
   }
 }

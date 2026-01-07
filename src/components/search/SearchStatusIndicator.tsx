@@ -5,11 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { CheckCircle2, AlertCircle, WifiOff, Loader2 } from 'lucide-react';
-import {
-  getSearchHealth,
-  checkSearchHealth,
-  type SearchHealthStatus,
-} from '../../services/searchHealth';
+import { getSearchHealth, checkSearchHealth, type SearchHealthStatus } from '../../services/searchHealth';
 
 export function SearchStatusIndicator() {
   const [health, setHealth] = useState(getSearchHealth());
@@ -43,13 +39,13 @@ export function SearchStatusIndicator() {
   const getStatusIcon = (status: SearchHealthStatus) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircle2 className="h-4 w-4 text-green-400" />;
+        return <CheckCircle2 className="w-4 h-4 text-green-400" />;
       case 'degraded':
-        return <AlertCircle className="h-4 w-4 text-yellow-400" />;
+        return <AlertCircle className="w-4 h-4 text-yellow-400" />;
       case 'offline':
-        return <WifiOff className="h-4 w-4 text-red-400" />;
+        return <WifiOff className="w-4 h-4 text-red-400" />;
       case 'checking':
-        return <Loader2 className="h-4 w-4 animate-spin text-gray-400" />;
+        return <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />;
     }
   };
 
@@ -70,13 +66,18 @@ export function SearchStatusIndicator() {
 
   return (
     <div
-      className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-800/50 px-2 py-1 text-xs"
+      className="flex items-center gap-2 px-2 py-1 rounded-md bg-slate-800/50 border border-slate-700 text-xs"
       title={health?.error || getStatusText(status)}
     >
       {getStatusIcon(status)}
       <span className="text-slate-300">{getStatusText(status)}</span>
-      {health?.meiliSearch && <span className="text-[10px] text-green-400">• Meili</span>}
-      {health?.localSearch && <span className="text-[10px] text-blue-400">• Local</span>}
+      {health?.meiliSearch && (
+        <span className="text-green-400 text-[10px]">• Meili</span>
+      )}
+      {health?.localSearch && (
+        <span className="text-blue-400 text-[10px]">• Local</span>
+      )}
     </div>
   );
 }
+

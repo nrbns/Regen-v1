@@ -32,48 +32,43 @@ const auditLogger = new AuditLogger();
  * POST /api/mail-agent/plan
  * Create an execution plan from user intent
  */
-app.post(
-  '/api/mail-agent/plan',
-  requireAuth,
-  rateLimit('plan'),
-  async (req: AuthenticatedRequest, res) => {
-    try {
-      const userId = req.userId!;
-      const { intent } = req.body;
+app.post('/api/mail-agent/plan', requireAuth, rateLimit('plan'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.userId!;
+    const { intent } = req.body;
 
-      if (!intent) {
-        return res.status(400).json({ error: 'intent required' });
-      }
-
-      // Check permission
-      const canPlan = await globalPermissionControl.canPerformAction(userId, 'create');
-      if (!canPlan) {
-        await auditAction(userId, 'create', 'plan', false);
-        return res.status(403).json({ error: 'Permission denied' });
-      }
-
-      const plan = planner.createPlan(userId, intent);
-      await auditAction(userId, 'create', 'plan', true, { planId: plan.id });
-
-      return res.json({
-        plan: {
-          id: plan.id,
-          intent: plan.intent,
-          tasks: plan.tasks.map(t => ({
-            id: t.id,
-            type: t.type,
-            status: t.status,
-          })),
-          estimatedRiskLevel: plan.estimatedRiskLevel,
-          requiresApproval: plan.requiresApproval,
-        },
-      });
-    } catch (error) {
-      console.error('Plan creation failed:', error);
-      return res.status(500).json({ error: 'Internal server error' });
+    if (!intent) {
+      return res.status(400).json({ error: 'intent required' });
     }
+
+    // Check permission
+    const canPlan = await globalPermissionControl.canPerformAction(userId, 'create');
+    if (!canPlan) {
+      await auditAction(userId, 'create', 'plan', false);
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+
+    const plan = planner.createPlan(userId, intent);
+    await auditAction(userId, 'create', 'plan', true, { planId: plan.id });
+
+    return res.json({
+      plan: {
+        id: plan.id,
+        intent: plan.intent,
+        tasks: plan.tasks.map((t) => ({
+          id: t.id,
+          type: t.type,
+          status: t.status,
+        })),
+        estimatedRiskLevel: plan.estimatedRiskLevel,
+        requiresApproval: plan.requiresApproval,
+      },
+    });
+  } catch (error) {
+    console.error('Plan creation failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
-);
+});
 
 /**
  * POST /api/mail-agent/execute
@@ -90,11 +85,7 @@ app.post(
     let intent: string | undefined;
     try {
       const userId = req.userId!;
-      ({ planId, approvalToken, intent } = req.body as {
-        planId?: string;
-        approvalToken?: string;
-        intent?: string;
-      });
+      ({ planId, approvalToken, intent } = req.body as { planId?: string; approvalToken?: string; intent?: string });
 
       if (!planId) {
         return res.status(400).json({ error: 'planId required' });
@@ -138,11 +129,7 @@ app.post(
 
       // Execute plan
       const context = await executor.execute(userId, plan, approvalHandler);
-      await auditAction(userId, 'send', planId, true, {
-        tasksCompleted: context.results,
-        approvalToken,
-        intent,
-      });
+      await auditAction(userId, 'send', planId, true, { tasksCompleted: context.results, approvalToken, intent });
 
       // Return results
       return res.json({
@@ -153,7 +140,7 @@ app.post(
           draftsCreated: context.drafts.length,
           emailsSent: context.results['sent'] || false,
         },
-        errors: Object.keys(context.errors).map(taskId => ({
+        errors: Object.keys(context.errors).map((taskId) => ({
           taskId,
           error: context.errors[taskId].message,
         })),
@@ -183,7 +170,7 @@ app.get('/api/mail-agent/audit/:planId', requireAuth, async (req: AuthenticatedR
 
     return res.json({
       planId,
-      trail: trail.map(entry => ({
+      trail: trail.map((entry) => ({
         timestamp: entry.timestamp,
         action: entry.action,
         status: entry.status,
@@ -234,17 +221,14 @@ export function setupRealtimeApprovals(io: any): void {
     console.log(`User connected: ${socket.id}`);
 
     // Handle approval decision
-    socket.on(
-      'approval-decision',
-      async (data: { planId: string; taskId: string; approved: boolean }) => {
-        console.log(`Approval decision for ${data.planId}/${data.taskId}: ${data.approved}`);
+    socket.on('approval-decision', async (data: { planId: string; taskId: string; approved: boolean }) => {
+      console.log(`Approval decision for ${data.planId}/${data.taskId}: ${data.approved}`);
 
-        // Store decision in DB
-        // Resume execution if waiting
+      // Store decision in DB
+      // Resume execution if waiting
 
-        socket.emit('approval-recorded', { taskId: data.taskId, approved: data.approved });
-      }
-    );
+      socket.emit('approval-recorded', { taskId: data.taskId, approved: data.approved });
+    });
 
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);

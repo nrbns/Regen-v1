@@ -16,7 +16,7 @@ const ErrorBanner: React.FC<ErrorBannerProps> = ({
   onDismiss,
 }) => {
   return (
-    <div className="fixed left-1/2 top-4 z-40 w-[600px] -translate-x-1/2 rounded-lg border border-red-700 bg-red-900/40 p-3">
+    <div className="fixed top-4 left-1/2 z-40 w-[600px] -translate-x-1/2 rounded-lg border border-red-700 bg-red-900/40 p-3">
       <div className="mb-2 flex items-center justify-between">
         <h4 className="text-sm font-semibold text-red-200">{title}</h4>
         <button

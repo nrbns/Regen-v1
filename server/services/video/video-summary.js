@@ -57,9 +57,10 @@ export async function generateVideoSummary(text, voiceId = null) {
       await new Promise(resolve => setTimeout(resolve, pollInterval));
 
       try {
-        const statusResponse = await axios.get(`${HEYGEN_API_URL}/video/status/${videoId}`, {
-          headers,
-        });
+        const statusResponse = await axios.get(
+          `${HEYGEN_API_URL}/video/status/${videoId}`,
+          { headers }
+        );
 
         const status = statusResponse.data.status || statusResponse.data.state;
 
@@ -73,15 +74,11 @@ export async function generateVideoSummary(text, voiceId = null) {
         }
 
         if (status === 'failed' || status === 'error') {
-          throw new Error(
-            `Video generation failed: ${statusResponse.data.error || 'Unknown error'}`
-          );
+          throw new Error(`Video generation failed: ${statusResponse.data.error || 'Unknown error'}`);
         }
 
         // Still processing
-        console.log(
-          `[VideoSummary] Video ${videoId} status: ${status} (attempt ${attempt + 1}/${maxAttempts})`
-        );
+        console.log(`[VideoSummary] Video ${videoId} status: ${status} (attempt ${attempt + 1}/${maxAttempts})`);
       } catch (error) {
         if (error.response?.status === 404) {
           // Video not found yet, continue polling
@@ -94,9 +91,7 @@ export async function generateVideoSummary(text, voiceId = null) {
     throw new Error('Video generation timeout - exceeded max polling attempts');
   } catch (error) {
     if (error.response) {
-      throw new Error(
-        `HeyGen API error: ${error.response.data?.message || error.response.statusText}`
-      );
+      throw new Error(`HeyGen API error: ${error.response.data?.message || error.response.statusText}`);
     }
     throw error;
   }
@@ -136,3 +131,4 @@ export async function cloneVoice(audioFile, voiceName) {
     throw new Error(`Voice cloning failed: ${error.response?.data?.message || error.message}`);
   }
 }
+

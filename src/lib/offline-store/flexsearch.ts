@@ -54,7 +54,11 @@ export function indexDocument(
   }
 ): void {
   // Combine searchable text
-  const searchableText = [document.title, document.excerpt || '', document.content].join(' ');
+  const searchableText = [
+    document.title,
+    document.excerpt || '',
+    document.content,
+  ].join(' ');
 
   // Add to index
   searchIndex.index.add(document.id, searchableText);
@@ -84,7 +88,11 @@ export function searchDocuments(
   query: string,
   options: SearchOptions = {}
 ): Array<{ id: string; score: number; document: any }> {
-  const { limit = 20, threshold = 0.1, fuzzy = true } = options;
+  const {
+    limit = 20,
+    threshold = 0.1,
+    fuzzy = true,
+  } = options;
 
   if (!query || query.trim().length === 0) {
     return [];
@@ -103,7 +111,7 @@ export function searchDocuments(
     .map((result: any) => {
       const id = typeof result === 'string' ? result : result.id || result;
       const score = typeof result === 'object' && result.score ? result.score : 1.0;
-
+      
       const document = searchIndex.documents.get(id);
       if (!document) return null;
 
@@ -154,3 +162,4 @@ export async function initializeSearchIndex(): Promise<FlexSearchIndex> {
 
   return searchIndex;
 }
+

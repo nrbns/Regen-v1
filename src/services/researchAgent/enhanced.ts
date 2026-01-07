@@ -54,11 +54,11 @@ export async function executeEnhancedResearch(
     let plan: ExecutionPlan | undefined;
     if (includePlanning) {
       const planSteps = planResearchTask(query);
-      plan = {
-        steps: planSteps.map((s: { step: string; description: string }) => ({
-          type: s.step,
-          description: s.description,
-        })),
+      plan = { 
+        steps: planSteps.map((s: { step: string; description: string }) => ({ 
+          type: s.step, 
+          description: s.description 
+        }))
       };
       methods.push('planned');
     }
@@ -142,3 +142,5 @@ export async function executeEnhancedResearch(
     };
   }
 }
+
+

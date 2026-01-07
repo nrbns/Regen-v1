@@ -15,9 +15,9 @@ const MonacoEditorLazy = lazy(async () => {
   } catch {
     // Fallback if Monaco is not available
     const FallbackEditor = () => (
-      <div className="flex h-full items-center justify-center text-gray-400">
+      <div className="flex items-center justify-center h-full text-gray-400">
         <div className="text-center">
-          <p className="mb-2 text-sm">Monaco Editor not available</p>
+          <p className="text-sm mb-2">Monaco Editor not available</p>
           <p className="text-xs text-gray-500">
             {isRedixMode()
               ? 'Monaco is disabled in Redix mode'
@@ -41,9 +41,9 @@ interface LazyMonacoEditorProps {
 }
 
 const LoadingFallback = () => (
-  <div className="flex h-full items-center justify-center bg-gray-900 text-gray-400">
+  <div className="flex items-center justify-center h-full bg-gray-900 text-gray-400">
     <div className="text-center">
-      <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-purple-400" />
+      <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-purple-400" />
       <p className="text-xs">Loading editor...</p>
     </div>
   </div>
@@ -63,11 +63,11 @@ export function LazyMonacoEditor(props: LazyMonacoEditorProps) {
         <textarea
           value={props.value}
           onChange={e => props.onChange?.(e.target.value)}
-          className="h-full w-full resize-none rounded border border-gray-700 bg-gray-900 p-4 font-mono text-sm text-gray-100 focus:border-purple-500 focus:outline-none"
+          className="w-full h-full bg-gray-900 text-gray-100 font-mono text-sm p-4 border border-gray-700 rounded focus:outline-none focus:border-purple-500 resize-none"
           readOnly={props.readOnly}
           placeholder={props.readOnly ? 'Editor disabled in Redix mode' : 'Type your code...'}
         />
-        <div className="border-t border-gray-700 bg-gray-800 px-4 py-2 text-xs text-gray-500">
+        <div className="px-4 py-2 bg-gray-800 border-t border-gray-700 text-xs text-gray-500">
           Simple editor (Monaco disabled in Redix mode)
         </div>
       </div>
@@ -81,3 +81,5 @@ export function LazyMonacoEditor(props: LazyMonacoEditorProps) {
     </Suspense>
   );
 }
+
+

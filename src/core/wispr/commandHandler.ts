@@ -471,10 +471,9 @@ async function executeTradeCommand(command: ParsedWisprCommand) {
       const { getVoicePipeline } = await import('../../services/voice/voicePipeline');
       const voicePipeline = getVoicePipeline();
       const lang = useSettingsStore.getState().language || 'en';
-      const voiceMessage =
-        lang === 'hi'
-          ? `${validOrderType === 'buy' ? 'खरीद' : 'बिक्री'} आदेश ${result.orderId} सफल`
-          : `${validOrderType === 'buy' ? 'Buy' : 'Sell'} order ${result.orderId} placed successfully`;
+      const voiceMessage = lang === 'hi'
+        ? `${validOrderType === 'buy' ? 'खरीद' : 'बिक्री'} आदेश ${result.orderId} सफल`
+        : `${validOrderType === 'buy' ? 'Buy' : 'Sell'} order ${result.orderId} placed successfully`;
       await voicePipeline.speakResponse(voiceMessage, lang === 'hi' ? 'hi' : 'en');
     } else {
       throw new Error('Order placement failed');
@@ -752,36 +751,34 @@ async function executeScreenshotCommand(_command: ParsedWisprCommand) {
     const modal = document.createElement('div');
     modal.className =
       'fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm';
-
+    
     const modalContent = document.createElement('div');
-    modalContent.className =
-      'bg-slate-900 border border-purple-600 rounded-3xl p-8 max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl';
-
+    modalContent.className = 'bg-slate-900 border border-purple-600 rounded-3xl p-8 max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl';
+    
     const header = document.createElement('div');
     header.className = 'flex items-center justify-between mb-4';
-
+    
     const title = document.createElement('h2');
     title.className = 'text-2xl font-bold text-purple-300';
     title.textContent = 'WISPR Screenshot Analysis';
-
+    
     const closeBtn = document.createElement('button');
     closeBtn.className = 'text-gray-400 hover:text-white';
     closeBtn.textContent = '✕';
     closeBtn.onclick = () => modal.remove();
-
+    
     header.appendChild(title);
     header.appendChild(closeBtn);
-
+    
     const content = document.createElement('div');
     content.className = 'text-gray-200 whitespace-pre-wrap';
     content.textContent = analysis; // Use textContent instead of innerHTML
-
+    
     const closeButton = document.createElement('button');
-    closeButton.className =
-      'mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white';
+    closeButton.className = 'mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white';
     closeButton.textContent = 'Close';
     closeButton.onclick = () => modal.remove();
-
+    
     modalContent.appendChild(header);
     modalContent.appendChild(content);
     modalContent.appendChild(closeButton);

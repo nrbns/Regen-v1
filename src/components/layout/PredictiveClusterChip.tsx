@@ -26,15 +26,14 @@ export function PredictiveClusterChip({ clusters, summary, onApply }: Predictive
   if (!clusters.length) return null;
 
   const current = clusters[index];
-  const confidence =
-    typeof current.confidence === 'number' ? Math.round(current.confidence * 100) : null;
+  const confidence = typeof current.confidence === 'number' ? Math.round(current.confidence * 100) : null;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
-      className="no-drag mr-3 flex items-center gap-2"
+      className="no-drag flex items-center gap-2 mr-3"
     >
       <button
         type="button"
@@ -49,7 +48,7 @@ export function PredictiveClusterChip({ clusters, summary, onApply }: Predictive
       {clusters.length > 1 && (
         <button
           type="button"
-          onClick={() => setIndex(prev => (prev + 1) % clusters.length)}
+          onClick={() => setIndex((prev) => (prev + 1) % clusters.length)}
           className="rounded-full border border-slate-700/60 p-1.5 text-[10px] text-slate-300 transition-colors hover:text-slate-100"
           aria-label="Next suggested cluster"
         >
@@ -75,15 +74,14 @@ export function PredictivePrefetchHint({ entry, onOpen }: PredictivePrefetchHint
     // keep original url
   }
 
-  const confidence =
-    typeof entry.confidence === 'number' ? Math.round(entry.confidence * 100) : null;
+  const confidence = typeof entry.confidence === 'number' ? Math.round(entry.confidence * 100) : null;
 
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
-      className="no-drag mr-3 flex items-center gap-2"
+      className="no-drag flex items-center gap-2 mr-3"
     >
       <button
         type="button"
@@ -93,9 +91,7 @@ export function PredictivePrefetchHint({ entry, onOpen }: PredictivePrefetchHint
       >
         <Navigation size={12} />
         <span className="font-semibold">Scout {hostLabel}</span>
-        {confidence !== null && (
-          <span className="text-[11px] text-emerald-200/80">{confidence}%</span>
-        )}
+        {confidence !== null && <span className="text-[11px] text-emerald-200/80">{confidence}%</span>}
       </button>
     </motion.div>
   );

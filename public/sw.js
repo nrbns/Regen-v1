@@ -42,7 +42,7 @@ class CacheManager {
     const clonedResponse = response.clone();
     const body = await clonedResponse.blob();
     const expiry = Date.now() + duration;
-
+    
     const responseWithExpiry = new Response(body, {
       status: clonedResponse.status,
       statusText: clonedResponse.statusText,
@@ -51,22 +51,22 @@ class CacheManager {
         'sw-cache-expiry': expiry.toString(),
       },
     });
-
+    
     await cache.put(request, responseWithExpiry);
   }
 
   static async matchWithExpiry(cacheName, request) {
     const cache = await caches.open(cacheName);
     const cached = await cache.match(request);
-
+    
     if (!cached) return null;
-
+    
     const expiry = cached.headers.get('sw-cache-expiry');
     if (expiry && Date.now() > parseInt(expiry, 10)) {
       await cache.delete(request);
       return null;
     }
-
+    
     return cached;
   }
 
@@ -74,7 +74,7 @@ class CacheManager {
     const cache = await caches.open(cacheName);
     const requests = await cache.keys();
     const now = Date.now();
-
+    
     for (const request of requests) {
       const response = await cache.match(request);
       const expiry = response?.headers.get('sw-cache-expiry');
@@ -108,12 +108,10 @@ self.addEventListener('activate', event => {
         return Promise.all(
           cacheNames
             .filter(name => {
-              return (
-                name !== CACHE_NAME &&
-                name !== RUNTIME_CACHE &&
-                name !== STATIC_CACHE &&
-                name !== API_CACHE
-              );
+              return name !== CACHE_NAME && 
+                     name !== RUNTIME_CACHE && 
+                     name !== STATIC_CACHE &&
+                     name !== API_CACHE;
             })
             .map(name => {
               console.log('[SW] Deleting old cache:', name);
@@ -149,15 +147,15 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       (async () => {
         const cachedResponse = await CacheManager.matchWithExpiry(API_CACHE, request);
-
+        
         // Fetch from network in parallel
         const networkPromise = fetch(request)
           .then(async response => {
             if (response.ok) {
               await CacheManager.addWithExpiry(
-                API_CACHE,
-                request,
-                response.clone(),
+                API_CACHE, 
+                request, 
+                response.clone(), 
                 CACHE_DURATIONS.api
               );
             }
@@ -207,9 +205,9 @@ self.addEventListener('fetch', event => {
           const response = await fetch(request);
           if (response.ok) {
             await CacheManager.addWithExpiry(
-              STATIC_CACHE,
-              request,
-              response.clone(),
+              STATIC_CACHE, 
+              request, 
+              response.clone(), 
               CACHE_DURATIONS.static
             );
           }
@@ -255,9 +253,9 @@ self.addEventListener('fetch', event => {
         const response = await fetch(request);
         if (response.ok) {
           await CacheManager.addWithExpiry(
-            RUNTIME_CACHE,
-            request,
-            response.clone(),
+            RUNTIME_CACHE, 
+            request, 
+            response.clone(), 
             CACHE_DURATIONS.runtime
           );
         }
@@ -277,7 +275,7 @@ self.addEventListener('fetch', event => {
 // Layer 3: Background sync for offline queue
 self.addEventListener('sync', event => {
   console.log('[SW] Background sync triggered:', event.tag);
-
+  
   if (event.tag === 'offline-queue-sync') {
     event.waitUntil(processOfflineQueue());
   }
@@ -298,7 +296,7 @@ async function processOfflineQueue() {
 // Layer 3: Message handling for cache management
 self.addEventListener('message', event => {
   console.log('[SW] Message received:', event.data);
-
+  
   if (event.data.type === 'CLEAR_CACHE') {
     event.waitUntil(
       caches.keys().then(cacheNames => {
@@ -311,14 +309,17 @@ self.addEventListener('message', event => {
       })
     );
   }
-
+  
   if (event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 
   if (event.data.type === 'CLEAN_EXPIRED') {
     event.waitUntil(
-      Promise.all([CacheManager.cleanExpired(RUNTIME_CACHE), CacheManager.cleanExpired(API_CACHE)])
+      Promise.all([
+        CacheManager.cleanExpired(RUNTIME_CACHE),
+        CacheManager.cleanExpired(API_CACHE),
+      ])
     );
   }
 });
@@ -327,14 +328,11 @@ self.addEventListener('message', event => {
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 let lastCleanup = Date.now();
 
-setInterval(
-  () => {
-    if (Date.now() - lastCleanup >= CLEANUP_INTERVAL) {
-      CacheManager.cleanExpired(RUNTIME_CACHE);
-      CacheManager.cleanExpired(API_CACHE);
-      lastCleanup = Date.now();
-      console.log('[SW] Periodic cache cleanup completed');
-    }
-  },
-  60 * 60 * 1000
-); // Check every hour
+setInterval(() => {
+  if (Date.now() - lastCleanup >= CLEANUP_INTERVAL) {
+    CacheManager.cleanExpired(RUNTIME_CACHE);
+    CacheManager.cleanExpired(API_CACHE);
+    lastCleanup = Date.now();
+    console.log('[SW] Periodic cache cleanup completed');
+  }
+}, 60 * 60 * 1000); // Check every hour

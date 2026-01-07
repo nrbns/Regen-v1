@@ -5,17 +5,18 @@ Context-aware AI using vector embeddings and semantic search.
 ## Components
 
 ### Vector Store
-
 In-memory vector database with semantic search.
 
 ```typescript
 import { globalVectorStore } from './vectorStore';
 
 // Add document with embedding
-const docId = await globalVectorStore.addDocument(userId, 'Email content here...', embedding, {
-  threadId: 'thread-123',
-  subject: 'Project Update',
-});
+const docId = await globalVectorStore.addDocument(
+  userId,
+  'Email content here...',
+  embedding,
+  { threadId: 'thread-123', subject: 'Project Update' }
+);
 
 // Search similar documents
 const results = await globalVectorStore.search(
@@ -27,44 +28,47 @@ const results = await globalVectorStore.search(
 ```
 
 **Production Setup:**
-
 - Pinecone: Serverless vector database
 - Weaviate: Open-source vector search
 - Milvus: Scalable vector database
 - Qdrant: High-performance vector search
 
 ### Embedding Service
-
 Convert text to vector embeddings.
 
 ```typescript
 import { globalEmbeddingService } from './embeddingService';
 
 // Embed single text
-const embedding = await globalEmbeddingService.embed('What is your current project status?');
+const embedding = await globalEmbeddingService.embed(
+  'What is your current project status?'
+);
 
 // Embed batch
-const embeddings = await globalEmbeddingService.embedBatch(['Text 1', 'Text 2', 'Text 3']);
+const embeddings = await globalEmbeddingService.embedBatch([
+  'Text 1',
+  'Text 2',
+  'Text 3',
+]);
 ```
 
 **Supported Models:**
-
 - OpenAI: `text-embedding-3-small` (1536-dim)
 - Anthropic: `claude-embedding-001` (768-dim)
 - Open-source: Sentence-Transformers
 
 ### RAG Engine
-
 Retrieve documents + Generate responses with context.
 
 ```typescript
 import { globalRAGEngine } from './ragEngine';
 
 // Index document
-const docId = await globalRAGEngine.indexDocument(userId, 'Historical email thread content...', {
-  type: 'email',
-  date: '2025-12-01',
-});
+const docId = await globalRAGEngine.indexDocument(
+  userId,
+  'Historical email thread content...',
+  { type: 'email', date: '2025-12-01' }
+);
 
 // Retrieve and generate
 const result = await globalRAGEngine.retrieveAndGenerate(
@@ -81,7 +85,6 @@ const result = await globalRAGEngine.retrieveAndGenerate(
 ```
 
 ### Email RAG Service
-
 Specialized RAG for email context.
 
 ```typescript
@@ -137,7 +140,7 @@ const enhancedSummary = await emailRAGService.generateContextAwareSummary(userId
 // 2. Generates answer based on context
 const result = await globalRAGEngine.retrieveAndGenerate(
   userId,
-  'What did John say about deadlines?'
+  "What did John say about deadlines?"
 );
 ```
 
@@ -167,19 +170,16 @@ const ragEngine = new RAGEngine({
 ## Performance Tuning
 
 ### Memory Usage
-
 - Keep only recent emails (last 6 months)
 - Summarize old emails before indexing
 - Delete low-relevance documents
 
 ### Similarity Threshold
-
 - `0.5+`: Very relevant (high precision)
 - `0.3-0.5`: Moderately relevant (balanced)
 - `<0.3`: Loosely related (high recall)
 
 ### Context Window
-
 - Smaller (500 chars): Faster, lower quality
 - Medium (2000 chars): Balanced
 - Larger (5000+ chars): Better quality, slower
@@ -187,21 +187,17 @@ const ragEngine = new RAGEngine({
 ## Deployment
 
 ### Development
-
 In-memory vector store (good for testing).
 
 ### Staging
-
 Pinecone free tier or local Milvus.
 
 ### Production
-
 - **Pinecone**: Easiest, managed, cost-effective
 - **Weaviate**: Open-source, self-hosted
 - **Milvus**: High-performance, horizontally scalable
 
 ### Migration from In-Memory
-
 ```bash
 # 1. Export documents
 await vectorStore.exportDocuments()
@@ -220,24 +216,20 @@ import { PineconeVectorStore } from '@pinecone-database/pinecone'
 ## Cost Optimization
 
 ### Prompt Caching
-
 Cache embeddings for repeated queries:
-
 ```typescript
 // Cache hits avoid re-embedding
-const embedding = (await cache.get(text)) || (await globalEmbeddingService.embed(text));
+const embedding = await cache.get(text) || 
+  await globalEmbeddingService.embed(text);
 ```
 
 ### Batch Indexing
-
 Index multiple emails in one operation (cheaper).
 
 ### Pruning
-
 Delete old/irrelevant documents regularly.
 
 **Estimated Costs (monthly):**
-
 - OpenAI embeddings: $0.02 per 1M tokens (~$5-10/mo for typical user)
 - Pinecone: Free tier (up to 1M vectors), $35/mo starter
 - Milvus: Self-hosted (free) or cloud (~$50/mo)

@@ -57,7 +57,7 @@ function extractDomain(url: string): string {
  */
 function getDomainTrustScore(url: string): number {
   const domain = extractDomain(url);
-
+  
   // Check for exact match
   if (TRUSTED_DOMAINS.has(domain)) {
     return 0.3;
@@ -113,7 +113,10 @@ function getRecencyBoost(fetchedAt?: string): number {
 /**
  * Calculate TF-IDF-like score for query relevance
  */
-function calculateRelevanceScore(result: SearchResult, queryTerms: string[]): number {
+function calculateRelevanceScore(
+  result: SearchResult,
+  queryTerms: string[]
+): number {
   if (queryTerms.length === 0) return 0.5;
 
   const titleLower = (result.title || '').toLowerCase();
@@ -125,7 +128,7 @@ function calculateRelevanceScore(result: SearchResult, queryTerms: string[]): nu
 
   for (const term of queryTerms) {
     const termLower = term.toLowerCase();
-
+    
     // Title matches are worth more
     if (titleLower.includes(termLower)) {
       score += 0.4;
@@ -160,15 +163,15 @@ function calculateRelevanceScore(result: SearchResult, queryTerms: string[]): nu
  */
 function getSourceScore(source?: string): number {
   const sourceBoosts: Record<string, number> = {
-    wikipedia: 0.15,
-    github: 0.12,
-    stackoverflow: 0.12,
-    reddit: 0.08,
-    arxiv: 0.15,
-    brave: 0.05,
-    duckduckgo: 0.03,
-    google: 0.04,
-    bing: 0.04,
+    'wikipedia': 0.15,
+    'github': 0.12,
+    'stackoverflow': 0.12,
+    'reddit': 0.08,
+    'arxiv': 0.15,
+    'brave': 0.05,
+    'duckduckgo': 0.03,
+    'google': 0.04,
+    'bing': 0.04,
   };
 
   if (!source) return 0;
@@ -186,7 +189,10 @@ function getSourceScore(source?: string): number {
 /**
  * Rank and score search results
  */
-export function rankResults(results: SearchResult[], options: RankingOptions): SearchResult[] {
+export function rankResults(
+  results: SearchResult[],
+  options: RankingOptions
+): SearchResult[] {
   const {
     query: _query,
     queryTerms,
@@ -217,7 +223,7 @@ export function rankResults(results: SearchResult[], options: RankingOptions): S
 
     // Preserve original score if it exists (weighted combination)
     if (result.score !== undefined) {
-      score = score * 0.7 + result.score * 0.3;
+      score = (score * 0.7) + (result.score * 0.3);
     }
 
     // Ensure domain is set
@@ -289,3 +295,5 @@ export function applyRankingPipeline(
 
   return filtered;
 }
+
+

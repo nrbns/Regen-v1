@@ -21,10 +21,7 @@ export type AgentExecutionOptions = {
   maxNodes?: number;
 };
 
-export type AgentExecutionResult = PlanExecutionResult & {
-  audit: SafetyAuditEntry[];
-  runId: string;
-};
+export type AgentExecutionResult = PlanExecutionResult & { audit: SafetyAuditEntry[]; runId: string };
 
 class AgentExecutor {
   private initialized = false;
@@ -82,20 +79,27 @@ class AgentExecutor {
 
     // Save successful results into memory for learning
     if (result.success && result.finalOutput) {
-      const findings =
-        typeof result.finalOutput === 'string'
-          ? result.finalOutput
-          : JSON.stringify(result.finalOutput);
-
-      agentMemory.remember('fact', `plan:${runId}:output`, findings);
-
+      const findings = typeof result.finalOutput === 'string' 
+        ? result.finalOutput 
+        : JSON.stringify(result.finalOutput);
+      
+      agentMemory.remember(
+        'fact',
+        `plan:${runId}:output`,
+        findings
+      );
+      
       // Also remember the plan itself for pattern recognition
-      agentMemory.remember('task_history', `plan:${runId}`, {
-        goal: plan.metadata?.goal,
-        steps: result.results.length,
-        duration: result.totalDuration,
-        timestamp: Date.now(),
-      });
+      agentMemory.remember(
+        'task_history',
+        `plan:${runId}`,
+        {
+          goal: plan.metadata?.goal,
+          steps: result.results.length,
+          duration: result.totalDuration,
+          timestamp: Date.now(),
+        }
+      );
     }
 
     return {

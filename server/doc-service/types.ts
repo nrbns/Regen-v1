@@ -54,3 +54,4 @@ export interface DocumentMetadata {
   createdAt?: Date;
   modifiedAt?: Date;
 }
+

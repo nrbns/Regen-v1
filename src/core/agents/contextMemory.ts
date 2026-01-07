@@ -32,7 +32,7 @@ export interface ContextualPrompt {
  */
 export function getLast5Turns(agentId: string): ConversationTurn[] {
   const entries = useAgentMemoryStore.getState().getRecentForAgent(agentId, 5);
-
+  
   return entries
     .filter(entry => entry.success && entry.response)
     .map(entry => ({
@@ -42,13 +42,11 @@ export function getLast5Turns(agentId: string): ConversationTurn[] {
       agentResponse: entry.response || '',
       timestamp: entry.createdAt,
       context: {},
-      tokens: entry.tokens
-        ? {
-            prompt: entry.tokens.prompt ?? undefined,
-            completion: entry.tokens.completion ?? undefined,
-            total: entry.tokens.total ?? undefined,
-          }
-        : undefined,
+      tokens: entry.tokens ? {
+        prompt: entry.tokens.prompt ?? undefined,
+        completion: entry.tokens.completion ?? undefined,
+        total: entry.tokens.total ?? undefined,
+      } : undefined,
     }))
     .reverse(); // Oldest first for conversation flow
 }
@@ -62,23 +60,22 @@ export function buildContextualPrompt(
   systemPrompt?: string
 ): ContextualPrompt {
   const last5Turns = getLast5Turns(agentId);
-  const defaultSystemPrompt =
-    systemPrompt ||
+  const defaultSystemPrompt = systemPrompt || 
     'You are a helpful AI assistant. Use the conversation history to provide context-aware responses.';
 
   // Build conversation history string
-  const _conversationHistory = last5Turns
-    .map((turn, idx) => {
-      return `Turn ${idx + 1}:
+  const _conversationHistory = last5Turns.map((turn, idx) => {
+    return `Turn ${idx + 1}:
 User: ${turn.userQuery}
 Assistant: ${turn.agentResponse}`;
-    })
-    .join('\n\n');
+  }).join('\n\n');
 
   // Generate context summary if we have history
   let contextSummary: string | undefined;
   if (last5Turns.length > 0) {
-    const recentTopics = last5Turns.map(t => t.userQuery.toLowerCase()).join(', ');
+    const recentTopics = last5Turns
+      .map(t => t.userQuery.toLowerCase())
+      .join(', ');
     contextSummary = `Recent conversation topics: ${recentTopics}`;
   }
 
@@ -104,7 +101,7 @@ export async function generateContextualResponse(
   }
 ): Promise<string> {
   const includeHistory = options?.includeHistory ?? true;
-
+  
   if (!includeHistory) {
     // Simple response without context
     // SECURITY: Use runTask instead of getChatCompletion (which doesn't exist)
@@ -154,7 +151,7 @@ export async function generateContextualResponse(
     }
   });
   const fullPrompt = promptParts.join('\n\n');
-
+  
   const result = await aiEngine.runTask({
     kind: 'agent',
     prompt: fullPrompt,
@@ -201,7 +198,7 @@ export function getConversationContext(agentId: string): {
   summary: string;
 } {
   const last5Turns = getLast5Turns(agentId);
-
+  
   if (last5Turns.length === 0) {
     return {
       turnCount: 0,
@@ -220,3 +217,4 @@ export function getConversationContext(agentId: string): {
     summary: `Last ${last5Turns.length} turns: ${recentTopics.join(', ')}`,
   };
 }
+

@@ -87,7 +87,11 @@ export async function execActions(
   snapshot?: PageSnapshot,
   options: ExecutionOptions = {}
 ): Promise<ExecutionResult[]> {
-  const { stopOnError = false, delayBetween = 500, onProgress } = options;
+  const {
+    stopOnError = false,
+    delayBetween = 500,
+    onProgress,
+  } = options;
 
   const results: ExecutionResult[] = [];
 
@@ -148,9 +152,7 @@ async function executeType(action: ParsedAction, snapshot?: PageSnapshot): Promi
   }
 
   const { findElementBySelector } = await import('./domAnalyzer');
-  const element = findElementBySelector(action.selector, snapshot) as
-    | HTMLInputElement
-    | HTMLTextAreaElement;
+  const element = findElementBySelector(action.selector, snapshot) as HTMLInputElement | HTMLTextAreaElement;
 
   if (!element) {
     throw new Error(`Input element not found: ${action.selector}`);
@@ -163,7 +165,7 @@ async function executeType(action: ParsedAction, snapshot?: PageSnapshot): Promi
   // Clear and type
   element.value = '';
   const text = action.text || action.value || '';
-
+  
   // Simulate typing character by character for better compatibility
   for (const char of text) {
     element.value += char;

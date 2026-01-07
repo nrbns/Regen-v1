@@ -4,12 +4,7 @@
  */
 
 import { getCachedLLMClient } from '../llmClient';
-import type {
-  FlightSearchParams,
-  HotelSearchParams,
-  CarSearchParams,
-  BookingRequest,
-} from './types';
+import type { FlightSearchParams, HotelSearchParams, CarSearchParams, BookingRequest } from './types';
 
 export class IntentParser {
   /**
@@ -30,11 +25,7 @@ export class IntentParser {
       });
 
       const content = response.choices[0]?.message?.content || '{}';
-      const params = this.parseParams(content, type) as
-        | FlightSearchParams
-        | HotelSearchParams
-        | CarSearchParams
-        | undefined;
+      const params = this.parseParams(content, type) as FlightSearchParams | HotelSearchParams | CarSearchParams | undefined;
 
       return {
         userId,
@@ -119,10 +110,7 @@ JSON:`;
     type: string
   ): FlightSearchParams | HotelSearchParams | Record<string, any> {
     try {
-      const cleaned = llmResponse
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
+      const cleaned = llmResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleaned);
 
       if (type === 'flight') {

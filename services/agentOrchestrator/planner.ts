@@ -116,7 +116,10 @@ Respond with JSON:
   /**
    * Template-based planning for common patterns
    */
-  private createTemplatedPlan(intent: IntentClassification, userId: string): ExecutionPlan | null {
+  private createTemplatedPlan(
+    intent: IntentClassification,
+    userId: string
+  ): ExecutionPlan | null {
     const planId = `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Email sending template
@@ -318,7 +321,7 @@ ${context ? `Context: ${JSON.stringify(context)}` : ''}`;
     }
 
     const planData = JSON.parse(jsonMatch[0]);
-
+    
     const planId = `plan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const totalDuration = planData.tasks.reduce(
       (sum: number, t: Task) => sum + t.estimatedDuration,
@@ -440,7 +443,7 @@ ${context ? `Context: ${JSON.stringify(context)}` : ''}`;
   getExecutionOrder(plan: ExecutionPlan): Task[] {
     const graph = new Map<string, string[]>();
     const inDegree = new Map<string, number>();
-
+    
     plan.tasks.forEach(t => {
       graph.set(t.id, t.dependencies);
       inDegree.set(t.id, t.dependencies.length);

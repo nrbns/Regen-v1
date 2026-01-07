@@ -6,16 +6,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface StatusUpdate {
-  type:
-    | 'plan_created'
-    | 'task_started'
-    | 'task_completed'
-    | 'task_failed'
-    | 'plan_completed'
-    | 'plan_failed'
-    | 'subscribed'
-    | 'unsubscribed'
-    | 'pong';
+  type: 'plan_created' | 'task_started' | 'task_completed' | 'task_failed' | 'plan_completed' | 'plan_failed' | 'subscribed' | 'unsubscribed' | 'pong';
   planId: string;
   taskId?: string;
   status?: string;
@@ -37,19 +28,19 @@ export interface UseOrchestratorWebSocketReturn {
   connected: boolean;
   connecting: boolean;
   error: string | null;
-
+  
   // Connection control
   connect: () => void;
   disconnect: () => void;
-
+  
   // Subscription management
   subscribeToPlan: (planId: string) => void;
   unsubscribeFromPlan: (planId: string) => void;
-
+  
   // Status updates
   lastUpdate: StatusUpdate | null;
   updates: StatusUpdate[];
-
+  
   // Utility
   clearUpdates: () => void;
   ping: () => void;
@@ -104,25 +95,25 @@ export function useOrchestratorWebSocket(
         reconnectAttemptsRef.current = 0;
 
         // Resubscribe to all plans
-        subscriptionsRef.current.forEach(planId => {
+        subscriptionsRef.current.forEach((planId) => {
           ws.send(JSON.stringify({ type: 'subscribe', planId }));
         });
       };
 
-      ws.onmessage = event => {
+      ws.onmessage = (event) => {
         try {
           const update: StatusUpdate = JSON.parse(event.data);
-
+          
           // Convert timestamp string to Date
           if (update.timestamp) {
             update.timestamp = new Date(update.timestamp);
           }
 
           setLastUpdate(update);
-
+          
           // Don't store control messages
           if (!['subscribed', 'unsubscribed', 'pong'].includes(update.type)) {
-            setUpdates(prev => [...prev.slice(-99), update]); // Keep last 100
+            setUpdates((prev) => [...prev.slice(-99), update]); // Keep last 100
           }
 
           console.log('[OrchestratorWS] Update:', update.type, update.planId);
@@ -131,7 +122,7 @@ export function useOrchestratorWebSocket(
         }
       };
 
-      ws.onerror = event => {
+      ws.onerror = (event) => {
         console.error('[OrchestratorWS] Error:', event);
         setError('WebSocket error occurred');
       };
@@ -148,7 +139,7 @@ export function useOrchestratorWebSocket(
           console.log(
             `[OrchestratorWS] Reconnecting... (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
           );
-
+          
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, reconnectDelay);

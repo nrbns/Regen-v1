@@ -77,7 +77,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     // Phase 1, Day 3: Enhanced error recovery with suggestions
     const friendlyMessage = getUserFriendlyError(error);
     const recoveryAction = getRecoveryAction(error, componentName);
-
+    
     if (recoveryAction) {
       toast.error(
         `${componentName || 'Component'} error: ${friendlyMessage}. ${recoveryAction.message}`,
@@ -215,9 +215,7 @@ ${errorInfo?.componentStack || 'No component stack available'}
                   Something went wrong{componentName ? ` in ${componentName}` : ''}
                 </h1>
                 {error && (
-                  <p className="mt-2 font-mono text-sm text-red-100/80">
-                    {getUserFriendlyError(error)}
-                  </p>
+                  <p className="mt-2 text-sm text-red-100/80 font-mono">{getUserFriendlyError(error)}</p>
                 )}
                 <p className="mt-2 text-sm text-gray-400">
                   {canRetry
@@ -229,28 +227,27 @@ ${errorInfo?.componentStack || 'No component stack available'}
 
             <div className="flex flex-wrap gap-3">
               {/* Phase 1, Day 3: Show recovery action button if available */}
-              {error &&
-                (() => {
-                  const recoveryAction = getRecoveryAction(error, componentName);
-                  if (recoveryAction && recoveryAction.action !== 'retry') {
-                    return (
-                      <button
-                        onClick={async () => {
-                          await executeRecoveryAction(recoveryAction, error);
-                        }}
-                        className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 transition-colors hover:border-emerald-500/70"
-                      >
-                        <RefreshCw size={16} />
-                        {recoveryAction.label}
-                      </button>
-                    );
-                  }
-                  return null;
-                })()}
+              {error && (() => {
+                const recoveryAction = getRecoveryAction(error, componentName);
+                if (recoveryAction && recoveryAction.action !== 'retry') {
+                  return (
+                    <button
+                      onClick={async () => {
+                        await executeRecoveryAction(recoveryAction, error);
+                      }}
+                      className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500/70 transition-colors"
+                    >
+                      <RefreshCw size={16} />
+                      {recoveryAction.label}
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               {canRetry && (
                 <button
                   onClick={this.handleRetry}
-                  className="flex items-center gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:border-blue-500/70"
+                  className="flex items-center gap-2 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors"
                 >
                   <RefreshCw size={16} />
                   Retry ({retryCount + 1}/{MAX_RETRIES})
@@ -258,7 +255,7 @@ ${errorInfo?.componentStack || 'No component stack available'}
               )}
               <button
                 onClick={this.handleReload}
-                className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:border-blue-500/70"
+                className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors"
               >
                 Reload App
               </button>

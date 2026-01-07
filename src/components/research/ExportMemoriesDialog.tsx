@@ -133,7 +133,7 @@ export function ExportMemoriesDialog({
                 return;
               }
             }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
             aria-hidden="true"
           />
 
@@ -149,7 +149,7 @@ export function ExportMemoriesDialog({
             aria-labelledby="export-memories-title"
           >
             <div
-              className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface-root)] shadow-2xl"
+              className="w-full max-w-2xl bg-[var(--surface-root)] border border-[var(--surface-border)] rounded-xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               {/* Header */}
@@ -178,7 +178,7 @@ export function ExportMemoriesDialog({
                     e.stopPropagation();
                   }}
                   disabled={loading}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] disabled:opacity-50"
                   style={{ zIndex: 10011, isolation: 'isolate' }}
                   aria-label="Close dialog"
                 >
@@ -192,7 +192,7 @@ export function ExportMemoriesDialog({
                   {/* Format Selection */}
                   <div>
                     <label
-                      className="mb-3 block text-sm font-medium text-[var(--text-primary)]"
+                      className="block text-sm font-medium text-[var(--text-primary)] mb-3"
                       style={{ fontSize: tokens.fontSize.sm }}
                     >
                       Export Format
@@ -208,11 +208,15 @@ export function ExportMemoriesDialog({
                           (e as any).stopImmediatePropagation();
                           e.stopPropagation();
                         }}
-                        className={`flex flex-1 items-center gap-3 rounded-lg border px-4 py-3 transition-all ${
-                          format === 'json'
-                            ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-600)] text-white'
-                            : 'border-[var(--surface-border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                        } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
+                        className={`
+                          flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border transition-all
+                          ${
+                            format === 'json'
+                              ? 'bg-[var(--color-primary-600)] border-[var(--color-primary-500)] text-white'
+                              : 'bg-[var(--surface-elevated)] border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                          }
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                        `}
                         style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={format === 'json'}
                       >
@@ -232,11 +236,15 @@ export function ExportMemoriesDialog({
                           (e as any).stopImmediatePropagation();
                           e.stopPropagation();
                         }}
-                        className={`flex flex-1 items-center gap-3 rounded-lg border px-4 py-3 transition-all ${
-                          format === 'csv'
-                            ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-600)] text-white'
-                            : 'border-[var(--surface-border)] bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                        } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
+                        className={`
+                          flex-1 flex items-center gap-3 px-4 py-3 rounded-lg border transition-all
+                          ${
+                            format === 'csv'
+                              ? 'bg-[var(--color-primary-600)] border-[var(--color-primary-500)] text-white'
+                              : 'bg-[var(--surface-elevated)] border-[var(--surface-border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                          }
+                          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                        `}
                         style={{ zIndex: 10011, isolation: 'isolate' }}
                         aria-pressed={format === 'csv'}
                       >
@@ -252,17 +260,17 @@ export function ExportMemoriesDialog({
                   {/* Date Range */}
                   <div>
                     <label
-                      className="mb-3 block text-sm font-medium text-[var(--text-primary)]"
+                      className="block text-sm font-medium text-[var(--text-primary)] mb-3"
                       style={{ fontSize: tokens.fontSize.sm }}
                     >
-                      <Calendar size={16} className="mr-2 inline" />
+                      <Calendar size={16} className="inline mr-2" />
                       Date Range (Optional)
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label
                           htmlFor="export-start-date"
-                          className="mb-1.5 block text-xs text-[var(--text-muted)]"
+                          className="block text-xs text-[var(--text-muted)] mb-1.5"
                           style={{ fontSize: tokens.fontSize.xs }}
                         >
                           Start Date
@@ -278,7 +286,7 @@ export function ExportMemoriesDialog({
                       <div>
                         <label
                           htmlFor="export-end-date"
-                          className="mb-1.5 block text-xs text-[var(--text-muted)]"
+                          className="block text-xs text-[var(--text-muted)] mb-1.5"
                           style={{ fontSize: tokens.fontSize.xs }}
                         >
                           End Date
@@ -297,10 +305,10 @@ export function ExportMemoriesDialog({
                   {/* Type Filter */}
                   <div>
                     <label
-                      className="mb-3 block text-sm font-medium text-[var(--text-primary)]"
+                      className="block text-sm font-medium text-[var(--text-primary)] mb-3"
                       style={{ fontSize: tokens.fontSize.sm }}
                     >
-                      <Filter size={16} className="mr-2 inline" />
+                      <Filter size={16} className="inline mr-2" />
                       Filter by Type (Optional)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -316,11 +324,15 @@ export function ExportMemoriesDialog({
                             (e as any).stopImmediatePropagation();
                             e.stopPropagation();
                           }}
-                          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                            selectedTypes.includes(type)
-                              ? 'bg-[var(--color-primary-600)] text-white'
-                              : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                          } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
+                          className={`
+                            px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                            ${
+                              selectedTypes.includes(type)
+                                ? 'bg-[var(--color-primary-600)] text-white'
+                                : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                            }
+                            focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                          `}
                           style={{
                             fontSize: tokens.fontSize.sm,
                             zIndex: 10011,
@@ -342,7 +354,7 @@ export function ExportMemoriesDialog({
                             (e as any).stopImmediatePropagation();
                             e.stopPropagation();
                           }}
-                          className="rounded-full px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                          className="px-3 py-1.5 rounded-full text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
                           style={{
                             fontSize: tokens.fontSize.sm,
                             zIndex: 10011,
@@ -359,10 +371,10 @@ export function ExportMemoriesDialog({
                   {availableTags.length > 0 && (
                     <div>
                       <label
-                        className="mb-3 block text-sm font-medium text-[var(--text-primary)]"
+                        className="block text-sm font-medium text-[var(--text-primary)] mb-3"
                         style={{ fontSize: tokens.fontSize.sm }}
                       >
-                        <TagIcon size={16} className="mr-2 inline" />
+                        <TagIcon size={16} className="inline mr-2" />
                         Filter by Tags (Optional)
                       </label>
                       <div className="flex flex-wrap gap-2">
@@ -378,11 +390,15 @@ export function ExportMemoriesDialog({
                               (e as any).stopImmediatePropagation();
                               e.stopPropagation();
                             }}
-                            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                              selectedTags.includes(tag)
-                                ? 'bg-[var(--color-primary-600)] text-white'
-                                : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                            } focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
+                            className={`
+                              px-3 py-1.5 rounded-full text-sm font-medium transition-colors
+                              ${
+                                selectedTags.includes(tag)
+                                  ? 'bg-[var(--color-primary-600)] text-white'
+                                  : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                              }
+                              focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
+                            `}
                             style={{
                               fontSize: tokens.fontSize.sm,
                               zIndex: 10011,
@@ -404,7 +420,7 @@ export function ExportMemoriesDialog({
                               (e as any).stopImmediatePropagation();
                               e.stopPropagation();
                             }}
-                            className="rounded-full px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                            className="px-3 py-1.5 rounded-full text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
                             style={{
                               fontSize: tokens.fontSize.sm,
                               zIndex: 10011,
@@ -423,10 +439,10 @@ export function ExportMemoriesDialog({
                     className="rounded-lg border border-[var(--surface-border)] bg-[var(--surface-elevated)]"
                     style={{ padding: tokens.spacing(3) }}
                   >
-                    <div className="mb-1 text-sm font-medium text-[var(--text-primary)]">
+                    <div className="text-sm text-[var(--text-primary)] font-medium mb-1">
                       Export Summary
                     </div>
-                    <div className="space-y-1 text-xs text-[var(--text-muted)]">
+                    <div className="text-xs text-[var(--text-muted)] space-y-1">
                       <div>Format: {format.toUpperCase()}</div>
                       <div>Memories: {filteredCount}</div>
                       {dateRange.start && (

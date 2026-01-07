@@ -109,14 +109,14 @@ export function LanguageSwitcher() {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-lg border border-gray-700/50 bg-gray-800/30 px-3 py-1.5 text-sm text-gray-200 transition-colors hover:bg-gray-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover:bg-gray-800/50 text-sm text-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
         aria-label="Select language"
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         <Globe size={16} className="text-gray-400" />
         <span className="hidden sm:inline">{currentLang.flag}</span>
-        <span className="hidden text-xs md:inline">{currentLang.english}</span>
+        <span className="hidden md:inline text-xs">{currentLang.english}</span>
         <ChevronDown
           size={14}
           className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -139,18 +139,18 @@ export function LanguageSwitcher() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-72 overflow-y-auto rounded-lg border border-gray-800/60 bg-gray-900 shadow-xl"
+              className="absolute right-0 top-full mt-2 w-72 max-h-[80vh] overflow-y-auto bg-gray-900 border border-gray-800/60 rounded-lg shadow-xl z-50"
             >
               {/* Indic Languages Section */}
               <div className="p-2">
-                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   Indic Languages (22)
                 </div>
                 {INDIC_LANGUAGES.map(lang => (
                   <button
                     key={lang.code}
                     onClick={() => handleSelect(lang.code)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                       selectedLang === lang.code
                         ? 'bg-blue-500/20 text-blue-200'
                         : 'text-gray-200 hover:bg-gray-800/50'
@@ -168,14 +168,14 @@ export function LanguageSwitcher() {
 
               {/* Global Languages Section */}
               <div className="p-2">
-                <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   Global Languages (80+)
                 </div>
                 {GLOBAL_LANGUAGES.map(lang => (
                   <button
                     key={lang.code}
                     onClick={() => handleSelect(lang.code)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                       selectedLang === lang.code
                         ? 'bg-blue-500/20 text-blue-200'
                         : 'text-gray-200 hover:bg-gray-800/50'
@@ -193,7 +193,7 @@ export function LanguageSwitcher() {
               <div className="border-t border-gray-800/60 p-2">
                 <button
                   onClick={() => handleSelect('auto')}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                     selectedLang === 'auto'
                       ? 'bg-blue-500/20 text-blue-200'
                       : 'text-gray-200 hover:bg-gray-800/50'

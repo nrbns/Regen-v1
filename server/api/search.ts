@@ -55,13 +55,7 @@ export async function searchHandler(
   let cached = false;
 
   try {
-    const {
-      q,
-      lang = 'auto',
-      maxResults = 10,
-      extractContent: shouldExtract = false,
-      sources,
-    } = request.body;
+    const { q, lang = 'auto', maxResults = 10, extractContent: shouldExtract = false, sources } = request.body;
 
     // Validate query
     if (!q || typeof q !== 'string' || q.trim().length < 2) {
@@ -207,3 +201,5 @@ export async function searchGetHandler(
 
   return searchHandler({ body } as any, reply);
 }
+
+

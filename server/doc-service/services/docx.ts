@@ -14,7 +14,11 @@ export const docxService = {
   /**
    * Edit a DOCX file
    */
-  async edit(filePath: string, task: EditTask, options: EditOptions): Promise<EditResult> {
+  async edit(
+    filePath: string,
+    task: EditTask,
+    options: EditOptions
+  ): Promise<EditResult> {
     const startTime = Date.now();
 
     // 1. Extract text from DOCX
@@ -51,7 +55,11 @@ export const docxService = {
   /**
    * Edit plain text file (TXT, MD)
    */
-  async editText(filePath: string, task: EditTask, options: EditOptions): Promise<EditResult> {
+  async editText(
+    filePath: string,
+    task: EditTask,
+    options: EditOptions
+  ): Promise<EditResult> {
     const startTime = Date.now();
 
     const originalText = await fs.readFile(filePath, 'utf-8');
@@ -84,11 +92,11 @@ export const docxService = {
   async generateDocx(text: string, _options: EditOptions): Promise<string> {
     const paragraphs = text
       .split(/\n\n+/)
-      .map(para => {
+      .map((para) => {
         if (para.trim().length === 0) return null;
         return new Paragraph({
           children: para.split('\n').map(
-            line =>
+            (line) =>
               new TextRun({
                 text: line.trim() || ' ',
                 break: line.trim() ? 0 : 1,
@@ -151,9 +159,10 @@ export const docxService = {
    */
   calculateConfidence(changes: Change[], originalLength: number): 'high' | 'medium' | 'low' {
     const changeRatio = changes.length / Math.max(originalLength / 100, 1);
-
+    
     if (changeRatio < 0.1) return 'high';
     if (changeRatio < 0.3) return 'medium';
     return 'low';
   },
 };
+

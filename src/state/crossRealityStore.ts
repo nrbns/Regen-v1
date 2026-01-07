@@ -17,20 +17,18 @@ interface CrossRealityState {
   clearHandoff: (tabId: string) => void;
 }
 
-export const useCrossRealityStore = create<CrossRealityState>(set => ({
+export const useCrossRealityStore = create<CrossRealityState>((set) => ({
   handoffs: [],
   lastReceivedAt: null,
   registerHandoff(handoff) {
-    set(state => ({
-      handoffs: [...state.handoffs.filter(entry => entry.tabId !== handoff.tabId), handoff].slice(
-        -10
-      ),
+    set((state) => ({
+      handoffs: [...state.handoffs.filter((entry) => entry.tabId !== handoff.tabId), handoff].slice(-10),
       lastReceivedAt: Date.now(),
     }));
   },
   clearHandoff(tabId) {
-    set(state => ({
-      handoffs: state.handoffs.filter(entry => entry.tabId !== tabId),
+    set((state) => ({
+      handoffs: state.handoffs.filter((entry) => entry.tabId !== tabId),
     }));
   },
 }));

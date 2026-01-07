@@ -137,7 +137,7 @@ export function Tooltip({
               duration: 0.15,
               ease: [0.2, 0.9, 0.3, 1],
             }}
-            className="pointer-events-none fixed z-[100]"
+            className="fixed z-[100] pointer-events-none"
             style={{
               left: `${position.x}px`,
               top: `${position.y}px`,
@@ -145,7 +145,7 @@ export function Tooltip({
             role="tooltip"
           >
             <div
-              className="rounded-md border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-2 py-1.5 text-[var(--text-primary)] shadow-lg"
+              className="px-2 py-1.5 rounded-md bg-[var(--surface-elevated)] border border-[var(--surface-border)] shadow-lg text-[var(--text-primary)]"
               style={{ fontSize: tokens.fontSize.xs }}
             >
               {content}

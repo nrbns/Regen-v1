@@ -50,7 +50,7 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
   const { nodes, edges } = graphData;
   if (!Array.isArray(nodes) || nodes.length === 0) return null;
   const nodeMap = new Map<string, GraphNode>();
-  nodes.forEach(node => {
+  nodes.forEach((node) => {
     if (node?.key) {
       nodeMap.set(node.key, node);
     }
@@ -58,7 +58,7 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
   const queryNode = nodeMap.get(queryKey);
   if (!queryNode) return null;
 
-  const filteredEdges = edges.filter(edge => {
+  const filteredEdges = edges.filter((edge) => {
     const sourceNode = nodeMap.get(edge.src);
     const targetNode = nodeMap.get(edge.dst);
     return allowedType(sourceNode?.type) && allowedType(targetNode?.type);
@@ -80,23 +80,21 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
   }
 
   const subsetNodes = Array.from(includeKeys)
-    .map(key => nodeMap.get(key))
+    .map((key) => nodeMap.get(key))
     .filter((node): node is GraphNode => Boolean(node));
 
   if (subsetNodes.length <= 1) {
     return null;
   }
 
-  const subsetEdges = filteredEdges.filter(
-    edge => includeKeys.has(edge.src) && includeKeys.has(edge.dst)
-  );
+  const subsetEdges = filteredEdges.filter((edge) => includeKeys.has(edge.src) && includeKeys.has(edge.dst));
 
   const positions = new Map<string, { x: number; y: number; angle?: number }>();
   const center = { x: WIDTH / 2, y: HEIGHT / 2 };
   positions.set(queryKey, { ...center });
 
-  const sourceNodes = subsetNodes.filter(node => node.type === 'research-source');
-  const evidenceNodes = subsetNodes.filter(node => node.type === 'research-evidence');
+  const sourceNodes = subsetNodes.filter((node) => node.type === 'research-source');
+  const evidenceNodes = subsetNodes.filter((node) => node.type === 'research-evidence');
 
   const radius = Math.min(WIDTH, HEIGHT) * 0.35;
   const angleStep = sourceNodes.length > 0 ? (Math.PI * 2) / sourceNodes.length : 0;
@@ -110,7 +108,7 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
   });
 
   const childrenBySource = new Map<string, string[]>();
-  subsetEdges.forEach(edge => {
+  subsetEdges.forEach((edge) => {
     const src = nodeMap.get(edge.src);
     const dst = nodeMap.get(edge.dst);
     if (!src || !dst) return;
@@ -129,21 +127,23 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
     }
   });
 
-  evidenceNodes.forEach(node => {
+  evidenceNodes.forEach((node) => {
     const parentEdge =
       subsetEdges.find(
-        edge => edge.dst === node.key && nodeMap.get(edge.src)?.type === 'research-source'
+        (edge) =>
+          edge.dst === node.key && nodeMap.get(edge.src)?.type === 'research-source',
       ) ||
       subsetEdges.find(
-        edge => edge.src === node.key && nodeMap.get(edge.dst)?.type === 'research-source'
+        (edge) =>
+          edge.src === node.key && nodeMap.get(edge.dst)?.type === 'research-source',
       );
 
     const parentKey =
       parentEdge && nodeMap.get(parentEdge.src)?.type === 'research-source'
         ? parentEdge.src
         : parentEdge && nodeMap.get(parentEdge.dst)?.type === 'research-source'
-          ? parentEdge.dst
-          : null;
+        ? parentEdge.dst
+        : null;
 
     if (!parentKey || !positions.has(parentKey)) {
       const jitterRadius = radius * 0.2;
@@ -172,12 +172,12 @@ function buildLayout(graphData: ResearchGraphData | null, queryKey: string | nul
     });
   });
 
-  const laidOutNodes: PositionedNode[] = subsetNodes.map(node => ({
+  const laidOutNodes: PositionedNode[] = subsetNodes.map((node) => ({
     ...node,
     position: positions.get(node.key) ?? { ...center },
   }));
 
-  const laidOutEdges: PositionedEdge[] = subsetEdges.map(edge => ({
+  const laidOutEdges: PositionedEdge[] = subsetEdges.map((edge) => ({
     ...edge,
     source: positions.get(edge.src),
     target: positions.get(edge.dst),
@@ -227,7 +227,7 @@ export function ResearchGraphView({
     );
   }
 
-  const nodeMap = new Map(layout.nodes.map(node => [node.key, node]));
+  const nodeMap = new Map(layout.nodes.map((node) => [node.key, node]));
 
   const handleNodeActivate = (node: PositionedNode) => {
     if (node.type === 'research-source') {
@@ -272,7 +272,10 @@ export function ResearchGraphView({
     const sourceType = nodeMap.get(edge.src)?.type;
     const targetType = nodeMap.get(edge.dst)?.type;
 
-    if (sourceType === 'research-source' && targetType === 'research-source') {
+    if (
+      sourceType === 'research-source' &&
+      targetType === 'research-source'
+    ) {
       return {
         stroke: '#f97316',
         strokeWidth: 1.6,
@@ -281,7 +284,10 @@ export function ResearchGraphView({
       };
     }
 
-    if (sourceType === 'research-source' && targetType === 'research-evidence') {
+    if (
+      sourceType === 'research-source' &&
+      targetType === 'research-evidence'
+    ) {
       return {
         stroke: '#a855f7',
         strokeWidth: 1.4,
@@ -301,14 +307,18 @@ export function ResearchGraphView({
       ref={containerRef}
       className="relative h-[360px] w-full overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#05060c] via-[#0b0e18] to-[#11162a] shadow-inner shadow-black/30"
     >
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-full w-full" role="presentation">
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        className="h-full w-full"
+        role="presentation"
+      >
         <defs>
           <radialGradient id="queryGlow" r="65%">
             <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#60a5fa" stopOpacity="0" />
           </radialGradient>
         </defs>
-        {layout.edges.map(edge => {
+        {layout.edges.map((edge) => {
           if (!edge.source || !edge.target) return null;
           const style = getEdgeStyle(edge);
           return (
@@ -327,7 +337,7 @@ export function ResearchGraphView({
           );
         })}
 
-        {layout.nodes.map(node => {
+        {layout.nodes.map((node) => {
           const position = node.position;
           const radius = getNodeRadius(node);
           const color = getNodeColor(node);
@@ -342,25 +352,21 @@ export function ResearchGraphView({
                 node.type === 'research-source'
                   ? `Source: ${node.title ?? node.meta?.domain ?? 'unknown'}`
                   : node.type === 'research-evidence'
-                    ? `Evidence: ${node.title ?? 'excerpt'}`
-                    : `Query node for ${query}`
+                  ? `Evidence: ${node.title ?? 'excerpt'}`
+                  : `Query node for ${query}`
               }
-              onFocus={event => {
+              onFocus={(event) => {
                 if (node.type === 'research-source' || node.type === 'research-evidence') {
                   const rect = containerRef.current?.getBoundingClientRect();
                   if (rect) {
-                    const x =
-                      (position.x * (event.currentTarget.ownerSVGElement?.clientWidth ?? 1)) /
-                      WIDTH;
-                    const y =
-                      (position.y * (event.currentTarget.ownerSVGElement?.clientHeight ?? 1)) /
-                      HEIGHT;
+                    const x = position.x * (event.currentTarget.ownerSVGElement?.clientWidth ?? 1) / WIDTH;
+                    const y = position.y * (event.currentTarget.ownerSVGElement?.clientHeight ?? 1) / HEIGHT;
                     setHover({ node, x, y });
                   }
                 }
               }}
               onBlur={() => setHover(null)}
-              onMouseEnter={_event => {
+              onMouseEnter={(_event) => {
                 const rect = containerRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 const scaleX = rect.width / WIDTH;
@@ -373,7 +379,7 @@ export function ResearchGraphView({
               }}
               onMouseLeave={() => setHover(null)}
               onClick={() => handleNodeActivate(node)}
-              onKeyDown={event => {
+              onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   handleNodeActivate(node);
@@ -387,14 +393,8 @@ export function ResearchGraphView({
                 r={radius}
                 fill={color}
                 opacity={node.type === 'research-query' ? 0.85 : 0.75}
-                stroke={
-                  node.type === 'research-source' && node.key === activeSourceId
-                    ? '#34d399'
-                    : '#0f172a'
-                }
-                strokeWidth={
-                  node.type === 'research-source' && node.key === activeSourceId ? 3 : 1.5
-                }
+                stroke={node.type === 'research-source' && node.key === activeSourceId ? '#34d399' : '#0f172a'}
+                strokeWidth={node.type === 'research-source' && node.key === activeSourceId ? 3 : 1.5}
               />
               <text
                 x={0}
@@ -407,8 +407,8 @@ export function ResearchGraphView({
                 {node.type === 'research-query'
                   ? 'Question'
                   : node.type === 'research-source'
-                    ? (node.meta?.domain ?? 'Source')
-                    : 'Evidence'}
+                  ? node.meta?.domain ?? 'Source'
+                  : 'Evidence'}
               </text>
             </g>
           );
@@ -421,11 +421,11 @@ export function ResearchGraphView({
           style={{
             left: Math.min(
               Math.max(hover.x + 12, 8),
-              (containerRef.current?.clientWidth ?? 0) - 220
+              (containerRef.current?.clientWidth ?? 0) - 220,
             ),
             top: Math.min(
               Math.max(hover.y + 12, 8),
-              (containerRef.current?.clientHeight ?? 0) - 120
+              (containerRef.current?.clientHeight ?? 0) - 120,
             ),
           }}
         >
@@ -433,14 +433,16 @@ export function ResearchGraphView({
             {hover.node.type === 'research-query'
               ? 'Question'
               : hover.node.type === 'research-source'
-                ? 'Source'
-                : 'Evidence'}
+              ? 'Source'
+              : 'Evidence'}
           </div>
           <div className="mt-1 font-medium text-gray-100">
             {hover.node.title || hover.node.meta?.domain || 'Untitled'}
           </div>
           {hover.node.type === 'research-source' && hover.node.meta?.url && (
-            <div className="mt-1 truncate text-[11px] text-blue-200">{hover.node.meta.url}</div>
+            <div className="mt-1 truncate text-[11px] text-blue-200">
+              {hover.node.meta.url}
+            </div>
           )}
           {hover.node.meta?.snippet && (
             <div className="mt-2 line-clamp-3 text-[11px] text-gray-400">
@@ -467,3 +469,5 @@ export function ResearchGraphView({
     </div>
   );
 }
+
+

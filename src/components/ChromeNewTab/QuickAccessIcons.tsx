@@ -198,9 +198,9 @@ export function QuickAccessIcons() {
 
   if (loading && sites.length === 0) {
     return (
-      <div className="flex flex-wrap items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-4 flex-wrap">
         {[...Array(8)].map((_, i) => (
-          <div key={i} className="h-16 w-16 animate-pulse rounded-full bg-gray-200" />
+          <div key={i} className="w-16 h-16 rounded-full bg-gray-200 animate-pulse" />
         ))}
       </div>
     );
@@ -208,7 +208,7 @@ export function QuickAccessIcons() {
 
   return (
     <>
-      <div className="relative flex max-w-4xl flex-wrap items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-4 flex-wrap max-w-4xl relative">
         {sites.map((site, index) => (
           <motion.button
             key={site.id}
@@ -218,16 +218,16 @@ export function QuickAccessIcons() {
             transition={{ duration: 0.3, delay: index * 0.05 }}
             whileHover={{ scale: 1.1, y: -4 }}
             whileTap={{ scale: 0.95 }}
-            className="group relative flex flex-col items-center gap-2"
+            className="flex flex-col items-center gap-2 group relative"
             aria-label={`Open ${site.title}`}
           >
             <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-transparent bg-white text-2xl shadow-md transition-shadow group-hover:border-gray-200 group-hover:shadow-lg">
+              <div className="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center text-2xl group-hover:shadow-lg transition-shadow border-2 border-transparent group-hover:border-gray-200">
                 {site.favicon ? (
                   <img
                     src={site.favicon}
                     alt=""
-                    className="h-full w-full rounded-full object-cover"
+                    className="w-full h-full rounded-full object-cover"
                     onError={e => {
                       // Fallback to icon if favicon fails
                       const target = e.target as HTMLImageElement;
@@ -242,12 +242,12 @@ export function QuickAccessIcons() {
                 )}
               </div>
               {site.notificationCount && site.notificationCount > 0 && (
-                <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white shadow-md">
+                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                   {site.notificationCount}
                 </div>
               )}
             </div>
-            <span className="max-w-[80px] truncate text-xs font-medium text-gray-700 transition-colors group-hover:text-gray-900">
+            <span className="text-xs text-gray-700 font-medium max-w-[80px] truncate group-hover:text-gray-900 transition-colors">
               {site.title}
             </span>
           </motion.button>
@@ -256,7 +256,7 @@ export function QuickAccessIcons() {
         {/* Edit Button - always visible but subtle */}
         <button
           onClick={() => setIsEditorOpen(true)}
-          className="absolute -right-2 -top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white opacity-80 shadow-lg transition-colors hover:bg-gray-50 hover:opacity-100"
+          className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors border border-gray-200 z-10 opacity-80 hover:opacity-100"
           aria-label="Customize shortcuts"
           title="Customize shortcuts"
         >

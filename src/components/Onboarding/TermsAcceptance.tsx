@@ -121,7 +121,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[10002] flex items-center justify-center bg-gray-900/95 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[10002] bg-gray-900/95 backdrop-blur-sm flex items-center justify-center p-4"
         style={{ pointerEvents: 'auto' }}
         onMouseDown={e => {
           // Completely ignore button clicks - don't interfere at all
@@ -150,7 +150,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl border border-gray-700 bg-gray-800 shadow-2xl"
+          className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col"
           onMouseDown={e => {
             // Completely ignore button clicks - don't interfere at all
             const target = e.target as HTMLElement;
@@ -177,13 +177,13 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
           }}
         >
           {/* Header */}
-          <div className="flex items-center gap-3 border-b border-gray-700 p-6">
-            <div className="rounded-lg bg-blue-500/20 p-2">
+          <div className="flex items-center gap-3 p-6 border-b border-gray-700">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
               <FileText size={24} className="text-blue-400" />
             </div>
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-gray-100">Terms of Service</h2>
-              <p className="mt-1 text-sm text-gray-400">
+              <p className="text-sm text-gray-400 mt-1">
                 Please read and accept our Terms of Service to continue
               </p>
             </div>
@@ -191,17 +191,17 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
 
           {/* Terms Content */}
           <div
-            className="flex-1 overflow-y-auto p-6 text-sm leading-relaxed text-gray-300"
+            className="flex-1 overflow-y-auto p-6 text-sm text-gray-300 leading-relaxed"
             onScroll={handleScroll}
           >
             {showFullTerms ? (
               <div className="prose prose-invert prose-sm max-w-none">
-                <p className="mb-4 text-gray-400">
+                <p className="text-gray-400 mb-4">
                   <strong>Last Updated: December 17, 2025</strong>
                 </p>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">
                     1. Acceptance of Terms
                   </h3>
                   <p>
@@ -212,7 +212,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">
                     2. Description of Service
                   </h3>
                   <p>
@@ -223,7 +223,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">3. Privacy and Data</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">3. Privacy and Data</h3>
                   <p className="mb-2">
                     Regen stores data locally on your device by default. When using Ghost Mode (Tor
                     Browser integration), all data is stored in ephemeral sessions with no
@@ -236,9 +236,9 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">4. Acceptable Use</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">4. Acceptable Use</h3>
                   <p className="mb-2">You agree NOT to use Regen to:</p>
-                  <ul className="ml-4 list-inside list-disc space-y-1 text-gray-400">
+                  <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
                     <li>Violate any applicable laws or regulations</li>
                     <li>Infringe on intellectual property rights</li>
                     <li>Transmit malicious code or harmful content</li>
@@ -248,7 +248,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">5. Disclaimers</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">5. Disclaimers</h3>
                   <p className="mb-2">
                     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. We do not
                     guarantee that the Software will be available at all times, free from errors, or
@@ -261,7 +261,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                 </section>
 
                 <section className="mb-6">
-                  <h3 className="mb-3 text-lg font-semibold text-gray-100">6. Open Source</h3>
+                  <h3 className="text-lg font-semibold text-gray-100 mb-3">6. Open Source</h3>
                   <p>
                     Regen is open-source software licensed under the MIT License. The source code is
                     available at{' '}
@@ -269,7 +269,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                       href="https://github.com/nrbns/Omnibrowser"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-400 underline hover:text-blue-300"
+                      className="text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
                     >
                       GitHub
                       <ExternalLink size={12} />
@@ -277,11 +277,11 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                   </p>
                 </section>
 
-                <div className="mt-8 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+                <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <p className="text-sm text-blue-200">
                     <strong>Note:</strong> This is a summary. The full Terms of Service are
                     available in{' '}
-                    <code className="rounded bg-gray-900/50 px-2 py-1 text-xs">
+                    <code className="bg-gray-900/50 px-2 py-1 rounded text-xs">
                       TERMS_OF_SERVICE.md
                     </code>{' '}
                     or{' '}
@@ -289,7 +289,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                       href="https://github.com/nrbns/Omnibrowser/blob/main/TERMS_OF_SERVICE.md"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-400 underline hover:text-blue-300"
+                      className="text-blue-400 hover:text-blue-300 underline inline-flex items-center gap-1"
                     >
                       view online
                       <ExternalLink size={12} />
@@ -299,27 +299,27 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-lg border border-gray-700 bg-gray-900/50 p-4">
-                  <h3 className="mb-2 font-semibold text-gray-100">Key Points:</h3>
+                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                  <h3 className="font-semibold text-gray-100 mb-2">Key Points:</h3>
                   <ul className="space-y-2 text-gray-300">
                     <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0 text-green-400" />
+                      <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Regen is open-source (MIT License)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0 text-green-400" />
+                      <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Data is stored locally on your device</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0 text-green-400" />
+                      <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                       <span>Ghost Mode provides maximum privacy (ephemeral sessions)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0 text-green-400" />
+                      <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                       <span>You can export your data at any time</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check size={16} className="mt-0.5 flex-shrink-0 text-green-400" />
+                      <Check size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
                       <span>AI content is provided "as-is" - verify important information</span>
                     </li>
                   </ul>
@@ -345,7 +345,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     e.stopPropagation();
                     setShowFullTerms(true);
                   }}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-200 transition-colors hover:bg-gray-600 active:scale-95"
+                  className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm text-gray-200 transition-colors flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                   style={{
                     pointerEvents: 'auto',
                     cursor: 'pointer',
@@ -363,10 +363,10 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between gap-4 border-t border-gray-700 p-6">
-            <div className="flex flex-1 flex-col gap-3">
+          <div className="flex items-center justify-between p-6 border-t border-gray-700 gap-4">
+            <div className="flex flex-col gap-3 flex-1">
               {/* Terms Acceptance Checkbox */}
-              <label className="group flex cursor-pointer items-start gap-3">
+              <label className="flex items-start gap-3 cursor-pointer group">
                 <input
                   type="checkbox"
                   checked={termsChecked}
@@ -377,7 +377,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                   onClick={e => {
                     e.stopPropagation();
                   }}
-                  className="mt-1 h-4 w-4 cursor-pointer rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-gray-900"
+                  className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
                   style={{
                     pointerEvents: 'auto',
                     zIndex: 10011,
@@ -410,7 +410,7 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     e.stopPropagation();
                     handleDecline();
                   }}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg bg-gray-700 px-6 py-2.5 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-600 active:scale-95"
+                  className="px-6 py-2.5 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-gray-200 transition-colors flex items-center gap-2 cursor-pointer active:scale-95"
                   style={{
                     pointerEvents: 'auto',
                     cursor: 'pointer',
@@ -459,10 +459,10 @@ export function TermsAcceptance({ onAccept, onDecline }: TermsAcceptanceProps) {
                     e.stopPropagation();
                     // Don't call handleAccept here - let onClick handle it
                   }}
-                  className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium transition-colors active:scale-95 ${
+                  className={`px-6 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 active:scale-95 ${
                     termsChecked
-                      ? 'cursor-pointer bg-blue-600 text-white hover:bg-blue-700'
-                      : 'cursor-not-allowed bg-gray-700 text-gray-400 opacity-50'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                      : 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-50'
                   }`}
                   style={{
                     pointerEvents: 'auto',

@@ -53,25 +53,17 @@ async function scrapeGitHub(repoUrl) {
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
 
     const [repoData, readmeData] = await Promise.all([
-      axios
-        .get(apiUrl, {
-          headers: {
-            Authorization: process.env.GITHUB_TOKEN
-              ? `token ${process.env.GITHUB_TOKEN}`
-              : undefined,
-          },
-        })
-        .catch(() => null),
-      axios
-        .get(`${apiUrl}/readme`, {
-          headers: {
-            Accept: 'application/vnd.github.v3.html',
-            Authorization: process.env.GITHUB_TOKEN
-              ? `token ${process.env.GITHUB_TOKEN}`
-              : undefined,
-          },
-        })
-        .catch(() => null),
+      axios.get(apiUrl, {
+        headers: {
+          Authorization: process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined,
+        },
+      }).catch(() => null),
+      axios.get(`${apiUrl}/readme`, {
+        headers: {
+          Accept: 'application/vnd.github.v3.html',
+          Authorization: process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined,
+        },
+      }).catch(() => null),
     ]);
 
     if (!repoData) return null;
@@ -99,9 +91,8 @@ async function scrapeGitHub(repoUrl) {
  */
 async function scrapeTwitter(tweetUrl) {
   try {
-    const match =
-      tweetUrl.match(/twitter\.com\/(\w+)\/status\/(\d+)/) ||
-      tweetUrl.match(/x\.com\/(\w+)\/status\/(\d+)/);
+    const match = tweetUrl.match(/twitter\.com\/(\w+)\/status\/(\d+)/) ||
+                  tweetUrl.match(/x\.com\/(\w+)\/status\/(\d+)/);
     if (!match) return null;
 
     const [, username, tweetId] = match;
@@ -190,21 +181,18 @@ export async function parallelScrape(urls) {
   const arxivUrls = urls.filter(u => u.includes('arxiv.org'));
   const githubUrls = urls.filter(u => u.includes('github.com'));
   const twitterUrls = urls.filter(u => u.includes('twitter.com') || u.includes('x.com'));
-  const _otherUrls = urls.filter(
-    u =>
-      !u.includes('arxiv.org') &&
-      !u.includes('github.com') &&
-      !u.includes('twitter.com') &&
-      !u.includes('x.com')
+  const _otherUrls = urls.filter(u => 
+    !u.includes('arxiv.org') && 
+    !u.includes('github.com') && 
+    !u.includes('twitter.com') && 
+    !u.includes('x.com')
   );
 
   // Extract IDs/URLs
-  const arxivIds = arxivUrls
-    .map(u => {
-      const match = u.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
-      return match ? match[1] : null;
-    })
-    .filter(Boolean);
+  const arxivIds = arxivUrls.map(u => {
+    const match = u.match(/arxiv\.org\/(?:abs|pdf)\/(\d+\.\d+)/);
+    return match ? match[1] : null;
+  }).filter(Boolean);
 
   // Execute all scrapes in parallel
   const promises = [
@@ -231,3 +219,7 @@ export async function parallelScrape(urls) {
     success: latency < 1800, // Target: <1.8s
   };
 }
+
+
+
+

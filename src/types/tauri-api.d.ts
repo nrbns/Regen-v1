@@ -12,6 +12,7 @@ declare module '@tauri-apps/api/event' {
     event: string,
     handler: (event: { payload: T }) => void
   ): Promise<() => void>;
-
+  
   export function emit(event: string, payload?: unknown): Promise<void>;
 }
+

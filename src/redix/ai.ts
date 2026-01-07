@@ -1,6 +1,6 @@
 /**
  * RedixAI - AI Processing for Content
- *
+ * 
  * Processes web content using:
  * 1. WASM AI (offline, fast, universal) - preferred
  * 2. Redix backend (if available)
@@ -35,7 +35,7 @@ export class RedixAI {
 
   /**
    * Process content (extract, summarize, structure)
-   *
+   * 
    * In Ghost Mode: Only uses WASM AI or simple extraction (no cloud APIs)
    */
   async processContent(extracted: {
@@ -45,10 +45,10 @@ export class RedixAI {
   }): Promise<ProcessedContent> {
     try {
       // In Ghost Mode, only use local AI (WASM or simple)
-      if (this.options.useWASM && (await this.hasWASM())) {
+      if (this.options.useWASM && await this.hasWASM()) {
         return await this.processWithWASM(extracted);
       }
-
+      
       // Try Redix backend ONLY if cloud APIs are allowed (not in Ghost Mode)
       if (this.options.useCloud) {
         // Check if we're in Ghost Mode (would be passed from browser)
@@ -59,7 +59,7 @@ export class RedixAI {
           console.warn('[RedixAI] Redix backend failed, using fallback:', error);
         }
       }
-
+      
       // Fallback: Simple extraction (always works, even in Ghost Mode)
       return this.processSimple(extracted);
     } catch (error) {
@@ -94,7 +94,7 @@ export class RedixAI {
     // 1. Load WASM model (cached)
     // 2. Run inference on extracted text
     // 3. Generate summary and structured content
-
+    
     console.log('[RedixAI] WASM processing (placeholder)');
     return this.processSimple(extracted);
   }
@@ -116,13 +116,13 @@ export class RedixAI {
           content: extracted.text.substring(0, 5000), // Limit content size
         }),
       });
-
+      
       if (!response.ok) {
         throw new Error(`Redix backend failed: ${response.statusText}`);
       }
-
+      
       const data = await response.json();
-
+      
       return {
         title: data.title || extracted.title,
         url: data.url || '',
@@ -149,13 +149,13 @@ export class RedixAI {
   }): ProcessedContent {
     // Extract domain from title (if it's a URL)
     const domain = this.extractDomain(extracted.title);
-
+    
     // Generate simple summary (first 200 chars)
     const summary = extracted.text.substring(0, 200).trim() + '...';
-
+    
     // Extract body (rest of text)
     const body = extracted.text.substring(200);
-
+    
     return {
       title: extracted.title,
       url: '',
@@ -179,3 +179,4 @@ export class RedixAI {
     }
   }
 }
+

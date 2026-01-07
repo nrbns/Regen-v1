@@ -28,23 +28,23 @@ async function testRedis() {
     // Test pub/sub
     const pubClient = client.duplicate();
     const subClient = client.duplicate();
-
+    
     await pubClient.connect();
     await subClient.connect();
 
-    await subClient.subscribe('test:channel', message => {
+    await subClient.subscribe('test:channel', (message) => {
       console.log(`SUB received: ${message}`);
     });
 
     await pubClient.publish('test:channel', 'Test message');
-
+    
     // Wait a bit for message
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // Cleanup
     await subClient.unsubscribe('test:channel');
     await client.del('test:key');
-
+    
     await pubClient.quit();
     await subClient.quit();
     await client.quit();

@@ -58,9 +58,7 @@ export function ConsentVaultPanel() {
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-200">
             <ShieldCheck size={16} /> Quantum Consent Vault
           </div>
-          <div className="text-xs text-emerald-100/70">
-            Each consent is sealed with a hash-chain signature. Export receipts for audits.
-          </div>
+          <div className="text-xs text-emerald-100/70">Each consent is sealed with a hash-chain signature. Export receipts for audits.</div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -96,17 +94,12 @@ export function ConsentVaultPanel() {
       {!error && (
         <div className="mt-4 max-h-64 overflow-y-auto rounded-2xl border border-emerald-500/15 bg-emerald-900/30">
           {!snapshot && loading && (
-            <div className="p-6 text-center text-xs text-emerald-100/70">
-              Loading quantum receipts…
-            </div>
+            <div className="p-6 text-center text-xs text-emerald-100/70">Loading quantum receipts…</div>
           )}
           {snapshot && !loading && (
             <div className="divide-y divide-emerald-500/10 text-[11px]">
-              {snapshot.entries.map(entry => {
-                const metadata =
-                  typeof entry.metadata === 'object' && entry.metadata !== null
-                    ? (entry.metadata as Record<string, unknown>)
-                    : undefined;
+              {snapshot.entries.map((entry) => {
+                const metadata = typeof entry.metadata === 'object' && entry.metadata !== null ? (entry.metadata as Record<string, unknown>) : undefined;
                 const risk = typeof metadata?.risk === 'string' ? metadata.risk : undefined;
                 const target = typeof metadata?.target === 'string' ? metadata.target : undefined;
                 return (
@@ -118,23 +111,13 @@ export function ConsentVaultPanel() {
                     className="space-y-1 px-4 py-3"
                   >
                     <div className="flex items-center justify-between text-emerald-100">
-                      <span className="text-[10px] font-medium uppercase tracking-wide">
-                        {entry.actionType}
-                      </span>
-                      <span className="text-emerald-200/70">
-                        {new Date(entry.timestamp).toLocaleString()}
-                      </span>
+                      <span className="font-medium uppercase tracking-wide text-[10px]">{entry.actionType}</span>
+                      <span className="text-emerald-200/70">{new Date(entry.timestamp).toLocaleString()}</span>
                     </div>
-                    <div className="break-all text-emerald-100/90">
-                      Chain hash: {entry.chainHash}
-                    </div>
-                    <div className="break-all text-emerald-100/70">
-                      Signature: {entry.signature}
-                    </div>
+                    <div className="text-emerald-100/90 break-all">Chain hash: {entry.chainHash}</div>
+                    <div className="text-emerald-100/70 break-all">Signature: {entry.signature}</div>
                     {risk && <div className="text-emerald-100/70">Risk: {risk}</div>}
-                    {target && (
-                      <div className="break-all text-emerald-100/70">Target: {target}</div>
-                    )}
+                    {target && <div className="text-emerald-100/70 break-all">Target: {target}</div>}
                   </motion.div>
                 );
               })}
@@ -149,7 +132,9 @@ export function ConsentVaultPanel() {
       )}
 
       {snapshot && (
-        <div className="mt-3 text-[10px] text-emerald-200/60">Anchor hash: {snapshot.anchor}</div>
+        <div className="mt-3 text-[10px] text-emerald-200/60">
+          Anchor hash: {snapshot.anchor}
+        </div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 /**
  * AI Bridge Service
  * Local offline AI inference bridge for Regen Browser
- *
+ * 
  * Supports multiple backends:
  * - mock: Mock responses for testing
  * - llama_cpp: llama.cpp native integration
@@ -34,28 +34,28 @@ app.use(express.json());
 app.get('/health', async (req, res) => {
   const provider = process.env.LLM_PROVIDER || 'mock';
   const modelPath = process.env.MODEL_PATH || null;
-
+  
   // Check provider availability
   let providerAvailable = true;
   let providerError = null;
-
+  
   if (provider === 'ollama') {
     try {
       const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
       // Use AbortController for timeout in Node.js
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
-
+      
       const response = await fetch(`${ollamaUrl}/api/tags`, {
         method: 'GET',
-        signal: controller.signal,
+        signal: controller.signal
       }).catch(() => {
         clearTimeout(timeoutId);
         return null;
       });
-
+      
       clearTimeout(timeoutId);
-
+      
       if (!response || !response.ok) {
         providerAvailable = false;
         providerError = 'Ollama not available. Install from https://ollama.com';
@@ -75,10 +75,10 @@ app.get('/health', async (req, res) => {
       providerError = 'MODEL_PATH not found or not configured';
     }
   }
-
+  
   // Auto-fallback to mock if provider unavailable
   const effectiveProvider = providerAvailable ? provider : 'mock';
-
+  
   res.json({
     status: 'ok',
     provider: effectiveProvider,
@@ -87,17 +87,17 @@ app.get('/health', async (req, res) => {
     providerError,
     modelPath,
     version: '0.1.0',
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString()
   });
 });
 
 // Chat completion endpoint
 app.post('/v1/chat', authenticate, async (req, res) => {
   const { messages, model, temperature = 0.7, max_tokens = 1000 } = req.body;
-
+  
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({
-      error: 'messages array is required and must not be empty',
+      error: 'messages array is required and must not be empty'
     });
   }
 
@@ -106,27 +106,27 @@ app.post('/v1/chat', authenticate, async (req, res) => {
 
   try {
     let response;
-
+    
     // Auto-fallback logic: if requested provider fails, fall back to mock
-    const attemptProvider = async providerName => {
+    const attemptProvider = async (providerName) => {
       switch (providerName) {
         case 'mock':
           return await handleMockProvider(messages);
-
+        
         case 'llama_cpp':
           return await handleLlamaCppProvider(messages, { temperature, max_tokens });
-
+        
         case 'ollama':
           return await handleOllamaProvider(messages, { model, temperature, max_tokens });
-
+        
         case 'openai':
           return await handleOpenAIProvider(messages, { model, temperature, max_tokens });
-
+        
         default:
           throw new Error(`Unsupported provider: ${providerName}`);
       }
     };
-
+    
     // Try requested provider first
     try {
       response = await attemptProvider(provider);
@@ -135,10 +135,7 @@ app.post('/v1/chat', authenticate, async (req, res) => {
     } catch (error) {
       // If provider fails and not already mock, fall back to mock
       if (provider !== 'mock') {
-        console.warn(
-          `[AI Bridge] Provider ${provider} failed, falling back to mock:`,
-          error.message
-        );
+        console.warn(`[AI Bridge] Provider ${provider} failed, falling back to mock:`, error.message);
         try {
           response = await handleMockProvider(messages);
           response._fallbackUsed = true;
@@ -158,14 +155,14 @@ app.post('/v1/chat', authenticate, async (req, res) => {
       ...response,
       provider,
       latency_ms,
-      model: response.model || model || 'default',
+      model: response.model || model || 'default'
     });
   } catch (error) {
     console.error('[AI Bridge] Error:', error);
     res.status(500).json({
       error: error.message || 'Internal server error',
       provider,
-      latency_ms: Date.now() - startTime,
+      latency_ms: Date.now() - startTime
     });
   }
 });
@@ -174,7 +171,7 @@ app.post('/v1/chat', authenticate, async (req, res) => {
 app.get('/v1/models', authenticate, (req, res) => {
   const modelsDir = join(__dirname, 'models');
   const models = [];
-
+  
   if (existsSync(modelsDir)) {
     // List available models (simplified - would need to scan directory)
     models.push({
@@ -182,10 +179,10 @@ app.get('/v1/models', authenticate, (req, res) => {
       name: 'Default Model',
       path: process.env.MODEL_PATH || null,
       size: null,
-      format: 'gguf',
+      format: 'gguf'
     });
   }
-
+  
   res.json({ models });
 });
 
@@ -193,18 +190,18 @@ app.get('/v1/models', authenticate, (req, res) => {
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader?.replace('Bearer ', '') || req.body.token || req.query.token;
-
+  
   if (!BRIDGE_TOKEN) {
     console.warn('[AI Bridge] No token configured, allowing all requests');
     return next();
   }
-
+  
   if (!token || token !== BRIDGE_TOKEN) {
     return res.status(401).json({
-      error: 'Unauthorized - invalid or missing token',
+      error: 'Unauthorized - invalid or missing token'
     });
   }
-
+  
   next();
 }
 
@@ -225,36 +222,34 @@ function loadTokenFile() {
 async function handleMockProvider(messages) {
   const lastMessage = messages[messages.length - 1];
   const content = lastMessage?.content || '';
-
+  
   // Enhanced mock responses with better variety
   const responses = [
     `I understand you're asking: "${content}". This is a mock response demonstrating the AI Bridge is working correctly. To use real AI, install Ollama (https://ollama.com) and set LLM_PROVIDER=ollama, or configure OpenAI/llama.cpp.`,
     `Mock response for: "${content}". The AI Bridge is functioning properly! Configure a real provider (Ollama, OpenAI, or llama.cpp) to get actual AI responses.`,
-    `You said: "${content}". Currently using mock provider. For real AI responses, set LLM_PROVIDER=ollama and ensure Ollama is running (ollama serve), or configure another provider.`,
+    `You said: "${content}". Currently using mock provider. For real AI responses, set LLM_PROVIDER=ollama and ensure Ollama is running (ollama serve), or configure another provider.`
   ];
-
+  
   const responseIndex = Math.floor(Math.random() * responses.length);
   const responseText = responses[responseIndex];
-
+  
   // Simulate realistic response time
   await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
-
+  
   return {
-    choices: [
-      {
-        message: {
-          role: 'assistant',
-          content: responseText,
-        },
-        finish_reason: 'stop',
+    choices: [{
+      message: {
+        role: 'assistant',
+        content: responseText
       },
-    ],
+      finish_reason: 'stop'
+    }],
     usage: {
       prompt_tokens: Math.ceil(content.length / 4), // Rough estimate
       completion_tokens: Math.ceil(responseText.length / 4),
-      total_tokens: Math.ceil((content.length + responseText.length) / 4),
+      total_tokens: Math.ceil((content.length + responseText.length) / 4)
     },
-    model: 'mock',
+    model: 'mock'
   };
 }
 
@@ -267,7 +262,7 @@ async function handleLlamaCppProvider(_messages, _options) {
 async function handleOllamaProvider(messages, options) {
   const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
   let model = options.model || process.env.OLLAMA_MODEL || 'llama3.1:8b';
-
+  
   // Build prompt from messages (simple concatenation for now)
   // For better results, use chat API instead of generate
   let prompt = '';
@@ -275,16 +270,13 @@ async function handleOllamaProvider(messages, options) {
     prompt = messages[0].content;
   } else {
     // Convert messages to prompt format
-    prompt =
-      messages
-        .map(m => {
-          if (m.role === 'user') return `User: ${m.content}`;
-          if (m.role === 'assistant') return `Assistant: ${m.content}`;
-          return m.content;
-        })
-        .join('\n\n') + '\n\nAssistant:';
+    prompt = messages.map(m => {
+      if (m.role === 'user') return `User: ${m.content}`;
+      if (m.role === 'assistant') return `Assistant: ${m.content}`;
+      return m.content;
+    }).join('\n\n') + '\n\nAssistant:';
   }
-
+  
   try {
     // First, try to use the chat API (better for multi-turn conversations)
     try {
@@ -295,42 +287,40 @@ async function handleOllamaProvider(messages, options) {
           model,
           messages: messages.map(m => ({
             role: m.role,
-            content: m.content,
+            content: m.content
           })),
           stream: false,
           options: {
             temperature: options.temperature,
-            num_predict: options.max_tokens,
-          },
-        }),
+            num_predict: options.max_tokens
+          }
+        })
       });
-
+      
       if (chatResponse.ok) {
         const data = await chatResponse.json();
-
+        
         return {
-          choices: [
-            {
-              message: {
-                role: 'assistant',
-                content: data.message?.content || data.response || '',
-              },
-              finish_reason: data.done ? 'stop' : 'length',
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: data.message?.content || data.response || ''
             },
-          ],
+            finish_reason: data.done ? 'stop' : 'length'
+          }],
           usage: {
             prompt_tokens: data.prompt_eval_count || 0,
             completion_tokens: data.eval_count || 0,
-            total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+            total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
           },
-          model: model,
+          model: model
         };
       }
     } catch (chatError) {
       // Fall back to generate API if chat API fails
       console.warn('[AI Bridge] Chat API failed, trying generate API:', chatError.message);
     }
-
+    
     // Fallback to generate API
     const response = await fetch(`${ollamaUrl}/api/generate`, {
       method: 'POST',
@@ -341,40 +331,36 @@ async function handleOllamaProvider(messages, options) {
         stream: false,
         options: {
           temperature: options.temperature,
-          num_predict: options.max_tokens,
-        },
-      }),
+          num_predict: options.max_tokens
+        }
+      })
     });
-
+    
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Ollama API error (${response.status}): ${errorText || response.statusText}`);
     }
-
+    
     const data = await response.json();
-
+    
     return {
-      choices: [
-        {
-          message: {
-            role: 'assistant',
-            content: data.response || '',
-          },
-          finish_reason: data.done ? 'stop' : 'length',
+      choices: [{
+        message: {
+          role: 'assistant',
+          content: data.response || ''
         },
-      ],
+        finish_reason: data.done ? 'stop' : 'length'
+      }],
       usage: {
         prompt_tokens: data.prompt_eval_count || 0,
         completion_tokens: data.eval_count || 0,
-        total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0)
       },
-      model: model,
+      model: model
     };
   } catch (error) {
     if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
-      throw new Error(
-        `Ollama not running. Install from https://ollama.com and run 'ollama serve', or pull a model with 'ollama pull ${model}'`
-      );
+      throw new Error(`Ollama not running. Install from https://ollama.com and run 'ollama serve', or pull a model with 'ollama pull ${model}'`);
     }
     throw new Error(`Ollama provider error: ${error.message}`);
   }
@@ -385,29 +371,29 @@ async function handleOpenAIProvider(messages, options) {
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY not configured');
   }
-
+  
   const model = options.model || process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
-
+  
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model,
         messages,
         temperature: options.temperature,
-        max_tokens: options.max_tokens,
-      }),
+        max_tokens: options.max_tokens
+      })
     });
-
+    
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error?.message || `OpenAI API error: ${response.statusText}`);
     }
-
+    
     return await response.json();
   } catch (error) {
     throw new Error(`OpenAI provider error: ${error.message}`);
@@ -429,3 +415,4 @@ app.listen(PORT, '127.0.0.1', () => {
 });
 
 export default app;
+

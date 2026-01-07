@@ -5,3 +5,5 @@ export function analyzeText(text: string) {
   const report = `# Analysis\n\n**Entities:** ${entities.join(', ') || 'None'}\n\n**Summary:** ${summary}`;
   return { entities, summary, report };
 }
+
+

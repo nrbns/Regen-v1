@@ -9,7 +9,7 @@ type IndicatorsProps = {
 
 export default function Indicators({ indicators, onToggle, onUpdate }: IndicatorsProps) {
   return (
-    <div className="space-y-3 rounded-2xl border border-white/10 bg-[#080b12] p-4 text-white shadow-inner shadow-black/40">
+    <div className="rounded-2xl border border-white/10 bg-[#080b12] p-4 text-white shadow-inner shadow-black/40 space-y-3">
       <div className="flex items-center justify-between text-xs uppercase tracking-wide text-indigo-200">
         <div className="flex items-center gap-2">
           <SlidersHorizontal size={16} />

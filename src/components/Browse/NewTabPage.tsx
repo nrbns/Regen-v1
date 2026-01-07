@@ -45,12 +45,12 @@ export default function NewTabPage() {
   };
 
   return (
-    <div className="flex h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-purple-950 via-black to-pink-950 text-white">
-      <div className="w-full max-w-3xl px-6 text-center">
+    <div className="h-screen bg-gradient-to-br from-purple-950 via-black to-pink-950 text-white flex items-center justify-center overflow-hidden">
+      <div className="text-center max-w-3xl w-full px-6">
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-2 text-3xl font-semibold text-[#EAEAF0] md:text-4xl"
+          className="text-3xl md:text-4xl font-semibold text-[#EAEAF0] mb-2"
         >
           Start typing a URL or ask AI anything
         </motion.h1>
@@ -58,7 +58,7 @@ export default function NewTabPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mb-8 mt-1 text-sm text-[#9AA0B4] md:text-base"
+          className="text-sm md:text-base mt-1 text-[#9AA0B4] mb-8"
         >
           Browse · Research · Trade — one focused workspace
         </motion.p>
@@ -66,7 +66,7 @@ export default function NewTabPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="relative mx-auto max-w-xl"
+          className="relative max-w-xl mx-auto"
         >
           <input
             type="text"
@@ -78,34 +78,34 @@ export default function NewTabPage() {
               }
             }}
             placeholder="Search or ask AI anything..."
-            className="w-full rounded-xl border border-white/10 bg-[#11162A] px-5 py-3 text-base text-white placeholder-[#9AA0B4] transition focus:outline-none focus:ring-2 focus:ring-[#7C5CFF] md:text-lg"
+            className="w-full px-5 py-3 bg-[#11162A] rounded-xl text-base md:text-lg placeholder-[#9AA0B4] focus:outline-none focus:ring-2 focus:ring-[#7C5CFF] transition text-white border border-white/10"
             autoFocus
           />
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => handleSearch(query)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 transition hover:bg-white/10"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-white/10 transition"
             title="AI Search"
           >
-            <Sparkles className="h-7 w-7 animate-pulse text-pink-400 md:h-9 md:w-9" />
+            <Sparkles className="w-7 h-7 md:w-9 md:h-9 text-pink-400 animate-pulse" />
           </motion.button>
         </motion.div>
-
+        
         {/* Empty state quick actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="mx-auto mt-8 grid max-w-xl grid-cols-2 gap-3 md:grid-cols-4"
+          className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-xl mx-auto"
         >
           {quickActions.map((action, idx) => (
             <button
               key={idx}
               onClick={() => handleSearch(action.query || action.label)}
-              className="rounded-xl border border-white/10 bg-[#11162A] p-3 text-center transition hover:border-white/20"
+              className="p-3 rounded-xl bg-[#11162A] border border-white/10 hover:border-white/20 transition text-center"
             >
-              <div className="mb-2 text-3xl">{action.icon}</div>
+              <div className="text-3xl mb-2">{action.icon}</div>
               <div className="text-sm text-[#9AA0B4]">{action.label}</div>
             </button>
           ))}

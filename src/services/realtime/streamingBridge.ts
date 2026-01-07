@@ -1,9 +1,9 @@
 /**
  * Streaming Bridge - Standardizes token-by-token output across all AI systems
- *
+ * 
  * All AI agent outputs (research, code generation, analysis, etc.) should emit
  * MODEL_CHUNK events token-by-token instead of dumping full text.
- *
+ * 
  * This module provides helpers to:
  * 1. Intercept AI output streams
  * 2. Convert to token-by-token MODEL_CHUNK events
@@ -26,25 +26,25 @@ interface StreamChunkOptions {
  */
 export function tokenizeText(text: string, chunkSize = 1): string[] {
   if (!text) return [];
-
+  
   // Simple tokenization: split on word boundaries
   // In production, use proper tokenizer (BPE, SentencePiece, etc.)
   const tokens = text.split(/(\s+|[.,!?;:])/);
-
+  
   // Group tokens by chunkSize (default 1 token per chunk)
   const chunks: string[] = [];
   let currentChunk = '';
-
+  
   for (const token of tokens) {
     if (token === '') continue;
     currentChunk += token;
-
+    
     if (currentChunk.split(/\s+/).filter(t => t.length > 0).length >= chunkSize) {
       chunks.push(currentChunk);
       currentChunk = '';
     }
   }
-
+  
   if (currentChunk) chunks.push(currentChunk);
   return chunks;
 }
@@ -52,7 +52,10 @@ export function tokenizeText(text: string, chunkSize = 1): string[] {
 /**
  * Emit a single text chunk via MODEL_CHUNK event
  */
-export async function emitStreamChunk(chunk: string, _options: StreamChunkOptions): Promise<void> {
+export async function emitStreamChunk(
+  chunk: string,
+  _options: StreamChunkOptions
+): Promise<void> {
   try {
     const client = getSocketClient();
     if (!client || !client.isReady()) {
@@ -84,7 +87,7 @@ export async function* streamText(
   try {
     // Wait for text if it's a promise
     const fullText = await Promise.resolve(text);
-
+    
     // Tokenize into chunks
     const chunks = tokenizeText(fullText);
     const total = chunks.length;
@@ -238,11 +241,9 @@ export class StreamingTracker {
       const elapsedMs = Date.now() - stream.startTime;
       const text = stream.chunks.join('');
       const tokensPerSec = (stream.chunks.length / elapsedMs) * 1000;
-
-      console.log(
-        `[StreamingTracker] Job ${jobId}: ${stream.chunks.length} chunks, ${text.length} chars, ${tokensPerSec.toFixed(1)} tokens/sec`
-      );
-
+      
+      console.log(`[StreamingTracker] Job ${jobId}: ${stream.chunks.length} chunks, ${text.length} chars, ${tokensPerSec.toFixed(1)} tokens/sec`);
+      
       this.activeStreams.delete(jobId);
       return { chunks: stream.chunks.length, text, tokensPerSec };
     }

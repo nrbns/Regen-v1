@@ -20,13 +20,13 @@ export async function searchX(query, days = 3) {
     const since = new Date();
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
-
+    
     const searchQuery = `${query} since:${sinceStr} lang:en min_faves:30 -filter:replies`;
-
+    
     // Use snscrape (Python) via exec
     const command = `snscrape --jsonl twitter-search "${searchQuery}" | head -12`;
     const { stdout } = await execAsync(command, { timeout: 10000 });
-
+    
     const tweets = stdout
       .trim()
       .split('\n')
@@ -66,15 +66,15 @@ export async function searchArxiv(query) {
   try {
     const encodedQuery = encodeURIComponent(query);
     const url = `http://export.arxiv.org/api/query?search_query=all:${encodedQuery}&start=0&max_results=6&sortBy=submittedDate&sortOrder=descending`;
-
+    
     const response = await axios.get(url, { timeout: 10000 });
     const xml = response.data;
-
+    
     // Parse XML using fast-xml-parser
     const parser = new XMLParser();
     const parsed = parser.parse(xml);
     const entries = parsed.feed?.entry || [];
-
+    
     const results = entries.slice(0, 5).map(entry => {
       const pdfLink = entry.link?.find(l => l.$.title === 'pdf');
       return {
@@ -99,11 +99,11 @@ export async function searchGitHub(query) {
   try {
     const encodedQuery = encodeURIComponent(query);
     const url = `https://api.github.com/search/repositories?q=${encodedQuery}+stars:>800+created:>2025-01-01&sort=stars&order=desc&per_page=6`;
-
+    
     const headers = {
       Accept: 'application/vnd.github+json',
     };
-
+    
     if (process.env.GITHUB_TOKEN) {
       headers.Authorization = `token ${process.env.GITHUB_TOKEN}`;
     }
@@ -132,7 +132,7 @@ export async function searchGitHub(query) {
  */
 export async function parallelSearch(query) {
   const startTime = Date.now();
-
+  
   try {
     const results = await Promise.allSettled([
       searchX(query),
@@ -140,7 +140,9 @@ export async function parallelSearch(query) {
       searchGitHub(query.replace(/\s+/g, '+')),
     ]);
 
-    const data = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+    const data = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value);
 
     const latency = Date.now() - startTime;
 
@@ -163,3 +165,4 @@ export async function parallelSearch(query) {
     };
   }
 }
+

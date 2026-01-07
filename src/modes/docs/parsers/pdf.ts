@@ -8,7 +8,7 @@ export async function parsePdfFile(file: File, options?: { useOCR?: boolean }): 
   const buf = await file.arrayBuffer();
   const pdf = await (pdfjsLib as any).getDocument({ data: buf }).promise;
   let out = '';
-
+  
   // Phase 2, Day 2: Check if PDF is scanned and use OCR if needed
   if (options?.useOCR) {
     const scanned = await isScannedPdf(file);
@@ -22,21 +22,23 @@ export async function parsePdfFile(file: File, options?: { useOCR?: boolean }): 
       }
     }
   }
-
+  
   // Regular text extraction
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const s = content.items.map((it: any) => it.str).join(' ');
+    const s = content.items.map((it: any)=> it.str).join(' ');
     out += s + '\n';
   }
-
+  
   // Phase 2, Day 2: If extracted text is very short, might be scanned
   const extractedText = out.trim();
   if (extractedText.length < 50 && !options?.useOCR) {
     // Suggest OCR
     console.info('[parsePdfFile] PDF might be scanned. Consider using OCR.');
   }
-
+  
   return extractedText;
 }
+
+

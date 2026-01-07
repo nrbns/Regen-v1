@@ -6,12 +6,7 @@
 
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { extractMultipleContent } from '../lib/extractors.js';
-import {
-  summaryCache,
-  contentCache,
-  getSummaryCacheKey,
-  getContentCacheKey,
-} from '../lib/cache.js';
+import { summaryCache, contentCache, getSummaryCacheKey, getContentCacheKey } from '../lib/cache.js';
 import { getLLM } from '../core/llm-provider.js';
 
 // Note: On-device AI is handled in the frontend layer
@@ -105,13 +100,13 @@ async function generateSummary(
       // Try to extract bullets (lines starting with -, •, or numbers)
       const bulletRegex = /(?:^|\n)[-•\d+\.]\s*(.+?)(?=\n|$)/g;
       const matches = summary.match(bulletRegex);
-
+      
       if (matches && matches.length >= 2) {
         bullets = matches
           .slice(0, 5) // Max 5 bullets
           .map(b => b.replace(/^[-•\d+\.]\s*/, '').trim())
           .filter(b => b.length > 0);
-
+        
         // Remove bullets from summary text
         summary = summary.replace(bulletRegex, '').trim();
       }
@@ -152,7 +147,7 @@ export async function summarizeHandler(
 
     // Normalize URLs to array
     const urls = Array.isArray(urlsInput) ? urlsInput : [urlsInput];
-
+    
     if (urls.length === 0) {
       return reply.code(400).send({
         ok: false,
@@ -198,7 +193,7 @@ export async function summarizeHandler(
       });
 
       // Generate summaries in parallel
-      const summaryPromises = extractedContents.map(async content => {
+      const summaryPromises = extractedContents.map(async (content) => {
         // Check content cache first
         const contentCacheKey = getContentCacheKey(content.url);
         const cachedContent = contentCache.get(contentCacheKey);
@@ -208,15 +203,11 @@ export async function summarizeHandler(
           content = { ...content, ...cachedContent };
         } else if (!content.error && content.text) {
           // Cache extracted content
-          contentCache.set(
-            contentCacheKey,
-            {
-              title: content.title,
-              text: content.text,
-              excerpt: content.excerpt,
-            },
-            21600
-          ); // 6 hours
+          contentCache.set(contentCacheKey, {
+            title: content.title,
+            text: content.text,
+            excerpt: content.excerpt,
+          }, 21600); // 6 hours
         }
 
         if (content.error || !content.text) {
@@ -239,12 +230,10 @@ export async function summarizeHandler(
           // Build citations if requested
           let citations: Array<{ url: string; title: string }> | undefined;
           if (includeCitations && content.metadata) {
-            citations = [
-              {
-                url: content.url,
-                title: content.title,
-              },
-            ];
+            citations = [{
+              url: content.url,
+              title: content.title,
+            }];
           }
 
           return {
@@ -308,3 +297,4 @@ export async function summarizeStreamHandler(
   // TODO: Implement streaming with Fastify SSE plugin
   return summarizeHandler(request, reply) as any;
 }
+

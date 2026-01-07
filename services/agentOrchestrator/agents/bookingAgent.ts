@@ -27,22 +27,22 @@ export class BookingAgentHandler {
     switch (action) {
       case 'search_options':
         return await this.searchOptions(parameters);
-
+      
       case 'compare_and_select':
         return await this.compareOptions(parameters);
-
+      
       case 'complete_booking':
         return await this.completeBooking(parameters);
-
+      
       case 'search_flights':
         return await this.searchFlights(parameters);
-
+      
       case 'search_hotels':
         return await this.searchHotels(parameters);
-
+      
       case 'get_booking_details':
         return await this.getBookingDetails(parameters);
-
+      
       default:
         throw new Error(`Unknown booking action: ${action}`);
     }
@@ -165,13 +165,13 @@ export class BookingAgentHandler {
     // Simple comparison logic (in production: use AI)
     const scored = options.map((opt: any) => {
       let score = 0;
-
+      
       // Prefer lower price
       if (opt.price) score += (1000 - opt.price) / 10;
-
+      
       // Prefer higher ratings
       if (opt.rating) score += opt.rating * 20;
-
+      
       // Prefer direct flights (no stops)
       if (opt.stops === 0) score += 30;
 

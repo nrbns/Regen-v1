@@ -4,11 +4,7 @@
  * Works with any query/name and optimizes results
  */
 
-import {
-  fetchDuckDuckGoInstant,
-  fetchDuckDuckGoWeb,
-  formatDuckDuckGoResults,
-} from './duckDuckGoSearch';
+import { fetchDuckDuckGoInstant, fetchDuckDuckGoWeb, formatDuckDuckGoResults } from './duckDuckGoSearch';
 import { fetchBingSearch, formatBingResults } from './bingSearch';
 import { multiSourceSearch } from './multiSourceSearch';
 import { performLiveWebSearch } from './liveWebSearch';
@@ -65,11 +61,7 @@ export async function optimizedSearch(
             url: r.url,
             snippet: r.snippet,
             domain: r.domain,
-            provider: (r.source === 'brave'
-              ? 'brave'
-              : r.source === 'bing'
-                ? 'bing'
-                : 'multi') as OptimizedSearchResult['provider'],
+            provider: (r.source === 'brave' ? 'brave' : r.source === 'bing' ? 'bing' : 'multi') as OptimizedSearchResult['provider'],
             score: r.score || 0.9 - idx * 0.05,
             timestamp: Date.now(),
           }))
@@ -293,7 +285,7 @@ export async function quickSearch(
         if (r.source === 'brave') provider = 'brave';
         else if (r.source === 'bing') provider = 'bing';
         else if (r.source === 'duckduckgo') provider = 'duckduckgo';
-
+        
         return {
           title: r.title,
           url: r.url,
@@ -396,3 +388,4 @@ export async function checkSearchProviders(): Promise<{
     local: hasLocal,
   };
 }
+

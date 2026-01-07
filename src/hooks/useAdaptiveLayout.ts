@@ -4,10 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  getAdaptiveLayoutManager,
-  type LayoutMode,
-} from '../services/adaptiveUI/adaptiveLayoutManager';
+import { getAdaptiveLayoutManager, type LayoutMode } from '../services/adaptiveUI/adaptiveLayoutManager';
 
 interface AdaptiveLayoutState {
   networkQuality: 'offline' | 'slow-2g' | '2g' | '3g' | '4g' | 'wifi';
@@ -41,3 +38,4 @@ export function useAdaptiveLayout(): AdaptiveLayoutState {
 
   return state;
 }
+

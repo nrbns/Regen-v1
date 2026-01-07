@@ -79,7 +79,7 @@ export function SkeletonCard({ className, ...props }: React.HTMLAttributes<HTMLD
   return (
     <div
       className={cn(
-        'space-y-3 rounded-xl border border-slate-700/60 bg-slate-900/40 p-4',
+        'rounded-xl border border-slate-700/60 bg-slate-900/40 p-4 space-y-3',
         className
       )}
       data-testid="skeleton-card"
@@ -106,7 +106,7 @@ export function SkeletonList({
   return (
     <div className={cn('space-y-2', className)} {...props}>
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg p-2">
+        <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
           <Skeleton variant="circular" width={40} height={40} />
           <div className="flex-1 space-y-2">
             <Skeleton variant="text" width="70%" height={16} />
@@ -130,7 +130,7 @@ export function SkeletonTable({
   return (
     <div className={cn('space-y-2', className)} {...props}>
       {/* Header */}
-      <div className="flex gap-2 border-b border-slate-700/60 pb-2">
+      <div className="flex gap-2 pb-2 border-b border-slate-700/60">
         {Array.from({ length: cols }).map((_, i) => (
           <Skeleton key={i} variant="text" width="100%" height={20} />
         ))}

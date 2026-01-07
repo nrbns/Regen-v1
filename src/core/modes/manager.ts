@@ -3,15 +3,7 @@ import { dispatch } from '../redix/runtime';
 import { getGhostMode } from '../ghost-mode';
 import { ipc } from '../../lib/ipc-typed';
 
-export type ModeId =
-  | 'Browse'
-  | 'Research'
-  | 'Trade'
-  | 'Games'
-  | 'Docs'
-  | 'Images'
-  | 'Threats'
-  | 'GraphMind';
+export type ModeId = 'Browse' | 'Research' | 'Trade' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
 
 export interface ModeDefinition {
   id: ModeId;
@@ -72,8 +64,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     defaultTools: ['memory', 'agent', 'reader'],
     privacyDefaults: { ghost: false, proxy: 'none', trackingProtection: true },
     aiContext: {
-      prompt:
-        'You are the Research Mode assistant. Provide structured answers with citations and highlight contradictions.',
+      prompt: 'You are the Research Mode assistant. Provide structured answers with citations and highlight contradictions.',
       agentId: 'research.agent',
     },
     onActivate: async () => {
@@ -96,8 +87,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     defaultTools: ['charts', 'sentiment', 'eco-balance'],
     privacyDefaults: { ghost: true, proxy: 'vpn', trackingProtection: true },
     aiContext: {
-      prompt:
-        'You are the Trade Mode assistant. Provide price action, key levels, risk notes, and market context for trading queries.',
+      prompt: 'You are the Trade Mode assistant. Provide price action, key levels, risk notes, and market context for trading queries.',
       agentId: 'trade.agent',
     },
     onActivate: async () => {
@@ -125,8 +115,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     description: 'Document authoring and summarization.',
     defaultTools: ['editor', 'summarizer'],
     aiContext: {
-      prompt:
-        'You are the Docs Mode assistant. Summarize documents, extract key information, and help with documentation queries.',
+      prompt: 'You are the Docs Mode assistant. Summarize documents, extract key information, and help with documentation queries.',
       agentId: 'docs.agent',
     },
   },
@@ -136,8 +125,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     icon: 'Image',
     description: 'Visual search and inspiration boards.',
     aiContext: {
-      prompt:
-        'You are the Images Mode assistant. Help users find and analyze images, create inspiration boards, and work with visual content.',
+      prompt: 'You are the Images Mode assistant. Help users find and analyze images, create inspiration boards, and work with visual content.',
       agentId: 'images.agent',
     },
   },
@@ -149,8 +137,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     privacyDefaults: { ghost: true, proxy: 'tor', trackingProtection: true },
     defaultTools: ['threat-intel', 'sandbox'],
     aiContext: {
-      prompt:
-        'You are the Threats Mode assistant. Analyze security threats, provide threat intelligence, and help with security analysis.',
+      prompt: 'You are the Threats Mode assistant. Analyze security threats, provide threat intelligence, and help with security analysis.',
       agentId: 'threats.agent',
     },
   },
@@ -161,8 +148,7 @@ const defaultModes: Record<ModeId, ModeDefinition> = {
     description: 'Knowledge graph view of SuperMemory and research trails.',
     defaultTools: ['graph'],
     aiContext: {
-      prompt:
-        'You are the GraphMind assistant. Help users explore their knowledge graph by identifying connections, relationships, and patterns in their SuperMemory.',
+      prompt: 'You are the GraphMind assistant. Help users explore their knowledge graph by identifying connections, relationships, and patterns in their SuperMemory.',
       agentId: 'graphmind.agent',
     },
     onActivate: async () => {
@@ -222,7 +208,7 @@ export const useModeManager = create<ModeManagerState>((set, get) => ({
     }
   },
   registerMode(definition) {
-    set(state => ({
+    set((state) => ({
       modes: {
         ...state.modes,
         [definition.id]: {
@@ -280,3 +266,4 @@ export const ModeManager = {
   register: (definition: ModeDefinition) => useModeManager.getState().registerMode(definition),
   getCurrent: () => useModeManager.getState().modes[useModeManager.getState().currentMode],
 };
+

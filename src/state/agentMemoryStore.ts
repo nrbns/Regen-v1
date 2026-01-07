@@ -31,15 +31,15 @@ export const useAgentMemoryStore = create<AgentMemoryState>()(
   persist(
     (set, get) => ({
       entries: [],
-      addEntry: entry => {
+      addEntry: (entry) => {
         const newEntry: AgentMemoryEntry = {
           ...entry,
           id: entry.runId ?? `agent-mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           createdAt: entry.createdAt ?? Date.now(),
         };
-        set(state => {
+        set((state) => {
           const filtered = state.entries.filter(
-            existing => !(existing.runId && existing.runId === newEntry.runId)
+            (existing) => !(existing.runId && existing.runId === newEntry.runId),
           );
           const next = [newEntry, ...filtered];
           return { entries: next.slice(0, 200) };
@@ -50,11 +50,11 @@ export const useAgentMemoryStore = create<AgentMemoryState>()(
         if (!agentId) {
           return pool.slice(0, limit);
         }
-        return pool.filter(entry => entry.agentId === agentId).slice(0, limit);
+        return pool.filter((entry) => entry.agentId === agentId).slice(0, limit);
       },
-      clearAgent: agentId => {
-        set(state => ({
-          entries: agentId ? state.entries.filter(entry => entry.agentId !== agentId) : [],
+      clearAgent: (agentId) => {
+        set((state) => ({
+          entries: agentId ? state.entries.filter((entry) => entry.agentId !== agentId) : [],
         }));
       },
       clearAll: () => set({ entries: [] }),
@@ -62,6 +62,7 @@ export const useAgentMemoryStore = create<AgentMemoryState>()(
     {
       name: 'regen:agent-memory',
       version: 1,
-    }
-  )
+    },
+  ),
 );
+

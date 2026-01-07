@@ -147,12 +147,12 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
-          className="fixed w-[90vw] max-w-md rounded-lg border border-gray-700 bg-gray-900 shadow-xl md:w-[400px]"
-          style={{
-            zIndex: 110,
-            left: `${Math.min(position.x, window.innerWidth - 420)}px`,
-            top: `${Math.min(position.y + 30, window.innerHeight - 200)}px`,
-          }}
+            className="fixed w-[90vw] max-w-md rounded-lg border border-gray-700 bg-gray-900 shadow-xl md:w-[400px]"
+            style={{
+              zIndex: 110,
+              left: `${Math.min(position.x, window.innerWidth - 420)}px`,
+              top: `${Math.min(position.y + 30, window.innerHeight - 200)}px`,
+            }}
         >
           <div className="p-4">
             <div className="mb-3 flex items-center justify-between">

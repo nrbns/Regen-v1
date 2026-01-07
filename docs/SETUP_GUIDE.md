@@ -5,13 +5,11 @@ Complete setup guide for RegenBrowser development and production deployment.
 ## Prerequisites
 
 ### Required
-
 - **Node.js** 20.x or higher
 - **Rust** 1.70+ (for Tauri backend)
 - **npm** or **yarn**
 
 ### Optional (for full features)
-
 - **Ollama** - For offline AI (download from [ollama.com](https://ollama.com))
 - **MeiliSearch** - For local search indexing
 - **Python 3.9+** - For API server (optional)
@@ -118,7 +116,6 @@ npm run dev:tauri
 ### Search Services
 
 Search is automatically initialized on app startup. The app uses:
-
 - DuckDuckGo (default, no API key needed)
 - Bing (if API key provided)
 - Local MeiliSearch (if running)
@@ -126,7 +123,6 @@ Search is automatically initialized on app startup. The app uses:
 ### Voice Recognition (Whisper)
 
 Voice recognition uses the browser's built-in Speech Recognition API:
-
 - **Chrome/Edge**: Full support
 - **Firefox**: Limited support
 - **Safari**: Limited support
@@ -138,7 +134,6 @@ For offline Whisper, configure OpenAI API key in `.env`.
 ### WebView Issues
 
 If WebView is not stable:
-
 1. Check browser console for errors
 2. Verify CSP settings in `tauri.conf.json`
 3. Clear app cache and restart
@@ -173,7 +168,6 @@ If WebView is not stable:
 See `.github/workflows/build.yml` for automated build pipeline.
 
 For manual deployment:
-
 1. Build for target platform
 2. Sign binaries (macOS/Windows)
 3. Create installer/package
@@ -185,3 +179,4 @@ For manual deployment:
 - GitHub Issues: [github.com/nrbns/Omnibrowser/issues](https://github.com/nrbns/Omnibrowser/issues)
 - Documentation: See `docs/` folder
 - API Docs: See `docs/API_CONFIG.md`
+

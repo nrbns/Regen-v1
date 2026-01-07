@@ -175,7 +175,7 @@ export async function translateOnDevice(
     return {
       translated: response.text,
       method: 'cloud',
-      confidence: 0.8,
+      confidence: 0.80,
     };
   } catch {
     // Final fallback: return original text
@@ -231,3 +231,5 @@ export function getRecommendedModelPath(): string {
 
   return models[0]; // Default to phi-3-mini
 }
+
+

@@ -50,10 +50,8 @@ export class IntentClassifier {
     }
 
     // Pattern: "send email" or "reply and send" -> read + summarize + draft + send
-    if (
-      (lower.includes('send') && (lower.includes('email') || lower.includes('immediately'))) ||
-      (lower.includes('reply') && lower.includes('send'))
-    ) {
+    if ((lower.includes('send') && (lower.includes('email') || lower.includes('immediately'))) ||
+        (lower.includes('reply') && lower.includes('send'))) {
       return {
         taskTypes: ['read_emails', 'summarize', 'draft_reply', 'send_draft'],
         params: { maxEmails: 1, filter: 'unread', autoSend: false },

@@ -97,7 +97,7 @@ export function LayoutBody({
   const { sidebarWidth, rightPanelWidth } = useLayout();
 
   return (
-    <div className={cn('flex min-h-0 flex-1 overflow-hidden', className)} {...props}>
+    <div className={cn('flex flex-1 min-h-0 overflow-hidden', className)} {...props}>
       {/* Left Sidebar */}
       {sidebar && (
         <motion.aside
@@ -107,7 +107,7 @@ export function LayoutBody({
             opacity: sidebarCollapsed ? 0 : 1,
           }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
-          className="flex-shrink-0 overflow-hidden border-r border-slate-700/50 bg-slate-900/60"
+          className="flex-shrink-0 border-r border-slate-700/50 bg-slate-900/60 overflow-hidden"
           style={{ width: sidebarCollapsed ? 0 : sidebarWidth }}
         >
           <div className="h-full overflow-y-auto">{sidebar}</div>
@@ -115,7 +115,7 @@ export function LayoutBody({
       )}
 
       {/* Main Content */}
-      <main className="min-w-0 flex-1 overflow-hidden bg-slate-950">{children}</main>
+      <main className="flex-1 min-w-0 overflow-hidden bg-slate-950">{children}</main>
 
       {/* Right Panel */}
       {rightPanel && (
@@ -126,7 +126,7 @@ export function LayoutBody({
             opacity: rightPanelCollapsed ? 0 : 1,
           }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
-          className="flex-shrink-0 overflow-hidden border-l border-slate-700/50 bg-slate-900/60"
+          className="flex-shrink-0 border-l border-slate-700/50 bg-slate-900/60 overflow-hidden"
           style={{ width: rightPanelCollapsed ? 0 : rightPanelWidth || 320 }}
         >
           <div className="h-full overflow-y-auto">{rightPanel}</div>

@@ -63,7 +63,7 @@ export class WASMLlamaRunner {
       // Load llama.cpp WASM module
       // In production, this would load the actual WASM file
       // For now, this is a placeholder structure
-
+      
       // Option 1: Use @mlc-ai/web-llm (recommended)
       // const { Engine } = await import('@mlc-ai/web-llm');
       // this.wasmModule = await Engine.create({
@@ -78,7 +78,7 @@ export class WASMLlamaRunner {
       // Placeholder for now
       console.log('[WASMLlamaRunner] Loading model:', config.modelName);
       console.log('[WASMLlamaRunner] Model path:', config.modelPath);
-
+      
       // Simulate loading
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -93,7 +93,10 @@ export class WASMLlamaRunner {
   /**
    * Generate text from prompt
    */
-  async generate(options: GenerationOptions, onToken?: TokenCallback): Promise<GenerationResult> {
+  async generate(
+    options: GenerationOptions,
+    onToken?: TokenCallback
+  ): Promise<GenerationResult> {
     if (!this.modelLoaded || !this.wasmModule) {
       throw new Error('Model not loaded. Call loadModel first.');
     }
@@ -121,7 +124,7 @@ export class WASMLlamaRunner {
         //   top_p: topP,
         //   top_k: topK,
         // });
-
+        
         // for await (const token of stream) {
         //   fullText += token;
         //   tokenCount++;
@@ -199,9 +202,8 @@ export class WASMLlamaRunner {
       q8: 0.5,
       f16: 1.0,
     };
-    const estimatedModelSizeMB =
-      1000 * (quantizationMultiplier[this.modelConfig.quantization] || 0.5);
-    const contextMB = ((this.modelConfig.contextSize || 2048) * 2) / (1024 * 1024);
+    const estimatedModelSizeMB = 1000 * (quantizationMultiplier[this.modelConfig.quantization] || 0.5);
+    const contextMB = (this.modelConfig.contextSize || 2048) * 2 / (1024 * 1024);
     return estimatedModelSizeMB + contextMB;
   }
 }
@@ -215,3 +217,5 @@ export function getWASMLlamaRunner(): WASMLlamaRunner {
   }
   return wasmRunnerInstance;
 }
+
+

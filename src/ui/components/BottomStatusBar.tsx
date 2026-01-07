@@ -99,7 +99,12 @@ export function BottomStatusBar({
 
   return (
     <div
-      className={`flex items-center justify-between gap-4 border-t border-[var(--surface-border)] bg-[var(--surface-panel)] ${className} `}
+      className={`
+        flex items-center justify-between gap-4
+        border-t border-[var(--surface-border)]
+        bg-[var(--surface-panel)]
+        ${className}
+      `}
       role="status"
       aria-label="System status"
       style={{
@@ -117,7 +122,7 @@ export function BottomStatusBar({
             title={`CPU: ${localStatus.cpu.usage.toFixed(1)}% (${localStatus.cpu.cores || 'N/A'} cores)`}
           >
             <span className="font-medium">CPU</span>
-            <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
+            <div className="w-12 h-1.5 bg-[var(--surface-elevated)] rounded-full overflow-hidden">
               <div
                 className="h-full bg-[var(--color-primary-500)] transition-all duration-300"
                 style={{
@@ -136,7 +141,7 @@ export function BottomStatusBar({
             title={`RAM: ${formatBytes(localStatus.ram.used)} / ${formatBytes(localStatus.ram.total)}`}
           >
             <span className="font-medium">RAM</span>
-            <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
+            <div className="w-12 h-1.5 bg-[var(--surface-elevated)] rounded-full overflow-hidden">
               <div
                 className="h-full bg-[var(--color-primary-500)] transition-all duration-300"
                 style={{
@@ -155,7 +160,7 @@ export function BottomStatusBar({
             title={`Battery: ${localStatus.battery.level.toFixed(0)}% ${localStatus.battery.charging ? '(Charging)' : ''}`}
           >
             <span className="font-medium">Battery</span>
-            <div className="h-1.5 w-12 overflow-hidden rounded-full bg-[var(--surface-elevated)]">
+            <div className="w-12 h-1.5 bg-[var(--surface-elevated)] rounded-full overflow-hidden">
               <div
                 className={`h-full transition-all duration-300 ${
                   localStatus.battery.level > 20
@@ -181,7 +186,7 @@ export function BottomStatusBar({
             title={`Network: ${localStatus.network.connected ? 'Connected' : 'Disconnected'} ${localStatus.network.speed ? `(${localStatus.network.speed})` : ''}`}
           >
             <div
-              className={`h-2 w-2 rounded-full ${
+              className={`w-2 h-2 rounded-full ${
                 localStatus.network.connected
                   ? 'bg-[var(--color-success)]'
                   : 'bg-[var(--color-error)]'

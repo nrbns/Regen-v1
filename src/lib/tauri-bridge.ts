@@ -76,13 +76,13 @@ export async function sendMail(emailData: Record<string, any>): Promise<string> 
 
 /**
  * Example usage in React component:
- *
+ * 
  * import { search } from '@/lib/tauri-bridge';
- *
+ * 
  * const handleSearch = async () => {
- *   const results = await search({
- *     query: 'NYC to London',
- *     agent_type: 'flight'
+ *   const results = await search({ 
+ *     query: 'NYC to London', 
+ *     agent_type: 'flight' 
  *   });
  *   console.log(results);
  * };

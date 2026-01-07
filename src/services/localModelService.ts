@@ -4,15 +4,8 @@
  * Automatically selects best runtime: WebGPU → WASM → Native → Cloud
  */
 
-import {
-  detectHardwareCapabilities,
-  getAvailableModels,
-  type ModelRecommendation,
-} from '../lib/hardware-detection';
-import {
-  getUnifiedModelRunner,
-  summarizeWithLocalOrEdge,
-} from '../lib/model-runner/unified-runner';
+import { detectHardwareCapabilities, getAvailableModels, type ModelRecommendation } from '../lib/hardware-detection';
+import { getUnifiedModelRunner, summarizeWithLocalOrEdge } from '../lib/model-runner/unified-runner';
 // import { isTauriRuntime } from '../lib/env'; // Unused
 
 export interface ModelInfo {
@@ -125,7 +118,7 @@ export async function summarizeLocalOrEdge(
     try {
       const summary = await summarizeWithLocalOrEdge(text, language);
       const runner = getUnifiedModelRunner();
-
+      
       // Measure latency (approximate)
       const startTime = performance.now();
       await runner.generate({
@@ -222,3 +215,5 @@ export async function isLocalModelAvailable(): Promise<boolean> {
   const runtime = runner.getCurrentRuntime();
   return runtime !== 'cloud';
 }
+
+

@@ -85,7 +85,11 @@ export function AgentAuditModal({ runId, entries, visible, onClose }: AgentAudit
                 </h3>
                 <div className="space-y-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
                   {allowed.map((entry, idx) => (
-                    <AuditEntryCard key={`${runId}-allowed-${idx}`} entry={entry} tone="emerald" />
+                    <AuditEntryCard
+                      key={`${runId}-allowed-${idx}`}
+                      entry={entry}
+                      tone="emerald"
+                    />
                   ))}
                 </div>
               </section>
@@ -99,7 +103,11 @@ export function AgentAuditModal({ runId, entries, visible, onClose }: AgentAudit
                 </h3>
                 <div className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
                   {consent.map((entry, idx) => (
-                    <AuditEntryCard key={`${runId}-consent-${idx}`} entry={entry} tone="amber" />
+                    <AuditEntryCard
+                      key={`${runId}-consent-${idx}`}
+                      entry={entry}
+                      tone="amber"
+                    />
                   ))}
                 </div>
               </section>
@@ -179,7 +187,9 @@ function AuditEntryCard({
         </div>
         <span className="whitespace-nowrap font-mono text-[10px]">
           {entry.consentRequired ? (
-            <>{entry.consentGranted ? '✓ consent' : '✗ denied'}</>
+            <>
+              {entry.consentGranted ? '✓ consent' : '✗ denied'}
+            </>
           ) : (
             'no consent'
           )}

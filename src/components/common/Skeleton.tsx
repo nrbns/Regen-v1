@@ -73,16 +73,10 @@ export function Skeleton({
 /**
  * CardSkeleton - Pre-built skeleton for card layouts
  */
-export function CardSkeleton({
-  className = '',
-  count = 1,
-}: {
-  className?: string;
-  count?: number;
-}) {
+export function CardSkeleton({ className = '', count = 1 }: { className?: string; count?: number }) {
   if (count > 1) {
     return (
-      <div className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${className}`}>
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${className}`}>
         {Array.from({ length: count }).map((_, i) => (
           <motion.div
             key={i}
@@ -93,7 +87,7 @@ export function CardSkeleton({
           >
             <Skeleton variant="rectangular" height={20} width="60%" className="mb-3" />
             <Skeleton variant="text" lines={2} className="mb-2" />
-            <div className="mt-3 flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-3">
               <Skeleton variant="circular" width={24} height={24} />
               <Skeleton variant="text" width="40%" />
             </div>
@@ -111,7 +105,7 @@ export function CardSkeleton({
     >
       <Skeleton variant="rectangular" height={20} width="60%" className="mb-3" />
       <Skeleton variant="text" lines={2} className="mb-2" />
-      <div className="mt-3 flex items-center gap-2">
+      <div className="flex items-center gap-2 mt-3">
         <Skeleton variant="circular" width={24} height={24} />
         <Skeleton variant="text" width="40%" />
       </div>
@@ -122,20 +116,11 @@ export function CardSkeleton({
 /**
  * ListSkeleton - Pre-built skeleton for list items
  */
-export function ListSkeleton({
-  count = 3,
-  className = '',
-}: {
-  count?: number;
-  className?: string;
-}) {
+export function ListSkeleton({ count = 3, className = '' }: { count?: number; className?: string }) {
   return (
     <div className={`space-y-2 ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 rounded-lg border border-slate-700/40 bg-slate-900/40 p-3"
-        >
+        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-slate-900/40 border border-slate-700/40">
           <Skeleton variant="circular" width={40} height={40} />
           <div className="flex-1 space-y-2">
             <Skeleton variant="text" width="70%" />
@@ -146,3 +131,4 @@ export function ListSkeleton({
     </div>
   );
 }
+

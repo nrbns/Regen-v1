@@ -84,7 +84,7 @@ describe('Workflow Optimizer', () => {
     });
 
     const template = workflowStore.getTemplate(templateId);
-
+    
     // Generate suggestions with actual metrics
     const suggestions = optimizerStore.generateSuggestions(template!, {
       avgDuration: 10000, // 10 seconds actual
@@ -180,7 +180,7 @@ describe('Workflow Optimizer', () => {
     });
 
     const template = workflowStore.getTemplate(templateId);
-
+    
     // Generate suggestions
     const suggestions = optimizerStore.generateSuggestions(template!);
     expect(suggestions.length).toBeGreaterThan(0);
@@ -191,10 +191,9 @@ describe('Workflow Optimizer', () => {
 
     expect(result.success).toBe(true);
     expect(result.changes.length).toBeGreaterThan(0);
-
+    
     // Check it's marked as applied
-    const updatedSuggestion = optimizerStore
-      .getSuggestionsForTemplate(templateId)
+    const updatedSuggestion = optimizerStore.getSuggestionsForTemplate(templateId)
       .find(s => s.id === firstSuggestion.id);
     expect(updatedSuggestion?.appliedAt).toBeDefined();
 
@@ -206,9 +205,7 @@ describe('Workflow Optimizer', () => {
     // Verify template was updated for applicable types
     const updatedTemplate = workflowStore.getTemplate(templateId)!;
     if (firstSuggestion.type === 'parallel_execution') {
-      const parallelMarked = updatedTemplate.steps.some(s =>
-        (s.description || '').includes('[parallel]')
-      );
+      const parallelMarked = updatedTemplate.steps.some(s => (s.description || '').includes('[parallel]'));
       expect(parallelMarked).toBe(true);
     }
   });
@@ -218,12 +215,8 @@ describe('Workflow Optimizer', () => {
     const workflowStore = useWorkflowStore.getState();
 
     // Create workflow with multiple issues
-    const templateId = workflowStore.createTemplate(
-      'Multi-Issue Workflow',
-      'Multiple problems',
-      []
-    );
-
+    const templateId = workflowStore.createTemplate('Multi-Issue Workflow', 'Multiple problems', []);
+    
     workflowStore.addStepToTemplate(templateId, {
       type: 'goal',
       content: 'Research topic A',
@@ -251,7 +244,7 @@ describe('Workflow Optimizer', () => {
 
     expect(results.length).toBe(2);
     expect(results.every(r => r.success)).toBe(true);
-
+    
     // Check history
     const history = useOptimizerStore.getState().history;
     expect(history.length).toBe(2);
@@ -312,13 +305,13 @@ describe('Workflow Optimizer', () => {
     // Generate suggestions for both
     const t1 = workflowStore.getTemplate(template1);
     const t2 = workflowStore.getTemplate(template2);
-
+    
     optimizerStore.generateSuggestions(t1!);
     optimizerStore.generateSuggestions(t2!);
 
     // Get suggestions for template1 only
     const template1Suggestions = optimizerStore.getSuggestionsForTemplate(template1);
-
+    
     expect(template1Suggestions.length).toBeGreaterThan(0);
     expect(template1Suggestions.every(s => s.templateId === template1)).toBe(true);
   });
@@ -328,7 +321,7 @@ describe('Workflow Optimizer', () => {
     const workflowStore = useWorkflowStore.getState();
 
     const templateId = workflowStore.createTemplate('Performance Test', 'Testing estimates', []);
-
+    
     workflowStore.addStepToTemplate(templateId, {
       type: 'goal',
       content: 'Task 1',

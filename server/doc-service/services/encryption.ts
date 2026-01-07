@@ -21,7 +21,10 @@ export const encryptionService = {
     const fileContent = await fs.readFile(filePath);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
-    const encrypted = Buffer.concat([cipher.update(fileContent), cipher.final()]);
+    const encrypted = Buffer.concat([
+      cipher.update(fileContent),
+      cipher.final(),
+    ]);
 
     const authTag = cipher.getAuthTag();
 
@@ -52,7 +55,10 @@ export const encryptionService = {
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     decipher.setAuthTag(authTag);
 
-    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    const decrypted = Buffer.concat([
+      decipher.update(encrypted),
+      decipher.final(),
+    ]);
 
     const decryptedPath = path.join('temp/processed', `decrypted_${fileId}`);
     await fs.writeFile(decryptedPath, decrypted);
@@ -71,3 +77,4 @@ export const encryptionService = {
     await fs.unlink(keyPath).catch(() => {});
   },
 };
+

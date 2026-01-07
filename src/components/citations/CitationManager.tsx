@@ -118,24 +118,24 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
   };
 
   const getCredibilityIcon = (score: number) => {
-    if (score >= 80) return <CheckCircle className="h-4 w-4" />;
-    return <AlertCircle className="h-4 w-4" />;
+    if (score >= 80) return <CheckCircle className="w-4 h-4" />;
+    return <AlertCircle className="w-4 h-4" />;
   };
 
   return (
-    <div className="flex h-full flex-col bg-gray-900">
+    <div className="flex flex-col h-full bg-gray-900">
       {/* Header */}
-      <div className="border-b border-gray-700 p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
-            <FileText className="h-5 w-5" />
+      <div className="p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <FileText className="w-5 h-5" />
             Citations ({citations.length})
           </h2>
           <button
             onClick={addCitation}
-            className="rounded-lg bg-purple-600 p-2 text-white hover:bg-purple-700"
+            className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="w-4 h-4" />
           </button>
         </div>
 
@@ -144,7 +144,7 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
           <select
             value={selectedFormat}
             onChange={e => setSelectedFormat(e.target.value as any)}
-            className="rounded bg-gray-800 px-3 py-1 text-sm text-white"
+            className="bg-gray-800 text-white text-sm rounded px-3 py-1"
           >
             <option value="apa">APA</option>
             <option value="mla">MLA</option>
@@ -153,19 +153,19 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
           </select>
           <button
             onClick={() => exportCitations('formatted')}
-            className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
           >
             Export {selectedFormat.toUpperCase()}
           </button>
           <button
             onClick={() => exportCitations('bibtex')}
-            className="rounded bg-gray-700 px-3 py-1 text-sm text-white hover:bg-gray-600"
+            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
           >
             BibTeX
           </button>
           <button
             onClick={() => exportCitations('json')}
-            className="rounded bg-gray-700 px-3 py-1 text-sm text-white hover:bg-gray-600"
+            className="px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm"
           >
             JSON
           </button>
@@ -175,18 +175,18 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
       {/* Citations List */}
       <div className="flex-1 overflow-y-auto p-4">
         {citations.length === 0 ? (
-          <div className="mt-8 text-center text-gray-400">
-            <FileText className="mx-auto mb-4 h-12 w-12 opacity-50" />
+          <div className="text-center text-gray-400 mt-8">
+            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm">No citations yet</p>
-            <p className="mt-2 text-xs">Add citations to track sources</p>
+            <p className="text-xs mt-2">Add citations to track sources</p>
           </div>
         ) : (
           <div className="space-y-3">
             {citations.map(citation => (
-              <div key={citation.id} className="rounded-lg bg-gray-800 p-4">
-                <div className="mb-2 flex items-start justify-between">
+              <div key={citation.id} className="bg-gray-800 rounded-lg p-4">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
-                    <div className="mb-1 flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-sm font-semibold text-white">{citation.title}</h3>
                       {citation.credibility && (
                         <div
@@ -201,7 +201,7 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
                       href={citation.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mb-2 block text-xs text-blue-400 hover:underline"
+                      className="text-xs text-blue-400 hover:underline block mb-2"
                     >
                       {citation.url}
                     </a>
@@ -216,16 +216,16 @@ export function CitationManager({ sessionId }: { sessionId: string }) {
                     onClick={() => deleteCitation(citation.id)}
                     className="p-1 text-red-400 hover:text-red-300"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* Generated Citation */}
-                <div className="mt-3 rounded border border-gray-700 bg-gray-900 p-3">
-                  <p className="mb-1 text-xs text-gray-400">
+                <div className="mt-3 p-3 bg-gray-900 rounded border border-gray-700">
+                  <p className="text-xs text-gray-400 mb-1">
                     {selectedFormat.toUpperCase()} Format:
                   </p>
-                  <p className="font-mono text-xs text-gray-300">
+                  <p className="text-xs text-gray-300 font-mono">
                     {CitationTracker.generateCitation(citation, selectedFormat)}
                   </p>
                 </div>

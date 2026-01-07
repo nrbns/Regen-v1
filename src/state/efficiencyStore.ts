@@ -76,7 +76,7 @@ function loadHistory(): EfficiencySample[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .map(item => ({
+      .map((item) => ({
         timestamp: typeof item.timestamp === 'number' ? item.timestamp : Date.now(),
         mode: (item.mode as EfficiencyMode) ?? 'normal',
         batteryPct: typeof item.batteryPct === 'number' ? item.batteryPct : null,
@@ -113,7 +113,7 @@ export const useEfficiencyStore = create<EfficiencyState>((set, get) => ({
   lastUpdated: null,
   snapshot: defaultSnapshot,
   history: initialHistory,
-  setEvent: event => {
+  setEvent: (event) => {
     const sample: EfficiencySample = {
       timestamp: event.timestamp,
       mode: event.mode,

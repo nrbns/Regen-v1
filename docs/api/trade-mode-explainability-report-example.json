@@ -42,31 +42,31 @@
       "scenario": "bullish_breakout",
       "probability": 0.45,
       "outcome": "Price breaks above $152 resistance, targets $155-158",
-      "priceTarget": 156.0,
-      "expectedPnL": 650.0,
+      "priceTarget": 156.00,
+      "expectedPnL": 650.00,
       "timeline": "2-5 days"
     },
     {
       "scenario": "mean_reversion",
       "probability": 0.35,
       "outcome": "Price bounces from current level to $151-152 range",
-      "priceTarget": 151.5,
-      "expectedPnL": 200.0,
+      "priceTarget": 151.50,
+      "expectedPnL": 200.00,
       "timeline": "1-3 days"
     },
     {
       "scenario": "bearish_continuation",
-      "probability": 0.2,
+      "probability": 0.20,
       "outcome": "Price continues down, stop loss triggered",
-      "priceTarget": 146.0,
-      "expectedPnL": -350.0,
+      "priceTarget": 146.00,
+      "expectedPnL": -350.00,
       "timeline": "1-2 days"
     }
   ],
   "riskAssessment": {
     "riskLevel": "medium",
-    "maxLoss": 350.0,
-    "maxGain": 550.0,
+    "maxLoss": 350.00,
+    "maxGain": 550.00,
     "winProbability": 0.68,
     "portfolioRiskPercent": 2.1,
     "volatilityRisk": "moderate",
@@ -80,17 +80,17 @@
       "portfolioValue": 50000,
       "riskPercent": 2.0,
       "maxRiskAmount": 1000,
-      "stopDistance": 3.5,
+      "stopDistance": 3.50,
       "calculatedQuantity": 285,
       "adjustedForLiquidity": 100,
       "reason": "Limited to 100 shares due to daily volume constraints and position concentration limits"
     },
-    "marginRequired": 14950.0,
+    "marginRequired": 14950.00,
     "marginPercent": 29.9
   },
   "entryStrategy": {
     "recommendedMethod": "limit",
-    "limitPrice": 149.5,
+    "limitPrice": 149.50,
     "reason": "Limit order reduces slippage. Current bid-ask spread is $0.02, market order would fill at ~$149.52",
     "timeInForce": "day",
     "alternative": {
@@ -101,20 +101,20 @@
   },
   "exitStrategy": {
     "stopLoss": {
-      "price": 146.0,
+      "price": 146.00,
       "type": "atr_based",
       "distance": 2.92,
       "reason": "Stop set at 2.4x ATR to avoid noise while protecting capital"
     },
     "takeProfit": {
-      "price": 155.0,
+      "price": 155.00,
       "type": "resistance_level",
-      "distance": 5.5,
+      "distance": 5.50,
       "reason": "Target set at previous resistance level with 1.6:1 risk/reward"
     },
     "trailingStop": {
       "enabled": true,
-      "activationPrice": 151.0,
+      "activationPrice": 151.00,
       "distance": 1.2,
       "distanceType": "atr",
       "reason": "Trailing stop activates once position is profitable to lock in gains"
@@ -123,12 +123,12 @@
       "enabled": true,
       "levels": [
         {
-          "price": 152.0,
+          "price": 152.00,
           "percent": 50,
           "reason": "Take 50% profit at first resistance"
         },
         {
-          "price": 155.0,
+          "price": 155.00,
           "percent": 50,
           "reason": "Take remaining 50% at target"
         }
@@ -140,7 +140,7 @@
       "question": "What if stop loss moved to -1%?",
       "analysis": {
         "newStop": 148.01,
-        "newRisk": 149.0,
+        "newRisk": 149.00,
         "newRiskReward": 1.85,
         "impact": "Tighter stop increases risk/reward but may be stopped out by normal volatility. Current ATR suggests 1.2% moves are common, so -1% stop has 35% chance of premature exit."
       }
@@ -149,7 +149,7 @@
       "question": "What if position size doubled?",
       "analysis": {
         "newQuantity": 200,
-        "newRisk": 700.0,
+        "newRisk": 700.00,
         "newPortfolioRisk": 4.2,
         "impact": "Doubling position increases portfolio risk to 4.2%, exceeding recommended 3% max per trade. Margin usage increases to 59.8%."
       }
@@ -158,7 +158,7 @@
       "question": "What if market volatility spikes 2x?",
       "analysis": {
         "newATR": 2.4,
-        "recommendedStop": 144.2,
+        "recommendedStop": 144.20,
         "recommendedSize": 50,
         "impact": "Higher volatility requires wider stop and smaller position to maintain same risk level. Consider waiting for volatility to normalize or reduce position size."
       }
@@ -171,7 +171,7 @@
       {
         "name": "technical_analyzer",
         "version": "v1.4.2",
-        "weight": 0.6
+        "weight": 0.60
       },
       {
         "name": "volume_profile",
@@ -213,3 +213,4 @@
   "generatedAt": "2025-01-15T14:30:22Z",
   "expiresAt": "2025-01-15T14:45:22Z"
 }
+

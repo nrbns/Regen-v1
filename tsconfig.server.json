@@ -10,7 +10,10 @@
     "incremental": true,
     "skipLibCheck": true
   },
-  "include": ["server/**/*", "services/**/*.ts"],
+  "include": [
+    "server/**/*",
+    "services/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
