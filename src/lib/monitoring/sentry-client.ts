@@ -49,7 +49,9 @@ async function initRendererSentry() {
         // SECURITY: Dynamic import for Sentry - treat as optional but guard via safeImport
         const sentryPath = '@sentry/electron' + '/renderer';
         try {
-          const { safeImport } = await import('../../utils/safeImport').catch(() => ({ safeImport: null }));
+          const { safeImport } = await import('../../utils/safeImport').catch(() => ({
+            safeImport: null,
+          }));
           if (!safeImport) throw new Error('safeImport unavailable');
           // Allowlist the sentryPath explicitly
           const sentryModule = await safeImport(sentryPath, [sentryPath]).catch(() => null);

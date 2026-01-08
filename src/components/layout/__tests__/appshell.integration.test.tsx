@@ -18,7 +18,9 @@ describe('Core UI integration (components only)', () => {
         <OSBar />
         <SignalRail />
         <WhisperStrip active={false} />
-        <ContextOverlay title="Test" onDismiss={() => {}}>Static</ContextOverlay>
+        <ContextOverlay title="Test" onDismiss={() => {}}>
+          Static
+        </ContextOverlay>
       </div>
     );
 
@@ -44,7 +46,9 @@ describe('Core UI integration (components only)', () => {
     );
 
     // Emit overlay event and assert no crash (AppShell listens globally in actual app)
-    window.dispatchEvent(new CustomEvent('os:show-overlay', { detail: { title: 'Dynamic', message: 'Content' } }));
+    window.dispatchEvent(
+      new CustomEvent('os:show-overlay', { detail: { title: 'Dynamic', message: 'Content' } })
+    );
 
     // Since AppShell isn't mounted here, at least ensure dispatch doesn't throw and event is fired
     expect(true).toBe(true);

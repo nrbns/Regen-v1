@@ -20,9 +20,12 @@ describe('TopBar', () => {
   });
 
   test('submitting a URL with an active tab calls ipc.tabs.navigate', async () => {
-    useTabsStore.setState({ tabs: [{ id: 'tab-1', url: 'https://example.com', title: 'Example' }], activeId: 'tab-1' });
+    useTabsStore.setState({
+      tabs: [{ id: 'tab-1', url: 'https://example.com', title: 'Example' }],
+      activeId: 'tab-1',
+    });
 
-    const navigateSpy = vi.spyOn(ipc.tabs, 'navigate').mockImplementation(async () => ({} as any));
+    const navigateSpy = vi.spyOn(ipc.tabs, 'navigate').mockImplementation(async () => ({}) as any);
 
     render(<TopBar />);
 
@@ -39,7 +42,9 @@ describe('TopBar', () => {
   test('submitting a URL without an active tab calls ipc.tabs.create', async () => {
     useTabsStore.setState({ tabs: [], activeId: null });
 
-    const createSpy = vi.spyOn(ipc.tabs, 'create').mockImplementation(async () => ({ id: 'new' } as any));
+    const createSpy = vi
+      .spyOn(ipc.tabs, 'create')
+      .mockImplementation(async () => ({ id: 'new' }) as any);
 
     render(<TopBar />);
 
@@ -56,7 +61,9 @@ describe('TopBar', () => {
   test('submitting a search query opens search URL when no active tab', async () => {
     useTabsStore.setState({ tabs: [], activeId: null });
 
-    const createSpy = vi.spyOn(ipc.tabs, 'create').mockImplementation(async () => ({ id: 'new' } as any));
+    const createSpy = vi
+      .spyOn(ipc.tabs, 'create')
+      .mockImplementation(async () => ({ id: 'new' }) as any);
 
     render(<TopBar />);
 
@@ -65,7 +72,9 @@ describe('TopBar', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() => expect(createSpy).toHaveBeenCalled());
-    expect(createSpy).toHaveBeenCalledWith(expect.stringContaining('https://www.google.com/search?q=hello%20world'));
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.stringContaining('https://www.google.com/search?q=hello%20world')
+    );
 
     createSpy.mockRestore();
   });

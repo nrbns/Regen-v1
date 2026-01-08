@@ -13,11 +13,7 @@ import { useAppStore } from '../../state/appStore';
  * Auto-track page visits when tabs navigate
  * Call this in tab navigation handlers
  */
-export async function autoTrackVisit(
-  url: string,
-  title?: string,
-  tabId?: string
-): Promise<void> {
+export async function autoTrackVisit(url: string, title?: string, tabId?: string): Promise<void> {
   try {
     if (!url || url === 'about:blank' || url.startsWith('chrome://') || url.startsWith('edge://')) {
       return; // Skip system pages
@@ -76,10 +72,10 @@ export async function autoTrackModeSwitch(
  * React hook to auto-track visits for active tab
  */
 export function useAutoTrackVisits() {
-  const activeTab = useTabsStore((state) => {
+  const activeTab = useTabsStore(state => {
     const tabs = state.tabs;
     const activeId = state.activeId;
-    return tabs.find((t) => t.id === activeId);
+    return tabs.find(t => t.id === activeId);
   });
 
   // Track visit when active tab changes
@@ -94,7 +90,7 @@ export function useAutoTrackVisits() {
  * React hook to auto-track mode switches
  */
 export function useAutoTrackModeSwitches() {
-  const mode = useAppStore((state) => state.mode);
+  const mode = useAppStore(state => state.mode);
   const prevModeRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
@@ -104,4 +100,3 @@ export function useAutoTrackModeSwitches() {
     prevModeRef.current = mode;
   }, [mode]);
 }
-

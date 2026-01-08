@@ -93,7 +93,7 @@ export function YouTubeAnalyzer() {
         <input
           type="text"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={e => setUrl(e.target.value)}
           placeholder="Paste YouTube URL here..."
           className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none"
         />
@@ -116,11 +116,7 @@ export function YouTubeAnalyzer() {
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          Error: {error}
-        </div>
-      )}
+      {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Error: {error}</div>}
 
       {result && (
         <div className="space-y-4">
@@ -128,15 +124,12 @@ export function YouTubeAnalyzer() {
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
             <h3 className="mb-2 font-semibold text-gray-900">{result.title}</h3>
             <div className="text-sm text-gray-600">
-              Duration: {Math.floor(result.duration / 60)}:{(result.duration % 60).toString().padStart(2, '0')} • 
-              Transcript: {result.transcript_length} characters
+              Duration: {Math.floor(result.duration / 60)}:
+              {(result.duration % 60).toString().padStart(2, '0')} • Transcript:{' '}
+              {result.transcript_length} characters
             </div>
             {result.thumbnail && (
-              <img
-                src={result.thumbnail}
-                alt={result.title}
-                className="mt-2 max-w-xs rounded"
-              />
+              <img src={result.thumbnail} alt={result.title} className="mt-2 max-w-xs rounded" />
             )}
           </div>
 
@@ -220,6 +213,3 @@ export function YouTubeAnalyzer() {
     </div>
   );
 }
-
-
-

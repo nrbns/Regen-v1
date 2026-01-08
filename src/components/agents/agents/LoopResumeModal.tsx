@@ -65,10 +65,10 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative bg-[#1A1D28] border border-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col"
+          className="relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-[#1A1D28] shadow-xl"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-800 p-4">
             <div className="flex items-center gap-2">
               <AlertCircle size={20} className="text-yellow-400" />
               <h2 className="text-lg font-semibold text-gray-100">
@@ -77,7 +77,7 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-gray-800/60 transition-colors"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-100"
             >
               <X size={18} />
             </button>
@@ -86,25 +86,25 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-4">
             {crashedLoops.length === 0 ? (
-              <div className="text-center py-8 text-gray-400">
+              <div className="py-8 text-center text-gray-400">
                 <p>No crashed loops found.</p>
-                <p className="text-sm mt-2">All loops completed successfully.</p>
+                <p className="mt-2 text-sm">All loops completed successfully.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {crashedLoops.map(loop => (
                   <div
                     key={loop.runId}
-                    className="bg-gray-900/60 rounded-lg p-4 border border-gray-800/50"
+                    className="rounded-lg border border-gray-800/50 bg-gray-900/60 p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex items-center gap-2">
                           <span className="text-xs font-medium text-gray-400">
                             {loop.runId.slice(0, 8)}...
                           </span>
                           <span
-                            className={`text-xs px-2 py-0.5 rounded ${
+                            className={`rounded px-2 py-0.5 text-xs ${
                               loop.status === 'live'
                                 ? 'bg-green-900/30 text-green-400'
                                 : loop.status === 'error'
@@ -116,11 +116,11 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
                           </span>
                           {loop.mode && <span className="text-xs text-gray-500">{loop.mode}</span>}
                         </div>
-                        <h3 className="font-medium text-gray-200 mb-1 truncate">
+                        <h3 className="mb-1 truncate font-medium text-gray-200">
                           {loop.goal || 'Untitled loop'}
                         </h3>
                         {loop.transcript && (
-                          <p className="text-xs text-gray-400 line-clamp-2 mb-2">
+                          <p className="mb-2 line-clamp-2 text-xs text-gray-400">
                             {loop.transcript.slice(0, 150)}...
                           </p>
                         )}
@@ -132,14 +132,14 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleResume(loop)}
-                          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+                          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-blue-700"
                         >
                           <Play size={14} />
                           Resume
                         </button>
                         <button
                           onClick={() => handleDelete(loop.runId)}
-                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800/60 rounded-lg transition-colors"
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-red-400"
                           title="Delete"
                         >
                           <X size={16} />
@@ -153,13 +153,13 @@ export function LoopResumeModal({ open, onClose }: LoopResumeModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-800 flex items-center justify-between">
+          <div className="flex items-center justify-between border-t border-gray-800 p-4">
             <p className="text-xs text-gray-400">
               Loops are auto-saved every 5 seconds. Resume to continue where you left off.
             </p>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors"
+              className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-700"
             >
               Close
             </button>

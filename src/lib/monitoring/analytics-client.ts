@@ -30,5 +30,3 @@ export function trackPageView(path: string) {
     title: document.title,
   });
 }
-
-

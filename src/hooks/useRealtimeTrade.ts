@@ -57,7 +57,8 @@ export function useRealtimeTrade({
     const connect = () => {
       try {
         // Use backend server WebSocket, or configured WS host
-        const wsBase = import.meta.env.VITE_WS_URL || import.meta.env.VITE_WS_HOST || 'ws://localhost:4000';
+        const wsBase =
+          import.meta.env.VITE_WS_URL || import.meta.env.VITE_WS_HOST || 'ws://localhost:4000';
         const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
         // Backend server expects: ws://localhost:4000/ws?symbol=...
         let url: string;
@@ -169,12 +170,16 @@ export function useRealtimeTrade({
             setReconnecting(true);
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
             reconnectAttempts.current++;
-            console.log(`[useRealtimeTrade] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`);
+            console.log(
+              `[useRealtimeTrade] Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`
+            );
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
             }, delay);
             // Emit disconnection event for UI
-            window.dispatchEvent(new CustomEvent('ws-disconnected', { detail: { symbol, reconnecting: true } }));
+            window.dispatchEvent(
+              new CustomEvent('ws-disconnected', { detail: { symbol, reconnecting: true } })
+            );
           }
         };
       } catch (err) {

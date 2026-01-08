@@ -60,7 +60,7 @@ export async function fetchDuckDuckGoInstant(
   if (!query || query.trim().length < 1) return null;
 
   const normalizedQuery = query.trim();
-  
+
   // OPTIMIZATION: Normalize query - remove extra spaces, handle special characters
   const cleanQuery = normalizedQuery
     .replace(/\s+/g, ' ')
@@ -91,16 +91,17 @@ export async function fetchDuckDuckGoInstant(
     const locale = getDuckLocale(language);
     const langCode = locale.split('-')[0];
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}&format=json&no_redirect=1&skip_disambig=1&kl=${locale}&hl=${langCode}`;
-    
+
     // OPTIMIZATION: Add timeout and retry logic
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-    
+
     try {
       const res = await fetch(url, {
         headers: {
           Accept: 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         },
         signal: controller.signal,
       });
@@ -118,12 +119,18 @@ export async function fetchDuckDuckGoInstant(
       }
 
       const data = (await res.json()) as DuckDuckGoResult;
-      
+
       // OPTIMIZATION: Validate response has useful data
-      if (data && (data.AbstractText || data.Answer || data.Definition || (data.Results && data.Results.length > 0))) {
+      if (
+        data &&
+        (data.AbstractText ||
+          data.Answer ||
+          data.Definition ||
+          (data.Results && data.Results.length > 0))
+      ) {
         return data;
       }
-      
+
       // If no useful data, return null to trigger fallback
       return null;
     } catch (fetchError) {

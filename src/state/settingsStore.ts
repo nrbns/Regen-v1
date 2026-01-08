@@ -169,7 +169,9 @@ export const useSettingsStore = create<SettingsState>()(
             // Build the import path dynamically to avoid static analysis by Vite during tests
             const pkg = '@tauri-apps' + '/api/core';
             // Use safeImport helper to ensure only allowlisted dynamic imports are permitted
-            const { safeImport } = await import('../utils/safeImport').catch(() => ({ safeImport: null }));
+            const { safeImport } = await import('../utils/safeImport').catch(() => ({
+              safeImport: null,
+            }));
             if (!safeImport) {
               throw new Error('safeImport helper unavailable');
             }

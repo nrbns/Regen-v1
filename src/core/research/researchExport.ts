@@ -102,17 +102,13 @@ export function exportResearchJSON(result: ResearchResult): string {
 /**
  * Phase 1, Day 6: Download research export
  */
-export function downloadResearchExport(
-  result: ResearchResult,
-  format: 'markdown' | 'json'
-): void {
-  const content = format === 'markdown' 
-    ? exportResearchMarkdown(result)
-    : exportResearchJSON(result);
-  
+export function downloadResearchExport(result: ResearchResult, format: 'markdown' | 'json'): void {
+  const content =
+    format === 'markdown' ? exportResearchMarkdown(result) : exportResearchJSON(result);
+
   const extension = format === 'markdown' ? 'md' : 'json';
   const mimeType = format === 'markdown' ? 'text/markdown' : 'application/json';
-  
+
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -123,4 +119,3 @@ export function downloadResearchExport(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-

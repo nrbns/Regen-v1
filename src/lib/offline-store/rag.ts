@@ -63,7 +63,7 @@ export async function storePageForRAG(options: {
   // Create chunks for better retrieval
   const chunks: DocumentChunk[] = [];
   let chunkIndex = 0;
-  
+
   for (let i = 0; i < content.length; i += chunkSize - chunkOverlap) {
     const chunkText = content.slice(i, i + chunkSize);
     if (chunkText.trim().length > 0) {
@@ -192,7 +192,7 @@ export async function getRAGContext(
     const doc = result.document;
     contextParts.push(`[Document: ${doc.title}]`);
     contextParts.push(`URL: ${doc.url}`);
-    
+
     if (result.matchedChunks && result.matchedChunks.length > 0) {
       // Use matched chunks
       result.matchedChunks.forEach((chunk, idx) => {
@@ -202,7 +202,7 @@ export async function getRAGContext(
       // Use excerpt
       contextParts.push(`Content: ${doc.excerpt || doc.content.slice(0, 500)}...`);
     }
-    
+
     contextParts.push('---');
   }
 
@@ -214,12 +214,11 @@ export async function getRAGContext(
  */
 export async function deleteFromRAG(documentId: string): Promise<void> {
   const { deleteDocument } = await import('./indexedDB');
-  
+
   // Remove from search index
   const searchIndex = getGlobalSearchIndex();
   removeFromIndex(searchIndex, documentId);
-  
+
   // Delete from IndexedDB
   await deleteDocument(documentId);
 }
-

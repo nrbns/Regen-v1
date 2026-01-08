@@ -17,7 +17,11 @@ describe('ContextEngine', () => {
   it('persists navigation events to storage', async () => {
     const indexSpy = vi.spyOn(await import('../../services/meiliIndexer'), 'indexContext');
 
-    eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: 't-1', url: 'https://example.com', tab: { title: 'Example' } });
+    eventBus.emit(EVENTS.TAB_NAVIGATED, {
+      tabId: 't-1',
+      url: 'https://example.com',
+      tab: { title: 'Example' },
+    });
 
     // Wait for async persistence
     await new Promise(resolve => setTimeout(resolve, 30));

@@ -6,11 +6,61 @@
 import type { MemoryEvent } from './event-types';
 
 const STOP_WORDS = new Set([
-  'the','and','for','with','this','that','from','about','into','there','their','them',
-  'your','have','more','will','what','when','where','which','using','used','been',
-  'than','then','over','after','before','because','while','within','without','such',
-  'also','only','even','much','many','some','any','each','most','very','like','just',
-  'onto','upon','here','time','date','page','tab','mode','note','visit'
+  'the',
+  'and',
+  'for',
+  'with',
+  'this',
+  'that',
+  'from',
+  'about',
+  'into',
+  'there',
+  'their',
+  'them',
+  'your',
+  'have',
+  'more',
+  'will',
+  'what',
+  'when',
+  'where',
+  'which',
+  'using',
+  'used',
+  'been',
+  'than',
+  'then',
+  'over',
+  'after',
+  'before',
+  'because',
+  'while',
+  'within',
+  'without',
+  'such',
+  'also',
+  'only',
+  'even',
+  'much',
+  'many',
+  'some',
+  'any',
+  'each',
+  'most',
+  'very',
+  'like',
+  'just',
+  'onto',
+  'upon',
+  'here',
+  'time',
+  'date',
+  'page',
+  'tab',
+  'mode',
+  'note',
+  'visit',
 ]);
 
 const TAG_LIMIT = 6;
@@ -53,5 +103,3 @@ export function extractTagsFromEvent(event: Omit<MemoryEvent, 'id' | 'ts' | 'sco
   const combined = candidateTexts.join(' ');
   return extractTagsFromText(combined);
 }
-
-

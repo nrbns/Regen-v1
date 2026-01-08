@@ -145,11 +145,7 @@ export async function productionSearchGet(
   query: string,
   options: SearchOptions = {}
 ): Promise<ProductionSearchResponse> {
-  const {
-    lang = 'auto',
-    maxResults = 10,
-    timeout = 8000,
-  } = options;
+  const { lang = 'auto', maxResults = 10, timeout = 8000 } = options;
 
   if (!query || query.trim().length < 2) {
     throw new Error('Query must be at least 2 characters');
@@ -329,4 +325,3 @@ export async function checkProductionSearchHealth(): Promise<boolean> {
     return false;
   }
 }
-

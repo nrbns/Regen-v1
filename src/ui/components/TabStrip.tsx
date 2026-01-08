@@ -143,11 +143,7 @@ export function TabStrip({
   return (
     <div
       ref={stripRef}
-      className={`
-        flex items-center gap-1 overflow-x-auto overflow-y-hidden
-        bg-[var(--surface-panel)] border-b border-[var(--surface-border)]
-        ${className}
-      `}
+      className={`flex items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-[var(--surface-border)] bg-[var(--surface-panel)] ${className} `}
       role="tablist"
       aria-label="Tabs"
       style={{
@@ -164,14 +160,7 @@ export function TabStrip({
       {/* New Tab Button */}
       <button
         onClick={onTabNew}
-        className={`
-          flex items-center justify-center
-          rounded-md
-          text-[var(--text-muted)] hover:text-[var(--text-primary)]
-          hover:bg-[var(--surface-hover)]
-          transition-colors
-          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-        `}
+        className={`flex items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1`}
         style={{
           width: compact ? '28px' : '32px',
           height: compact ? '28px' : '32px',
@@ -183,7 +172,7 @@ export function TabStrip({
       </button>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 flex-1 min-w-0">
+      <div className="flex min-w-0 flex-1 items-center gap-1">
         {tabs.length === 0 ? (
           <div className="flex flex-1 items-center justify-between rounded-lg border border-[var(--surface-border)] bg-[var(--surface-elevated)] px-4 py-2 text-[var(--text-secondary)]">
             <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -217,19 +206,11 @@ export function TabStrip({
                     }
                   }}
                   onClick={() => handleTabClick(tab.id)}
-                  className={`
-                    group relative flex items-center gap-2 px-3 py-1.5
-                    rounded-t-md
-                    transition-all duration-150
-                    focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-                    ${
-                      isActive
-                        ? 'bg-[var(--surface-root)] text-[var(--text-primary)] border-t-2 border-t-[var(--color-primary-500)]'
-                        : 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
-                    }
-                    ${tab.pinned ? 'pl-2' : ''}
-                    ${compact ? 'px-2 py-1' : ''}
-                  `}
+                  className={`group relative flex items-center gap-2 rounded-t-md px-3 py-1.5 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1 ${
+                    isActive
+                      ? 'border-t-2 border-t-[var(--color-primary-500)] bg-[var(--surface-root)] text-[var(--text-primary)]'
+                      : 'bg-[var(--surface-panel)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                  } ${tab.pinned ? 'pl-2' : ''} ${compact ? 'px-2 py-1' : ''} `}
                   style={{
                     fontSize: compact ? tokens.fontSize.xs : tokens.fontSize.sm,
                     minWidth: tab.pinned ? '32px' : '120px',
@@ -241,21 +222,14 @@ export function TabStrip({
                   title={tab.url || tab.label}
                 >
                   {tab.pinned && (
-                    <div className="w-1 h-1 rounded-full bg-[var(--color-primary-500)]" />
+                    <div className="h-1 w-1 rounded-full bg-[var(--color-primary-500)]" />
                   )}
                   {tab.icon && <span className="flex-shrink-0">{tab.icon}</span>}
-                  {!tab.pinned && <span className="truncate flex-1 text-left">{tab.label}</span>}
+                  {!tab.pinned && <span className="flex-1 truncate text-left">{tab.label}</span>}
                   {!tab.pinned && (
                     <button
                       onClick={e => handleTabClose(e, tab.id)}
-                      className={`
-                        flex-shrink-0 p-0.5 rounded
-                        opacity-0 group-hover:opacity-100
-                        text-[var(--text-muted)] hover:text-[var(--text-primary)]
-                        hover:bg-[var(--surface-active)]
-                        transition-all
-                        focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-500)]
-                      `}
+                      className={`flex-shrink-0 rounded p-0.5 text-[var(--text-muted)] opacity-0 transition-all hover:bg-[var(--surface-active)] hover:text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary-500)] group-hover:opacity-100`}
                       aria-label={`Close ${tab.label}`}
                       title="Close tab (Ctrl+W)"
                       onMouseDown={e => e.stopPropagation()}

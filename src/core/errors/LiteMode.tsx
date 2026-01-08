@@ -33,16 +33,16 @@ export function LiteMode() {
         <div className="flex flex-wrap gap-3">
           <button
             onClick={handleReload}
-            className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:border-blue-500/70 transition-colors"
+            className="rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition-colors hover:border-blue-500/70"
           >
-            <RefreshCw className="mr-2 h-4 w-4 inline" />
+            <RefreshCw className="mr-2 inline h-4 w-4" />
             Reload Full Mode
           </button>
         </div>
 
-        <div className="text-xs text-gray-500 space-y-1">
+        <div className="space-y-1 text-xs text-gray-500">
           <p>Lite Mode Features:</p>
-          <ul className="list-disc list-inside ml-2 space-y-1">
+          <ul className="ml-2 list-inside list-disc space-y-1">
             <li>Basic browsing (no AI features)</li>
             <li>Tab management (limited to 5 tabs)</li>
             <li>Search (text-only, no voice)</li>

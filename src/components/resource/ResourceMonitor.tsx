@@ -32,7 +32,7 @@ interface ResourceStats {
 
 export function ResourceMonitor() {
   const [stats, setStats] = useState<ResourceStats | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true); // Start expanded to show data
 
   useEffect(() => {
     const updateStats = async () => {

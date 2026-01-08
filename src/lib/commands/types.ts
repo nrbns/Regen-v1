@@ -26,5 +26,3 @@ export interface CommandSource {
   id: string;
   getCommands: () => Promise<CommandDescriptor[]> | CommandDescriptor[];
 }
-
-

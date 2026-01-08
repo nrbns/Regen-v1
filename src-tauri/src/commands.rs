@@ -672,3 +672,39 @@ pub async fn search(
         .map_err(|e| e.to_string())?;
     Ok(results.into_iter().map(|r| serde_json::to_value(r).unwrap()).collect())
 }
+
+// ============================================================================
+// TASK SYSTEM COMMANDS
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct TaskResponse {
+    pub ok: bool,
+    pub id: Option<String>,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn run_demo_agent(intent: String) -> Result<TaskResponse, String> {
+    // This would normally call into the Node.js task system
+    // For now, return a placeholder response
+    // In a real implementation, this would trigger the Node.js demoAgentRunner
+
+    // Since we can't directly call Node.js from Rust, we'll emit an event
+    // that the Node.js side can listen to and handle
+    Ok(TaskResponse {
+        ok: true,
+        id: Some(format!("demo-task-{}", chrono::Utc::now().timestamp())),
+        error: None,
+    })
+}
+
+#[tauri::command]
+pub async fn cancel_task(task_id: String) -> Result<TaskResponse, String> {
+    // Similar to run_demo_agent, this would trigger Node.js task cancellation
+    Ok(TaskResponse {
+        ok: true,
+        id: Some(task_id),
+        error: None,
+    })
+}

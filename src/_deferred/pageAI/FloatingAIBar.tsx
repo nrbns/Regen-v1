@@ -191,10 +191,7 @@ export function FloatingAIBar({ selectedText, position, onClose }: FloatingAIBar
         className="fixed flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-900 p-1 shadow-xl"
         style={{
           left: `${Math.min(position.x, window.innerWidth - 300)}px`,
-          top: `${Math.min(
-            position.y + 30,
-            window.innerHeight - (isMobile ? 180 : 60)
-          )}px`,
+          top: `${Math.min(position.y + 30, window.innerHeight - (isMobile ? 180 : 60))}px`,
           zIndex: 110,
         }}
       >

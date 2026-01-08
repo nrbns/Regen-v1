@@ -7,7 +7,10 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoonStar, Sun } from 'lucide-react';
 import { useTabsStore } from '../../state/tabsStore';
-import { getHibernatedTabCount, wakeAllHibernatedTabs } from '../../services/tabHibernation/hibernationManager';
+import {
+  getHibernatedTabCount,
+  wakeAllHibernatedTabs,
+} from '../../services/tabHibernation/hibernationManager';
 import { useState, useEffect } from 'react';
 import { toast } from '../../utils/toast';
 
@@ -51,11 +54,13 @@ export function HibernationIndicator() {
         className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200"
       >
         <MoonStar size={14} className="text-amber-400" />
-        <span className="font-medium">{hibernatedCount} tab{hibernatedCount !== 1 ? 's' : ''} hibernated</span>
+        <span className="font-medium">
+          {hibernatedCount} tab{hibernatedCount !== 1 ? 's' : ''} hibernated
+        </span>
         <button
           onClick={handleWakeAll}
           disabled={isWaking}
-          className="ml-2 flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="ml-2 flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-1 text-[11px] font-medium text-amber-100 transition-colors hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-50"
           title="Wake all hibernated tabs"
         >
           <Sun size={12} />
@@ -65,4 +70,3 @@ export function HibernationIndicator() {
     </AnimatePresence>
   );
 }
-

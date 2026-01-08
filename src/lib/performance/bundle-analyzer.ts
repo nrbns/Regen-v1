@@ -71,5 +71,3 @@ export function getPerformanceMetrics(): {
     load: timing.loadEventEnd - timing.navigationStart,
   };
 }
-
-

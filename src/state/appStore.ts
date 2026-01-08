@@ -28,7 +28,17 @@ export type AppState = {
   setHeartbeat: () => void;
 
   // Original state
-  mode: 'Browse' | 'Research' | 'Trade' | 'Knowledge' | 'Dev' | 'Games' | 'Docs' | 'Images' | 'Threats' | 'GraphMind';
+  mode:
+    | 'Browse'
+    | 'Research'
+    | 'Trade'
+    | 'Knowledge'
+    | 'Dev'
+    | 'Games'
+    | 'Docs'
+    | 'Images'
+    | 'Threats'
+    | 'GraphMind';
   setMode: (m: AppState['mode']) => void;
   graphDockOpen: boolean;
   toggleGraphDock: () => void;

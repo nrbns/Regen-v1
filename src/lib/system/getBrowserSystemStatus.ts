@@ -15,15 +15,19 @@ export async function getBrowserSystemStatus() {
     if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
       // Some browsers implement navigator.getBattery()
       const bat: any = await (navigator as any).getBattery();
-      batteryState = { charging: !!bat.charging, level: typeof bat.level === 'number' ? bat.level : 0 };
+      batteryState = {
+        charging: !!bat.charging,
+        level: typeof bat.level === 'number' ? bat.level : 0,
+      };
     }
   } catch (err) {
     // ignore
   }
 
-  const uptime = typeof performance !== 'undefined' && (performance as any).timeOrigin
-    ? Date.now() - (performance as any).timeOrigin
-    : 0;
+  const uptime =
+    typeof performance !== 'undefined' && (performance as any).timeOrigin
+      ? Date.now() - (performance as any).timeOrigin
+      : 0;
 
   // Mode is an optional global hint; fall back to Browse
   const mode = (window as any)?.__APP_MODE__ || 'Browse';

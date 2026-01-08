@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TaskService } from '../../services/taskService';
 
 type Props = {
   onUserInput?: (text: string) => void;
@@ -6,26 +7,58 @@ type Props = {
 
 export default function CommandBar({ onUserInput }: Props) {
   const [text, setText] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Create task immediately for real-time feedback
+      const task = await TaskService.processUserInput(text.trim());
+
+      // Call original handler if provided
+      if (onUserInput) {
+        onUserInput(text.trim());
+      }
+
+      // Clear input
+      setText('');
+
+    } catch (error) {
+      console.error('[CommandBar] Failed to process input:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div id="command-bar" style={{ padding: 8, borderTop: '1px solid #222' }}>
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          if (!onUserInput) return;
-          onUserInput(text);
-          setText('');
-        }}
-      >
+      <form onSubmit={handleSubmit}>
         <input
           aria-label="command-input"
           value={text}
           onChange={e => setText(e.target.value)}
           placeholder="Enter command"
-          style={{ width: '80%', padding: 8 }}
+          disabled={isProcessing}
+          style={{
+            width: '80%',
+            padding: 8,
+            opacity: isProcessing ? 0.7 : 1
+          }}
         />
-        <button type="submit" style={{ marginLeft: 8, padding: '8px 12px' }}>
-          Send
+        <button
+          type="submit"
+          disabled={isProcessing || !text.trim()}
+          style={{
+            marginLeft: 8,
+            padding: '8px 12px',
+            opacity: (isProcessing || !text.trim()) ? 0.5 : 1
+          }}
+        >
+          {isProcessing ? 'Processing...' : 'Send'}
         </button>
       </form>
     </div>

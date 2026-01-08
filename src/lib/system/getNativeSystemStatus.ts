@@ -8,7 +8,7 @@ export async function getNativeSystemStatus() {
     // Prefer Node's os module when available (Electron/Node contexts)
     const os = await import('os');
     const mem: NodeJS.MemoryUsage =
-      (typeof process !== 'undefined' && typeof process.memoryUsage === 'function')
+      typeof process !== 'undefined' && typeof process.memoryUsage === 'function'
         ? process.memoryUsage()
         : { heapUsed: 0, heapTotal: 0, external: 0, rss: 0, arrayBuffers: 0 };
 
@@ -19,7 +19,12 @@ export async function getNativeSystemStatus() {
     const totalTimes = cpus.reduce(
       (acc: { idle: number; total: number }, cpu: any) => {
         const times = cpu.times || {};
-        const t = (times.user || 0) + (times.nice || 0) + (times.sys || 0) + (times.idle || 0) + (times.irq || 0);
+        const t =
+          (times.user || 0) +
+          (times.nice || 0) +
+          (times.sys || 0) +
+          (times.idle || 0) +
+          (times.irq || 0);
         return { idle: acc.idle + (times.idle || 0), total: acc.total + t };
       },
       { idle: 0, total: 0 }

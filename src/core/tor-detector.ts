@@ -1,9 +1,9 @@
 /**
  * TorDetector - Tor Browser Detection for Ghost Mode
- * 
+ *
  * Detects when running inside Tor Browser and enables maximum security mode.
  * This is critical for the "Ghost Mode" feature.
- * 
+ *
  * Usage:
  *   const detector = new TorDetector();
  *   const isTor = detector.detectTorBrowser();
@@ -55,8 +55,10 @@ export class TorDetector {
     const screenWidth = window.screen.width;
     const screenHeight = window.screen.height;
     // Tor Browser typically opens at 1000x700 or similar fixed sizes
-    if ((screenWidth === 1000 && screenHeight === 700) ||
-        (screenWidth === 1000 && screenHeight === 740)) {
+    if (
+      (screenWidth === 1000 && screenHeight === 700) ||
+      (screenWidth === 1000 && screenHeight === 740)
+    ) {
       indicators.push('screen_dimensions');
       if (confidence === 'low') confidence = 'medium';
     }
@@ -100,22 +102,24 @@ export class TorDetector {
 
     // Indicator 7: Check if we can reach Tor check service
     // This is async, so we'll do it separately
-    this.checkTorService().then((isTorService) => {
-      if (isTorService) {
-        indicators.push('tor_service');
-        if (confidence !== 'high') confidence = 'high';
-        isTorBrowser = true;
-        // Update cached result
-        this.cachedResult = {
-          isTorBrowser: true,
-          confidence: 'high',
-          indicators: [...indicators],
-          canEnableGhostMode: true,
-        };
-      }
-    }).catch(() => {
-      // Tor service check failed - not necessarily not Tor
-    });
+    this.checkTorService()
+      .then(isTorService => {
+        if (isTorService) {
+          indicators.push('tor_service');
+          if (confidence !== 'high') confidence = 'high';
+          isTorBrowser = true;
+          // Update cached result
+          this.cachedResult = {
+            isTorBrowser: true,
+            confidence: 'high',
+            indicators: [...indicators],
+            canEnableGhostMode: true,
+          };
+        }
+      })
+      .catch(() => {
+        // Tor service check failed - not necessarily not Tor
+      });
 
     // High confidence if user agent matches
     if (confidence === 'high') {
@@ -201,4 +205,3 @@ export function detectTorBrowser(): TorDetectionResult {
 export function canEnableGhostMode(): boolean {
   return getTorDetector().canEnableGhostMode();
 }
-

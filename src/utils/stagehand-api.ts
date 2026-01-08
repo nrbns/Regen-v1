@@ -15,7 +15,7 @@ export type Selector = string | { text?: string; role?: string; label?: string; 
 /**
  * Action types
  */
-export type Action = 
+export type Action =
   | { type: 'click'; selector: Selector }
   | { type: 'type'; selector: Selector; text: string }
   | { type: 'wait'; selector: Selector; timeout?: number }
@@ -79,7 +79,7 @@ export class StagehandAPI {
    */
   async wait(selector: Selector, timeout: number = 5000): Promise<Element> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeout) {
       const element = await this.findElement(selector);
       if (element) {
@@ -141,7 +141,10 @@ export class StagehandAPI {
   /**
    * Scroll to element
    */
-  async scroll(selector: Selector, _direction: 'up' | 'down' | 'left' | 'right' = 'down'): Promise<void> {
+  async scroll(
+    selector: Selector,
+    _direction: 'up' | 'down' | 'left' | 'right' = 'down'
+  ): Promise<void> {
     const element = await this.wait(selector);
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -163,9 +166,9 @@ export class StagehandAPI {
   async screenshot(selector?: Selector): Promise<string> {
     // Use html2canvas or similar for screenshot
     const _target = selector ? await this.wait(selector) : document.body;
-    
+
     // Simplified - in production, use html2canvas
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // Placeholder - implement with html2canvas
       resolve('data:image/png;base64,placeholder');
     });
@@ -198,7 +201,10 @@ export class StagehandAPI {
     // In v1-mode, disallow direct in-page evaluation for safety.
     if (isV1ModeEnabled()) {
       // Route the request through ExecutionGate for auditing; by default this will be denied.
-      return requestExecution({ type: 'automation:evaluate', payload: { script, context: this.context, sessionId: this.sessionId } });
+      return requestExecution({
+        type: 'automation:evaluate',
+        payload: { script, context: this.context, sessionId: this.sessionId },
+      });
     }
 
     // Non-v1 builds may still need to execute trusted scripts; use Function only when explicitly allowed.
@@ -212,7 +218,7 @@ export class StagehandAPI {
     const results: any[] = [];
     for (const action of actions) {
       let result: any;
-      
+
       switch (action.type) {
         case 'click':
           await this.click(action.selector);
@@ -245,10 +251,10 @@ export class StagehandAPI {
           await this.select(action.selector, action.value);
           break;
       }
-      
+
       results.push(result);
     }
-    
+
     return results;
   }
 
@@ -293,4 +299,3 @@ declare global {
 if (typeof window !== 'undefined') {
   window.stagehand = createStagehand('browse');
 }
-

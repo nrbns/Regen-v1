@@ -89,9 +89,10 @@ export function AgentsPanel({
     };
   } | null>(null);
 
-  const filteredAgents = agents.filter(agent =>
-    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAgents = agents.filter(
+    agent =>
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleRun = (agentId: string) => {
@@ -122,13 +123,15 @@ export function AgentsPanel({
   };
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
+    <div className={cn('flex h-full flex-col', className)}>
       {/* Header */}
-      <div className="p-6 border-b border-slate-800">
-        <div className="flex items-center justify-between mb-4">
+      <div className="border-b border-slate-800 p-6">
+        <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1">Agents</h1>
-            <p className="text-sm text-slate-400">AI-powered agents for automation and assistance</p>
+            <h1 className="mb-1 text-2xl font-bold text-white">Agents</h1>
+            <p className="text-sm text-slate-400">
+              AI-powered agents for automation and assistance
+            </p>
           </div>
         </div>
 
@@ -141,12 +144,14 @@ export function AgentsPanel({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search agents..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
             />
           </div>
         )}
         {v1Mode && (
-          <div className="text-xs text-slate-400 mb-3">Agent operations are limited in v1-mode.</div>
+          <div className="mb-3 text-xs text-slate-400">
+            Agent operations are limited in v1-mode.
+          </div>
         )}
       </div>
 
@@ -169,7 +174,7 @@ export function AgentsPanel({
 
         {/* Agents Grid */}
         {filteredAgents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredAgents.map(agent => (
               <AgentCard
                 key={agent.id}
@@ -182,8 +187,8 @@ export function AgentsPanel({
             ))}
           </div>
         ) : (
-          <ResponsiveCard className="text-center py-12">
-            <Bot size={48} className="text-slate-600 mx-auto mb-4" />
+          <ResponsiveCard className="py-12 text-center">
+            <Bot size={48} className="mx-auto mb-4 text-slate-600" />
             <p className="text-slate-400">No agents found</p>
           </ResponsiveCard>
         )}
@@ -191,5 +196,3 @@ export function AgentsPanel({
     </div>
   );
 }
-
-

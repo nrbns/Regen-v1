@@ -64,7 +64,9 @@ class HNSWService {
               });
 
               try {
-                const indexData = await (globalThis as any).mockInvoke('read_file', { path: indexPath });
+                const indexData = await (globalThis as any).mockInvoke('read_file', {
+                  path: indexPath,
+                });
                 const uint8Array = new Uint8Array(indexData);
                 if (hnswlib.loadIndex) {
                   this.index = await hnswlib.loadIndex(uint8Array, this.dimension);
@@ -72,13 +74,18 @@ class HNSWService {
                 }
               } catch (error) {
                 if (!isWebMode()) {
-                  console.warn('[HNSWService] Failed to load index (mock), creating new one', error);
+                  console.warn(
+                    '[HNSWService] Failed to load index (mock), creating new one',
+                    error
+                  );
                 }
               }
-              } else {
+            } else {
               // Build package name dynamically to avoid static analysis issues during tests
               const pkg = '@tauri-apps' + '/api/core';
-              const { safeImport } = await import('../../utils/safeImport').catch(() => ({ safeImport: null }));
+              const { safeImport } = await import('../../utils/safeImport').catch(() => ({
+                safeImport: null,
+              }));
               if (!safeImport) throw new Error('safeImport unavailable');
               const { invoke: invoke2 } = await safeImport(pkg, [pkg]);
               const indexPath = await invoke2<string>('get_app_data_path', {

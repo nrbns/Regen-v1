@@ -60,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           toneClassMap[tone],
           sizeClassMap[size],
           fullWidth && 'w-full',
-          isDisabled && 'opacity-50 cursor-not-allowed',
+          isDisabled && 'cursor-not-allowed opacity-50',
           className
         )}
         disabled={isDisabled}
@@ -105,9 +105,9 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         size={size}
         className={cn(
           'rounded-full p-0',
-          size === 'sm' && 'w-8 h-8',
-          size === 'md' && 'w-10 h-10',
-          size === 'lg' && 'w-12 h-12',
+          size === 'sm' && 'h-8 w-8',
+          size === 'md' && 'h-10 w-10',
+          size === 'lg' && 'h-12 w-12',
           props.className
         )}
       >
@@ -146,7 +146,7 @@ export const FAB = forwardRef<HTMLButtonElement, FABProps>(
         ref={ref}
         {...props}
         size="lg"
-        className={cn('rounded-full shadow-lg z-50', positionClasses[position], className)}
+        className={cn('z-50 rounded-full shadow-lg', positionClasses[position], className)}
       />
     );
   }

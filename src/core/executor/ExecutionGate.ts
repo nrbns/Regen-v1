@@ -27,9 +27,9 @@ export class Sandbox {
 
 export async function requestExecution(req: ExecutionRequest): Promise<any> {
   if (!PolicyEngine.allow(req)) {
-    throw new Error('Execution denied by policy')
+    throw new Error('Execution denied by policy');
   }
-  return Sandbox.run(req)
+  return Sandbox.run(req);
 }
 
-export default { requestExecution, PolicyEngine, Sandbox }
+export default { requestExecution, PolicyEngine, Sandbox };
