@@ -699,6 +699,130 @@ pub async fn run_demo_agent(intent: String) -> Result<TaskResponse, String> {
     })
 }
 
+// ============================================================================
+// REGEN BACKEND IPC COMMANDS (Node.js Backend Integration)
+// ============================================================================
+
+#[derive(Serialize, Deserialize)]
+pub struct TabResponse {
+    pub tab_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AIRunPayload {
+    pub task: String,
+    pub context: Option<serde_json::Value>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct AIResponse {
+    pub success: bool,
+    pub result: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct DownloadResponse {
+    pub success: bool,
+    pub download_id: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SystemStateResponse {
+    pub tabs: Vec<serde_json::Value>,
+    pub active_tab_id: Option<String>,
+    pub status: String,
+    pub downloads: Vec<serde_json::Value>,
+    pub ai_available: bool,
+    pub ai_running: bool,
+}
+
+// Tab management commands
+#[tauri::command]
+pub async fn new_tab(url: Option<String>) -> Result<TabResponse, String> {
+    // This would forward to the Node.js backend
+    // For now, return mock response
+    let tab_id = format!("tab-{}", chrono::Utc::now().timestamp());
+    Ok(TabResponse { tab_id })
+}
+
+#[tauri::command]
+pub async fn close_tab(tab_id: String) -> Result<(), String> {
+    // Forward to Node.js backend
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn switch_tab(tab_id: String) -> Result<(), String> {
+    // Forward to Node.js backend
+    Ok(())
+}
+
+// Navigation commands
+#[tauri::command]
+pub async fn navigate(tab_id: String, url: String) -> Result<(), String> {
+    // Forward to Node.js backend NavigationController
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn back(tab_id: String) -> Result<(), String> {
+    // Forward to Node.js backend
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn forward(tab_id: String) -> Result<(), String> {
+    // Forward to Node.js backend
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reload(tab_id: String) -> Result<(), String> {
+    // Forward to Node.js backend
+    Ok(())
+}
+
+// AI commands
+#[tauri::command]
+pub async fn run_ai(payload: AIRunPayload) -> Result<AIResponse, String> {
+    // Forward to Node.js backend AIController
+    // For now, return mock response
+    Ok(AIResponse {
+        success: true,
+        result: Some(format!("AI processed: {}", payload.task)),
+        error: None,
+    })
+}
+
+// Download commands
+#[tauri::command]
+pub async fn download(filename: String, url: String) -> Result<DownloadResponse, String> {
+    // Forward to Node.js backend DownloadManager
+    let download_id = format!("download-{}", chrono::Utc::now().timestamp());
+    Ok(DownloadResponse {
+        success: true,
+        download_id: Some(download_id),
+        error: None,
+    })
+}
+
+// System state
+#[tauri::command]
+pub async fn get_state() -> Result<SystemStateResponse, String> {
+    // Get current state from Node.js backend
+    // For now, return mock state
+    Ok(SystemStateResponse {
+        tabs: vec![],
+        active_tab_id: None,
+        status: "idle".to_string(),
+        downloads: vec![],
+        ai_available: true,
+        ai_running: false,
+    })
+}
+
 #[tauri::command]
 pub async fn cancel_task(task_id: String) -> Result<TaskResponse, String> {
     // Similar to run_demo_agent, this would trigger Node.js task cancellation

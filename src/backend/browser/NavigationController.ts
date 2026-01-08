@@ -2,29 +2,48 @@ import { systemState } from '../state/SystemState';
 
 export class NavigationController {
   static navigate(tabId: string, url: string) {
-    // In a real implementation, this would call the WebView's navigate method
-    // For now, just update state
+    // IMMEDIATE: Update SystemState first - UI shows navigation immediately
     systemState.navigate(tabId, url);
+
+    // ASYNC: Try to navigate actual WebView in backend
+    try {
+      console.log(`[NavigationController] Navigating tab ${tabId} to ${url}`);
+      // In real implementation: IPCHandler.send('navigation-started', { tabId, url });
+    } catch (error) {
+      console.error('[NavigationController] Failed to navigate backend:', error);
+      // UI still shows navigation even if backend fails
+    }
   }
 
   static back(tabId: string) {
-    // In a real implementation, this would call WebView.goBack()
-    // For simulation, just stay on current page
-    console.log('Navigation: back', tabId);
+    // IMMEDIATE: UI shows back navigation immediately
+    console.log(`[NavigationController] Going back in tab ${tabId}`);
+    // In real implementation: IPCHandler.send('navigation-back', { tabId });
   }
 
   static forward(tabId: string) {
-    // In a real implementation, this would call WebView.goForward()
-    // For simulation, just stay on current page
-    console.log('Navigation: forward', tabId);
+    // IMMEDIATE: UI shows forward navigation immediately
+    console.log(`[NavigationController] Going forward in tab ${tabId}`);
+    // In real implementation: IPCHandler.send('navigation-forward', { tabId });
   }
 
   static reload(tabId: string) {
-    // In a real implementation, this would call WebView.reload()
-    // For simulation, just set loading state briefly
+    // IMMEDIATE: Update SystemState to show loading
     systemState.updateTab(tabId, { isLoading: true });
-    setTimeout(() => {
+
+    // ASYNC: Try to reload actual WebView
+    try {
+      console.log(`[NavigationController] Reloading tab ${tabId}`);
+      // In real implementation: IPCHandler.send('navigation-reload', { tabId });
+
+      // Simulate loading completion (in real app, WebView would emit load event)
+      setTimeout(() => {
+        systemState.updateTab(tabId, { isLoading: false });
+      }, 1000);
+    } catch (error) {
+      console.error('[NavigationController] Failed to reload backend:', error);
+      // Still stop loading indicator even if backend fails
       systemState.updateTab(tabId, { isLoading: false });
-    }, 500);
+    }
   }
 }

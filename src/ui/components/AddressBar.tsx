@@ -31,31 +31,37 @@ export function AddressBar({ onNavigate, currentUrl }: AddressBarProps) {
     }
   }, [currentUrl, value]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const query = value.trim();
     if (!query) return;
 
-    // Use IntentRouter to determine what to do
-    const intent = IntentRouter.route(query, { currentUrl });
+    try {
+      // Use IntentRouter to determine what to do (now async)
+      const intent = await IntentRouter.route(query, { currentUrl });
 
-    switch (intent.type) {
-      case 'navigate':
-        onNavigate(intent.input);
-        break;
-      case 'ai':
-        // Send AI task via IPC
-        IPCHandler.runAI(intent.input);
-        setIsLoading(true);
-        // Clear loading when AI completes
-        setTimeout(() => setIsLoading(false), 2000);
-        break;
-      case 'search':
-      default:
-        // Default to search
-        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(intent.input)}`;
-        onNavigate(searchUrl);
-        break;
+      switch (intent.type) {
+        case 'navigate':
+          onNavigate(intent.input);
+          break;
+        case 'ai':
+          // Send AI task via IPC
+          IPCHandler.runAI(intent.input);
+          setIsLoading(true);
+          // Clear loading when AI completes (will be handled by IPC response)
+          break;
+        case 'search':
+        default:
+          // Default to search
+          const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(intent.input)}`;
+          onNavigate(searchUrl);
+          break;
+      }
+    } catch (error) {
+      console.error('[AddressBar] Intent routing failed:', error);
+      // Fallback to search
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      onNavigate(searchUrl);
     }
 
     inputRef.current?.blur();

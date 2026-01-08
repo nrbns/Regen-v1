@@ -8,7 +8,7 @@ import { Shield, Loader2, Plus, Trash2 } from 'lucide-react';
 import { getAdblockerService } from '../../services/adblocker/service';
 import type { AdblockerSettings } from '../../services/adblocker/types';
 import { toast } from '../../utils/toast';
-import { useMobileDetection } from '../../mobile';
+import { useMobileDetection } from '../../utils/mobileDetection';
 
 interface AdblockerSettingsPanelProps {
   onClose?: () => void;

@@ -153,7 +153,57 @@ fn main() {
             commands::cancel_task,
             // Legacy commands
             commands::search,
+            // Regen Backend IPC commands
+            commands::new_tab,
+            commands::close_tab,
+            commands::switch_tab,
+            commands::navigate,
+            commands::back,
+            commands::forward,
+            commands::reload,
+            commands::run_ai,
+            commands::download,
+            commands::get_state,
         ])
+        .setup(move |app| {
+            // IPC Event Emitters - Forward backend events to UI
+            let app_handle = app.handle().clone();
+
+            // Task events
+            app.listen_global("task:created", move |event| {
+                if let Some(payload) = event.payload() {
+                    let _ = app_handle.emit("task:created", payload);
+                }
+            });
+
+            app.listen_global("task:updated", move |event| {
+                if let Some(payload) = event.payload() {
+                    let _ = app_handle.emit("task:updated", payload);
+                }
+            });
+
+            app.listen_global("task:log", move |event| {
+                if let Some(payload) = event.payload() {
+                    let _ = app_handle.emit("task:log", payload);
+                }
+            });
+
+            // Thought stream events
+            app.listen_global("thought:step", move |event| {
+                if let Some(payload) = event.payload() {
+                    let _ = app_handle.emit("thought:step", payload);
+                }
+            });
+
+            // System metrics events
+            app.listen_global("system:metrics", move |event| {
+                if let Some(payload) = event.payload() {
+                    let _ = app_handle.emit("system:metrics", payload);
+                }
+            });
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

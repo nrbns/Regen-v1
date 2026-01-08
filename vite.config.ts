@@ -85,6 +85,7 @@ export default defineConfig({
         '@tauri-apps/api/core',
         '@tauri-apps/api/event',
         '@sentry/electron/renderer', // Optional dependency - external to prevent build-time resolution
+        'electron', // External for preload script compatibility
         'jsdom',
         'cssstyle',
       ],

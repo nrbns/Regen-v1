@@ -10,7 +10,7 @@ import { QuickFactsPanel, type QuickFact } from './QuickFactsPanel';
 import { TrendingResults } from './TrendingResults';
 import { ArticleView } from './ArticleView';
 // import { ResponsiveCard } from '../common/ResponsiveCard'; // Unused
-import { useMobileDetection } from '../../mobile';
+import { useMobileDetection } from '../../utils/mobileDetection';
 
 export interface EnhancedSearchResult extends AIResultBlockProps {
   id: string;

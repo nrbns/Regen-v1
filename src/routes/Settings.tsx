@@ -31,8 +31,7 @@ import { WorkspacesPanel } from '../components/workspace/WorkspacesPanel';
 import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
 // Optional components - only available in tauri-migration, removed for now
 import { EXTERNAL_APIS } from '../config/externalApis';
-import { RedixModeToggle } from '../components/redix/RedixModeToggle';
-// import { getRedixConfig } from '../lib/redix-mode'; // Unused
+// Redix components removed - not core to browser
 import { LanguageSelector } from '../components/settings/LanguageSelector';
 import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
@@ -204,7 +203,6 @@ export default function SettingsRoute() {
             <SectionCard title="System Settings" icon={Settings2}>
               <p className="mb-4 text-sm text-slate-400">System configuration and diagnostics.</p>
               <div className="space-y-4">
-                <RedixModeToggle showLabel={true} compact={false} />
                 <div className="border-t border-slate-800 pt-4">
                   <h4 className="mb-2 text-sm font-semibold text-white">Privacy Mode</h4>
                   <ToggleRow

@@ -13,6 +13,11 @@ AIController.initialize().catch(error => {
   console.error('Failed to initialize AI:', error);
 });
 
+// Initialize with one tab (single source of truth)
+if (systemState.getState().tabs.length === 0) {
+  TabManager.createTab('regen://home');
+}
+
 // Set up IPC event handlers
 function setupIPCHandlers() {
   // Navigation events
@@ -58,7 +63,8 @@ function setupIPCHandlers() {
 
   // Download events
   IPCHandler.on(IPC_EVENTS.DOWNLOAD, (payload: { filename: string; url: string }) => {
-    DownloadManager.handleDownload(payload.filename, payload.url);
+    const downloadId = DownloadManager.handleDownload(payload.filename, payload.url);
+    console.log(`[Backend] Download initiated: ${downloadId}`);
   });
 }
 

@@ -6,53 +6,57 @@ import { IPCHandler } from '../../backend/ipc/events';
 interface WebViewProps {
   url?: string;
   onUrlChange?: (url: string) => void;
+  onTextSelect?: (x: number, y: number) => void;
 }
 
-export function WebView({ url, onUrlChange }: WebViewProps) {
+export function WebView({ url, onUrlChange, onTextSelect }: WebViewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [floatingAction, setFloatingAction] = useState<{ x: number; y: number; text: string } | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
-  // Handle text selection for AI analysis
+  // Handle text selection and context menu - ONLY when user explicitly acts
   useEffect(() => {
     const handleSelection = () => {
       const selection = window.getSelection();
       const selectedText = selection?.toString().trim();
 
-      if (selectedText && selectedText.length > 10) {
+      // Only trigger intent ripple for substantial selections (>50 chars)
+      // This prevents accidental triggers during normal browsing
+      if (selectedText && selectedText.length > 50) {
         const range = selection?.getRangeAt(0);
         const rect = range?.getBoundingClientRect();
 
-        if (rect) {
-          setFloatingAction({
-            x: rect.left + (rect.width / 2),
-            y: rect.top,
-            text: selectedText,
-          });
+        if (rect && onTextSelect) {
+          // Trigger intent ripple at selection position - user must have intentionally selected text
+          onTextSelect(rect.left + (rect.width / 2), rect.top);
         }
       } else {
+        // Clear any floating actions for normal browsing
         setFloatingAction(null);
       }
     };
 
     const handleClick = () => {
-      // Close floating action when clicking elsewhere
+      // Close floating action when clicking elsewhere - normal browser behavior
       setFloatingAction(null);
       setContextMenu(null);
     };
 
     const handleContextMenu = (e: MouseEvent) => {
-      // Only show context menu if we're on the welcome screen or there's selected text
+      // Only show custom context menu on welcome screen or with substantial selection
+      // Let browser handle normal right-clicks
       if (!url || url === 'regen://home') {
         setContextMenu({ x: e.clientX, y: e.clientY });
         e.preventDefault();
       } else {
         const selection = window.getSelection();
         const selectedText = selection?.toString().trim();
-        if (selectedText && selectedText.length > 5) {
+        // Only override browser context menu for substantial selections
+        if (selectedText && selectedText.length > 20) {
           setContextMenu({ x: e.clientX, y: e.clientY });
           e.preventDefault();
         }
+        // Otherwise, let browser show normal context menu
       }
     };
 
@@ -67,10 +71,8 @@ export function WebView({ url, onUrlChange }: WebViewProps) {
   }, []);
 
   const handleAnalyzeSelection = () => {
-    if (floatingAction) {
-      // Use IPC to send AI task
-      IPCHandler.runAI(`Analyze this text: ${floatingAction.text}`);
-      console.log('AI analysis triggered for selected text');
+    if (floatingAction && onAskRegen) {
+      onAskRegen(`Analyze this text: ${floatingAction.text}`);
     }
     setFloatingAction(null);
   };
@@ -84,10 +86,10 @@ export function WebView({ url, onUrlChange }: WebViewProps) {
     const selectedText = selection?.toString().trim();
 
     if (selectedText && selectedText.length > 5) {
-      IPCHandler.runAI(`Analyze this text: ${selectedText}`);
+      onAskRegen?.(`Analyze this text: ${selectedText}`);
     } else {
-      // On welcome screen, just open AI
-      IPCHandler.runAI("Hello, I need help with browsing.");
+      // On welcome screen, provide general help
+      onAskRegen?.("Help me understand how to use this browser");
     }
   };
 

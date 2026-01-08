@@ -64,6 +64,7 @@ export const Droplets = IconPlaceholder;
 export const Edit2 = IconPlaceholder;
 export const Edit3 = IconPlaceholder;
 export const ExternalLink = IconPlaceholder;
+export const Expand = IconPlaceholder;
 export const Eye = IconPlaceholder;
 export const EyeOff = IconPlaceholder;
 export const FileCheck = IconPlaceholder;

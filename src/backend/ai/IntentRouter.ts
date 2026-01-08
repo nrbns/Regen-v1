@@ -1,3 +1,5 @@
+import { AIController } from './AIController';
+
 export interface IntentResult {
   type: 'navigate' | 'search' | 'ai' | 'unknown';
   input: string;
@@ -5,10 +7,10 @@ export interface IntentResult {
 }
 
 export class IntentRouter {
-  static route(input: string, context?: { currentUrl?: string }): IntentResult {
+  static async route(input: string, context?: { currentUrl?: string }): Promise<IntentResult> {
     const trimmedInput = input.trim();
 
-    // Check for URLs
+    // Check for URLs first (fast, no AI needed)
     if (this.looksLikeUrl(trimmedInput)) {
       return {
         type: 'navigate',
@@ -17,11 +19,48 @@ export class IntentRouter {
       };
     }
 
+    // Use AI for intent detection if available
+    if (AIController.isAvailable()) {
+      try {
+        const aiIntent = await AIController.detectIntent(trimmedInput);
+        return {
+          type: this.mapAIIntentToType(aiIntent),
+          input: trimmedInput,
+          confidence: 0.95, // AI-detected intents are more confident
+        };
+      } catch (error) {
+        console.warn('[IntentRouter] AI intent detection failed, using fallback:', error);
+      }
+    }
+
+    // Fallback to rule-based detection
+    return this.fallbackIntentDetection(trimmedInput);
+  }
+
+  private static mapAIIntentToType(aiIntent: string): 'navigate' | 'search' | 'ai' | 'unknown' {
+    const intent = aiIntent.toLowerCase();
+
+    if (intent.includes('navigate') || intent.includes('url') || intent.includes('visit')) {
+      return 'navigate';
+    }
+
+    if (intent.includes('search') || intent.includes('find') || intent.includes('lookup')) {
+      return 'search';
+    }
+
+    if (intent.includes('analyze') || intent.includes('explain') || intent.includes('question') || intent.includes('help')) {
+      return 'ai';
+    }
+
+    return 'unknown';
+  }
+
+  private static fallbackIntentDetection(input: string): IntentResult {
     // Check for questions/commands
-    if (this.looksLikeQuestion(trimmedInput) || this.looksLikeCommand(trimmedInput)) {
+    if (this.looksLikeQuestion(input) || this.looksLikeCommand(input)) {
       return {
         type: 'ai',
-        input: trimmedInput,
+        input,
         confidence: 0.8,
       };
     }
@@ -29,7 +68,7 @@ export class IntentRouter {
     // Default to search
     return {
       type: 'search',
-      input: trimmedInput,
+      input,
       confidence: 0.7,
     };
   }

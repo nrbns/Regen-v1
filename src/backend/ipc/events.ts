@@ -46,18 +46,24 @@ export interface DownloadPayload {
   url: string;
 }
 
-// IPC Handler - UI can send events, backend responds
+// IPC Handler - UI can invoke Tauri commands, backend responds via events
 export class IPCHandler {
   private static listeners: Map<string, Function[]> = new Map();
 
-  static send(event: string, payload?: any) {
-    // In a real implementation, this would use Tauri IPC or Electron IPC
-    // For now, use custom events
-    window.dispatchEvent(new CustomEvent(event, { detail: payload }));
+  static async send(event: string, payload?: any) {
+    try {
+      // Use Tauri invoke to call backend commands
+      const result = await (window as any).__TAURI__.invoke(event, payload);
 
-    // Also dispatch to any registered listeners
-    const listeners = this.listeners.get(event) || [];
-    listeners.forEach(listener => listener(payload));
+      // Dispatch to any registered listeners
+      const listeners = this.listeners.get(event) || [];
+      listeners.forEach(listener => listener(result));
+
+      return result;
+    } catch (error) {
+      console.error(`[IPC] Error invoking ${event}:`, error);
+      throw error;
+    }
   }
 
   static on(event: string, callback: Function) {
@@ -103,8 +109,8 @@ export class IPCHandler {
 
   // Get current system state (read-only for UI)
   static getState() {
-    // In a real implementation, this would return the current system state
-    // For now, return a mock
+    // This should be called via IPC to get real state from backend
+    // For now, return empty state (will be populated by backend)
     return {
       tabs: [],
       activeTabId: null,

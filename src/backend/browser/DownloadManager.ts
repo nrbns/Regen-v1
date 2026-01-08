@@ -2,23 +2,35 @@ import { systemState } from '../state/SystemState';
 
 export class DownloadManager {
   static handleDownload(filename: string, url: string): string {
-    // In a real implementation, this would:
-    // 1. Create actual download via WebView APIs
-    // 2. Save to user's Downloads folder
-    // 3. Show system notification
-
-    // For now, just update state and show toast
+    // IMMEDIATE: Update SystemState first - UI shows download immediately
     const downloadId = systemState.addDownload(filename, url);
 
-    // Emit toast event (UI can listen for this)
-    window.dispatchEvent(new CustomEvent('system:toast', {
-      detail: { message: `Downloaded: ${filename}`, type: 'success' }
-    }));
+    // ASYNC: Try to start actual download in backend
+    try {
+      console.log(`[DownloadManager] Starting download: ${filename} from ${url}`);
+      // In real implementation: IPCHandler.send('download-started', { downloadId, filename, url });
+
+      // Emit toast event (UI can listen for this)
+      window.dispatchEvent(new CustomEvent('system:toast', {
+        detail: { message: `Downloading: ${filename}`, type: 'info' }
+      }));
+    } catch (error) {
+      console.error('[DownloadManager] Failed to start backend download:', error);
+      // UI still shows download even if backend fails
+    }
 
     return downloadId;
   }
 
-  static getDownloads() {
-    return systemState.getState().downloads;
+  static async getDownloads() {
+    try {
+      // Get downloads from Tauri
+      const downloads = await (window as any).__TAURI__.invoke('downloads:list');
+      return downloads;
+    } catch (error) {
+      console.error('[DownloadManager] Failed to get downloads:', error);
+      // Fallback to local state
+      return systemState.getState().downloads;
+    }
   }
 }

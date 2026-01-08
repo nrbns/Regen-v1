@@ -18,7 +18,7 @@ import { useHistoryStore } from '../../state/historyStore';
 import { useTabsStore } from '../../state/tabsStore';
 // import { normalizeInputToUrlOrSearch } from '../../lib/search'; // Unused
 import { cn } from '../../lib/utils';
-import { useMobileDetection } from '../../mobile';
+import { useMobileDetection } from '../../utils/mobileDetection';
 import { URLBarProgress } from './URLBarProgress';
 import { useTabLoadingStore } from '../../state/tabLoadingStore';
 

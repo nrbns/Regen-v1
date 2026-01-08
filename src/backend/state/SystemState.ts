@@ -61,7 +61,12 @@ export class SystemStateManager extends BrowserEventEmitter {
 
   constructor() {
     super();
-    this.state = {
+    this.state = this.loadPersistedState() || this.getInitialState();
+    this.persistState(); // Save initial state
+  }
+
+  private getInitialState(): SystemStateType {
+    return {
       tabs: [],
       activeTabId: null,
       status: 'idle',
@@ -73,6 +78,36 @@ export class SystemStateManager extends BrowserEventEmitter {
     };
   }
 
+  private loadPersistedState(): SystemStateType | null {
+    try {
+      const persisted = localStorage.getItem('regen-system-state');
+      if (persisted) {
+        const parsed = JSON.parse(persisted);
+        // Validate and sanitize persisted state
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...this.getInitialState(),
+            ...parsed,
+            // Ensure arrays exist
+            tabs: Array.isArray(parsed.tabs) ? parsed.tabs : [],
+            downloads: Array.isArray(parsed.downloads) ? parsed.downloads : [],
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('[SystemState] Failed to load persisted state:', error);
+    }
+    return null;
+  }
+
+  private persistState() {
+    try {
+      localStorage.setItem('regen-system-state', JSON.stringify(this.state));
+    } catch (error) {
+      console.warn('[SystemState] Failed to persist state:', error);
+    }
+  }
+
   // Get current state (read-only for UI)
   getState(): SystemStateType {
     return { ...this.state };
@@ -82,6 +117,9 @@ export class SystemStateManager extends BrowserEventEmitter {
   private updateState(updates: Partial<SystemStateType>) {
     const oldState = { ...this.state };
     this.state = { ...this.state, ...updates };
+
+    // Persist state immediately
+    this.persistState();
 
     // Emit change event for UI updates
     this.emit('state-changed', this.state, oldState);

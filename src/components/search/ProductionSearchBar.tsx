@@ -9,7 +9,7 @@ import { useProductionSearch } from '../../hooks/useProductionSearch';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from '../../utils/useDebounce';
 import { toast } from '../../utils/toast';
-import { MobileSearchInput, useMobileDetection } from '../../mobile';
+import { useMobileDetection } from '../../utils/mobileDetection';
 import { cn } from '../../lib/utils';
 
 interface ProductionSearchBarProps {
@@ -109,17 +109,8 @@ export function ProductionSearchBar({
 
   return (
     <div className="relative w-full">
-      {/* Search Input - Use MobileSearchInput on mobile for better UX */}
-      {isMobile ? (
-        <MobileSearchInput
-          value={query}
-          onChange={setQuery}
-          onSearch={handleSearch}
-          placeholder={placeholder}
-          isLoading={isSearching}
-          autoFocus={false}
-        />
-      ) : (
+      {/* Search Input - Desktop browser only */}
+      {
         <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900/50 px-4 py-2 focus-within:border-purple-500/50 focus-within:ring-1 focus-within:ring-purple-500/20">
           <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
           <input
@@ -155,8 +146,8 @@ export function ProductionSearchBar({
         </div>
       )}
 
-      {/* Error indicator for mobile */}
-      {isMobile && searchError && (
+      {/* Error indicator */}
+      {searchError && (
         <div className="mt-2 flex items-center gap-2 text-sm text-red-400">
           <AlertCircle className="h-4 w-4" />
           <span>{searchError}</span>

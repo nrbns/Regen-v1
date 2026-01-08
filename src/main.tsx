@@ -5,8 +5,7 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './styles/globals.css';
 import './styles/mode-themes.css';
-// Mobile styles imported via mobile module
-import './mobile';
+// Mobile styles removed - desktop browser only
 import './lib/battery';
 import './services/tabHibernation/init';
 import { isDevEnv, isElectronRuntime, isTauriRuntime } from './lib/env';
@@ -65,8 +64,7 @@ if (isDevEnv()) {
 import { GlobalErrorBoundary } from './core/errors/ErrorBoundary';
 import { startSnapshotting } from './core/recovery';
 
-// DAY 9 FIX: Onboarding tour for first-time users
-import { QuickStartTour } from './components/Onboarding/QuickStartTour';
+// Onboarding tour removed - not needed for core browser
 
 // REDIX MODE: Runtime enforcement - check mode early
 // import { initializeRedixMode } from './lib/redix-mode/integration'; // Unused
@@ -163,20 +161,24 @@ const AgentConsole = Home; // Disable for Phase 1
 // const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
 // const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
 const AIPanelRoute = Home; // Disable for Phase 1
-const OfflineDocuments = lazyWithErrorHandling(
-  () => import('./routes/OfflineDocuments'),
-  'OfflineDocuments'
-);
-const DocumentEditorPage = lazyWithErrorHandling(
-  () => import('./routes/DocumentEditor'),
-  'DocumentEditorPage'
-);
+// OfflineDocuments removed - offline components removed
+// const OfflineDocuments = lazyWithErrorHandling(
+//   () => import('./routes/OfflineDocuments'),
+//   'OfflineDocuments'
+// );
+// DocumentEditor removed - document editing components removed
+// const DocumentEditorPage = lazyWithErrorHandling(
+//   () => import('./routes/DocumentEditor'),
+//   'DocumentEditorPage'
+// );
 const WatchersPage = lazyWithErrorHandling(() => import('./routes/Watchers'), 'WatchersPage');
-const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPage');
-const ConsentTimelinePage = lazyWithErrorHandling(
-  () => import('./routes/ConsentTimeline'),
-  'ConsentTimelinePage'
-);
+// VideoPage removed - video components removed
+// const VideoPage = lazyWithErrorHandling(() => import('./routes/Video'), 'VideoPage');
+// ConsentTimeline removed - consent components removed
+// const ConsentTimelinePage = lazyWithErrorHandling(
+//   () => import('./routes/ConsentTimeline'),
+//   'ConsentTimelinePage'
+// );
 // PluginMarketplace not found - removed for now
 // const PluginMarketplace = lazyWithErrorHandling(
 //   () =>
@@ -1341,8 +1343,6 @@ try {
                 v7_startTransition: true,
               }}
             />
-            {/* DAY 9 FIX: Show onboarding tour for first-time users */}
-            <QuickStartTour />
           </Suspense>
         </GlobalErrorBoundary>
       </ThemeProvider>
