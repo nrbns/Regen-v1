@@ -11,15 +11,15 @@ export interface TouchButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
   children: React.ReactNode;
 }
 
-export function TouchButton({ 
-  variant = 'primary', 
-  size = 'md', 
-  className = '', 
-  children, 
-  ...props 
+export function TouchButton({
+  variant = 'primary',
+  size = 'md',
+  className = '',
+  children,
+  ...props
 }: TouchButtonProps) {
   const baseClasses = 'min-h-[44px] touch-manipulation font-medium transition-colors rounded-lg';
-  
+
   const variantClasses = {
     primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
     secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300',
@@ -33,7 +33,7 @@ export function TouchButton({
   };
 
   return (
-    <button 
+    <button
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
       {...props}
     >

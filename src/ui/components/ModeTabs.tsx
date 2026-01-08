@@ -34,7 +34,7 @@ const MODE_CONFIG: Array<{
 
 export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
   // In v1-mode, hide mode tabs to keep UI simple and stable
-  if (isV1ModeEnabled()) return null; 
+  if (isV1ModeEnabled()) return null;
 
   const tokens = useTokens();
   const { currentMode, isShifting } = useModeShift();

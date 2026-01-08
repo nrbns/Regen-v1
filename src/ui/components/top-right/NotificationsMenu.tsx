@@ -206,7 +206,7 @@ export function NotificationsMenu() {
         aria-label="Notifications"
         aria-haspopup="menu"
         aria-expanded={open}
-        className="relative rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+        className="relative rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
         onClick={() => {
           setOpen(value => !value);
           if (!open) {
@@ -217,7 +217,7 @@ export function NotificationsMenu() {
         <Bell className="h-5 w-5" aria-hidden />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-0.5 -right-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--color-primary-500)] px-1 text-[0.65rem] font-semibold text-white"
+            className="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--color-primary-500)] px-1 text-[0.65rem] font-semibold text-white"
             aria-live="polite"
           >
             {unreadCount > 99 ? '99+' : unreadCount}

@@ -53,11 +53,7 @@ export function Toggle({
 
   return (
     <label
-      className={`
-        inline-flex items-center gap-2 cursor-pointer
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        ${className}
-      `}
+      className={`inline-flex cursor-pointer items-center gap-2 ${disabled ? 'cursor-not-allowed opacity-50' : ''} ${className} `}
     >
       {label && (
         <span className="text-[var(--text-primary)]" style={{ fontSize: tokens.fontSize.sm }}>
@@ -71,12 +67,7 @@ export function Toggle({
         tabIndex={disabled ? -1 : 0}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className={`
-          relative inline-flex items-center rounded-full transition-colors
-          focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1
-          ${checked ? 'bg-[var(--color-primary-600)]' : 'bg-[var(--surface-elevated)]'}
-          ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
-        `}
+        className={`relative inline-flex items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:ring-offset-1 ${checked ? 'bg-[var(--color-primary-600)]' : 'bg-[var(--surface-elevated)]'} ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} `}
         style={{
           width: '44px',
           height: '24px',
@@ -84,7 +75,7 @@ export function Toggle({
       >
         <motion.div
           layout
-          className="absolute bg-white rounded-full shadow-sm"
+          className="absolute rounded-full bg-white shadow-sm"
           style={{
             width: '20px',
             height: '20px',

@@ -7,8 +7,8 @@ export function useAgentRuns(limit = 10): AgentRunRecord[] {
 
   useEffect(() => {
     const update = (run: AgentRunRecord) => {
-      setRuns((prev) => {
-        const updated = [run, ...prev.filter((r) => r.id !== run.id)];
+      setRuns(prev => {
+        const updated = [run, ...prev.filter(r => r.id !== run.id)];
         return updated.slice(0, limit);
       });
     };
@@ -26,5 +26,3 @@ export function useAgentExecutor(agentId?: string) {
     [agentId]
   );
 }
-
-

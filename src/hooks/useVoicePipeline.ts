@@ -68,7 +68,8 @@ export function useVoicePipeline(
     }
 
     try {
-      const targetLanguage: VoiceLanguage = language === 'hi' ? 'hi' : language === 'auto' ? 'auto' : 'en';
+      const targetLanguage: VoiceLanguage =
+        language === 'hi' ? 'hi' : language === 'auto' ? 'auto' : 'en';
 
       await voicePipeline.startRecognition({
         language: targetLanguage,
@@ -80,14 +81,14 @@ export function useVoicePipeline(
         onResult: async (text, confidence, detectedLang) => {
           setIsListening(false);
           setDetectedLanguage(detectedLang);
-          
+
           if (onLanguageDetected) {
             onLanguageDetected(detectedLang, confidence);
           }
 
           onResult(text, detectedLang);
         },
-        onError: (error) => {
+        onError: error => {
           setIsListening(false);
           console.error('[useVoicePipeline] Recognition error:', error);
         },
@@ -134,7 +135,7 @@ export function useVoicePipeline(
 
       try {
         let targetLang = detectedLang || detectedLanguage;
-        
+
         // Auto-detect if not provided
         if (autoDetectLanguage && !detectedLang) {
           const detection = await detectLanguage(text, { preferIndic: true });
@@ -164,4 +165,3 @@ export function useVoicePipeline(
     speakResponse,
   };
 }
-

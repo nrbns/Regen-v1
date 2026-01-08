@@ -35,9 +35,11 @@ export function getDocumentCommands(navigate: (path: string) => void): DocumentC
         navigate('/doc-editor');
         // Trigger rewrite task after navigation
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('doc-command', {
-            detail: { task: 'rewrite' },
-          }));
+          window.dispatchEvent(
+            new CustomEvent('doc-command', {
+              detail: { task: 'rewrite' },
+            })
+          );
         }, 500);
       },
       keywords: ['rewrite', 'rephrase', 'edit', 'improve'],
@@ -51,9 +53,11 @@ export function getDocumentCommands(navigate: (path: string) => void): DocumentC
       action: () => {
         navigate('/doc-editor');
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('doc-command', {
-            detail: { task: 'grammar' },
-          }));
+          window.dispatchEvent(
+            new CustomEvent('doc-command', {
+              detail: { task: 'grammar' },
+            })
+          );
         }, 500);
       },
       keywords: ['grammar', 'spell', 'check', 'fix', 'correct'],
@@ -67,9 +71,11 @@ export function getDocumentCommands(navigate: (path: string) => void): DocumentC
       action: () => {
         navigate('/doc-editor');
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('doc-command', {
-            detail: { task: 'translate' },
-          }));
+          window.dispatchEvent(
+            new CustomEvent('doc-command', {
+              detail: { task: 'translate' },
+            })
+          );
         }, 500);
       },
       keywords: ['translate', 'language', 'convert', 'hindi', 'english'],
@@ -83,9 +89,11 @@ export function getDocumentCommands(navigate: (path: string) => void): DocumentC
       action: () => {
         navigate('/doc-editor');
         setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('doc-command', {
-            detail: { task: 'normalize' },
-          }));
+          window.dispatchEvent(
+            new CustomEvent('doc-command', {
+              detail: { task: 'normalize' },
+            })
+          );
         }, 500);
       },
       keywords: ['excel', 'normalize', 'clean', 'spreadsheet', 'data'],
@@ -93,4 +101,3 @@ export function getDocumentCommands(navigate: (path: string) => void): DocumentC
     },
   ];
 }
-

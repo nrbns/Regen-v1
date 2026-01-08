@@ -53,4 +53,3 @@ export function URLBarProgress({ isLoading, progress, className = '' }: URLBarPr
     />
   );
 }
-

@@ -144,10 +144,16 @@ export function AIResponsePane({ query, isOpen, onClose }: AIResponsePaneProps) 
           )}
 
           {response && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="prose prose-invert prose-sm max-w-none text-gray-200">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="prose prose-invert prose-sm max-w-none text-gray-200"
+            >
               <div className="whitespace-pre-wrap break-words">
                 {response}
-                {isStreaming && <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-emerald-400" />}
+                {isStreaming && (
+                  <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-emerald-400" />
+                )}
               </div>
               <div ref={responseEndRef} />
             </motion.div>

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useOrchestrator } from '../hooks/useOrchestrator';
 import { ApprovalPanel } from '../components/ApprovalPanel';
+import RealtimePanel from '../components/realtime/RealtimePanel';
 
 export const OrchestratorDemo: React.FC = () => {
   const [userInput, setUserInput] = useState('');
@@ -91,39 +92,37 @@ export const OrchestratorDemo: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+        <div className="mb-8 text-center">
+          <h1 className="mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent">
             🚀 Agent Orchestrator Demo
           </h1>
-          <p className="text-gray-600">
-            Week 1 Implementation - Intelligent Multi-Agent Execution
-          </p>
+          <p className="text-gray-600">Week 1 Implementation - Intelligent Multi-Agent Execution</p>
         </div>
 
         {/* Input Section */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <div className="mb-6 rounded-lg bg-white p-6 shadow-lg">
+          <label className="mb-2 block text-sm font-semibold text-gray-700">
             What would you like to do?
           </label>
           <textarea
             value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
+            onChange={e => setUserInput(e.target.value)}
             placeholder="e.g., Send an email to john@example.com about Q4 results"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            className="mb-4 w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
           />
 
           {/* Example Inputs */}
           <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">Try these examples:</p>
+            <p className="mb-2 text-sm text-gray-600">Try these examples:</p>
             <div className="flex flex-wrap gap-2">
               {exampleInputs.map((example, i) => (
                 <button
                   key={i}
                   onClick={() => setUserInput(example)}
-                  className="text-sm px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
+                  className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-200"
                 >
                   {example.substring(0, 40)}...
                 </button>
@@ -136,54 +135,77 @@ export const OrchestratorDemo: React.FC = () => {
             <button
               onClick={handleClassify}
               disabled={loading || !userInput.trim()}
-              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               🎯 Classify Intent
             </button>
             <button
               onClick={handleCreatePlan}
               disabled={loading || !userInput.trim()}
-              className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               📋 Create Plan
             </button>
             <button
               onClick={handleExecuteDirect}
               disabled={loading || !userInput.trim()}
-              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ⚡ Execute
             </button>
             <button
               onClick={reset}
-              className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-semibold transition-colors"
+              className="rounded-lg bg-gray-200 px-6 py-3 font-semibold text-gray-800 transition-colors hover:bg-gray-300"
             >
               🔄 Reset
+            </button>
+            <button
+              onClick={async () => {
+                const regen: any = (window as any).regen;
+                if (!regen || !regen.runDemoAgent) {
+                  alert('Demo API not available (preload not wired)');
+                  return;
+                }
+                try {
+                  const res = await regen.runDemoAgent();
+                  if (res?.ok) {
+                    alert(`Demo task started: ${res.id}`);
+                  } else {
+                    alert(`Demo failed: ${res?.error || 'unknown'}`);
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('Failed to start demo agent');
+                }
+              }}
+              className="rounded-lg bg-indigo-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              ▶️ Run Demo Agent
             </button>
           </div>
 
           {/* Loading State */}
           {loading && (
             <div className="mt-4 text-center text-blue-600">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <div className="inline-block h-6 w-6 animate-spin rounded-full border-b-2 border-blue-600"></div>
               <span className="ml-2">Processing...</span>
             </div>
           )}
 
           {/* Error State */}
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
               <strong>Error:</strong> {error}
             </div>
           )}
         </div>
 
         {/* Results Section */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Classification Result */}
           {classification && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <div className="rounded-lg bg-white p-6 shadow-lg">
+              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 🎯 Intent Classification
               </h3>
               <div className="space-y-3">
@@ -202,20 +224,24 @@ export const OrchestratorDemo: React.FC = () => {
                   <span className="ml-2 font-semibold">
                     {(classification.confidence * 100).toFixed(1)}%
                   </span>
-                  <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+                  <div className="mt-1 h-2 w-full rounded-full bg-gray-200">
                     <div
-                      className="bg-green-500 h-2 rounded-full"
+                      className="h-2 rounded-full bg-green-500"
                       style={{ width: `${classification.confidence * 100}%` }}
                     ></div>
                   </div>
                 </div>
                 <div>
                   <span className="text-sm text-gray-600">Risk Level:</span>
-                  <span className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                    classification.riskLevel === 'low' ? 'bg-green-100 text-green-700' :
-                    classification.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>
+                  <span
+                    className={`ml-2 rounded-full px-3 py-1 text-sm font-semibold ${
+                      classification.riskLevel === 'low'
+                        ? 'bg-green-100 text-green-700'
+                        : classification.riskLevel === 'medium'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-red-100 text-red-700'
+                    }`}
+                  >
                     {classification.riskLevel?.toUpperCase() || 'UNKNOWN'}
                   </span>
                 </div>
@@ -225,18 +251,16 @@ export const OrchestratorDemo: React.FC = () => {
 
           {/* Execution Result */}
           {result && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <div className="rounded-lg bg-white p-6 shadow-lg">
+              <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 ⚡ Execution Result
               </h3>
               <div className="space-y-3">
                 <div>
                   <span className="text-sm text-gray-600">Status:</span>
                   <span
-                    className={`ml-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                      result.success
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                    className={`ml-2 rounded-full px-3 py-1 text-sm font-semibold ${
+                      result.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}
                   >
                     {result.success ? 'SUCCESS' : 'FAILED'}
@@ -244,7 +268,7 @@ export const OrchestratorDemo: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-sm text-gray-600">Plan ID:</span>
-                  <code className="ml-2 font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                  <code className="ml-2 rounded bg-gray-100 px-2 py-1 font-mono text-xs">
                     {result.planId}
                   </code>
                 </div>
@@ -263,13 +287,17 @@ export const OrchestratorDemo: React.FC = () => {
                     <span className="text-sm text-gray-600">Task Results:</span>
                     <div className="mt-2 space-y-2">
                       {result.results.map((taskResult, idx) => (
-                        <div key={idx} className="text-xs bg-gray-50 p-2 rounded">
+                        <div key={idx} className="rounded bg-gray-50 p-2 text-xs">
                           <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 rounded ${
-                              taskResult.status === 'completed' ? 'bg-green-100 text-green-700' :
-                              taskResult.status === 'failed' ? 'bg-red-100 text-red-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
+                            <span
+                              className={`rounded px-2 py-0.5 ${
+                                taskResult.status === 'completed'
+                                  ? 'bg-green-100 text-green-700'
+                                  : taskResult.status === 'failed'
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
                               {taskResult.status}
                             </span>
                             <span className="font-mono">{taskResult.taskId}</span>
@@ -286,46 +314,47 @@ export const OrchestratorDemo: React.FC = () => {
 
         {/* Approval Panel */}
         {showApproval && plan && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="max-w-4xl w-full">
-              <ApprovalPanel
-                plan={plan}
-                onApprove={handleApprove}
-                onReject={handleReject}
-              />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="w-full max-w-4xl">
+              <ApprovalPanel plan={plan} onApprove={handleApprove} onReject={handleReject} />
             </div>
           </div>
         )}
 
         {/* Info Section */}
-        <div className="mt-8 bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4">ℹ️ How It Works</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-8 rounded-lg bg-white p-6 shadow-lg">
+          <h3 className="mb-4 text-lg font-semibold">ℹ️ How It Works</h3>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <div>
-              <div className="text-3xl mb-2">🎯</div>
-              <h4 className="font-semibold mb-1">1. Classify</h4>
+              <div className="mb-2 text-3xl">🎯</div>
+              <h4 className="mb-1 font-semibold">1. Classify</h4>
               <p className="text-sm text-gray-600">
-                Intent Router analyzes your request and identifies the appropriate agent
-                (mail, ppt, booking, research, etc.)
+                Intent Router analyzes your request and identifies the appropriate agent (mail, ppt,
+                booking, research, etc.)
               </p>
             </div>
             <div>
-              <div className="text-3xl mb-2">📋</div>
-              <h4 className="font-semibold mb-1">2. Plan</h4>
+              <div className="mb-2 text-3xl">📋</div>
+              <h4 className="mb-1 font-semibold">2. Plan</h4>
               <p className="text-sm text-gray-600">
-                Task Planner breaks down your request into executable steps with dependencies
-                and estimates duration
+                Task Planner breaks down your request into executable steps with dependencies and
+                estimates duration
               </p>
             </div>
             <div>
-              <div className="text-3xl mb-2">⚡</div>
-              <h4 className="font-semibold mb-1">3. Execute</h4>
+              <div className="mb-2 text-3xl">⚡</div>
+              <h4 className="mb-1 font-semibold">3. Execute</h4>
               <p className="text-sm text-gray-600">
-                Task Executor runs each step with retry logic, timeout protection, and
-                automatic error handling
+                Task Executor runs each step with retry logic, timeout protection, and automatic
+                error handling
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Realtime Panel (live task UI) */}
+        <div className="mt-8">
+          <RealtimePanel />
         </div>
       </div>
     </div>

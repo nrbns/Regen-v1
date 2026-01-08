@@ -1,142 +1,93 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
-import { OmniShell } from '../../ui/components/OmniShell';
-import { DesktopIcons } from '../../ui/components/DesktopIcons';
-import { useAppStore } from '../../state/appStore';
-import TradeLayout from '../../os/modes/Trade/TradeLayout';
-import { OSBar } from '../ui/OSBar';
-import StatusStrip from '../../components/ui/StatusStrip';
-import SystemBar from '../../components/ui/SystemBar';
-import CommandBar from '../../components/ui/CommandBar';
-import AgentPanel from '../../components/ui/AgentPanel';
-import { SignalRail } from '../ui/SignalRail';
-import { ContextOverlay } from '../ui/ContextOverlay';
-import { WhisperStrip } from '../ui/WhisperStrip';
-import { useState } from 'react';
-import { TopBar } from '../../ui/components/TopBar';
-import { RegenResearchPanel } from '../../components/research/RegenResearchPanel';
-import { AIDeveloperConsole } from '../../components/dev-console/AIDeveloperConsole';
-import KnowledgePanel from '../../ui/components/KnowledgePanel';
-import { ResourceMonitor } from '../resource/ResourceMonitor';
+import React, { useState, useEffect } from 'react';
+import { TabsBar } from '../../ui/components/TabsBar';
+import { AddressBar } from '../../ui/components/AddressBar';
+import { WebView } from '../../ui/components/WebView';
+import { StatusStrip } from '../../ui/components/StatusStrip';
+import { Diagnostics } from '../../ui/components/Diagnostics';
+import { systemState, IPCHandler, IPC_EVENTS } from '../../backend';
 
 export function AppShell(): JSX.Element {
-  const mode = useAppStore(s => s.mode);
-  const [showOverlay, setShowOverlay] = useState(false);
-  const [overlayTitle, setOverlayTitle] = useState<string | undefined>(undefined);
-  const [overlayContent, setOverlayContent] = useState<React.ReactNode | undefined>(undefined);
-  // Show the TopBar for all primary modes to provide consistent chrome
-  const showTopBar = true;
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [systemStateData, setSystemStateData] = useState(systemState.getState());
 
-  React.useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent;
-      if (ev?.detail) {
-        setOverlayTitle(ev.detail.title ?? 'Details');
-        setOverlayContent(ev.detail.message ?? undefined);
-        setShowOverlay(true);
+  // Subscribe to system state changes
+  useEffect(() => {
+    const handleStateChange = (newState: any) => {
+      setSystemStateData(newState);
+    };
+
+    systemState.on('state-changed', handleStateChange);
+
+    // Initialize with one tab if none exist
+    if (systemStateData.tabs.length === 0) {
+      IPCHandler.newTab();
+    }
+
+    return () => {
+      systemState.off('state-changed', handleStateChange);
+    };
+  }, []);
+
+  const activeTab = systemStateData.tabs.find(tab => tab.id === systemStateData.activeTabId);
+
+  // Handle navigation from address bar - UI only sends events
+  const handleNavigate = (url: string) => {
+    if (systemStateData.activeTabId) {
+      IPCHandler.navigate(systemStateData.activeTabId, url);
+    }
+  };
+
+  // Handle URL changes from iframe - UI only sends events
+  const handleUrlChange = (url: string) => {
+    if (systemStateData.activeTabId) {
+      // In a real implementation, this would be handled by the WebView's navigation events
+      // For now, just update the state
+      systemState.updateTab(systemStateData.activeTabId, { url, title: url });
+    }
+  };
+
+  // Keyboard shortcut for diagnostics (Ctrl+Shift+D)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        setShowDiagnostics(true);
+      }
+      if (e.key === 'Escape' && showDiagnostics) {
+        setShowDiagnostics(false);
       }
     };
 
-    window.addEventListener('os:show-overlay', handler as EventListener);
-    return () => window.removeEventListener('os:show-overlay', handler as EventListener);
-  }, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showDiagnostics]);
 
   return (
-    <OmniShell showTopBar={false} showTaskBar={false}>
-      <div className="flex h-full flex-1 flex-col pb-12" style={{ background: '#0F1115' }}>
-        {/* OS Authority Bar */}
-        <OSBar />
-        {/* Minimal status strip (read-only) */}
-        <StatusStrip mode={mode} agent={"N/A"} health={"Stable"} />
+    <div className="h-screen w-screen flex flex-col bg-slate-900 text-white">
+      {/* Tabs Bar */}
+      <TabsBar />
 
-        <div className="flex h-[calc(100%-48px)] flex-1">
-          {/* Signal rail */}
-          <SignalRail />
+      {/* Address Bar */}
+      <AddressBar
+        onNavigate={handleNavigate}
+        currentUrl={activeTab?.url}
+      />
 
-          {/* Main workspace */}
-          <main className="relative h-full flex-1 overflow-hidden">
-            {mode === 'Browse' ? (
-              <>
-                <TopBar />
-                <div className="os-desktop relative h-full w-full">
-                  <DesktopIcons />
+      {/* Web Content Area */}
+      <WebView
+        url={activeTab?.url}
+        onUrlChange={handleUrlChange}
+      />
 
-                  <div className="relative z-10 flex h-full items-center justify-center p-8">
-                    <div className="w-full max-w-2xl text-center">
-                      <h1 className="mb-4 text-4xl font-bold text-white">Omnibrowser OS</h1>
-                      <p className="text-lg text-white/60">
-                        Welcome to your AI-powered desktop environment
-                      </p>
-                      <div className="bg-white/6 border-white/6 mx-auto mt-8 max-w-md rounded-2xl border p-6">
-                        <Outlet />
-                        <div className="mt-4 flex justify-center">
-                          <button
-                            className="rounded bg-[#4FD1C5] px-3 py-1 text-black"
-                            onClick={() => setShowOverlay(true)}
-                          >
-                            Summarize
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : mode === 'Trade' ? (
-              <TradeLayout />
-            ) : mode === 'Research' ? (
-              <div className="h-full w-full">
-                <TopBar />
-                <div className="h-full p-4">
-                  <RegenResearchPanel />
-                </div>
-              </div>
-            ) : mode === 'Knowledge' ? (
-              <div className="h-full w-full">
-                <TopBar />
-                <div className="h-full p-4">
-                  <KnowledgePanel />
-                </div>
-              </div>
-            ) : mode === 'Dev' ? (
-              <div className="h-full w-full">
-                <TopBar />
-                <div className="h-full p-4">
-                  <AIDeveloperConsole />
-                </div>
-              </div>
-            ) : (
-              <div className="h-full p-4">
-                <Outlet />
-              </div>
-            )}
-          </main>
-        </div>
+      {/* Status Strip */}
+      <StatusStrip status={systemStateData.status} />
 
-        {/* Command input (emits raw text events only) */}
-        <CommandBar onUserInput={text => window.dispatchEvent(new CustomEvent('ui:user-input', { detail: text }))} />
-
-        {/* System metrics (read-only) */}
-        <SystemBar ram="-" cpu="-" battery="-" redix="-" lastRepair="-" />
-
-        <WhisperStrip active={false} />
-
-        {/* Collapsed Agent Panel (read-only) */}
-        <div style={{ position: 'fixed', right: 8, bottom: 72, width: 260 }}>
-          <AgentPanel agents={[]} onStop={id => window.dispatchEvent(new CustomEvent('agent:stop', { detail: id }))} />
-        </div>
-
-        {showOverlay && (
-          <ContextOverlay
-            title={overlayTitle}
-            content={overlayContent}
-            onDismiss={() => setShowOverlay(false)}
-          />
-        )}
-
-        <ResourceMonitor />
-      </div>
-    </OmniShell>
+      {/* Diagnostics (hidden by default, Ctrl+Shift+D to show) */}
+      <Diagnostics
+        isOpen={showDiagnostics}
+        onClose={() => setShowDiagnostics(false)}
+      />
+    </div>
   );
 }
 

@@ -11,9 +11,7 @@ const OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
  * the user to download a ~78 MB model and streams progress. Returns true if a model
  * is ready, false otherwise.
  */
-export async function ensureAIModelAvailable(
-  opts: EnsureModelOptions = {}
-): Promise<boolean> {
+export async function ensureAIModelAvailable(opts: EnsureModelOptions = {}): Promise<boolean> {
   const model = opts.model ?? DEFAULT_MODEL;
   const cacheKey = `regen:model-ready:${model}`;
 
@@ -29,9 +27,8 @@ export async function ensureAIModelAvailable(
   }
 
   // Minimal prompt to avoid heavy UI dependencies
-  const confirmed = typeof window !== 'undefined'
-    ? window.confirm('Unlock AI locally (≈78 MB download)?')
-    : false;
+  const confirmed =
+    typeof window !== 'undefined' ? window.confirm('Unlock AI locally (≈78 MB download)?') : false;
 
   if (!confirmed) {
     return false;
@@ -50,7 +47,9 @@ async function checkModel(model: string): Promise<boolean> {
     if (!res.ok) return false;
     const data = await res.json();
     const models = Array.isArray(data?.models) ? data.models : [];
-    return models.some((m: any) => typeof m?.name === 'string' && m.name.includes(model.split(':')[0]));
+    return models.some(
+      (m: any) => typeof m?.name === 'string' && m.name.includes(model.split(':')[0])
+    );
   } catch {
     return false;
   }
@@ -91,4 +90,3 @@ async function pullModel(model: string, onProgress?: (status: string) => void): 
     return false;
   }
 }
-

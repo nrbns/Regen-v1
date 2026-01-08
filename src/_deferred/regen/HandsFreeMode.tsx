@@ -150,42 +150,42 @@ export function HandsFreeMode({ sessionId, mode, onCommand, onClose }: HandsFree
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-      <div className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2 shadow-lg">
+      <div className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 p-2 shadow-lg">
         <button
           onClick={() => setTtsEnabled(!ttsEnabled)}
-          className={`p-2 rounded transition-colors ${
+          className={`rounded p-2 transition-colors ${
             ttsEnabled
               ? 'bg-green-600 text-white hover:bg-green-700'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
           }`}
           aria-label={ttsEnabled ? 'Disable TTS' : 'Enable TTS'}
         >
-          {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          {ttsEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
         <button
           onClick={toggleListening}
-          className={`p-3 rounded-full transition-colors ${
+          className={`rounded-full p-3 transition-colors ${
             isListening
-              ? 'bg-red-600 text-white hover:bg-red-700 animate-pulse'
+              ? 'animate-pulse bg-red-600 text-white hover:bg-red-700'
               : 'bg-blue-600 text-white hover:bg-blue-700'
           }`}
           aria-label={isListening ? 'Stop listening' : 'Start listening'}
         >
-          {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+          {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
         </button>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-300 transition-colors"
+            className="p-2 text-gray-400 transition-colors hover:text-gray-300"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {isListening && (
-        <div className="bg-blue-600 text-white text-xs px-3 py-1 rounded-full">
+        <div className="rounded-full bg-blue-600 px-3 py-1 text-xs text-white">
           {isProcessing ? 'Processing...' : 'Listening...'}
         </div>
       )}

@@ -270,16 +270,16 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
 
   if (!hasApiKey) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+      <div className="flex flex-col items-center justify-center space-y-4 p-8">
         <AlertCircle className="text-yellow-500" size={48} />
         <h3 className="text-lg font-semibold text-gray-200">Cursor API Key Required</h3>
-        <p className="text-sm text-gray-400 text-center max-w-md">
+        <p className="max-w-md text-center text-sm text-gray-400">
           Please configure your Cursor API key to use the AI assistant. Your key will be stored
           securely using your OS keychain.
         </p>
         <button
           onClick={() => setShowSettings(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
         >
           Configure API Key
         </button>
@@ -288,9 +288,9 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/60 border border-slate-700/70 rounded-xl overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-slate-700/70 bg-slate-900/60">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-700/70">
+      <div className="flex items-center justify-between border-b border-slate-700/70 p-4">
         <div className="flex items-center gap-2">
           <Bot className="text-blue-400" size={20} />
           <h3 className="text-sm font-semibold text-gray-200">Cursor AI</h3>
@@ -304,7 +304,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
           )}
           <button
             onClick={() => setShowSettings(true)}
-            className="p-1.5 rounded hover:bg-slate-800 transition"
+            className="rounded p-1.5 transition hover:bg-slate-800"
             title="Settings"
           >
             <Settings size={16} className="text-gray-400" />
@@ -312,7 +312,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1.5 rounded hover:bg-slate-800 transition"
+              className="rounded p-1.5 transition hover:bg-slate-800"
               title="Close"
             >
               <X size={16} className="text-gray-400" />
@@ -322,9 +322,9 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-2">
+          <div className="flex h-full flex-col items-center justify-center space-y-2 text-center">
             <Bot className="text-gray-500" size={48} />
             <p className="text-sm text-gray-400">Ask Cursor AI anything about this page or code</p>
           </div>
@@ -345,19 +345,19 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
                     : 'bg-slate-800/80 text-gray-200'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
                 {msg.streaming && (
-                  <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
+                  <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-blue-400" />
                 )}
                 {msg.citations && msg.citations.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-slate-700 space-y-1">
+                  <div className="mt-2 space-y-1 border-t border-slate-700 pt-2">
                     {msg.citations.map((cite, idx) => (
                       <a
                         key={idx}
                         href={cite.url || cite.file}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs text-blue-300 hover:text-blue-200 flex items-center gap-1"
+                        className="flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200"
                       >
                         <ExternalLink size={12} />
                         {cite.file || cite.url}
@@ -373,7 +373,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="p-4 border-t border-slate-700/70 space-y-2">
+      <form onSubmit={handleSubmit} className="space-y-2 border-t border-slate-700/70 p-4">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -381,13 +381,13 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
             onChange={e => setInput(e.target.value)}
             placeholder="Ask Cursor AI..."
             disabled={isStreaming}
-            className="flex-1 px-3 py-2 bg-slate-800/80 border border-slate-700/70 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-slate-700/70 bg-slate-800/80 px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:border-blue-500 focus:outline-none disabled:opacity-50"
           />
           {isStreaming ? (
             <button
               type="button"
               onClick={handleCancel}
-              className="px-4 py-2 bg-red-600/80 text-white rounded-lg hover:bg-red-700 transition"
+              className="rounded-lg bg-red-600/80 px-4 py-2 text-white transition hover:bg-red-700"
             >
               Cancel
             </button>
@@ -395,7 +395,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
             <button
               type="submit"
               disabled={!input.trim()}
-              className="px-4 py-2 bg-blue-600/80 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="flex items-center gap-2 rounded-lg bg-blue-600/80 px-4 py-2 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={16} />
             </button>
@@ -405,7 +405,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
           <button
             type="button"
             onClick={handleClearHistory}
-            className="hover:text-gray-400 transition"
+            className="transition hover:text-gray-400"
           >
             Clear history
           </button>
@@ -416,15 +416,15 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
       {/* Settings Modal */}
       {showSettings && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setShowSettings(false)}
         >
           <div
-            className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md w-full mx-4"
+            className="mx-4 w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6"
             onClick={e => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Cursor API Key</h3>
-            <p className="text-sm text-gray-400 mb-4">
+            <h3 className="mb-4 text-lg font-semibold text-gray-200">Cursor API Key</h3>
+            <p className="mb-4 text-sm text-gray-400">
               Your API key will be stored securely using your OS keychain.
             </p>
             <input
@@ -432,12 +432,12 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
               value={apiKeyInput}
               onChange={e => setApiKeyInput(e.target.value)}
               placeholder="Enter Cursor API key"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-gray-200 mb-4 focus:outline-none focus:border-blue-500"
+              className="mb-4 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-gray-200 focus:border-blue-500 focus:outline-none"
             />
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSetApiKey}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700"
               >
                 Save
               </button>
@@ -446,7 +446,7 @@ export function CursorChat({ pageSnapshot, editorState, onClose }: CursorChatPro
                   setShowSettings(false);
                   setApiKeyInput('');
                 }}
-                className="px-4 py-2 bg-slate-800 text-gray-300 rounded-lg hover:bg-slate-700 transition"
+                className="rounded-lg bg-slate-800 px-4 py-2 text-gray-300 transition hover:bg-slate-700"
               >
                 Cancel
               </button>

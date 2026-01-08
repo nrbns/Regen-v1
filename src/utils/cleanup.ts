@@ -114,7 +114,7 @@ export class CleanupManager {
  */
 export function useCleanup() {
   const manager = new CleanupManager();
-  
+
   // Cleanup on unmount
   if (typeof window !== 'undefined') {
     const originalCleanup = manager.cleanup.bind(manager);
@@ -123,7 +123,6 @@ export function useCleanup() {
       originalCleanup();
     };
   }
-  
+
   return () => {};
 }
-

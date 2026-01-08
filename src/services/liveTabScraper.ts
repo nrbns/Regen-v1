@@ -48,53 +48,7 @@ export async function scrapeActiveTab(): Promise<LiveScrapeResult | null> {
       return await scrapeViaTauri(activeTab.url);
     }
 
-    // Execute scraping script in iframe
-    const scrapeScript = `
-      (function() {
-        try {
-          const title = document.title || '';
-          const text = document.body?.innerText || document.body?.textContent || '';
-          const html = document.documentElement.outerHTML || '';
-          
-          // Extract images
-          const images = Array.from(document.querySelectorAll('img'))
-            .map(img => img.src || img.getAttribute('data-src'))
-            .filter(Boolean);
-          
-          // Extract links
-          const links = Array.from(document.querySelectorAll('a[href]'))
-            .map(a => ({
-              text: a.textContent?.trim() || '',
-              url: a.href || ''
-            }))
-            .filter(l => l.url && l.url.startsWith('http'));
-          
-          return {
-            url: window.location.href,
-            title,
-            content: text.substring(0, 50000), // Limit size
-            text: text.substring(0, 50000),
-            html: html.substring(0, 200000), // Limit HTML size
-            images: images.slice(0, 20),
-            links: links.slice(0, 50),
-            timestamp: Date.now(),
-            success: true
-          };
-        } catch (e) {
-          return {
-            url: window.location.href,
-            title: document.title || '',
-            content: '',
-            text: '',
-            error: e.message,
-            timestamp: Date.now(),
-            success: false
-          };
-        }
-      })();
-    `;
-
-    // Post message to iframe to execute script
+    // Post message to iframe to execute scraping (do NOT send executable script)
     return new Promise<LiveScrapeResult | null>(resolve => {
       const timeout = setTimeout(() => {
         window.removeEventListener('message', handleMessage);
@@ -117,15 +71,9 @@ export async function scrapeActiveTab(): Promise<LiveScrapeResult | null> {
 
       window.addEventListener('message', handleMessage);
 
-      // Send scrape command to iframe
+      // Send scrape command to iframe (no script payload)
       if (iframe.contentWindow) {
-        iframe.contentWindow.postMessage(
-          {
-            type: 'scrape:execute',
-            script: scrapeScript,
-          },
-          '*' // Note: In production, should use specific origin
-        );
+        iframe.contentWindow.postMessage({ type: 'scrape:execute' }, '*');
       }
 
       // Also try direct execution if same-origin, or use browserScrape function
@@ -142,17 +90,7 @@ export async function scrapeActiveTab(): Promise<LiveScrapeResult | null> {
             return;
           }
         }
-
-        // Fallback: try eval (only works same-origin)
-        if (iframe.contentWindow && 'eval' in iframe.contentWindow) {
-          const result = (iframe.contentWindow as any).eval(scrapeScript);
-          if (result) {
-            clearTimeout(timeout);
-            window.removeEventListener('message', handleMessage);
-            console.debug('[LiveTabScraper] Scraped via eval:', result.url);
-            resolve(result as LiveScrapeResult);
-          }
-        }
+        // Do NOT attempt to eval arbitrary code in the iframe. Wait for postMessage response.
       } catch {
         // Cross-origin - wait for postMessage response
         console.debug('[LiveTabScraper] Cross-origin, waiting for postMessage response');

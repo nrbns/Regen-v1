@@ -56,7 +56,9 @@ export function forceGarbageCollection(): void {
     (window as any).gc();
     console.log('[MemoryLimits] Forced garbage collection');
   } else {
-    console.warn('[MemoryLimits] Garbage collection not available (requires --js-flags=--expose-gc)');
+    console.warn(
+      '[MemoryLimits] Garbage collection not available (requires --js-flags=--expose-gc)'
+    );
   }
 }
 
@@ -68,11 +70,13 @@ export function startMemoryMonitoring(intervalMs: number = 30000): () => void {
     const { usedMB, percentage } = getMemoryUsage();
 
     if (isMemoryExceeded()) {
-      console.error(`[MemoryLimits] Memory limit exceeded: ${usedMB.toFixed(2)}MB (${percentage.toFixed(1)}%)`);
-      
+      console.error(
+        `[MemoryLimits] Memory limit exceeded: ${usedMB.toFixed(2)}MB (${percentage.toFixed(1)}%)`
+      );
+
       // Force cleanup
       forceGarbageCollection();
-      
+
       // Emit event for UI to handle
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
@@ -82,8 +86,10 @@ export function startMemoryMonitoring(intervalMs: number = 30000): () => void {
         );
       }
     } else if (isMemoryHigh()) {
-      console.warn(`[MemoryLimits] High memory usage: ${usedMB.toFixed(2)}MB (${percentage.toFixed(1)}%)`);
-      
+      console.warn(
+        `[MemoryLimits] High memory usage: ${usedMB.toFixed(2)}MB (${percentage.toFixed(1)}%)`
+      );
+
       // Emit warning event
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
@@ -97,4 +103,3 @@ export function startMemoryMonitoring(intervalMs: number = 30000): () => void {
 
   return () => clearInterval(interval);
 }
-

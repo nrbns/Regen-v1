@@ -148,6 +148,9 @@ fn main() {
             commands::system_get_ram,
             commands::system_get_max_tabs,
             commands::get_system_info,
+            // Task system commands
+            commands::run_demo_agent,
+            commands::cancel_task,
             // Legacy commands
             commands::search,
         ])

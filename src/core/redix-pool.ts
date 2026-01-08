@@ -1,9 +1,9 @@
 /**
  * RedixPool - DOM Element Pooling System
- * 
+ *
  * Reuses DOM elements to reduce memory allocation and improve performance.
  * Critical for low-end devices and universal compatibility.
- * 
+ *
  * Usage:
  *   const pool = new RedixPool();
  *   const tab = pool.getTab();
@@ -17,7 +17,7 @@ export class RedixPool {
   private divPool: HTMLDivElement[] = [];
   private spanPool: HTMLSpanElement[] = [];
   private linkPool: HTMLAnchorElement[] = [];
-  
+
   private maxPoolSize = 50;
   private stats = {
     tabsCreated: 0,
@@ -41,7 +41,7 @@ export class RedixPool {
       tab.removeAttribute('data-tab-id');
       return tab;
     }
-    
+
     this.stats.tabsCreated++;
     const newTab = document.createElement('div');
     newTab.className = 'tab';
@@ -53,19 +53,19 @@ export class RedixPool {
    */
   returnTab(tab: HTMLElement): void {
     if (!tab || !tab.parentNode) return;
-    
+
     // Clean up
     tab.innerHTML = '';
     tab.className = 'tab';
     tab.removeAttribute('data-tab-id');
     tab.removeAttribute('data-active');
     tab.removeAttribute('aria-selected');
-    
+
     // Remove from DOM
     if (tab.parentNode) {
       tab.parentNode.removeChild(tab);
     }
-    
+
     // Add to pool if not full
     if (this.tabPool.length < this.maxPoolSize) {
       this.tabPool.push(tab);
@@ -88,7 +88,7 @@ export class RedixPool {
       button.removeAttribute('title');
       return button;
     }
-    
+
     this.stats.buttonsCreated++;
     const newButton = document.createElement('button');
     newButton.type = 'button';
@@ -101,19 +101,19 @@ export class RedixPool {
    */
   returnButton(button: HTMLButtonElement): void {
     if (!button) return;
-    
+
     // Clean up
     button.innerHTML = '';
     button.className = 'button';
     button.disabled = false;
     button.removeAttribute('aria-label');
     button.removeAttribute('title');
-    
+
     // Remove from DOM
     if (button.parentNode) {
       button.parentNode.removeChild(button);
     }
-    
+
     // Add to pool if not full
     if (this.buttonPool.length < this.maxPoolSize) {
       this.buttonPool.push(button);
@@ -134,7 +134,7 @@ export class RedixPool {
       div.removeAttribute('data-id');
       return div;
     }
-    
+
     this.stats.divsCreated++;
     return document.createElement('div');
   }
@@ -144,18 +144,18 @@ export class RedixPool {
    */
   returnDiv(div: HTMLDivElement): void {
     if (!div) return;
-    
+
     // Clean up
     div.innerHTML = '';
     div.className = '';
     div.removeAttribute('id');
     div.removeAttribute('data-id');
-    
+
     // Remove from DOM
     if (div.parentNode) {
       div.parentNode.removeChild(div);
     }
-    
+
     // Add to pool if not full
     if (this.divPool.length < this.maxPoolSize) {
       this.divPool.push(div);
@@ -172,7 +172,7 @@ export class RedixPool {
       span.className = '';
       return span;
     }
-    
+
     return document.createElement('span');
   }
 
@@ -181,14 +181,14 @@ export class RedixPool {
    */
   returnSpan(span: HTMLSpanElement): void {
     if (!span || this.spanPool.length >= this.maxPoolSize) return;
-    
+
     span.innerHTML = '';
     span.className = '';
-    
+
     if (span.parentNode) {
       span.parentNode.removeChild(span);
     }
-    
+
     this.spanPool.push(span);
   }
 
@@ -205,7 +205,7 @@ export class RedixPool {
       link.removeAttribute('rel');
       return link;
     }
-    
+
     return document.createElement('a');
   }
 
@@ -214,17 +214,17 @@ export class RedixPool {
    */
   returnLink(link: HTMLAnchorElement): void {
     if (!link || this.linkPool.length >= this.maxPoolSize) return;
-    
+
     link.href = '';
     link.innerHTML = '';
     link.className = '';
     link.removeAttribute('target');
     link.removeAttribute('rel');
-    
+
     if (link.parentNode) {
       link.parentNode.removeChild(link);
     }
-    
+
     this.linkPool.push(link);
   }
 
@@ -252,8 +252,12 @@ export class RedixPool {
         spans: this.spanPool.length,
         links: this.linkPool.length,
       },
-      totalPooled: this.tabPool.length + this.buttonPool.length + this.divPool.length + 
-                   this.spanPool.length + this.linkPool.length,
+      totalPooled:
+        this.tabPool.length +
+        this.buttonPool.length +
+        this.divPool.length +
+        this.spanPool.length +
+        this.linkPool.length,
     };
   }
 
@@ -262,7 +266,7 @@ export class RedixPool {
    */
   setMaxPoolSize(size: number): void {
     this.maxPoolSize = Math.max(0, Math.min(100, size)); // Clamp between 0 and 100
-    
+
     // Trim pools if needed
     if (this.tabPool.length > this.maxPoolSize) {
       this.tabPool = this.tabPool.slice(0, this.maxPoolSize);
@@ -304,4 +308,3 @@ export function resetRedixPool(): void {
   }
   redixPoolInstance = null;
 }
-

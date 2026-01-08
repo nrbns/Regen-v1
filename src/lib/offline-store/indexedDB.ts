@@ -82,9 +82,11 @@ export function getOfflineDB(): OfflineDocumentDB {
 /**
  * Store a document in IndexedDB
  */
-export async function storeDocument(document: Omit<StoredDocument, 'indexedAt' | 'accessedAt' | 'accessCount'>): Promise<string> {
+export async function storeDocument(
+  document: Omit<StoredDocument, 'indexedAt' | 'accessedAt' | 'accessCount'>
+): Promise<string> {
   const db = getOfflineDB();
-  
+
   const now = Date.now();
   const doc: StoredDocument = {
     ...document,
@@ -119,7 +121,7 @@ export async function storeDocument(document: Omit<StoredDocument, 'indexedAt' |
  */
 export async function getDocument(idOrUrl: string): Promise<StoredDocument | undefined> {
   const db = getOfflineDB();
-  
+
   // Try by ID first
   const byId = await db.documents.get(idOrUrl);
   if (byId) {
@@ -128,7 +130,7 @@ export async function getDocument(idOrUrl: string): Promise<StoredDocument | und
       accessedAt: Date.now(),
       accessCount: (byId.accessCount || 0) + 1,
     });
-    
+
     // Load chunks
     const chunks = await db.chunks.where('documentId').equals(idOrUrl).toArray();
     return { ...byId, chunks };
@@ -141,7 +143,7 @@ export async function getDocument(idOrUrl: string): Promise<StoredDocument | und
       accessedAt: Date.now(),
       accessCount: (byUrl.accessCount || 0) + 1,
     });
-    
+
     const chunks = await db.chunks.where('documentId').equals(byUrl.id).toArray();
     return { ...byUrl, chunks };
   }
@@ -152,23 +154,25 @@ export async function getDocument(idOrUrl: string): Promise<StoredDocument | und
 /**
  * List all documents
  */
-export async function listDocuments(options: {
-  limit?: number;
-  offset?: number;
-  sortBy?: 'indexedAt' | 'accessedAt' | 'accessCount';
-  order?: 'asc' | 'desc';
-} = {}): Promise<StoredDocument[]> {
+export async function listDocuments(
+  options: {
+    limit?: number;
+    offset?: number;
+    sortBy?: 'indexedAt' | 'accessedAt' | 'accessCount';
+    order?: 'asc' | 'desc';
+  } = {}
+): Promise<StoredDocument[]> {
   const db = getOfflineDB();
-  
+
   const { limit = 50, offset = 0, sortBy = 'indexedAt', order = 'desc' } = options;
-  
+
   let query = db.documents.orderBy(sortBy);
   if (order === 'desc') {
     query = query.reverse();
   }
-  
+
   const docs = await query.offset(offset).limit(limit).toArray();
-  
+
   // Load chunks for each document
   const docsWithChunks = await Promise.all(
     docs.map(async doc => {
@@ -176,7 +180,7 @@ export async function listDocuments(options: {
       return { ...doc, chunks };
     })
   );
-  
+
   return docsWithChunks;
 }
 
@@ -185,10 +189,10 @@ export async function listDocuments(options: {
  */
 export async function deleteDocument(id: string): Promise<void> {
   const db = getOfflineDB();
-  
+
   // Delete chunks first
   await db.chunks.where('documentId').equals(id).delete();
-  
+
   // Delete document
   await db.documents.delete(id);
 }
@@ -207,18 +211,18 @@ export async function getDocumentCount(): Promise<number> {
 export async function getStorageSize(): Promise<number> {
   const db = getOfflineDB();
   const docs = await db.documents.toArray();
-  
+
   // Estimate size (rough calculation)
   let totalSize = 0;
   for (const doc of docs) {
     totalSize += JSON.stringify(doc).length;
   }
-  
+
   const chunks = await db.chunks.toArray();
   for (const chunk of chunks) {
     totalSize += JSON.stringify(chunk).length;
   }
-  
+
   return totalSize;
 }
 
@@ -232,4 +236,3 @@ export async function clearAllDocuments(): Promise<void> {
     await db.documents.clear();
   });
 }
-

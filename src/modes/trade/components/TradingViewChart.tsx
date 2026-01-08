@@ -284,22 +284,22 @@ export default function TradingViewChart({
   return (
     <div className="rounded-lg border border-gray-800 bg-[#1a1a1a] text-white shadow-2xl">
       {/* TradingView-style header with toolbar */}
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2.5 bg-[#131722]">
+      <div className="flex items-center justify-between border-b border-gray-800 bg-[#131722] px-4 py-2.5">
         <div className="flex items-center gap-4">
           <div>
             <p className="text-lg font-bold text-white">{symbol}</p>
             <p className="text-xs text-gray-400">Timeframe: {timeframe}m</p>
           </div>
           {/* Indicator buttons toolbar */}
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             <button
-              className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition"
+              className="rounded bg-gray-800 px-3 py-1 text-xs text-gray-300 transition hover:bg-gray-700"
               title="Add Indicator"
             >
               Indicators
             </button>
             <button
-              className="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded text-gray-300 transition"
+              className="rounded bg-gray-800 px-3 py-1 text-xs text-gray-300 transition hover:bg-gray-700"
               title="Drawing Tools"
             >
               Draw

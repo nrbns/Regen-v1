@@ -89,9 +89,9 @@ export function downloadSettings(): void {
  * Phase 1, Day 4: Import settings from file
  */
 export function importSettingsFromFile(file: File): Promise<{ success: boolean; error?: string }> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = e => {
       try {
         const json = e.target?.result as string;
         const result = importSettings(json);
@@ -107,4 +107,3 @@ export function importSettingsFromFile(file: File): Promise<{ success: boolean; 
     reader.readAsText(file);
   });
 }
-

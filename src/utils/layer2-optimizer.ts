@@ -1,6 +1,6 @@
 /**
  * Layer 2: UI/UX Performance Optimizer
- * 
+ *
  * Implements:
  * 1. Layout reflow prevention
  * 2. Virtual scrolling for large lists
@@ -112,7 +112,10 @@ export class VirtualScroller {
   /**
    * Get visible range of items
    */
-  getVisibleRange(totalItems: number, scrollTop: number): { start: number; end: number; offset: number } {
+  getVisibleRange(
+    totalItems: number,
+    scrollTop: number
+  ): { start: number; end: number; offset: number } {
     this.totalItems = totalItems;
     this.scrollTop = scrollTop;
 

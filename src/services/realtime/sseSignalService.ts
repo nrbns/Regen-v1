@@ -197,9 +197,9 @@ export class SSESignalService {
       });
 
       // Phase 1, Day 9: Handle connection errors
-      this.eventSource.onerror = (error) => {
+      this.eventSource.onerror = error => {
         console.error('[SSESignalService] SSE error:', error);
-        
+
         if (this.eventSource?.readyState === EventSource.CLOSED) {
           this.updateStatus({
             connected: false,
@@ -349,4 +349,3 @@ export function getSSESignalService(sseUrl?: string): SSESignalService {
   }
   return instance;
 }
-

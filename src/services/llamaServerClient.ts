@@ -68,15 +68,17 @@ export async function generateViaServer(
     const ws = new WebSocket(`ws://127.0.0.1:${port}/generate`);
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'generate',
-        ...request,
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'generate',
+          ...request,
+        })
+      );
     };
 
     let fullText = '';
 
-    ws.onmessage = (event) => {
+    ws.onmessage = event => {
       try {
         const data = JSON.parse(event.data);
 
@@ -139,7 +141,7 @@ export async function startLlamaServer(modelPath: string): Promise<ServerConnect
   }
 
   const { invoke } = await import('@tauri-apps/api/core');
-  const status = await invoke('start_llama_server', { modelPath }) as {
+  const status = (await invoke('start_llama_server', { modelPath })) as {
     running: boolean;
     port?: number;
     model_loaded: boolean;
@@ -176,7 +178,7 @@ export async function getLlamaServerStatus(): Promise<ServerConnection> {
   }
 
   const { invoke } = await import('@tauri-apps/api/core');
-  const status = await invoke('get_llama_server_status') as {
+  const status = (await invoke('get_llama_server_status')) as {
     running: boolean;
     port?: number;
     model_loaded: boolean;
@@ -190,5 +192,3 @@ export async function getLlamaServerStatus(): Promise<ServerConnection> {
     modelName: status.model_name,
   };
 }
-
-

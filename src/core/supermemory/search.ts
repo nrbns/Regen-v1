@@ -66,5 +66,3 @@ async function hydrateEvents(
 
   return matches;
 }
-
-

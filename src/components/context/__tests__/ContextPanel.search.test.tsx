@@ -6,10 +6,12 @@ import { contextEngine } from '../../../core/contextEngine';
 
 vi.mock('../../../core/contextEngine', () => ({
   contextEngine: {
-    getContexts: vi.fn(async (limit = 10) => [
-      { id: 'c1', tabId: 't1', url: 'https://alpha.com', title: 'Alpha', timestamp: Date.now() },
-      { id: 'c2', tabId: 't2', url: 'https://beta.com', title: 'Beta', timestamp: Date.now() },
-    ].slice(-limit)),
+    getContexts: vi.fn(async (limit = 10) =>
+      [
+        { id: 'c1', tabId: 't1', url: 'https://alpha.com', title: 'Alpha', timestamp: Date.now() },
+        { id: 'c2', tabId: 't2', url: 'https://beta.com', title: 'Beta', timestamp: Date.now() },
+      ].slice(-limit)
+    ),
     clear: vi.fn(async () => {}),
   },
 }));
@@ -17,7 +19,11 @@ vi.mock('../../../core/contextEngine', () => ({
 vi.mock('../../../services/meiliIndexer', () => ({
   searchContexts: vi.fn(async (q: string) => {
     if (q.includes('alpha')) {
-      return { hits: [{ id: 'c1', url: 'https://alpha.com', title: 'Alpha', timestamp: Date.now() }], estimatedTotalHits: 1, processingTimeMs: 1 };
+      return {
+        hits: [{ id: 'c1', url: 'https://alpha.com', title: 'Alpha', timestamp: Date.now() }],
+        estimatedTotalHits: 1,
+        processingTimeMs: 1,
+      };
     }
     return { hits: [], estimatedTotalHits: 0, processingTimeMs: 1 };
   }),

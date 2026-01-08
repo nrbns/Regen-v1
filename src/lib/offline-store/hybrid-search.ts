@@ -59,12 +59,15 @@ export async function hybridSearch(
   ]);
 
   // Create combined result map
-  const combinedMap = new Map<string, {
-    document: StoredDocument;
-    keywordScore: number;
-    semanticScore: number;
-    metadataScore: number;
-  }>();
+  const combinedMap = new Map<
+    string,
+    {
+      document: StoredDocument;
+      keywordScore: number;
+      semanticScore: number;
+      metadataScore: number;
+    }
+  >();
 
   // Add keyword results
   for (const result of keywordResults.documents) {
@@ -152,5 +155,3 @@ export async function hybridSearch(
     method: 'hybrid',
   };
 }
-
-

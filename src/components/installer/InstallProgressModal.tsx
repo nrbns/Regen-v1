@@ -58,11 +58,11 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
   const getStageIcon = () => {
     switch (progress.stage) {
       case 'complete':
-        return <CheckCircle2 className="w-16 h-16 text-emerald-400" />;
+        return <CheckCircle2 className="h-16 w-16 text-emerald-400" />;
       case 'error':
-        return <AlertCircle className="w-16 h-16 text-red-400" />;
+        return <AlertCircle className="h-16 w-16 text-red-400" />;
       default:
-        return <Loader2 className="w-16 h-16 text-purple-400 animate-spin" />;
+        return <Loader2 className="h-16 w-16 animate-spin text-purple-400" />;
     }
   };
 
@@ -82,24 +82,24 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-slate-900 border border-purple-600/50 rounded-3xl p-12 max-w-2xl w-full mx-4 shadow-2xl"
+        className="mx-4 w-full max-w-2xl rounded-3xl border border-purple-600/50 bg-slate-900 p-12 shadow-2xl"
       >
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">{getStageIcon()}</div>
-          <h2 className="text-3xl font-bold text-white mb-2">
+        <div className="mb-8 text-center">
+          <div className="mb-4 flex justify-center">{getStageIcon()}</div>
+          <h2 className="mb-2 text-3xl font-bold text-white">
             {progress.stage === 'complete'
               ? 'Your AI Brain is Ready! 🧠'
               : progress.stage === 'error'
                 ? 'Installation Failed'
                 : 'Downloading Your AI Brain...'}
           </h2>
-          <p className="text-gray-400 text-lg">{progress.message}</p>
+          <p className="text-lg text-gray-400">{progress.message}</p>
         </div>
 
         {/* Progress Bar */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <span className="text-sm text-gray-400">
               {progress.stage === 'pulling_models' && progress.modelProgress
                 ? `${progress.modelProgress.model}: ${Math.round(progress.modelProgress.progress)}%`
@@ -113,7 +113,7 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
               {progress.stage === 'complete' && 'Complete!'}
             </span>
           </div>
-          <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-4 overflow-hidden rounded-full bg-slate-800">
             <motion.div
               className={`h-full bg-gradient-to-r ${getStageColor()} shadow-lg`}
               initial={{ width: 0 }}
@@ -141,14 +141,14 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
             {progress.stage === 'downloading' && (
               <div className="text-center text-gray-300">
                 <p className="text-sm">Downloading Ollama installer...</p>
-                <p className="text-xs text-gray-500 mt-1">This may take a few minutes</p>
+                <p className="mt-1 text-xs text-gray-500">This may take a few minutes</p>
               </div>
             )}
 
             {progress.stage === 'installing' && (
               <div className="text-center text-gray-300">
                 <p className="text-sm">Installing Ollama...</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   Please wait while we set up your AI engine
                 </p>
               </div>
@@ -157,7 +157,7 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
             {progress.stage === 'pulling_models' && progress.modelProgress && (
               <div className="text-center text-gray-300">
                 <p className="text-sm font-medium">{progress.modelProgress.model}</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="mt-1 text-xs text-gray-500">
                   {progress.modelProgress.progress < 100
                     ? 'Downloading model weights...'
                     : 'Model ready!'}
@@ -171,8 +171,8 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center"
               >
-                <div className="flex items-center justify-center gap-2 text-emerald-400 mb-4">
-                  <Sparkles className="w-5 h-5" />
+                <div className="mb-4 flex items-center justify-center gap-2 text-emerald-400">
+                  <Sparkles className="h-5 w-5" />
                   <p className="text-lg font-semibold">All set! Starting Regen...</p>
                 </div>
               </motion.div>
@@ -181,7 +181,7 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
             {progress.stage === 'error' && (
               <div className="text-center text-red-400">
                 <p className="text-sm">{progress.message}</p>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="mt-2 text-xs text-gray-500">
                   You can try installing Ollama manually from ollama.com
                 </p>
               </div>
@@ -192,7 +192,7 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
         {/* Model List */}
         {progress.stage === 'pulling_models' && (
           <div className="mt-6 space-y-2">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Models</p>
+            <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">Models</p>
             {['phi3:mini', 'llava:7b'].map(model => {
               const isComplete =
                 progress.modelProgress?.model === model && progress.modelProgress.progress === 100;
@@ -200,16 +200,16 @@ export function InstallProgressModal({ onComplete, onError }: Props) {
               return (
                 <div
                   key={model}
-                  className={`flex items-center gap-3 p-2 rounded-lg ${
-                    isActive ? 'bg-purple-500/20 border border-purple-500/50' : 'bg-slate-800/50'
+                  className={`flex items-center gap-3 rounded-lg p-2 ${
+                    isActive ? 'border border-purple-500/50 bg-purple-500/20' : 'bg-slate-800/50'
                   }`}
                 >
                   <div className="flex-1">
                     <p className="text-sm text-gray-300">{model}</p>
                   </div>
-                  {isComplete && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {isComplete && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
                   {isActive && !isComplete && (
-                    <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
                   )}
                 </div>
               );

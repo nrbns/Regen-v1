@@ -72,7 +72,7 @@ export async function extractContent(urlOrTabId: string): Promise<ExtractResult 
     }
 
     const data = await response.json();
-    
+
     // Format response to match IPC format
     const formattedContent = data.content
       .split('\n\n')
@@ -92,4 +92,3 @@ export async function extractContent(urlOrTabId: string): Promise<ExtractResult 
     return null;
   }
 }
-

@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState, Suspense, lazy } from 'react';
-import { 
-  Sparkles, 
-  PanelRight, 
-  Columns, 
-  Lock, 
-  Zap, 
-  Palette, 
-  Cloud, 
-  Code,
-} from 'lucide-react';
+import { Sparkles, PanelRight, Columns, Lock, Zap, Palette, Cloud, Code } from 'lucide-react';
 import { useAppStore } from '../../../state/appStore';
 import { isV1ModeEnabled } from '../../../config/mvpFeatureFlags';
 import { SplitView } from '../../../components/split-view/SplitView';
@@ -16,11 +7,19 @@ import { RegenVault } from '../../../components/vault/RegenVault';
 import { ThemeEngine } from '../../../components/themes/ThemeEngine';
 // Lazy-load heavy/demo components only when not in v1-mode
 const LazyAIDeveloperConsole = !isV1ModeEnabled()
-  ? lazy(() => import('../../../components/dev-console/AIDeveloperConsole').then(m => ({ default: m.AIDeveloperConsole })))
+  ? lazy(() =>
+      import('../../../components/dev-console/AIDeveloperConsole').then(m => ({
+        default: m.AIDeveloperConsole,
+      }))
+    )
   : null;
 
 const LazyEnhancedRegenSidebar = !isV1ModeEnabled()
-  ? lazy(() => import('../../../components/regen/EnhancedRegenSidebar').then(m => ({ default: m.EnhancedRegenSidebar })))
+  ? lazy(() =>
+      import('../../../components/regen/EnhancedRegenSidebar').then(m => ({
+        default: m.EnhancedRegenSidebar,
+      }))
+    )
   : null;
 import { LightningMode } from '../../../core/lightning/LightningMode';
 import { toast } from '../../../utils/toast';
@@ -111,7 +110,7 @@ export function FeaturesMenu() {
           aria-label="Features menu"
           aria-haspopup="menu"
           aria-expanded={open}
-          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)]"
+          className="rounded-lg p-2 text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2"
           onClick={e => {
             e.stopPropagation();
             if ((e.nativeEvent as any)?.stopImmediatePropagation) {
@@ -138,7 +137,7 @@ export function FeaturesMenu() {
           >
             <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-4 py-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-400" />
+                <Sparkles className="h-4 w-4 text-purple-400" />
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Features</p>
               </div>
             </div>
@@ -146,15 +145,16 @@ export function FeaturesMenu() {
             <div className="space-y-1 px-2 py-2" style={{ fontSize: tokens.fontSize.sm }}>
               {visibleFeatures.map(feature => {
                 const Icon = feature.icon;
-                const colorClass = {
-                  purple: 'text-purple-400',
-                  blue: 'text-blue-400',
-                  green: 'text-green-400',
-                  yellow: 'text-yellow-400',
-                  pink: 'text-pink-400',
-                  cyan: 'text-cyan-400',
-                  orange: 'text-orange-400',
-                }[feature.color] || 'text-gray-400';
+                const colorClass =
+                  {
+                    purple: 'text-purple-400',
+                    blue: 'text-blue-400',
+                    green: 'text-green-400',
+                    yellow: 'text-yellow-400',
+                    pink: 'text-pink-400',
+                    cyan: 'text-cyan-400',
+                    orange: 'text-orange-400',
+                  }[feature.color] || 'text-gray-400';
 
                 return (
                   <button
@@ -192,7 +192,7 @@ export function FeaturesMenu() {
           <SplitView />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
             ×
           </button>
@@ -204,7 +204,7 @@ export function FeaturesMenu() {
           <RegenVault />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
             ×
           </button>
@@ -212,12 +212,12 @@ export function FeaturesMenu() {
       )}
 
       {activeFeature === 'theme' && (
-        <div className="fixed inset-0 z-[100] bg-gray-900 overflow-y-auto">
-          <div className="max-w-4xl mx-auto p-8">
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-gray-900">
+          <div className="mx-auto max-w-4xl p-8">
             <ThemeEngine />
             <button
               onClick={() => setActiveFeature(null)}
-              className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+              className="mt-4 rounded-lg bg-gray-800 px-4 py-2 text-white hover:bg-gray-700"
             >
               Close
             </button>
@@ -230,7 +230,7 @@ export function FeaturesMenu() {
           <AIDeveloperConsole />
           <button
             onClick={() => setActiveFeature(null)}
-            className="absolute top-4 right-4 z-[101] p-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            className="absolute right-4 top-4 z-[101] rounded-lg bg-gray-800 p-2 text-white hover:bg-gray-700"
           >
             ×
           </button>
@@ -239,7 +239,7 @@ export function FeaturesMenu() {
 
       {/* Enhanced Sidebar (lazy) */}
       {regenSidebarOpen && !isV1ModeEnabled() && LazyEnhancedRegenSidebar && (
-        <div className="fixed right-0 top-0 bottom-0 w-96 z-[90]">
+        <div className="fixed bottom-0 right-0 top-0 z-[90] w-96">
           <Suspense fallback={null}>
             <LazyEnhancedRegenSidebar />
           </Suspense>
@@ -248,4 +248,3 @@ export function FeaturesMenu() {
     </>
   );
 }
-

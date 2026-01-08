@@ -70,31 +70,31 @@ async function captureElementScreenshot(element: HTMLElement): Promise<string | 
           }
         },
       });
-      
+
       // CRITICAL: Post-process for dark charts - enhance visibility
       const ctx = canvas.getContext('2d');
       if (ctx) {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
-        
+
         // Enhance dark areas (increase brightness for very dark pixels)
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
           const g = data[i + 1];
           const b = data[i + 2];
           const brightness = (r + g + b) / 3;
-          
+
           // If pixel is very dark, brighten it slightly
           if (brightness < 30) {
-            data[i] = Math.min(255, r + 20);     // Red
+            data[i] = Math.min(255, r + 20); // Red
             data[i + 1] = Math.min(255, g + 20); // Green
             data[i + 2] = Math.min(255, b + 20); // Blue
           }
         }
-        
+
         ctx.putImageData(imageData, 0, 0);
       }
-      
+
       // Convert to JPEG with quality for better compression and compatibility
       return canvas.toDataURL('image/jpeg', 0.95);
     }
@@ -177,12 +177,12 @@ export async function analyzeScreenshot(
 
     // CRITICAL: Convert data URL to base64 and ensure proper format for GPT-4o Vision
     let base64Image = screenshotDataUrl.split(',')[1] || screenshotDataUrl;
-    
+
     // If it's a data URL, extract base64
     if (screenshotDataUrl.startsWith('data:image/')) {
       base64Image = screenshotDataUrl.split(',')[1];
     }
-    
+
     // Ensure image is in correct format (JPEG or PNG base64)
     // GPT-4o Vision accepts: data:image/jpeg;base64,<data> or data:image/png;base64,<data>
     const imageFormat = screenshotDataUrl.includes('image/jpeg') ? 'jpeg' : 'png';

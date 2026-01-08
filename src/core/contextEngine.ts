@@ -32,7 +32,10 @@ class ContextEngine {
   private async handleNavigation(payload: { tabId: string; url: string; tab?: any }) {
     try {
       const entry: NavigationContext = {
-        id: typeof crypto !== 'undefined' && (crypto as any).randomUUID ? (crypto as any).randomUUID() : `ctx-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        id:
+          typeof crypto !== 'undefined' && (crypto as any).randomUUID
+            ? (crypto as any).randomUUID()
+            : `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         tabId: payload.tabId,
         url: payload.url,
         title: payload.tab?.title,

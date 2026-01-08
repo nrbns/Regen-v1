@@ -32,7 +32,11 @@ describe('EnhancedRegenSidebar contexts tab', () => {
     // Mock meili search
     const meili = await import('../../../services/meiliIndexer');
     (meili.searchContexts as any).mockImplementationOnce(async (q: string) => {
-      return { hits: [{ id: 'c3', url: 'https://gamma.com', title: 'Gamma', timestamp: Date.now() }], estimatedTotalHits: 1, processingTimeMs: 1 };
+      return {
+        hits: [{ id: 'c3', url: 'https://gamma.com', title: 'Gamma', timestamp: Date.now() }],
+        estimatedTotalHits: 1,
+        processingTimeMs: 1,
+      };
     });
 
     render(<EnhancedRegenSidebar />);

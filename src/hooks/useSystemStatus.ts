@@ -54,7 +54,9 @@ export function useSystemStatus() {
       } catch (ipcErr) {
         // If IPC call failed (e.g., no backend available), fall back to a native collector
         try {
-          const native = await import('../lib/system/getNativeSystemStatus').then(m => m.getNativeSystemStatus());
+          const native = await import('../lib/system/getNativeSystemStatus').then(m =>
+            m.getNativeSystemStatus()
+          );
           setStatus(native as SystemStatus);
           setError(null);
           return;
@@ -81,7 +83,9 @@ export function useSystemStatus() {
       const fetchBrowser = async () => {
         try {
           setIsLoading(true);
-          const data = await import('../lib/system/getBrowserSystemStatus').then(m => m.getBrowserSystemStatus());
+          const data = await import('../lib/system/getBrowserSystemStatus').then(m =>
+            m.getBrowserSystemStatus()
+          );
           if (!mounted) return;
           setStatus(data as SystemStatus);
           setError(null);
@@ -105,7 +109,10 @@ export function useSystemStatus() {
             const updateBattery = () => {
               setStatus(prev => {
                 if (!prev) return prev;
-                return { ...prev, battery: { charging: !!batteryObj.charging, level: Number(batteryObj.level) } } as SystemStatus;
+                return {
+                  ...prev,
+                  battery: { charging: !!batteryObj.charging, level: Number(batteryObj.level) },
+                } as SystemStatus;
               });
             };
             batteryObj.addEventListener('chargingchange', updateBattery);

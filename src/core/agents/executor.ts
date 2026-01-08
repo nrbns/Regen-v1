@@ -30,7 +30,11 @@ export type AgentAction =
   | { type: 'fill'; selector: DOMSelector; value: string; options?: FillOptions }
   | { type: 'read'; selector: DOMSelector }
   | { type: 'readPage' }
-  | { type: 'scroll'; direction: 'up' | 'down' | 'left' | 'right' | 'top' | 'bottom'; amount?: number }
+  | {
+      type: 'scroll';
+      direction: 'up' | 'down' | 'left' | 'right' | 'top' | 'bottom';
+      amount?: number;
+    }
   | { type: 'wait'; ms: number }
   | { type: 'waitForReady'; timeout?: number }
   | { type: 'extract' }
@@ -116,10 +120,7 @@ class AgentExecutor {
   /**
    * Request consent for an action
    */
-  private async requestConsent(
-    action: AgentAction,
-    context: ExecutionContext
-  ): Promise<boolean> {
+  private async requestConsent(action: AgentAction, context: ExecutionContext): Promise<boolean> {
     if (!context.requireConsent) {
       return true;
     }
@@ -202,7 +203,7 @@ class AgentExecutor {
 
       // Check whitelist
       if (context.allowedDomains && context.allowedDomains.length > 0) {
-        const isAllowed = context.allowedDomains.some((allowed) =>
+        const isAllowed = context.allowedDomains.some(allowed =>
           hostname.includes(allowed.toLowerCase())
         );
         if (!isAllowed) {
@@ -300,7 +301,7 @@ class AgentExecutor {
           result = true;
           break;
         case 'wait':
-          await new Promise((resolve) => setTimeout(resolve, action.ms));
+          await new Promise(resolve => setTimeout(resolve, action.ms));
           result = true;
           break;
         case 'waitForReady':
@@ -410,10 +411,7 @@ class AgentExecutor {
   /**
    * Execute a sequence of actions
    */
-  async execute(
-    actions: AgentAction[],
-    context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  async execute(actions: AgentAction[], context: ExecutionContext): Promise<ExecutionResult> {
     const runId = context.runId || `run-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const startTime = Date.now();
     const timeout = context.timeout || this.defaultTimeout;
@@ -484,19 +482,19 @@ class AgentExecutor {
         type: 'agent:run:completed',
         payload: {
           runId,
-          success: !blocked && results.every((r) => r.success),
+          success: !blocked && results.every(r => r.success),
           steps: results.length,
           duration,
         },
       });
 
       return {
-        success: !blocked && results.every((r) => r.success),
+        success: !blocked && results.every(r => r.success),
         runId,
         steps: results.length,
         duration,
         result: results.length === 1 ? results[0].result : results,
-        error: results.find((r) => r.error)?.error,
+        error: results.find(r => r.error)?.error,
         auditLog,
         blocked,
       };
@@ -590,4 +588,3 @@ export const executeActions = (actions: AgentAction[], context: ExecutionContext
 export const getAuditLog = (runId: string) => executor.getAuditLog(runId);
 export const cancelRun = (runId: string) => executor.cancel(runId);
 export const getActiveRuns = () => executor.getActiveRuns();
-

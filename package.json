@@ -213,7 +213,6 @@
     "langchain": "^1.0.4",
     "lightweight-charts": "^5.0.9",
     "lodash-es": "^4.17.21",
-    "lucide-react": "^0.453.0",
     "lunr": "^2.3.9",
     "mammoth": "^1.6.0",
     "meilisearch": "^0.40.0",

@@ -46,9 +46,10 @@ export function ContextPanel({ limit = 10 }: { limit?: number }) {
 
       // Fallback: local filtering
       const local = await contextEngine.getContexts(500);
-      const filtered = local.filter(c =>
-        (c.url || '').toLowerCase().includes(term.toLowerCase()) ||
-        ((c.title || '') as string).toLowerCase().includes(term.toLowerCase())
+      const filtered = local.filter(
+        c =>
+          (c.url || '').toLowerCase().includes(term.toLowerCase()) ||
+          ((c.title || '') as string).toLowerCase().includes(term.toLowerCase())
       );
       setSearchResults(filtered.slice().reverse());
     } catch (err) {
@@ -122,52 +123,75 @@ export function ContextPanel({ limit = 10 }: { limit?: number }) {
         {!searchLoading && searchResults !== null && searchResults.length === 0 && (
           <div className="text-xs text-gray-500">No results found</div>
         )}
-        {!searchLoading && searchResults !== null && searchResults.map(item => (
-          <div key={item.id} className="flex items-center justify-between gap-2 py-1">
-            <div className="flex-1">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-xs text-white hover:underline"
-              >
-                {item.title || item.url}
-              </a>
-              <div className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleString()}</div>
+        {!searchLoading &&
+          searchResults !== null &&
+          searchResults.map(item => (
+            <div key={item.id} className="flex items-center justify-between gap-2 py-1">
+              <div className="flex-1">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-xs text-white hover:underline"
+                >
+                  {item.title || item.url}
+                </a>
+                <div className="text-xs text-gray-400">
+                  {new Date(item.timestamp).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex-shrink-0 pl-2">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title="Open in new tab"
+                  className="text-gray-300"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             </div>
-            <div className="flex-shrink-0 pl-2">
-              <a href={item.url} target="_blank" rel="noreferrer noopener" title="Open in new tab" className="text-gray-300">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-        ))}
+          ))}
 
         {/* No search active: render default list */}
-        {!searchLoading && searchResults === null && loading && <div className="text-xs text-gray-400">Loading...</div>}
+        {!searchLoading && searchResults === null && loading && (
+          <div className="text-xs text-gray-400">Loading...</div>
+        )}
         {!searchLoading && searchResults === null && !loading && items.length === 0 && (
           <div className="text-xs text-gray-500">No contexts recorded yet</div>
         )}
-        {!searchLoading && searchResults === null && !loading && items.map(item => (
-          <div key={item.id} className="flex items-center justify-between gap-2 py-1">
-            <div className="flex-1">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-xs text-white hover:underline"
-              >
-                {item.title || item.url}
-              </a>
-              <div className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleString()}</div>
+        {!searchLoading &&
+          searchResults === null &&
+          !loading &&
+          items.map(item => (
+            <div key={item.id} className="flex items-center justify-between gap-2 py-1">
+              <div className="flex-1">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-xs text-white hover:underline"
+                >
+                  {item.title || item.url}
+                </a>
+                <div className="text-xs text-gray-400">
+                  {new Date(item.timestamp).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex-shrink-0 pl-2">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  title="Open in new tab"
+                  className="text-gray-300"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             </div>
-            <div className="flex-shrink-0 pl-2">
-              <a href={item.url} target="_blank" rel="noreferrer noopener" title="Open in new tab" className="text-gray-300">
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-          </div>
-        ))}
+          ))}
       </div>
     </div>
   );

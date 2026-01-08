@@ -13,7 +13,10 @@ export function requestFrame(callback: FrameRequestCallback): number {
 /**
  * Debounce function calls
  */
-export function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
   return (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
@@ -24,7 +27,10 @@ export function debounce<T extends (...args: any[]) => any>(func: T, wait: numbe
 /**
  * Throttle function calls
  */
-export function throttle<T extends (...args: any[]) => any>(func: T, limit: number): (...args: Parameters<T>) => void {
+export function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
   return (...args: Parameters<T>) => {
     if (!inThrottle) {
@@ -41,7 +47,7 @@ export function throttle<T extends (...args: any[]) => any>(func: T, limit: numb
 export function lazyLoadImages(): void {
   if ('IntersectionObserver' in window) {
     const images = document.querySelectorAll('img[data-lazy]');
-    const imageObserver = new IntersectionObserver((entries) => {
+    const imageObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const img = entry.target as HTMLImageElement;

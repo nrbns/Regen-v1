@@ -8,7 +8,13 @@ type Props = {
   lastRepair?: string;
 };
 
-export default function SystemBar({ ram = '-', cpu = '-', battery = '-', redix = '-', lastRepair = '-' }: Props) {
+export default function SystemBar({
+  ram = '-',
+  cpu = '-',
+  battery = '-',
+  redix = '-',
+  lastRepair = '-',
+}: Props) {
   return (
     <div id="system-bar" style={{ padding: 8, fontSize: 12, borderTop: '1px solid #222' }}>
       <span style={{ marginRight: 12 }}>RAM: {ram}</span>

@@ -182,9 +182,13 @@ export async function indexContext(context: {
 }
 
 export async function searchContexts(query: string, options?: { limit?: number; offset?: number }) {
-  if (!meiliAvailable || !indexingEnabled) return { hits: [], estimatedTotalHits: 0, processingTimeMs: 0 };
+  if (!meiliAvailable || !indexingEnabled)
+    return { hits: [], estimatedTotalHits: 0, processingTimeMs: 0 };
   try {
-    const res = await searchDocuments('contexts', query, { limit: options?.limit, offset: options?.offset });
+    const res = await searchDocuments('contexts', query, {
+      limit: options?.limit,
+      offset: options?.offset,
+    });
     return res;
   } catch (err) {
     console.error('[MeiliIndexer] Failed to search contexts:', err);

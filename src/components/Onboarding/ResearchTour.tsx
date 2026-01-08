@@ -54,7 +54,7 @@ export function ResearchTour({ onClose }: ResearchTourProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/85 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -78,7 +78,7 @@ export function ResearchTour({ onClose }: ResearchTourProps) {
             transition={{ duration: 0.25 }}
             className="mt-6 space-y-4"
           >
-            <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1 text-emerald-200 text-xs font-semibold">
+            <div className="inline-flex items-center gap-3 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1 text-xs font-semibold text-emerald-200">
               <currentStep.icon size={16} />
               {currentStep.highlight}
             </div>
@@ -93,7 +93,7 @@ export function ResearchTour({ onClose }: ResearchTourProps) {
           <button
             type="button"
             onClick={closeTour}
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+            className="flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
           >
             <CheckCircle2 size={16} />
             Skip tour

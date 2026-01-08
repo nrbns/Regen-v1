@@ -154,4 +154,3 @@ export function getTemplate(id: string): AutomationPlaybook | undefined {
 export function getAllTemplates(): AutomationPlaybook[] {
   return AUTOMATION_TEMPLATES;
 }
-

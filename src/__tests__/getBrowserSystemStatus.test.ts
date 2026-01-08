@@ -16,7 +16,9 @@ describe('getBrowserSystemStatus', () => {
     } as any;
 
     // Minimal navigator.getBattery mock
-    (globalThis as any).navigator = { getBattery: vi.fn().mockResolvedValue({ charging: true, level: 0.75 }) } as any;
+    (globalThis as any).navigator = {
+      getBattery: vi.fn().mockResolvedValue({ charging: true, level: 0.75 }),
+    } as any;
   });
 
   afterEach(() => {

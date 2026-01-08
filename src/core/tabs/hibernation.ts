@@ -63,7 +63,10 @@ export function shouldHibernateTabs(): boolean {
  * Phase 1, Day 2: Save scroll position before hibernation
  * SPRINT 1: Returns the saved state for snapshot storage
  */
-export function saveScrollPosition(tabId: string, iframe: HTMLIFrameElement | null): HibernationState | null {
+export function saveScrollPosition(
+  tabId: string,
+  iframe: HTMLIFrameElement | null
+): HibernationState | null {
   if (!iframe) return null;
 
   try {
@@ -226,4 +229,3 @@ export async function wakeTab(tabId: string, iframe: HTMLIFrameElement | null): 
     console.warn('[Hibernation] Failed to wake tab', tabId, error);
   }
 }
-

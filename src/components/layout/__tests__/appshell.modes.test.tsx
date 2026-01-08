@@ -9,7 +9,11 @@ vi.mock('hnswlib-wasm', () => ({
   init: async () => ({}),
   HierarchicalNSW: undefined,
 }));
-vi.mock('@tauri-apps/api/core', () => ({ invoke: async () => { throw new Error('not available in test'); } }));
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: async () => {
+    throw new Error('not available in test');
+  },
+}));
 // Stub the HNSW service itself to prevent import-time resolution of tauri and wasm libs
 vi.mock('../../../services/vector/hnswService', () => ({
   hnswService: {
@@ -19,9 +23,15 @@ vi.mock('../../../services/vector/hnswService', () => ({
   },
 }));
 
-vi.mock('../../components/research/RegenResearchPanel', () => ({ RegenResearchPanel: () => <div>Mock Research Panel</div> }));
-vi.mock('../../components/dev-console/AIDeveloperConsole', () => ({ AIDeveloperConsole: () => <div>Mock Dev Console</div> }));
-vi.mock('../../ui/components/KnowledgePanel', () => ({ default: () => <div>Mock Knowledge Panel</div> }));
+vi.mock('../../components/research/RegenResearchPanel', () => ({
+  RegenResearchPanel: () => <div>Mock Research Panel</div>,
+}));
+vi.mock('../../components/dev-console/AIDeveloperConsole', () => ({
+  AIDeveloperConsole: () => <div>Mock Dev Console</div>,
+}));
+vi.mock('../../ui/components/KnowledgePanel', () => ({
+  default: () => <div>Mock Knowledge Panel</div>,
+}));
 
 describe('AppShell mode rendering (component-level)', () => {
   afterEach(() => {

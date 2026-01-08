@@ -44,7 +44,7 @@ class CommandHistory {
   record(commandId: string, query?: string): void {
     // Remove existing entry if present
     this.history = this.history.filter(entry => entry.commandId !== commandId);
-    
+
     // Add to front
     this.history.unshift({
       commandId,
@@ -82,7 +82,7 @@ class CommandHistory {
     for (const entry of this.history) {
       counts.set(entry.commandId, (counts.get(entry.commandId) || 0) + 1);
     }
-    
+
     return Array.from(counts.entries())
       .map(([commandId, count]) => ({ commandId, count }))
       .sort((a, b) => b.count - a.count)
@@ -99,4 +99,3 @@ class CommandHistory {
 }
 
 export const commandHistory = new CommandHistory();
-

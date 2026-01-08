@@ -21,7 +21,7 @@ export async function storeSecure(key: string, value: string): Promise<boolean> 
       return storeSecureFallback(key, value);
     }
   }
-  
+
   // Web mode - use encrypted localStorage
   return storeSecureFallback(key, value);
 }
@@ -40,7 +40,7 @@ export async function getSecure(key: string): Promise<string | null> {
       return getSecureFallback(key);
     }
   }
-  
+
   // Web mode - use encrypted localStorage
   return getSecureFallback(key);
 }
@@ -59,7 +59,7 @@ export async function deleteSecure(key: string): Promise<boolean> {
       return deleteSecureFallback(key);
     }
   }
-  
+
   return deleteSecureFallback(key);
 }
 
@@ -73,14 +73,14 @@ async function storeSecureFallback(key: string, value: string): Promise<boolean>
     const secret = 'regenbrowser-secure-storage-v1';
     const encoder = new TextEncoder();
     const data = encoder.encode(value);
-    
+
     // Simple XOR encryption (for demo - use proper encryption in production)
     const keyData = encoder.encode(secret + key);
     const encrypted = new Uint8Array(data.length);
     for (let i = 0; i < data.length; i++) {
       encrypted[i] = data[i] ^ keyData[i % keyData.length];
     }
-    
+
     // Store as base64
     const base64 = btoa(String.fromCharCode(...encrypted));
     localStorage.setItem(`secure:${key}`, base64);
@@ -95,18 +95,18 @@ async function getSecureFallback(key: string): Promise<string | null> {
   try {
     const base64 = localStorage.getItem(`secure:${key}`);
     if (!base64) return null;
-    
+
     // Decrypt
     const encrypted = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
     const secret = 'regenbrowser-secure-storage-v1';
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret + key);
-    
+
     const decrypted = new Uint8Array(encrypted.length);
     for (let i = 0; i < encrypted.length; i++) {
       decrypted[i] = encrypted[i] ^ keyData[i % keyData.length];
     }
-    
+
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
@@ -124,4 +124,3 @@ function deleteSecureFallback(key: string): boolean {
     return false;
   }
 }
-

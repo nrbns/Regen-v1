@@ -21,7 +21,15 @@ import {
 import { toast } from '../../utils/toast';
 import ContextsList from './ContextsList';
 
-type SidebarTab = 'chat' | 'notes' | 'research' | 'tools' | 'clipboard' | 'downloads' | 'files' | 'contexts';
+type SidebarTab =
+  | 'chat'
+  | 'notes'
+  | 'research'
+  | 'tools'
+  | 'clipboard'
+  | 'downloads'
+  | 'files'
+  | 'contexts';
 
 interface Note {
   id: string;
@@ -103,6 +111,14 @@ export function EnhancedRegenSidebar() {
 
     // Monitor clipboard
     const handleClipboardChange = () => {
+      if (
+        typeof navigator === 'undefined' ||
+        !navigator.clipboard ||
+        typeof navigator.clipboard.readText !== 'function'
+      ) {
+        return;
+      }
+
       navigator.clipboard
         .readText()
         .then(text => {

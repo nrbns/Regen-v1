@@ -9,7 +9,10 @@ describe('TopBar -> ContextEngine integration', () => {
     await contextEngine.clear();
     contextEngine.start();
     // Setup a single active tab
-    useTabsStore.setState({ tabs: [{ id: 'tab-int-1', url: 'about:blank', title: 'New Tab' }], activeId: 'tab-int-1' });
+    useTabsStore.setState({
+      tabs: [{ id: 'tab-int-1', url: 'about:blank', title: 'New Tab' }],
+      activeId: 'tab-int-1',
+    });
   });
 
   afterEach(async () => {

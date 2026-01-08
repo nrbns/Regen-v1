@@ -154,7 +154,11 @@ class QueryPrefetcher {
       } else {
         try {
           const modName = '@tauri-apps' + '/api/core';
-          const core = await import(modName);
+          const { safeImport } = await import('../../utils/safeImport').catch(() => ({
+            safeImport: null,
+          }));
+          if (!safeImport) throw new Error('safeImport unavailable');
+          const core = await safeImport(modName, [modName]);
           if (core && typeof core.invoke === 'function') tauriInvoke = core.invoke;
         } catch (e) {
           // Tauri not available — silently skip

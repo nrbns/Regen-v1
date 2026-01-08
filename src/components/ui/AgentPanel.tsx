@@ -20,10 +20,15 @@ export default function AgentPanel({ agents = [], onStop }: Props) {
       <div style={{ display: 'grid', gap: 6 }}>
         {agents.length === 0 && <div style={{ color: '#777' }}>No agents</div>}
         {agents.map(a => (
-          <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div
+            key={a.id}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 500 }}>{a.name}</div>
-              <div style={{ fontSize: 11, color: '#999' }}>{a.state} · {a.runtime || '-'} · {a.memory || '-'}</div>
+              <div style={{ fontSize: 11, color: '#999' }}>
+                {a.state} · {a.runtime || '-'} · {a.memory || '-'}
+              </div>
             </div>
             <div>
               <button

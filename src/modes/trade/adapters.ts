@@ -6,9 +6,13 @@ export interface BrokerAdapter {
 
 export class MockBroker implements BrokerAdapter {
   private balance = 10000;
-  getBalance() { return this.balance; }
-  buy(_symbol: string, qty: number) { this.balance -= qty * 100; }
-  sell(_symbol: string, qty: number) { this.balance += qty * 100; }
+  getBalance() {
+    return this.balance;
+  }
+  buy(_symbol: string, qty: number) {
+    this.balance -= qty * 100;
+  }
+  sell(_symbol: string, qty: number) {
+    this.balance += qty * 100;
+  }
 }
-
-

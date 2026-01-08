@@ -267,7 +267,7 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-full hover:bg-gray-200/50 transition-colors"
+        className="rounded-full p-2 transition-colors hover:bg-gray-200/50"
         aria-label="Menu"
         aria-expanded={isOpen}
       >
@@ -293,12 +293,12 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="absolute right-0 top-full mt-2 w-72 bg-white rounded-lg shadow-2xl border border-gray-200 overflow-hidden z-[100] max-h-[calc(100vh-120px)] overflow-y-auto"
+              className="absolute right-0 top-full z-[100] mt-2 max-h-[calc(100vh-120px)] w-72 overflow-hidden overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-2xl"
               style={{ marginRight: '-8px' }}
             >
               {menuItems.map((item, _index) => {
                 if (item.type === 'divider') {
-                  return <div key={item.id} className="h-px bg-gray-200 my-1" />;
+                  return <div key={item.id} className="my-1 h-px bg-gray-200" />;
                 }
 
                 if (item.type === 'header') {
@@ -306,24 +306,24 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
                   return (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                      className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-gray-50"
                       onClick={() => {
                         if (item.action) item.action();
                       }}
                     >
-                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white">
                         <Icon size={16} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-gray-900">
                           {item.title}
                         </div>
                         {item.subtitle && (
-                          <div className="text-xs text-gray-500 truncate">{item.subtitle}</div>
+                          <div className="truncate text-xs text-gray-500">{item.subtitle}</div>
                         )}
                       </div>
                       {item.hasArrow && (
-                        <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                        <ChevronRight size={16} className="flex-shrink-0 text-gray-400" />
                       )}
                     </div>
                   );
@@ -331,29 +331,29 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
 
                 if (item.type === 'zoom') {
                   return (
-                    <div key={item.id} className="px-4 py-3 border-b border-gray-100">
-                      <div className="text-xs font-medium text-gray-700 mb-2">{item.title}</div>
+                    <div key={item.id} className="border-b border-gray-100 px-4 py-3">
+                      <div className="mb-2 text-xs font-medium text-gray-700">{item.title}</div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          className="p-1.5 rounded hover:bg-gray-100"
+                          className="rounded p-1.5 hover:bg-gray-100"
                           aria-label="Zoom out"
                         >
                           <ZoomOut size={16} className="text-gray-600" />
                         </button>
-                        <span className="flex-1 text-center text-sm text-gray-700 font-medium">
+                        <span className="flex-1 text-center text-sm font-medium text-gray-700">
                           {item.current}%
                         </span>
                         <button
                           type="button"
-                          className="p-1.5 rounded hover:bg-gray-100"
+                          className="rounded p-1.5 hover:bg-gray-100"
                           aria-label="Zoom in"
                         >
                           <ZoomIn size={16} className="text-gray-600" />
                         </button>
                         <button
                           type="button"
-                          className="p-1.5 rounded hover:bg-gray-100 ml-2"
+                          className="ml-2 rounded p-1.5 hover:bg-gray-100"
                           aria-label="Full screen"
                         >
                           <Maximize2 size={16} className="text-gray-600" />
@@ -371,15 +371,15 @@ export function ChromeMenu({ className = '' }: ChromeMenuProps) {
                     onClick={() => {
                       if (item.action) item.action();
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-left transition-colors"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
                   >
-                    {Icon && <Icon size={16} className="text-gray-600 flex-shrink-0" />}
+                    {Icon && <Icon size={16} className="flex-shrink-0 text-gray-600" />}
                     <span className="flex-1 text-sm text-gray-700">{item.title}</span>
                     {item.shortcut && (
-                      <span className="text-xs text-gray-400 font-mono">{item.shortcut}</span>
+                      <span className="font-mono text-xs text-gray-400">{item.shortcut}</span>
                     )}
                     {item.hasArrow && (
-                      <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                      <ChevronRight size={16} className="flex-shrink-0 text-gray-400" />
                     )}
                   </button>
                 );

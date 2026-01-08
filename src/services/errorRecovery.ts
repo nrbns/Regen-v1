@@ -27,10 +27,9 @@ export function recordCrash(error: Error, context?: Record<string, any>): void {
 
   // If too many crashes, show warning
   if (crashCount >= MAX_CRASHES) {
-    toast.error(
-      `Multiple crashes detected. The app may be unstable. Consider restarting.`,
-      { duration: 10000 }
-    );
+    toast.error(`Multiple crashes detected. The app may be unstable. Consider restarting.`, {
+      duration: 10000,
+    });
   }
 
   // Attempt auto-recovery
@@ -86,4 +85,3 @@ export function resetCrashCount(): void {
   crashCount = 0;
   crashHistory.length = 0;
 }
-

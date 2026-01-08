@@ -24,16 +24,17 @@ export function ChainProgressIndicator({ state, onCancel }: ChainProgressIndicat
           {status === 'failed' && <XCircle className="h-4 w-4 text-red-400" />}
           {status === 'cancelled' && <Circle className="h-4 w-4 text-gray-400" />}
           <span className="text-sm font-medium text-white">
-            {state.status === 'running' ? 'Executing Chain' : 
-             state.status === 'completed' ? 'Chain Completed' :
-             state.status === 'failed' ? 'Chain Failed' : 'Chain Cancelled'}
+            {state.status === 'running'
+              ? 'Executing Chain'
+              : state.status === 'completed'
+                ? 'Chain Completed'
+                : state.status === 'failed'
+                  ? 'Chain Failed'
+                  : 'Chain Cancelled'}
           </span>
         </div>
         {onCancel && status === 'running' && (
-          <button
-            onClick={onCancel}
-            className="text-xs text-red-400 hover:text-red-300"
-          >
+          <button onClick={onCancel} className="text-xs text-red-400 hover:text-red-300">
             Cancel
           </button>
         )}
@@ -42,7 +43,9 @@ export function ChainProgressIndicator({ state, onCancel }: ChainProgressIndicat
       {/* Progress Bar */}
       <div className="mb-4">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-400">
-          <span>Step {currentStep} of {totalSteps}</span>
+          <span>
+            Step {currentStep} of {totalSteps}
+          </span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
@@ -64,9 +67,7 @@ export function ChainProgressIndicator({ state, onCancel }: ChainProgressIndicat
               <div
                 key={idx}
                 className={`flex items-center gap-2 rounded px-2 py-1 text-xs ${
-                  result.success
-                    ? 'bg-green-500/10 text-green-300'
-                    : 'bg-red-500/10 text-red-300'
+                  result.success ? 'bg-green-500/10 text-green-300' : 'bg-red-500/10 text-red-300'
                 }`}
               >
                 {result.success ? (
@@ -75,9 +76,7 @@ export function ChainProgressIndicator({ state, onCancel }: ChainProgressIndicat
                   <XCircle className="h-3 w-3" />
                 )}
                 <span className="flex-1 truncate">{result.stepId}</span>
-                {result.error && (
-                  <span className="text-[10px] opacity-75">{result.error}</span>
-                )}
+                {result.error && <span className="text-[10px] opacity-75">{result.error}</span>}
               </div>
             ))}
           </div>
@@ -93,4 +92,3 @@ export function ChainProgressIndicator({ state, onCancel }: ChainProgressIndicat
     </div>
   );
 }
-

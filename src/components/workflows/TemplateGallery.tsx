@@ -68,8 +68,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
       (selectedCategory === 'data' &&
         (template.title.toLowerCase().includes('extract') ||
           template.title.toLowerCase().includes('screenshot'))) ||
-      (selectedCategory === 'translation' &&
-        template.title.toLowerCase().includes('translate'));
+      (selectedCategory === 'translation' && template.title.toLowerCase().includes('translate'));
 
     return matchesSearch && matchesCategory;
   });
@@ -95,7 +94,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={e => e.stopPropagation()}
-        className="relative w-full max-w-4xl max-h-[90vh] rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+        className="relative max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-700 bg-slate-800/50 px-6 py-4">
@@ -108,7 +107,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-600 p-2 text-gray-400 hover:bg-slate-700 hover:text-white transition-colors"
+            className="rounded-lg border border-slate-600 p-2 text-gray-400 transition-colors hover:bg-slate-700 hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
@@ -155,12 +154,12 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
         <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 200px)' }}>
           {filteredTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-12 w-12 text-gray-600 mb-3" />
+              <FileText className="mb-3 h-12 w-12 text-gray-600" />
               <p className="text-gray-400">No templates found</p>
-              <p className="text-sm text-gray-500 mt-1">Try a different search or category</p>
+              <p className="mt-1 text-sm text-gray-500">Try a different search or category</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {filteredTemplates.map(template => {
                 const isSelected = selectedTemplate === template.id;
                 return (
@@ -176,7 +175,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
                     }`}
                   >
                     {isSelected && (
-                      <div className="absolute top-2 right-2">
+                      <div className="absolute right-2 top-2">
                         <CheckCircle2 className="h-5 w-5 text-purple-400" />
                       </div>
                     )}
@@ -186,7 +185,7 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
                       <h3 className="font-semibold text-white">{template.title}</h3>
                     </div>
 
-                    <p className="mb-3 text-xs text-gray-400 line-clamp-2">{template.goal}</p>
+                    <p className="mb-3 line-clamp-2 text-xs text-gray-400">{template.goal}</p>
 
                     <div className="flex flex-wrap gap-1">
                       {template.steps.slice(0, 3).map((step, idx) => (
@@ -222,4 +221,3 @@ export function TemplateGallery({ onSelect, onClose }: TemplateGalleryProps) {
     </motion.div>
   );
 }
-

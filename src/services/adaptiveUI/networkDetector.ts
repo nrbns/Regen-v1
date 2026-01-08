@@ -21,8 +21,11 @@ export function getNetworkQuality(): NetworkQuality {
   }
 
   // Check for save-data preference
-  const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-  
+  const connection =
+    (navigator as any).connection ||
+    (navigator as any).mozConnection ||
+    (navigator as any).webkitConnection;
+
   if (connection) {
     const info: NetworkInfo = {
       effectiveType: connection.effectiveType,
@@ -88,8 +91,11 @@ export function supportsFullUI(): boolean {
  * Listen for network changes
  */
 export function onNetworkChange(callback: (quality: NetworkQuality) => void): () => void {
-  const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-  
+  const connection =
+    (navigator as any).connection ||
+    (navigator as any).mozConnection ||
+    (navigator as any).webkitConnection;
+
   const handleChange = () => {
     callback(getNetworkQuality());
   };
@@ -102,10 +108,9 @@ export function onNetworkChange(callback: (quality: NetworkQuality) => void): ()
   // Fallback: listen to online/offline events
   window.addEventListener('online', handleChange);
   window.addEventListener('offline', handleChange);
-  
+
   return () => {
     window.removeEventListener('online', handleChange);
     window.removeEventListener('offline', handleChange);
   };
 }
-

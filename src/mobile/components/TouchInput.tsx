@@ -11,20 +11,16 @@ export interface TouchInputProps extends React.InputHTMLAttributes<HTMLInputElem
   helperText?: string;
 }
 
-export function TouchInput({ 
-  label, 
-  error, 
-  helperText, 
-  className = '', 
-  ...props 
+export function TouchInput({
+  label,
+  error,
+  helperText,
+  className = '',
+  ...props
 }: TouchInputProps) {
   return (
     <div className="w-full">
-      {label && (
-        <label className="mb-2 block text-sm font-medium text-gray-900">
-          {label}
-        </label>
-      )}
+      {label && <label className="mb-2 block text-sm font-medium text-gray-900">{label}</label>}
       <input
         className={`min-h-[44px] w-full touch-manipulation rounded-lg border border-gray-300 px-4 py-3 text-base focus:border-indigo-500 focus:outline-none ${
           error ? 'border-red-500' : ''

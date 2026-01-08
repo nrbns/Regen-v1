@@ -36,7 +36,12 @@ class TelemetryMetrics {
   /**
    * Track performance metric
    */
-  trackPerformance(name: string, value: number, unit: string = 'ms', metadata?: Record<string, any>): void {
+  trackPerformance(
+    name: string,
+    value: number,
+    unit: string = 'ms',
+    metadata?: Record<string, any>
+  ): void {
     const metric: PerformanceMetric = {
       name,
       value,
@@ -78,7 +83,7 @@ class TelemetryMetrics {
 
     // Send to analytics
     try {
-      import('../lib/monitoring/analytics-client').then((module) => {
+      import('../lib/monitoring/analytics-client').then(module => {
         if (module.trackAnalyticsEvent) {
           module.trackAnalyticsEvent('feature_used', { feature, ...metadata });
         }
@@ -166,4 +171,3 @@ class TelemetryMetrics {
 }
 
 export const telemetryMetrics = new TelemetryMetrics();
-

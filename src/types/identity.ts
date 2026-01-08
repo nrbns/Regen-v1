@@ -21,4 +21,3 @@ export interface IdentityVaultSummary {
   totalCredentials: number;
   lastUpdatedAt?: number | null;
 }
-
