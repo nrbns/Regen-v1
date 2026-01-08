@@ -27,22 +27,23 @@ const getPosition = (index: number, total: number) => {
 };
 
 export function TabGraphOverlay() {
-  const { visible, data, loading, error, close, refresh, focusedTabId, setFocusedTab } = useTabGraphStore((state) => ({
-    visible: state.visible,
-    data: state.data,
-    loading: state.loading,
-    error: state.error,
-    close: state.close,
-    refresh: state.refresh,
-    focusedTabId: state.focusedTabId,
-    setFocusedTab: state.setFocusedTab,
-  }));
+  const { visible, data, loading, error, close, refresh, focusedTabId, setFocusedTab } =
+    useTabGraphStore(state => ({
+      visible: state.visible,
+      data: state.data,
+      loading: state.loading,
+      error: state.error,
+      close: state.close,
+      refresh: state.refresh,
+      focusedTabId: state.focusedTabId,
+      setFocusedTab: state.setFocusedTab,
+    }));
   const {
     plan,
     loading: planLoading,
     error: planError,
     fetch: fetchPlan,
-  } = useWorkflowWeaverStore((state) => ({
+  } = useWorkflowWeaverStore(state => ({
     plan: state.plan,
     loading: state.loading,
     error: state.error,
@@ -78,9 +79,9 @@ export function TabGraphOverlay() {
       node,
       ...getPosition(index, data.nodes.length),
     }));
-    const nodeLookup = new Map(positions.map((item) => [item.node.id, item]));
+    const nodeLookup = new Map(positions.map(item => [item.node.id, item]));
     const edges = data.edges
-      .map((edge) => {
+      .map(edge => {
         const source = nodeLookup.get(edge.source);
         const target = nodeLookup.get(edge.target);
         if (!source || !target) {
@@ -96,7 +97,7 @@ export function TabGraphOverlay() {
     if (!graph || !focusedTabId) {
       return;
     }
-    const target = graph.positions.find((item) => item.node.id === focusedTabId);
+    const target = graph.positions.find(item => item.node.id === focusedTabId);
     if (target) {
       setHovered(target.node);
     }
@@ -129,8 +130,8 @@ export function TabGraphOverlay() {
             </div>
             <div className="text-lg font-semibold text-gray-100">Browse DNA Overlay</div>
             <div className="text-xs text-gray-400">
-              {data?.summary.totalTabs ?? 0} tabs · {data?.summary.domains ?? 0} domains · {data?.summary.containers ?? 0}{' '}
-              containers
+              {data?.summary.totalTabs ?? 0} tabs · {data?.summary.domains ?? 0} domains ·{' '}
+              {data?.summary.containers ?? 0} containers
               {data?.updatedAt && (
                 <span className="ml-2 text-gray-500">
                   Updated{' '}
@@ -149,7 +150,7 @@ export function TabGraphOverlay() {
                 void fetchPlan({ maxSteps: 5, force: true });
               }}
               disabled={loading}
-              className="rounded-xl border border-slate-700/60 bg-slate-900/70 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-slate-900/90 transition-colors disabled:cursor-wait disabled:opacity-50"
+              className="rounded-xl border border-slate-700/60 bg-slate-900/70 px-3 py-2 text-xs font-medium text-gray-200 transition-colors hover:bg-slate-900/90 disabled:cursor-wait disabled:opacity-50"
             >
               <div className="flex items-center gap-2">
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -159,7 +160,7 @@ export function TabGraphOverlay() {
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-full border border-slate-700/60 bg-slate-900/70 p-2 text-gray-300 hover:bg-slate-900/90 transition-colors"
+              className="rounded-full border border-slate-700/60 bg-slate-900/70 p-2 text-gray-300 transition-colors hover:bg-slate-900/90"
               aria-label="Close tab graph overlay"
             >
               <X size={16} />
@@ -175,11 +176,7 @@ export function TabGraphOverlay() {
           )}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[auto_220px]">
             <div className="relative flex items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/60 p-4">
-              <svg
-                width={CANVAS_SIZE.width}
-                height={CANVAS_SIZE.height}
-                className="text-gray-500"
-              >
+              <svg width={CANVAS_SIZE.width} height={CANVAS_SIZE.height} className="text-gray-500">
                 {graph?.edges.map(({ edge, source, target }) => {
                   const primaryReason = edge.reasons[0] ?? 'domain';
                   const stroke = EDGE_COLORS[primaryReason] ?? '#94a3b8';
@@ -222,14 +219,14 @@ export function TabGraphOverlay() {
                       <text
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        className="pointer-events-none select-none text-[10px] font-medium fill-gray-200"
+                        className="pointer-events-none select-none fill-gray-200 text-[10px] font-medium"
                       >
                         {node.mode === 'ghost' ? '👻' : node.mode === 'private' ? '🛡️' : '🗂️'}
                       </text>
                       <text
                         y={NODE_RADIUS + 14}
                         textAnchor="middle"
-                        className="pointer-events-none select-none text-[10px] fill-gray-300"
+                        className="pointer-events-none select-none fill-gray-300 text-[10px]"
                       >
                         {node.title.slice(0, 24)}
                       </text>
@@ -241,11 +238,14 @@ export function TabGraphOverlay() {
 
             <div className="flex flex-col gap-3">
               <div className="rounded-xl border border-slate-800/60 bg-slate-900/60 p-3 text-xs text-gray-300">
-                <div className="mb-2 font-semibold text-sm text-gray-100">Legend</div>
+                <div className="mb-2 text-sm font-semibold text-gray-100">Legend</div>
                 <div className="flex flex-col gap-2">
                   {Object.entries(EDGE_COLORS).map(([reason, color]) => (
                     <div key={reason} className="flex items-center gap-2">
-                      <span className="inline-flex h-2.5 w-8 rounded-full" style={{ background: color, opacity: 0.5 }} />
+                      <span
+                        className="inline-flex h-2.5 w-8 rounded-full"
+                        style={{ background: color, opacity: 0.5 }}
+                      />
                       <span className="capitalize text-gray-300">{reason} affinity</span>
                     </div>
                   ))}
@@ -254,7 +254,7 @@ export function TabGraphOverlay() {
 
               <div className="flex-1 overflow-hidden rounded-xl border border-slate-800/60 bg-slate-900/60 p-3 text-xs text-gray-300">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="font-semibold text-sm text-gray-100">Tab Details</span>
+                  <span className="text-sm font-semibold text-gray-100">Tab Details</span>
                   {hovered && (
                     <a
                       href={hovered.url}
@@ -269,14 +269,20 @@ export function TabGraphOverlay() {
                 {hovered ? (
                   <div className="space-y-1 text-[11px] leading-snug text-gray-300">
                     <div className="font-medium text-gray-100">{hovered.title}</div>
-                    <div className="text-gray-400 break-all">{hovered.url}</div>
-                    <div>Domain: <span className="text-gray-200">{hovered.domain}</span></div>
+                    <div className="break-all text-gray-400">{hovered.url}</div>
+                    <div>
+                      Domain: <span className="text-gray-200">{hovered.domain}</span>
+                    </div>
                     {hovered.containerName && (
                       <div>
                         Container: <span className="text-gray-200">{hovered.containerName}</span>
                       </div>
                     )}
-                    {hovered.mode && <div>Mode: <span className="text-gray-200">{hovered.mode}</span></div>}
+                    {hovered.mode && (
+                      <div>
+                        Mode: <span className="text-gray-200">{hovered.mode}</span>
+                      </div>
+                    )}
                     {typeof hovered.lastActiveAt === 'number' && (
                       <div>
                         Last active{' '}
@@ -299,7 +305,7 @@ export function TabGraphOverlay() {
                   <button
                     type="button"
                     onClick={() => void fetchPlan({ maxSteps: 5, force: true })}
-                    className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-2 py-1 text-[11px] text-purple-100 hover:bg-purple-500/20 transition-colors"
+                    className="rounded-lg border border-purple-400/40 bg-purple-500/10 px-2 py-1 text-[11px] text-purple-100 transition-colors hover:bg-purple-500/20"
                     disabled={planLoading}
                   >
                     {planLoading ? 'Generating…' : 'Regenerate'}
@@ -318,18 +324,27 @@ export function TabGraphOverlay() {
                     <div className="text-[11px] text-purple-100/80">{plan.summary}</div>
                     <div className="space-y-2">
                       {plan.steps.length === 0 ? (
-                        <div className="text-[11px] text-purple-200/70">Open a few research tabs to generate a workflow.</div>
+                        <div className="text-[11px] text-purple-200/70">
+                          Open a few research tabs to generate a workflow.
+                        </div>
                       ) : (
                         plan.steps.map((step, index) => (
-                          <div key={step.id} className="rounded-lg border border-purple-400/30 bg-purple-500/10 p-2 text-[11px] text-purple-100/90">
+                          <div
+                            key={step.id}
+                            className="rounded-lg border border-purple-400/30 bg-purple-500/10 p-2 text-[11px] text-purple-100/90"
+                          >
                             <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-purple-200/80">
                               <span>Step {index + 1}</span>
                               {typeof step.confidence === 'number' && (
                                 <span>{Math.round(step.confidence * 100)}% confidence</span>
                               )}
                             </div>
-                            <div className="mt-1 text-[12px] font-semibold text-purple-50">{step.title}</div>
-                            <div className="mt-1 text-[11px] text-purple-100/80">{step.description}</div>
+                            <div className="mt-1 text-[12px] font-semibold text-purple-50">
+                              {step.title}
+                            </div>
+                            <div className="mt-1 text-[11px] text-purple-100/80">
+                              {step.description}
+                            </div>
                             {step.recommendedActions?.length > 0 && (
                               <ul className="mt-2 list-disc space-y-0.5 pl-4 text-[11px] text-purple-100/70">
                                 {step.recommendedActions.map((action, actionIdx) => (

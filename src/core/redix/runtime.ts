@@ -75,7 +75,7 @@ class RedixRuntime {
     if (this.initialized) return;
     if (!this.initPromise) {
       this.initPromise = initPersistence()
-        .catch((error) => {
+        .catch(error => {
           console.warn('[Redix] Persistence init failed:', error);
         })
         .finally(() => {
@@ -179,7 +179,11 @@ class RedixRuntime {
   /**
    * Time-travel to a specific event or timestamp
    */
-  timeTravel(options: { eventId?: string; eventIndex?: number; timestamp?: number }): RedixState | null {
+  timeTravel(options: {
+    eventId?: string;
+    eventIndex?: number;
+    timestamp?: number;
+  }): RedixState | null {
     try {
       if (options.eventId) {
         const index = getEventLog().findIndex(e => e.id === options.eventId);
@@ -299,7 +303,7 @@ class RedixRuntime {
    */
   private syncHistoryFromLog(): void {
     const log = getEventLog();
-    this.eventHistory = log.slice(-MAX_HISTORY_SIZE).map((event) => ({
+    this.eventHistory = log.slice(-MAX_HISTORY_SIZE).map(event => ({
       ...event,
       ts: event.timestamp,
     }));
@@ -325,7 +329,7 @@ function walkDiff(
   }
 
   const keys = new Set([...Object.keys(prev || {}), ...Object.keys(next || {})]);
-  keys.forEach((key) => {
+  keys.forEach(key => {
     if (diffs.length >= MAX_DIFF_ENTRIES) return;
     const currentPath = path ? `${path}.${key}` : key;
     const prevValue = prev?.[key];
@@ -373,14 +377,17 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 export const Redix = new RedixRuntime();
 
 // Export convenience methods
-export const watch = (eventType: string | RedixListener, handler?: RedixListener) => Redix.watch(eventType, handler);
+export const watch = (eventType: string | RedixListener, handler?: RedixListener) =>
+  Redix.watch(eventType, handler);
 export const dispatch = (event: RedixDispatchEvent) => Redix.dispatch(event);
 export const getRedixState = () => Redix.getState();
-export const getRedixHistory = (eventType?: string, limit?: number) => Redix.getHistory(eventType, limit);
+export const getRedixHistory = (eventType?: string, limit?: number) =>
+  Redix.getHistory(eventType, limit);
 export const getRedixSnapshots = (limit?: number) => Redix.getSnapshots(limit);
-export const timeTravelRedix = (options: { eventId?: string; eventIndex?: number; timestamp?: number }) =>
-  Redix.timeTravel(options);
+export const timeTravelRedix = (options: {
+  eventId?: string;
+  eventIndex?: number;
+  timestamp?: number;
+}) => Redix.timeTravel(options);
 export const undoRedix = () => Redix.undo();
 export const redoRedix = () => Redix.redo();
-
-

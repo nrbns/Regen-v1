@@ -67,7 +67,7 @@ export function RouterHealthBar({
   if (loading && !health) {
     return (
       <div className={`flex items-center gap-2 text-xs ${className}`}>
-        <Loader2 className="w-3 h-3 animate-spin text-gray-400" />
+        <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
         <span className="text-gray-400">Checking AI engine...</span>
       </div>
     );
@@ -89,12 +89,12 @@ export function RouterHealthBar({
     return (
       <div className={`flex items-center gap-1.5 ${className}`}>
         {overallOk ? (
-          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
         ) : (
-          <XCircle className="w-3 h-3 text-red-400" />
+          <XCircle className="h-3 w-3 text-red-400" />
         )}
-        {ollamaStatus && <Wifi className="w-3 h-3 text-emerald-400" />}
-        {hfStatus && <Wifi className="w-3 h-3 text-blue-400" />}
+        {ollamaStatus && <Wifi className="h-3 w-3 text-emerald-400" />}
+        {hfStatus && <Wifi className="h-3 w-3 text-blue-400" />}
       </div>
     );
   }
@@ -105,11 +105,11 @@ export function RouterHealthBar({
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`fixed top-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 ${className}`}
+        className={`fixed left-0 right-0 top-0 z-50 border-b border-slate-800 bg-slate-900/95 backdrop-blur-sm ${className}`}
       >
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-3">
-            <StatusIcon className={`w-4 h-4 ${statusColor}`} />
+            <StatusIcon className={`h-4 w-4 ${statusColor}`} />
             <span className="text-xs text-gray-300">
               {overallOk ? 'AI Engine Online' : 'AI Engine Offline'}
             </span>
@@ -122,14 +122,14 @@ export function RouterHealthBar({
           </div>
           <div className="flex items-center gap-2">
             {ollamaStatus ? (
-              <Wifi className="w-3 h-3 text-emerald-400" />
+              <Wifi className="h-3 w-3 text-emerald-400" />
             ) : (
-              <WifiOff className="w-3 h-3 text-gray-500" />
+              <WifiOff className="h-3 w-3 text-gray-500" />
             )}
             {hfStatus ? (
-              <Wifi className="w-3 h-3 text-blue-400" />
+              <Wifi className="h-3 w-3 text-blue-400" />
             ) : (
-              <WifiOff className="w-3 h-3 text-gray-500" />
+              <WifiOff className="h-3 w-3 text-gray-500" />
             )}
           </div>
         </div>
@@ -140,12 +140,12 @@ export function RouterHealthBar({
   // Detailed view
   return (
     <div className={`rounded-lg border border-slate-800 bg-slate-900/50 p-4 ${className}`}>
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <StatusIcon className={`w-5 h-5 ${statusColor}`} />
+          <StatusIcon className={`h-5 w-5 ${statusColor}`} />
           <h3 className="text-sm font-semibold text-white">AI Engine Status</h3>
         </div>
-        {loading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+        {loading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
       </div>
 
       <div className="space-y-2">
@@ -153,9 +153,9 @@ export function RouterHealthBar({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {ollamaStatus ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             ) : (
-              <XCircle className="w-4 h-4 text-red-400" />
+              <XCircle className="h-4 w-4 text-red-400" />
             )}
             <span className="text-xs text-gray-300">Ollama (Local)</span>
           </div>
@@ -173,9 +173,9 @@ export function RouterHealthBar({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {hfStatus ? (
-              <CheckCircle2 className="w-4 h-4 text-blue-400" />
+              <CheckCircle2 className="h-4 w-4 text-blue-400" />
             ) : (
-              <XCircle className="w-4 h-4 text-red-400" />
+              <XCircle className="h-4 w-4 text-red-400" />
             )}
             <span className="text-xs text-gray-300">Hugging Face (Cloud)</span>
           </div>
@@ -191,7 +191,7 @@ export function RouterHealthBar({
 
         {/* Metrics */}
         {health.metrics && (
-          <div className="mt-3 pt-3 border-t border-slate-800">
+          <div className="mt-3 border-t border-slate-800 pt-3">
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-gray-500">Total Requests:</span>
@@ -215,12 +215,12 @@ export function RouterHealthBar({
 
         {/* Redis Status */}
         {health.redis && (
-          <div className="mt-2 pt-2 border-t border-slate-800">
+          <div className="mt-2 border-t border-slate-800 pt-2">
             <div className="flex items-center gap-2">
               {health.redis === 'connected' ? (
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
               ) : (
-                <AlertCircle className="w-3 h-3 text-yellow-400" />
+                <AlertCircle className="h-3 w-3 text-yellow-400" />
               )}
               <span className="text-xs text-gray-500">Cache: {health.redis}</span>
             </div>

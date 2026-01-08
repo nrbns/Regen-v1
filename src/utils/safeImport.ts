@@ -15,7 +15,7 @@ export async function safeImport(moduleName: string, allowlist: string[] = DEFAU
   }
 
   // Use dynamic import for allowed modules only
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+
   // @ts-ignore
-  return import(moduleName);
+  return import(/* @vite-ignore */ moduleName);
 }

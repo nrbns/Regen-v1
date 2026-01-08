@@ -23,7 +23,7 @@ export function useRedix(
     const actualHandler = typeof eventType === 'function' ? eventType : handlerRef.current;
     if (!actualHandler) return;
 
-    const unsubscribe = Redix.watch(eventType as any, (event) => {
+    const unsubscribe = Redix.watch(eventType as any, event => {
       if (typeof eventType === 'string') {
         actualHandler(event);
       } else {
@@ -43,4 +43,3 @@ export function useRedixDispatch() {
     Redix.dispatch(event);
   };
 }
-

@@ -4,7 +4,9 @@ import { useSystemStatus } from '../../hooks/useSystemStatus';
 
 export function PrivacyIndicator() {
   const { data: status } = useSystemStatus();
-  const [online, setOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [online, setOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export function PrivacyIndicator() {
         onClick={() => setOpen(s => !s)}
         title="Privacy status"
         aria-label="Privacy status"
-        className="flex items-center gap-2 rounded px-2 py-1 bg-[var(--surface-elevated)] text-xs text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
+        className="flex items-center gap-2 rounded bg-[var(--surface-elevated)] px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--surface-hover)]"
       >
         {online ? <Wifi size={14} /> : <WifiOff size={14} />}
         <span className="font-medium">{label}</span>
@@ -39,9 +41,11 @@ export function PrivacyIndicator() {
             <ShieldCheck />
             <strong>Privacy</strong>
           </div>
-          <p className="mt-2 text-[var(--text-muted)]">Regen runs locally by default. Network features activate only when requested.</p>
+          <p className="mt-2 text-[var(--text-muted)]">
+            Regen runs locally by default. Network features activate only when requested.
+          </p>
           <div className="mt-3 text-xs text-[var(--text-muted)]">v1 decisions:</div>
-          <ul className="mt-2 text-xs space-y-1">
+          <ul className="mt-2 space-y-1 text-xs">
             <li>Local-first processing by default.</li>
             <li>Network calls only on explicit user action.</li>
             <li>Whispr (voice) is manual and off by default.</li>

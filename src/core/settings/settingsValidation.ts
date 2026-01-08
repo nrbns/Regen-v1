@@ -77,4 +77,3 @@ export function isValidApiKey(key: string, apiType?: string): boolean {
 
   return true;
 }
-

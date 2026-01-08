@@ -11,5 +11,9 @@ export default meta;
 type Story = StoryObj<typeof SystemBar>;
 
 export const Default: Story = {
-  render: () => <div style={{ padding: 16, background: '#0F1115' }}><SystemBar /></div>,
+  render: () => (
+    <div style={{ padding: 16, background: '#0F1115' }}>
+      <SystemBar />
+    </div>
+  ),
 };

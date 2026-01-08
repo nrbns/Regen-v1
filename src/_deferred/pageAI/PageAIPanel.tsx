@@ -91,7 +91,13 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
       setMessages(prev => [
         ...prev,
-        { id: `msg-${Date.now()}`, role: 'assistant', content, timestamp: Date.now(), action: 'summarize' },
+        {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content,
+          timestamp: Date.now(),
+          action: 'summarize',
+        },
       ]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to generate summary');
@@ -109,7 +115,13 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
     setMessages(prev => [
       ...prev,
-      { id: messageId, role: 'user', content: `Explain: ${textToExplain}`, timestamp: Date.now(), action: 'explain' },
+      {
+        id: messageId,
+        role: 'user',
+        content: `Explain: ${textToExplain}`,
+        timestamp: Date.now(),
+        action: 'explain',
+      },
     ]);
 
     try {
@@ -126,7 +138,13 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
       setMessages(prev => [
         ...prev,
-        { id: `msg-${Date.now()}`, role: 'assistant', content: explanation, timestamp: Date.now(), action: 'explain' },
+        {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: explanation,
+          timestamp: Date.now(),
+          action: 'explain',
+        },
       ]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to generate explanation');
@@ -138,7 +156,13 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
   const handleSend = async () => {
     if (!input.trim() || !pageContext) return;
-    const userMessage: Message = { id: `msg-${Date.now()}`, role: 'user', content: input, timestamp: Date.now(), action: 'ask' };
+    const userMessage: Message = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      content: input,
+      timestamp: Date.now(),
+      action: 'ask',
+    };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
@@ -146,9 +170,25 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
     try {
       const prompt = `You are an AI assistant helping the user understand a webpage. \n\nPage Context:\nTitle: ${pageContext.title}\nURL: ${pageContext.url}\n\nPage Content (excerpt):\n${pageContext.content.substring(0, 6000)}\n\nUser Question: ${input}\n\nPlease provide a helpful answer based on the page content.`;
 
-      const result = await aiEngine.runTask({ kind: 'chat', prompt, context: { pageUrl: pageContext.url, conversationHistory: messages.map(m => ({ role: m.role, content: m.content })) } });
+      const result = await aiEngine.runTask({
+        kind: 'chat',
+        prompt,
+        context: {
+          pageUrl: pageContext.url,
+          conversationHistory: messages.map(m => ({ role: m.role, content: m.content })),
+        },
+      });
 
-      setMessages(prev => [...prev, { id: `msg-${Date.now()}`, role: 'assistant', content: result.text || 'I cannot answer that question.', timestamp: Date.now(), action: 'ask' }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          role: 'assistant',
+          content: result.text || 'I cannot answer that question.',
+          timestamp: Date.now(),
+          action: 'ask',
+        },
+      ]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to get response');
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
@@ -166,7 +206,10 @@ export function PageAIPanel({ isOpen, onClose }: PageAIPanelProps) {
 
   return (
     <AnimatePresence>
-      <motion.div className={`fixed bottom-0 right-0 top-0 ${isMobile ? 'w-full' : 'w-[400px]'} safe-top safe-bottom flex flex-col border-l border-gray-700 bg-gray-900`} style={{ zIndex: 120 }}>
+      <motion.div
+        className={`fixed bottom-0 right-0 top-0 ${isMobile ? 'w-full' : 'w-[400px]'} safe-top safe-bottom flex flex-col border-l border-gray-700 bg-gray-900`}
+        style={{ zIndex: 120 }}
+      >
         {/* Header and rest of original UI (deferred) */}
       </motion.div>
     </AnimatePresence>

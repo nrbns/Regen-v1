@@ -7,7 +7,11 @@ import { Loader } from 'lucide-react';
  */
 export function AppLoadingFallback() {
   return (
-    <div role="region" aria-label="Loading fallback" className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0e27] via-[#111422] to-[#0a0e27]">
+    <div
+      role="region"
+      aria-label="Loading fallback"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-[#0a0e27] via-[#111422] to-[#0a0e27]"
+    >
       {/* Background accent */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 right-0 h-80 w-80 rounded-full bg-blue-500/10 blur-[100px]" />

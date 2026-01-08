@@ -37,9 +37,10 @@ export function ContextsList({ limit = 50, query = '' }: { limit?: number; query
       }
 
       const local = await contextEngine.getContexts(500);
-      const filtered = local.filter(c =>
-        (c.url || '').toLowerCase().includes(term.toLowerCase()) ||
-        ((c.title || '') as string).toLowerCase().includes(term.toLowerCase())
+      const filtered = local.filter(
+        c =>
+          (c.url || '').toLowerCase().includes(term.toLowerCase()) ||
+          ((c.title || '') as string).toLowerCase().includes(term.toLowerCase())
       );
       setItems(filtered.slice().reverse());
     } catch (err) {
@@ -67,16 +68,24 @@ export function ContextsList({ limit = 50, query = '' }: { limit?: number; query
       {!searchLoading && items.length === 0 && (
         <div className="text-xs text-gray-500">No contexts recorded yet</div>
       )}
-      {!searchLoading && items.map(item => (
-        <div key={item.id} className="flex items-center justify-between gap-2 py-2">
-          <div className="flex-1">
-            <a href={item.url} target="_blank" rel="noreferrer noopener" className="text-sm text-white hover:underline">
-              {item.title || item.url}
-            </a>
-            <div className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleString()}</div>
+      {!searchLoading &&
+        items.map(item => (
+          <div key={item.id} className="flex items-center justify-between gap-2 py-2">
+            <div className="flex-1">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-sm text-white hover:underline"
+              >
+                {item.title || item.url}
+              </a>
+              <div className="text-xs text-gray-400">
+                {new Date(item.timestamp).toLocaleString()}
+              </div>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
     </div>
   );
 }

@@ -32,7 +32,7 @@ export function RedixMemoryMonitor() {
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="mb-3 flex items-center gap-2">
         <Activity className="h-4 w-4 text-purple-400" />
         <h3 className="text-sm font-semibold text-white">Redix Memory Monitor</h3>
       </div>
@@ -42,9 +42,7 @@ export function RedixMemoryMonitor() {
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-400">Current Memory</span>
           <div className="flex items-center gap-2">
-            <span className={`text-sm font-semibold ${getMemoryColor()}`}>
-              {stats.memoryMB} MB
-            </span>
+            <span className={`text-sm font-semibold ${getMemoryColor()}`}>{stats.memoryMB} MB</span>
             {getTrendIcon()}
           </div>
         </div>
@@ -70,7 +68,7 @@ export function RedixMemoryMonitor() {
         </div>
 
         {/* Memory Progress Bar */}
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700">
           <div
             className={`h-full transition-all ${
               stats.memoryMB > 500
@@ -96,5 +94,3 @@ export function RedixMemoryMonitor() {
     </div>
   );
 }
-
-

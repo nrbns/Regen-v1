@@ -57,9 +57,9 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   tor: defaultTor,
   vpn: defaultVpn,
   async refreshTor() {
-    set((state) => ({ tor: { ...state.tor, loading: true } }));
+    set(state => ({ tor: { ...state.tor, loading: true } }));
     try {
-      const status = await ipc.tor.status() as any;
+      const status = (await ipc.tor.status()) as any;
       set({
         tor: {
           running: Boolean(status?.running),
@@ -86,13 +86,15 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   async refreshVpn() {
     // VPN is deferred in v1; avoid invoking platform VPN APIs
     if (!isFeatureEnabled('vpn')) {
-      set((state) => ({ vpn: { ...state.vpn, loading: false, stub: true, lastChecked: Date.now() } }));
+      set(state => ({
+        vpn: { ...state.vpn, loading: false, stub: true, lastChecked: Date.now() },
+      }));
       return;
     }
 
-    set((state) => ({ vpn: { ...state.vpn, loading: true } }));
+    set(state => ({ vpn: { ...state.vpn, loading: true } }));
     try {
-      const status = await ipc.vpn.status() as any;
+      const status = (await ipc.vpn.status()) as any;
       set({
         vpn: {
           connected: Boolean(status?.connected),
@@ -114,12 +116,12 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
     }
   },
   async startTor() {
-    set((state) => ({ tor: { ...state.tor, loading: true, error: null } }));
+    set(state => ({ tor: { ...state.tor, loading: true, error: null } }));
     try {
       const response = await ipc.tor.start();
       await get().refreshTor();
       if ((response as any)?.stub) {
-        set((state) => ({
+        set(state => ({
           tor: {
             ...state.tor,
             stub: true,
@@ -139,7 +141,7 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
     }
   },
   async stopTor() {
-    set((state) => ({ tor: { ...state.tor, loading: true } }));
+    set(state => ({ tor: { ...state.tor, loading: true } }));
     try {
       await ipc.tor.stop();
     } catch (error) {
@@ -174,13 +176,13 @@ export const usePrivacyStore = create<PrivacyState>((set, get) => ({
   async checkVpn() {
     // No-op in v1 when VPN is disabled
     if (!isFeatureEnabled('vpn')) {
-      set((state) => ({ vpn: { ...state.vpn, loading: false, lastChecked: Date.now() } }));
+      set(state => ({ vpn: { ...state.vpn, loading: false, lastChecked: Date.now() } }));
       return;
     }
 
-    set((state) => ({ vpn: { ...state.vpn, loading: true } }));
+    set(state => ({ vpn: { ...state.vpn, loading: true } }));
     try {
-      const status = await ipc.vpn.check() as any;
+      const status = (await ipc.vpn.check()) as any;
       set({
         vpn: {
           connected: Boolean(status?.connected),

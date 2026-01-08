@@ -8,7 +8,11 @@ export function getUserFriendlyError(error: unknown): string {
     const message = error.message.toLowerCase();
 
     // Network errors
-    if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
+    if (
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('connection')
+    ) {
       return 'Connection failed. Please check your internet connection and try again.';
     }
 
@@ -50,11 +54,18 @@ export function getUserFriendlyError(error: unknown): string {
 /**
  * Get error category for better handling
  */
-export function getErrorCategory(error: unknown): 'network' | 'storage' | 'permission' | 'search' | 'agent' | 'unknown' {
+export function getErrorCategory(
+  error: unknown
+): 'network' | 'storage' | 'permission' | 'search' | 'agent' | 'unknown' {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
-    if (message.includes('network') || message.includes('fetch') || message.includes('connection') || message.includes('timeout')) {
+    if (
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('connection') ||
+      message.includes('timeout')
+    ) {
       return 'network';
     }
 
@@ -77,4 +88,3 @@ export function getErrorCategory(error: unknown): 'network' | 'storage' | 'permi
 
   return 'unknown';
 }
-

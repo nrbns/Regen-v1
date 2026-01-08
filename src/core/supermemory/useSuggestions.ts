@@ -63,7 +63,10 @@ export function useSuggestions(query: string, options?: UseSuggestionsOptions): 
 
       const queryLower = debouncedQuery.toLowerCase();
 
-      const scoredSuggestions = new Map<string, { event: MemoryEvent; count: number; lastUsed: number }>();
+      const scoredSuggestions = new Map<
+        string,
+        { event: MemoryEvent; count: number; lastUsed: number }
+      >();
 
       for (const event of allEvents) {
         if (types.includes(event.type)) {

@@ -167,7 +167,7 @@ class MemoryProfiler {
   estimateBreakdown(): MemorySnapshot['breakdown'] {
     // Heuristic estimation based on common browser memory patterns
     const totalMB = this.getCurrentMemoryMB();
-    
+
     return {
       tabs: Math.round(totalMB * 0.5), // ~50% for tabs
       webviews: Math.round(totalMB * 0.2), // ~20% for webviews
@@ -231,5 +231,3 @@ export function getMemoryUsageMB(): number {
 export function isMemoryHigh(thresholdMB: number = 400): boolean {
   return getMemoryUsageMB() >= thresholdMB;
 }
-
-

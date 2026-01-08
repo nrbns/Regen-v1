@@ -4,12 +4,12 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { 
-  getMVPFeatureFlags, 
-  toggleMVPFeature, 
+import {
+  getMVPFeatureFlags,
+  toggleMVPFeature,
   setMVPFeatureEnabled,
   resetMVPFeaturestoDefaults,
-  isMVPFeatureEnabled 
+  isMVPFeatureEnabled,
 } from '../config/mvpFeatureFlags';
 
 describe('Settings Screen Integration', () => {
@@ -100,7 +100,7 @@ describe('Settings Screen Integration', () => {
 
   describe('Feature Flag Events', () => {
     it('should dispatch event when feature is toggled', () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         const handler = (event: Event) => {
           const customEvent = event as CustomEvent;
           expect(customEvent.detail.featureId).toBe('tab-hibernation');
@@ -115,7 +115,7 @@ describe('Settings Screen Integration', () => {
     });
 
     it('should dispatch event when feature is set', () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         const handler = (event: Event) => {
           const customEvent = event as CustomEvent;
           expect(customEvent.detail.featureId).toBe('sidebar-toggle');
@@ -130,7 +130,7 @@ describe('Settings Screen Integration', () => {
     });
 
     it('should dispatch event when features are reset', () => {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>(resolve => {
         toggleMVPFeature('tab-hibernation');
         toggleMVPFeature('low-ram-mode');
 
@@ -197,7 +197,7 @@ describe('Settings Screen Integration', () => {
       expect(localStorage.getItem('mvp-feature-flags-v1')).toBeTruthy();
 
       resetMVPFeaturestoDefaults();
-      
+
       const stored = localStorage.getItem('mvp-feature-flags-v1');
       const parsed = JSON.parse(stored!);
       expect(parsed.every((f: any) => f.enabled)).toBe(true);

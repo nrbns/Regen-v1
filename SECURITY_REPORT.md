@@ -1,5 +1,4 @@
-Security Check Report
-=====================
+# Security Check Report
 
 Generated: 2026-01-06
 
@@ -33,8 +32,7 @@ Findings (summary):
   - src/state/settingsStore.ts
   - src/services/prefetch/queryPrefetcher.ts
 
-Recommendation / Next Steps
----------------------------
+## Recommendation / Next Steps
 
 1. Audit each flagged file. For server-side build scripts that require `child_process`, ensure they run only in CI or as dev tools, not in production runtime, and document them in `SECURITY.md`.
 2. Remove or replace `eval`, `new Function`, and similar constructs. Convert sandboxing strategies to use well-reviewed isolated processes or a vetted sandbox runtime.

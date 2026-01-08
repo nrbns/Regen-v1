@@ -75,7 +75,6 @@ const DEFAULT_FEATURES: MVPFeature[] = [
     category: 'ui',
     enabled: true,
   },
-  
 ];
 
 /**

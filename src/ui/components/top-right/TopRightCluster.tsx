@@ -28,17 +28,17 @@ export function TopRightCluster() {
         {/* Regen Sidebar Toggle - Direct UI control (hidden in v1-mode) */}
         {!v1 && (
           <button
-          type="button"
-          aria-label={regenSidebarOpen ? 'Hide Regen sidebar' : 'Show Regen sidebar'}
-          title={`Toggle Regen Sidebar (Ctrl+B)`}
-          className={`rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary-500)] ${
-            regenSidebarOpen
-              ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-          }`}
-          onClick={() => setRegenSidebarOpen(!regenSidebarOpen)}
-        >
-          <PanelRight className="h-5 w-5" aria-hidden />
+            type="button"
+            aria-label={regenSidebarOpen ? 'Hide Regen sidebar' : 'Show Regen sidebar'}
+            title={`Toggle Regen Sidebar (Ctrl+B)`}
+            className={`rounded-lg p-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)] focus-visible:ring-offset-2 ${
+              regenSidebarOpen
+                ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+            onClick={() => setRegenSidebarOpen(!regenSidebarOpen)}
+          >
+            <PanelRight className="h-5 w-5" aria-hidden />
           </button>
         )}
         {!v1 && <FeaturesMenu />}

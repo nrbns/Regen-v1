@@ -11,113 +11,32 @@ export default function TradePanel(): JSX.Element | null {
     </div>
   )
 }
+import React from 'react'
+import { isV1ModeEnabled } from '../../config/mvpFeatureFlags'
 
-          seriesRef.current.setData(chartData);
-        }
-      }
-    },
-  });
+// Minimal v1-safe Trade panel. Heavy trading UI and real-time integrations are
+// deliberately disabled in v1 to reduce attack surface and external dependencies.
+export default function TradePanel(): JSX.Element | null {
+  if (isV1ModeEnabled()) return null
+  return (
+    <div className="p-4 text-sm text-slate-300">
+      Trade mode is disabled in v1. Experimental trading features are deferred to ROADMAP.md.
+    </div>
+  )
+}
+import React from 'react'
+import { isV1ModeEnabled } from '../../config/mvpFeatureFlags'
 
-  // REAL-TIME PRICE UPDATES (Sub-second latency via SSE) - Fallback
-  useEffect(() => {
-    if (wsConnected) return;
-
-    const realtimeService = getRealtimeMarketDataService();
-    let previousPrice = price;
-
-    const unsubscribe = realtimeService.subscribe(selected.symbol, (update: PriceUpdate) => {
-      const newPrice = update.price;
-      const delta = newPrice - previousPrice;
-      previousPrice = newPrice;
-
-      setPrice(newPrice);
-      setChange(Math.abs(delta));
-      setChangePercent(update.changePercent || (delta / (previousPrice - delta)) * 100 || 0);
-      setIsGreen(delta >= 0);
-      setLastPrice(newPrice);
-      setLastUpdate(new Date(update.timestamp));
-      setConnectionError(null);
-
-      if (update.volume) setVolume(update.volume);
-    });
-
-    const fetchInitialQuote = async () => {
-      try {
-        const { tradeApi } = await import('../../lib/api-client');
-        const quote = await tradeApi.getQuote(selected.symbol);
-        if (quote && quote.price) {
-          previousPrice = quote.price;
-          setPrice(quote.price);
-          setHigh(quote.high || quote.price);
-          setLow(quote.low || quote.price);
-          setOpen(quote.open || quote.price);
-          setVolume(quote.volume || 0);
-        }
-      } catch (error) {
-        console.debug('[Trade] Initial quote fetch failed, waiting for SSE:', error);
-      }
-    };
-
-    fetchInitialQuote();
-
-    return () => {
-      unsubscribe();
-    };
-  }, [selected.symbol, wsConnected, price]);
-
-  // Trade signals
-  const [_signalHistory, setSignalHistory] = useState<TradeSignal[]>([]);
-  const [_sseConnected, setSseConnected] = useState(false);
-
-  useEffect(() => {
-    const signalService = getTradeSignalService();
-    const sseService = getSSESignalService();
-    const statusUnsubscribe = sseService.onStatusChange(
-      (status: {
-        connected: boolean;
-        reconnecting: boolean;
-        lastConnected?: number;
-        reconnectAttempts: number;
-        error?: string;
-      }) => {
-        setSseConnected(status.connected);
-      }
-    );
-
-    const unsubscribe = signalService.subscribe(selected.symbol, (signal: TradeSignal) => {
-      const config = { enableFallback: true, fallbackInterval: 30000, minConfidence: 0.6 };
-      const validation = validateSignal(signal, config);
-
-      if (validation.shouldDisplay) {
-        toast.info(
-          `Signal: ${signal.action} ${selected.name} (${Math.round(signal.confidence * 100)}%)`,
-          { duration: 5000 }
-        );
-        setSignalHistory(prev => [...prev.slice(-9), signal]);
-      }
-    });
-
-    return () => {
-      unsubscribe();
-      statusUnsubscribe();
-    };
-  }, [selected]);
-
-  // REAL TRADINGVIEW CANDLES
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-
-    let chart: IChartApi | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
-    let resizeHandler: (() => void) | null = null;
-
-    const initializeChart = () => {
-      if (!chartContainerRef.current) return;
-
-      try {
-        const container = chartContainerRef.current;
-        const width = container.clientWidth || 800;
-        const height = container.clientHeight || 600;
+// Minimal v1-safe Trade panel. Heavy trading UI and real-time integrations are
+// deliberately disabled in v1 to reduce attack surface and external dependencies.
+export default function TradePanel(): JSX.Element | null {
+  if (isV1ModeEnabled()) return null
+  return (
+    <div className="p-4 text-sm text-slate-300">
+      Trade mode is disabled in v1. Experimental trading features are deferred to ROADMAP.md.
+    </div>
+  )
+}
 
         chart = createChart(container, {
           layout: {
@@ -477,25 +396,41 @@ export default function TradePanel(): JSX.Element | null {
       <div className="z-20 flex-shrink-0 border-b border-gray-800 bg-black/50 px-4 py-2">
         <div className="flex gap-2 overflow-x-auto">
           <button
-            onClick={() => toast.info("Explain today's move - Coming soon")}
+            onClick={() => {
+              import('../../services/taskService').then(({ TaskService }) => {
+                TaskService.processUserInput("Explain today's market move for the selected asset");
+              });
+            }}
             className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
           >
             📈 Explain today's move
           </button>
           <button
-            onClick={() => toast.info('Support/Resistance levels - Coming soon')}
+            onClick={() => {
+              import('../../services/taskService').then(({ TaskService }) => {
+                TaskService.processUserInput("Analyze support and resistance levels for the selected asset");
+              });
+            }}
             className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
           >
             📊 Support / Resistance
           </button>
           <button
-            onClick={() => toast.info('Risk summary - Coming soon')}
+            onClick={() => {
+              import('../../services/taskService').then(({ TaskService }) => {
+                TaskService.processUserInput("Provide a risk summary for the current trading position");
+              });
+            }}
             className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
           >
             ⚠️ Risk summary
           </button>
           <button
-            onClick={() => toast.info('What changed since yesterday - Coming soon')}
+            onClick={() => {
+              import('../../services/taskService').then(({ TaskService }) => {
+                TaskService.processUserInput("What changed in the market since yesterday");
+              });
+            }}
             className="flex-shrink-0 rounded-lg border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10 hover:text-emerald-200"
           >
             🔄 What changed?

@@ -5,14 +5,14 @@
 
 export { getSkillEngine, type SkillExecutionOptions } from './engine';
 export { getSkillRegistry } from './registry';
-export type { 
-  SkillManifest, 
-  SkillPermission, 
-  SkillTrigger, 
-  SkillAction, 
-  SkillContext, 
-  SkillResult, 
-  Skill 
+export type {
+  SkillManifest,
+  SkillPermission,
+  SkillTrigger,
+  SkillAction,
+  SkillContext,
+  SkillResult,
+  Skill,
 } from './types';
 
 // Re-export Gmail skill

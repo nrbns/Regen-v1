@@ -145,13 +145,17 @@ async function callOpenAI(
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
   const proxyUrl = `${API_BASE}/api/proxy/openai`;
 
-  const response = await fetchWithTimeout(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    proxyUrl,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }, options.timeout ?? DEFAULT_TIMEOUT_MS);
+    options.timeout ?? DEFAULT_TIMEOUT_MS
+  );
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
@@ -205,13 +209,17 @@ async function callAnthropic(
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
   const proxyUrl = `${API_BASE}/api/proxy/anthropic`;
 
-  const response = await fetchWithTimeout(proxyUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+  const response = await fetchWithTimeout(
+    proxyUrl,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }, options.timeout ?? DEFAULT_TIMEOUT_MS);
+    options.timeout ?? DEFAULT_TIMEOUT_MS
+  );
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
@@ -264,14 +272,18 @@ async function callMistral(
   if (options.topP !== undefined) body.top_p = options.topP;
   if (options.stopSequences) body.stop = options.stopSequences;
 
-  const response = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+  const response = await fetchWithTimeout(
+    `${baseUrl}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  }, options.timeout ?? DEFAULT_TIMEOUT_MS);
+    options.timeout ?? DEFAULT_TIMEOUT_MS
+  );
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
@@ -297,7 +309,8 @@ async function callMistral(
 }
 
 // --- Ollama circuit-breaker ---
-const OLLAMA_CIRCUIT_FAILURE_THRESHOLD = Number(import.meta.env.VITE_OLLAMA_CIRCUIT_FAILURE_THRESHOLD) || 3;
+const OLLAMA_CIRCUIT_FAILURE_THRESHOLD =
+  Number(import.meta.env.VITE_OLLAMA_CIRCUIT_FAILURE_THRESHOLD) || 3;
 const OLLAMA_CIRCUIT_OPEN_MS = Number(import.meta.env.VITE_OLLAMA_CIRCUIT_OPEN_MS) || 60_000;
 
 type CircuitRecord = { failures: number; openedAt: number | null };
@@ -408,46 +421,50 @@ async function callOllama(
     } as LLMError;
   }
 
-    const response = await fetchWithTimeout(`${baseUrl}/api/chat`, {
+  const response = await fetchWithTimeout(
+    `${baseUrl}/api/chat`,
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-    }, options.timeout ?? 60000);
+    },
+    options.timeout ?? 60000
+  );
 
-    if (!response.ok) {
-      recordOllamaFailure(baseUrl);
-      if (response.status === 404) {
-        throw {
-          code: 'ollama_model_not_found',
-          message: `Model "${model}" not found. Run: ollama pull ${model}`,
-          provider: 'ollama' as LLMProvider,
-          retryable: false,
-        } as LLMError;
-      }
+  if (!response.ok) {
+    recordOllamaFailure(baseUrl);
+    if (response.status === 404) {
       throw {
-        code: `ollama_${response.status}`,
-        message: `Ollama API error: ${response.statusText}`,
+        code: 'ollama_model_not_found',
+        message: `Model "${model}" not found. Run: ollama pull ${model}`,
         provider: 'ollama' as LLMProvider,
-        retryable: false, // Local service, usually not retryable
+        retryable: false,
       } as LLMError;
     }
-
-    const data = await response.json();
-    const latency = Date.now() - startTime;
-
-    // success - reset circuit
-    recordOllamaSuccess(baseUrl);
-
-    return {
-      text: data.message?.content || '',
-      raw: data,
-      provider: 'ollama',
-      model: data.model || model,
-      latency,
-    };
+    throw {
+      code: `ollama_${response.status}`,
+      message: `Ollama API error: ${response.statusText}`,
+      provider: 'ollama' as LLMProvider,
+      retryable: false, // Local service, usually not retryable
+    } as LLMError;
   }
+
+  const data = await response.json();
+  const latency = Date.now() - startTime;
+
+  // success - reset circuit
+  recordOllamaSuccess(baseUrl);
+
+  return {
+    text: data.message?.content || '',
+    raw: data,
+    provider: 'ollama',
+    model: data.model || model,
+    latency,
+  };
+}
 
 /**
  * Send a prompt to an LLM provider
@@ -476,7 +493,12 @@ export async function sendPrompt(prompt: string, options: LLMOptions = {}): Prom
       const invokeProvider = async (): Promise<LLMResponse> => {
         switch (provider) {
           case 'openai':
-            return await callOpenAI(prompt, options, apiKey!, baseUrl === undefined ? getBaseUrl('openai') : baseUrl);
+            return await callOpenAI(
+              prompt,
+              options,
+              apiKey!,
+              baseUrl === undefined ? getBaseUrl('openai') : baseUrl
+            );
           case 'anthropic':
             return await callAnthropic(prompt, options, apiKey!);
           case 'mistral':
@@ -491,14 +513,11 @@ export async function sendPrompt(prompt: string, options: LLMOptions = {}): Prom
       // Use retries with exponential backoff for transient errors
       const start = Date.now();
       emitTelemetry({ type: 'llm.request.attempt_start', provider, attempt: 1 });
-      const response = await retryWithBackoff(
-        async () => {
-          // Ensure provider-level requests use the configured timeout where applicable
-          // callOpenAI / callAnthropic / callMistral / callOllama use fetchWithTimeout internally
-          return await invokeProvider();
-        },
-        attempts
-      );
+      const response = await retryWithBackoff(async () => {
+        // Ensure provider-level requests use the configured timeout where applicable
+        // callOpenAI / callAnthropic / callMistral / callOllama use fetchWithTimeout internally
+        return await invokeProvider();
+      }, attempts);
 
       const duration = Date.now() - start;
       // Log metrics
@@ -508,13 +527,24 @@ export async function sendPrompt(prompt: string, options: LLMOptions = {}): Prom
           tokens: response.usage?.totalTokens,
         });
       }
-      emitTelemetry({ type: 'llm.provider.success', provider, model: response.model, durationMs: duration, tokens: response.usage?.totalTokens });
+      emitTelemetry({
+        type: 'llm.provider.success',
+        provider,
+        model: response.model,
+        durationMs: duration,
+        tokens: response.usage?.totalTokens,
+      });
 
       return response;
     } catch (error: any) {
       lastError = error;
       console.warn(`[LLM] ${provider} failed:`, error?.message || error);
-      emitTelemetry({ type: 'llm.provider.error', provider, error: { message: error?.message, code: error?.code }, extra: { retryable: error?.retryable } });
+      emitTelemetry({
+        type: 'llm.provider.error',
+        provider,
+        error: { message: error?.message, code: error?.code },
+        extra: { retryable: error?.retryable },
+      });
 
       // If error is retryable, try next provider
       if (error && error.retryable && providers.length > 1) {
@@ -561,7 +591,10 @@ function parseSSEChunk(data: string) {
       try {
         const json = JSON.parse(payload);
         // Support delta style and message style
-        const delta = json.choices?.[0]?.delta?.content || json.choices?.[0]?.message?.content || json.choices?.[0]?.text;
+        const delta =
+          json.choices?.[0]?.delta?.content ||
+          json.choices?.[0]?.message?.content ||
+          json.choices?.[0]?.text;
         if (delta !== undefined) return { text: delta } as any;
       } catch (e) {
         // Not JSON, ignore
@@ -596,11 +629,15 @@ export async function streamPrompt(
     try {
       // Enforce a minimum timeout for streaming to account for module import and network variability
       const streamTimeout = Math.max(options.timeout ?? DEFAULT_TIMEOUT_MS, 5000);
-      const resp = await fetchWithTimeout(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }, streamTimeout);
+      const resp = await fetchWithTimeout(
+        proxyUrl,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        streamTimeout
+      );
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: { message: resp.statusText } }));
@@ -728,7 +765,11 @@ function backoffDelay(attempt: number, base = DEFAULT_BASE_DELAY_MS, max = DEFAU
   return exponential + randomJitter(jitter);
 }
 
-async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, timeout = DEFAULT_TIMEOUT_MS) {
+async function fetchWithTimeout(
+  input: RequestInfo,
+  init: RequestInit = {},
+  timeout = DEFAULT_TIMEOUT_MS
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -741,18 +782,34 @@ async function fetchWithTimeout(input: RequestInfo, init: RequestInit = {}, time
   }
 }
 
-async function retryWithBackoff<T>(fn: () => Promise<T>, attempts = DEFAULT_RETRY_ATTEMPTS, baseDelay = DEFAULT_BASE_DELAY_MS, maxDelay = DEFAULT_MAX_DELAY_MS): Promise<T> {
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  attempts = DEFAULT_RETRY_ATTEMPTS,
+  baseDelay = DEFAULT_BASE_DELAY_MS,
+  maxDelay = DEFAULT_MAX_DELAY_MS
+): Promise<T> {
   let lastError: any = null;
   for (let i = 0; i < attempts; i++) {
     try {
       return await fn();
     } catch (err: any) {
       lastError = err;
-      const isRetryable = !!(err && (err.retryable || err.name === 'AbortError' || err instanceof TypeError));
+      const isRetryable = !!(
+        err &&
+        (err.retryable || err.name === 'AbortError' || err instanceof TypeError)
+      );
       // emit telemetry about the failure/attempt
-      emitTelemetry({ type: 'llm.provider.attempt_failed', attempt: i + 1, error: { message: err?.message, code: err?.code }, extra: { retryable: isRetryable } });
+      emitTelemetry({
+        type: 'llm.provider.attempt_failed',
+        attempt: i + 1,
+        error: { message: err?.message, code: err?.code },
+        extra: { retryable: isRetryable },
+      });
       if (i === attempts - 1 || !isRetryable) {
-        emitTelemetry({ type: 'llm.provider.failed', error: { message: err?.message, code: err?.code } });
+        emitTelemetry({
+          type: 'llm.provider.failed',
+          error: { message: err?.message, code: err?.code },
+        });
         break;
       }
       const delay = backoffDelay(i + 1, baseDelay, maxDelay);

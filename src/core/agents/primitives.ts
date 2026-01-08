@@ -72,11 +72,7 @@ function resolveSelector(selector: DOMSelector, document: Document): Element | n
         return document.querySelector(selector.value);
       case 'text':
         // Find element containing text
-        const walker = document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
         let node;
         while ((node = walker.nextNode())) {
           if (node.textContent?.includes(selector.value)) {
@@ -110,7 +106,7 @@ function waitForElement(
   document: Document,
   timeout = 5000
 ): Promise<Element | null> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const startTime = Date.now();
 
     const check = () => {
@@ -184,7 +180,7 @@ async function scrollIntoView(element: Element, options: ScrollOptions = {}): Pr
   });
 
   // Wait for scroll to complete
-  await new Promise((resolve) => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
+  await new Promise(resolve => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
 }
 
 /**
@@ -256,7 +252,7 @@ export async function clickElement(
 
   // Wait for navigation if requested
   if (options.waitForNavigation) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
   return true;
@@ -325,7 +321,7 @@ export function readPageText(document: Document = window.document): string {
 
   // Remove script and style elements
   const scripts = clone.querySelectorAll('script, style, noscript');
-  scripts.forEach((el) => el.remove());
+  scripts.forEach(el => el.remove());
 
   return clone.textContent?.trim() || '';
 }
@@ -384,7 +380,7 @@ export async function scrollPage(
     behavior: options.behavior || 'smooth',
   });
 
-  await new Promise((resolve) => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
+  await new Promise(resolve => setTimeout(resolve, options.behavior === 'smooth' ? 300 : 0));
 }
 
 /**
@@ -394,7 +390,7 @@ export async function waitForPageReady(
   document: Document = window.document,
   timeout = 10000
 ): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     if (document.readyState === 'complete') {
       resolve(true);
       return;
@@ -441,11 +437,8 @@ export function getPageInfo(document: Document = window.document): PageInfo {
 /**
  * Wait for URL to change (navigation detection)
  */
-export async function waitForNavigation(
-  currentUrl: string,
-  timeout = 10000
-): Promise<boolean> {
-  return new Promise((resolve) => {
+export async function waitForNavigation(currentUrl: string, timeout = 10000): Promise<boolean> {
+  return new Promise(resolve => {
     const startTime = Date.now();
 
     const check = () => {
@@ -469,9 +462,7 @@ export async function waitForNavigation(
 /**
  * Extract structured data from page (uses pageExtractor)
  */
-export async function extractStructuredData(
-  document: Document = window.document
-): Promise<any> {
+export async function extractStructuredData(document: Document = window.document): Promise<any> {
   try {
     const { extractPageContent } = await import('../../utils/pageExtractor');
     return extractPageContent(document);
@@ -501,4 +492,3 @@ export async function saveToMemory(
     return null;
   }
 }
-

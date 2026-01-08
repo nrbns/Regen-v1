@@ -100,7 +100,10 @@ export function getRecoveryAction(error: Error, _context?: string): RecoveryActi
 /**
  * Phase 1, Day 3: Execute recovery action
  */
-export async function executeRecoveryAction(action: RecoveryAction, error: Error): Promise<boolean> {
+export async function executeRecoveryAction(
+  action: RecoveryAction,
+  error: Error
+): Promise<boolean> {
   switch (action.action) {
     case 'retry':
       toast.info('Retrying...', { duration: 2000 });
@@ -235,4 +238,3 @@ export function isRecoverableError(error: Error): boolean {
 
   return recoverablePatterns.some(pattern => errorMessage.includes(pattern));
 }
-

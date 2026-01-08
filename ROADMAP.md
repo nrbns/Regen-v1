@@ -31,8 +31,10 @@ Regen-v1 Roadmap
 Future: Network isolation / routing layer
 
 Notes:
+
 - v1 intentionally omits integrated VPN/Tor/network routing features.
 - These features are planned for a future release focused on network isolation.
+
 # ROADMAP — short-term priorities
 
 This file documents features intentionally deferred from v1.

@@ -55,54 +55,51 @@ export function QuickFactsPanel({
 
   return (
     <ResponsiveCard
-      className={cn('bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/20', className)}
+      className={cn(
+        'border-purple-500/20 bg-gradient-to-br from-purple-500/10 to-blue-500/10',
+        className
+      )}
       padding="md"
     >
       {/* Header */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="mb-4 flex items-center gap-2">
         <Sparkles size={18} className="text-purple-400" />
         <h3 className="text-lg font-semibold text-white">{title}</h3>
       </div>
 
       {/* Facts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {facts.map((fact, idx) => (
           <div
             key={idx}
             className={cn(
-              'p-3 rounded-lg border',
+              'rounded-lg border p-3',
               fact.verified !== false
-                ? 'bg-emerald-500/5 border-emerald-500/20'
-                : 'bg-slate-800/50 border-slate-700'
+                ? 'border-emerald-500/20 bg-emerald-500/5'
+                : 'border-slate-700 bg-slate-800/50'
             )}
           >
-            <div className="flex items-start justify-between gap-2 mb-1">
-              <span className="text-xs text-slate-400 font-medium uppercase tracking-wide">
+            <div className="mb-1 flex items-start justify-between gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                 {fact.label}
               </span>
               <div className="flex items-center gap-1">
-                {fact.verified !== false && (
-                  <CheckCircle2 size={14} className="text-emerald-400" />
-                )}
-                {fact.trend === 'up' && (
-                  <TrendingUp size={14} className="text-emerald-400" />
-                )}
+                {fact.verified !== false && <CheckCircle2 size={14} className="text-emerald-400" />}
+                {fact.trend === 'up' && <TrendingUp size={14} className="text-emerald-400" />}
                 {fact.trend === 'down' && (
-                  <TrendingUp size={14} className="text-red-400 rotate-180" />
+                  <TrendingUp size={14} className="rotate-180 text-red-400" />
                 )}
               </div>
             </div>
             <p className="text-lg font-semibold text-white">{formatValue(fact)}</p>
-            {fact.source && (
-              <p className="text-xs text-slate-500 mt-1">Source: {fact.source}</p>
-            )}
+            {fact.source && <p className="mt-1 text-xs text-slate-500">Source: {fact.source}</p>}
           </div>
         ))}
       </div>
 
       {/* Source Attribution */}
       {source && (
-        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-2 text-xs text-slate-500">
+        <div className="mt-4 flex items-center gap-2 border-t border-slate-800 pt-4 text-xs text-slate-500">
           <Info size={14} />
           <span>Data from {source}</span>
         </div>
@@ -110,5 +107,3 @@ export function QuickFactsPanel({
     </ResponsiveCard>
   );
 }
-
-

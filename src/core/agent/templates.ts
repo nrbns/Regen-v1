@@ -29,7 +29,7 @@ const templates: Record<string, GoalTemplate> = {
     name: 'Competitor Analysis',
     description: 'Research and analyze competitor products, pricing, and strategies',
     category: 'analysis',
-    prompt: (input) => `
+    prompt: input => `
 Conduct a comprehensive competitive analysis for: ${input.company || 'the specified company'}
 
 Please research and analyze:
@@ -77,7 +77,7 @@ Focus on objective facts and verifiable information.
     name: 'Market Research',
     description: 'Analyze market trends, size, and growth opportunities',
     category: 'research',
-    prompt: (input) => `
+    prompt: input => `
 Conduct market research for the ${input.market || 'specified'} market in ${input.region || 'global'} region.
 
 Research and compile:
@@ -131,7 +131,7 @@ Provide data-backed insights with citations.
     name: 'Technical Deep Dive',
     description: 'Research technology stack, architecture, and implementation details',
     category: 'research',
-    prompt: (input) => `
+    prompt: input => `
 Conduct a technical deep dive into: ${input.technology || 'the specified technology'}
 
 Research and document:
@@ -168,7 +168,7 @@ Focus on technical accuracy and practical implementation details.
     name: 'News & Trend Monitoring',
     description: 'Track latest news, announcements, and trends',
     category: 'monitoring',
-    prompt: (input) => `
+    prompt: input => `
 Monitor and summarize recent news and developments for: ${input.topic || 'the specified topic'}
 
 Gather and summarize:
@@ -191,12 +191,7 @@ Focus on recent information (last 30 days) with credible sources.
     ],
     defaultSafetyContext: {
       requireConsent: false,
-      allowedDomains: [
-        'news.google.com',
-        'techcrunch.com',
-        'forbes.com',
-        'bloomberg.com',
-      ],
+      allowedDomains: ['news.google.com', 'techcrunch.com', 'forbes.com', 'bloomberg.com'],
     },
     suggestedDomains: [
       'news.google.com',
@@ -214,7 +209,7 @@ Focus on recent information (last 30 days) with credible sources.
     name: 'Documentation Research',
     description: 'Extract and synthesize technical documentation',
     category: 'extraction',
-    prompt: (input) => `
+    prompt: input => `
 Research and compile documentation for: ${input.product || 'the specified product'}
 
 Extract and organize:
@@ -256,7 +251,7 @@ Focus on official documentation and proven resources.
     name: 'URL Comparison',
     description: 'Compare and analyze multiple URLs side-by-side',
     category: 'analysis',
-    prompt: (input) => `
+    prompt: input => `
 Compare and analyze the following URLs:
 ${input.urls || 'provided URLs'}
 
@@ -292,7 +287,7 @@ Provide a structured comparison highlighting similarities, differences, and insi
     name: 'SEO Analysis',
     description: 'Analyze search engine optimization and competitive landscape',
     category: 'analysis',
-    prompt: (input) => `
+    prompt: input => `
 Conduct SEO analysis for: ${input.domain || 'the specified domain'} or keyword: ${input.keyword || 'specified keyword'}
 
 Research and analyze:
@@ -339,20 +334,13 @@ export function getTemplate(id: string): GoalTemplate | undefined {
   return templates[id];
 }
 
-export function getTemplatesByCategory(
-  category: GoalTemplate['category']
-): GoalTemplate[] {
+export function getTemplatesByCategory(category: GoalTemplate['category']): GoalTemplate[] {
   return Object.values(templates).filter(t => t.category === category);
 }
 
-export function fillTemplate(
-  template: GoalTemplate,
-  inputs: Record<string, string>
-): string {
+export function fillTemplate(template: GoalTemplate, inputs: Record<string, string>): string {
   // Validate required placeholders
-  const missing = template.placeholders
-    .filter(p => p.required && !inputs[p.key])
-    .map(p => p.label);
+  const missing = template.placeholders.filter(p => p.required && !inputs[p.key]).map(p => p.label);
 
   if (missing.length > 0) {
     throw new Error(`Missing required inputs: ${missing.join(', ')}`);

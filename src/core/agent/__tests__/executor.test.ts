@@ -9,7 +9,10 @@ const originalFetch = global.fetch;
 
 describe('agentExecutor audit logging', () => {
   beforeEach(() => {
-    global.fetch = vi.fn(async () => ({ ok: true, text: async () => '<html><title>t</title><body>hi</body></html>' })) as any;
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      text: async () => '<html><title>t</title><body>hi</body></html>',
+    })) as any;
   });
 
   it('records audit entries for allowed run', async () => {

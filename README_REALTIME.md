@@ -106,6 +106,7 @@ import { JobTimelinePanel } from '@/components/realtime/JobTimelinePanel';
 ```
 
 The Job Timeline Panel automatically:
+
 - **Expands** when a new job starts
 - **Collapses** after 5s on completion
 - **Shows** job ID, status, progress %, streaming output, elapsed time
@@ -121,7 +122,7 @@ import { useSessionRestore, SessionRestoreBanner } from '@/hooks/useSessionResto
 export function App() {
   const restore = useSessionRestore({
     autoSubscribe: true, // Auto-reconnect to jobs on recovery
-    onRestore: (session) => console.log('Recovered job:', session.jobId),
+    onRestore: session => console.log('Recovered job:', session.jobId),
   });
 
   return (
@@ -138,6 +139,7 @@ export function App() {
 ```
 
 Session Restore automatically:
+
 - **Saves** active job state (jobId, lastSequence, progress) every 2 seconds
 - **Detects** saved sessions on app startup
 - **Recovers** job streaming from lastSequence checkpoint

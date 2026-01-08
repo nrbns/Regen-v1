@@ -5,7 +5,10 @@
 
 import { useEffect, useState } from 'react';
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import { getSSESignalService, type SSEConnectionStatus } from '../../services/realtime/sseSignalService';
+import {
+  getSSESignalService,
+  type SSEConnectionStatus,
+} from '../../services/realtime/sseSignalService';
 import { motion } from 'framer-motion';
 
 interface SSEConnectionStatusProps {
@@ -57,7 +60,7 @@ export function SSEConnectionStatusIndicator({ showDetails = false }: SSEConnect
           <span>Disconnected</span>
           <button
             onClick={handleReconnect}
-            className="ml-2 rounded px-2 py-0.5 text-[10px] hover:bg-white/10 transition-colors"
+            className="ml-2 rounded px-2 py-0.5 text-[10px] transition-colors hover:bg-white/10"
           >
             Reconnect
           </button>
@@ -70,4 +73,3 @@ export function SSEConnectionStatusIndicator({ showDetails = false }: SSEConnect
     </motion.div>
   );
 }
-

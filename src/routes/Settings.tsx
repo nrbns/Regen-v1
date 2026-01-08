@@ -135,7 +135,9 @@ const ALL_TABS = [
 // In v1-mode, hide advanced tabs and marketing pages
 const TABS = ((): typeof ALL_TABS => {
   if (typeof window !== 'undefined' && isV1ModeEnabled()) {
-    return ALL_TABS.filter(t => ['accounts', 'appearance', 'safety', 'system', 'shortcuts', 'bookmarks'].includes(t.id));
+    return ALL_TABS.filter(t =>
+      ['accounts', 'appearance', 'safety', 'system', 'shortcuts', 'bookmarks'].includes(t.id)
+    );
   }
   return ALL_TABS;
 })();
@@ -244,9 +246,11 @@ export default function SettingsRoute() {
             )}
             {isV1ModeEnabled() && (
               <SectionCard title="Diagnostics" icon={Activity}>
-                <p className="text-sm text-slate-400">Advanced model and data controls are hidden in v1-mode.</p>
+                <p className="text-sm text-slate-400">
+                  Advanced model and data controls are hidden in v1-mode.
+                </p>
               </SectionCard>
-            )} 
+            )}
           </div>
         )}
         {activeTab === 'skills' && (

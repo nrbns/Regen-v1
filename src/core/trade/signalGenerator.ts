@@ -77,7 +77,10 @@ export function generateFallbackSignal(
 /**
  * Phase 1, Day 7: Validate signal before displaying
  */
-export function validateSignal(signal: TradeSignal, config: SignalGeneratorConfig): {
+export function validateSignal(
+  signal: TradeSignal,
+  config: SignalGeneratorConfig
+): {
   valid: boolean;
   shouldDisplay: boolean;
   reason?: string;
@@ -106,4 +109,3 @@ export function validateSignal(signal: TradeSignal, config: SignalGeneratorConfi
 
   return { valid: true, shouldDisplay: true };
 }
-

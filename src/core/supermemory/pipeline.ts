@@ -27,7 +27,7 @@ export async function processMemoryEvent(
 
     // Step 1: Save event to database
     const eventId = await MemoryStoreInstance.saveEvent(enrichedEvent);
-    
+
     // Step 2: Retrieve stored event for embedding (ensures ts/score match)
     const fullEvent =
       (await MemoryStoreInstance.getEventById(eventId)) ??
@@ -37,16 +37,19 @@ export async function processMemoryEvent(
         ts: Date.now(),
         score: 0,
       } as MemoryEvent);
-    
+
     // Step 3: Generate and store embeddings
     let embeddingIds: string[] = [];
     try {
       embeddingIds = await embedMemoryEvent(fullEvent);
     } catch (embedError) {
-      console.warn('[Pipeline] Failed to generate embeddings, continuing without them:', embedError);
+      console.warn(
+        '[Pipeline] Failed to generate embeddings, continuing without them:',
+        embedError
+      );
       // Continue even if embedding fails - event is still saved
     }
-    
+
     return {
       eventId,
       embeddingIds,
@@ -55,7 +58,7 @@ export async function processMemoryEvent(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[Pipeline] Failed to process memory event:', error);
-    
+
     return {
       eventId: '',
       embeddingIds: [],
@@ -72,17 +75,15 @@ export async function batchProcessEvents(
   events: Array<Omit<MemoryEvent, 'id' | 'ts' | 'score'>>
 ): Promise<PipelineResult[]> {
   const results: PipelineResult[] = [];
-  
+
   // Process in parallel (with concurrency limit to avoid overwhelming the system)
   const CONCURRENCY = 5;
   for (let i = 0; i < events.length; i += CONCURRENCY) {
     const batch = events.slice(i, i + CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map(event => processMemoryEvent(event))
-    );
+    const batchResults = await Promise.all(batch.map(event => processMemoryEvent(event)));
     results.push(...batchResults);
   }
-  
+
   return results;
 }
 
@@ -99,16 +100,16 @@ export async function reembedEvents(
     const eventsToProcess = eventIds
       ? events.filter((e: MemoryEvent) => eventIds.includes(e.id))
       : events;
-    
+
     let processed = 0;
     let errors = 0;
-    
+
     // Delete old embeddings and regenerate
     for (const event of eventsToProcess) {
       try {
         // Delete old embeddings
         await superMemoryDB.deleteEmbeddingsForEvent(event.id);
-        
+
         // Generate new embeddings
         await embedMemoryEvent(event);
         processed++;
@@ -117,7 +118,7 @@ export async function reembedEvents(
         errors++;
       }
     }
-    
+
     return { processed, errors };
   } catch (error) {
     console.error('[Pipeline] Failed to re-embed events:', error);
@@ -136,7 +137,9 @@ export async function cleanupOldData(daysToKeep: number = 90): Promise<void> {
   }
 }
 
-function applyAutoTags(event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>): Omit<MemoryEvent, 'id' | 'ts' | 'score'> {
+function applyAutoTags(
+  event: Omit<MemoryEvent, 'id' | 'ts' | 'score'>
+): Omit<MemoryEvent, 'id' | 'ts' | 'score'> {
   const tags = extractTagsFromEvent(event);
   if (tags.length === 0) {
     return event;
@@ -166,17 +169,15 @@ export async function getPipelineStats(): Promise<{
   try {
     const stats = await superMemoryDB.getStats();
     const events = await MemoryStoreInstance.getEvents({ limit: 100 });
-    
+
     // Calculate average embeddings per event
     let totalEmbeddings = 0;
     for (const event of events) {
       const embeddings = await superMemoryDB.getEmbeddingsForEvent(event.id);
       totalEmbeddings += embeddings.length;
     }
-    const avgEmbeddingsPerEvent = events.length > 0
-      ? totalEmbeddings / events.length
-      : 0;
-    
+    const avgEmbeddingsPerEvent = events.length > 0 ? totalEmbeddings / events.length : 0;
+
     return {
       ...stats,
       avgEmbeddingsPerEvent,
@@ -191,4 +192,3 @@ export async function getPipelineStats(): Promise<{
     };
   }
 }
-

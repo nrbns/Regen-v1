@@ -246,7 +246,7 @@ export function BrowserAutomationBridge({
             if (event.data.type === 'scrape:execute') {
               try {
                 // For v1 we disallow executing arbitrary injected scripts inside the iframe.
-                // Use the built-in `browserScrape` helper which performs a safe, bounded extraction.
+                // Use the built-in 'browserScrape' helper which performs a safe, bounded extraction.
                 const result = (typeof window.browserScrape === 'function')
                   ? window.browserScrape()
                   : {

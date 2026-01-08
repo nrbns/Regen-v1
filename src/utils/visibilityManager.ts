@@ -61,4 +61,3 @@ class VisibilityManager {
 
 // Singleton instance
 export const visibilityManager = new VisibilityManager();
-

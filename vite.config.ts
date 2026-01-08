@@ -21,6 +21,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@sentry/electron/renderer', '@tauri-apps/api', 'jsdom', 'cssstyle'], // Sentry and Tauri API are optional, exclude jsdom/cssstyle
     include: ['lightweight-charts'],
+    // Reduce HMR overhead in development
+    force: process.env.NODE_ENV === 'production',
   },
   resolve: {
     alias: {
@@ -197,22 +199,37 @@ export default defineConfig({
     port: parseInt(process.env.VITE_DEV_PORT || '5173', 10),
     strictPort: false, // Allow port override from env
     host: true,
-    // Enable HMR with proper configuration
+    // Fix 431 error: Increase max header size significantly
+    maxHeaderSize: 131072, // 128KB (doubled from 64KB)
+    // Enable HMR with optimized configuration to fix 431 errors
     hmr: {
       protocol: 'ws',
       host: 'localhost',
       // Use VITE_HMR_PORT to override HMR websocket port; otherwise let Vite pick an available port
       port: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
       clientPort: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT, 10) : undefined,
-      overlay: true, // Show error overlay
+      // Disable HMR overlay temporarily to reduce header size and fix 431 errors
+      overlay: false,
+      // Aggressive optimizations to fix 431 errors
+      timeout: 60000, // Increased timeout to reduce pressure
     },
     // Watch for file changes - use polling for better reliability on Windows
     watch: {
       usePolling: true, // Force polling for better file change detection
-      interval: 100, // Reduced polling interval for faster updates (ms)
-      ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/dist-web/**'],
+      interval: 500, // Increased polling interval to reduce overhead (from 300ms)
+      // Additional ignored patterns to reduce watch overhead and fix 431 errors
+      ignored: [
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/dist/**',
+        '**/dist-web/**',
+        '**/*.log',
+        '**/coverage/**',
+        '**/.nyc_output/**',
+        '**/.cache/**',
+      ],
     },
-    // Force reload on certain file changes
+    // Additional server optimizations for 431 errors
     fs: {
       strict: false, // Allow serving files outside root
       allow: ['..'], // Allow serving files from parent directories

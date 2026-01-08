@@ -15,7 +15,11 @@ const SHORTCUT_GROUPS: Array<{ id: string; title: string; shortcuts: ShortcutEnt
     shortcuts: [
       { combo: 'Ctrl/Cmd + Space', action: 'Activate WISPR voice assistant', context: 'Global' },
       { combo: 'Ctrl/Cmd + Shift + Space', action: 'Wake WISPR from anywhere', context: 'Global' },
-      { combo: 'Voice: "Research [topic]"', action: 'Start research in current mode', context: 'Voice' },
+      {
+        combo: 'Voice: "Research [topic]"',
+        action: 'Start research in current mode',
+        context: 'Voice',
+      },
     ],
   },
   {
