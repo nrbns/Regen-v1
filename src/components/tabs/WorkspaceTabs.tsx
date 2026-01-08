@@ -70,10 +70,10 @@ export function WorkspaceTabs({ nestLevel = 0, maxNestLevel = Infinity }: Worksp
         <span className="text-xs font-medium text-slate-400">Workspaces</span>
         <button
           onClick={createWorkspace}
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
           title="New Workspace"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="h-4 w-4" />
         </button>
       </div>
 
@@ -91,26 +91,26 @@ export function WorkspaceTabs({ nestLevel = 0, maxNestLevel = Infinity }: Worksp
           >
             {/* Workspace Header */}
             <div
-              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-800/50 cursor-pointer group"
+              className="group flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-slate-800/50"
               onClick={() => toggleWorkspace(workspace.id)}
             >
               {isExpanded ? (
-                <FolderOpen className="w-4 h-4 text-purple-400" />
+                <FolderOpen className="h-4 w-4 text-purple-400" />
               ) : (
-                <Folder className="w-4 h-4 text-slate-400" />
+                <Folder className="h-4 w-4 text-slate-400" />
               )}
               <span className="flex-1 text-sm text-slate-300">{workspace.name}</span>
-              {workspace.locked && <Lock className="w-3 h-3 text-amber-400" />}
+              {workspace.locked && <Lock className="h-3 w-3 text-amber-400" />}
               <button
                 onClick={e => {
                   e.stopPropagation();
                   lockWorkspace(workspace.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-700 transition-opacity"
+                className="rounded p-1 opacity-0 transition-opacity hover:bg-slate-700 group-hover:opacity-100"
                 title={workspace.locked ? 'Unlock' : 'Lock'}
               >
                 <Lock
-                  className={`w-3 h-3 ${workspace.locked ? 'text-amber-400' : 'text-slate-500'}`}
+                  className={`h-3 w-3 ${workspace.locked ? 'text-amber-400' : 'text-slate-500'}`}
                 />
               </button>
             </div>
@@ -134,7 +134,7 @@ export function WorkspaceTabs({ nestLevel = 0, maxNestLevel = Infinity }: Worksp
                   <div
                     key={tab.id}
                     onClick={() => setActive(tab.id)}
-                    className={`px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
+                    className={`cursor-pointer rounded px-2 py-1 text-sm transition-colors ${
                       activeId === tab.id
                         ? 'bg-purple-600/20 text-white'
                         : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'

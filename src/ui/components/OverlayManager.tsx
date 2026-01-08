@@ -147,7 +147,7 @@ function OverlayLayer({ overlay, isTopmost, zIndex, onClose }: OverlayLayerProps
       )}
 
       {/* Overlay content */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="pointer-events-auto">{overlay.component}</div>
       </div>
     </motion.div>

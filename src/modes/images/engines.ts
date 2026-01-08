@@ -12,5 +12,3 @@ export class MockImageEngine implements ImageEngine {
     ];
   }
 }
-
-

@@ -4,7 +4,7 @@
  * Prevents memory bloat while keeping frequently used embeddings hot
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@lib/tauri-invoke';
 
 export interface CachedEmbedding {
   text: string;

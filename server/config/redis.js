@@ -1,5 +1,6 @@
 /* eslint-env node */
 import IORedis from 'ioredis';
+import { EventEmitter } from 'events';
 
 // Global error suppression for ioredis - must be set up before any Redis clients are created
 const suppressRedisErrors = () => {
@@ -39,7 +40,7 @@ const ERROR_SUPPRESSION_MS = 60000; // Suppress errors for 60 seconds
 export const redisClient = new IORedis(DEFAULT_URL, {
   maxRetriesPerRequest: null, // BullMQ requirement
   retryStrategy: () => {
-    // Don't retry - Redis is optional
+    // Keep previous behavior of not retrying indefinitely
     return null;
   },
   enableOfflineQueue: false, // Don't queue commands when offline
@@ -48,10 +49,9 @@ export const redisClient = new IORedis(DEFAULT_URL, {
   showFriendlyErrorStack: false,
 });
 
-// Immediately suppress all error events
+// Suppress noisy error events but keep listeners active
 redisClient.on('error', () => {
-  // Completely suppress all Redis errors - Redis is optional
-  // Do nothing - errors are expected when Redis is unavailable
+  // Intentionally swallow top-level error events to avoid crashing
 });
 
 redisClient.on('connect', () => {
@@ -69,18 +69,15 @@ redisClient.on('error', error => {
   const now = Date.now();
   _isConnected = false;
 
-  // Suppress all Redis connection errors - they're expected when Redis is unavailable
-  // Only log non-connection errors in development
   if (
     error?.code === 'ECONNREFUSED' ||
     error?.code === 'MaxRetriesPerRequestError' ||
     error?.code === 'ENOTFOUND'
   ) {
-    // Silently ignore connection errors - Redis is optional
+    // Silently ignore connection errors
     return;
   }
 
-  // Only log other errors in development mode
   if (process.env.NODE_ENV === 'development' && now - lastErrorTime > ERROR_SUPPRESSION_MS) {
     console.warn('[redis] Non-connection error:', error?.message || error);
     lastErrorTime = now;
@@ -91,7 +88,6 @@ redisClient.on('close', () => {
   _isConnected = false;
 });
 
-// Handle unhandled error events
 redisClient.on('end', () => {
   _isConnected = false;
 });

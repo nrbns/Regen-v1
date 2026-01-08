@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '@lib/tauri-invoke';
 
 /**
  * Auto-start Ollama service on first app run

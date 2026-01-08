@@ -28,4 +28,3 @@ export function useScrollDebounce(
     };
   }, [delay, options.debounce]);
 }
-

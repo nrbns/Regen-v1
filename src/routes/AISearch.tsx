@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
 import {
   Search,
   Sparkles,
@@ -40,6 +41,17 @@ interface SearchSource {
 }
 
 export default function AISearch() {
+  // Disable AI Search in v1-mode to avoid background AI and heavy UI
+  if (isV1ModeEnabled()) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="text-sm text-slate-400">
+          AI Search is disabled in v1-mode for stability.
+        </div>
+      </div>
+    );
+  }
+
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [answer, setAnswer] = useState('');
@@ -96,7 +108,7 @@ export default function AISearch() {
         // Stream the answer (simulate streaming for now)
         const answerText = data.synthesized.answer || '';
         const words = answerText.split(' ');
-        
+
         for (let i = 0; i < words.length; i++) {
           await new Promise(resolve => setTimeout(resolve, 30));
           setAnswer(words.slice(0, i + 1).join(' '));
@@ -200,12 +212,8 @@ export default function AISearch() {
               >
                 <Sparkles className="mx-auto h-16 w-16 text-blue-400/50" />
               </motion.div>
-              <h2 className="mb-2 text-2xl font-semibold text-white">
-                Ask me anything
-              </h2>
-              <p className="text-slate-400">
-                Get instant, AI-powered answers with sources
-              </p>
+              <h2 className="mb-2 text-2xl font-semibold text-white">Ask me anything</h2>
+              <p className="text-slate-400">Get instant, AI-powered answers with sources</p>
             </div>
           )}
 
@@ -228,9 +236,7 @@ export default function AISearch() {
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-blue-400" />
                     <h2 className="text-lg font-semibold text-white">Answer</h2>
-                    {streaming && (
-                      <span className="text-xs text-slate-400">Streaming...</span>
-                    )}
+                    {streaming && <span className="text-xs text-slate-400">Streaming...</span>}
                   </div>
                   <button
                     onClick={handleCopy}
@@ -251,12 +257,10 @@ export default function AISearch() {
                 </div>
                 <div
                   ref={answerRef}
-                  className="prose prose-invert max-w-none text-slate-200 prose-headings:text-white prose-a:text-blue-400 prose-strong:text-white"
+                  className="prose prose-invert prose-headings:text-white prose-a:text-blue-400 prose-strong:text-white max-w-none text-slate-200"
                 >
                   <p className="whitespace-pre-wrap leading-relaxed">{answer}</p>
-                  {streaming && (
-                    <span className="inline-block h-4 w-1 animate-pulse bg-blue-400" />
-                  )}
+                  {streaming && <span className="inline-block h-4 w-1 animate-pulse bg-blue-400" />}
                 </div>
               </div>
 
@@ -265,9 +269,7 @@ export default function AISearch() {
                 <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 backdrop-blur-sm">
                   <div className="mb-4 flex items-center gap-2">
                     <Link2 className="h-5 w-5 text-blue-400" />
-                    <h2 className="text-lg font-semibold text-white">
-                      Sources ({sources.length})
-                    </h2>
+                    <h2 className="text-lg font-semibold text-white">Sources ({sources.length})</h2>
                   </div>
                   <div className="space-y-3">
                     {sources.map((source, index) => (
@@ -285,18 +287,14 @@ export default function AISearch() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex items-center gap-2">
-                              <h3 className="truncate font-medium text-white">
-                                {source.title}
-                              </h3>
+                              <h3 className="truncate font-medium text-white">{source.title}</h3>
                               <ExternalLink className="h-4 w-4 flex-shrink-0 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
                             </div>
                             <p className="mb-2 line-clamp-2 text-sm text-slate-400">
                               {source.snippet || source.url}
                             </p>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-500">
-                                {source.domain}
-                              </span>
+                              <span className="text-xs text-slate-500">{source.domain}</span>
                               {source.relevance && (
                                 <span className="text-xs text-blue-400">
                                   {Math.round(source.relevance * 100)}% relevant
@@ -315,22 +313,20 @@ export default function AISearch() {
               <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 backdrop-blur-sm">
                 <h2 className="mb-4 text-lg font-semibold text-white">Related Searches</h2>
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    'More about this topic',
-                    'Related research',
-                    'Similar questions',
-                  ].map((suggestion, index) => (
-                    <button
-                      key={index}
-                      onClick={() => {
-                        setQuery(suggestion);
-                        handleSearch(suggestion);
-                      }}
-                      className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-blue-500/50 hover:bg-slate-800"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                  {['More about this topic', 'Related research', 'Similar questions'].map(
+                    (suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setQuery(suggestion);
+                          handleSearch(suggestion);
+                        }}
+                        className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-blue-500/50 hover:bg-slate-800"
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -340,10 +336,3 @@ export default function AISearch() {
     </div>
   );
 }
-
-
-
-
-
-
-

@@ -195,7 +195,7 @@ function createSecureDOM(_skillId: string) {
  * Execute code in sandbox with timeout
  */
 export async function executeInSandbox<T>(
-  code: string | ((sandbox: any) => T | Promise<T>),
+  code: (sandbox: any) => T | Promise<T>,
   sandbox: any,
   timeout: number = 5000
 ): Promise<T> {
@@ -207,22 +207,13 @@ export async function executeInSandbox<T>(
     try {
       let result: T | Promise<T>;
 
-      if (typeof code === 'function') {
-        result = code(sandbox);
-      } else {
-        // Execute string code in sandbox context
-        // This is unsafe and should only be used with trusted code
-        // In production, use a proper sandboxing solution
-        const func = new Function(
-          'sandbox',
-          `
-          with (sandbox) {
-            ${code}
-          }
-        `
-        );
-        result = func(sandbox);
+      // For v1 we disallow executing string-based code using `new Function`.
+      // Callers must pass a function `(sandbox) => {}` which operates against the provided sandbox.
+      if (typeof code !== 'function') {
+        throw new Error('String-based sandbox execution disabled; pass a function instead');
       }
+
+      result = code(sandbox);
 
       if (result instanceof Promise) {
         result

@@ -7,11 +7,8 @@ import { agentApi } from './api-client';
 
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (window as any).__API_BASE_URL ||
-      import.meta.env.VITE_API_BASE_URL ||
-      'http://127.0.0.1:4000'
-    : import.meta.env.VITE_API_BASE_URL ||
-      'http://127.0.0.1:4000';
+    ? (window as any).__API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000'
+    : import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000';
 
 export interface AgentRun {
   id: string;
@@ -50,10 +47,10 @@ class AgentClient {
   async start(dsl: any): Promise<string> {
     try {
       const query = typeof dsl === 'string' ? dsl : dsl.goal || JSON.stringify(dsl);
-      
+
       // Use agent API
       const response = await agentApi.query({ query });
-      
+
       const runId = response.id || `run-${Date.now()}`;
       this.currentRunId = runId;
 
@@ -147,10 +144,10 @@ class AgentClient {
 
       this.ws = new WebSocket(url);
 
-      this.ws.onmessage = (event) => {
+      this.ws.onmessage = event => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.type === 'token') {
             this.tokenHandlers.forEach(handler => {
               try {
@@ -173,7 +170,7 @@ class AgentClient {
         }
       };
 
-      this.ws.onerror = (error) => {
+      this.ws.onerror = error => {
         console.warn('[AgentClient] WebSocket error:', error);
       };
 
@@ -194,4 +191,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default AgentClient;
-

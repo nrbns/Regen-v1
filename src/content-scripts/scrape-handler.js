@@ -12,35 +12,35 @@
     // Security: Only accept messages from same origin or trusted source
     if (event.data?.type === 'scrape:execute') {
       try {
-        // Execute the scrape script
-        const scrapeScript = event.data.script;
-        const result = eval(`(${scrapeScript})()`);
-
-        // Send result back to parent
-        window.parent.postMessage(
-          {
-            type: 'scrape:result',
-            result: result,
-          },
-          '*'
-        );
-      } catch (error) {
-        // Send error back
-        window.parent.postMessage(
-          {
-            type: 'scrape:result',
-            result: {
+        // v1 safety: disallow executing arbitrary injected scripts.
+        // Use the built-in `browserScrape` helper which performs a safe, bounded extraction.
+        const result = (typeof window.browserScrape === 'function')
+          ? window.browserScrape()
+          : {
               url: window.location.href,
               title: document.title || '',
               content: '',
               text: '',
-              error: error.message,
+              error: 'browserScrape not available',
               timestamp: Date.now(),
               success: false,
-            },
+            };
+
+        // Send result back to parent
+        window.parent.postMessage({ type: 'scrape:result', result }, '*');
+      } catch (error) {
+        window.parent.postMessage({
+          type: 'scrape:result',
+          result: {
+            url: window.location.href,
+            title: document.title || '',
+            content: '',
+            text: '',
+            error: error?.message || String(error),
+            timestamp: Date.now(),
+            success: false,
           },
-          '*'
-        );
+        }, '*');
       }
     }
   });

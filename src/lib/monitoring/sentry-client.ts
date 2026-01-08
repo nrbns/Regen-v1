@@ -46,13 +46,15 @@ async function initRendererSentry() {
         console.info('[Sentry] Using @sentry/react for Tauri/web');
       } else {
         // Fallback to Electron if available
-        // SECURITY: Dynamic import for Sentry - safe as it's a static string
-        // Use string concatenation to prevent Vite from statically analyzing the import
+        // SECURITY: Dynamic import for Sentry - treat as optional but guard via safeImport
         const sentryPath = '@sentry/electron' + '/renderer';
         try {
-          // @vite-ignore tells Vite to skip analyzing this import at build time
-          // @ts-ignore - @sentry/electron/renderer is optional
-          const sentryModule = await import(/* @vite-ignore */ sentryPath).catch(() => null);
+          const { safeImport } = await import('../../utils/safeImport').catch(() => ({
+            safeImport: null,
+          }));
+          if (!safeImport) throw new Error('safeImport unavailable');
+          // Allowlist the sentryPath explicitly
+          const sentryModule = await safeImport(sentryPath, [sentryPath]).catch(() => null);
           if (sentryModule) {
             rendererSentry = sentryModule;
             console.info('[Sentry] Using @sentry/electron/renderer');

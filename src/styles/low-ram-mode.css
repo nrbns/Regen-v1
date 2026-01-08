@@ -47,3 +47,52 @@
 .low-ram-mode [class*='hover:'] {
   transition: none !important;
 }
+
+/* Minimal Demo UI - stripped visuals, hide AI demo elements */
+.minimal-demo-ui *,
+.minimal-demo-ui *::before,
+.minimal-demo-ui *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+.minimal-demo-ui [class*='transition'],
+.minimal-demo-ui [class*='animate'] {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Disable framer-motion animations */
+.minimal-demo-ui [data-framer-name] {
+  animation: none !important;
+  transition: none !important;
+}
+
+.minimal-demo-ui [class*='backdrop-blur'] {
+  backdrop-filter: none !important;
+}
+
+/* Hide floating orbs, AI docks, panels, and demo-only UI */
+.minimal-demo-ui .floating-assistant,
+.minimal-demo-ui #regen-wispr-orb,
+.minimal-demo-ui #wispr-panel,
+.minimal-demo-ui .ai-dock,
+.minimal-demo-ui .ai-panel,
+.minimal-demo-ui .redix-debug-panel,
+.minimal-demo-ui .demo-dashboard {
+  display: none !important;
+}
+
+/* Remove box-shadows and heavy icons */
+.minimal-demo-ui [class*='shadow'] {
+  box-shadow: none !important;
+}
+
+/* Make sure overlay/backdrop layers are minimal */
+.minimal-demo-ui .fixed.inset-0 {
+  background: transparent !important;
+}
+

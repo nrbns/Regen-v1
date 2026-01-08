@@ -1,7 +1,7 @@
 /**
  * HNSW Vector Search
  * Phase 2, Day 5: HNSW Embeddings - Faster research, vector search optimization
- * 
+ *
  * Note: This is a lightweight implementation. For production, consider using
  * a proper HNSW library like hnswlib-node or integrating with Qdrant/Weaviate.
  */
@@ -77,7 +77,9 @@ class SimpleHNSWIndex {
     if (this.vectors.length === 0) {
       this.dimension = vector.embedding.length;
     } else if (vector.embedding.length !== this.dimension) {
-      throw new Error(`Vector dimension mismatch: expected ${this.dimension}, got ${vector.embedding.length}`);
+      throw new Error(
+        `Vector dimension mismatch: expected ${this.dimension}, got ${vector.embedding.length}`
+      );
     }
 
     this.vectors.push(vector);
@@ -92,7 +94,9 @@ class SimpleHNSWIndex {
     }
 
     if (queryVector.length !== this.dimension) {
-      throw new Error(`Query vector dimension mismatch: expected ${this.dimension}, got ${queryVector.length}`);
+      throw new Error(
+        `Query vector dimension mismatch: expected ${this.dimension}, got ${queryVector.length}`
+      );
     }
 
     // For small datasets, use brute force (faster than building graph)
@@ -245,4 +249,3 @@ export const hnswVectorSearch = new HNSWVectorSearchService();
 
 // Export utility functions
 export { cosineSimilarity, l2Distance };
-

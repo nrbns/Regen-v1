@@ -82,4 +82,3 @@ function createSyntheticQuote(symbol: string): TradeQuote {
     sentiment: determineSentiment(changePercent),
   };
 }
-

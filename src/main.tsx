@@ -26,7 +26,7 @@ import { initSafeMode } from './services/safeMode';
 // Layer 1: Core stability imports
 import { useSessionStore } from './state/sessionStore';
 import { useSettingsStore } from './state/settingsStore';
-import { isMVPFeatureEnabled } from './config/mvpFeatureFlags';
+import { isMVPFeatureEnabled, isV1ModeEnabled } from './config/mvpFeatureFlags';
 import { startMemoryMonitoring } from './utils/memoryLimits';
 
 // DAY 6: Register service worker for caching and offline support
@@ -154,21 +154,15 @@ const AppShell = lazyWithErrorHandling(
 const Home = lazyWithErrorHandling(() => import('./routes/Home'), 'Home');
 const Settings = lazyWithErrorHandling(() => import('./routes/Settings'), 'Settings');
 const Workspace = lazyWithErrorHandling(() => import('./routes/Workspace'), 'Workspace');
-const AgentConsole = lazyWithErrorHandling(() => import('./routes/AgentConsole'), 'AgentConsole');
-// Agent route not found - removed for now
-// // Agent routes not found - removed for now
-// const Agent = lazyWithErrorHandling(() => import('./routes/Agent'), 'Agent');
-// const AgentDemo = lazyWithErrorHandling(() => import('./routes/AgentDemo'), 'AgentDemo');
-const Runs = lazyWithErrorHandling(() => import('./routes/Runs'), 'Runs');
-const Replay = lazyWithErrorHandling(() => import('./routes/Replay'), 'Replay');
-const PlaybookForge = lazyWithErrorHandling(
-  () => import('./routes/PlaybookForge'),
-  'PlaybookForge'
-);
-const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
-const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
-const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
-const AIPanelRoute = lazyWithErrorHandling(() => import('./routes/AIPanelRoute'), 'AIPanelRoute');
+// Core browser routes only
+const AgentConsole = Home; // Disable for Phase 1
+// const Runs = lazyWithErrorHandling(() => import('./routes/Runs'), 'Runs');
+// const Replay = lazyWithErrorHandling(() => import('./routes/Replay'), 'Replay');
+// const PlaybookForge = lazyWithErrorHandling(() => import('./routes/PlaybookForge'), 'PlaybookForge');
+// const HistoryPage = lazyWithErrorHandling(() => import('./routes/History'), 'HistoryPage');
+// const DownloadsPage = lazyWithErrorHandling(() => import('./routes/Downloads'), 'DownloadsPage');
+// const AISearch = lazyWithErrorHandling(() => import('./routes/AISearch'), 'AISearch');
+const AIPanelRoute = Home; // Disable for Phase 1
 const OfflineDocuments = lazyWithErrorHandling(
   () => import('./routes/OfflineDocuments'),
   'OfflineDocuments'
@@ -262,93 +256,12 @@ const router = createBrowserRouter(
             </Suspense>
           ),
         },
+        // Core browser routes
         {
           path: 'agent',
           element: (
             <Suspense fallback={<LoadingFallback />}>
-              <AgentConsole />
-            </Suspense>
-          ),
-        },
-        // Agent route removed - file not found
-        // {
-        //   path: 'agent-new',
-        //   element: (
-        //     <Suspense fallback={<LoadingFallback />}>
-        //       <Agent />
-        //     </Suspense>
-        //   ),
-        // },
-        // AgentDemo route removed - file not found
-        // {
-        //   path: 'agent-demo',
-        //   element: (
-        //     <Suspense fallback={<LoadingFallback />}>
-        //       <AgentDemo />
-        //     </Suspense>
-        //   ),
-        // },
-        {
-          path: 'runs',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <Runs />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'replay/:id',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <Replay />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'playbooks',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <PlaybookForge />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'history',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <HistoryPage />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'offline',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <OfflineDocuments />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'downloads',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <DownloadsPage />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'ai-search',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <AISearch />
-            </Suspense>
-          ),
-        },
-        {
-          path: 'ai-panel',
-          element: (
-            <Suspense fallback={<LoadingFallback />}>
-              <AIPanelRoute />
+              <Home />
             </Suspense>
           ),
         },
@@ -519,6 +432,24 @@ try {
     } else {
       console.log('[Layer1] Low-RAM mode disabled');
     }
+
+    // Apply v1-mode class immediately to strip animations and hide AI demo elements
+    if (isV1ModeEnabled()) {
+      document.documentElement.classList.add('minimal-demo-ui');
+      if (isDevEnv()) console.log('[Main] v1-mode active - demo-only UI elements hidden');
+    }
+
+    // Listen for global feature flag changes to toggle v1-mode class
+    window.addEventListener('mvp-feature-changed', (evt: CustomEvent) => {
+      const { featureId, enabled } = (evt as any).detail || {};
+      if (featureId === 'minimal-demo-ui' || featureId === 'v1-mode') {
+        if (isV1ModeEnabled()) {
+          document.documentElement.classList.add('minimal-demo-ui');
+        } else {
+          document.documentElement.classList.remove('minimal-demo-ui');
+        }
+      }
+    });
   }, 1200); // Start watchdog after session restore
 
   // Initialize app connections (AI, API, Browser)
@@ -531,6 +462,41 @@ try {
     .catch(error => {
       console.warn('[Main] App initialization warning:', error);
     });
+
+  // Wire task events to Tauri frontend
+  if (isTauriRuntime()) {
+    import('./electron/wireTaskEvents').then(({ wireTaskEvents }) => {
+      wireTaskEvents();
+      console.log('[Main] Task event forwarding initialized');
+    }).catch(error => {
+      console.warn('[Main] Failed to initialize task events:', error);
+    });
+
+    // Agent runtime initialization
+    /*
+    // Initialize agent runtime system
+    import('../core/agent/agentRuntime').then(({ agentRuntime }) => {
+      console.log('[Main] Agent runtime system ready');
+    }).catch(error => {
+      console.warn('[Main] Failed to initialize agent runtime:', error);
+    });
+
+    // Initialize offline AI agent
+    import('../core/ai/offline/offlineAgent').then(({ initializeOfflineAgent }) => {
+      initializeOfflineAgent().then(success => {
+        if (success) {
+          console.log('[Main] Offline AI agent initialized successfully');
+        } else {
+          console.warn('[Main] Offline AI agent initialization failed - using simulation');
+        }
+      }).catch(error => {
+        console.warn('[Main] Failed to initialize offline AI agent:', error);
+      });
+    }).catch(error => {
+      console.warn('[Main] Failed to load offline AI agent:', error);
+    });
+    */
+  }
 
   // Setup research clipper handlers
   setupClipperHandlers();
@@ -562,7 +528,14 @@ try {
       }
     }) as EventListener);
 
+    // AI-ready notification: show only when not in v1-mode
     window.addEventListener('ai-ready', () => {
+      if (isV1ModeEnabled()) {
+        // Suppress AI startup notifications in v1-mode
+        if (isDevEnv()) console.log('[Ollama] AI ready (suppressed in v1-mode)');
+        return;
+      }
+
       if (isDevEnv()) {
         console.log('[Ollama] AI ready!');
       }
@@ -577,8 +550,17 @@ try {
       if (isDevEnv()) {
         console.log('[Backend] All services ready!');
       }
+
+      // Even in minimal-demo-ui we want backend-ready notifications, but avoid heavy initializers
       import('./utils/toast').then(({ toast }) => {
         toast.success('Backend ready! Ollama, MeiliSearch, and n8n are running.');
+
+        if (isV1ModeEnabled()) {
+          // Skip heavier verification tasks in v1-mode
+          if (isDevEnv()) console.log('[Search] Skipping heavy search initialization in v1-mode');
+          return;
+        }
+
         // SEARCH SYSTEM VERIFICATION: Initialize and verify search system
         Promise.all([
           import('./services/meiliIndexer').then(({ initMeiliIndexing }) => {
@@ -628,11 +610,15 @@ try {
       }
     });
 
-    // Listen for WISPR wake event (global hotkey Ctrl+Shift+Space)
-    window.addEventListener('wispr-wake', () => {
-      console.log('[Main] WISPR wake triggered via global hotkey');
-      window.dispatchEvent(new CustomEvent('activate-wispr'));
-    });
+    // Listen for WISPR wake event (global hotkey Ctrl+Shift+Space) unless v1-mode is active
+    if (!isV1ModeEnabled()) {
+      window.addEventListener('wispr-wake', () => {
+        console.log('[Main] WISPR wake triggered via global hotkey');
+        window.dispatchEvent(new CustomEvent('activate-wispr'));
+      });
+    } else {
+      if (isDevEnv()) console.log('[Main] WISPR wake suppressed (v1-mode)');
+    }
 
     // Listen for research metrics events (citations, hallucination risk)
     window.addEventListener('research-metrics', ((e: CustomEvent) => {
@@ -1074,7 +1060,7 @@ try {
       }
     });
 
-    // Future Enhancements: Initialize after first paint
+    // Initialize after first paint
     // 1. Initialize LRU cache for embeddings
     getLRUCache(1000); // 1000 item capacity
 
@@ -1309,6 +1295,27 @@ try {
       }
     });
   }
+
+  // Make TaskService globally available
+  import('./services/taskService').then(({ TaskService }) => {
+    (window as any).regenTaskService = TaskService;
+  });
+
+  // Initialize offline AI agent
+  import('../core/ai/offline/offlineAgent').then(({ initializeOfflineAgent }) => {
+    initializeOfflineAgent().then(success => {
+      console.log('[PHASE 4] Offline AI agent initialized:', success);
+    });
+  });
+
+  // Initialize Backend System - Single source of truth
+  import('./backend').then(({ systemState, IPCHandler }) => {
+    // Expose IPC for UI components
+    (window as any).regenIPC = IPCHandler;
+    console.log('[Backend] System initialized with state management');
+  }).catch(error => {
+    console.error('[Backend] Failed to initialize:', error);
+  });
 
   root.render(
     <React.StrictMode>

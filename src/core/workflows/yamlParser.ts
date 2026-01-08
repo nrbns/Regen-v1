@@ -15,9 +15,7 @@ export interface WorkflowValidationResult {
 /**
  * Phase 2, Day 3: Enhanced YAML/JSON parser with better error messages
  */
-export function parseWorkflowDefinition(
-  yamlOrJson: string
-): WorkflowValidationResult {
+export function parseWorkflowDefinition(yamlOrJson: string): WorkflowValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -260,4 +258,3 @@ function getKeyFromLine(line: string): string | null {
   }
   return null;
 }
-

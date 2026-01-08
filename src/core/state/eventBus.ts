@@ -3,7 +3,7 @@
  * Centralized event system for mode-shifts and state changes
  */
 
-type EventCallback = (...args: unknown[]) => void;
+type EventCallback = (...args: any[]) => void;
 type EventMap = Record<string, EventCallback[]>;
 
 class EventBus {
@@ -88,6 +88,7 @@ export const EVENTS = {
   TAB_OPENED: 'tab:opened',
   TAB_CLOSED: 'tab:closed',
   TAB_ACTIVATED: 'tab:activated',
+  TAB_NAVIGATED: 'tab:navigated',
   SESSION_SAVED: 'session:saved',
   SESSION_RESTORED: 'session:restored',
   CACHE_CLEARED: 'cache:cleared',

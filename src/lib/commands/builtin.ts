@@ -1,8 +1,15 @@
-import { registerCommand, registerCommandSource, markHydrated, commandsHydrated, notifyCommandsChanged } from './registry';
+import {
+  registerCommand,
+  registerCommandSource,
+  markHydrated,
+  commandsHydrated,
+  notifyCommandsChanged,
+} from './registry';
 import type { CommandDescriptor } from './types';
 import { ipc } from '../ipc-typed';
 import { useAppStore } from '../../state/appStore';
 import { useTabsStore } from '../../state/tabsStore';
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
 
 let builtinsRegistered = false;
 
@@ -81,6 +88,14 @@ const staticCommands: CommandDescriptor[] = [
 ];
 
 function registerModeCommands() {
+  // In minimal demo UI, don't register mode switching commands (system controls mode)
+  if (typeof window !== 'undefined' && isV1ModeEnabled()) {
+    if (typeof window !== 'undefined') {
+      console.log('[Commands] Skipping mode commands registration in v1-mode');
+    }
+    return;
+  }
+
   const modes: Array<{ id: string; title: string; mode: AppMode }> = [
     { id: 'core:mode-browse', title: 'Switch to Browse Mode', mode: 'Browse' },
     { id: 'core:mode-research', title: 'Switch to Research Mode', mode: 'Research' },
@@ -89,7 +104,7 @@ function registerModeCommands() {
     { id: 'core:mode-docs', title: 'Switch to Docs Mode', mode: 'Docs' },
   ];
 
-  modes.forEach((entry) => {
+  modes.forEach(entry => {
     registerCommand({
       id: entry.id,
       title: entry.title,
@@ -103,7 +118,7 @@ function registerModeCommands() {
 }
 
 function registerStaticCommands() {
-  staticCommands.forEach((command) => registerCommand(command));
+  staticCommands.forEach(command => registerCommand(command));
 }
 
 function registerActiveTabCommands() {
@@ -111,7 +126,7 @@ function registerActiveTabCommands() {
     id: 'dynamic:tabs',
     getCommands: async () => {
       const { tabs, activeId } = useTabsStore.getState();
-      return tabs.slice(0, 25).map((tab) => ({
+      return tabs.slice(0, 25).map(tab => ({
         id: `tab:focus:${tab.id}`,
         title: tab.title || 'Untitled Tab',
         subtitle: tab.url,
@@ -145,5 +160,3 @@ export function initializeBuiltinCommands() {
 export function builtinsInitialized(): boolean {
   return builtinsRegistered && commandsHydrated();
 }
-
-

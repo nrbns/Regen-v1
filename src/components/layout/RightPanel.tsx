@@ -26,8 +26,16 @@ import { useConsentOverlayStore } from '../../state/consentOverlayStore';
 import { PrivacyDashboard } from '../integrations/PrivacyDashboard';
 import type { ConsentRecord, ConsentActionType } from '../../types/consent';
 import { formatDistanceToNow } from 'date-fns';
-import { AIDockPanel } from '../ai/AIDockPanel';
-import { EnhancedAIPanel } from '../ai/EnhancedAIPanel';
+import { isV1ModeEnabled } from '../../config/mvpFeatureFlags';
+import { lazy, Suspense } from 'react';
+
+const LazyEnhancedAIPanel = !isV1ModeEnabled()
+  ? lazy(() => import('../ai/EnhancedAIPanel').then(m => ({ default: m.EnhancedAIPanel })))
+  : null;
+
+const LazyAIDockPanel = !isV1ModeEnabled()
+  ? lazy(() => import('../ai/AIDockPanel').then(m => ({ default: m.AIDockPanel })))
+  : null;
 
 const ACTION_LABELS: Record<ConsentActionType, string> = {
   download: 'Download file',
@@ -163,17 +171,21 @@ export function RightPanel({ open, onClose }: RightPanelProps) {
             </button>
           </div>
 
-          {/* Enhanced AI Panel */}
-          {activeTab === 'planner' && (
+          {/* Enhanced AI Panel (hidden in v1-mode) */}
+          {!isV1ModeEnabled() && activeTab === 'planner' && LazyEnhancedAIPanel && (
             <div className="border-b border-gray-800/50">
-              <EnhancedAIPanel />
+              <Suspense fallback={null}>
+                <LazyEnhancedAIPanel />
+              </Suspense>
             </div>
           )}
 
-          {/* Legacy AI Dock (fallback) */}
-          {activeTab !== 'planner' && (
+          {/* Legacy AI Dock (fallback) - hidden in v1-mode */}
+          {!isV1ModeEnabled() && activeTab !== 'planner' && LazyAIDockPanel && (
             <div className="border-b border-gray-800/50 p-4">
-              <AIDockPanel />
+              <Suspense fallback={null}>
+                <LazyAIDockPanel />
+              </Suspense>
             </div>
           )}
 

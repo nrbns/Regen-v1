@@ -14,6 +14,8 @@ export type LayerMode =
   | 'Browse'
   | 'Research'
   | 'Trade'
+  | 'Knowledge'
+  | 'Dev'
   | 'Games'
   | 'Docs'
   | 'Images'
@@ -124,6 +126,8 @@ export const MODE_TO_LAYER: Record<LayerMode, ExecutionLayer> = {
   Browse: 'L0',
   Research: 'L2',
   Trade: 'L2',
+  Knowledge: 'L2',
+  Dev: 'L1',
   Games: 'L0',
   Docs: 'L1',
   Images: 'L0',

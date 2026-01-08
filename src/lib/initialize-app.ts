@@ -8,11 +8,8 @@ import { markBackendAvailable, markBackendUnavailable } from './backend-status';
 
 const API_BASE_URL =
   typeof window !== 'undefined'
-    ? (window as any).__API_BASE_URL ||
-      import.meta.env.VITE_API_BASE_URL ||
-      'http://127.0.0.1:4000'
-    : import.meta.env.VITE_API_BASE_URL ||
-      'http://127.0.0.1:4000';
+    ? (window as any).__API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000'
+    : import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:4000';
 
 export interface InitializationStatus {
   agentClient: boolean;
@@ -41,7 +38,7 @@ async function checkBackendConnection(): Promise<boolean> {
       method: 'GET',
       signal: AbortSignal.timeout(3000),
     });
-    
+
     if (response.ok) {
       markBackendAvailable();
       return true;
@@ -58,19 +55,20 @@ async function checkBackendConnection(): Promise<boolean> {
  */
 function verifyAgentClient(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   const agent = (window as any).agent;
-  const hasRequiredMethods = agent && 
+  const hasRequiredMethods =
+    agent &&
     typeof agent.start === 'function' &&
     typeof agent.stop === 'function' &&
     typeof agent.runs === 'function' &&
     typeof agent.getRun === 'function';
-  
+
   if (!hasRequiredMethods) {
     console.warn('[Init] Agent client not properly initialized');
     return false;
   }
-  
+
   return true;
 }
 
@@ -91,12 +89,12 @@ function verifyApiClient(): boolean {
  */
 function verifyBrowserIntegration(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   // Check if we're in a browser environment
   const hasWindow = typeof window !== 'undefined';
   const hasDocument = typeof document !== 'undefined';
   const hasLocalStorage = typeof localStorage !== 'undefined';
-  
+
   return hasWindow && hasDocument && hasLocalStorage;
 }
 
@@ -157,7 +155,7 @@ export async function initializeApp(): Promise<InitializationStatus> {
   }
 
   // Summary
-  const allCritical = 
+  const allCritical =
     initializationStatus.browserIntegration &&
     initializationStatus.apiClient &&
     initializationStatus.agentClient;
@@ -166,6 +164,20 @@ export async function initializeApp(): Promise<InitializationStatus> {
     console.log('[Init] ✅ Application initialization complete');
   } else {
     console.warn('[Init] ⚠ Some components not initialized');
+  }
+
+  // Start auxiliary engines that don't require backend
+  try {
+    // Import lazily to avoid circular deps during tests
+    const { contextEngine } = await import('../core/contextEngine');
+    contextEngine.start();
+    // Stop engine on unload to clean up listeners
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => contextEngine.stop());
+    }
+    console.log('[Init] ✓ Context Engine started');
+  } catch (err) {
+    console.warn('[Init] Context Engine failed to start:', err);
   }
 
   // Store status globally for debugging
@@ -205,4 +217,3 @@ if (typeof window !== 'undefined') {
     setTimeout(() => initializeApp(), 100);
   }
 }
-

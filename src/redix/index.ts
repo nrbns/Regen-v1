@@ -1,19 +1,24 @@
 /**
  * Redix Universal Browser - Entry Point
- * 
+ *
  * Ultra-lightweight browser for universal device compatibility.
  * - Vanilla JS (no React)
  * - DOM pooling for memory efficiency
  * - Device capability detection
  * - AI-rendered content (no iframes)
  * - WASM AI support (offline)
- * 
+ *
  * Target: < 12KB bundle size, works on any device with a screen
  */
 
 import { getRedixPool } from '../core/redix-pool';
 import { getDeviceDetector, detectDeviceCapabilities } from '../core/device-detector';
-import { getGhostMode, isGhostModeEnabled, enableGhostMode, disableGhostMode } from '../core/ghost-mode';
+import {
+  getGhostMode,
+  isGhostModeEnabled,
+  enableGhostMode,
+  disableGhostMode,
+} from '../core/ghost-mode';
 import { detectTorBrowser } from '../core/tor-detector';
 import { RedixContentRenderer } from './renderer';
 import { RedixAI } from './ai';
@@ -33,26 +38,26 @@ export class RedixBrowser {
     // Detect capabilities
     this.capabilities = this.detector.detectCapabilities();
     this.features = this.detector.getRecommendedFeatures(this.capabilities);
-    
+
     // Detect Tor Browser and enable Ghost Mode
     const torDetection = detectTorBrowser();
     const ghostMode = getGhostMode();
-    
+
     if (torDetection.isTorBrowser) {
       console.log('🔒 Tor Browser detected - enabling Ghost Mode');
       ghostMode.enable();
     }
-    
+
     // Initialize AI (WASM or cloud based on capabilities and Ghost Mode)
     const isGhost = isGhostModeEnabled();
     this.ai = new RedixAI({
       useWASM: isGhost ? true : this.features.useWASMAI, // Force WASM in Ghost Mode
       useCloud: isGhost ? false : this.features.useCloudAI, // No cloud in Ghost Mode
     });
-    
+
     // Initialize renderer
     this.renderer = new RedixContentRenderer(this.pool, this.ai);
-    
+
     console.log('[Redix] Initialized with capabilities:', this.capabilities);
     console.log('[Redix] Recommended features:', this.features);
     console.log('[Redix] Ghost Mode:', isGhost ? 'ENABLED 🔒' : 'disabled');
@@ -70,16 +75,16 @@ export class RedixBrowser {
       if (!this.isValidURL(url)) {
         throw new Error(`Invalid URL: ${url}`);
       }
-      
+
       // Show loading state
       const loadingEl = this.pool.getDiv();
       loadingEl.className = 'redix-loading';
       loadingEl.textContent = 'Loading...';
       container.appendChild(loadingEl);
-      
+
       // Render content (AI-processed, not iframe)
       await this.renderer.renderURL(url, container);
-      
+
       // Remove loading
       if (loadingEl.parentNode) {
         loadingEl.parentNode.removeChild(loadingEl);
@@ -173,4 +178,3 @@ if (typeof window !== 'undefined') {
     isGhostModeEnabled: () => isGhostModeEnabled(),
   };
 }
-

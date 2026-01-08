@@ -19,6 +19,7 @@ export async function initMeiliIndexing(): Promise<void> {
         await ensureIndex('tabs', 'id');
         await ensureIndex('research', 'id');
         await ensureIndex('notes', 'id');
+        await ensureIndex('contexts', 'id');
       } catch {
         // MeiliSearch not available or unauthorized - silently disable
         meiliAvailable = false;
@@ -151,6 +152,50 @@ export async function indexNote(doc: {
 }
 
 /**
+ * Index a navigation context (e.g., page navigations) for quick recall
+ */
+export async function indexContext(context: {
+  id: string;
+  tabId: string;
+  url: string;
+  title?: string;
+  timestamp?: number;
+  mode?: string;
+}): Promise<void> {
+  if (!meiliAvailable || !indexingEnabled) return;
+
+  try {
+    await indexDocuments('contexts', [
+      {
+        id: context.id,
+        tabId: context.tabId,
+        url: context.url,
+        title: context.title || deriveTitleFromUrl(context.url),
+        timestamp: context.timestamp || Date.now(),
+        mode: context.mode || 'Browse',
+      },
+    ]);
+    // console.log(`[MeiliIndexer] Indexed context ${context.id}`);
+  } catch (error) {
+    console.error('[MeiliIndexer] Failed to index context:', error);
+  }
+}
+
+export async function searchContexts(query: string, options?: { limit?: number; offset?: number }) {
+  if (!meiliAvailable || !indexingEnabled)
+    return { hits: [], estimatedTotalHits: 0, processingTimeMs: 0 };
+  try {
+    const res = await searchDocuments('contexts', query, {
+      limit: options?.limit,
+      offset: options?.offset,
+    });
+    return res;
+  } catch (err) {
+    console.error('[MeiliIndexer] Failed to search contexts:', err);
+    return { hits: [], estimatedTotalHits: 0, processingTimeMs: 0 };
+  }
+}
+/**
  * Enable/disable indexing
  */
 export function setIndexingEnabled(enabled: boolean): void {
@@ -158,9 +203,27 @@ export function setIndexingEnabled(enabled: boolean): void {
   console.log(`[MeiliIndexer] Indexing ${enabled ? 'enabled' : 'disabled'}`);
 }
 
+// Test helper to override meiliAvailable in tests
+export function __setMeiliAvailableForTest(enabled: boolean): void {
+  meiliAvailable = enabled;
+}
+
+// Test helpers to observe internal state from tests
+export function __isMeiliAvailableForTest(): boolean {
+  return meiliAvailable;
+}
+
+export function __isIndexingEnabledForTest(): boolean {
+  return indexingEnabled;
+}
+
 // Auto-initialize when module loads - suppress all errors
 // Skip in test environments to avoid unhandled promise rejections
-if (typeof window !== 'undefined' && !process.env.VITEST && !process.env.NODE_ENV?.includes('test')) {
+if (
+  typeof window !== 'undefined' &&
+  !process.env.VITEST &&
+  !process.env.NODE_ENV?.includes('test')
+) {
   // Wait a bit for MeiliSearch to start
   setTimeout(() => {
     initMeiliIndexing().catch(() => {

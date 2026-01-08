@@ -28,7 +28,7 @@ export function safeErrorString(error: unknown): string {
       try {
         const errorObj = error as Record<string, unknown>;
         const safeObj: Record<string, unknown> = {};
-        
+
         for (const key in errorObj) {
           if (Object.prototype.hasOwnProperty.call(errorObj, key)) {
             const value = errorObj[key];
@@ -52,7 +52,7 @@ export function safeErrorString(error: unknown): string {
             }
           }
         }
-        
+
         return JSON.stringify(safeObj, null, 2);
       } catch {
         return `[Object: ${getTypeName(error)}]`;
@@ -68,7 +68,8 @@ export function safeErrorString(error: unknown): string {
  */
 function isSafeValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return true;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
+    return true;
   if (Array.isArray(value)) {
     return value.every(isSafeValue);
   }
@@ -106,7 +107,7 @@ function isDOMElement(value: unknown): boolean {
     value instanceof HTMLElement ||
     value instanceof Element ||
     value instanceof Node ||
-    (typeof (value as any).nodeType === 'number')
+    typeof (value as any).nodeType === 'number'
   );
 }
 
@@ -135,17 +136,17 @@ function getCircularReplacer() {
         return '[Circular]';
       }
       seen.add(value);
-      
+
       // Skip React elements
       if (isReactElement(value)) {
         return '[ReactElement]';
       }
-      
+
       // Skip DOM elements
       if (isDOMElement(value)) {
         return '[DOMElement]';
       }
-      
+
       // Skip functions
       if (typeof value === 'function') {
         return '[Function]';
@@ -154,10 +155,3 @@ function getCircularReplacer() {
     return value;
   };
 }
-
-
-
-
-
-
-

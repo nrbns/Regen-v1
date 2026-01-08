@@ -9,7 +9,6 @@ import { toast } from '../../utils/toast';
 import { ConsentModal } from './ConsentModal';
 import type { EditTask, EditResult } from '../../types/doc-editor';
 
-
 export function DocumentEditor() {
   const [file, setFile] = useState<File | null>(null);
   const [task, setTask] = useState<EditTask>('rewrite');
@@ -47,8 +46,11 @@ export function DocumentEditor() {
         'text/plain',
         'text/markdown',
       ];
-      
-      if (!validTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(docx|pdf|xlsx|txt|md)$/i)) {
+
+      if (
+        !validTypes.includes(selectedFile.type) &&
+        !selectedFile.name.match(/\.(docx|pdf|xlsx|txt|md)$/i)
+      ) {
         toast.error('Unsupported file type. Please upload DOCX, PDF, XLSX, TXT, or MD files.');
         return;
       }
@@ -162,20 +164,20 @@ export function DocumentEditor() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 text-white">
+    <div className="flex h-full flex-col bg-slate-950 text-white">
       {/* Header */}
       <div className="border-b border-slate-800 p-4">
         <h1 className="text-xl font-semibold">Document Auto-Edit</h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="mt-1 text-sm text-slate-400">
           AI-powered document editing: rewrite, grammar, summarize, translate, and more
         </p>
       </div>
 
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="mx-auto max-w-4xl space-y-6">
           {/* File Upload */}
-          <div className="border border-slate-800 rounded-lg p-6 bg-slate-900/50">
-            <label className="block text-sm font-medium mb-2">Upload Document</label>
+          <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-6">
+            <label className="mb-2 block text-sm font-medium">Upload Document</label>
             <div className="flex items-center gap-4">
               <label className="flex-1 cursor-pointer">
                 <input
@@ -184,22 +186,20 @@ export function DocumentEditor() {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                <div className="border-2 border-dashed border-slate-700 rounded-lg p-8 text-center hover:border-slate-600 transition-colors">
+                <div className="rounded-lg border-2 border-dashed border-slate-700 p-8 text-center transition-colors hover:border-slate-600">
                   {file ? (
                     <div className="flex items-center gap-3">
                       <FileText className="h-8 w-8 text-blue-400" />
                       <div className="text-left">
                         <p className="font-medium">{file.name}</p>
-                        <p className="text-sm text-slate-400">
-                          {(file.size / 1024).toFixed(1)} KB
-                        </p>
+                        <p className="text-sm text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
                       </div>
                     </div>
                   ) : (
                     <div>
-                      <Upload className="h-12 w-12 mx-auto mb-2 text-slate-500" />
+                      <Upload className="mx-auto mb-2 h-12 w-12 text-slate-500" />
                       <p className="text-slate-400">Click to upload or drag and drop</p>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         DOCX, PDF, XLSX, TXT, MD (max 100MB)
                       </p>
                     </div>
@@ -211,16 +211,16 @@ export function DocumentEditor() {
 
           {/* Edit Options */}
           {file && (
-            <div className="border border-slate-800 rounded-lg p-6 bg-slate-900/50 space-y-4">
+            <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/50 p-6">
               <h2 className="text-lg font-semibold">Edit Options</h2>
 
               {/* Task Selection */}
               <div>
-                <label className="block text-sm font-medium mb-2">Edit Task</label>
+                <label className="mb-2 block text-sm font-medium">Edit Task</label>
                 <select
                   value={task}
-                  onChange={(e) => setTask(e.target.value as EditTask)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  onChange={e => setTask(e.target.value as EditTask)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"
                 >
                   <option value="rewrite">Rewrite</option>
                   <option value="grammar">Fix Grammar</option>
@@ -238,11 +238,11 @@ export function DocumentEditor() {
               {/* Style (for rewrite) */}
               {task === 'rewrite' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Style</label>
+                  <label className="mb-2 block text-sm font-medium">Style</label>
                   <select
                     value={style}
-                    onChange={(e) => setStyle(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    onChange={e => setStyle(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"
                   >
                     <option value="preserve">Preserve Original</option>
                     <option value="formal">Formal</option>
@@ -256,11 +256,11 @@ export function DocumentEditor() {
               {/* Language (for translate) */}
               {task === 'translate' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Target Language</label>
+                  <label className="mb-2 block text-sm font-medium">Target Language</label>
                   <select
                     value={language}
-                    onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    onChange={e => setLanguage(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"
                   >
                     <option value="en">English</option>
                     <option value="hi">Hindi</option>
@@ -277,8 +277,8 @@ export function DocumentEditor() {
                   type="checkbox"
                   id="cloudLLM"
                   checked={cloudLLM}
-                  onChange={(e) => setCloudLLM(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-800"
+                  onChange={e => setCloudLLM(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-700 bg-slate-800"
                 />
                 <label htmlFor="cloudLLM" className="text-sm">
                   Use Cloud LLM (requires consent - faster, but data sent to external API)
@@ -289,7 +289,7 @@ export function DocumentEditor() {
               <button
                 onClick={handleEdit}
                 disabled={processing}
-                className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 font-medium transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-700"
               >
                 {processing ? (
                   <>
@@ -308,20 +308,20 @@ export function DocumentEditor() {
 
           {/* Results */}
           {result && (
-            <div className="border border-slate-800 rounded-lg p-6 bg-slate-900/50 space-y-4">
+            <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-900/50 p-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Results</h2>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setShowPreview(!showPreview)}
-                    className="px-3 py-1.5 text-sm bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center gap-2"
+                    className="flex items-center gap-2 rounded-lg bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700"
                   >
                     <Eye className="h-4 w-4" />
                     {showPreview ? 'Hide' : 'Show'} Preview
                   </button>
                   <button
                     onClick={handleDownload}
-                    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 rounded-lg flex items-center gap-2"
+                    className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-sm hover:bg-green-700"
                   >
                     <Download className="h-4 w-4" />
                     Download
@@ -335,7 +335,9 @@ export function DocumentEditor() {
                 {(() => {
                   const Icon = confidenceIcons[result.confidence];
                   return (
-                    <div className={`flex items-center gap-1 ${confidenceColors[result.confidence]}`}>
+                    <div
+                      className={`flex items-center gap-1 ${confidenceColors[result.confidence]}`}
+                    >
                       <Icon className="h-4 w-4" />
                       <span className="text-sm font-medium capitalize">{result.confidence}</span>
                     </div>
@@ -345,7 +347,7 @@ export function DocumentEditor() {
 
               {/* Metadata */}
               {result.metadata && (
-                <div className="text-sm text-slate-400 space-y-1">
+                <div className="space-y-1 text-sm text-slate-400">
                   {result.metadata.model && <p>Model: {result.metadata.model}</p>}
                   {result.metadata.processingTime && (
                     <p>Processing Time: {(result.metadata.processingTime / 1000).toFixed(1)}s</p>
@@ -356,16 +358,13 @@ export function DocumentEditor() {
 
               {/* Changes Summary */}
               <div>
-                <p className="text-sm text-slate-400 mb-2">
+                <p className="mb-2 text-sm text-slate-400">
                   Changes: {result.changes.length} modification(s)
                 </p>
                 {showPreview && result.changes.length > 0 && (
-                  <div className="mt-4 space-y-2 max-h-96 overflow-auto">
+                  <div className="mt-4 max-h-96 space-y-2 overflow-auto">
                     {result.changes.slice(0, 10).map((change, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3 bg-slate-800 rounded-lg text-sm space-y-1"
-                      >
+                      <div key={idx} className="space-y-1 rounded-lg bg-slate-800 p-3 text-sm">
                         {change.original && (
                           <div>
                             <span className="text-red-400">- </span>
@@ -381,7 +380,7 @@ export function DocumentEditor() {
                       </div>
                     ))}
                     {result.changes.length > 10 && (
-                      <p className="text-xs text-slate-500 text-center">
+                      <p className="text-center text-xs text-slate-500">
                         ... and {result.changes.length - 10} more changes
                       </p>
                     )}
@@ -403,4 +402,3 @@ export function DocumentEditor() {
     </div>
   );
 }
-

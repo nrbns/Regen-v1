@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Globe, Search, TrendingUp, Code, BookOpen, MoreHorizontal } from 'lucide-react';
 import { useModeShift } from '../hooks/useModeShift';
 import { useAppStore } from '../../state/appStore';
+import { isMVPFeatureEnabled, isV1ModeEnabled } from '../../config/mvpFeatureFlags';
 import { useTokens } from '../useTokens';
 import { type ModeId } from '../tokens-enhanced';
 import { getModeFlag } from '../../config/featureFlags';
@@ -32,6 +33,9 @@ const MODE_CONFIG: Array<{
 ];
 
 export function ModeTabs({ className, compact, onModeChange }: ModeTabsProps) {
+  // In v1-mode, hide mode tabs to keep UI simple and stable
+  if (isV1ModeEnabled()) return null;
+
   const tokens = useTokens();
   const { currentMode, isShifting } = useModeShift();
   const setMode = useAppStore(state => state.setMode);

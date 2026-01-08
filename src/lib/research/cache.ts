@@ -56,7 +56,7 @@ class ResearchCacheDB extends Dexie {
 
   constructor() {
     super('ResearchCache');
-    
+
     this.version(1).stores({
       documents: 'id, type, uploadedAt, url, title',
       chunks: 'id, documentId, chunkIndex, [documentId+chunkIndex], cachedAt',
@@ -94,15 +94,17 @@ export async function cacheDocument(document: {
 /**
  * Cache chunks for a document
  */
-export async function cacheChunks(chunks: Array<{
-  id: string;
-  documentId: string;
-  content: string;
-  chunkIndex: number;
-  startChar: number;
-  endChar: number;
-  metadata: any;
-}>): Promise<void> {
+export async function cacheChunks(
+  chunks: Array<{
+    id: string;
+    documentId: string;
+    content: string;
+    chunkIndex: number;
+    startChar: number;
+    endChar: number;
+    metadata: any;
+  }>
+): Promise<void> {
   try {
     const cachedChunks: CachedChunk[] = chunks.map(chunk => ({
       ...chunk,
@@ -133,10 +135,7 @@ export async function getCachedDocument(documentId: string): Promise<CachedDocum
  */
 export async function getCachedChunks(documentId: string): Promise<CachedChunk[]> {
   try {
-    return await db.chunks
-      .where('documentId')
-      .equals(documentId)
-      .sortBy('chunkIndex');
+    return await db.chunks.where('documentId').equals(documentId).sortBy('chunkIndex');
   } catch (error) {
     console.error('[Research Cache] Failed to get cached chunks:', error);
     return [];
@@ -158,7 +157,7 @@ export async function searchChunks(query: string, limit: number = 20): Promise<C
     // Simple full-text search using IndexedDB
     // For better performance, we could use a more sophisticated approach
     const allChunks = await db.chunks.toArray();
-    
+
     // Score chunks by term matches
     const scored = allChunks.map(chunk => {
       let score = 0;
@@ -218,13 +217,13 @@ export async function deleteCachedDocument(documentId: string): Promise<void> {
 export async function clearOldCache(maxAgeDays: number = 30): Promise<number> {
   try {
     const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
-    
+
     // Delete old chunks
     const oldChunks = await db.chunks.where('cachedAt').below(cutoff).delete();
-    
+
     // Delete old embeddings
     const oldEmbeddings = await db.embeddings.where('cachedAt').below(cutoff).delete();
-    
+
     return oldChunks + oldEmbeddings;
   } catch (error) {
     console.error('[Research Cache] Failed to clear old cache:', error);
@@ -293,19 +292,20 @@ export async function syncDocumentsFromBackend(): Promise<void> {
       // Fetch and cache chunks
       const { chunks } = await ipc.research.getDocumentChunks(doc.id);
       if (chunks.length > 0) {
-        await cacheChunks(chunks.map((chunk: any, idx: number) => ({
-          id: chunk.id || `${doc.id}-chunk-${idx}`,
-          documentId: doc.id,
-          content: chunk.content,
-          chunkIndex: chunk.chunkIndex ?? idx,
-          startChar: chunk.startChar ?? 0,
-          endChar: chunk.endChar ?? chunk.content.length,
-          metadata: chunk.metadata || {},
-        })));
+        await cacheChunks(
+          chunks.map((chunk: any, idx: number) => ({
+            id: chunk.id || `${doc.id}-chunk-${idx}`,
+            documentId: doc.id,
+            content: chunk.content,
+            chunkIndex: chunk.chunkIndex ?? idx,
+            startChar: chunk.startChar ?? 0,
+            endChar: chunk.endChar ?? chunk.content.length,
+            metadata: chunk.metadata || {},
+          }))
+        );
       }
     }
   } catch (error) {
     console.error('[Research Cache] Failed to sync from backend:', error);
   }
 }
-

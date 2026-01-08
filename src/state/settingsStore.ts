@@ -160,7 +160,23 @@ export const useSettingsStore = create<SettingsState>()(
         // Call Rust command first (source of truth)
         if (isTauriRuntime()) {
           try {
-            const { invoke } = await import('@tauri-apps/api/core');
+            // In test environments, a global mockInvoke is injected by vitest.setup.ts
+            if ((globalThis as any).mockInvoke) {
+              await (globalThis as any).mockInvoke('settings:set_language', { language });
+              return;
+            }
+
+            // Build the import path dynamically to avoid static analysis by Vite during tests
+            const pkg = '@tauri-apps' + '/api/core';
+            // Use safeImport helper to ensure only allowlisted dynamic imports are permitted
+            const { safeImport } = await import('../utils/safeImport').catch(() => ({
+              safeImport: null,
+            }));
+            if (!safeImport) {
+              throw new Error('safeImport helper unavailable');
+            }
+            const mod = await safeImport(pkg, [pkg]);
+            const invoke = mod.invoke ?? (mod.default && mod.default.invoke);
             await invoke('settings:set_language', { language });
 
             // After Rust updates language, sync Zustand cache

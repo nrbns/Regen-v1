@@ -12,13 +12,12 @@ type PeekState = {
 export const usePeekPreviewStore = create<PeekState>((set, get) => ({
   visible: false,
   tab: null,
-  open: (tab) => set({ visible: true, tab }),
+  open: tab => set({ visible: true, tab }),
   close: () => set({ visible: false, tab: null }),
-  sync: (tab) => {
+  sync: tab => {
     const current = get().tab;
     if (current?.id === tab.id) {
       set({ tab: { ...current, ...tab } });
     }
   },
 }));
-

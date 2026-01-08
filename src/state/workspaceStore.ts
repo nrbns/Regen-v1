@@ -40,26 +40,27 @@ type WorkspaceState = {
 export const useWorkspaceStore = create<WorkspaceState>((set, _get) => ({
   workspaces: [],
   activeWorkspaceId: null,
-  
-  setWorkspaces: (workspaces) => set({ workspaces }),
-  
-  setActiveWorkspace: (workspaceId) => set({ activeWorkspaceId: workspaceId }),
-  
-  addWorkspace: (workspace) => set((state) => ({
-    workspaces: [...state.workspaces, workspace],
-  })),
-  
-  removeWorkspace: (workspaceId) => set((state) => ({
-    workspaces: state.workspaces.filter(w => w.id !== workspaceId),
-    activeWorkspaceId: state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
-  })),
-  
-  updateWorkspace: (workspaceId, updates) => set((state) => ({
-    workspaces: state.workspaces.map(w => 
-      w.id === workspaceId ? { ...w, ...updates } : w
-    ),
-  })),
-  
+
+  setWorkspaces: workspaces => set({ workspaces }),
+
+  setActiveWorkspace: workspaceId => set({ activeWorkspaceId: workspaceId }),
+
+  addWorkspace: workspace =>
+    set(state => ({
+      workspaces: [...state.workspaces, workspace],
+    })),
+
+  removeWorkspace: workspaceId =>
+    set(state => ({
+      workspaces: state.workspaces.filter(w => w.id !== workspaceId),
+      activeWorkspaceId: state.activeWorkspaceId === workspaceId ? null : state.activeWorkspaceId,
+    })),
+
+  updateWorkspace: (workspaceId, updates) =>
+    set(state => ({
+      workspaces: state.workspaces.map(w => (w.id === workspaceId ? { ...w, ...updates } : w)),
+    })),
+
   loadWorkspaces: async () => {
     try {
       const response = await ipc.workspaceV2.list();
@@ -71,4 +72,3 @@ export const useWorkspaceStore = create<WorkspaceState>((set, _get) => ({
     }
   },
 }));
-

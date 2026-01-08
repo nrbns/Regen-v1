@@ -1,3 +1,36 @@
+# SECURITY
+
+Regen v1 hardening summary and threat model.
+
+Goals
+
+- Deny arbitrary code execution from models/agents.
+- Deny agent-initiated network and filesystem access by default.
+- Provide a single auditable execution gate for all privileged actions.
+- Keep v1 closed-surface: no extensions, no background listeners, no telemetry.
+
+Key components
+
+- `src/core/executor/ExecutionGate.ts` — single entrypoint for privileged execution (default deny).
+- `src/core/network/NetworkPolicy.ts` — centralized network gatekeeper (offline by default).
+- `src/core/storage/StorageManager.ts` — centralized storage writes with path allowlist.
+
+Non-goals for v1
+
+- No plugin/extension system
+- No automatic remote code execution
+- No telemetry enabled by default
+
+Hardening checklist
+
+1. Block dynamic eval/Function usage across codebase.
+2. Ensure all IPC (Tauri) endpoints are allowlisted and reviewed.
+3. Replace any direct `child_process`, `spawn`, or `exec` usage with calls routed through `ExecutionGate` and audited.
+4. Verify UI never renders untrusted HTML (no dangerouslySetInnerHTML).
+5. Add cryptographic integrity checks for core files at build time (future work).
+
+If you are a reviewer, start by auditing `ExecutionGate.ts`, `NetworkPolicy.ts`, and all IPC bindings.
+
 # Security Policy
 
 ## Supported Versions
@@ -10,23 +43,27 @@
 ## Security Features
 
 ### 1. **Sandboxing**
+
 - **Renderer Isolation**: Each tab runs in isolated BrowserView
 - **Context Isolation**: `contextIsolation: true` prevents node access
 - **Sandbox Mode**: Enabled where possible
 - **Preload Scripts**: Minimal API exposure via `contextBridge`
 
 ### 2. **Content Security Policy (CSP)**
+
 - Strict CSP headers for internal pages
 - No inline scripts in production
 - Restricted resource loading
 
 ### 3. **IPC Security**
+
 - **Typed IPC**: Zod validation for all IPC requests
 - **Versioned Channels**: `ob://ipc/v1/*` with schema validation
 - **Request Validation**: All handlers validate input
 - **Error Handling**: No sensitive data in error messages
 
 ### 4. **Network Security**
+
 - **HTTPS-Only Mode**: Force secure connections
 - **Certificate Validation**: Standard Electron cert pinning
 - **DNS-over-HTTPS**: Encrypted DNS queries
@@ -34,18 +71,21 @@
 - **Proxy Validation**: Verify proxy endpoints
 
 ### 5. **Data Protection**
+
 - **Encrypted Storage**: Use system keychain/safeStorage for secrets
 - **Partition Isolation**: Separate sessions per profile/tab
 - **Secure Deletion**: Overwrite on "Burn Tab" / "Forensic Cleanse"
 - **Checksum Verification**: SHA-256 for downloads
 
 ### 6. **Permission System**
+
 - **Granular Permissions**: Camera, mic, filesystem, notifications
 - **Per-Origin TTL**: Permissions expire after set time
 - **Explicit Consent**: No auto-approval for sensitive operations
 - **Consent Ledger**: Audit trail of all approvals
 
 ### 7. **Fingerprint Protection**
+
 - **Canvas Noise**: Randomize canvas fingerprinting
 - **Audio Fingerprinting**: Add noise to audio context
 - **WebGL Spoofing**: Standardized GPU strings
@@ -53,6 +93,7 @@
 - **Screen Resolution**: Normalize screen metrics
 
 ### 8. **Update Security**
+
 - **Signed Releases**: GitHub Releases with checksums
 - **Auto-Update Verification**: Verify signatures before install
 - **No Telemetry**: Updates check GitHub only, no tracking
@@ -90,7 +131,6 @@
 1. **Electron Base**: Inherits Electron security considerations
    - Keep Electron updated
    - Use latest Chromium version
-   
 2. **Native Modules**: Some features require native code
    - Tor client (optional)
    - Adblocker engines (optional)
@@ -112,6 +152,7 @@
 ## Security Checklist
 
 Before each release:
+
 - [ ] Update Electron to latest stable
 - [ ] Update all dependencies (`npm audit`)
 - [ ] Review IPC handlers for validation

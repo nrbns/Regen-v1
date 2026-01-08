@@ -14,12 +14,7 @@ export function createFallbackTab(options: FallbackOptions = {}) {
     return null;
   }
 
-  const {
-    url = 'about:blank',
-    title,
-    activate = true,
-    mode = 'normal',
-  } = options;
+  const { url = 'about:blank', title, activate = true, mode = 'normal' } = options;
 
   const existingTabs = Array.isArray(store.tabs) ? store.tabs : [];
   const id =
@@ -27,7 +22,7 @@ export function createFallbackTab(options: FallbackOptions = {}) {
       ? crypto.randomUUID()
       : `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const nextTabs = existingTabs.map((tab) => ({
+  const nextTabs = existingTabs.map(tab => ({
     ...tab,
     active: activate ? false : Boolean(tab.active),
   }));
@@ -54,5 +49,3 @@ export function createFallbackTab(options: FallbackOptions = {}) {
 
   return newTab;
 }
-
-

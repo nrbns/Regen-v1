@@ -28,6 +28,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isMVPFeatureEnabled } from '../../config/mvpFeatureFlags';
 import { ipc } from '../../lib/ipc-typed';
 import { useTabsStore } from '../../state/tabsStore';
 import { TabUpdate, ipcEvents } from '../../lib/ipc-events';
@@ -110,29 +111,132 @@ const formatCalcResult = (expr: string, result: number | null) => {
 
 const evaluateExpression = (raw: string) => {
   const expr = raw.replace(/,/g, '').trim();
-  if (!expr) {
-    return null;
-  }
+  if (!expr) return null;
 
-  // Only allow safe characters
-  // SECURITY FIX: Validate expression strictly - only allow safe math characters
-  if (!/^[0-9+\-*/().%\s^]+$/.test(expr)) {
-    return null;
-  }
+  // Only allow safe characters: digits, operators, parentheses, whitespace, decimal point
+  if (!/^[0-9+\-*/().%\s^]+$/.test(expr)) return null;
 
+  // Convert infix expression to RPN using shunting-yard algorithm and evaluate.
   try {
-    // SECURITY FIX: Use Function with strict validation (safer than eval)
-    // Replace ^ with ** for exponentiation
-    const safeExpr = expr.replace(/\^/g, '**');
-    // Additional validation: ensure no function calls or dangerous patterns
-    if (/[a-zA-Z_$]/.test(safeExpr)) {
-      return null; // Reject any variable names or function calls
-    }
-    // Use Function constructor with strict mode (still requires validation)
-    const value = Function(`"use strict"; return (${safeExpr})`)();
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
+    const tokenize = (s: string) => {
+      const tokens: string[] = [];
+      const re = /\s*([0-9]*\.?[0-9]+|[()+\-*/%^])\s*/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(s)) !== null) {
+        tokens.push(m[1]);
+      }
+      return tokens;
+    };
+
+    const precedence: Record<string, number> = { '^': 4, '*': 3, '/': 3, '%': 3, '+': 2, '-': 2 };
+    const rightAssoc: Record<string, boolean> = { '^': true };
+
+    const toRPN = (tokens: string[]) => {
+      const output: string[] = [];
+      const ops: string[] = [];
+      let prev: string | null = null;
+
+      for (let t of tokens) {
+        if (/^[0-9]/.test(t)) {
+          output.push(t);
+          prev = 'num';
+          continue;
+        }
+
+        if (t === '(') {
+          ops.push(t);
+          prev = 'op';
+          continue;
+        }
+
+        if (t === ')') {
+          while (ops.length && ops[ops.length - 1] !== '(') {
+            output.push(ops.pop()!);
+          }
+          if (ops.length === 0) throw new Error('Mismatched parentheses');
+          ops.pop(); // pop '('
+          prev = 'op';
+          continue;
+        }
+
+        // handle unary minus (as 'u-')
+        if (t === '-' && (prev === null || prev === 'op' || prev === '(')) {
+          t = 'u-';
+        }
+
+        // operator
+        while (
+          ops.length > 0 &&
+          ops[ops.length - 1] !== '(' &&
+          ((rightAssoc[t] && precedence[t] < precedence[ops[ops.length - 1]]) ||
+            (!rightAssoc[t] && precedence[t] <= precedence[ops[ops.length - 1]]))
+        ) {
+          output.push(ops.pop()!);
+        }
+        ops.push(t);
+        prev = 'op';
+      }
+
+      while (ops.length) {
+        const op = ops.pop()!;
+        if (op === '(' || op === ')') throw new Error('Mismatched parentheses');
+        output.push(op);
+      }
+
+      return output;
+    };
+
+    const evalRPN = (rpn: string[]) => {
+      const stack: number[] = [];
+      for (const token of rpn) {
+        if (/^[0-9]/.test(token)) {
+          stack.push(Number(token));
+          continue;
+        }
+
+        if (token === 'u-') {
+          const v = stack.pop();
+          if (v === undefined) throw new Error('Invalid expression');
+          stack.push(-v);
+          continue;
+        }
+
+        const b = stack.pop();
+        const a = stack.pop();
+        if (a === undefined || b === undefined) throw new Error('Invalid expression');
+
+        switch (token) {
+          case '+':
+            stack.push(a + b);
+            break;
+          case '-':
+            stack.push(a - b);
+            break;
+          case '*':
+            stack.push(a * b);
+            break;
+          case '/':
+            stack.push(a / b);
+            break;
+          case '%':
+            stack.push(a % b);
+            break;
+          case '^':
+            stack.push(Math.pow(a, b));
+            break;
+          default:
+            throw new Error('Unsupported operator');
+        }
+      }
+      if (stack.length !== 1) throw new Error('Invalid expression');
+      return stack[0];
+    };
+
+    const tokens = tokenize(expr.replace(/\^/g, '^'));
+    if (tokens.length === 0) return null;
+    const rpn = toRPN(tokens);
+    const value = evalRPN(rpn);
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
   } catch {
     return null;
   }
@@ -145,6 +249,7 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
     return null;
   }
 
+  const v1Mode = isV1ModeEnabled();
   const lower = trimmed.toLowerCase();
 
   if (lower.startsWith('/calc')) {
@@ -154,6 +259,7 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
   }
 
   if (lower.startsWith('/ai')) {
+    if (v1Mode) return null; // AI prompts disabled in v1-mode
     const prompt = trimmed.slice(3).trim();
     return { type: 'ai', prompt };
   }
@@ -179,10 +285,12 @@ const resolveQuickAction = (input: string): SuggestionAction | null => {
   }
 
   if (trimmed.startsWith('?')) {
+    if (minimalDemo) return null;
     return { type: 'agent', prompt: trimmed.slice(1).trim() };
   }
 
   if (lower.startsWith('ask ')) {
+    if (minimalDemo) return null;
     return { type: 'agent', prompt: trimmed.slice(4).trim() };
   }
 
