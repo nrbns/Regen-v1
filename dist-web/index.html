@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
-    <!-- DEV ONLY: relaxed CSP to allow local API, websockets, and external font -->
+    <!-- DEV ONLY: relaxed CSP to allow local API, websockets, external fonts, and CDN -->
     <meta http-equiv="Content-Security-Policy"
       content="
         default-src 'self' https: data: blob:;
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:;
         worker-src 'self' blob:;
-        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:;
+        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https://esm.sh https:;
         img-src 'self' data: https:;
         style-src 'self' 'unsafe-inline' https://rsms.me https:;
         style-src-elem 'self' 'unsafe-inline' https://rsms.me https:;
@@ -49,22 +49,22 @@
       body { background-color: #1A1D28; color: #fff; overflow: hidden; }
       #root { height: 100%; width: 100%; }
     </style>
-    <script type="module" crossorigin src="/assets/index-Bpl8XXBX.js"></script>
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-vMKFJcQw.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-B9p51XiU.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-zustand-DI90AVqT.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-fNkiChKY.js">
-    <link rel="modulepreload" crossorigin href="/chunks/mobile-components-BD_mK4c0.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-Dn_-i8d1.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-DTUcw8s4.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-utils-xnlZG_ES.js">
-    <link rel="modulepreload" crossorigin href="/chunks/route-Settings.tsx-Besl0ZmV.js">
-    <link rel="modulepreload" crossorigin href="/chunks/vendor-i18n-BZcWhmEy.js">
-    <link rel="stylesheet" crossorigin href="/assets/mobile-components-BC-ZuVCi.css">
-    <link rel="stylesheet" crossorigin href="/assets/index-BwxmrcnP.css">
+    <script type="module" crossorigin src="/assets/index-YC8RJ5jp.js"></script>
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-CaeOkK2b.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-CHQEsflF.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-react-dom-1cAdOUMh.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-memory-DNNlIF7i.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-zustand-Ca2LcI3b.js">
+    <link rel="modulepreload" crossorigin href="/chunks/core-ai-CarI_AKr.js">
+    <link rel="modulepreload" crossorigin href="/chunks/vendor-router-DvnRnKye.js">
+    <link rel="modulepreload" crossorigin href="/chunks/mode-manager.ts-Cgd7RHI8.js">
+    <link rel="modulepreload" crossorigin href="/chunks/route-AISearch.tsx-qwYFHOG_.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-YffO447O.css">
   </head>
   <body>
     <div id="root" class="app-shell"></div>
+
+    <!-- Basic JS test removed to avoid conflicts -->
     <div id="portal-root"></div>
     <script>
       // Early warning suppression - must run before anything else
@@ -216,7 +216,7 @@
           document.body.style.backgroundColor = '#0f172a';
         }
       })();
-    </script>
+    </script>
   </body>
 </html>
 

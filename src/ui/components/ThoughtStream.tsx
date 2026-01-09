@@ -187,3 +187,4 @@ export function ThoughtStream({ steps, isActive, onStepClick }: ThoughtStreamPro
     </div>
   );
 }
+

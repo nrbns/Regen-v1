@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
-    <!-- DEV ONLY: relaxed CSP to allow local API, websockets, and external font -->
+    <!-- DEV ONLY: relaxed CSP to allow local API, websockets, external fonts, and CDN -->
     <meta http-equiv="Content-Security-Policy"
       content="
         default-src 'self' https: data: blob:;
         script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:;
         worker-src 'self' blob:;
-        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https:;
+        connect-src 'self' http://127.0.0.1:4000 http://localhost:4000 http://127.0.0.1:7700 http://localhost:7700 ws://127.0.0.1:4000 ws://localhost:4000 wss://127.0.0.1:4000 wss://127.0.0.1:4000 wss://localhost:4000 https://www.youtube.com https://www.youtube-nocookie.com https://esm.sh https:;
         img-src 'self' data: https:;
         style-src 'self' 'unsafe-inline' https://rsms.me https:;
         style-src-elem 'self' 'unsafe-inline' https://rsms.me https:;
@@ -52,6 +52,8 @@
   </head>
   <body>
     <div id="root" class="app-shell"></div>
+
+    <!-- Basic JS test removed to avoid conflicts -->
     <div id="portal-root"></div>
     <script>
       // Early warning suppression - must run before anything else
@@ -204,7 +206,6 @@
         }
       })();
     </script>
-    <script type="module" src="/src/preload/index.ts"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

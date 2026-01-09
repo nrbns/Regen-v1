@@ -217,3 +217,4 @@ The framework offers a robust methodology that can be adapted to various context
 
 // Global instance
 export const localLLM = new LocalLLM();
+

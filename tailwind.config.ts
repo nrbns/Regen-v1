@@ -1,7 +1,7 @@
 import type { Config } from 'tailwindcss';
 
 export default {
-  darkMode: ['class'],
+  darkMode: ['class', '[data-theme="dark"]'],
   content: [
     './index.html',
     './src/**/*.{ts,tsx,js,jsx}',
@@ -10,26 +10,35 @@ export default {
   ],
   theme: {
     extend: {
-      // SPRINT 0: 8px baseline grid spacing scale
+      // Consistent spacing scale from design tokens
       spacing: {
-        '0.5': '4px',   // --spacing-1
-        '1': '8px',     // --spacing-2
-        '1.5': '12px',  // --spacing-3
-        '2': '16px',    // --spacing-4
-        '3': '24px',    // --spacing-5
-        '4': '32px',    // --spacing-6
-        '6': '48px',    // --spacing-7
-        '8': '64px',    // --spacing-8
+        '0.5': '4px',   // --space-1
+        '1': '8px',     // --space-2
+        '1.5': '12px',  // --space-3
+        '2': '16px',    // --space-4
+        '3': '24px',    // --space-6
+        '4': '32px',    // --space-8
+        '6': '48px',    // --space-12
+        '8': '64px',    // --space-16
+        '10': '80px',   // --space-20
+        '12': '96px',   // --space-24
       },
-      // SPRINT 0: Typography scale
+      // Consistent typography scale
       fontSize: {
         'xs': ['12px', { lineHeight: '1.5' }],
         'sm': ['14px', { lineHeight: '1.5' }],
-        'base': ['16px', { lineHeight: '1.5' }],  // Base content line-height
+        'base': ['16px', { lineHeight: '1.5' }],
         'lg': ['18px', { lineHeight: '1.5' }],
-        'xl': ['24px', { lineHeight: '1.4' }],
-        '2xl': ['32px', { lineHeight: '1.4' }],
-        '3xl': ['48px', { lineHeight: '1.3' }],
+        'xl': ['20px', { lineHeight: '1.4' }],
+        '2xl': ['24px', { lineHeight: '1.4' }],
+        '3xl': ['30px', { lineHeight: '1.3' }],
+        '4xl': ['36px', { lineHeight: '1.3' }],
+        '5xl': ['48px', { lineHeight: '1.2' }],
+        '6xl': ['60px', { lineHeight: '1.1' }],
+      },
+      fontFamily: {
+        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'sans-serif'],
+        mono: ['SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Consolas', 'Courier New', 'monospace'],
       },
       // SPRINT 0: Border radius scale
       borderRadius: {
@@ -65,6 +74,10 @@ export default {
       },
       boxShadow: {
         soft: '0 1px 2px rgba(0,0,0,.06), 0 4px 10px rgba(0,0,0,.06)',
+      },
+      // High contrast mode adjustments
+      screens: {
+        'high-contrast': { raw: '[data-high-contrast="true"]' },
       },
     },
   },

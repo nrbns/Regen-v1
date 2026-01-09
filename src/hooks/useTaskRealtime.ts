@@ -1,39 +1,41 @@
 import { useEffect } from 'react';
 import { useTaskStore } from '../state/taskStore';
-import { eventBus } from '../../core/execution/eventBus';
 
 /**
- * Hook that connects event bus events to the task store
+ * Hook that connects Electron IPC events to the task store
  * This makes the UI reactive to real-time task updates
  */
 export function useTaskRealtime() {
   const {
     addTask,
     updateTask,
-    addLog,
+    addTaskLog,
     updateResources,
   } = useTaskStore();
 
   useEffect(() => {
-    // Connect event bus listeners to store actions
-    const handleTaskCreated = (task: any) => addTask(task);
-    const handleTaskUpdated = (task: any) => updateTask(task);
-    const handleTaskLog = ({ id, message }: { id: string; message: string }) =>
-      addLog({ id, message });
-    const handleResourceUpdate = (resources: any) => updateResources(resources);
+    // Only run on Electron renderer (not in browser)
+    if (typeof window === 'undefined' || !window.regen) {
+      return;
+    }
 
-    // Bind event bus listeners
-    eventBus.on('task:created', handleTaskCreated);
-    eventBus.on('task:updated', handleTaskUpdated);
-    eventBus.on('task:log', handleTaskLog);
-    eventBus.on('resources:updated', handleResourceUpdate);
+    // Bind IPC event listeners to store actions
+    const cleanupTaskCreated = window.regen.onTaskCreated(addTask);
+    const cleanupTaskUpdated = window.regen.onTaskUpdated(updateTask);
+    const cleanupTaskLog = window.regen.onTaskLog(({ id, message }) =>
+      addTaskLog(id, message)
+    );
+    const cleanupResourceUpdate = window.regen.onResource((resources) =>
+      updateResources(resources)
+    );
 
     // Cleanup function to remove event listeners
     return () => {
-      eventBus.off('task:created', handleTaskCreated);
-      eventBus.off('task:updated', handleTaskUpdated);
-      eventBus.off('task:log', handleTaskLog);
-      eventBus.off('resources:updated', handleResourceUpdate);
+      // Remove IPC event listeners when component unmounts
+      cleanupTaskCreated();
+      cleanupTaskUpdated();
+      cleanupTaskLog();
+      cleanupResourceUpdate();
     };
-  }, [addTask, updateTask, addLog, updateResources]);
+  }, [addTask, updateTask, addTaskLog, updateResources]);
 }

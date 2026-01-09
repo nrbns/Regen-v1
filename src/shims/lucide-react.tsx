@@ -1,219 +1,216 @@
-// Auto-generated shim for lucide-react icons
-// Phase 1: Using basic placeholders instead of lucide icons
-
-const IconPlaceholder = () => <span style={{ display: 'inline-block', width: '16px', height: '16px' }} />;
-
-// Explicit exports for all used icons
-export const Activity = IconPlaceholder;
-export const AlarmPlus = IconPlaceholder;
-export const AlertCircle = IconPlaceholder;
-export const AlertTriangle = IconPlaceholder;
-export const Archive = IconPlaceholder;
-export const ArrowDown = IconPlaceholder;
-export const ArrowLeft = IconPlaceholder;
-export const ArrowRight = IconPlaceholder;
-export const ArrowRightCircle = IconPlaceholder;
-export const ArrowUp = IconPlaceholder;
-export const ArrowUpRight = IconPlaceholder;
-export const AudioLines = IconPlaceholder;
-export const Ban = IconPlaceholder;
-export const BarChart2 = IconPlaceholder;
-export const BarChart3 = IconPlaceholder;
-export const Battery = IconPlaceholder;
-export const BatteryCharging = IconPlaceholder;
-export const Bell = IconPlaceholder;
-export const BookOpen = IconPlaceholder;
-export const BookOpenCheck = IconPlaceholder;
-export const Bookmark = IconPlaceholder;
-export const Bot = IconPlaceholder;
-export const Box = IconPlaceholder;
-export const Boxes = IconPlaceholder;
-export const Brain = IconPlaceholder;
-export const Briefcase = IconPlaceholder;
-export const Calculator = IconPlaceholder;
-export const Calendar = IconPlaceholder;
-export const Camera = IconPlaceholder;
-export const Check = IconPlaceholder;
-export const CheckCircle = IconPlaceholder;
-export const CheckCircle2 = IconPlaceholder;
-export const CheckSquare = IconPlaceholder;
-export const ChevronDown = IconPlaceholder;
-export const ChevronLeft = IconPlaceholder;
-export const ChevronRight = IconPlaceholder;
-export const ChevronUp = IconPlaceholder;
-export const Circle = IconPlaceholder;
-export const CircleHelp = IconPlaceholder;
-export const Clipboard = IconPlaceholder;
-export const ClipboardCopy = IconPlaceholder;
-export const ClipboardList = IconPlaceholder;
-export const Clock = IconPlaceholder;
-export const Clock3 = IconPlaceholder;
-export const Cloud = IconPlaceholder;
-export const CloudOff = IconPlaceholder;
-export const Code = IconPlaceholder;
-export const Columns = IconPlaceholder;
-export const Command = IconPlaceholder;
-export const Compass = IconPlaceholder;
-export const Cookie = IconPlaceholder;
-export const Copy = IconPlaceholder;
-export const Cpu = IconPlaceholder;
-export const Database = IconPlaceholder;
-export const DollarSign = IconPlaceholder;
-export const Download = IconPlaceholder;
-export const Droplets = IconPlaceholder;
-export const Edit2 = IconPlaceholder;
-export const Edit3 = IconPlaceholder;
-export const ExternalLink = IconPlaceholder;
-export const Expand = IconPlaceholder;
-export const Eye = IconPlaceholder;
-export const EyeOff = IconPlaceholder;
-export const FileCheck = IconPlaceholder;
-export const FileDown = IconPlaceholder;
-export const FileJson = IconPlaceholder;
-export const FilePlus = IconPlaceholder;
-export const FileSearch = IconPlaceholder;
-export const FileSpreadsheet = IconPlaceholder;
-export const FileText = IconPlaceholder;
-export const Filter = IconPlaceholder;
-export const Fingerprint = IconPlaceholder;
-export const Flame = IconPlaceholder;
-export const FlaskConical = IconPlaceholder;
-export const Folder = IconPlaceholder;
-export const FolderOpen = IconPlaceholder;
-export const FolderPlus = IconPlaceholder;
-export const Gamepad2 = IconPlaceholder;
-export const GaugeCircle = IconPlaceholder;
-export const Ghost = IconPlaceholder;
-export const GitBranch = IconPlaceholder;
-export const Globe = IconPlaceholder;
-export const Globe2 = IconPlaceholder;
-export const Grid = IconPlaceholder;
-export const Grid3x3 = IconPlaceholder;
-export const GripVertical = IconPlaceholder;
-export const HardDrive = IconPlaceholder;
-export const HelpCircle = IconPlaceholder;
-export const Highlighter = IconPlaceholder;
-export const History = IconPlaceholder;
-export const Home = IconPlaceholder;
-export const Image = IconPlaceholder;
-export const Info = IconPlaceholder;
-export const KeyRound = IconPlaceholder;
-export const Keyboard = IconPlaceholder;
-export const Languages = IconPlaceholder;
-export const Laptop = IconPlaceholder;
-export const Layers = IconPlaceholder;
-export const Layout = IconPlaceholder;
-export const LayoutGrid = IconPlaceholder;
-export const Leaf = IconPlaceholder;
-export const Library = IconPlaceholder;
-export const Lightbulb = IconPlaceholder;
-export const LineChart = IconPlaceholder;
-export const Link = IconPlaceholder;
-export const Link2 = IconPlaceholder;
-export const List = IconPlaceholder;
-export const ListChecks = IconPlaceholder;
-export const ListTodo = IconPlaceholder;
-export const Loader = IconPlaceholder;
-export const Loader2 = IconPlaceholder;
-export const Lock = IconPlaceholder;
-export const LogOut = IconPlaceholder;
-export const LucideIcon = IconPlaceholder;
-export const Mail = IconPlaceholder;
-export const MapPin = IconPlaceholder;
-export const Maximize2 = IconPlaceholder;
-export const MemoryStick = IconPlaceholder;
-export const MessageSquare = IconPlaceholder;
-export const MessageSquareText = IconPlaceholder;
-export const Mic = IconPlaceholder;
-export const MicOff = IconPlaceholder;
-export const Minimize2 = IconPlaceholder;
-export const Minus = IconPlaceholder;
-export const MonitorCog = IconPlaceholder;
-export const MonitorPlay = IconPlaceholder;
-export const MonitorUp = IconPlaceholder;
-export const Moon = IconPlaceholder;
-export const MoonStar = IconPlaceholder;
-export const MoreHorizontal = IconPlaceholder;
-export const MoreVertical = IconPlaceholder;
-export const MousePointerClick = IconPlaceholder;
-export const Move = IconPlaceholder;
-export const Navigation = IconPlaceholder;
-export const Network = IconPlaceholder;
-export const Newspaper = IconPlaceholder;
-export const Palette = IconPlaceholder;
-export const PanelRight = IconPlaceholder;
-export const Pause = IconPlaceholder;
-export const PauseCircle = IconPlaceholder;
-export const PenLine = IconPlaceholder;
-export const PenTool = IconPlaceholder;
-export const Pin = IconPlaceholder;
-export const PinOff = IconPlaceholder;
-export const Plane = IconPlaceholder;
-export const Play = IconPlaceholder;
-export const PlayCircle = IconPlaceholder;
-export const Plug = IconPlaceholder;
-export const Plus = IconPlaceholder;
-export const Power = IconPlaceholder;
-export const Printer = IconPlaceholder;
-export const Quote = IconPlaceholder;
-export const Radar = IconPlaceholder;
-export const RefreshCcw = IconPlaceholder;
-export const RefreshCw = IconPlaceholder;
-export const RotateCcw = IconPlaceholder;
-export const RotateCw = IconPlaceholder;
-export const Save = IconPlaceholder;
-export const ScrollText = IconPlaceholder;
-export const Search = IconPlaceholder;
-export const Send = IconPlaceholder;
-export const Server = IconPlaceholder;
-export const Settings = IconPlaceholder;
-export const Settings2 = IconPlaceholder;
-export const Share2 = IconPlaceholder;
-export const Shield = IconPlaceholder;
-export const ShieldAlert = IconPlaceholder;
-export const ShieldCheck = IconPlaceholder;
-export const ShieldOff = IconPlaceholder;
-export const SkipBack = IconPlaceholder;
-export const SkipForward = IconPlaceholder;
-export const SlidersHorizontal = IconPlaceholder;
-export const Smartphone = IconPlaceholder;
-export const Sparkle = IconPlaceholder;
-export const Sparkles = IconPlaceholder;
-export const Split = IconPlaceholder;
-export const Square = IconPlaceholder;
-export const Star = IconPlaceholder;
-export const StopCircle = IconPlaceholder;
-export const Sun = IconPlaceholder;
-export const SunMedium = IconPlaceholder;
-export const Table = IconPlaceholder;
-export const Tag = IconPlaceholder;
-export const Target = IconPlaceholder;
-export const Terminal = IconPlaceholder;
-export const Trash2 = IconPlaceholder;
-export const TrendingDown = IconPlaceholder;
-export const TrendingUp = IconPlaceholder;
-export const Trophy = IconPlaceholder;
-export const Type = IconPlaceholder;
-export const Undo2 = IconPlaceholder;
-export const Upload = IconPlaceholder;
-export const UploadCloud = IconPlaceholder;
-export const User = IconPlaceholder;
-export const Users = IconPlaceholder;
-export const Video = IconPlaceholder;
-export const Volume2 = IconPlaceholder;
-export const VolumeX = IconPlaceholder;
-export const Wand2 = IconPlaceholder;
-export const Wifi = IconPlaceholder;
-export const WifiOff = IconPlaceholder;
-export const Wind = IconPlaceholder;
-export const Workflow = IconPlaceholder;
-export const Wrench = IconPlaceholder;
-export const X = IconPlaceholder;
-export const XCircle = IconPlaceholder;
-export const Youtube = IconPlaceholder;
-export const Zap = IconPlaceholder;
-export const ZoomIn = IconPlaceholder;
-export const ZoomOut = IconPlaceholder;
+// Re-export all Lucide React icons for compatibility
+export {
+  Activity,
+  AlarmPlus,
+  AlertCircle,
+  AlertTriangle,
+  Archive,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowRightCircle,
+  ArrowUp,
+  ArrowUpRight,
+  AudioLines,
+  Ban,
+  BarChart2,
+  BarChart3,
+  Battery,
+  BatteryCharging,
+  Bell,
+  BookOpen,
+  BookOpenCheck,
+  Bookmark,
+  Bot,
+  Box,
+  Boxes,
+  Brain,
+  Briefcase,
+  Calculator,
+  Calendar,
+  Camera,
+  Check,
+  CheckCircle,
+  CheckCircle2,
+  CheckSquare,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Circle,
+  CircleHelp,
+  Clipboard,
+  ClipboardCopy,
+  ClipboardList,
+  Clock,
+  Clock3,
+  Cloud,
+  CloudOff,
+  Code,
+  Columns,
+  Command,
+  Compass,
+  Cookie,
+  Copy,
+  Cpu,
+  Database,
+  DollarSign,
+  Download,
+  Droplets,
+  Edit2,
+  Edit3,
+  ExternalLink,
+  Expand,
+  Eye,
+  EyeOff,
+  FileCheck,
+  FileDown,
+  FileJson,
+  FilePlus,
+  FileSearch,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  Fingerprint,
+  Flame,
+  FlaskConical,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  Gamepad2,
+  GaugeCircle,
+  Ghost,
+  GitBranch,
+  Globe,
+  Globe2,
+  Grid,
+  Grid3x3,
+  GripVertical,
+  HardDrive,
+  HelpCircle,
+  Highlighter,
+  History,
+  Home,
+  Image,
+  Info,
+  KeyRound,
+  Keyboard,
+  Languages,
+  Laptop,
+  Layers,
+  Layout,
+  LayoutGrid,
+  Leaf,
+  Library,
+  Lightbulb,
+  LineChart,
+  Link,
+  Link2,
+  List,
+  ListChecks,
+  ListTodo,
+  Loader,
+  Loader2,
+  Lock,
+  LogOut,
+  LucideIcon,
+  Mail,
+  MapPin,
+  Maximize2,
+  MemoryStick,
+  MessageSquare,
+  MessageSquareText,
+  Mic,
+  MicOff,
+  Minimize2,
+  Minus,
+  MonitorCog,
+  MonitorPlay,
+  MonitorUp,
+  Moon,
+  MoonStar,
+  MoreHorizontal,
+  MoreVertical,
+  MousePointerClick,
+  Move,
+  Navigation,
+  Network,
+  Newspaper,
+  Palette,
+  PanelRight,
+  Pause,
+  PauseCircle,
+  PenLine,
+  PenTool,
+  Pin,
+  PinOff,
+  Plane,
+  Play,
+  PlayCircle,
+  Plug,
+  Plus,
+  Power,
+  Printer,
+  Quote,
+  Radar,
+  RefreshCcw,
+  RefreshCw,
+  RotateCcw,
+  RotateCw,
+  Save,
+  ScrollText,
+  Search,
+  Send,
+  Server,
+  Settings,
+  Settings2,
+  Share2,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
+  SkipBack,
+  SkipForward,
+  SlidersHorizontal,
+  Smartphone,
+  Sparkle,
+  Sparkles,
+  Split,
+  Square,
+  Star,
+  StopCircle,
+  Sun,
+  SunMedium,
+  Table,
+  Tag,
+  Target,
+  Terminal,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+  Type,
+  Undo2,
+  Upload,
+  UploadCloud,
+  User,
+  Users,
+  Video,
+  Volume2,
+  VolumeX,
+  Wand2,
+  Wifi,
+  WifiOff,
+  Wind,
+  Workflow,
+  Wrench,
+  X,
+  XCircle,
+  Youtube,
+  Zap,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 
 // Default export for compatibility
 export default {};

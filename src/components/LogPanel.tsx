@@ -233,8 +233,8 @@ export function LogPanel({ logs, isVisible, onClose, onLogClick, calmMode = fals
             </div>
           ))
         )}
-      </div>}
       </div>
+      )}
 
       {/* Footer */}
       <div className="p-2 border-t border-slate-700 bg-slate-900/50">

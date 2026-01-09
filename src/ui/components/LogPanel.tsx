@@ -35,3 +35,4 @@ export function LogPanel({ task }: LogPanelProps) {
     </div>
   );
 }
+

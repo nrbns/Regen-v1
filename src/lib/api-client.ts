@@ -32,7 +32,7 @@ interface RequestOptions {
 
 import { isWebMode } from './env';
 
-async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   // FIX: Allow backend requests in web mode - server may be running
   // Don't block requests based on mode alone, let the actual connection attempt determine availability
   const webMode = isWebMode();

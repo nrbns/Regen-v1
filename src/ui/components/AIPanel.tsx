@@ -222,3 +222,4 @@ export function AIPanel({ task, onCancel, onRetry, onClose, isVisible, resources
     </div>
   );
 }
+

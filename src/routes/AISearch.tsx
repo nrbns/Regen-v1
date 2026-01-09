@@ -1,337 +1,180 @@
 /**
- * AI Search Page - Perplexity-style interface
- * Real-time AI-powered search with streaming results
+ * AI Search Page - Functional search interface
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
 import {
   Search,
   Sparkles,
-  ExternalLink,
-  Copy,
-  CheckCircle2,
   Loader2,
   ArrowUp,
-  Globe,
-  Link2,
 } from 'lucide-react';
-// import { useDebounce } from '../utils/useDebounce'; // Unused
+import { useCommandController } from '../hooks/useCommandController';
+import { showToast } from '../components/ui/Toast';
 
-interface _SearchResult {
-  id: string;
-  type: 'answer' | 'source' | 'citation';
-  content: string;
-  url?: string;
-  title?: string;
-  snippet?: string;
-  confidence?: number;
-  timestamp: number;
-}
-
-interface SearchSource {
-  id: string;
+interface SearchResult {
   url: string;
   title: string;
   snippet: string;
   domain: string;
-  favicon?: string;
-  relevance: number;
 }
 
 export default function AISearch() {
-  // Disable AI Search in v1-mode to avoid background AI and heavy UI
-  if (isV1ModeEnabled()) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <div className="text-sm text-slate-400">
-          AI Search is disabled in v1-mode for stability.
-        </div>
-      </div>
-    );
-  }
-
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [sources, setSources] = useState<SearchSource[]>([]);
-  const [streaming, setStreaming] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const answerRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [summary, setSummary] = useState<string>('');
+  const { executeCommand } = useCommandController();
 
-  // Focus search input on mount
-  useEffect(() => {
-    searchInputRef.current?.focus();
-  }, []);
-
-  // Auto-scroll answer as it streams
-  useEffect(() => {
-    if (answerRef.current && streaming) {
-      answerRef.current.scrollTop = answerRef.current.scrollHeight;
-    }
-  }, [answer, streaming]);
-
-  const handleSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async () => {
+    if (!query.trim() || isSearching) return;
 
     setIsSearching(true);
-    setStreaming(true);
-    setAnswer('');
-    setSources([]);
+    setResults([]);
+    setSummary('');
 
     try {
-      // Call scraper API for research query
-      const response = await fetch('http://localhost:4000/api/scraper/research', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: searchQuery,
-          urls: [], // Will be populated by search results
-          options: {
-            maxLength: 1000,
-            includeSources: true,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Search failed');
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.synthesized) {
-        // Stream the answer (simulate streaming for now)
-        const answerText = data.synthesized.answer || '';
-        const words = answerText.split(' ');
-
-        for (let i = 0; i < words.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 30));
-          setAnswer(words.slice(0, i + 1).join(' '));
-        }
-
-        // Set sources
-        if (data.synthesized.sources) {
-          setSources(
-            data.synthesized.sources.map((source: any, index: number) => ({
-              id: `source-${index}`,
-              url: source.url,
-              title: source.title || new URL(source.url).hostname,
-              snippet: source.snippet || '',
-              domain: new URL(source.url).hostname,
-              relevance: 1 - index * 0.1,
-            }))
-          );
-        }
+      const result = await executeCommand(`search ${query}`, {});
+      
+      if (result.success && result.data?.results) {
+        setResults(result.data.results);
+        setSummary(result.message);
+        showToast(`Found ${result.data.results.length} results`, 'success');
+      } else {
+        showToast(result.message || 'Search failed', 'error');
       }
     } catch (error) {
-      console.error('Search error:', error);
-      setAnswer('Sorry, I encountered an error while searching. Please try again.');
+      showToast('Search error occurred', 'error');
     } finally {
       setIsSearching(false);
-      setStreaming(false);
-    }
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSearch(query);
-  };
-
-  const handleCopy = async () => {
-    if (answer) {
-      await navigator.clipboard.writeText(answer);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const handleSourceClick = (url: string) => {
-    window.open(url, '_blank');
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSearch();
+    }
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      {/* Header */}
-      <div className="border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-6 w-6 text-blue-400" />
-            <h1 className="text-xl font-semibold text-white">AI Search</h1>
-            <span className="text-xs text-slate-400">Powered by Regen AI</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="border-b border-slate-800/50 bg-slate-900/20 backdrop-blur-sm">
-        <div className="mx-auto max-w-4xl px-6 py-6">
-          <form onSubmit={handleSubmit} className="relative">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                placeholder="Ask anything..."
-                className="w-full rounded-2xl border border-slate-700/50 bg-slate-800/50 py-4 pl-12 pr-14 text-white placeholder-slate-400 backdrop-blur-sm transition-all focus:border-blue-500/50 focus:bg-slate-800/70 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                disabled={isSearching}
-              />
-              {isSearching && (
-                <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-blue-400" />
-              )}
-              {!isSearching && query && (
-                <motion.button
-                  type="submit"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-blue-600 text-white transition-colors hover:bg-blue-500"
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </motion.button>
-              )}
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl px-6 py-8">
-          {!answer && !isSearching && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6"
-              >
-                <Sparkles className="mx-auto h-16 w-16 text-blue-400/50" />
-              </motion.div>
-              <h2 className="mb-2 text-2xl font-semibold text-white">Ask me anything</h2>
-              <p className="text-slate-400">Get instant, AI-powered answers with sources</p>
-            </div>
-          )}
-
-          {isSearching && !answer && (
-            <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="mb-4 h-8 w-8 animate-spin text-blue-400" />
-              <p className="text-slate-400">Searching and synthesizing...</p>
-            </div>
-          )}
-
-          {answer && (
+    <div className="h-full flex flex-col bg-slate-900 text-white p-8">
+      <div className="max-w-4xl mx-auto w-full flex-1 flex flex-col">
+        {/* Header */}
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center space-x-3 mb-2">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
+              animate={{ rotate: [0, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
             >
-              {/* Answer Section */}
-              <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 backdrop-blur-sm">
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-blue-400" />
-                    <h2 className="text-lg font-semibold text-white">Answer</h2>
-                    {streaming && <span className="text-xs text-slate-400">Streaming...</span>}
-                  </div>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800"
-                  >
-                    {copied ? (
-                      <>
-                        <CheckCircle2 className="h-4 w-4 text-green-400" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <div
-                  ref={answerRef}
-                  className="prose prose-invert prose-headings:text-white prose-a:text-blue-400 prose-strong:text-white max-w-none text-slate-200"
-                >
-                  <p className="whitespace-pre-wrap leading-relaxed">{answer}</p>
-                  {streaming && <span className="inline-block h-4 w-1 animate-pulse bg-blue-400" />}
-                </div>
-              </div>
-
-              {/* Sources Section */}
-              {sources.length > 0 && (
-                <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 backdrop-blur-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Link2 className="h-5 w-5 text-blue-400" />
-                    <h2 className="text-lg font-semibold text-white">Sources ({sources.length})</h2>
-                  </div>
-                  <div className="space-y-3">
-                    {sources.map((source, index) => (
-                      <motion.div
-                        key={source.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="group cursor-pointer rounded-lg border border-slate-800/50 bg-slate-800/30 p-4 transition-all hover:border-blue-500/50 hover:bg-slate-800/50"
-                        onClick={() => handleSourceClick(source.url)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-slate-700/50 bg-slate-900/50">
-                            <Globe className="h-5 w-5 text-slate-400" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="mb-1 flex items-center gap-2">
-                              <h3 className="truncate font-medium text-white">{source.title}</h3>
-                              <ExternalLink className="h-4 w-4 flex-shrink-0 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
-                            </div>
-                            <p className="mb-2 line-clamp-2 text-sm text-slate-400">
-                              {source.snippet || source.url}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-slate-500">{source.domain}</span>
-                              {source.relevance && (
-                                <span className="text-xs text-blue-400">
-                                  {Math.round(source.relevance * 100)}% relevant
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Related Searches */}
-              <div className="rounded-2xl border border-slate-800/50 bg-slate-900/30 p-6 backdrop-blur-sm">
-                <h2 className="mb-4 text-lg font-semibold text-white">Related Searches</h2>
-                <div className="flex flex-wrap gap-2">
-                  {['More about this topic', 'Related research', 'Similar questions'].map(
-                    (suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          setQuery(suggestion);
-                          handleSearch(suggestion);
-                        }}
-                        className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-4 py-2 text-sm text-slate-300 transition-colors hover:border-blue-500/50 hover:bg-slate-800"
-                      >
-                        {suggestion}
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
+              <Sparkles className="w-8 h-8 text-purple-400" />
             </motion.div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              AI Search & Summarize
+            </h1>
+          </div>
+          <p className="text-slate-400">
+            Search the web and get AI-powered summaries
+          </p>
+        </motion.div>
+
+        {/* Search Input */}
+        <motion.div
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <div className="relative">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask anything or search the web..."
+              className="w-full pl-6 pr-14 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all text-lg"
+              disabled={isSearching}
+            />
+            <motion.button
+              onClick={handleSearch}
+              disabled={isSearching || !query.trim()}
+              className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-3 rounded-lg transition-all ${
+                isSearching || !query.trim()
+                  ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+              whileHover={!isSearching && query.trim() ? { scale: 1.05 } : {}}
+              whileTap={!isSearching && query.trim() ? { scale: 0.95 } : {}}
+            >
+              {isSearching ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ArrowUp className="w-5 h-5" />
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+
+        {/* Results */}
+        <motion.div
+          className="flex-1 overflow-y-auto"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          {results.length > 0 ? (
+            <div className="space-y-4">
+              {summary && (
+                <motion.div
+                  className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 border border-purple-700 rounded-xl p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <p className="text-slate-200 leading-relaxed font-medium">{summary}</p>
+                </motion.div>
+              )}
+              {results.map((result, index) => (
+                <motion.a
+                  key={index}
+                  href={result.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-slate-800 border border-slate-700 rounded-xl p-6 hover:border-purple-500 transition-all group"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  whileHover={{ scale: 1.02, y: -4 }}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-slate-100 group-hover:text-purple-300 transition-colors line-clamp-2">
+                      {result.title}
+                    </h3>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-3 line-clamp-2">{result.snippet}</p>
+                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                    <span className="font-mono">{result.domain}</span>
+                    <span>•</span>
+                    <span className="text-purple-400">{result.url}</span>
+                  </div>
+                </motion.a>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <Search className="w-16 h-16 text-slate-600 mb-4" />
+              <h3 className="text-xl font-semibold text-slate-300 mb-2">Start Searching</h3>
+              <p className="text-slate-500 max-w-md">
+                Enter a query above to search the web and get AI-powered summaries
+              </p>
+            </div>
           )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

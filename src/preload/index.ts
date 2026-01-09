@@ -72,48 +72,9 @@ const createMockIPC = () => ({
 // Check if we're in Tauri/Electron environment
 const isTauriEnv = typeof window !== 'undefined' && window.__TAURI__;
 
-if (isTauriEnv) {
-  // Use real Tauri IPC
-  import('electron').then(({ contextBridge, ipcRenderer }) => {
-    contextBridge.exposeInMainWorld('regen', {
-      onTaskCreated: (callback: (task: any) => void) => {
-        const handler = (_event: any, task: any) => callback(task);
-        ipcRenderer.on('task:created', handler);
-        return () => ipcRenderer.removeListener('task:created', handler);
-      },
-
-      onTaskUpdated: (callback: (task: any) => void) => {
-        const handler = (_event: any, task: any) => callback(task);
-        ipcRenderer.on('task:updated', handler);
-        return () => ipcRenderer.removeListener('task:updated', handler);
-      },
-
-      onTaskLog: (callback: (log: any) => void) => {
-        const handler = (_event: any, log: any) => callback(log);
-        ipcRenderer.on('task:log', handler);
-        return () => ipcRenderer.removeListener('task:log', handler);
-      },
-
-      onThoughtStep: (callback: (step: any) => void) => {
-        const handler = (_event: any, step: any) => callback(step);
-        ipcRenderer.on('thought:step', handler);
-        return () => ipcRenderer.removeListener('thought:step', handler);
-      },
-
-      onSystemMetrics: (callback: (metrics: any) => void) => {
-        const handler = (_event: any, metrics: any) => callback(metrics);
-        ipcRenderer.on('system:metrics', handler);
-        return () => ipcRenderer.removeListener('system:metrics', handler);
-      }
-    });
-  }).catch(() => {
-    // Fallback to mock if electron import fails
-    (window as any).regen = createMockIPC();
-  });
-} else {
-  // Use mock IPC for web development
-  (window as any).regen = createMockIPC();
-}
+// For web development, always use mock IPC
+// In production Tauri build, this would use real IPC
+(window as any).regen = createMockIPC();
 
 // Type declarations
 declare global {

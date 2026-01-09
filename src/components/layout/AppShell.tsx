@@ -1,658 +1,486 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import { TabsBar } from '../../ui/components/TabsBar';
-import { CommandBar } from '../CommandBar';
-import { WebView } from '../../ui/components/WebView';
-import { Diagnostics } from '../../ui/components/Diagnostics';
-import { IntentRipple } from '../../ui/components/IntentRipple';
-import { IntelligenceNode } from '../../ui/components/IntelligenceNode';
-import { ThoughtStream } from '../../ui/components/ThoughtStream';
-import { StatusStrip } from '../../ui/components/StatusStrip';
-import { systemState, IPCHandler, IPC_EVENTS } from '../../backend';
-import { aiController } from '../../core/ai/AIController';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Home,
+  Settings,
+  Bot,
+  Search,
+  Folder,
+  Globe,
+  ArrowLeft,
+  ArrowRight,
+  RefreshCw,
+  Download,
+  Camera,
+  Plus,
+  X,
+  Sparkles,
+  Rocket,
+  FileText,
+  Square,
+  CheckCircle
+} from 'lucide-react';
+import { ThemeToggle } from '../ui/ThemeToggle';
+import { useCommandController } from '../../hooks/useCommandController';
+import { ToastContainer, showToast } from '../ui/Toast';
 
-// UI IS NOW DUMB - Only renders SystemState, sends events
-export function AppShell(): JSX.Element {
-  // SINGLE SOURCE OF TRUTH: Only SystemState
-  const [systemStateData, setSystemStateData] = useState(systemState.getState());
+interface Tab {
+  id: string;
+  title: string;
+  url: string;
+  isActive: boolean;
+}
 
-  // UI-only state (not persisted, recreated on refresh)
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-  // UI-only state for visual effects (not persisted)
-  const [showIntentRipple, setShowIntentRipple] = useState<{ x: number; y: number; intent: string } | null>(null);
-  const [intelligenceNodes, setIntelligenceNodes] = useState<Array<{
-    id: string;
-    task: any;
-    position: { x: number; y: number };
-    isMinimized: boolean;
-  }>>([]);
-    cpu: 12,
-    ram: 28,
-    network: true,
-    activeModel: 'local' as 'local' | 'online',
-    taskCount: 0,
-    uptime: 0,
-  });
+export function AppShell({ children }: { children: React.ReactNode }): JSX.Element {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { status, lastAction, isExecuting, executeCommand } = useCommandController();
+  const [commandInput, setCommandInput] = useState('');
+  const [tabs, setTabs] = useState<Tab[]>([
+    { id: '1', title: 'Regen Browser', url: '/', isActive: true },
+    { id: '2', title: 'Getting Started | Regen', url: '/getting-started', isActive: false },
+    { id: '3', title: 'Task Runner | Regen', url: '/agent-console', isActive: false },
+  ]);
+  const [localAssistanceEnabled, setLocalAssistanceEnabled] = useState(true);
 
-  // Subscribe to system state changes
-  // UI IS DUMB: Only subscribes to SystemState changes
-  useEffect(() => {
-    const handleStateChange = (newState: any) => {
-      setSystemStateData(newState);
-    };
+  const handleRunCommand = async () => {
+    if (!commandInput.trim() || isExecuting) return;
 
-    systemState.on('state-changed', handleStateChange);
+    const result = await executeCommand(commandInput, {
+      currentUrl: window.location.href,
+    });
 
-    return () => {
-      systemState.off('state-changed', handleStateChange);
-    };
-  }, []);
-
-  // KEYBOARD SHORTCUTS - First-class keyboard support
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K: Focus command surface
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        // Focus command bar (would implement focus management)
-        console.log('Focus command surface');
-      }
-
-      // Escape: Close current panels/overlays
-      if (e.key === 'Escape') {
-        if (expandedThoughtStream) {
-          setExpandedThoughtStream(null);
-        }
-        if (showDiagnostics) {
-          setShowDiagnostics(false);
-        }
-      }
-
-      // Cmd/Ctrl + L: Toggle logs (would show/hide log panel)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
-        e.preventDefault();
-        console.log('Toggle logs');
-      }
-
-      // Cmd/Ctrl + Shift + C: Toggle calm mode
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'C') {
-        e.preventDefault();
-        setCalmMode(!calmMode);
-      }
-
-      // Cancel current task (if any running)
-      if (e.key === 'c' && (e.metaKey || e.ctrlKey) && e.altKey) {
-        e.preventDefault();
-        const runningTask = intelligenceNodes.find(n => n.task.status === 'running');
-        if (runningTask) {
-          handleCancelTask(runningTask.id);
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [expandedThoughtStream, showDiagnostics, calmMode, intelligenceNodes]);
-
-  const activeTab = systemStateData.tabs.find(tab => tab.id === systemStateData.activeTabId);
-
-  // Handle command orbit submission
-  // UI IS DUMB: Only sends events, backend owns all logic and state
-  const handleCommandSubmit = (intent: { type: string; input: string; confidence: number }) => {
-    if (intent.type === 'navigate') {
-      // Send navigation event - backend will update SystemState immediately
-      IPCHandler.navigate(systemStateData.activeTabId!, intent.input);
-    } else if (intent.type === 'search') {
-      // Send search navigation event
-      IPCHandler.navigate(systemStateData.activeTabId!, `https://www.google.com/search?q=${encodeURIComponent(intent.input)}`);
-    } else if (intent.type === 'ai') {
-      // Send AI task event - backend will update SystemState and run AI
-      IPCHandler.runAI(intent.input);
-
-      // Show intent ripple briefly (UI-only effect)
-      setShowIntentRipple({
-        x: window.innerWidth / 2,
-        y: 100,
-        intent: intent.type,
-      });
+    if (result.success) {
+      setCommandInput('');
     }
   };
 
-    setTimeout(() => setShowIntentRipple(null), 2000);
+  const handleCommandKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleRunCommand();
+    }
+  };
 
-    // Execute based on intent type
-    if (intent.type === 'navigate' || intent.type === 'search') {
-      if (systemStateData.activeTabId) {
-        IPCHandler.navigate(systemStateData.activeTabId, intent.input);
+  // Listen for pre-fill command events
+  useEffect(() => {
+    const handlePrefill = (e: CustomEvent<{ command: string }>) => {
+      setCommandInput(e.detail.command);
+    };
+
+    window.addEventListener('regen:prefill-command', handlePrefill as EventListener);
+    return () => window.removeEventListener('regen:prefill-command', handlePrefill as EventListener);
+  }, []);
+
+  const handleNewTab = () => {
+    const newTab: Tab = {
+      id: Date.now().toString(),
+      title: 'New Tab',
+      url: '/',
+      isActive: true,
+    };
+    setTabs(prev => prev.map(t => ({ ...t, isActive: false })).concat(newTab));
+    showToast('New tab created', 'success');
+  };
+
+  const handleCloseTab = (tabId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const remainingTabs = tabs.filter(t => t.id !== tabId);
+    if (remainingTabs.length > 0) {
+      const wasActive = tabs.find(t => t.id === tabId)?.isActive;
+      if (wasActive && remainingTabs.length > 0) {
+        remainingTabs[0].isActive = true;
       }
+      setTabs(remainingTabs);
+      showToast('Tab closed', 'info');
     } else {
-      // AI task - create thought stream
-      setExpandedThoughtStream(taskId);
-      IPCHandler.runAI(intent.input);
+      showToast('Cannot close the last tab', 'warning');
     }
   };
 
-  // Handle text selection for intent ripple
-  const handleTextSelection = (x: number, y: number) => {
-    setShowIntentRipple({ x, y, intent: 'text_selected' });
+  const isActiveRoute = (path: string) => {
+    return location.pathname === path || (path === '/' && location.pathname === '/');
   };
-
-  // Handle intent ripple action with AI processing
-  const handleIntentRippleAction = async (action: string, selectedText?: string) => {
-    if (!showIntentRipple) return;
-
-    const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const nodePosition = {
-      x: showIntentRipple.x,
-      y: showIntentRipple.y + 50,
-    };
-
-    let intent = '';
-    let aiTask: 'explain' | 'summarize' | 'extract' = 'explain';
-
-    switch (action) {
-      case 'explain':
-        intent = 'Explain the selected text';
-        aiTask = 'explain';
-        break;
-      case 'summarize':
-        intent = 'Summarize the selected text';
-        aiTask = 'summarize';
-        break;
-      case 'search':
-        intent = 'Search for the selected text';
-        // Search is not AI, handle differently
-        window.open(`https://www.google.com/search?q=${encodeURIComponent(selectedText || '')}`, '_blank');
-        setShowIntentRipple(null);
-        return;
-      default:
-        intent = action;
-    }
-
-    const newNode = {
-      id: taskId,
-      task: {
-        id: taskId,
-        intent,
-        status: 'running' as const,
-        model: systemResources.activeModel,
-        createdAt: Date.now(),
-      },
-      position: nodePosition,
-      isMinimized: false,
-    };
-
-    setIntelligenceNodes(prev => [...prev, newNode]);
-    setExpandedThoughtStream(taskId);
-
-    try {
-      // Initialize AI if needed
-      await aiController.initialize();
-
-      // Process the AI request
-      const response = await aiController.processSelectedText(
-        selectedText || 'No text selected',
-        aiTask
-      );
-
-      // Update task with completion
-      setIntelligenceNodes(prev =>
-        prev.map(node =>
-          node.id === taskId
-            ? { ...node, task: { ...node.task, status: 'done' as const } }
-            : node
-        )
-      );
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown AI error';
-      console.error('[AppShell] AI processing failed:', errorMessage);
-
-      // Update task with recoverable error
-      setIntelligenceNodes(prev =>
-        prev.map(node =>
-          node.id === taskId
-            ? { ...node, task: { ...node.task, status: 'failed' as const } }
-            : node
-        )
-      );
-
-      // Show recoverable error (no modal, inline in task node)
-      console.log(`[ERROR] ${intent} failed: ${errorMessage}`);
-      console.log(`[RECOVERY] Try switching to online model or reducing context size`);
-    }
-
-    setShowIntentRipple(null);
-  };
-
-  // ABSOLUTE USER CONTROL: Cancel, retry, close, switch model
-  const handleCancelTask = (taskId: string) => {
-    // Immediately update UI state
-    setIntelligenceNodes(prev =>
-      prev.map(node =>
-        node.id === taskId
-          ? { ...node, task: { ...node.task, status: 'cancelled' as const } }
-          : node
-      )
-    );
-
-    // Send cancel signal to backend
-    IPCHandler.send('task:cancel', { taskId });
-
-    // Close thought stream if this task was expanded
-    if (expandedThoughtStream === taskId) {
-      setExpandedThoughtStream(null);
-    }
-  };
-
-  const handleRetryTask = (taskId: string) => {
-    const node = intelligenceNodes.find(n => n.id === taskId);
-    if (!node) return;
-
-    // Reset task to running state
-    const updatedNode = {
-      ...node,
-      task: {
-        ...node.task,
-        status: 'running' as const,
-        createdAt: Date.now(),
-      }
-    };
-
-    setIntelligenceNodes(prev =>
-      prev.map(n => n.id === taskId ? updatedNode : n)
-    );
-
-    // Re-run the task
-    setExpandedThoughtStream(taskId);
-    IPCHandler.runAI(node.task.intent);
-  };
-
-  const handleCloseTask = (taskId: string) => {
-    // Remove from UI completely
-    setIntelligenceNodes(prev => prev.filter(n => n.id !== taskId));
-
-    // Close thought stream if this task was expanded
-    if (expandedThoughtStream === taskId) {
-      setExpandedThoughtStream(null);
-    }
-
-    // Notify backend
-    IPCHandler.send('task:close', { taskId });
-  };
-
-  // Handle model switching
-  const handleModelSwitch = (newModel: 'local' | 'online') => {
-    setSystemResources(prev => ({ ...prev, activeModel: newModel }));
-    aiController.setPreferredModel(newModel);
-
-    // Update all active tasks to use new model preference
-    setIntelligenceNodes(prev =>
-      prev.map(node => ({
-        ...node,
-        task: { ...node.task, model: newModel }
-      }))
-    );
-
-    console.log(`Switched to ${newModel} model`);
-  };
-
-  const handleSwitchModel = (taskId: string, newModel: 'local' | 'online') => {
-    // Update local state immediately
-    setIntelligenceNodes(prev =>
-      prev.map(node =>
-        node.id === taskId
-          ? { ...node, task: { ...node.task, model: newModel } }
-          : node
-      )
-    );
-
-    // Update global system model
-    setSystemResources(prev => ({ ...prev, activeModel: newModel }));
-
-    // Notify backend
-    IPCHandler.send('model:switch', { taskId, model: newModel });
-  };
-
-  // Handle URL changes from iframe - UI only sends events
-  const handleUrlChange = (url: string) => {
-    if (systemStateData.activeTabId) {
-      // In a real implementation, this would be handled by the WebView's navigation events
-      // For now, just update the state
-      systemState.updateTab(systemStateData.activeTabId, { url, title: url });
-    }
-  };
-
-  // Handle AI task creation
-  const handleAITask = (intent: string) => {
-    setCurrentIntent({ intent, status: 'detected' });
-    setShowAIPanel(true);
-    setTaskListMinimized(false);
-
-    // Simulate intent processing
-    setTimeout(() => {
-      setCurrentIntent(prev => prev ? { ...prev, status: 'running' } : null);
-    }, 100);
-
-    // Start the AI task
-    IPCHandler.runAI(intent);
-  };
-
-
-  // Handle task selection from task list
-  const handleSelectTask = (taskId: string) => {
-    // For now, just show the AI panel
-    setShowAIPanel(true);
-  };
-
-  // KEYBOARD SHORTCUTS - First-class keyboard support
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + K: Focus command orbit
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        // Focus would be handled by the CommandBar component
-        return;
-      }
-
-      // Escape: Close current panels
-      if (e.key === 'Escape') {
-        if (expandedThoughtStream) {
-          setExpandedThoughtStream(null);
-        } else if (realityStripExpanded) {
-          setRealityStripExpanded(false);
-        }
-      }
-
-      // Cmd/Ctrl + L: Toggle logs
-      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
-        e.preventDefault();
-        // Toggle logs visibility (would be implemented)
-      }
-
-      // Cmd/Ctrl + M: Switch model
-      if ((e.metaKey || e.ctrlKey) && e.key === 'm') {
-        e.preventDefault();
-        const newModel = systemResources.activeModel === 'local' ? 'online' : 'local';
-        handleModelSwitch(newModel);
-      }
-
-      // Cmd/Ctrl + Shift + C: Toggle calm mode
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'C') {
-        e.preventDefault();
-        setCalmMode(!calmMode);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [expandedThoughtStream, realityStripExpanded, systemResources.activeModel, calmMode]);
-
-  // Simulate resource monitoring (in real implementation, this would come from system monitoring)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSystemResources(prev => ({
-        ...prev,
-        cpu: Math.floor(Math.random() * 30) + 10, // 10-40%
-        ram: Math.floor(Math.random() * 40) + 20, // 20-60%
-      }));
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Keyboard shortcut for diagnostics (Ctrl+Shift+D)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-        e.preventDefault();
-        setShowDiagnostics(true);
-      }
-      if (e.key === 'Escape' && showDiagnostics) {
-        setShowDiagnostics(false);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showDiagnostics]);
 
   return (
     <div className="h-screen w-screen bg-slate-900 text-white flex flex-col overflow-hidden">
-      {/* Router Outlet for pages like Settings */}
-      <Outlet />
-
-      {/* ONE STABLE LAYOUT */}
-      <div className="flex-1 flex flex-col">
-        {/* TOP: Command Surface */}
-        <div className="border-b border-slate-700">
-          <CommandBar onSubmit={handleCommandSubmit} />
+      <ToastContainer />
+      {/* Browser Tabs */}
+      <div className="flex items-center bg-slate-800 border-b border-slate-700 px-2 py-1 min-h-[36px]">
+        <div className="flex items-center space-x-1 mr-2">
+          <Sparkles className="w-4 h-4 text-blue-400" />
+          <span className="text-sm font-medium text-slate-200">Regen Browser</span>
         </div>
 
-        {/* MIDDLE: Browser Canvas + Intelligence */}
-        <div className="flex-1 flex">
-          {/* Left: Browser Canvas */}
-          <div className="flex-1 flex flex-col">
-            {/* Tabs Bar */}
-            <TabsBar />
-
-            {/* Browser Content */}
-            <div className="flex-1 relative">
-              <WebView
-                url={activeTab?.url}
-                onUrlChange={handleUrlChange}
-                onTextSelect={handleTextSelection}
-              />
-
-              {/* Intent Ripple - UI feedback only */}
-              {showIntentRipple && (
-                <IntentRipple
-                  x={showIntentRipple.x}
-                  y={showIntentRipple.y}
-                  intent={showIntentRipple.intent}
-                  onAction={handleIntentRippleAction}
-                  onClose={() => setShowIntentRipple(null)}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT: Intelligence Panel */}
-          <div className="w-96 border-l border-slate-700 flex flex-col">
-            <div className="p-4 border-b border-slate-700">
-              <h3 className="text-sm font-medium text-white">Intelligence</h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {/* Empty state guidance */}
-              {intelligenceNodes.length === 0 && (
-                <div className="text-center text-gray-500 text-sm py-8">
-                  Select text or type a command to start AI processing
-                </div>
-              )}
-
-              {/* Intelligence Nodes */}
-              {intelligenceNodes.map((node) => (
-                <IntelligenceNode
-                  key={node.id}
-                  task={node.task}
-                  position={{ x: 0, y: 0 }} // Fixed position in panel
-                  isMinimized={node.isMinimized}
-                  onExpand={(taskId) => {
-                    setExpandedThoughtStream(taskId);
-                    setIntelligenceNodes(prev =>
-                      prev.map(n =>
-                        n.id === taskId ? { ...n, isMinimized: false } : n
-                      )
-                    );
-                  }}
-                  onClose={handleCloseTask}
-                  onCancel={handleCancelTask}
-                  onRetry={handleRetryTask}
-                  onSwitchModel={handleSwitchModel}
-                  steps={[
-                    {
-                      id: '1',
-                      type: 'thinking',
-                      content: 'Analyzing user request...',
-                      timestamp: Date.now() - 2000,
-                      duration: 500,
-                    },
-                    {
-                      id: '2',
-                      type: 'analyzing',
-                      content: 'Processing selected content',
-                      timestamp: Date.now() - 1500,
-                      duration: 800,
-                    },
-                    {
-                      id: '3',
-                      type: 'generating',
-                      content: 'Generating response using local AI',
-                      timestamp: Date.now() - 500,
-                      duration: 1200,
-                    },
-                  ]}
-                  context={{
-                    inputType: 'selected_text',
-                    wordCount: 47,
-                    readingTime: 1,
-                    source: 'Current page',
-                    url: systemStateData.tabs.find(t => t.id === systemStateData.activeTabId)?.url
-                  }}
-                />
-              ))}
-
-              {/* Live Logs Panel - Shows intent decisions, model choice, errors, throttles */}
-              <div className="mt-6">
-                <div className="text-xs font-medium text-gray-300 mb-2">Live Logs</div>
-                <div className="bg-slate-800 rounded border border-slate-700 p-3 max-h-48 overflow-y-auto">
-                  <div className="space-y-2 text-xs">
-                    <div className="text-gray-400">
-                      <span className="text-blue-400">→</span> Intent detected: AI query
-                    </div>
-                    <div className="text-gray-400">
-                      <span className="text-green-400">→</span> Model selected: Local (fast, private)
-                    </div>
-                    <div className="text-gray-400">
-                      <span className="text-yellow-400">→</span> Processing context (312 chars)
-                    </div>
-                    {systemStateData.status === 'working' && (
-                      <div className="text-gray-400">
-                        <span className="text-purple-400">●</span> AI running...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* BOTTOM: System Truth */}
-        <StatusStrip status={systemStateData.status} />
-
-      {/* Tabs Bar */}
-      <div className="pt-16">
-        <TabsBar />
-      </div>
-
-      {/* Web Content Area (Full bleed) */}
-      <div className="flex-1 relative">
-        <WebView
-          url={activeTab?.url}
-          onUrlChange={handleUrlChange}
-          onTextSelect={handleTextSelection}
-        />
-
-        {/* Intelligence Nodes (Floating) - ABSOLUTE USER CONTROL */}
-        {intelligenceNodes.length === 0 && !showIntentRipple && (
-          <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-slate-800/90 backdrop-blur-sm rounded-lg px-4 py-2 text-sm text-gray-300 border border-slate-600/50">
-            Select text or type a command to start AI processing
-          </div>
-        )}
-
-        {intelligenceNodes.map((node) => (
-          <IntelligenceNode
-            key={node.id}
-            task={node.task}
-            position={node.position}
-            isMinimized={node.isMinimized}
-            onExpand={(taskId) => {
-              setExpandedThoughtStream(taskId);
-              setIntelligenceNodes(prev =>
-                prev.map(n =>
-                  n.id === taskId ? { ...n, isMinimized: false } : n
-                )
-              );
+        {tabs.map((tab) => (
+          <motion.div
+            key={tab.id}
+            onClick={() => {
+              setTabs(prev => prev.map(t => ({ ...t, isActive: t.id === tab.id })));
+              if (!tab.url.startsWith('http')) {
+                navigate(tab.url);
+              }
             }}
-            onClose={handleCloseTask}
-            onCancel={handleCancelTask}
-            onRetry={handleRetryTask}
-            onSwitchModel={handleSwitchModel}
-          />
+            className={`flex items-center space-x-2 px-3 py-1.5 mx-0.5 rounded-t-lg cursor-pointer border-b-2 transition-all group min-w-[120px] max-w-[200px] ${
+              tab.isActive
+                ? 'bg-slate-900 border-blue-500 text-slate-100'
+                : 'bg-slate-700/50 border-transparent text-slate-400 hover:bg-slate-700 hover:text-slate-300'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span className="truncate text-xs font-medium flex-1">{tab.title}</span>
+            {tabs.length > 1 && (
+              <motion.button
+                onClick={(e) => handleCloseTab(tab.id, e)}
+                className="opacity-0 group-hover:opacity-100 hover:bg-slate-600 rounded p-0.5 transition-all"
+                whileHover={{ scale: 1.2, rotate: 90 }}
+                whileTap={{ scale: 0.9 }}
+              >
+                <X className="w-3 h-3" />
+              </motion.button>
+              )}
+            </motion.div>
         ))}
 
-        {/* Intent Ripple */}
-        {showIntentRipple && (
-          <IntentRipple
-            x={showIntentRipple.x}
-            y={showIntentRipple.y}
-            intent={showIntentRipple.intent}
-            onAction={handleIntentRippleAction}
-            onClose={() => setShowIntentRipple(null)}
-          />
-        )}
+        <button
+          onClick={handleNewTab}
+          className="flex items-center justify-center w-6 h-6 mx-1 rounded hover:bg-slate-700 transition-colors"
+          title="New Tab"
+        >
+          <Plus className="w-3 h-3 text-slate-400" />
+        </button>
       </div>
 
-      {/* Thought Stream Panel (Right Side) */}
-      {expandedThoughtStream && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-slate-900 border-l border-slate-700 shadow-xl z-40">
-          <ThoughtStream
-            steps={[
-              {
-                id: '1',
-                type: 'thinking',
-                content: 'Analyzing user request...',
-                timestamp: Date.now() - 2000,
-                duration: 500,
-              },
-              {
-                id: '2',
-                type: 'analyzing',
-                content: 'Processing selected content and context',
-                timestamp: Date.now() - 1500,
-                duration: 800,
-              },
-              {
-                id: '3',
-                type: 'generating',
-                content: 'Generating response using local AI model',
-                timestamp: Date.now() - 500,
-                duration: 1200,
-              },
-            ]}
-            isActive={true}
-            onStepClick={(stepId) => console.log('Step clicked:', stepId)}
-          />
+      {/* Navigation Bar */}
+      <div className="flex items-center space-x-2 px-3 py-2 bg-slate-800 border-b border-slate-700">
+        <div className="flex items-center space-x-1">
+          <motion.button
+            onClick={() => showToast('Downloads page coming soon', 'info')}
+            className="p-1.5 rounded hover:bg-slate-700 transition-colors"
+            title="Download"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Download className="w-4 h-4 text-slate-400" />
+          </motion.button>
+          <motion.button
+            onClick={() => window.location.reload()}
+            className="p-1.5 rounded hover:bg-slate-700 transition-colors"
+            title="Refresh"
+            whileHover={{ scale: 1.1, rotate: 180 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ duration: 0.3 }}
+          >
+            <RefreshCw className="w-4 h-4 text-slate-400" />
+          </motion.button>
+          <motion.button
+            onClick={() => window.history.forward()}
+            className="p-1.5 rounded hover:bg-slate-700 transition-colors"
+            title="Forward"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <ArrowRight className="w-4 h-4 text-slate-400" />
+          </motion.button>
         </div>
-      )}
 
-      {/* Status Strip (Bottom) - Only shows Idle/Working/Recovering */}
-      <StatusStrip status={systemStateData.status} />
+        <div className="flex-1 relative mx-4">
+          <motion.div
+            className="relative"
+            animate={isExecuting ? { scale: 1.01 } : { scale: 1 }}
+            transition={{ duration: 0.2 }}
+          >
+            <input
+              type="text"
+              value={commandInput}
+              onChange={(e) => setCommandInput(e.target.value)}
+              onKeyPress={handleCommandKeyPress}
+              placeholder="Search the web or type a command..."
+              className={`w-full pl-4 pr-4 py-2 bg-slate-700/50 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:bg-slate-700 transition-all text-sm ${
+                isExecuting
+                  ? 'border-yellow-500/50 animate-pulse'
+                  : 'border-slate-600 focus:border-blue-500'
+              }`}
+              disabled={isExecuting}
+            />
+            {isExecuting && (
+              <motion.div
+                className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full"></div>
+              </motion.div>
+            )}
+          </motion.div>
+        </div>
 
-        {/* Diagnostics (hidden by default, Ctrl+Shift+D to show) */}
-        <Diagnostics
-          isOpen={showDiagnostics}
-          onClose={() => setShowDiagnostics(false)}
-        />
+        <div className="flex items-center space-x-2">
+          <motion.button
+            onClick={handleRunCommand}
+            disabled={isExecuting || !commandInput.trim()}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
+              isExecuting || !commandInput.trim()
+                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+            whileHover={!isExecuting && commandInput.trim() ? { scale: 1.02 } : {}}
+            whileTap={!isExecuting && commandInput.trim() ? { scale: 0.98 } : {}}
+          >
+            <Rocket className="w-4 h-4" />
+            <span>{isExecuting ? 'Running...' : 'Run'}</span>
+          </motion.button>
+          <motion.button
+            onClick={() => showToast('Screenshot feature coming soon', 'info')}
+            className="p-2 rounded hover:bg-slate-700 transition-colors"
+            title="Screenshot"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Camera className="w-4 h-4 text-slate-400" />
+          </motion.button>
+          <motion.button
+            onClick={() => navigate('/workspace')}
+            className="p-2 rounded hover:bg-slate-700 transition-colors"
+            title="Workspace"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Folder className="w-4 h-4 text-slate-400" />
+          </motion.button>
+          <motion.button
+            onClick={() => navigate('/settings')}
+            className="p-2 rounded hover:bg-slate-700 transition-colors"
+            title="Settings"
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ duration: 0.2 }}
+          >
+            <Settings className="w-4 h-4 text-slate-400" />
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Main Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar */}
+        <motion.nav
+          className="w-64 bg-slate-800 border-r border-slate-700 p-4 flex flex-col"
+          initial={{ x: -20, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center space-x-2 mb-6">
+            <Sparkles className="w-5 h-5 text-blue-400" />
+            <span className="font-semibold text-slate-200">Regen Browser</span>
+          </div>
+
+          <div className="space-y-1 flex-1">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group ${
+                  isActive
+                    ? 'bg-blue-600/20 text-blue-400 border-l-2 border-blue-500'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <motion.div
+                    animate={isActive ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <FileText className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Command</span>
+                  {isActive && (
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-blue-400 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+
+            <NavLink
+              to="/browse"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group ${
+                  isActive
+                    ? 'bg-orange-600/20 text-orange-400 border-l-2 border-orange-500'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <motion.div
+                    animate={isActive ? { scale: 1.1 } : { scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Square className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Browse</span>
+                  {isActive && (
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-orange-400 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+
+            <NavLink
+              to="/workspace"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group ${
+                  isActive
+                    ? 'bg-yellow-600/20 text-yellow-400 border-l-2 border-yellow-500'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <motion.div
+                    animate={isActive ? { scale: 1.1 } : { scale: 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Folder className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Local Workspace</span>
+                  {isActive && (
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-yellow-400 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+
+            <NavLink
+              to="/task-runner"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group ${
+                  isActive
+                    ? 'bg-purple-600/20 text-purple-400 border-l-2 border-purple-500'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <motion.div
+                    animate={isActive ? { scale: 1.1, rotate: -5 } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Bot className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Task Runner (Preview)</span>
+                  {isActive && (
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-purple-400 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all group ${
+                  isActive
+                    ? 'bg-slate-600/20 text-slate-300 border-l-2 border-slate-500'
+                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <motion.div
+                    animate={isActive ? { scale: 1.1, rotate: 90 } : { scale: 1, rotate: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Settings className="w-5 h-5" />
+                  </motion.div>
+                  <span className="font-medium">Settings</span>
+                  {isActive && (
+                    <motion.div
+                      className="ml-auto w-2 h-2 bg-slate-300 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 500 }}
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+            </div>
+        </motion.nav>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Outlet />
+          {children}
+              </div>
+            </div>
+
+      {/* Status Bar */}
+      <div className="border-t border-slate-700 bg-slate-800 px-4 py-2 flex justify-between items-center text-xs">
+        <div className="flex items-center space-x-4">
+          <span className="text-slate-300">
+            Status: <span className={
+              status === 'idle' ? 'text-green-400' :
+              status === 'working' ? 'text-yellow-400' :
+              'text-red-400'
+            }>{status === 'idle' ? 'Idle' : status === 'working' ? 'Working' : 'Recovering'}</span>
+            {' - '}
+            <span className="text-blue-400">Local-first</span>
+            {' - '}
+            <span className="text-purple-400">Offline-ready</span>
+          </span>
+          {lastAction && (
+            <span className="flex items-center space-x-1 text-slate-400">
+              <CheckCircle className="w-3 h-3 text-green-400" />
+              <span>Last action: {lastAction}</span>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
+            <Bot className="w-4 h-4 text-blue-400" />
+            <span className="text-slate-300">Local assistance available</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={localAssistanceEnabled}
+                onChange={(e) => setLocalAssistanceEnabled(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export default AppShell;
-
-if (import.meta.hot) {
-  import.meta.hot.accept();
-}

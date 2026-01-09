@@ -29,9 +29,8 @@ export default defineConfig({
     '@': resolve(__dirname, './src'),
     '@lib': resolve(__dirname, './src/lib'),
       '@shared': resolve(__dirname, './packages/shared'),
-      // v1 shims to neutralize heavy UI libraries
-      'framer-motion': resolve(__dirname, './src/shims/framer-motion.tsx'),
-      'lucide-react': resolve(__dirname, './src/shims/lucide-react.tsx'),
+      // Framer Motion now uses actual implementation (no shim needed)
+      // Lucide React now uses actual implementation (no shim needed)
       canvas: resolve(__dirname, './stubs/canvas-stub/index.js'),
       bufferutil: resolve(__dirname, './stubs/bufferutil-stub/index.js'),
       'utf-8-validate': resolve(__dirname, './stubs/utf-8-validate-stub/index.js'),
@@ -200,6 +199,7 @@ export default defineConfig({
     port: parseInt(process.env.VITE_DEV_PORT || '5173', 10),
     strictPort: false, // Allow port override from env
     host: true,
+    cors: true, // Enable CORS for module loading
     // Fix 431 error: Increase max header size significantly
     maxHeaderSize: 131072, // 128KB (doubled from 64KB)
     // Enable HMR with optimized configuration to fix 431 errors

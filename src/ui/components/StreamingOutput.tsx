@@ -36,3 +36,4 @@ export function StreamingOutput({ task }: StreamingOutputProps) {
     </div>
   );
 }
+
