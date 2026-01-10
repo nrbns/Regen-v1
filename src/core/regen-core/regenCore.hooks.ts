@@ -247,7 +247,6 @@ export function useIdleDetection() {
 
     const resetIdle = () => {
       lastActivityRef.current = Date.now();
-      idleStartRef.current = 0;
       hasTriggeredRef.current = false;
       if (idleTimerRef.current) {
         clearInterval(idleTimerRef.current);
