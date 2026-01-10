@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCommandController } from '../hooks/useCommandController';
 import { workspaceStore } from '../lib/workspace/WorkspaceStore';
 import { showToast } from '../components/ui/Toast';
+import { RecentActivityFeed } from '../components/ui/RecentActivityFeed';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -126,9 +127,12 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-lg text-slate-300">
-              Powerful tools to control and enhance your browsing experience
+              Regen observes your session and suggests actions when useful
             </p>
           </motion.div>
+
+          {/* Recent Activity Feed */}
+          <RecentActivityFeed />
 
           {/* Feature Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

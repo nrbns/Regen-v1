@@ -111,9 +111,22 @@ export default function Workspace() {
                   {item.content}
                 </p>
 
-                <div className="flex items-center space-x-2 text-xs text-slate-500">
-                  <Calendar className="w-3 h-3" />
-                  <span>{formatDate(item.createdAt)}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                    <Calendar className="w-3 h-3" />
+                    <span>{formatDate(item.createdAt)}</span>
+                  </div>
+                  {item.metadata && (
+                    <div className="text-xs text-slate-500 italic">
+                      {item.metadata.taskId && (
+                        <span className="text-purple-400">
+                          {item.metadata.taskId === 'summarize_page' && 'Saved from summary'}
+                          {item.metadata.taskId === 'extract_links' && 'Saved from extraction'}
+                          {item.metadata.url && ` • ${new URL(item.metadata.url).hostname}`}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

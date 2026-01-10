@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Brain, Play, CheckCircle, XCircle, Loader2, Clock, Sparkles, FileText, Link2, BarChart3, Zap, Eye } from 'lucide-react';
 import { taskRunner, type TaskDefinition, type TaskExecution } from '../lib/tasks/TaskRunner';
 import { showToast } from '../components/ui/Toast';
-import { LiveContextStrip } from '../components/ui/LiveContextStrip';
 import { AutomaticSuggestions } from '../components/ui/AutomaticSuggestions';
 import { ActivityTimeline } from '../components/ui/ActivityTimeline';
 import { useTabsStore } from '../state/tabsStore';
@@ -15,6 +14,7 @@ export default function TaskRunner() {
   const [executions, setExecutions] = useState<TaskExecution[]>([]);
   const [executingTaskId, setExecutingTaskId] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ taskId: string; result: any; timestamp: number } | null>(null);
+  const { state: regenCoreState, observation, report } = useRegenCore();
   const activeTab = useTabsStore((state) => {
     const tabs = state.tabs;
     return tabs.find((t) => t.id === state.activeTabId);
@@ -138,8 +138,7 @@ export default function TaskRunner() {
 
   return (
     <div className="h-full flex flex-col bg-slate-900 text-white">
-      {/* Live Context Strip */}
-      <LiveContextStrip />
+      {/* Removed LiveContextStrip - Regen Core (Sentinel Spine) provides global presence */}
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-6xl mx-auto w-full">
@@ -159,90 +158,130 @@ export default function TaskRunner() {
                   <Brain className="w-8 h-8 text-purple-400" />
                 </motion.div>
                 <div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-                    Live Intelligence
+                  <h1 className="text-2xl font-semibold text-slate-300">
+                    Observations
                   </h1>
-                  <p className="text-xs text-slate-500 mt-0.5">Beta</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Regen Core Log</p>
                 </div>
               </div>
-              {/* Local-first badge */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-                <Zap className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs text-emerald-400 font-medium">Local-first • Offline-ready</span>
-              </div>
             </div>
-            <p className="text-slate-400">
-              Context-aware actions for the current page. Regen observes and suggests.
+            <p className="text-sm text-slate-500 italic">
+              Detected patterns, suggested actions, and dismissed insights. This is a transparency view — Regen observes automatically.
             </p>
           </motion.div>
+
+          {/* Regen Core Observations - Show if any observations exist */}
+          {regenCoreState !== 'observing' && observation && (
+            <motion.div
+              className="mb-6 p-4 bg-slate-800/50 border border-slate-700/50 rounded-lg"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-1 h-full bg-purple-400/40 rounded-full" />
+                <div className="flex-1">
+                  <p className="text-sm text-slate-300 mb-2 font-medium">
+                    {observation.statement}
+                  </p>
+                  {observation.reasoning && (
+                    <p className="text-xs text-slate-500 mb-3 italic">{observation.reasoning}</p>
+                  )}
+                  {regenCoreState === 'noticing' && observation.action && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-purple-400 font-medium">
+                        {observation.actionLabel || 'ACTION AVAILABLE'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Automatic Suggestions */}
           <div className="mb-6">
             <AutomaticSuggestions maxSuggestions={3} />
           </div>
 
-          {/* Context Actions */}
+          {/* Detected Patterns & Suggestions */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-slate-200">Context Actions</h2>
+              <h2 className="text-lg font-medium text-slate-300">Available Actions</h2>
               {activeTab && (
-                <div className="flex items-center gap-2 text-xs text-slate-400">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Eye className="w-3 h-3" />
-                  <span>For: {activeTab.title || 'Current Tab'}</span>
+                  <span>{activeTab.title || 'Current Tab'}</span>
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tasks.map((task, index) => {
-                const Icon = getTaskIcon(task.id);
-                const contextualName = getContextualTaskName(task.id, activeTab?.url || '');
-                return (
-                  <motion.div
-                    key={task.id}
-                    className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-5 shadow-lg hover:shadow-purple-500/20 transition-all"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: index * 0.1 }}
-                    whileHover={{ scale: 1.02, y: -4 }}
-                  >
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="p-2 bg-purple-500/10 rounded-lg">
-                        <Icon className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-200 mb-1">{contextualName}</h3>
-                        <p className="text-xs text-slate-400">{task.description}</p>
-                      </div>
+            
+            {/* Show suggestions first - detect if page should have suggestions */}
+            {activeTab && activeTab.url && !activeTab.url.startsWith('about:') && (
+              <motion.div
+                className="mb-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-slate-300 mb-2">
+                      Summary available for <span className="text-purple-400 font-medium">this page</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        onClick={() => handleExecuteTask('summarize_page')}
+                        disabled={executingTaskId !== null}
+                        className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        whileHover={executingTaskId === null ? { scale: 1.05 } : {}}
+                        whileTap={executingTaskId === null ? { scale: 0.95 } : {}}
+                      >
+                        View
+                      </motion.button>
+                      <button
+                        className="text-xs px-3 py-1.5 text-slate-400 hover:text-slate-300 rounded transition-colors"
+                      >
+                        Dismiss
+                      </button>
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Manual Override - Collapsible section */}
+            <details className="bg-slate-800/30 border border-slate-700/50 rounded-lg">
+              <summary className="px-4 py-3 text-sm text-slate-400 cursor-pointer hover:text-slate-300 transition-colors list-none">
+                Manual Override (for testing)
+              </summary>
+              <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {tasks.map((task, index) => {
+                  const Icon = getTaskIcon(task.id);
+                  const contextualName = getContextualTaskName(task.id, activeTab?.url || '');
+                  return (
                     <motion.button
+                      key={task.id}
                       onClick={() => handleExecuteTask(task.id)}
                       disabled={executingTaskId !== null}
-                      className={`w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                        executingTaskId === task.id
-                          ? 'bg-blue-600 text-white cursor-wait'
-                          : executingTaskId !== null
-                          ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      className={`flex items-center gap-2 px-3 py-2 text-xs bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
+                        executingTaskId === task.id ? 'border-blue-500 bg-blue-500/20' : ''
                       }`}
-                      whileHover={executingTaskId === null ? { scale: 1.05 } : {}}
-                      whileTap={executingTaskId === null ? { scale: 0.95 } : {}}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      whileHover={executingTaskId === null ? { scale: 1.02 } : {}}
+                      whileTap={executingTaskId === null ? { scale: 0.98 } : {}}
                     >
-                      {executingTaskId === task.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Running...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4" />
-                          <span>Execute</span>
-                        </>
+                      <Icon className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                      <span className="flex-1 text-slate-300">{contextualName}</span>
+                      {executingTaskId === task.id && (
+                        <Loader2 className="w-3 h-3 animate-spin text-blue-400 flex-shrink-0" />
                       )}
                     </motion.button>
-                  </motion.div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </details>
           </div>
 
           {/* Effect Feedback */}

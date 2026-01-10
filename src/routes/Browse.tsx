@@ -43,9 +43,17 @@ export default function Browse() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           Browse the Web
         </h1>
-        <p className="text-lg text-slate-400">
+        <p className="text-lg text-slate-400 mb-2">
           Start browsing by entering a URL or searching the web
         </p>
+        <motion.p
+          className="text-sm text-slate-500 italic"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+        >
+          Regen is observing this session
+        </motion.p>
         <div className="relative max-w-lg mx-auto">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
@@ -53,7 +61,7 @@ export default function Browse() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Enter URL or search query..."
+            placeholder="Search, navigate, or ask Regen..."
             className="w-full pl-12 pr-14 py-4 bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
           />
           <motion.button

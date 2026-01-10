@@ -37,6 +37,8 @@ import {
 } from '../../core/regen-core/regenCore.hooks';
 import { useScrollDetection } from '../../lib/events/useScrollDetection';
 import { useActivityDetection } from '../../lib/events/useActivityDetection';
+import { workspaceStore } from '../../lib/workspace/WorkspaceStore';
+import { useTabsStore } from '../../state/tabsStore';
 
 interface Tab {
   id: string;
@@ -53,9 +55,20 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   const [tabs, setTabs] = useState<Tab[]>([
     { id: '1', title: 'Regen Browser', url: '/', isActive: true },
     { id: '2', title: 'Getting Started | Regen', url: '/getting-started', isActive: false },
-    { id: '3', title: 'Live Intelligence | Regen', url: '/task-runner', isActive: false },
+    { id: '3', title: 'Observations | Regen', url: '/task-runner', isActive: false },
   ]);
   const [localAssistanceEnabled, setLocalAssistanceEnabled] = useState(true);
+  const [workspaceCount, setWorkspaceCount] = useState(0);
+
+  // Track workspace count for activity indicator
+  useEffect(() => {
+    const updateWorkspaceCount = () => {
+      setWorkspaceCount(workspaceStore.getCount());
+    };
+    updateWorkspaceCount();
+    const interval = setInterval(updateWorkspaceCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Regen Core hooks - detect context and handle actions
   useTabRedundancyDetection();
@@ -281,7 +294,7 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
               value={commandInput}
               onChange={(e) => setCommandInput(e.target.value)}
               onKeyPress={handleCommandKeyPress}
-              placeholder="Search the web or type a command..."
+              placeholder="Search, navigate, or ask Regen..."
               className={`w-full pl-4 pr-4 py-2 bg-slate-700/50 border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:bg-slate-700 transition-all text-sm ${
                 isExecuting
                   ? 'border-yellow-500/50 animate-pulse'
@@ -302,20 +315,25 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
         </div>
 
         <div className="flex items-center space-x-2">
-          <motion.button
-            onClick={handleRunCommand}
-            disabled={isExecuting || !commandInput.trim()}
-            className={`px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
-              isExecuting || !commandInput.trim()
-                ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
-            whileHover={!isExecuting && commandInput.trim() ? { scale: 1.02 } : {}}
-            whileTap={!isExecuting && commandInput.trim() ? { scale: 0.98 } : {}}
-          >
-            <Rocket className="w-4 h-4" />
-            <span>{isExecuting ? 'Running...' : 'Run'}</span>
-          </motion.button>
+          {/* Run button - demoted, only show when command detected */}
+          {commandInput.trim() && (
+            <motion.button
+              onClick={handleRunCommand}
+              disabled={isExecuting}
+              className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-1.5 transition-colors ${
+                isExecuting
+                  ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white'
+              }`}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              whileHover={!isExecuting ? { scale: 1.05 } : {}}
+              whileTap={!isExecuting ? { scale: 0.95 } : {}}
+            >
+              <Rocket className="w-3.5 h-3.5" />
+              <span>{isExecuting ? '...' : 'Execute'}</span>
+            </motion.button>
+          )}
           <motion.button
             onClick={() => showToast('Screenshot feature coming soon', 'info')}
             className="p-2 rounded hover:bg-slate-700 transition-colors"
@@ -443,7 +461,21 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
                     <Folder className="w-5 h-5" />
                   </motion.div>
                   <span className="font-medium">Local Workspace</span>
-                  {isActive && (
+                  {/* Activity indicator - pulse if workspace has items */}
+                  {workspaceCount > 0 && (
+                    <motion.div
+                      className="ml-auto w-1.5 h-1.5 bg-yellow-400/60 rounded-full"
+                      animate={{
+                        opacity: [0.5, 0.9, 0.5],
+                      }}
+                      transition={{
+                        duration: 2.5,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  )}
+                  {isActive && workspaceCount === 0 && (
                     <motion.div
                       className="ml-auto w-2 h-2 bg-yellow-400 rounded-full"
                       initial={{ scale: 0 }}
@@ -473,20 +505,20 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
                   >
                     <Brain className="w-5 h-5" />
                   </motion.div>
-                  <span className="font-medium">Live Intelligence</span>
-                  {isActive && (
-                    <span className="ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
-                      Beta
-                    </span>
-                  )}
-                  {isActive && (
-                    <motion.div
-                      className="ml-auto w-2 h-2 bg-purple-400 rounded-full"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: 'spring', stiffness: 500 }}
-                    />
-                  )}
+                  <span className="font-medium">Observations</span>
+                  {/* Activity indicator - subtle pulse when Regen Core is active */}
+                  <motion.div
+                    className="ml-auto w-1.5 h-1.5 bg-purple-400/60 rounded-full"
+                    animate={{
+                      opacity: [0.4, 0.8, 0.4],
+                      scale: [1, 1.2, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    }}
+                  />
                 </>
               )}
             </NavLink>
