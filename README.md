@@ -280,10 +280,21 @@ Backend Services
 
 ## 📖 Documentation
 
-* [API Documentation](./API_DOCUMENTATION.md) - Complete API reference
-* [Architecture Audit](./AUDIT.md) - Technical audit and compliance checklist
-* [Regen Core Implementation](./REGEN_CORE_IMPLEMENTATION.md) - Sentinel AI system details
-* [Real-Time Architecture](./REALTIME_IMPLEMENTATION_COMPLETE.md) - Event-driven system documentation
+All documentation is organized in the [`docs/`](./docs/) directory:
+
+### Quick Links
+* [Documentation Index](./docs/README.md) - Complete documentation directory
+* [API Documentation](./docs/architecture/API_DOCUMENTATION.md) - Complete API reference
+* [Architecture Audit](./docs/architecture/AUDIT.md) - Technical audit and compliance checklist
+* [Regen Core Implementation](./docs/architecture/REGEN_CORE_IMPLEMENTATION.md) - Sentinel AI system details
+* [Real-Time Architecture](./docs/development/REALTIME_IMPLEMENTATION_COMPLETE.md) - Event-driven system documentation
+* [Project Vision](./docs/VISION.md) - Vision document for investors and stakeholders
+
+### Documentation Structure
+
+* **`docs/architecture/`** - Technical architecture documentation
+* **`docs/development/`** - Development logs and progress tracking
+* **`docs/user-guides/`** - User-facing documentation and guides
 
 ---
 
