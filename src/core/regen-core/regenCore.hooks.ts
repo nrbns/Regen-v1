@@ -11,6 +11,7 @@ import { workspaceStore } from '../../lib/workspace/WorkspaceStore';
 import { topicDetectionService } from '../../lib/services/TopicDetectionService';
 import { RegenObservation } from './regenCore.types';
 import { getRegenCoreConfig } from './regenCore.config';
+import { eventBus } from '../../lib/events/EventBus';
 
 /**
  * Hook to detect and trigger TAB_REDUNDANT signal
@@ -26,42 +27,61 @@ export function useTabRedundancyDetection() {
     // Don't check if disabled or already noticing/executing/reporting
     if (!config.enabled || coreState !== 'observing') return;
 
-    const now = Date.now();
-    if (now - lastCheckedRef.current < config.tabRedundancyCooldown) return;
+    const checkTabs = () => {
+      const now = Date.now();
+      if (now - lastCheckedRef.current < config.tabRedundancyCooldown) return;
 
-    // Find duplicate tabs (same domain)
-    const domains = new Map<string, typeof tabs>();
-    for (const tab of tabs) {
-      try {
-        if (!tab.url || tab.url === 'about:blank' || tab.url.startsWith('http://localhost')) continue;
-        const url = new URL(tab.url);
-        const domain = url.hostname;
-        if (!domains.has(domain)) {
-          domains.set(domain, []);
+      // Find duplicate tabs (same domain)
+      const domains = new Map<string, typeof tabs>();
+      for (const tab of tabs) {
+        try {
+          if (!tab.url || tab.url === 'about:blank' || tab.url.startsWith('http://localhost')) continue;
+          const url = new URL(tab.url);
+          const domain = url.hostname;
+          if (!domains.has(domain)) {
+            domains.set(domain, []);
+          }
+          domains.get(domain)!.push(tab);
+        } catch {
+          // Invalid URL, skip
         }
-        domains.get(domain)!.push(tab);
-      } catch {
-        // Invalid URL, skip
       }
-    }
 
-    // Find domains with threshold+ tabs
-    for (const [domain, tabsWithDomain] of domains.entries()) {
-      if (tabsWithDomain.length >= config.tabRedundancyThreshold) {
-        lastCheckedRef.current = now;
-        
-        const observation: RegenObservation = {
-          signal: 'TAB_REDUNDANT',
-          statement: `${tabsWithDomain.length} redundant tabs detected.`,
-          action: 'close_duplicates',
-          actionLabel: 'ELIMINATE',
-          reasoning: `Multiple tabs from ${domain} detected`,
-        };
+      // Find domains with threshold+ tabs
+      for (const [domain, tabsWithDomain] of domains.entries()) {
+        if (tabsWithDomain.length >= config.tabRedundancyThreshold) {
+          lastCheckedRef.current = now;
+          
+          const observation: RegenObservation = {
+            signal: 'TAB_REDUNDANT',
+            statement: `${tabsWithDomain.length} redundant tabs detected.`,
+            action: 'close_duplicates',
+            actionLabel: 'ELIMINATE',
+            reasoning: `Multiple tabs from ${domain} detected`,
+          };
 
-        emitSignal('TAB_REDUNDANT', observation);
-        break; // Only trigger once per check
+          emitSignal('TAB_REDUNDANT', observation);
+          break; // Only trigger once per check
+        }
       }
-    }
+    };
+
+    // Check immediately
+    checkTabs();
+
+    // Also listen to TAB_OPEN events for real-time detection
+    const unsubscribe = eventBus.on('TAB_OPEN', () => {
+      // Debounce tab checks after new tab opens
+      setTimeout(checkTabs, 1000);
+    });
+
+    // Periodic check
+    const interval = setInterval(checkTabs, config.tabRedundancyCooldown);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [tabs, coreState, emitSignal, config]);
 }
 
@@ -104,8 +124,21 @@ export function useSearchLoopDetection() {
       }
     };
 
-    window.addEventListener('regen:search', handleSearch as EventListener);
-    return () => window.removeEventListener('regen:search', handleSearch as EventListener);
+    // Listen to both legacy event and new event bus
+    const handleLegacySearch = () => {
+      handleSearch();
+    };
+
+    // Subscribe to event bus
+    const unsubscribe = eventBus.on('SEARCH_SUBMIT', handleSearch);
+    
+    // Also listen to legacy event for backwards compatibility
+    window.addEventListener('regen:search', handleLegacySearch as EventListener);
+    
+    return () => {
+      unsubscribe();
+      window.removeEventListener('regen:search', handleLegacySearch as EventListener);
+    };
   }, [coreState, emitSignal, config]);
 }
 
@@ -163,19 +196,30 @@ export function useLongScrollDetection() {
       }
     };
 
-    // Track scroll events
+    // Listen to scroll events from event bus AND direct window scroll
+    const handleScrollEvent = (event: any) => {
+      const depth = event.data?.depth || 0;
+      if (depth >= config.scrollDepthThreshold) {
+        checkScrollDepth();
+      }
+    };
+
+    const unsubscribe = eventBus.on('SCROLL', handleScrollEvent);
+
+    // Also track direct scroll for pages without event bus integration
     let scrollTimeout: NodeJS.Timeout;
-    const handleScroll = () => {
+    const handleDirectScroll = () => {
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(checkScrollDepth, 2000); // Debounce 2s after scroll stops
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('scroll', handleDirectScroll, { passive: true });
     checkScrollDepth(); // Initial check
 
     return () => {
+      unsubscribe();
       clearTimeout(scrollTimeout);
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', handleDirectScroll);
     };
   }, [activeTab, coreState, emitSignal, config]);
 }
@@ -236,21 +280,26 @@ export function useIdleDetection() {
       }
     };
 
-    // Track mouse/keyboard activity
+    // Track mouse/keyboard activity from event bus AND direct events
     const handleActivity = () => {
       lastActivityRef.current = Date.now();
       hasTriggeredRef.current = false;
     };
 
+    // Listen to event bus activity events
+    const unsubscribe = eventBus.onMany(['CLICK', 'KEYPRESS', 'SCROLL', 'TAB_SWITCH'], handleActivity);
+
     // Start idle timer
     idleTimerRef.current = setInterval(checkIdle, config.idleCheckInterval);
 
+    // Also listen to direct events for backwards compatibility
     window.addEventListener('mousemove', handleActivity, { passive: true });
     window.addEventListener('keypress', handleActivity, { passive: true });
     window.addEventListener('scroll', handleActivity, { passive: true });
     window.addEventListener('click', handleActivity, { passive: true });
 
     return () => {
+      unsubscribe();
       if (idleTimerRef.current) {
         clearInterval(idleTimerRef.current);
       }
@@ -286,63 +335,57 @@ export function useErrorDetection() {
 
     const url = activeTab.url;
 
-    const handleError = (event: ErrorEvent) => {
+    const checkError = (errorUrl: string, errorMessage: string) => {
       const now = Date.now();
-      const lastTrigger = hasTriggeredRef.current.get(url);
+      const lastTrigger = hasTriggeredRef.current.get(errorUrl);
       
       // Don't trigger multiple times within cooldown
       if (lastTrigger && (now - lastTrigger) < config.errorCooldown) return;
 
+      hasTriggeredRef.current.set(errorUrl, now);
+
+      const observation: RegenObservation = {
+        signal: 'ERROR',
+        statement: 'This request failed. Local alternative available.',
+        action: 'use_cache',
+        actionLabel: 'USE CACHE',
+        reasoning: 'Page load failed, cached version may be available',
+      };
+
+      emitSignal('ERROR', observation);
+    };
+
+    // Listen to event bus PAGE_ERROR events
+    const unsubscribeError = eventBus.on('PAGE_ERROR', (event) => {
+      if (event.data?.url === url) {
+        checkError(event.data.url, event.data.error || 'Unknown error');
+      }
+    });
+
+    // Also listen for direct window errors (backwards compatibility)
+    const handleError = (event: ErrorEvent) => {
       // Check if it's a page load error
       if (event.message?.includes('Failed to load') || 
           event.message?.includes('NetworkError') ||
           (event.filename && url.includes(event.filename))) {
-        
-        hasTriggeredRef.current.set(url, now);
-
-        const observation: RegenObservation = {
-          signal: 'ERROR',
-          statement: 'This request failed. Local alternative available.',
-          action: 'use_cache',
-          actionLabel: 'USE CACHE',
-          reasoning: 'Page load failed, cached version may be available',
-        };
-
-        emitSignal('ERROR', observation);
+        checkError(url, event.message || 'Page load error');
       }
     };
-
-    // Listen for window errors
-    window.addEventListener('error', handleError, true);
 
     // Listen for unhandled promise rejections (network errors)
     const handleRejection = (event: PromiseRejectionEvent) => {
-      const now = Date.now();
-      const lastTrigger = hasTriggeredRef.current.get(url);
-      
-      // Don't trigger multiple times within cooldown
-      if (lastTrigger && (now - lastTrigger) < config.errorCooldown) return;
-
       if (event.reason?.message?.includes('Failed to fetch') ||
           event.reason?.message?.includes('NetworkError')) {
-        hasTriggeredRef.current.set(url, now);
-
-        const observation: RegenObservation = {
-          signal: 'ERROR',
-          statement: 'This request failed. Local alternative available.',
-          action: 'use_cache',
-          actionLabel: 'USE CACHE',
-          reasoning: 'Network request failed, cached version may be available',
-        };
-
-        emitSignal('ERROR', observation);
+        checkError(url, event.reason?.message || 'Network error');
       }
     };
 
+    window.addEventListener('error', handleError, true);
     window.addEventListener('unhandledrejection', handleRejection);
 
     // Reset trigger when tab changes
     return () => {
+      unsubscribeError();
       window.removeEventListener('error', handleError, true);
       window.removeEventListener('unhandledrejection', handleRejection);
     };

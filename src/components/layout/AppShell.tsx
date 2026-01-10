@@ -35,6 +35,8 @@ import {
   useErrorDetection,
   useRegenCoreActions 
 } from '../../core/regen-core/regenCore.hooks';
+import { useScrollDetection } from '../../lib/events/useScrollDetection';
+import { useActivityDetection } from '../../lib/events/useActivityDetection';
 
 interface Tab {
   id: string;
@@ -62,6 +64,10 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   useIdleDetection();
   useErrorDetection();
   useRegenCoreActions();
+
+  // Real-time event detection hooks - emit events to EventBus
+  useScrollDetection();
+  useActivityDetection();
 
   // FIX: Listen for navigation confirmation events from backend
   useEffect(() => {

@@ -390,9 +390,15 @@ class CommandController {
    */
   private async handleSearch(query: string): Promise<CommandResult> {
     try {
-      // Trigger search event for AI Sidebar
+      // Trigger search event for real-time AI observation
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('regen:search'));
+        // Emit via event bus (new system)
+        import('../events/EventBus').then(({ emitSearch }) => {
+          emitSearch(query);
+        }).catch(() => {
+          // EventBus not available - fallback to legacy event
+          window.dispatchEvent(new CustomEvent('regen:search'));
+        });
       }
       
       // Use ToolGuard to secure search execution

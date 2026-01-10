@@ -77,14 +77,29 @@ export const useTabsStore = create<TabsState>()(
           isLoading: false,
         };
 
-        set((state) => ({
-          tabs: [...state.tabs, newTab],
-          activeTabId: state.tabs.length === 0 ? newTab.id : state.activeTabId,
-        }));
+        set((state) => {
+          const newTabs = [...state.tabs, newTab];
+          const newActiveTabId = state.tabs.length === 0 ? newTab.id : state.activeTabId;
+          
+          // Emit event for real-time AI observation
+          if (typeof window !== 'undefined') {
+            import('../lib/events/EventBus').then(({ emitTabOpen }) => {
+              emitTabOpen(newTab.id, url);
+            }).catch(() => {
+              // EventBus not available - graceful degradation
+            });
+          }
+          
+          return {
+            tabs: newTabs,
+            activeTabId: newActiveTabId,
+          };
+        });
       },
 
       closeTab: (tabId: string) => {
         set((state) => {
+          const tabToClose = state.tabs.find(tab => tab.id === tabId);
           const newTabs = state.tabs.filter(tab => tab.id !== tabId);
           let newActiveTabId = state.activeTabId;
 
@@ -98,6 +113,15 @@ export const useTabsStore = create<TabsState>()(
             }
           }
 
+          // Emit event for real-time AI observation
+          if (typeof window !== 'undefined' && tabToClose) {
+            import('../lib/events/EventBus').then(({ emitTabClose }) => {
+              emitTabClose(tabId);
+            }).catch(() => {
+              // EventBus not available - graceful degradation
+            });
+          }
+
           return {
             tabs: newTabs,
             activeTabId: newActiveTabId,
@@ -106,7 +130,18 @@ export const useTabsStore = create<TabsState>()(
       },
 
       switchTab: (tabId: string) => {
-        set({ activeTabId: tabId });
+        set((state) => {
+          // Emit event for real-time AI observation
+          if (typeof window !== 'undefined' && state.activeTabId !== tabId) {
+            import('../lib/events/EventBus').then(({ emitTabSwitch }) => {
+              emitTabSwitch(tabId);
+            }).catch(() => {
+              // EventBus not available - graceful degradation
+            });
+          }
+          
+          return { activeTabId: tabId };
+        });
       },
 
       updateTab: (tabId: string, updates: Partial<Tab>) => {
@@ -131,6 +166,19 @@ export const useTabsStore = create<TabsState>()(
         if (!tab) {
           console.warn(`[tabsStore] Tab ${tabId} not found for navigation`);
           return;
+        }
+
+        // Emit navigation event for real-time AI observation
+        if (typeof window !== 'undefined') {
+          import('../lib/events/EventBus').then(({ emitNavigate, emitPageLoad }) => {
+            emitNavigate(url, tabId);
+            // Also emit page load after short delay (simulating page load)
+            setTimeout(() => {
+              emitPageLoad(url);
+            }, 500);
+          }).catch(() => {
+            // EventBus not available - graceful degradation
+          });
         }
 
         // Update tab state (called only after backend confirms navigation)

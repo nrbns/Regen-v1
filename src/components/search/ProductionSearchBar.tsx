@@ -81,7 +81,16 @@ export function ProductionSearchBar({
       return;
     }
 
-    await search(query.trim(), { maxResults: 10 });
+    const searchQuery = query.trim();
+    
+    // Emit search event for real-time AI observation
+    import('../../lib/events/EventBus').then(({ emitSearch }) => {
+      emitSearch(searchQuery, 10); // Emit with expected results count
+    }).catch(() => {
+      // EventBus not available - graceful degradation
+    });
+
+    await search(searchQuery, { maxResults: 10 });
     setShowResults(true);
   };
 
