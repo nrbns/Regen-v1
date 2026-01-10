@@ -1,132 +1,187 @@
-# Regen Browser
+# 🌌 Regen — A Real-Time, Presence-Based AI Browser
 
-A unique, intent-first, disciplined AI browser built on real-time architecture.
+> **Regen is not a chatbot browser.  
+> It is a browser with a mind.**
 
-**Version:** v1 (Early Access)  
-**Status:** ✅ Core systems implemented | ⚠️ Some features in preview
+Regen is an experimental **real-time browser platform** that observes user intent, understands context, and intervenes **only when necessary** — silently, precisely, and ethically.
 
----
-
-## What is Regen?
-
-Regen is a browser that puts **intent resolution first** and **backend ownership of state**. Unlike browsers that promise AI magic, Regen is built on a **disciplined architecture** where:
-
-- **Every user action** flows through a single entry point (`CommandController`)
-- **Intent is explicitly resolved** before any AI is invoked
-- **Navigation is backend-owned** - UI only reflects backend state
-- **AI is opt-in only** - no automatic processing, no background embeddings
-- **Security is built-in** - tool allowlist, permission prompts, audit logging
-
-> **Core Philosophy:** "A browser should feel boring when it works — and invisible when it helps."
+Unlike traditional AI browsers that rely on chat windows and manual prompts, Regen introduces a **presence-based AI system** that lives alongside the browser as a *sentinel*, not an assistant.
 
 ---
 
-## ✅ What Actually Works (v1)
+## 🧬 What Makes Regen Different
 
-### Core Browser Features
-- ✅ **Multi-tab browsing** - Tabs with WebView instances
-- ✅ **Navigation** - Backend-controlled navigation lifecycle
-- ✅ **Session restore** - Tabs persist across restarts
-- ✅ **Tab management** - Add, close, switch tabs
+Most browsers today fall into one of two categories:
 
-### Intent-First Command System
-- ✅ **Single entry point** - All actions route through `CommandController`
-- ✅ **Intent resolution** - Explicit classification (NAVIGATE, SEARCH, SUMMARIZE, etc.)
-- ✅ **Security guard** - Tool allowlist with permission prompts
-- ✅ **Audit logging** - All actions logged for transparency
+* **Traditional browsers** → fast but unaware
+* **AI browsers** → chat-heavy, interruptive, prompt-driven
 
-### AI Features (Opt-In Only)
-- ✅ **Search & Summarize** - Explicit intent triggers AI summarization
-- ✅ **Research Mode** - In-depth web research with source attribution
-- ✅ **Text Analysis** - Analyze selected text (user-triggered only)
-- ✅ **No automatic AI** - AI only runs on explicit user intent
+Regen creates a **new category**:
 
-### Workspace
-- ✅ **Local storage** - AI outputs, notes, research results saved to localStorage
-- ✅ **Persistent across restarts** - Data survives browser restarts
-- ✅ **Manual save** - Explicit save actions, no auto-sync
+> **A calm, observing browser that helps without interrupting.**
 
-### Task Runner (Preview)
-- ⚠️ **Single-run tasks only** - No background automation, no loops
-- ⚠️ **User-triggered** - Tasks run only when explicitly requested
-- ⚠️ **Strict schema** - Tasks are predefined and validated
-- ⚠️ **Labeled as Preview** - Not for production automation
+### Core Differentiators
+
+* 🧠 **Presence-based AI (not chat-based)**
+* 👁️ **Real-time intent & context awareness**
+* 🛡️ **Local-first, privacy-respecting design**
+* ⚙️ **Event-driven architecture**
+* 🧩 **Human-kind AI behavior (silent, precise, loyal)**
 
 ---
 
-## ⚠️ What's Preview/Experimental
+## 🔥 The Sentinel AI (Regen Core)
 
-### Memory System
-- ⚠️ **Opt-in only** - Disabled by default, requires explicit user consent
-- ⚠️ **No automatic memory** - Memory is not retrieved automatically
-- ⚠️ **Local-only** - No sync, no cloud storage
+At the heart of Regen is **Regen Core** — a sentinel-style AI system inspired by cinematic intelligence systems (e.g., *M3GAN-like control and restraint*), but built with ethical, user-first principles.
 
-### RAG (Retrieval-Augmented Generation)
-- ⚠️ **Opt-in only** - Indexing disabled by default
-- ⚠️ **Explicit triggers** - RAG only for RESEARCH intent
-- ⚠️ **Source attribution** - Always shows sources used
+### Regen Core does NOT:
 
-### Offline Mode
-- ⚠️ **Partial support** - Browser works offline, AI features require connection
-- ⚠️ **Limited offline AI** - Some models can run locally via Ollama
+* Interrupt you
+* Spam suggestions
+* Force AI actions
+* Behave like a chatbot
 
----
+### Regen Core DOES:
 
-## 🚫 What's NOT in v1 (But Might Be Later)
+* Observe browsing patterns
+* Detect redundancy, loops, overload, and drift
+* Suggest actions *only when useful*
+* Return to silence after helping
 
-- ❌ **Autonomous agents** - No background automation, no self-triggering tasks
-- ❌ **Cloud sync** - No workspace sync, no account system
-- ❌ **Collaboration** - No shared workspaces, no real-time collaboration
-- ❌ **Full offline AI** - Limited local model support
-- ❌ **Browser extensions** - Not supported in v1
-- ❌ **Mobile apps** - Desktop only (Tauri)
+> Think of it as a **guardian system**, not a helper bot.
 
 ---
 
-## Architecture
-
-### Core Principles
-
-1. **Single Execution Entry** - `CommandController` is the only entry point
-2. **Backend-Owned State** - UI only renders backend state, never controls logic
-3. **Intent-First** - Explicit intent resolution before AI invocation
-4. **Opt-In AI** - No automatic processing, no background operations
-5. **Security by Default** - Tool allowlist, permission prompts, audit logs
-
-### Technical Stack
+## 🧭 How Regen Works (High Level)
 
 ```
-Frontend (React + TypeScript)
-    ↕ IPC (Tauri) / Events (Web)
-Backend Services
-    ├── CommandController (Intent resolution & execution)
-    ├── ToolGuard (Security & permissions)
-    ├── BackendService (API abstraction)
-    ├── WorkspaceStore (Local persistence)
-    └── TaskRunner (Single-run tasks)
+User Action
+   ↓
+Real-Time Event Bus
+   ↓
+Context & Pattern Detection
+   ↓
+Regen Core (Sentinel AI)
+   ↓
+Optional Suggestion
+   ↓
+User Consent → Action → Report → Silence
 ```
 
-### Key Files
-
-- `src/lib/command/CommandController.ts` - Single entry point for all commands
-- `src/lib/security/ToolGuard.ts` - Tool allowlist and permission system
-- `src/lib/backend/BackendService.ts` - Backend API abstraction
-- `src/lib/workspace/WorkspaceStore.ts` - Local data persistence
-- `src/lib/tasks/TaskRunner.ts` - Task execution (single-run only)
+Everything is **event-driven**, not request-response.
 
 ---
 
-## Quick Start
+## 🧩 Current Capabilities (v1)
+
+### Browser Core
+
+* Multi-tab browsing
+* Intent-first command system
+* Workspace-based navigation
+* Local session persistence
+
+### AI Capabilities
+
+* Page summarization
+* Search intelligence (manual + contextual)
+* Structured task execution
+* Audit-friendly AI interactions
+
+### System Design
+
+* Local-first architecture
+* Offline-ready foundations
+* Explicit user consent for AI actions
+* Transparent execution logs
+
+> ⚠️ Regen intentionally avoids "always-on automation" without user permission.
+
+---
+
+## 🚧 What "Real-Time" Means in Regen
+
+Real-time in Regen does **not** mean faster chat replies.
+
+It means:
+
+* UI reacts instantly to user behavior
+* Context builds continuously in the background
+* AI suggestions emerge from patterns, not prompts
+* The browser feels *aware*, not reactive
+
+Examples:
+
+* Detecting redundant tabs
+* Noticing repeated searches
+* Identifying long reading loops
+* Offering summaries when attention drops
+
+---
+
+## 🛡️ Privacy & Ethics
+
+Regen is built on the principle that **intelligence must be earned, not assumed**.
+
+* Local-first by default
+* No hidden background automation
+* No silent data exfiltration
+* Every AI action is visible and dismissible
+* Users can silence Regen Core anytime
+
+Regen's AI is **observational, not invasive**.
+
+---
+
+## 🧪 Project Status
+
+🚧 **Experimental / Active Development**
+
+* Core browser architecture: ✅
+* Intent & command system: ✅
+* Presence-based AI (Regen Core): ✅
+* Real-time event bus: ✅
+* Pattern detection & memory: 🚧 In progress
+* Local AI models: ⏳ Planned
+
+This is **not** a finished consumer browser — it is a **platform for next-generation browsing intelligence**.
+
+---
+
+## 🗺️ Roadmap (Simplified)
+
+### Phase 1 — Real-Time Foundation ✅
+
+* Event bus ✅
+* Sentinel AI presence ✅
+* Context signals ✅
+
+### Phase 2 — Intelligence Layer 🚧
+
+* Pattern detection 🚧
+* Session memory 🚧
+* Smarter suggestions 🚧
+
+### Phase 3 — Local AI ⏳
+
+* Offline intelligence ⏳
+* Model choice (local / remote) ⏳
+* User-controlled AI modes ⏳
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+
-- Rust 1.70+ (for Tauri desktop app)
-- Ollama (optional, for local AI features)
+
+* Node.js 18+
+* Rust 1.70+ (for Tauri desktop app)
+* Ollama (optional, for local AI features)
 
 ### Installation
 
 ```bash
-git clone https://github.com/nrbns/Regenbrowser.git
+git clone https://github.com/nrbns/Regen-v1.git
 cd Regenbrowser
 npm install
 ```
@@ -156,177 +211,104 @@ ollama pull phi3:mini
 
 ---
 
-## How to Use
+## 🧑‍💻 Who Regen Is For
 
-### Basic Navigation
-```
-# In command bar:
-google.com              # Navigate to URL
-go to example.com       # Navigate to URL
-navigate to github.com  # Navigate to URL
-```
-
-### Search & Summarize
-```
-# In command bar:
-search TypeScript best practices
-summarize              # Summarize current page
-analyze                # Analyze selected text
-```
-
-### Research
-```
-# In command bar:
-research quantum computing
-investigate Rust memory safety
-```
-
-### AI Queries
-```
-# In command bar:
-ai What is the difference between React and Vue?
-ask ai Explain async/await in JavaScript
-```
-
-### Tasks (Preview)
-```
-# In command bar:
-task summarize-page
-run extract-links
-```
+* Builders & developers
+* Researchers & power users
+* Founders exploring AI-first tools
+* Anyone who wants **less noise, more clarity**
 
 ---
 
-## Security & Privacy
+## 📚 Technical Architecture
 
-### Tool Allowlist
-- Only registered tools can execute
-- Dangerous operations (filesystem, exec) require explicit consent
-- All tool executions are logged in audit trail
+### Event-Driven Real-Time System
 
-### Privacy-First
-- **Memory is opt-in** - Disabled by default
-- **RAG is opt-in** - No automatic indexing
-- **No tracking** - Local-first, no telemetry
-- **Explicit consent** - Permission prompts for sensitive operations
+Regen uses an **event bus architecture** for real-time context awareness:
 
-### Audit Log
-- All actions logged with timestamp, tool name, and decision
-- Audit log available in ToolGuard
-- (TODO: Persistent file storage)
+**Event Types:**
+* `NAVIGATE` - Tab navigation events
+* `TAB_OPEN` / `TAB_CLOSE` / `TAB_SWITCH` - Tab lifecycle events
+* `SCROLL` - Scroll depth tracking
+* `SEARCH_SUBMIT` - Search query events
+* `TEXT_SELECT` - Text selection events
+* `IDLE_TIMEOUT` - User idle detection
+* `PAGE_LOAD` / `PAGE_ERROR` - Page lifecycle events
+* `CLICK` / `KEYPRESS` - User activity tracking
 
----
+**Pattern Detection:**
+* **Tab Redundancy** - Detects 3+ tabs from same domain
+* **Search Loop** - Detects repeated searches (3+ in 60s)
+* **Long Scroll** - Detects deep scrolling on articles (80%+ depth)
+* **Idle Time** - Detects 22+ minutes of inactivity
+* **Page Errors** - Detects failed page loads
 
-## Testing
+**AI Actions (User Permission Required):**
+* `close_duplicates` - Close redundant tabs
+* `summarize` - Summarize long article
+* `refine_search` - Suggest search refinement
+* `save_for_later` - Save page for later reading
+* `use_cache` - Use cached version on error
 
-### Run Tests
-```bash
-npm run test
+### Technical Stack
+
+```
+Frontend (React + TypeScript)
+    ↕ EventBus (Real-Time Events)
+    ↕ Regen Core (Sentinel AI)
+    ↕ IPC (Tauri) / Events (Web)
+Backend Services
+    ├── CommandController (Intent resolution & execution)
+    ├── ToolGuard (Security & permissions)
+    ├── BackendService (API abstraction)
+    ├── WorkspaceStore (Local persistence)
+    ├── TaskRunner (Single-run tasks)
+    └── EventBus (Real-time event streaming)
 ```
 
-### Manual Testing Checklist
-- [ ] Create multiple tabs without crash
-- [ ] Navigation works (back/forward/reload)
-- [ ] Command bar processes intents correctly
-- [ ] Security guard blocks unauthorized tools
-- [ ] Workspace saves and restores data
-- [ ] Tasks run only when explicitly triggered
-- [ ] Browser works when AI backend is unavailable
-- [ ] Memory/RAG features are opt-in only
+### Key Files
+
+* `src/lib/command/CommandController.ts` - Single entry point for all commands
+* `src/lib/events/EventBus.ts` - Real-time event streaming system
+* `src/core/regen-core/` - Sentinel AI presence system (Regen Core)
+* `src/core/regen-core/regenCore.hooks.ts` - Pattern detection hooks
+* `src/lib/security/ToolGuard.ts` - Tool allowlist and permission system
+* `src/lib/backend/BackendService.ts` - Backend API abstraction
+* `src/lib/workspace/WorkspaceStore.ts` - Local data persistence
 
 ---
 
-## Current Status & Scores
+## 📖 Documentation
 
-Based on comprehensive audit (see `AUDIT.md`):
-
-| Area | Score | Status |
-|------|-------|--------|
-| Execution Spine | 5.0/5 | ✅ Perfect |
-| UI Trust Boundary | 4.75/5 | ✅ Excellent |
-| Browser Core | 4.5/5 | ✅ Excellent |
-| AI & RAG | 5.0/5 | ✅ Perfect |
-| Workspace | 4.5/5 | ✅ Excellent |
-| Task Runner | 5.0/5 | ✅ Perfect |
-| Security | 5.0/5 | ✅ Perfect |
-| Docs & Claims | 5.0/5 | ✅ Perfect |
-| Performance | 5.0/5 | ✅ Perfect |
-
-**Overall: 4.75/5** - ✅ **Ready for Launch** 🚀
+* [API Documentation](./API_DOCUMENTATION.md) - Complete API reference
+* [Architecture Audit](./AUDIT.md) - Technical audit and compliance checklist
+* [Regen Core Implementation](./REGEN_CORE_IMPLEMENTATION.md) - Sentinel AI system details
+* [Real-Time Architecture](./REALTIME_IMPLEMENTATION_COMPLETE.md) - Event-driven system documentation
 
 ---
 
-## Roadmap
+## ⚠️ Disclaimer
 
-### v1.1 (Next)
-- [ ] Persistent audit log storage
-- [ ] Improved workspace UI
-- [ ] Better error recovery
-- [ ] Performance optimizations
+Regen is an **experimental research project**.  
+Expect breaking changes, refactors, and rapid evolution.
 
-### v1.2 (Future)
-- [ ] Enhanced offline support
-- [ ] More task templates
-- [ ] Better RAG source attribution UI
-- [x] Workspace export/import ✅ **COMPLETED**
+If you're looking for a polished Chrome replacement — this is not it (yet).
 
-### v2+ (Later)
-- [ ] Resource governance (Redix)
-- [ ] Advanced AI lifecycle management
-- [ ] Self-healing capabilities
-- [ ] Cloud sync (opt-in)
-- [ ] Mobile apps
-
-**No feature shipped before it's real.**
+If you're interested in **what browsers could become** — welcome.
 
 ---
 
-## Documentation
+## 📜 License
 
-### Core Documentation
-- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference for all client-side libraries
-- **[AUDIT.md](./AUDIT.md)** - Comprehensive technical audit and architecture details
-- **[LEGACY_COMPONENTS.md](./LEGACY_COMPONENTS.md)** - Documentation of legacy components
-- **[VALIDATION_CHECKLIST.md](./VALIDATION_CHECKLIST.md)** - Pre-launch validation checklist
-
-### Architecture
-- **[FINAL_IMPROVEMENTS_SUMMARY.md](./FINAL_IMPROVEMENTS_SUMMARY.md)** - Summary of all improvements made
-- **[IMPROVEMENTS_COMPLETE.md](./IMPROVEMENTS_COMPLETE.md)** - Detailed improvements log
-
-### Quick Start
-- See `BUILD_AND_RUN.md` for setup instructions
-- See `API_DOCUMENTATION.md` for developer API reference
+MIT License (see LICENSE file for details)
 
 ---
 
-## Contributing
+## 🧠 Final Note
 
-We welcome contributions! Please read `CONTRIBUTING.md` first.
-
-Key principles:
-- **Discipline over magic** - Prefer explicit over implicit
-- **Backend owns state** - UI is dumb, backend is smart
-- **Intent-first** - Always resolve intent before executing
-- **Opt-in AI** - Never assume user wants AI help
-- **Security by default** - Allowlist tools, prompt for permissions
+> Regen is not trying to be louder than other browsers.  
+> It's trying to be **smarter, quieter, and more respectful**.
 
 ---
 
-## License
-
-MIT - Built with care, built for users, built to last.
-
----
-
-## Credits
-
-Built with:
-- [React](https://react.dev/) - UI framework
-- [TypeScript](https://www.typescriptlang.org/) - Type safety
-- [Tauri](https://tauri.app/) - Desktop app framework
-- [Zustand](https://zustand-demo.pmnd.rs/) - State management
-- [Vitest](https://vitest.dev/) - Testing
-
----
-
-**Regen: A browser that respects your intent, protects your privacy, and doesn't pretend to be smarter than it is.**
+**Built with ❤️ for the future of browsing**
