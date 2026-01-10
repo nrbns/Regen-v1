@@ -24,9 +24,9 @@ export function RegenCorePanel() {
         exit="exit"
         className="h-full flex flex-col"
       >
-        {/* Avatar visible in panel header */}
+        {/* Avatar visible in panel header - stays visible per Figma */}
         <div className="absolute top-4 left-4 z-10">
-          <AvatarCore state={state} size={36} />
+          <AvatarCore state={state} size={48} variant="female" skin="obsidian" />
         </div>
         
         <div className="p-4 pt-20 text-sm text-violet-200 flex-1 overflow-y-auto">
@@ -96,7 +96,7 @@ export function RegenCorePanel() {
       >
         {/* Avatar with tracking animation during execution */}
         <div className="absolute top-4 left-4 z-10">
-          <AvatarCore state={state} size={36} />
+          <AvatarCore state={state} size={48} variant="female" skin="obsidian" />
         </div>
         
         <div className="p-4 pt-20 text-sm text-violet-200">
@@ -163,9 +163,9 @@ export function RegenCorePanel() {
         exit="exit"
         className="h-full flex flex-col"
       >
-        {/* Avatar returns to neutral in reporting state */}
+        {/* Avatar returns to neutral in reporting state (subtle nod animation) */}
         <div className="absolute top-4 left-4 z-10">
-          <AvatarCore state={state} size={36} />
+          <AvatarCore state={state} size={48} variant="female" skin="obsidian" />
         </div>
         
         <div className="p-4 pt-20 text-sm text-violet-200 flex-1 overflow-y-auto">

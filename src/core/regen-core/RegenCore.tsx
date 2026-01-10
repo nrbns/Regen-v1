@@ -43,9 +43,14 @@ export default function RegenCore() {
     >
       {/* Vertical AI Capsule with Avatar Core (observing/aware states) */}
       {!isExpanded && (
-        <div className="h-full w-full relative flex items-center justify-center">
-          {/* Avatar Core - Always visible when collapsed */}
-          <AvatarCore state={state} size={32} />
+        <div className="h-full w-full relative flex items-center justify-center py-8">
+          {/* Avatar Core - Full avatar, always visible when collapsed (64px per Figma) */}
+          <AvatarCore 
+            state={state} 
+            size={64}
+            variant="female" // Default: Female (M3GAN-inspired) per Figma
+            skin="obsidian" // Default: Obsidian skin per Figma
+          />
           
           {/* Ambient glow - subtle backdrop */}
           <motion.div
@@ -71,7 +76,7 @@ export default function RegenCore() {
           <div className="h-full w-full pointer-events-auto relative">
             {/* Avatar remains visible in top-left of expanded panel */}
             <div className="absolute top-4 left-4 z-10">
-              <AvatarCore state={state} size={36} />
+              <AvatarCore state={state} size={48} variant="female" skin="obsidian" />
             </div>
             <RegenCorePanel />
           </div>

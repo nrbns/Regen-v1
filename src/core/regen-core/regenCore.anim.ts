@@ -13,11 +13,11 @@ export const MECHANICAL_EASING = [0.4, 0, 0.2, 1] as const;
 
 /**
  * Sentinel Spine animation variants
- * Updated: 48px width for vertical AI capsule with avatar
+ * Updated: 64px width for vertical AI capsule with full avatar (Figma spec)
  */
 export const spineVariants: Variants = {
   observing: {
-    width: 48, // Vertical AI capsule (was 14px, now 48px for avatar visibility)
+    width: 64, // Vertical AI capsule - 64px per Figma spec (was 48px)
     transition: {
       duration: 0.28,
       ease: MECHANICAL_EASING,
