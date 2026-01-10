@@ -25,15 +25,25 @@ export const useRegenCore = create<RegenCoreStore>((set) => ({
 
   setState: (state) => set({ state }),
 
-  emitSignal: (signal, observation) =>
+  emitSignal: (signal, observation) => {
+    // First transition to "aware" state (awareness shift - avatar reacts, no panel)
     set({ 
-      state: "noticing", 
+      state: "aware", 
       signal,
-      observation: observation || {
-        signal,
-        statement: getDefaultStatement(signal),
-      }
-    }),
+    });
+    
+    // After brief delay, transition to "noticing" (show panel with suggestion)
+    setTimeout(() => {
+      set((prev) => ({
+        ...prev,
+        state: "noticing",
+        observation: observation || {
+          signal,
+          statement: getDefaultStatement(signal),
+        }
+      }));
+    }, 800); // 800ms awareness shift before showing panel
+  },
 
   setReport: (report) => set({ state: "reporting", report }),
 

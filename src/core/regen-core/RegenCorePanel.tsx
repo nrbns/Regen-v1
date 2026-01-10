@@ -1,12 +1,14 @@
 /**
  * Regen Core Panel
  * Expanded AI panel with M3GAN-style language
+ * Avatar remains visible in all states for continuity
  */
 
 import React from "react";
 import { motion } from "framer-motion";
 import { useRegenCore } from "./regenCore.store";
 import { panelVariants } from "./regenCore.anim";
+import { AvatarCore } from "./AvatarCore";
 import { X } from "lucide-react";
 
 export function RegenCorePanel() {
@@ -22,7 +24,12 @@ export function RegenCorePanel() {
         exit="exit"
         className="h-full flex flex-col"
       >
-        <div className="p-4 text-sm text-violet-200 flex-1 overflow-y-auto">
+        {/* Avatar visible in panel header */}
+        <div className="absolute top-4 left-4 z-10">
+          <AvatarCore state={state} size={36} />
+        </div>
+        
+        <div className="p-4 pt-20 text-sm text-violet-200 flex-1 overflow-y-auto">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-1 h-6 bg-violet-400/80" />
@@ -87,7 +94,12 @@ export function RegenCorePanel() {
         exit="exit"
         className="h-full flex flex-col"
       >
-        <div className="p-4 text-sm text-violet-200">
+        {/* Avatar with tracking animation during execution */}
+        <div className="absolute top-4 left-4 z-10">
+          <AvatarCore state={state} size={36} />
+        </div>
+        
+        <div className="p-4 pt-20 text-sm text-violet-200">
           <div className="flex items-center gap-2 mb-3">
             <motion.div
               className="w-1 h-6 bg-blue-400/80"
@@ -151,7 +163,12 @@ export function RegenCorePanel() {
         exit="exit"
         className="h-full flex flex-col"
       >
-        <div className="p-4 text-sm text-violet-200 flex-1 overflow-y-auto">
+        {/* Avatar returns to neutral in reporting state */}
+        <div className="absolute top-4 left-4 z-10">
+          <AvatarCore state={state} size={36} />
+        </div>
+        
+        <div className="p-4 pt-20 text-sm text-violet-200 flex-1 overflow-y-auto">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               <motion.div

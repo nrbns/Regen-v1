@@ -5,6 +5,7 @@
 
 export type RegenCoreState =
   | "observing"
+  | "aware" // Awareness shift - eye opens wider, glow intensifies, no panel yet
   | "noticing"
   | "executing"
   | "reporting";
