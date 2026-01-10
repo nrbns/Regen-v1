@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Home,
@@ -560,7 +560,6 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <Outlet />
             {children}
           </div>
           
