@@ -44,24 +44,21 @@ export function Toggle({
   };
 
   return (
-    <div className={`flex items-center justify-between ${className}`}>
-      {(label || description) && (
-        <div className="flex-1 mr-3">
-          {label && (
-            <label
-              className={`cursor-pointer ${disabled ? "cursor-not-allowed opacity-50" : ""} ${
-                size === "sm" ? "text-xs" : size === "lg" ? "text-base" : "text-sm"
-              } font-medium text-slate-200`}
-            >
-              {label}
-            </label>
-          )}
-          {description && (
-            <p className={`text-slate-400 mt-0.5 ${size === "sm" ? "text-xs" : "text-xs"}`}>
-              {description}
-            </p>
-          )}
-        </div>
+    <div className={`flex items-center ${className || "justify-between"}`}>
+      {label && (
+        <label
+          className={`cursor-pointer ${disabled ? "cursor-not-allowed opacity-50" : ""} ${
+            size === "sm" ? "text-xs" : size === "lg" ? "text-base" : "text-sm"
+          } font-medium text-slate-300 ${description ? "" : "mr-3"}`}
+          onClick={() => !disabled && onChange(!checked)}
+        >
+          {label}
+        </label>
+      )}
+      {description && label && (
+        <p className={`text-slate-400 ml-2 ${size === "sm" ? "text-xs" : "text-xs"}`}>
+          {description}
+        </p>
       )}
       
       <button
@@ -78,7 +75,7 @@ export function Toggle({
             : disabled
             ? "bg-slate-700/50 cursor-not-allowed"
             : "bg-slate-700 hover:bg-slate-600"
-        } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
+        } ${disabled ? "cursor-not-allowed" : "cursor-pointer"} ${!label ? "ml-0" : ""}`}
         role="switch"
         aria-checked={checked}
         aria-label={label || "Toggle"}

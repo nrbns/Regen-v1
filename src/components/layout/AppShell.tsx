@@ -315,7 +315,18 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
           </motion.div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          {/* Local Assistance Toggle - integrated with search/controls */}
+          <div className="flex items-center space-x-2 px-2 py-1.5 rounded-lg bg-slate-700/30 border border-slate-600/50">
+            <Bot className="w-3.5 h-3.5 text-blue-400" />
+            <Toggle
+              checked={localAssistanceEnabled}
+              onChange={setLocalAssistanceEnabled}
+              size="sm"
+              className="items-center space-x-1"
+            />
+          </div>
+
           {/* Run button - demoted, only show when command detected */}
           {commandInput.trim() && (
             <motion.button
@@ -555,19 +566,6 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
               )}
             </NavLink>
           </div>
-
-          {/* Toggle Section - Feature controls */}
-          <div className="mt-auto pt-4 border-t border-slate-700">
-            <div className="space-y-3">
-              <Toggle
-                checked={localAssistanceEnabled}
-                onChange={setLocalAssistanceEnabled}
-                label="Local Assistance"
-                description="Enable AI suggestions"
-                size="md"
-              />
-            </div>
-          </div>
         </motion.nav>
 
         {/* Main Content Area */}
@@ -602,19 +600,8 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <Bot className="w-4 h-4 text-blue-400" />
-            <span className="text-slate-300">Local assistance available</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={localAssistanceEnabled}
-                onChange={(e) => setLocalAssistanceEnabled(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-slate-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
+          {/* Status indicators */}
+          <span className="text-slate-400 text-xs">Local-first • Offline-ready</span>
         </div>
       </div>
     </div>
