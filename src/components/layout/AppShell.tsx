@@ -26,6 +26,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { useCommandController } from '../../hooks/useCommandController';
 import { ToastContainer, showToast } from '../ui/Toast';
 import { AIStatusDot } from '../ui/AIStatusDot';
+import { Toggle } from '../ui/Toggle';
 import RegenCore from '../../core/regen-core/RegenCore';
 import { 
   useTabRedundancyDetection, 
@@ -553,7 +554,20 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
                 </>
               )}
             </NavLink>
+          </div>
+
+          {/* Toggle Section - Feature controls */}
+          <div className="mt-auto pt-4 border-t border-slate-700">
+            <div className="space-y-3">
+              <Toggle
+                checked={localAssistanceEnabled}
+                onChange={setLocalAssistanceEnabled}
+                label="Local Assistance"
+                description="Enable AI suggestions"
+                size="md"
+              />
             </div>
+          </div>
         </motion.nav>
 
         {/* Main Content Area */}
