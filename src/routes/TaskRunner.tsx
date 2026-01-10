@@ -100,14 +100,14 @@ export default function TaskRunner() {
 
   const getEffectMessage = (taskId: string, result: any): string => {
     if (taskId === 'summarize_page') {
-      return `✓ Summary generated`;
+      return `RESULT GENERATED: Summary created`;
     } else if (taskId === 'extract_links') {
       const linkCount = Array.isArray(result) ? result.length : 0;
-      return `✓ ${linkCount} links extracted`;
+      return `RESULT GENERATED: ${linkCount} links extracted`;
     } else if (taskId === 'analyze_content') {
-      return `✓ Topic classified: ${typeof result === 'string' ? result.substring(0, 30) : 'Analysis complete'}`;
+      return `RESULT GENERATED: Content analyzed — ${typeof result === 'string' ? result.substring(0, 25) : 'Analysis complete'}`;
     }
-    return `✓ Task completed`;
+    return `RESULT GENERATED: Action completed`;
   };
 
   const getTaskIcon = (taskId: string) => {
@@ -225,21 +225,21 @@ export default function TaskRunner() {
                 <div className="flex items-start gap-3">
                   <Sparkles className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="text-sm text-slate-300 mb-2">
-                      Summary available for <span className="text-purple-400 font-medium">this page</span>
+                    <p className="text-sm text-slate-400 mb-2">
+                      Summary available for this page
                     </p>
                     <div className="flex items-center gap-2">
                       <motion.button
                         onClick={() => handleExecuteTask('summarize_page')}
                         disabled={executingTaskId !== null}
-                        className="text-xs px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        whileHover={executingTaskId === null ? { scale: 1.05 } : {}}
-                        whileTap={executingTaskId === null ? { scale: 0.95 } : {}}
+                        className="text-xs px-3 py-1.5 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        whileHover={executingTaskId === null ? { scale: 1.02 } : {}}
+                        whileTap={executingTaskId === null ? { scale: 0.98 } : {}}
                       >
-                        View
+                        View suggestion
                       </motion.button>
                       <button
-                        className="text-xs px-3 py-1.5 text-slate-400 hover:text-slate-300 rounded transition-colors"
+                        className="text-xs px-3 py-1.5 text-slate-500 hover:text-slate-400 rounded transition-colors"
                       >
                         Dismiss
                       </button>
@@ -249,65 +249,67 @@ export default function TaskRunner() {
               </motion.div>
             )}
 
-            {/* Manual Override - Collapsible section */}
-            <details className="bg-slate-800/30 border border-slate-700/50 rounded-lg">
-              <summary className="px-4 py-3 text-sm text-slate-400 cursor-pointer hover:text-slate-300 transition-colors list-none">
-                Manual Override (for testing)
-              </summary>
-              <div className="p-4 pt-0 grid grid-cols-1 md:grid-cols-2 gap-3">
-                {tasks.map((task, index) => {
-                  const Icon = getTaskIcon(task.id);
-                  const contextualName = getContextualTaskName(task.id, activeTab?.url || '');
-                  return (
-                    <motion.button
-                      key={task.id}
-                      onClick={() => handleExecuteTask(task.id)}
-                      disabled={executingTaskId !== null}
-                      className={`flex items-center gap-2 px-3 py-2 text-xs bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed ${
-                        executingTaskId === task.id ? 'border-blue-500 bg-blue-500/20' : ''
-                      }`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: index * 0.05 }}
-                      whileHover={executingTaskId === null ? { scale: 1.02 } : {}}
-                      whileTap={executingTaskId === null ? { scale: 0.98 } : {}}
-                    >
-                      <Icon className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                      <span className="flex-1 text-slate-300">{contextualName}</span>
-                      {executingTaskId === task.id && (
-                        <Loader2 className="w-3 h-3 animate-spin text-blue-400 flex-shrink-0" />
-                      )}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </details>
+            {/* Manual Override - Collapsible section for testing */}
+            {tasks.length > 0 && (
+              <details className="bg-slate-800/20 border border-slate-700/30 rounded-lg mt-4">
+                <summary className="px-4 py-2.5 text-xs text-slate-500 cursor-pointer hover:text-slate-400 transition-colors list-none">
+                  Manual override (testing only)
+                </summary>
+                <div className="p-4 pt-2 border-t border-slate-700/30 grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {tasks.map((task, index) => {
+                    const Icon = getTaskIcon(task.id);
+                    const contextualName = getContextualTaskName(task.id, activeTab?.url || '');
+                    return (
+                      <motion.button
+                        key={task.id}
+                        onClick={() => handleExecuteTask(task.id)}
+                        disabled={executingTaskId !== null}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 text-xs bg-slate-700/30 hover:bg-slate-700/50 border border-slate-600/50 rounded text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                          executingTaskId === task.id ? 'border-slate-500 bg-slate-700/70' : ''
+                        }`}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15, delay: index * 0.03 }}
+                        whileHover={executingTaskId === null ? { scale: 1.01 } : {}}
+                        whileTap={executingTaskId === null ? { scale: 0.99 } : {}}
+                      >
+                        <Icon className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                        <span className="flex-1 text-slate-400">{contextualName}</span>
+                        {executingTaskId === task.id && (
+                          <Loader2 className="w-3 h-3 animate-spin text-slate-500 flex-shrink-0" />
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </details>
+            )}
           </div>
 
-          {/* Effect Feedback */}
+          {/* Effect Feedback - System report style */}
           <AnimatePresence>
             {lastResult && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="mb-8 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4"
+                exit={{ opacity: 0, y: -5 }}
+                className="mb-8 bg-slate-800/30 border border-slate-700/50 rounded-lg p-4"
               >
                 <div className="flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div className="w-0.5 h-full bg-slate-500 rounded-full" />
                   <div className="flex-1">
-                    <div className="font-medium text-emerald-400 mb-1">
+                    <div className="text-sm text-slate-300 mb-1 font-medium">
                       {getEffectMessage(lastResult.taskId, lastResult.result)}
                     </div>
-                    <div className="text-xs text-slate-400">
-                      Saved to workspace • {new Date(lastResult.timestamp).toLocaleTimeString()}
+                    <div className="text-xs text-slate-500">
+                      Result generated • {new Date(lastResult.timestamp).toLocaleTimeString()} • Saved to workspace
                     </div>
                   </div>
                   <button
                     onClick={() => setLastResult(null)}
-                    className="text-slate-400 hover:text-slate-200 transition-colors"
+                    className="text-slate-500 hover:text-slate-400 transition-colors"
                   >
-                    <XCircle className="w-4 h-4" />
+                    <XCircle className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </motion.div>

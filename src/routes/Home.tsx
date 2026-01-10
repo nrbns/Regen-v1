@@ -122,12 +122,12 @@ export default function Home() {
               >
                 <Sparkles className="w-8 h-8 text-blue-400" />
               </motion.div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-blue-500 bg-clip-text text-transparent">
-                Command Center
-              </h1>
+              <h1 className="text-3xl font-semibold text-slate-200">
+              System Control Room
+            </h1>
             </div>
-            <p className="text-lg text-slate-300">
-              Regen observes your session and suggests actions when useful
+            <p className="text-sm text-slate-400 italic">
+              Recent activity and context-aware suggestions
             </p>
           </motion.div>
 
@@ -152,11 +152,11 @@ export default function Home() {
               >
                 <Search className="w-6 h-6 text-purple-400" />
               </motion.div>
-              <h3 className="text-xl font-semibold text-slate-200 mb-2 group-hover:text-purple-300 transition-colors">
-                AI Search & Summarize
+              <h3 className="text-lg font-medium text-slate-300 mb-2 group-hover:text-slate-200 transition-colors">
+                Search & Summarize
               </h3>
-              <p className="text-slate-400 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                Use AI to search the web, summarize articles, and analyze pages.
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Search the web or summarize current page when detected
               </p>
             </motion.div>
 
@@ -176,15 +176,12 @@ export default function Home() {
               >
                 <Sparkles className="w-6 h-6 text-purple-400" />
               </motion.div>
-              <h3 className="text-xl font-semibold text-slate-200 mb-2 group-hover:text-purple-300 transition-colors">
-                Live Intelligence
+              <h3 className="text-lg font-medium text-slate-300 mb-2 group-hover:text-slate-200 transition-colors">
+                Observations
               </h3>
-              <p className="text-slate-400 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                Context-aware actions that observe, suggest, and act on your current page.
+              <p className="text-slate-500 text-sm leading-relaxed">
+                View detected patterns, suggested actions, and Regen Core activity log
               </p>
-              <span className="inline-block mt-2 text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
-                Beta
-              </span>
             </motion.div>
 
             {/* Local Workspace */}
@@ -203,11 +200,11 @@ export default function Home() {
               >
                 <Folder className="w-6 h-6 text-yellow-400" />
               </motion.div>
-              <h3 className="text-xl font-semibold text-slate-200 mb-2 group-hover:text-yellow-300 transition-colors">
+              <h3 className="text-lg font-medium text-slate-300 mb-2 group-hover:text-slate-200 transition-colors">
                 Local Workspace
               </h3>
-              <p className="text-slate-400 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                Save research notes, document summaries and AI-generated content.
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Saved items from browsing sessions and AI-generated content
               </p>
               {workspaceCount > 0 && (
                 <motion.p
@@ -260,8 +257,8 @@ export default function Home() {
               >
                 <Lightbulb className="w-5 h-5 text-yellow-400 group-hover:text-yellow-300" />
               </motion.div>
-              <span className="text-sm text-slate-300 group-hover:text-white font-medium">
-                + Summarize or get insights on any page
+              <span className="text-sm text-slate-400 group-hover:text-slate-300">
+                Summarize page available
               </span>
             </motion.button>
 
@@ -276,9 +273,9 @@ export default function Home() {
                 transition={{ duration: 0.3 }}
               >
                 <MessageSquare className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
-                <span className="text-sm text-slate-300 group-hover:text-white font-medium">
-                  + Analyze selected text
-                </span>
+                <span className="text-sm text-slate-400 group-hover:text-slate-300">
+                Analyze selected text available
+              </span>
               </motion.button>
             )}
 
@@ -294,8 +291,8 @@ export default function Home() {
               >
                 <Zap className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
               </motion.div>
-              <span className="text-sm text-slate-300 group-hover:text-white font-medium">
-                + Automate a task or extract data
+              <span className="text-sm text-slate-400 group-hover:text-slate-300">
+                Task extraction available
               </span>
             </motion.button>
           </div>
@@ -309,7 +306,7 @@ export default function Home() {
           >
             <input
               type="text"
-              placeholder="Ask Regen..."
+              placeholder="Search, navigate, or ask Regen..."
               className="w-full pl-4 pr-10 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-slate-700 focus:ring-2 focus:ring-blue-500/20 transition-all"
               onKeyPress={async (e) => {
                 if (e.key === 'Enter') {

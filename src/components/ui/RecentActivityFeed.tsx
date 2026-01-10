@@ -93,41 +93,41 @@ export function RecentActivityFeed() {
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-center gap-2 mb-3">
-        <TrendingUp className="w-4 h-4 text-slate-400" />
-        <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-          Recent Activity
+        <TrendingUp className="w-4 h-4 text-slate-500" />
+        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+          Recent System Activity
         </span>
       </div>
       <div className="flex items-center gap-6 text-sm">
         {stats.summariesToday > 0 && (
           <div className="flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-slate-300">
-              <span className="font-medium text-purple-400">{stats.summariesToday}</span>{' '}
-              {stats.summariesToday === 1 ? 'summary' : 'summaries'} today
+            <FileText className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-400">
+              <span className="text-slate-300">{stats.summariesToday}</span>{' '}
+              {stats.summariesToday === 1 ? 'page summarized' : 'pages summarized'}
             </span>
           </div>
         )}
         {stats.tasksExecutedToday > 0 && (
           <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-slate-300">
-              <span className="font-medium text-blue-400">{stats.tasksExecutedToday}</span> tasks
-              executed
+            <Sparkles className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-400">
+              <span className="text-slate-300">{stats.tasksExecutedToday}</span>{' '}
+              {stats.tasksExecutedToday === 1 ? 'action executed' : 'actions executed'}
             </span>
           </div>
         )}
         {stats.workspaceItems > 0 && (
           <div className="flex items-center gap-2">
-            <Clock className="w-3.5 h-3.5 text-yellow-400" />
-            <span className="text-slate-300">
-              <span className="font-medium text-yellow-400">{stats.workspaceItems}</span> saved{' '}
-              {stats.workspaceItems === 1 ? 'item' : 'items'}
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-400">
+              <span className="text-slate-300">{stats.workspaceItems}</span>{' '}
+              {stats.workspaceItems === 1 ? 'item saved to workspace' : 'items saved to workspace'}
             </span>
           </div>
         )}
         {stats.lastActivity && (
-          <span className="text-xs text-slate-500 ml-auto">Last: {stats.lastActivity}</span>
+          <span className="text-xs text-slate-600 ml-auto">Last activity: {stats.lastActivity}</span>
         )}
       </div>
     </motion.div>

@@ -63,9 +63,11 @@ export default function Workspace() {
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 bg-slate-800 rounded-xl border border-slate-700">
             <Folder className="w-16 h-16 text-slate-600 mb-4" />
-            <h3 className="text-xl font-semibold text-slate-300 mb-2">No saved items yet</h3>
-            <p className="text-slate-500 max-w-md text-center">
-              Save summaries, notes, or AI-generated content to see them here.
+            <h3 className="text-lg font-medium text-slate-400 mb-2">No saved items yet</h3>
+            <p className="text-slate-600 max-w-md text-center text-sm italic">
+              Regen saves things only when they matter.
+            </p>
+            <p className="text-slate-600 max-w-md text-center text-xs mt-2">
               All data is stored locally on your device.
             </p>
           </div>

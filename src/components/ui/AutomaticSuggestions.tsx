@@ -136,7 +136,7 @@ export function AutomaticSuggestions({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className={`bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4 shadow-lg ${className}`}
+        className={`bg-slate-800/30 border border-slate-700/50 rounded-lg p-4 ${className}`}
       >
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -146,14 +146,14 @@ export function AutomaticSuggestions({
             >
               <Sparkles className="w-5 h-5 text-purple-400" />
             </motion.div>
-            <h3 className="text-sm font-semibold text-slate-200">Regen suggests:</h3>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">Action available</span>
           </div>
           <button
             onClick={() => setIsVisible(false)}
-            className="text-slate-400 hover:text-slate-200 transition-colors"
-            aria-label="Dismiss suggestions"
+            className="text-slate-500 hover:text-slate-400 transition-colors"
+            aria-label="Dismiss"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
 
@@ -163,26 +163,26 @@ export function AutomaticSuggestions({
             return (
               <motion.button
                 key={suggestion.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="w-full flex items-start gap-3 p-3 bg-slate-800/50 hover:bg-slate-800 rounded-lg border border-slate-700 hover:border-purple-500 transition-all text-left group"
-                whileHover={{ scale: 1.02, x: 4 }}
-                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-start gap-3 p-3 bg-slate-800/30 hover:bg-slate-800/50 rounded-lg border border-slate-700/50 transition-all text-left group"
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
               >
-                <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
-                  <Icon className="w-4 h-4 text-purple-400" />
+                <div className="p-1.5 bg-slate-700/30 rounded">
+                  <Icon className="w-3.5 h-3.5 text-slate-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-slate-200 group-hover:text-purple-300 transition-colors">
+                  <div className="text-sm text-slate-300 group-hover:text-slate-200 transition-colors">
                     {suggestion.action}
                   </div>
-                  <div className="text-xs text-slate-400 mt-0.5">
+                  <div className="text-xs text-slate-500 mt-0.5 italic">
                     {suggestion.description}
                   </div>
                 </div>
-                <Zap className="w-4 h-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <span className="text-xs text-slate-500">View</span>
               </motion.button>
             );
           })}

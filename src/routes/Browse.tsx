@@ -6,7 +6,35 @@ import { showToast } from '../components/ui/Toast';
 
 export default function Browse() {
   const [url, setUrl] = useState('');
+  const [showRefineHint, setShowRefineHint] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const { executeCommand } = useCommandController();
+
+  // Show refine hint when user pauses typing
+  useEffect(() => {
+    if (url.trim().length > 10) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        // Check if query looks unclear (repeated words, very long)
+        const words = url.trim().toLowerCase().split(/\s+/);
+        const uniqueWords = new Set(words);
+        if (words.length > 5 && uniqueWords.size / words.length < 0.6) {
+          setShowRefineHint(true);
+        }
+      }, 3000); // After 3 seconds of no typing
+    } else {
+      setShowRefineHint(false);
+    }
+
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [url]);
 
   const handleNavigate = async () => {
     if (!url.trim()) return;
@@ -43,14 +71,14 @@ export default function Browse() {
         <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           Browse the Web
         </h1>
-        <p className="text-lg text-slate-400 mb-2">
-          Start browsing by entering a URL or searching the web
+        <p className="text-base text-slate-400 mb-3">
+          Enter a URL or search query
         </p>
         <motion.p
-          className="text-sm text-slate-500 italic"
+          className="text-xs text-slate-600 italic"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
+          transition={{ delay: 1.5 }}
         >
           Regen is observing this session
         </motion.p>
@@ -69,8 +97,8 @@ export default function Browse() {
             disabled={!url.trim()}
             className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-3 rounded-lg transition-all ${
               url.trim()
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                : 'bg-slate-800 text-slate-600 cursor-not-allowed'
             }`}
             whileHover={url.trim() ? { scale: 1.05 } : {}}
             whileTap={url.trim() ? { scale: 0.95 } : {}}
@@ -78,6 +106,20 @@ export default function Browse() {
             <ArrowRight className="w-5 h-5" />
           </motion.button>
         </div>
+
+        {/* Micro-intelligence hint - shows when query seems unclear */}
+        <AnimatePresence>
+          {showRefineHint && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="mt-3 text-xs text-slate-500 italic text-center"
+            >
+              Query intent unclear — refine?
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
