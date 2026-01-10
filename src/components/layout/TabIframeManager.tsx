@@ -407,7 +407,9 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     // Cross-origin navigation, deriving title from URL - no logging needed
                     useTabsStore
                       .getState()
-                      .updateTab(tab.id, { url: currentUrl, title: derivedTitle });
+                      // FIX: Don't update tab directly - wait for backend navigation confirmation
+                      // Navigation is backend-owned, tabsStore will update on confirmation event
+                      // .updateTab(tab.id, { url: currentUrl, title: derivedTitle }); // REMOVED - backend-owned
                   }
 
                   // PR: Fix navigation - inject click interceptor and window.open override
@@ -468,22 +470,53 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                         // Extract absolute URL (anchor.href is always absolute)
                         const clickedUrl = anchor.href;
 
-                        console.log('[TabIframeManager] Link clicked, updating tab URL', {
+                        console.log('[TabIframeManager] Link clicked, routing through CommandController', {
                           tabId: tab.id,
                           clickedUrl,
                           currentUrl: tab.url,
                         });
 
-                        // Update tab URL immediately (navigation will happen in iframe)
-                        // This ensures tab title/URL update even if we can't read it after navigation
-                        // Derive title from URL for immediate feedback (will be updated on load if same-origin)
-                        const derivedTitle = deriveTitleFromUrl(clickedUrl);
-                        useTabsStore
-                          .getState()
-                          .updateTab(tab.id, { url: clickedUrl, title: derivedTitle });
-
-                        // Note: We don't preventDefault - let the iframe navigate normally
-                        // The iframe will navigate, and onLoad will try to read the final URL/title
+                        // FIX: Route navigation through CommandController (backend-owned)
+                        // Don't update tab URL directly - wait for backend confirmation
+                        e.preventDefault(); // Prevent direct navigation
+                        
+                        // Route through CommandController
+                        import('../../../hooks/useCommandController').then(({ useCommandController }) => {
+                          const { executeCommand } = useCommandController();
+                          
+                          executeCommand(`navigate ${clickedUrl}`, {
+                            currentUrl: tab.url,
+                            activeTab: tab.id,
+                          }).then((result) => {
+                            if (result.success) {
+                              // Wait for navigation confirmation event from backend
+                              const handleConfirmation = (e: CustomEvent) => {
+                                if (e.detail.url === clickedUrl && e.detail.tabId === tab.id) {
+                                  window.removeEventListener('regen:navigate:confirmed', handleConfirmation as EventListener);
+                                  // Backend confirmed - now update iframe (navigation already happened in backend)
+                                  const iframe = iframeRefs.current.get(tab.id);
+                                  if (iframe && iframe.src !== clickedUrl) {
+                                    iframe.src = clickedUrl;
+                                  }
+                                }
+                              };
+                              window.addEventListener('regen:navigate:confirmed', handleConfirmation as EventListener);
+                              
+                              // Timeout fallback (5 seconds)
+                              setTimeout(() => {
+                                window.removeEventListener('regen:navigate:confirmed', handleConfirmation as EventListener);
+                              }, 5000);
+                            }
+                          }).catch((error) => {
+                            console.error('[TabIframeManager] Navigation failed:', error);
+                            // On error, allow iframe to navigate directly as fallback
+                            // This prevents broken navigation if backend is unavailable
+                            const iframe = iframeRefs.current.get(tab.id);
+                            if (iframe) {
+                              iframe.src = clickedUrl;
+                            }
+                          });
+                        });
                       }
                     };
 
@@ -491,10 +524,13 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     clickHandlerRefs.current.set(tab.id, clickHandler);
                     doc.addEventListener('click', clickHandler, true); // Use capture phase to catch early
 
-                    // PR: Fix navigation - Listen for navigation events to update URL and title
-                    // Track when iframe navigates (for same-tab navigation)
+                    // FIX: Listen for backend navigation confirmation events
+                    // Don't track iframe navigation directly - wait for backend confirmation
+                    // Backend owns navigation lifecycle
                     const handleNavigation = () => {
                       try {
+                        // Only update if backend has confirmed this navigation
+                        // Don't trust iframe location directly - backend is source of truth
                         const newUrl = win.location.href;
                         const newTitle = doc?.title || null;
 

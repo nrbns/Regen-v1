@@ -32,7 +32,7 @@ export async function storeSecure(key: string, value: string): Promise<boolean> 
 export async function getSecure(key: string): Promise<string | null> {
   if (isTauriRuntime()) {
     try {
-      const value = await invoke<string>('get_secure', { key });
+      const value = await invoke('get_secure', { key }) as string;
       return value;
     } catch (error) {
       console.warn('[SecureStorage] Failed to get from keychain, using fallback:', error);

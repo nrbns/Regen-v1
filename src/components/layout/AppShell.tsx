@@ -5,6 +5,7 @@ import {
   Home,
   Settings,
   Bot,
+  Brain,
   Search,
   Folder,
   Globe,
@@ -24,6 +25,16 @@ import {
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useCommandController } from '../../hooks/useCommandController';
 import { ToastContainer, showToast } from '../ui/Toast';
+import { AIStatusDot } from '../ui/AIStatusDot';
+import RegenCore from '../../core/regen-core/RegenCore';
+import { 
+  useTabRedundancyDetection, 
+  useSearchLoopDetection,
+  useLongScrollDetection,
+  useIdleDetection,
+  useErrorDetection,
+  useRegenCoreActions 
+} from '../../core/regen-core/regenCore.hooks';
 
 interface Tab {
   id: string;
@@ -40,19 +51,68 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   const [tabs, setTabs] = useState<Tab[]>([
     { id: '1', title: 'Regen Browser', url: '/', isActive: true },
     { id: '2', title: 'Getting Started | Regen', url: '/getting-started', isActive: false },
-    { id: '3', title: 'Task Runner | Regen', url: '/agent-console', isActive: false },
+    { id: '3', title: 'Live Intelligence | Regen', url: '/task-runner', isActive: false },
   ]);
   const [localAssistanceEnabled, setLocalAssistanceEnabled] = useState(true);
+
+  // Regen Core hooks - detect context and handle actions
+  useTabRedundancyDetection();
+  useSearchLoopDetection();
+  useLongScrollDetection();
+  useIdleDetection();
+  useErrorDetection();
+  useRegenCoreActions();
+
+  // FIX: Listen for navigation confirmation events from backend
+  useEffect(() => {
+    const handleNavConfirmation = (e: CustomEvent<{ url: string; tabId?: string; success: boolean }>) => {
+      const { url, tabId, success } = e.detail;
+      if (!success) return;
+
+      // Backend confirmed navigation - update tab through tabsStore
+      import('../../state/tabsStore').then(({ useTabsStore }) => {
+        const activeTabId = tabId || tabs.find(t => t.isActive)?.id;
+        if (activeTabId) {
+          useTabsStore.getState().navigateTab(activeTabId, url);
+        }
+      });
+    };
+
+    window.addEventListener('regen:navigate:confirmed', handleNavConfirmation as EventListener);
+    return () => {
+      window.removeEventListener('regen:navigate:confirmed', handleNavConfirmation as EventListener);
+    };
+  }, [tabs]);
 
   const handleRunCommand = async () => {
     if (!commandInput.trim() || isExecuting) return;
 
     const result = await executeCommand(commandInput, {
       currentUrl: window.location.href,
+      selectedText: window.getSelection()?.toString() || '',
+      activeTab: tabs.find(t => t.isActive)?.id,
     });
 
     if (result.success) {
       setCommandInput('');
+      
+      // FIX: Handle navigation result (backend-owned navigation)
+      if (result.data?.url) {
+        const url = result.data.url;
+        
+        // Check if it's a web URL (http/https) or internal route
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+          // Web navigation - CommandController already handled navigation request
+          // Backend will emit 'regen:navigate:confirmed' event, which we listen to above
+          // No direct tab update here - wait for confirmation
+          showToast('Navigation initiated...', 'info');
+        } else if (url.startsWith('/')) {
+          // Internal route - use React Router (this is fine, it's app navigation not web navigation)
+          navigate(url);
+        }
+      }
+    } else {
+      showToast(result.message || 'Command failed', 'error');
     }
   };
 
@@ -106,6 +166,13 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   return (
     <div className="h-screen w-screen bg-slate-900 text-white flex flex-col overflow-hidden">
       <ToastContainer />
+      {/* Regen Core - Sentinel AI Presence (global, not in routes) */}
+      <RegenCore />
+      {/* AI Offline Indicator - Shows when AI backend is unavailable */}
+      {/* Subtle AI Status Dot - replaces loud banner */}
+      <div className="fixed top-4 right-4 z-50">
+        <AIStatusDot size="md" showTooltip={true} />
+      </div>
       {/* Browser Tabs */}
       <div className="flex items-center bg-slate-800 border-b border-slate-700 px-2 py-1 min-h-[36px]">
         <div className="flex items-center space-x-1 mr-2">
@@ -118,7 +185,18 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
             key={tab.id}
             onClick={() => {
               setTabs(prev => prev.map(t => ({ ...t, isActive: t.id === tab.id })));
-              if (!tab.url.startsWith('http')) {
+              
+              // FIX: Route navigation through CommandController for web URLs
+              if (tab.url.startsWith('http://') || tab.url.startsWith('https://')) {
+                // Web navigation - route through CommandController
+                executeCommand(`navigate ${tab.url}`, {
+                  currentUrl: window.location.href,
+                  activeTab: tab.id,
+                }).catch((error) => {
+                  console.error('[AppShell] Navigation failed:', error);
+                });
+              } else if (tab.url.startsWith('/')) {
+                // Internal route - use React Router (app navigation, not web navigation)
                 navigate(tab.url);
               }
             }}
@@ -384,12 +462,17 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
               {({ isActive }) => (
                 <>
                   <motion.div
-                    animate={isActive ? { scale: 1.1, rotate: -5 } : { scale: 1, rotate: 0 }}
+                    animate={isActive ? { scale: 1.1 } : { scale: 1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Bot className="w-5 h-5" />
+                    <Brain className="w-5 h-5" />
                   </motion.div>
-                  <span className="font-medium">Task Runner (Preview)</span>
+                  <span className="font-medium">Live Intelligence</span>
+                  {isActive && (
+                    <span className="ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
+                      Beta
+                    </span>
+                  )}
                   {isActive && (
                     <motion.div
                       className="ml-auto w-2 h-2 bg-purple-400 rounded-full"
@@ -436,11 +519,15 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
         </motion.nav>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Outlet />
-          {children}
-              </div>
-            </div>
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Outlet />
+            {children}
+          </div>
+          
+        </div>
+      </div>
 
       {/* Status Bar */}
       <div className="border-t border-slate-700 bg-slate-800 px-4 py-2 flex justify-between items-center text-xs">

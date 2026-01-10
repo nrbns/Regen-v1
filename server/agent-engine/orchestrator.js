@@ -338,14 +338,26 @@ class AgentOrchestrator {
       // Thinking phase
       stateMachine.transition('thinking');
 
-      // Retrieve relevant memories for context
-      const memoryContext = await this.memory.getContext(query, {
-        maxMemories: 5,
-        maxFacts: 3,
-        includePreferences: true,
-      });
+      // FIX: Memory retrieval is now opt-in only (requires explicit user consent)
+      // Only retrieve memories if explicitly requested in context
+      let memoryContext = { memories: [], facts: [], preferences: {} };
+      if (context.useMemory === true || context.enableMemory === true) {
+        try {
+          memoryContext = await this.memory.getContext(query, {
+            maxMemories: 5,
+            maxFacts: 3,
+            includePreferences: true,
+          });
+          console.log('[Orchestrator] Memory context retrieved (user consent granted)');
+        } catch (error) {
+          console.warn('[Orchestrator] Memory retrieval failed:', error);
+          // Continue without memory context
+        }
+      } else {
+        console.log('[Orchestrator] Memory retrieval skipped (opt-in not enabled)');
+      }
 
-      // Enhance context with memories
+      // Enhance context with memories (empty if not enabled)
       const enhancedContext = {
         ...context,
         ...session.context,

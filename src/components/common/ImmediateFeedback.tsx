@@ -17,26 +17,33 @@ export interface ImmediateFeedbackProps {
   visible: boolean;
 }
 
-const feedbackConfig: Record<FeedbackType, { icon: React.ReactNode; defaultMessage: string }> = {
+// FIX: Map feedback types to SystemStatus for consistency
+// These feedback types are UI-level, but should align with backend status
+const feedbackConfig: Record<FeedbackType, { icon: React.ReactNode; defaultMessage: string; systemStatus: 'idle' | 'working' | 'recovering' }> = {
   thinking: {
     icon: <Brain className="h-4 w-4 animate-pulse" />,
-    defaultMessage: 'Thinking...',
+    defaultMessage: 'Working...', // FIX: Changed from "Thinking..." to align with SystemStatus
+    systemStatus: 'working',
   },
   understanding: {
     icon: <Sparkles className="h-4 w-4 animate-pulse" />,
-    defaultMessage: 'Understanding your intent...',
+    defaultMessage: 'Working...', // FIX: Changed to align with SystemStatus
+    systemStatus: 'working',
   },
   processing: {
     icon: <Loader2 className="h-4 w-4 animate-spin" />,
-    defaultMessage: 'Processing...',
+    defaultMessage: 'Working...', // FIX: Changed from "Processing..." to align with SystemStatus
+    systemStatus: 'working',
   },
   searching: {
     icon: <Search className="h-4 w-4 animate-pulse" />,
-    defaultMessage: 'Searching...',
+    defaultMessage: 'Working...', // FIX: Changed to align with SystemStatus
+    systemStatus: 'working',
   },
   analyzing: {
     icon: <Zap className="h-4 w-4 animate-pulse" />,
-    defaultMessage: 'Analyzing...',
+    defaultMessage: 'Working...', // FIX: Changed to align with SystemStatus
+    systemStatus: 'working',
   },
 };
 

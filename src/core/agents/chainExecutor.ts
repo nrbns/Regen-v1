@@ -344,16 +344,23 @@ export class ChainExecutor {
     const url = args.url;
     if (!url) throw new Error('Navigate action requires url');
 
-    // Use tabs store to navigate
-    const { useTabsStore } = await import('../../state/tabsStore');
-    const tabsStore = useTabsStore.getState();
-    const activeTab = tabsStore.tabs.find(t => t.id === tabsStore.activeId);
+    // FIX: Route navigation through CommandController (backend-owned)
+    try {
+      const { useCommandController } = await import('../../hooks/useCommandController');
+      const { executeCommand } = useCommandController();
+      
+      const result = await executeCommand(`navigate ${url}`, {
+        currentUrl: window.location.href,
+      });
 
-    if (activeTab) {
-      tabsStore.navigateTab(activeTab.id, url);
-      return { success: true, url };
+      if (result.success) {
+        return { success: true, url };
+      } else {
+        throw new Error(result.message || 'Navigation failed');
+      }
+    } catch (error) {
+      throw new Error(`Navigation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    throw new Error('No active tab to navigate');
   }
 
   private async actionClick(_args: Record<string, any>): Promise<any> {

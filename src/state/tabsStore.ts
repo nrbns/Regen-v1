@@ -1,11 +1,47 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// FIX: Global navigation confirmation listener (backend-owned navigation)
+if (typeof window !== 'undefined') {
+  window.addEventListener('regen:navigate:confirmed', ((e: CustomEvent<{ url: string; tabId?: string; success: boolean; title?: string }>) => {
+    const { url, tabId, success, title } = e.detail;
+    if (!success || !url) return;
+
+    // Backend confirmed navigation - update tab through tabsStore
+    // Import here to avoid circular dependency
+    import('./tabsStore').then(({ useTabsStore }) => {
+      const state = useTabsStore.getState();
+      const targetTabId = tabId || state.activeTabId;
+      
+      if (targetTabId) {
+        state.navigateTab(targetTabId, url);
+        if (title) {
+          state.updateTab(targetTabId, { title });
+        }
+      }
+    }).catch((error) => {
+      console.error('[TabsStore] Failed to handle navigation confirmation:', error);
+    });
+  }) as EventListener);
+}
+
 export interface Tab {
   id: string;
   url: string;
   title: string;
   isLoading: boolean;
+  pinned?: boolean;
+  lastActiveAt?: number;
+  createdAt?: number;
+}
+
+// Initialize navigation handler on module load (if in browser)
+if (typeof window !== 'undefined') {
+  import('../lib/navigation/NavigationHandler').then(({ initNavigationHandler }) => {
+    initNavigationHandler();
+  }).catch(() => {
+    // Navigation handler not available - will initialize later
+  });
 }
 
 interface TabsState {
@@ -17,14 +53,21 @@ interface TabsState {
   closeTab: (tabId: string) => void;
   switchTab: (tabId: string) => void;
   updateTab: (tabId: string, updates: Partial<Tab>) => void;
+  // FIX: loadUrl is deprecated - use backend navigation events instead
+  // This method is kept for backward compatibility but should not be called directly
   loadUrl: (tabId: string, url: string) => void;
+  navigateTab: (tabId: string, url: string) => void; // Backend-owned navigation
+  
+  // NEW: Navigation methods that listen to backend events
+  onNavigationConfirmed: (tabId: string, url: string, title?: string) => void;
 }
 
 export const useTabsStore = create<TabsState>()(
   persist(
-    (set, get) => ({
-      tabs: [],
-      activeTabId: null,
+    (set, get) => {
+      return {
+        tabs: [],
+        activeTabId: null,
 
       addTab: (url = '') => {
         const newTab: Tab = {
@@ -75,21 +118,67 @@ export const useTabsStore = create<TabsState>()(
       },
 
       loadUrl: (tabId: string, url: string) => {
-        get().updateTab(tabId, {
-          url,
-          title: url,
-          isLoading: true,
-        });
-
-        // Simulate loading delay
-        setTimeout(() => {
-          get().updateTab(tabId, {
-            title: url || 'New Tab',
-            isLoading: false,
-          });
-        }, 1000);
+        // FIX: DEPRECATED - This method should not be called directly
+        // Navigation should go through CommandController → Backend → navigateTab
+        console.warn('[TabsStore] loadUrl called directly. Use CommandController.handleNavigate() instead.');
+        get().navigateTab(tabId, url);
       },
-    }),
+
+      // FIX: Navigation is backend-owned - only called after backend confirmation
+      navigateTab: (tabId: string, url: string) => {
+        const state = get();
+        const tab = state.tabs.find(t => t.id === tabId);
+        if (!tab) {
+          console.warn(`[tabsStore] Tab ${tabId} not found for navigation`);
+          return;
+        }
+
+        // Update tab state (called only after backend confirms navigation)
+        set((state) => ({
+          ...state,
+          tabs: state.tabs.map(t =>
+            t.id === tabId
+              ? {
+                  ...t,
+                  url,
+                  title: url || 'New Tab', // Will be updated when page loads
+                  isLoading: true,
+                  lastActiveAt: Date.now(),
+                }
+              : t
+          ),
+        }));
+
+        // In real implementation, backend would emit load events
+        // For now, simulate loading - actual navigation happens in iframe/webview
+        setTimeout(() => {
+          try {
+            const hostname = new URL(url).hostname;
+            get().updateTab(tabId, {
+              title: hostname || 'New Tab',
+              isLoading: false,
+            });
+          } catch {
+            get().updateTab(tabId, {
+              title: url || 'New Tab',
+              isLoading: false,
+            });
+          }
+        }, 500);
+      },
+
+      // NEW: Called by backend when navigation is confirmed
+      onNavigationConfirmed: (tabId: string, url: string, title?: string) => {
+        set((state) => ({
+          tabs: state.tabs.map(tab =>
+            tab.id === tabId
+              ? { ...tab, url, title: title || url, isLoading: false }
+              : tab
+          ),
+        }));
+      },
+    };
+    },
     {
       name: 'regen-tabs',
       partialize: (state) => ({

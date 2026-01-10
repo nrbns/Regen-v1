@@ -801,86 +801,40 @@ export function BottomStatus() {
         }
       : undefined;
 
-    const redixUrl = import.meta.env.VITE_REDIX_CORE_URL || 'http://localhost:8001';
-
     try {
-      // Try Redix /workflow endpoint with RAG workflow for better context-aware responses
-      const workflowResponse = await fetch(`${redixUrl}/workflow`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: prompt,
-          context: tabContext ? `Current page: ${tabContext.title} (${tabContext.url})` : '',
-          workflowType: 'rag',
-          options: {
-            useOllama: true, // Prefer local for efficiency
-            stream: false, // Can enable streaming later
-            temperature: 0.7,
-          },
-        }),
-      }).catch(() => null);
+      // FIX: Use CommandController instead of direct fetch/API calls
+      const { useCommandController } = await import('../../hooks/useCommandController');
+      const { executeCommand } = useCommandController();
+      
+      // Route through CommandController - it will handle intent resolution and execution
+      const result = await executeCommand(prompt, {
+        currentUrl: tabContext?.url || window.location.href,
+        selectedText: window.getSelection()?.toString() || '',
+        activeTab: activeId || undefined,
+      });
 
-      if (workflowResponse?.ok) {
-        const workflowData = await workflowResponse.json();
-        setPromptResponse(workflowData.result || 'No response generated.');
-
+      if (result.success) {
+        // Set response from command result
+        if (result.data?.summary || result.data?.analysis || result.data?.response) {
+          setPromptResponse(result.data.summary || result.data.analysis || result.data.response || result.message);
+        } else {
+          setPromptResponse(result.message || 'Response received');
+        }
+        
         // Store eco metrics if available
-        if (workflowData.greenScore !== undefined) {
+        if (result.data?.greenScore !== undefined) {
           setPromptEcoScore({
-            score: workflowData.greenScore,
-            tier: workflowData.greenTier || 'Green',
-            co2Saved: workflowData.co2SavedG || 0,
+            score: result.data.greenScore,
+            tier: result.data.greenTier || 'Green',
+            co2Saved: result.data.co2SavedG || 0,
           });
         }
-        return;
-      }
-
-      // Fallback to Redix /ask endpoint
-      const askResponse = await fetch(`${redixUrl}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: prompt,
-          context: tabContext,
-          options: {
-            provider: 'auto',
-            maxTokens: 500,
-          },
-        }),
-      }).catch(() => null);
-
-      if (askResponse?.ok) {
-        const askData = await askResponse.json();
-        setPromptResponse(askData.text || 'No response generated.');
-
-        // Store eco metrics if available
-        if (askData.greenScore !== undefined) {
-          setPromptEcoScore({
-            score: askData.greenScore,
-            tier: askData.greenTier || 'Green',
-            co2Saved: askData.co2SavedG || 0,
-          });
-        }
-        return;
-      }
-
-      // Final fallback: Use LLM adapter directly
-      try {
-        const { sendPrompt } = await import('../../core/llm/adapter');
-        const contextPrompt = tabContext
-          ? `Context: You are viewing "${tabContext.title}" at ${tabContext.url}\n\nUser question: ${prompt}`
-          : prompt;
-        const response = await sendPrompt(contextPrompt, {
-          systemPrompt: 'You are a helpful AI assistant in a browser. Answer concisely.',
-          maxTokens: 500,
-        });
-        setPromptResponse(response.text);
-      } catch {
-        throw new Error('AI service unavailable. Please check your API keys or Redix server.');
+      } else {
+        setPromptError(result.message || 'Failed to get AI response');
       }
     } catch (error: any) {
       console.error('[BottomStatus] Prompt failed:', error);
-      setPromptError(error.message || 'Failed to get AI response. Check Redix server or API keys.');
+      setPromptError(error.message || 'Failed to get AI response. Check backend server or API keys.');
     } finally {
       setPromptLoading(false);
     }

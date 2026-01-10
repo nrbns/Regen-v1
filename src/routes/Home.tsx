@@ -170,14 +170,17 @@ export default function Home() {
                 className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mb-4 group-hover:bg-purple-500/30 transition-colors"
                 whileHover={{ rotate: -15, scale: 1.1 }}
               >
-                <Bot className="w-6 h-6 text-purple-400" />
+                <Sparkles className="w-6 h-6 text-purple-400" />
               </motion.div>
               <h3 className="text-xl font-semibold text-slate-200 mb-2 group-hover:text-purple-300 transition-colors">
-                Task Runner (Preview)
+                Live Intelligence
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                Run focused AI tasks to analyze content, get insights, and automate actions.
+                Context-aware actions that observe, suggest, and act on your current page.
               </p>
+              <span className="inline-block mt-2 text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">
+                Beta
+              </span>
             </motion.div>
 
             {/* Local Workspace */}

@@ -11,16 +11,21 @@ import { Task } from '../../core/execution/task';
 export class TaskService {
   /**
    * Process user input and create appropriate tasks
+   * NOTE: This should NOT be called directly from UI - use CommandController instead
+   * This method is kept for backward compatibility but should be deprecated
    */
   static async processUserInput(input: string): Promise<Task> {
+    console.warn('[TaskService] processUserInput called directly. Use CommandController.handleCommand() instead.');
+    
     // Detect intent from user input
     const intent = await this.detectIntent(input);
 
     // Create task immediately
     const task = createTask(intent);
 
-    // Start processing in background
-    this.executeTask(task, input);
+    // FIX: Do NOT start background processing - this violates single-run rule
+    // Tasks should only be executed through CommandController
+    // this.executeTask(task, input); // REMOVED - background processing not allowed
 
     return task;
   }

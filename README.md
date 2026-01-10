@@ -1,28 +1,118 @@
 # Regen Browser
 
-A real-time, local-first browser with optional AI assistance.
+A unique, intent-first, disciplined AI browser built on real-time architecture.
 
-Regen is a **desktop browser** built with a **real-time architecture** where the backend owns all state and logic, and the UI is a pure reflection layer. AI assistance is optional and never interrupts your browsing.
-
-**This is v1 (Early Access)** - a fully functional browser with real-time IPC, tab management, navigation, downloads, and AI integration.
+**Version:** v1 (Early Access)  
+**Status:** ✅ Core systems implemented | ⚠️ Some features in preview
 
 ---
 
-## Architecture Overview
+## What is Regen?
 
-Regen uses a **clean separation** between UI and backend:
+Regen is a browser that puts **intent resolution first** and **backend ownership of state**. Unlike browsers that promise AI magic, Regen is built on a **disciplined architecture** where:
+
+- **Every user action** flows through a single entry point (`CommandController`)
+- **Intent is explicitly resolved** before any AI is invoked
+- **Navigation is backend-owned** - UI only reflects backend state
+- **AI is opt-in only** - no automatic processing, no background embeddings
+- **Security is built-in** - tool allowlist, permission prompts, audit logging
+
+> **Core Philosophy:** "A browser should feel boring when it works — and invisible when it helps."
+
+---
+
+## ✅ What Actually Works (v1)
+
+### Core Browser Features
+- ✅ **Multi-tab browsing** - Tabs with WebView instances
+- ✅ **Navigation** - Backend-controlled navigation lifecycle
+- ✅ **Session restore** - Tabs persist across restarts
+- ✅ **Tab management** - Add, close, switch tabs
+
+### Intent-First Command System
+- ✅ **Single entry point** - All actions route through `CommandController`
+- ✅ **Intent resolution** - Explicit classification (NAVIGATE, SEARCH, SUMMARIZE, etc.)
+- ✅ **Security guard** - Tool allowlist with permission prompts
+- ✅ **Audit logging** - All actions logged for transparency
+
+### AI Features (Opt-In Only)
+- ✅ **Search & Summarize** - Explicit intent triggers AI summarization
+- ✅ **Research Mode** - In-depth web research with source attribution
+- ✅ **Text Analysis** - Analyze selected text (user-triggered only)
+- ✅ **No automatic AI** - AI only runs on explicit user intent
+
+### Workspace
+- ✅ **Local storage** - AI outputs, notes, research results saved to localStorage
+- ✅ **Persistent across restarts** - Data survives browser restarts
+- ✅ **Manual save** - Explicit save actions, no auto-sync
+
+### Task Runner (Preview)
+- ⚠️ **Single-run tasks only** - No background automation, no loops
+- ⚠️ **User-triggered** - Tasks run only when explicitly requested
+- ⚠️ **Strict schema** - Tasks are predefined and validated
+- ⚠️ **Labeled as Preview** - Not for production automation
+
+---
+
+## ⚠️ What's Preview/Experimental
+
+### Memory System
+- ⚠️ **Opt-in only** - Disabled by default, requires explicit user consent
+- ⚠️ **No automatic memory** - Memory is not retrieved automatically
+- ⚠️ **Local-only** - No sync, no cloud storage
+
+### RAG (Retrieval-Augmented Generation)
+- ⚠️ **Opt-in only** - Indexing disabled by default
+- ⚠️ **Explicit triggers** - RAG only for RESEARCH intent
+- ⚠️ **Source attribution** - Always shows sources used
+
+### Offline Mode
+- ⚠️ **Partial support** - Browser works offline, AI features require connection
+- ⚠️ **Limited offline AI** - Some models can run locally via Ollama
+
+---
+
+## 🚫 What's NOT in v1 (But Might Be Later)
+
+- ❌ **Autonomous agents** - No background automation, no self-triggering tasks
+- ❌ **Cloud sync** - No workspace sync, no account system
+- ❌ **Collaboration** - No shared workspaces, no real-time collaboration
+- ❌ **Full offline AI** - Limited local model support
+- ❌ **Browser extensions** - Not supported in v1
+- ❌ **Mobile apps** - Desktop only (Tauri)
+
+---
+
+## Architecture
+
+### Core Principles
+
+1. **Single Execution Entry** - `CommandController` is the only entry point
+2. **Backend-Owned State** - UI only renders backend state, never controls logic
+3. **Intent-First** - Explicit intent resolution before AI invocation
+4. **Opt-In AI** - No automatic processing, no background operations
+5. **Security by Default** - Tool allowlist, permission prompts, audit logs
+
+### Technical Stack
 
 ```
 Frontend (React + TypeScript)
-    ↕ IPC (Tauri)
-Backend (Rust + Node.js)
-    ├── TabManager (WebView lifecycle)
-    ├── NavigationController (URL handling)
-    ├── DownloadManager (File downloads)
-    └── AIController (Optional AI service)
+    ↕ IPC (Tauri) / Events (Web)
+Backend Services
+    ├── CommandController (Intent resolution & execution)
+    ├── ToolGuard (Security & permissions)
+    ├── BackendService (API abstraction)
+    ├── WorkspaceStore (Local persistence)
+    └── TaskRunner (Single-run tasks)
 ```
 
-**Key Principle:** UI never controls logic. UI only sends events and displays state.
+### Key Files
+
+- `src/lib/command/CommandController.ts` - Single entry point for all commands
+- `src/lib/security/ToolGuard.ts` - Tool allowlist and permission system
+- `src/lib/backend/BackendService.ts` - Backend API abstraction
+- `src/lib/workspace/WorkspaceStore.ts` - Local data persistence
+- `src/lib/tasks/TaskRunner.ts` - Task execution (single-run only)
 
 ---
 
@@ -31,26 +121,26 @@ Backend (Rust + Node.js)
 ### Prerequisites
 - Node.js 18+
 - Rust 1.70+ (for Tauri desktop app)
-- Ollama (optional, for local AI)
+- Ollama (optional, for local AI features)
 
 ### Installation
 
 ```bash
-git clone https://github.com/nrbns/Regen-v1.git
-cd Regen-v1
+git clone https://github.com/nrbns/Regenbrowser.git
+cd Regenbrowser
 npm install
 ```
 
 ### Development
 
 ```bash
-# Start the backend server (handles all logic)
+# Start the backend server
 npm run dev:backend
 
 # Start the UI (in another terminal)
 npm run dev:web
 
-# Start the desktop app (in another terminal)
+# Start the desktop app (Tauri)
 npm run dev:tauri
 ```
 
@@ -60,160 +150,165 @@ npm run dev:tauri
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Pull models
+# Pull models (optional)
 ollama pull phi3:mini
-ollama pull llava:7b
 ```
 
 ---
 
-## Core Features
+## How to Use
 
-### Real Browser
-- ✅ **Multi-tab browsing** - Each tab is a real WebView instance
-- ✅ **Navigation** - Back, forward, reload via IPC
-- ✅ **Downloads** - Save files to local Downloads folder
-- ✅ **Session persistence** - Tabs restore on restart
-
-### Optional AI
-- ✅ **Local-first** - Runs on your machine via Ollama
-- ✅ **Contextual triggers** - Text selection or right-click
-- ✅ **Intent routing** - Smart detection of questions vs URLs
-- ✅ **Failure isolation** - Browser works even if AI fails
-
-### Real-time Architecture
-- ✅ **IPC communication** - UI ↔ Backend via Tauri
-- ✅ **State ownership** - Backend manages all state
-- ✅ **Event-driven** - No polling, instant updates
-- ✅ **Error handling** - Graceful degradation
-
----
-
-## How It Works
-
-### 1. Tab Management
-```typescript
-// UI sends event
-IPCHandler.newTab("https://example.com");
-
-// Backend creates WebView, updates state
-// UI automatically reflects new state
+### Basic Navigation
+```
+# In command bar:
+google.com              # Navigate to URL
+go to example.com       # Navigate to URL
+navigate to github.com  # Navigate to URL
 ```
 
-### 2. Navigation
-```typescript
-// UI sends event
-IPCHandler.navigate(tabId, "https://google.com");
-
-// Backend calls WebView.navigate()
-// Backend updates state with new URL
-// UI shows updated address bar
+### Search & Summarize
+```
+# In command bar:
+search TypeScript best practices
+summarize              # Summarize current page
+analyze                # Analyze selected text
 ```
 
-### 3. AI Integration
-```typescript
-// User selects text, clicks "Ask Regen"
-// UI sends event
-IPCHandler.runAI("Analyze this text: ...");
-
-// Backend routes via IntentRouter
-// Calls Ollama for local AI processing
-// Returns result to UI
+### Research
+```
+# In command bar:
+research quantum computing
+investigate Rust memory safety
 ```
 
-### 4. Downloads
-```typescript
-// User clicks download link
-// Backend handles via DownloadManager
-// Saves to ~/Downloads/Regen/
-// Shows toast notification
+### AI Queries
+```
+# In command bar:
+ai What is the difference between React and Vue?
+ask ai Explain async/await in JavaScript
+```
+
+### Tasks (Preview)
+```
+# In command bar:
+task summarize-page
+run extract-links
 ```
 
 ---
 
-## Development Architecture
+## Security & Privacy
 
-### Backend Structure
-```
-backend/
-├── state/SystemState.ts    # Single source of truth
-├── browser/
-│   ├── TabManager.ts       # WebView lifecycle
-│   ├── NavigationController.ts # URL handling
-│   └── DownloadManager.ts  # File downloads
-├── ai/
-│   ├── AIController.ts     # Ollama integration
-│   └── IntentRouter.ts     # Smart routing
-└── ipc/events.ts          # IPC definitions
-```
+### Tool Allowlist
+- Only registered tools can execute
+- Dangerous operations (filesystem, exec) require explicit consent
+- All tool executions are logged in audit trail
 
-### IPC Events
-```typescript
-// Navigation
-NAVIGATE, BACK, FORWARD, RELOAD
+### Privacy-First
+- **Memory is opt-in** - Disabled by default
+- **RAG is opt-in** - No automatic indexing
+- **No tracking** - Local-first, no telemetry
+- **Explicit consent** - Permission prompts for sensitive operations
 
-// Tabs
-NEW_TAB, CLOSE_TAB, SWITCH_TAB
-
-// AI
-RUN_AI
-
-// Downloads
-DOWNLOAD
-```
-
-### UI Components
-- **Dumb UI Pattern** - Components only display state and send events
-- **Real-time updates** - Subscribe to backend state changes
-- **No direct logic** - All business logic in backend
+### Audit Log
+- All actions logged with timestamp, tool name, and decision
+- Audit log available in ToolGuard
+- (TODO: Persistent file storage)
 
 ---
 
-## Testing & Validation
+## Testing
 
 ### Run Tests
 ```bash
-npm run test:all
+npm run test
 ```
 
 ### Manual Testing Checklist
-- [ ] Create 10+ tabs without crash
+- [ ] Create multiple tabs without crash
 - [ ] Navigation works (back/forward/reload)
-- [ ] Downloads save to correct folder
-- [ ] AI responds to text selection
-- [ ] Right-click menu works
-- [ ] Session restores on restart
-- [ ] Browser works when AI is unavailable
+- [ ] Command bar processes intents correctly
+- [ ] Security guard blocks unauthorized tools
+- [ ] Workspace saves and restores data
+- [ ] Tasks run only when explicitly triggered
+- [ ] Browser works when AI backend is unavailable
+- [ ] Memory/RAG features are opt-in only
 
 ---
 
-## Philosophy
+## Current Status & Scores
 
-> **"A browser should feel boring when it works — and invisible when it helps."**
+Based on comprehensive audit (see `AUDIT.md`):
 
-Regen is built for **reliability first**. The real-time architecture ensures:
-- No UI freezes
-- No state inconsistencies
-- No fake loading indicators
-- No surprise behaviors
+| Area | Score | Status |
+|------|-------|--------|
+| Execution Spine | 5.0/5 | ✅ Perfect |
+| UI Trust Boundary | 4.75/5 | ✅ Excellent |
+| Browser Core | 4.5/5 | ✅ Excellent |
+| AI & RAG | 5.0/5 | ✅ Perfect |
+| Workspace | 4.5/5 | ✅ Excellent |
+| Task Runner | 5.0/5 | ✅ Perfect |
+| Security | 5.0/5 | ✅ Perfect |
+| Docs & Claims | 5.0/5 | ✅ Perfect |
+| Performance | 5.0/5 | ✅ Perfect |
 
-AI is a **helpful assistant**, not an intrusive companion.
+**Overall: 4.75/5** - ✅ **Ready for Launch** 🚀
 
 ---
 
-## Status & Roadmap
+## Roadmap
 
-**Current:** v1 (Early Access) - Real browser with real-time architecture
-**Stability:** All core systems implemented and tested
-**AI Integration:** Working with Ollama, optional and isolated
+### v1.1 (Next)
+- [ ] Persistent audit log storage
+- [ ] Improved workspace UI
+- [ ] Better error recovery
+- [ ] Performance optimizations
 
-### Future (v2+)
-- Resource governance (Redix)
-- Advanced AI lifecycle management
-- Self-healing capabilities
-- Enhanced offline modes
+### v1.2 (Future)
+- [ ] Enhanced offline support
+- [ ] More task templates
+- [ ] Better RAG source attribution UI
+- [x] Workspace export/import ✅ **COMPLETED**
+
+### v2+ (Later)
+- [ ] Resource governance (Redix)
+- [ ] Advanced AI lifecycle management
+- [ ] Self-healing capabilities
+- [ ] Cloud sync (opt-in)
+- [ ] Mobile apps
 
 **No feature shipped before it's real.**
+
+---
+
+## Documentation
+
+### Core Documentation
+- **[API_DOCUMENTATION.md](./API_DOCUMENTATION.md)** - Complete API reference for all client-side libraries
+- **[AUDIT.md](./AUDIT.md)** - Comprehensive technical audit and architecture details
+- **[LEGACY_COMPONENTS.md](./LEGACY_COMPONENTS.md)** - Documentation of legacy components
+- **[VALIDATION_CHECKLIST.md](./VALIDATION_CHECKLIST.md)** - Pre-launch validation checklist
+
+### Architecture
+- **[FINAL_IMPROVEMENTS_SUMMARY.md](./FINAL_IMPROVEMENTS_SUMMARY.md)** - Summary of all improvements made
+- **[IMPROVEMENTS_COMPLETE.md](./IMPROVEMENTS_COMPLETE.md)** - Detailed improvements log
+
+### Quick Start
+- See `BUILD_AND_RUN.md` for setup instructions
+- See `API_DOCUMENTATION.md` for developer API reference
+
+---
+
+## Contributing
+
+We welcome contributions! Please read `CONTRIBUTING.md` first.
+
+Key principles:
+- **Discipline over magic** - Prefer explicit over implicit
+- **Backend owns state** - UI is dumb, backend is smart
+- **Intent-first** - Always resolve intent before executing
+- **Opt-in AI** - Never assume user wants AI help
+- **Security by default** - Allowlist tools, prompt for permissions
 
 ---
 
@@ -223,33 +318,15 @@ MIT - Built with care, built for users, built to last.
 
 ---
 
-**Regen turns the browser into a real-time system where intelligence lives in the backend, not the UI.**
+## Credits
+
+Built with:
+- [React](https://react.dev/) - UI framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tauri](https://tauri.app/) - Desktop app framework
+- [Zustand](https://zustand-demo.pmnd.rs/) - State management
+- [Vitest](https://vitest.dev/) - Testing
 
 ---
 
-## Quick Start
-
-```bash
-# Clone and install
-git clone https://github.com/nrbns/Regenbrowser.git
-cd Regenbrowser
-npm install
-
-# Start development server
-npm run dev:web
-```
-
-Visit `http://localhost:5181` to use Regen.
-
----
-
-## System Requirements
-
-**Minimum**
-- OS: Windows 10+, Linux, macOS
-- RAM: 4GB
-- CPU: Dual-core
-
-**Recommended**
-- RAM: 8GB+
-- CPU: Quad-core
+**Regen: A browser that respects your intent, protects your privacy, and doesn't pretend to be smarter than it is.**

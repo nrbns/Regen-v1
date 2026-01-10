@@ -5,15 +5,19 @@
 
 import { backendService } from '../backend/BackendService';
 import { workspaceStore } from '../workspace/WorkspaceStore';
+import { toolGuard } from '../security/ToolGuard';
+import { intentRouter, type ResolvedIntent } from './IntentRouter';
 
 export type SystemStatus = 'idle' | 'working' | 'recovering';
 
 export type CommandIntent = 
   | { type: 'NAVIGATE'; url: string }
   | { type: 'SEARCH'; query: string }
+  | { type: 'RESEARCH'; query: string; options?: Record<string, any> }
   | { type: 'SUMMARIZE_PAGE'; url?: string }
   | { type: 'ANALYZE_TEXT'; text: string }
   | { type: 'TASK_RUN'; task: string; params?: Record<string, any> }
+  | { type: 'AI_QUERY'; query: string; context?: Record<string, any> }
   | { type: 'UNKNOWN'; input: string };
 
 export interface CommandResult {
@@ -37,6 +41,13 @@ class CommandController {
 
   /**
    * Main command handler - single entry point
+   * 
+   * Flow:
+   * 1. Resolve intent via IntentRouter (ALWAYS before AI execution)
+   * 2. Check if planning is required (explicit threshold)
+   * 3. Execute directly OR route to planner
+   * 4. Apply security guard
+   * 5. Execute action
    */
   async handleCommand(input: string, context: CommandContext = {}): Promise<CommandResult> {
     if (!input.trim()) {
@@ -47,14 +58,29 @@ class CommandController {
     this.setStatus('working');
 
     try {
-      // Resolve intent
-      const intent = this.resolveIntent(input, context);
+      // STEP 1: Resolve intent via IntentRouter (ALWAYS before AI execution)
+      // This is the single source of truth for intent resolution
+      const resolvedIntent = intentRouter.resolve(input, context);
 
-      // Execute based on intent
-      const result = await this.executeIntent(intent, context);
+      // STEP 2: Check if planning is required (explicit threshold)
+      const needsPlanning = this.shouldUsePlanner(resolvedIntent);
 
-      // Update last action
-      this.setLastAction(this.getActionDescription(intent, result));
+      // STEP 3: Execute directly OR route to planner
+      // Simple intents: Direct execution (no planner)
+      // Complex intents: Route to planner (multi-step queries)
+      let result: CommandResult;
+
+      if (needsPlanning && resolvedIntent.type !== 'TASK_RUN') {
+        // Complex query requiring multi-step planning
+        result = await this.executeWithPlanning(resolvedIntent, context);
+      } else {
+        // Simple intent: Direct execution (no planner needed)
+        result = await this.executeIntentDirect(resolvedIntent, context);
+      }
+
+      // Update last action (convert ResolvedIntent to CommandIntent for description)
+      const commandIntent = this.convertToCommandIntent(resolvedIntent);
+      this.setLastAction(this.getActionDescription(commandIntent, result));
 
       // Show toast notification
       if (typeof window !== 'undefined') {
@@ -84,40 +110,118 @@ class CommandController {
   }
 
   /**
-   * Resolve user input to a command intent
+   * Check if intent requires planner (explicit threshold)
+   * 
+   * Planner threshold: Only multi-step, complex queries use planner.
+   * Simple, single-step intents execute directly.
+   * 
+   * Rules:
+   * - RESEARCH intents: Always use planner (multi-step)
+   * - Queries with "and then", "after that", etc.: Use planner
+   * - Simple NAVIGATE, SEARCH, SUMMARIZE: Direct execution (no planner)
+   * - TASK_RUN: Direct execution (tasks are pre-defined)
    */
-  private resolveIntent(input: string, context: CommandContext): CommandIntent {
-    const lowerInput = input.toLowerCase().trim();
-
-    // Navigation patterns
-    if (lowerInput.startsWith('http://') || lowerInput.startsWith('https://')) {
-      return { type: 'NAVIGATE', url: input.trim() };
+  private shouldUsePlanner(intent: ResolvedIntent): boolean {
+    // RESEARCH intents always require planning (multi-step)
+    if (intent.type === 'RESEARCH') {
+      return true;
     }
 
-    // Search patterns
-    if (lowerInput.startsWith('search ') || lowerInput.startsWith('find ')) {
-      const query = input.replace(/^(search|find)\s+/i, '').trim();
-      return { type: 'SEARCH', query };
+    // Check if intent explicitly requires planning (from IntentRouter)
+    if (intent.requiresPlanning) {
+      return true;
     }
 
-    // Summarize patterns
-    if (lowerInput.includes('summarize') || lowerInput.includes('summary')) {
-      return { type: 'SUMMARIZE_PAGE', url: context.currentUrl };
-    }
+    // Check for multi-step keywords in query
+    const query = intent.data.query || '';
+    const multiStepKeywords = [
+      'and then',
+      'after that',
+      'followed by',
+      'next',
+      'then',
+      'also',
+      'plus',
+    ];
 
-    // Analyze text patterns
-    if (lowerInput.includes('analyze') && context.selectedText) {
-      return { type: 'ANALYZE_TEXT', text: context.selectedText };
-    }
+    const hasMultiStep = multiStepKeywords.some(keyword =>
+      query.toLowerCase().includes(keyword)
+    );
 
-    // Task patterns
-    if (lowerInput.startsWith('task ') || lowerInput.startsWith('run ')) {
-      const task = input.replace(/^(task|run)\s+/i, '').trim();
-      return { type: 'TASK_RUN', task };
-    }
+    return hasMultiStep;
+  }
 
-    // Default: treat as search
-    return { type: 'SEARCH', query: input };
+  /**
+   * Execute intent with planning (for complex, multi-step queries)
+   * 
+   * For v1: We execute directly but log that planner would be used in v2
+   * For v2: Route to TaskPlanner for multi-step execution
+   */
+  private async executeWithPlanning(
+    intent: ResolvedIntent,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    // For v1: Execute directly (planner integration in v2)
+    // Log that this would use planner in v2
+    console.log('[CommandController] Complex query detected, would use planner in v2:', {
+      intent: intent.type,
+      requiresPlanning: intent.requiresPlanning,
+      confidence: intent.confidence,
+    });
+
+    // For now, execute directly but acknowledge planning requirement
+    return this.executeIntentDirect(intent, context);
+  }
+
+  /**
+   * Execute intent directly (no planner)
+   * 
+   * This is the fast path for simple, single-step intents.
+   */
+  private async executeIntentDirect(
+    intent: ResolvedIntent,
+    context: CommandContext
+  ): Promise<CommandResult> {
+    // Convert ResolvedIntent (from IntentRouter) to CommandIntent (for execution)
+    const commandIntent = this.convertToCommandIntent(intent);
+
+    // Execute based on intent type
+    return this.executeIntent(commandIntent, context);
+  }
+
+  /**
+   * Convert ResolvedIntent (from IntentRouter) to CommandIntent (for execution)
+   */
+  private convertToCommandIntent(intent: ResolvedIntent): CommandIntent {
+    switch (intent.type) {
+      case 'NAVIGATE':
+        return { type: 'NAVIGATE', url: intent.data.url || '' };
+      case 'SEARCH':
+        return { type: 'SEARCH', query: intent.data.query || '' };
+      case 'RESEARCH':
+        return { type: 'RESEARCH', query: intent.data.query || '', options: intent.data.options };
+      case 'SUMMARIZE_PAGE':
+        return { type: 'SUMMARIZE_PAGE', url: intent.data.url };
+      case 'ANALYZE_TEXT':
+        return { type: 'ANALYZE_TEXT', text: intent.data.text || '' };
+      case 'TASK_RUN':
+        return { type: 'TASK_RUN', task: intent.data.task || '', params: intent.data.options };
+      case 'AI_QUERY':
+        return { type: 'AI_QUERY', query: intent.data.query || '', context: intent.data.context };
+      default:
+        return { type: 'UNKNOWN', input: intent.data.query || '' };
+    }
+  }
+
+  /**
+   * @deprecated Use IntentRouter.resolve() instead
+   * This method is kept for backward compatibility but should not be used.
+   * All intent resolution now goes through IntentRouter.
+   */
+  private resolveIntentLegacy(input: string, context: CommandContext): CommandIntent {
+    // Legacy implementation - kept for reference only
+    const resolvedIntent = intentRouter.resolve(input, context);
+    return this.convertToCommandIntent(resolvedIntent);
   }
 
   /**
@@ -126,10 +230,13 @@ class CommandController {
   private async executeIntent(intent: CommandIntent, context: CommandContext): Promise<CommandResult> {
     switch (intent.type) {
       case 'NAVIGATE':
-        return this.handleNavigate(intent.url);
+        return this.handleNavigate(intent.url, context);
       
       case 'SEARCH':
         return this.handleSearch(intent.query);
+      
+      case 'RESEARCH':
+        return this.handleResearch(intent.query, intent.options);
       
       case 'SUMMARIZE_PAGE': {
         const result = await this.handleSummarize(intent.url || context.currentUrl);
@@ -151,6 +258,9 @@ class CommandController {
       case 'ANALYZE_TEXT':
         return this.handleAnalyzeText(intent.text);
       
+      case 'AI_QUERY':
+        return this.handleAIQuery(intent.query, intent.context);
+      
       case 'TASK_RUN':
         return this.handleTaskRun(intent.task, intent.params);
       
@@ -160,9 +270,10 @@ class CommandController {
   }
 
   /**
-   * Handle navigation
+   * Handle navigation (backend-owned)
+   * FIX: Navigation is now backend-controlled, not UI-controlled
    */
-  private async handleNavigate(url: string): Promise<CommandResult> {
+  private async handleNavigate(url: string, context?: CommandContext): Promise<CommandResult> {
     // Normalize URL
     let normalizedUrl = url.trim();
     if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
@@ -170,21 +281,106 @@ class CommandController {
     }
 
     try {
-      // Validate URL
+      // Validate URL format
       new URL(normalizedUrl);
-
-      // In a real browser, this would trigger navigation
-      // For now, we'll return success and let the UI handle navigation
-      return {
-        success: true,
-        message: `Navigating to ${normalizedUrl}`,
-        data: { url: normalizedUrl }
-      };
     } catch (error) {
       return {
         success: false,
         message: `Invalid URL: ${url}`,
         error: 'Invalid URL format'
+      };
+    }
+
+    try {
+      // Use ToolGuard to secure navigation execution
+      const tabId = context?.activeTab || null;
+      
+      await toolGuard.executeTool(
+        'navigate',
+        { url: normalizedUrl },
+        async (input) => {
+          // FIX: Navigation is now backend-owned
+          // In Tauri mode: Use IPC for real backend navigation
+          // In web mode: Emit navigation event and simulate backend confirmation
+          
+          if (typeof window !== 'undefined') {
+            const isTauri = !!(window as any).__TAURI__;
+            
+            if (isTauri) {
+              // Tauri mode: Use IPC for real backend navigation
+              try {
+                const { invoke } = await import('@tauri-apps/api/core');
+                const result = await invoke('tabs:navigate', {
+                  url: input.url,
+                  tabId: tabId,
+                });
+                
+                // Backend confirmed navigation - emit confirmation event
+                if (result && (result as any).success !== false) {
+                  setTimeout(() => {
+                    const confirmEvent = new CustomEvent('regen:navigate:confirmed', {
+                      detail: {
+                        url: input.url,
+                        tabId: tabId,
+                        success: true,
+                        title: (result as any).title || new URL(input.url).hostname,
+                        timestamp: Date.now(),
+                      },
+                    });
+                    window.dispatchEvent(confirmEvent);
+                  }, 100);
+                }
+                
+                return { success: true, url: input.url };
+              } catch (ipcError) {
+                console.error('[CommandController] IPC navigation failed:', ipcError);
+                throw ipcError;
+              }
+            } else {
+              // Web mode: Emit navigation request event
+              const navRequestEvent = new CustomEvent('regen:navigate:request', {
+                detail: {
+                  url: input.url,
+                  tabId: tabId,
+                  timestamp: Date.now(),
+                },
+              });
+              window.dispatchEvent(navRequestEvent);
+              
+              // In web mode, navigation happens immediately (browser handles it)
+              // Emit confirmation after short delay to simulate backend confirmation
+              setTimeout(() => {
+                const confirmEvent = new CustomEvent('regen:navigate:confirmed', {
+                  detail: {
+                    url: input.url,
+                    tabId: tabId,
+                    success: true,
+                    title: new URL(input.url).hostname,
+                    timestamp: Date.now(),
+                  },
+                });
+                window.dispatchEvent(confirmEvent);
+              }, 100);
+              
+              return { success: true, url: input.url };
+            }
+          }
+          
+          return { success: true, url: input.url };
+        },
+        { tabId: tabId || undefined }
+      );
+
+      return {
+        success: true,
+        message: `Navigating to ${normalizedUrl}`,
+        data: { url: normalizedUrl, confirmed: false } // UI will update on confirmation event
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Navigation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -194,9 +390,23 @@ class CommandController {
    */
   private async handleSearch(query: string): Promise<CommandResult> {
     try {
-      const results = await backendService.search(query);
+      // Trigger search event for AI Sidebar
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('regen:search'));
+      }
       
-      if (results.length > 0) {
+      // Use ToolGuard to secure search execution
+      const results = await toolGuard.executeTool(
+        'search',
+        { query },
+        async (input) => {
+          const searchResults = await backendService.search(input.query);
+          return searchResults;
+        },
+        { tabId: undefined }
+      );
+      
+      if (results && results.length > 0) {
         return {
           success: true,
           message: `Found ${results.length} results for: ${query}`,
@@ -227,8 +437,16 @@ class CommandController {
     }
 
     try {
-      // Step 1: Scrape the page
-      const scrapeResult = await backendService.scrapeUrl(url);
+      // Step 1: Scrape the page (requires consent)
+      const scrapeResult = await toolGuard.executeTool(
+        'scrape',
+        { url },
+        async (input) => {
+          const result = await backendService.scrapeUrl(input.url);
+          return result;
+        },
+        { tabId: undefined }
+      );
       
       if (!scrapeResult || !scrapeResult.text) {
         return {
@@ -239,7 +457,15 @@ class CommandController {
       }
 
       // Step 2: Summarize the content
-      const summary = await backendService.summarize(scrapeResult.text, url);
+      const summary = await toolGuard.executeTool(
+        'summarize',
+        { text: scrapeResult.text, url },
+        async (input) => {
+          const result = await backendService.summarize(input.text, input.url);
+          return result;
+        },
+        { tabId: undefined }
+      );
 
       return {
         success: true,
@@ -269,7 +495,15 @@ class CommandController {
     }
 
     try {
-      const analysis = await backendService.analyzeText(text);
+      const analysis = await toolGuard.executeTool(
+        'analyze',
+        { text },
+        async (input) => {
+          const result = await backendService.analyzeText(input.text);
+          return result;
+        },
+        { tabId: undefined }
+      );
 
       return {
         success: true,
@@ -286,20 +520,130 @@ class CommandController {
   }
 
   /**
+   * Handle research (deep search with sources)
+   */
+  private async handleResearch(query: string, options?: Record<string, any>): Promise<CommandResult> {
+    try {
+      // Use ToolGuard to secure research execution
+      const { researchApi } = await import('../api-client');
+      
+      const results = await toolGuard.executeTool(
+        'hybridSearch',
+        { query, ...options },
+        async (input) => {
+          const researchResults = await researchApi.queryEnhanced({
+            query: input.query,
+            maxSources: input.maxSources || 12,
+            includeCounterpoints: input.includeCounterpoints || false,
+            recencyWeight: input.recencyWeight || 0.3,
+            authorityWeight: input.authorityWeight || 0.4,
+            language: input.language,
+          });
+          return researchResults;
+        },
+        { tabId: undefined }
+      );
+
+      if (results && (results.sources?.length > 0 || results.summary)) {
+        return {
+          success: true,
+          message: `Research completed: Found ${results.sources?.length || 0} sources`,
+          data: { query, ...results }
+        };
+      } else {
+        return {
+          success: false,
+          message: `No research results found for: ${query}`,
+          data: { query }
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `Research failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Handle AI query (general AI questions)
+   */
+  private async handleAIQuery(query: string, context?: Record<string, any>): Promise<CommandResult> {
+    try {
+      // Use ToolGuard to secure AI query execution
+      const results = await toolGuard.executeTool(
+        'chat',
+        { query, context },
+        async (input) => {
+          // Route to backend AI task endpoint
+          const { backendService } = await import('../backend/BackendService');
+          const aiResult = await backendService.aiTask('chat', { 
+            query: input.query,
+            context: input.context 
+          });
+          return aiResult.data?.text || aiResult.message || 'No response generated';
+        },
+        { tabId: undefined }
+      );
+
+      return {
+        success: true,
+        message: 'AI query completed',
+        data: { query, response: results }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `AI query failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Handle task execution
    */
   private async handleTaskRun(task: string, params?: Record<string, any>): Promise<CommandResult> {
-    // In real implementation, this would:
-    // 1. Validate task exists
-    // 2. Check permissions
-    // 3. Execute single-run task
-    // 4. Return result
+    try {
+      // Validate task exists and is allowed
+      const taskName = task.toLowerCase().replace(/\s+/g, '_');
+      
+      // Map task names to tool names
+      const taskToToolMap: Record<string, string> = {
+        'summarize_page': 'summarize',
+        'extract_links': 'scrape',
+        'analyze_content': 'analyze',
+      };
+      
+      const toolName = taskToToolMap[taskName] || taskName;
+      
+      // Execute task through ToolGuard
+      const result = await toolGuard.executeTool(
+        toolName,
+        params || {},
+        async (input) => {
+          // Task execution logic should be handled by TaskRunner
+          // This is a simplified version - in production, route to TaskRunner
+          const { taskRunner } = await import('../tasks/TaskRunner');
+          const execution = await taskRunner.executeTask(task, params);
+          return execution.result;
+        },
+        { tabId: undefined }
+      );
 
-    return {
-      success: true,
-      message: `Task executed: ${task}`,
-      data: { task, params }
-    };
+      return {
+        success: true,
+        message: `Task executed: ${task}`,
+        data: { task, params, result }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Task execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**
@@ -315,10 +659,14 @@ class CommandController {
         return `Navigated to page`;
       case 'SEARCH':
         return `Searched: ${intent.query}`;
+      case 'RESEARCH':
+        return `Researched: ${intent.query}`;
       case 'SUMMARIZE_PAGE':
         return `Summarized page`;
       case 'ANALYZE_TEXT':
         return `Analyzed text`;
+      case 'AI_QUERY':
+        return `AI query: ${intent.query.substring(0, 50)}...`;
       case 'TASK_RUN':
         return `Ran task: ${intent.task}`;
       default:

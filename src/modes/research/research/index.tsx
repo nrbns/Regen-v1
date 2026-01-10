@@ -1361,27 +1361,33 @@ export default function ResearchPanel() {
             }
           }
 
+          // FIX: Use CommandController instead of direct API call
           // Fallback to HTTP API if Tauri IPC not available or failed
           // Always try backend API - it may be running even in web mode
           if (!backendResult) {
             try {
-              console.log('[Research] Attempting HTTP API call to backend...');
-              backendResult = await researchApi.queryEnhanced({
-                query: searchQuery,
-                maxSources: 12,
-                includeCounterpoints,
-                recencyWeight,
-                authorityWeight,
-                language: language !== 'auto' ? language : undefined,
+              console.log('[Research] Routing through CommandController...');
+              const { useCommandController } = await import('../../../hooks/useCommandController');
+              const { executeCommand } = useCommandController();
+              
+              const commandResult = await executeCommand(`research ${searchQuery}`, {
+                currentUrl: window.location.href,
               });
-              console.log(
-                '[Research] Backend API returned result:',
-                backendResult ? 'success' : 'empty'
-              );
+
+              if (commandResult.success && commandResult.data) {
+                backendResult = {
+                  summary: commandResult.data.summary || commandResult.message,
+                  sources: commandResult.data.sources || [],
+                  citations: commandResult.data.citations || 0,
+                };
+                console.log('[Research] CommandController returned result:', backendResult ? 'success' : 'empty');
+              } else {
+                throw new Error(commandResult.message || 'Research failed');
+              }
             } catch (apiError) {
               // Log the error for debugging
               const errorMsg = apiError instanceof Error ? apiError.message : String(apiError);
-              console.warn('[Research] Backend API call failed (will use fallback):', errorMsg);
+              console.warn('[Research] CommandController call failed (will use fallback):', errorMsg);
 
               // Show user-friendly message if backend is clearly offline
               if (

@@ -359,22 +359,32 @@ export default function AgentConsole() {
       }));
     }
 
-    // Fetch relevant memories for context
+    // FIX: Memory retrieval is now opt-in only (requires explicit user consent)
+    // Only fetch memories if user has explicitly enabled memory features
+    // In v1, memory is disabled by default for privacy
     let relevantMemories: any[] = [];
-    try {
-      const memoryMatches = await semanticSearchMemories(trimmedQuery, {
-        limit: 5,
-        minSimilarity: 0.6,
-      });
-      relevantMemories = memoryMatches.map(m => ({
-        value: m.event.value,
-        metadata: m.event.metadata,
-        id: m.event.id,
-        type: m.event.type,
-        similarity: m.similarity,
-      }));
-    } catch (error) {
-      console.warn('[AgentConsole] Failed to fetch memory context:', error);
+    
+    // Check if memory is enabled in settings (opt-in)
+    const memoryEnabled = false; // TODO: Add setting for memory opt-in
+    if (memoryEnabled) {
+      try {
+        const memoryMatches = await semanticSearchMemories(trimmedQuery, {
+          limit: 5,
+          minSimilarity: 0.6,
+        });
+        relevantMemories = memoryMatches.map(m => ({
+          value: m.event.value,
+          metadata: m.event.metadata,
+          id: m.event.id,
+          type: m.event.type,
+          similarity: m.similarity,
+        }));
+        console.log('[AgentConsole] Memory context retrieved (user consent granted)');
+      } catch (error) {
+        console.warn('[AgentConsole] Failed to fetch memory context:', error);
+      }
+    } else {
+      console.log('[AgentConsole] Memory retrieval skipped (opt-in not enabled)');
     }
 
     if (relevantMemories.length > 0) {

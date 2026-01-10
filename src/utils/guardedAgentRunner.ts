@@ -149,12 +149,12 @@ export async function guardedRunAgent(
               type: data.type,
               tabId: data.tabId || data.tab_id,
               eventTabId: data.tabId,
-              activeTabId: useTabsStore.getState().activeId,
+              activeTabId: useTabsStore.getState().activeTabId,
             });
 
             // Only process events for the current active tab
             const eventTabId = data.tabId || data.tab_id;
-            const currentActiveId = useTabsStore.getState().activeId;
+            const currentActiveId = useTabsStore.getState().activeTabId;
 
             if (eventTabId && eventTabId !== currentActiveId) {
               console.log('[GUARDED_AGENT] Ignoring event for inactive tab', {
@@ -179,7 +179,7 @@ export async function guardedRunAgent(
                 content: data.payload?.text || data.payload?.message || '',
                 timestamp: Date.now(),
                 tabId: eventTabId || capturedTabId,
-                sessionId: data.sessionId || data.session_id || tab.sessionId || null,
+                sessionId: data.sessionId || data.session_id || null,
               });
 
               if (data.payload?.text) {
@@ -192,7 +192,7 @@ export async function guardedRunAgent(
                 content: JSON.stringify(data.payload?.summary || {}),
                 timestamp: Date.now(),
                 tabId: eventTabId || capturedTabId,
-                sessionId: data.sessionId || data.session_id || tab.sessionId || null,
+                sessionId: data.sessionId || data.session_id || null,
               });
             } else if (data.type === 'agent_end') {
               streamStore.setStatus('complete');

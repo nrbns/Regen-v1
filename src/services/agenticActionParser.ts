@@ -251,24 +251,25 @@ async function executeNavigateAction(
     return { success: false, error: 'No URL provided' };
   }
 
-  // Navigate in active tab
-  const { useTabsStore } = await import('../state/tabsStore');
-  const tabsState = useTabsStore.getState();
-  const activeTab = tabsState.tabs.find(t => t.id === tabsState.activeId);
+  // FIX: Route navigation through CommandController (backend-owned)
+  // Don't update tabs directly - CommandController will handle navigation and emit confirmation
+  try {
+    const { useCommandController } = await import('../hooks/useCommandController');
+    const { executeCommand } = useCommandController();
+    
+    const result = await executeCommand(`navigate ${url}`, {
+      currentUrl: window.location.href,
+    });
 
-  if (!activeTab) {
-    return { success: false, error: 'No active tab to navigate' };
+    if (result.success) {
+      return { success: true, result: { url, navigated: true } };
+    } else {
+      return { success: false, error: result.message || 'Navigation failed' };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Navigation failed',
+    };
   }
-
-  if (activeTab) {
-    tabsState.updateTab(activeTab.id, { url });
-    // Trigger navigation in iframe
-    window.dispatchEvent(
-      new CustomEvent('tab:navigate', {
-        detail: { tabId: activeTab.id, url },
-      })
-    );
-  }
-
-  return { success: true, result: { url, navigated: true } };
 }

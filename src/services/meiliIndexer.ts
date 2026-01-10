@@ -5,12 +5,42 @@ import { indexDocuments, ensureIndex, checkMeiliSearch } from '../lib/meili';
 import type { Tab } from '../state/tabsStore';
 
 let meiliAvailable = false;
-let indexingEnabled = true;
+// FIX: Indexing is now opt-in only (disabled by default for privacy)
+let indexingEnabled = false; // Default to false - requires explicit user consent
 
 /**
- * Initialize MeiliSearch indexing
+ * Enable indexing (requires explicit user consent)
+ */
+export function enableIndexing(): void {
+  indexingEnabled = true;
+  console.log('[MeiliIndexer] Indexing enabled (user consent granted)');
+}
+
+/**
+ * Disable indexing
+ */
+export function disableIndexing(): void {
+  indexingEnabled = false;
+  console.log('[MeiliIndexer] Indexing disabled');
+}
+
+/**
+ * Check if indexing is enabled
+ */
+export function isIndexingEnabled(): boolean {
+  return indexingEnabled && meiliAvailable;
+}
+
+/**
+ * Initialize MeiliSearch indexing (only if opt-in enabled)
  */
 export async function initMeiliIndexing(): Promise<void> {
+  // FIX: Only initialize if user has explicitly enabled indexing
+  if (!indexingEnabled) {
+    console.log('[MeiliIndexer] Indexing skipped (opt-in not enabled)');
+    return;
+  }
+
   try {
     meiliAvailable = await checkMeiliSearch();
     if (meiliAvailable) {
@@ -20,6 +50,7 @@ export async function initMeiliIndexing(): Promise<void> {
         await ensureIndex('research', 'id');
         await ensureIndex('notes', 'id');
         await ensureIndex('contexts', 'id');
+        console.log('[MeiliIndexer] Indexes initialized (user consent granted)');
       } catch {
         // MeiliSearch not available or unauthorized - silently disable
         meiliAvailable = false;
@@ -217,17 +248,8 @@ export function __isIndexingEnabledForTest(): boolean {
   return indexingEnabled;
 }
 
-// Auto-initialize when module loads - suppress all errors
-// Skip in test environments to avoid unhandled promise rejections
-if (
-  typeof window !== 'undefined' &&
-  !process.env.VITEST &&
-  !process.env.NODE_ENV?.includes('test')
-) {
-  // Wait a bit for MeiliSearch to start
-  setTimeout(() => {
-    initMeiliIndexing().catch(() => {
-      // Suppress all MeiliSearch errors - it's optional
-    });
-  }, 3000);
-}
+// FIX: DO NOT auto-initialize when module loads - requires explicit user consent
+// Indexing is opt-in only and should only be enabled when user explicitly enables it
+// This prevents automatic indexing on page load
+// To enable indexing, call enableIndexing() and then initMeiliIndexing()
+// Example: enableIndexing(); initMeiliIndexing();

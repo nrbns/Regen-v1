@@ -25,11 +25,24 @@ import {
 /**
  * Store current page or URL for offline access
  */
+/**
+ * Save page for offline RAG (requires explicit user consent)
+ * Opt-in only - no automatic indexing
+ */
 export async function savePageForOffline(options: {
   url: string;
   title?: string;
   autoExtract?: boolean; // Extract content automatically
+  requireConsent?: boolean; // Require explicit consent before saving
 }): Promise<string> {
+  // FIX: RAG indexing is opt-in only
+  if (options.requireConsent !== false) {
+    // Check if user has enabled RAG indexing
+    const ragEnabled = localStorage.getItem('regen:rag:enabled') === 'true';
+    if (!ragEnabled) {
+      throw new Error('RAG indexing requires explicit user consent. Please enable in settings.');
+    }
+  }
   const { url, title, autoExtract = true } = options;
 
   // If auto-extract, fetch and extract content

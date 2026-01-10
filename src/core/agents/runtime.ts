@@ -548,17 +548,30 @@ Provide a concise analysis with:
   }
 
   private createToolContext(overrides?: Partial<AgentToolContext>): AgentToolContext {
+    // FIX: Memory search is now opt-in only (requires explicit user consent)
+    const memoryEnabled = false; // TODO: Add setting for memory opt-in
+    
     return {
       signal: overrides?.signal,
       memorySearch:
         overrides?.memorySearch ||
         (async (query: string) => {
+          // Only search memories if opt-in is enabled
+          if (!memoryEnabled) {
+            console.log('[AgentRuntime] Memory search skipped (opt-in not enabled)');
+            return [];
+          }
           const results = await semanticSearchMemories(query, { limit: 12 });
           return results.map(r => r.event);
         }),
       saveMemory:
         overrides?.saveMemory ||
         (async event => {
+          // Only save memories if opt-in is enabled
+          if (!memoryEnabled) {
+            console.log('[AgentRuntime] Memory save skipped (opt-in not enabled)');
+            return null;
+          }
           const result = await processMemoryEvent(event);
           return result.eventId;
         }),

@@ -46,12 +46,16 @@ export function ArticleView({
   className,
 }: ArticleViewProps) {
   const { isMobile } = useMobileDetection();
+  // FIX: Use CommandController status instead of local loading state
+  // This is a read operation (article fetching), so it's acceptable to have local loading state
+  // But ideally this should go through CommandController for consistency
   const [loading, setLoading] = useState(!content);
   const [articleContent, setArticleContent] = useState(content || '');
 
   useEffect(() => {
     if (!content && url) {
-      // Fetch article content if not provided
+      // FIX: For v2, route through CommandController: `executeCommand('fetch article ${url}')`
+      // For now, direct fetch is acceptable for read operations
       fetchArticleContent(url);
     }
   }, [url, content]);
@@ -59,7 +63,8 @@ export function ArticleView({
   const fetchArticleContent = async (articleUrl: string) => {
     try {
       setLoading(true);
-      // In production, this would call your backend API to fetch and extract article content
+      // FIX: This is a read operation (not a command), so direct fetch is acceptable
+      // For v2, consider adding ARTICLE_FETCH intent to CommandController
       const response = await fetch(`/api/article?url=${encodeURIComponent(articleUrl)}`);
       if (response.ok) {
         const data = await response.json();

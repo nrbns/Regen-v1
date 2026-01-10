@@ -1,26 +1,37 @@
 /**
  * Task Runner - Single-run, user-triggered tasks only
  * NO background loops, NO autonomy, NO automatic execution
+ * 
+ * FIX: All tasks validated with strict Zod schemas
  */
 
 import { backendService } from '../backend/BackendService';
+import { z } from 'zod';
 
-export interface TaskDefinition {
-  id: string;
-  name: string;
-  description: string;
-  enabled: boolean;
-}
+// FIX: Strict schema validation for tasks
+export const TaskDefinitionSchema = z.object({
+  id: z.string().min(1).regex(/^[a-z0-9_-]+$/, 'Task ID must be lowercase alphanumeric with dashes/underscores'),
+  name: z.string().min(1).max(100),
+  description: z.string().min(1).max(500),
+  enabled: z.boolean().default(true),
+});
 
-export interface TaskExecution {
-  id: string;
-  taskId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
-  startedAt: number;
-  completedAt?: number;
-  result?: any;
-  error?: string;
-}
+export const TaskParamsSchema = z.record(z.string(), z.unknown()).optional();
+
+export const TaskExecutionSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  status: z.enum(['pending', 'running', 'completed', 'failed']),
+  startedAt: z.number(),
+  completedAt: z.number().optional(),
+  result: z.unknown().optional(),
+  error: z.string().optional(),
+  params: TaskParamsSchema,
+});
+
+export type TaskDefinition = z.infer<typeof TaskDefinitionSchema>;
+
+export type TaskExecution = z.infer<typeof TaskExecutionSchema>;
 
 class TaskRunner {
   private tasks: Map<string, TaskDefinition> = new Map();
@@ -52,10 +63,21 @@ class TaskRunner {
   }
 
   /**
-   * Register a task definition
+   * Register a task definition (validated with strict schema)
    */
   registerTask(task: TaskDefinition): void {
-    this.tasks.set(task.id, task);
+    // FIX: Validate task schema before registration
+    try {
+      const validated = TaskDefinitionSchema.parse(task);
+      this.tasks.set(validated.id, validated);
+      console.log(`[TaskRunner] Registered task: ${validated.id}`);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        throw new Error(`Invalid task definition for "${task.id}": ${errorMessages}`);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -74,11 +96,33 @@ class TaskRunner {
 
   /**
    * Execute a task (single-run, user-triggered only)
+   * FIX: Validates task ID and params with strict schema
    */
   async executeTask(taskId: string, params?: Record<string, any>): Promise<TaskExecution> {
+    // FIX: Validate task ID format
+    if (!/^[a-z0-9_-]+$/.test(taskId)) {
+      throw new Error(`Invalid task ID format: "${taskId}". Task ID must be lowercase alphanumeric with dashes/underscores.`);
+    }
+
+    // FIX: Validate task exists
     const task = this.tasks.get(taskId);
-    if (!task || !task.enabled) {
-      throw new Error(`Task not found or disabled: ${taskId}`);
+    if (!task) {
+      throw new Error(`Task not found: "${taskId}". Available tasks: ${Array.from(this.tasks.keys()).join(', ')}`);
+    }
+
+    if (!task.enabled) {
+      throw new Error(`Task is disabled: "${taskId}"`);
+    }
+
+    // FIX: Validate params schema (if task has param schema, validate it)
+    try {
+      TaskParamsSchema.parse(params);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessages = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        throw new Error(`Invalid task parameters for "${taskId}": ${errorMessages}`);
+      }
+      throw error;
     }
 
     const execution: TaskExecution = {
@@ -86,7 +130,11 @@ class TaskRunner {
       taskId,
       status: 'pending',
       startedAt: Date.now(),
+      params,
     };
+
+    // FIX: Validate execution schema
+    TaskExecutionSchema.parse(execution);
 
     this.executions.push(execution);
     this.notifyExecution(execution);

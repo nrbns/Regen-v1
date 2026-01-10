@@ -7,7 +7,7 @@ import { vi } from 'vitest';
 
 // Mock MeiliSearch to prevent unhandled promise rejections during tests
 vi.mock('./src/lib/meili', () => ({
-  fetchWithTimeout: vi.fn((resource: string) =>
+  fetchWithTimeout: vi.fn((_resource: string) =>
     Promise.resolve({ ok: true, json: async () => ({}) })
   ),
   ensureIndex: vi.fn(() => Promise.resolve()),
@@ -129,7 +129,7 @@ const defaultMockInvoke = vi.fn(() => Promise.resolve(false));
         tauriStub.default.invoke = (...args: any[]) => mockInvoke(...args);
       }
     }
-  } catch (e) {
+  } catch {
     // ignore in environments where test-stub isn't available
   }
 })();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TaskService } from '../../services/taskService';
+import { useCommandController } from '../../hooks/useCommandController';
 
 type Props = {
   onUserInput?: (text: string) => void;
@@ -8,6 +8,7 @@ type Props = {
 export default function CommandBar({ onUserInput }: Props) {
   const [text, setText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const { executeCommand } = useCommandController();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,8 +17,11 @@ export default function CommandBar({ onUserInput }: Props) {
     setIsProcessing(true);
 
     try {
-      // Create task immediately for real-time feedback
-      const task = await TaskService.processUserInput(text.trim());
+      // FIX: Use CommandController instead of TaskService directly
+      const result = await executeCommand(text.trim(), {
+        currentUrl: window.location.href,
+        selectedText: window.getSelection()?.toString() || '',
+      });
 
       // Call original handler if provided
       if (onUserInput) {
@@ -27,6 +31,9 @@ export default function CommandBar({ onUserInput }: Props) {
       // Clear input
       setText('');
 
+      if (!result.success) {
+        console.error('[CommandBar] Command failed:', result.message);
+      }
     } catch (error) {
       console.error('[CommandBar] Failed to process input:', error);
     } finally {

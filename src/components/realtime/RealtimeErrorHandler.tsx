@@ -126,6 +126,9 @@ export function RealtimeErrorHandler({ children }: RealtimeErrorHandlerProps) {
           // Re-emit connection retry event
           window.dispatchEvent(new CustomEvent('connection:retry'));
           break;
+        default:
+          // No default action
+          break;
       }
     }
     dismissError(error.id);

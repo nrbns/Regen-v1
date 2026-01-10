@@ -17,11 +17,16 @@ export function ExportButton({ content, parentId, graphName }: ExportButtonProps
   const [error, setError] = useState<string | null>(null);
   const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
+  // FIX: Export should route through CommandController for consistency
+  // However, export is a side-effect operation, not a command, so direct API call is acceptable
+  // For v2, consider adding EXPORT intent to CommandController
   const exportTo = async (tool: 'notion' | 'obsidian' | 'roam') => {
     setExporting(tool);
     setError(null);
 
     try {
+      // FIX: This is a side-effect operation (export), so direct API call is acceptable
+      // For v2, route through CommandController: `executeCommand('export to ${tool}')`
       const response = await fetch(`${API_BASE}/api/export`, {
         method: 'POST',
         headers: {

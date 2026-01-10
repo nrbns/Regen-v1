@@ -15,7 +15,7 @@ export function throttleForActiveTab<T extends (...args: any[]) => any>(
   return function throttled(...args: Parameters<T>) {
     const tabs = useTabsStore.getState().tabs;
     const activeTab = tabs.find(t => t.id === tabId);
-    const isActive = activeTab?.active === true;
+    const isActive = activeTab?.id === useTabsStore.getState().activeTabId;
     const isVisible = !document.hidden;
 
     // Only execute if tab is active and visible
@@ -31,7 +31,7 @@ export function throttleForActiveTab<T extends (...args: any[]) => any>(
 export function shouldThrottleTab(tabId: string | null): boolean {
   const tabs = useTabsStore.getState().tabs;
   const tab = tabs.find(t => t.id === tabId);
-  const isActive = tab?.active === true;
+  const isActive = tab?.id === useTabsStore.getState().activeTabId;
   const isVisible = !document.hidden;
 
   // Throttle if tab is not active or page is hidden
