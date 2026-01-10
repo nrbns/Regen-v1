@@ -113,7 +113,7 @@ function LabeledField({ label, children }: { label: string; children: React.Reac
 }
 
 // Tab definitions
-import { isMVPFeatureEnabled } from '../config/mvpFeatureFlags';
+import { isMVPFeatureEnabled, isV1ModeEnabled } from '../config/mvpFeatureFlags';
 
 const ALL_TABS = [
   { id: 'accounts', label: 'Account', icon: User },

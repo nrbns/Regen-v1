@@ -8,6 +8,7 @@ import { ActivityTimeline } from '../components/ui/ActivityTimeline';
 import { useTabsStore } from '../state/tabsStore';
 import { workspaceStore } from '../lib/workspace/WorkspaceStore';
 import { contextMemory } from '../lib/services/ContextMemory';
+import { useRegenCore } from '../core/regen-core/regenCore.store';
 
 export default function TaskRunner() {
   const [tasks, setTasks] = useState<TaskDefinition[]>([]);
