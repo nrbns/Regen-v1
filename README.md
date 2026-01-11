@@ -339,19 +339,6 @@ You create a **new category**.
 
 ---
 
-## 🚀 NEXT (STRONGLY RECOMMENDED)
-
-I can:
-
-1. Design the **exact avatar interaction state machine**
-2. Write **sample avatar responses (copy)**
-3. Define **automation UX flows**
-4. Help you decide **what NOT to automate**
-
-Say:
-
-> **“Design avatar interaction state machine”**
-
 and we’ll lock this perfectly.
 Understood. You want the **avatar to be truly interactive and “alive” like Google Assistant / Siri**, **but**:
 
@@ -633,50 +620,6 @@ AI Provider (GPT / Claude / Local)
 
 > **90% of “alive” feeling comes from UI reactions, not AI.**
 
-So:
-
-* Use animation for liveliness
-* Use AI only for thinking
-
----
-
-# 🧪 HOW USERS WILL EXPERIENCE THIS (REALISTIC)
-
-### Day 1
-
-* “Whoa, this avatar feels alive”
-* “It doesn’t annoy me”
-
-### Day 3
-
-* “I forgot it was even AI”
-* “But it helps when I need it”
-
-### Day 7
-
-* “This feels better than my old browser”
-
-That’s how favorites are made.
-
----
-
-# ✅ WHAT YOU MUST BUILD (CLEAR LIST)
-
-### MUST HAVE
-
-* Passive avatar reactions
-* Click / shortcut invocation
-* Single-command input
-* Action-first responses
-* Silent default behavior
-
-### OPTIONAL (later)
-
-* Voice
-* Full automation chains
-* Multi-agent reasoning
-
----
 
 # 🧠 FINAL TRUTH (VERY IMPORTANT)
 
@@ -693,21 +636,6 @@ If you build:
 You create a **new category**.
 
 ---
-
-## 🚀 NEXT (STRONGLY RECOMMENDED)
-
-I can:
-
-1. Design the **exact avatar interaction state machine**
-2. Write **sample avatar responses (copy)**
-3. Define **automation UX flows**
-4. Help you decide **what NOT to automate**
-
-Say:
-
-> **“Design avatar interaction state machine”**
-
-and we’ll lock this perfectly.
 # 🌌 Regen — A Real-Time, Presence-Based AI Browser
 
 > **Regen is not a chatbot browser.  
