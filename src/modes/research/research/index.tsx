@@ -1225,6 +1225,13 @@ export default function ResearchPanel() {
         })
       );
 
+      // Emit search event for tracking
+      import('../../lib/events/EventBus').then(({ emitSearch }) => {
+        emitSearch(searchQuery);
+      }).catch(() => {
+        // EventBus not available, continue silently
+      });
+
       // Update loading state immediately
       setLoading(true);
       setError(null);

@@ -35,6 +35,12 @@ export function GlobalSearch() {
 
   // Multi-search across all indexes + document commands
   async function performSearch(searchQuery: string) {
+    // Emit search event for real-time tracking
+    import('../../lib/events/EventBus').then(({ emitSearch }) => {
+      emitSearch(searchQuery);
+    }).catch(() => {
+      // EventBus not available, continue silently
+    });
     if (searchQuery.length < 2) {
       setResults([]);
       return;

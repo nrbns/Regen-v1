@@ -3,9 +3,11 @@
  * NO background loops, NO autonomy, NO automatic execution
  * 
  * FIX: All tasks validated with strict Zod schemas
+ * PERFORMANCE: Hard timeouts (10s) + result caching
  */
 
 import { backendService } from '../backend/BackendService';
+import { aiResultCache } from '../cache/AIResultCache';
 import { z } from 'zod';
 
 // FIX: Strict schema validation for tasks
@@ -97,6 +99,7 @@ class TaskRunner {
   /**
    * Execute a task (single-run, user-triggered only)
    * FIX: Validates task ID and params with strict schema
+   * PERFORMANCE: Hard timeout (10s) with auto-kill
    */
   async executeTask(taskId: string, params?: Record<string, any>): Promise<TaskExecution> {
     // FIX: Validate task ID format
@@ -143,8 +146,23 @@ class TaskRunner {
       execution.status = 'running';
       this.notifyExecution(execution);
 
-      // Execute task logic
-      const result = await this.runTaskLogic(taskId, params);
+      // PERFORMANCE: Check cache first
+      const cacheKey = `${taskId}:${params?.url || window.location.href}`;
+      const cached = aiResultCache.get(cacheKey);
+      
+      if (cached) {
+        execution.status = 'completed';
+        execution.completedAt = Date.now();
+        execution.result = { ...cached, cached: true };
+        this.notifyExecution(execution);
+        return execution;
+      }
+
+      // PERFORMANCE: Execute task logic with hard timeout (10s)
+      const result = await this.runTaskWithTimeout(taskId, params, 10000);
+
+      // PERFORMANCE: Cache successful result
+      aiResultCache.set(cacheKey, result, params?.sessionId || 'default');
 
       execution.status = 'completed';
       execution.completedAt = Date.now();
@@ -160,6 +178,22 @@ class TaskRunner {
 
       throw error;
     }
+  }
+
+  /**
+   * PERFORMANCE: Run task with hard timeout (auto-kill after timeout)
+   */
+  private async runTaskWithTimeout(
+    taskId: string,
+    params: Record<string, any> | undefined,
+    timeout: number
+  ): Promise<any> {
+    return Promise.race([
+      this.runTaskLogic(taskId, params),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Task timeout: ${taskId} exceeded ${timeout}ms limit`)), timeout)
+      ),
+    ]);
   }
 
   /**

@@ -19,9 +19,10 @@ import {
   FileText,
   Video,
   Globe,
-  // Bot, // Unused
+  Bot,
 } from 'lucide-react';
 import { useSettingsStore } from '../state/settingsStore';
+import { useSettings } from '../state/settingsStore';
 import { useExternalApisStore } from '../state/externalApisStore';
 import { useCapabilityStore, getCapabilityDescriptions } from '../core/security/capabilities';
 import { pluginRegistry } from '../core/plugins/registry';
@@ -29,6 +30,7 @@ import { crashReporter } from '../core/crash-reporting';
 import { BookmarksPanel } from '../components/bookmarks/BookmarksPanel';
 import { WorkspacesPanel } from '../components/workspace/WorkspacesPanel';
 import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
+import { AutomationPanel } from '../components/automation/AutomationPanel';
 // Optional components - only available in tauri-migration, removed for now
 import { EXTERNAL_APIS } from '../config/externalApis';
 // Redix components removed - not core to browser
@@ -146,6 +148,7 @@ type TabId = (typeof TABS)[number]['id'];
 export default function SettingsRoute() {
   const [activeTab, setActiveTab] = useState<TabId>('accounts');
   const settings = useSettingsStore();
+  const { aiSilenced, toggleAISilence, isAISilenced } = useSettings();
 
   return (
     <div className="flex h-full w-full bg-slate-950 text-slate-100">
@@ -230,8 +233,46 @@ export default function SettingsRoute() {
                   />
                   <LowRamModeToggle />
                 </div>
+                <div className="border-t border-slate-800 pt-4">
+                  <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
+                    <Bot size={16} className="text-purple-400" />
+                    AI Performance Control
+                  </h4>
+                  <ToggleRow
+                    label="Silence AI for this session"
+                    checked={aiSilenced}
+                    onChange={() => toggleAISilence()}
+                    description="Disable all AI detection and suggestions to maximize browser performance. Resets on app restart."
+                  />
+                  {aiSilenced && (
+                    <div className="mt-3 rounded-lg bg-slate-800/50 p-3 text-xs text-slate-400">
+                      <p className="mb-2 font-medium text-slate-300">AI is currently silenced</p>
+                      <p>No pattern detection, no suggestions, maximum performance.</p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => toggleAISilence(5 * 60 * 1000, 'temp_5min')}
+                          className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-600"
+                        >
+                          Silence for 5 minutes
+                        </button>
+                        <button
+                          onClick={() => toggleAISilence(30 * 60 * 1000, 'temp_30min')}
+                          className="rounded bg-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-600"
+                        >
+                          Silence for 30 minutes
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </SectionCard>
+            
+            {/* Automation Panel */}
+            <SectionCard title="Automation" icon={Zap} description="Create 'When X, do Y' rules for browser actions">
+              <AutomationPanel />
+            </SectionCard>
+            
             {!isV1ModeEnabled() && (
               <>
                 <SectionCard title="AI Models" icon={Zap}>

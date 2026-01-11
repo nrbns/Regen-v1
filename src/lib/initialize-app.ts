@@ -180,6 +180,15 @@ export async function initializeApp(): Promise<InitializationStatus> {
     console.warn('[Init] Context Engine failed to start:', err);
   }
 
+  // Initialize Regen-v1 core systems
+  try {
+    const { initRegenV1 } = await import('../core/regen-v1/init');
+    initRegenV1();
+    console.log('[Init] ✓ Regen-v1 core systems initialized');
+  } catch (err) {
+    console.warn('[Init] Regen-v1 initialization failed:', err);
+  }
+
   // Store status globally for debugging
   if (typeof window !== 'undefined') {
     (window as any).__APP_INIT_STATUS = initializationStatus;

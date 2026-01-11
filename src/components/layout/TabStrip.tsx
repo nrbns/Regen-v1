@@ -27,6 +27,7 @@ import {
   TAB_GROUP_COLORS,
 } from '../../state/tabsStore';
 import { eventBus, EVENTS } from '../../core/state/eventBus';
+import { emitTabOpen, emitTabClose, emitUrlChange } from '../../core/regen-v1/integrationHelpers';
 import { useContainerStore } from '../../state/containerStore';
 import { useAppStore } from '../../state/appStore';
 import { useToastStore } from '../../state/toastStore';
@@ -714,6 +715,8 @@ export function TabStrip() {
       setActiveTab(activeTab ? activeTab.id : null);
       currentActiveIdRef.current = activeTab ? activeTab.id : null;
       ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
+      // Emit Regen-v1 event
+      emitTabClose({ tabId });
       return;
     }
 
@@ -776,6 +779,9 @@ export function TabStrip() {
         previousActiveId
       );
     }
+
+    // Emit Regen-v1 event
+    emitTabClose({ tabId });
 
     try {
       const result = await Promise.race([
@@ -1923,6 +1929,8 @@ export function TabStrip() {
       setActiveTab(newTab.id);
       currentActiveIdRef.current = newTab.id;
       ipcEvents.emit('tabs:updated', mapTabsForStore(updated));
+      // Emit Regen-v1 event
+      emitTabOpen({ tabId: newTab.id, url: newTab.url });
       return;
     }
 
@@ -1968,6 +1976,8 @@ export function TabStrip() {
         if (IS_DEV) {
           console.log('[TabStrip] Tab created via addTab:', tabId);
         }
+        // Emit Regen-v1 event
+        emitTabOpen({ tabId, url: 'about:blank' });
         // Force a refresh to ensure UI updates even if IPC event is delayed
         setTimeout(async () => {
           try {

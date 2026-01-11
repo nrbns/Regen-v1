@@ -397,6 +397,13 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                     }
 
                     useTabsStore.getState().updateTab(tab.id, updates);
+                    
+                    // Emit URL_CHANGE to Regen-v1 event bus
+                    import('../../core/regen-v1/integrationHelpers').then(({ emitUrlChange }) => {
+                      emitUrlChange(currentUrl);
+                    }).catch(() => {
+                      // Regen-v1 not available, continue silently
+                    });
                   } else if (currentTitle && currentTitle !== tab.title) {
                     // Title changed but URL didn't (e.g., page title update)
                     // Title changed, updating tab - no logging needed

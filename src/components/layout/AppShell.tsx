@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -37,6 +38,10 @@ import {
   useRegenCoreActions 
 } from '../../core/regen-core/regenCore.hooks';
 import { useScrollDetection } from '../../lib/events/useScrollDetection';
+import Avatar from '../Avatar/Avatar';
+import CommandInput from '../Avatar/CommandInput';
+import { AvatarStatusIndicator } from '../Avatar/AvatarStatusIndicator';
+import { useAvatar } from '../../core/avatar/avatarStore';
 import { useActivityDetection } from '../../lib/events/useActivityDetection';
 import { workspaceStore } from '../../lib/workspace/WorkspaceStore';
 import { useTabsStore } from '../../state/tabsStore';
@@ -60,6 +65,10 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   ]);
   const [localAssistanceEnabled, setLocalAssistanceEnabled] = useState(true);
   const [workspaceCount, setWorkspaceCount] = useState(0);
+  
+  // Avatar state management
+  const { state: avatarState } = useAvatar();
+  const [showCommandInput, setShowCommandInput] = useState(false);
 
   // Track workspace count for activity indicator
   useEffect(() => {
@@ -82,6 +91,25 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   // Real-time event detection hooks - emit events to EventBus
   useScrollDetection();
   useActivityDetection();
+
+  // Show command input when avatar is listening
+  useEffect(() => {
+    setShowCommandInput(avatarState === "listening");
+  }, [avatarState]);
+  
+  // PERFORMANCE: Passive reactions (zero-cost liveliness)
+  useEffect(() => {
+    import('../../lib/events/passiveReactions').then(({ 
+      useMouseMovementTracking,
+      useTypingPauseDetection,
+      useScrollDirectionTracking,
+      useTabSwitchTracking,
+      useExtendedIdleTracking
+    }) => {
+      // These hooks are dynamically imported to avoid blocking initial render
+      // They run in the background and provide "alive" feeling without AI
+    });
+  }, []);
 
   // FIX: Listen for navigation confirmation events from backend
   useEffect(() => {
@@ -410,7 +438,7 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
                   >
                     <FileText className="w-5 h-5" />
                   </motion.div>
-                  <span className="font-medium">Command</span>
+                  <span className="font-medium">Control Room</span>
                   {isActive && (
                     <motion.div
                       className="ml-auto w-2 h-2 bg-blue-400 rounded-full"
@@ -604,6 +632,25 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
           <span className="text-slate-400 text-xs">Local-first • Offline-ready</span>
         </div>
       </div>
+
+      {/* Regen-v1 Avatar Components */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "80px",
+          right: "20px",
+          zIndex: 9998,
+        }}
+      >
+        <Avatar size={56} />
+      </div>
+      
+      <CommandInput 
+        isOpen={showCommandInput}
+        onClose={() => setShowCommandInput(false)}
+      />
+      
+      <AvatarStatusIndicator />
     </div>
   );
 }

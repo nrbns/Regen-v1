@@ -6,6 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { emitScroll } from './EventBus';
 import { useTabsStore } from '../../state/tabsStore';
+import { emitScrollEnd } from '../../core/regen-v1/integrationHelpers';
 
 export function useScrollDetection() {
   const { activeTabId, tabs } = useTabsStore();
@@ -34,7 +35,7 @@ export function useScrollDetection() {
         clearTimeout(scrollTimeoutRef.current);
       }
 
-      // Debounce scroll depth calculation
+      // Debounce scroll depth calculation (300ms for faster response)
       scrollTimeoutRef.current = setTimeout(() => {
         const depth = calculateScrollDepth();
         
@@ -43,7 +44,10 @@ export function useScrollDetection() {
           lastScrollDepthRef.current = depth;
           emitScroll(depth, activeTab.url || '');
         }
-      }, 500); // Debounce 500ms after scroll stops
+        
+        // Emit SCROLL_END to Regen-v1 event bus (non-blocking)
+        emitScrollEnd();
+      }, 300); // Debounce 300ms after scroll stops (faster response)
     };
 
     // Listen to window scroll events

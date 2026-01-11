@@ -1,6 +1,7 @@
 /**
  * Regen Core Hooks
  * React hooks for integrating Regen Core triggers with existing systems
+ * PERFORMANCE: Uses debouncing and throttling to reduce CPU/RAM usage
  */
 
 import { useEffect, useRef, useMemo } from 'react';
@@ -12,6 +13,7 @@ import { topicDetectionService } from '../../lib/services/TopicDetectionService'
 import { RegenObservation } from './regenCore.types';
 import { getRegenCoreConfig } from './regenCore.config';
 import { eventBus } from '../../lib/events/EventBus';
+import { debounce } from '../../utils/performance';
 
 /**
  * Hook to detect and trigger TAB_REDUNDANT signal

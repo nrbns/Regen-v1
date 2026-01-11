@@ -22,6 +22,14 @@ export default function RegenCore() {
   // Aware state shows avatar changes but no panel
   const isExpanded = state === "noticing" || state === "executing" || state === "reporting";
 
+  // Handle avatar click to invoke command input
+  const handleAvatarClick = () => {
+    if (!isExpanded) {
+      // Emit event for command overlay to listen
+      window.dispatchEvent(new CustomEvent('regen:invoke-avatar'));
+    }
+  };
+
   return (
     <motion.div
       className="fixed top-0 right-0 h-full z-50 pointer-events-none"
@@ -43,7 +51,11 @@ export default function RegenCore() {
     >
       {/* Vertical AI Capsule with Avatar Core (observing/aware states) */}
       {!isExpanded && (
-        <div className="h-full w-full relative flex items-center justify-center py-8">
+        <div 
+          className="h-full w-full relative flex items-center justify-center py-8 pointer-events-auto cursor-pointer group"
+          onClick={handleAvatarClick}
+          title="Click to invoke Regen (Cmd+Space)"
+        >
           {/* Avatar Core - Full avatar, always visible when collapsed (64px per Figma) */}
           <AvatarCore 
             state={state} 
@@ -67,6 +79,14 @@ export default function RegenCore() {
               ease: "easeInOut",
             }}
           />
+          
+          {/* Hover hint */}
+          <motion.div
+            className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] text-purple-300/0 group-hover:text-purple-300/60 transition-colors whitespace-nowrap"
+            style={{ pointerEvents: 'none' }}
+          >
+            Invoke
+          </motion.div>
         </div>
       )}
 
