@@ -7,6 +7,7 @@ import { backendService } from '../backend/BackendService';
 import { workspaceStore } from '../workspace/WorkspaceStore';
 import { toolGuard } from '../security/ToolGuard';
 import { intentRouter, type ResolvedIntent } from './IntentRouter';
+import { createTask, executeTask, streamOutput, completeTask, failTask } from '../../core/execution/taskManager';
 
 export type SystemStatus = 'idle' | 'working' | 'recovering';
 
@@ -177,6 +178,7 @@ class CommandController {
    * Execute intent directly (no planner)
    * 
    * This is the fast path for simple, single-step intents.
+   * REAL-TIME UI: Creates task IMMEDIATELY before execution
    */
   private async executeIntentDirect(
     intent: ResolvedIntent,
@@ -185,8 +187,102 @@ class CommandController {
     // Convert ResolvedIntent (from IntentRouter) to CommandIntent (for execution)
     const commandIntent = this.convertToCommandIntent(intent);
 
-    // Execute based on intent type
-    return this.executeIntent(commandIntent, context);
+    // REAL-TIME UI: Create task IMMEDIATELY (before execution) - Task appears in UI instantly
+    const taskType = this.getTaskTypeName(commandIntent);
+    const task = createTask(taskType, {
+      input: this.getTaskInput(commandIntent),
+      command: this.getTaskInput(commandIntent),
+      currentUrl: context.currentUrl,
+      selectedText: context.selectedText,
+      currentTabId: context.activeTab || undefined, // Tab reference (tasks are global, tab is metadata)
+      reason: 'User action',
+    });
+
+    // Store result for return value
+    let commandResult: CommandResult | null = null;
+
+    // Execute command as task - task transitions to RUNNING, then DONE/FAILED
+    try {
+      await executeTask(task.id, async (taskParam, signal) => {
+        // Check if task was cancelled
+        if (signal.aborted) {
+          return;
+        }
+
+        // Execute the intent
+        const result = await this.executeIntent(commandIntent, context);
+        commandResult = result; // Store for return value
+        
+        // Update task with result (task will be marked DONE/FAILED by executeTask)
+        if (result.success) {
+          if (result.message) {
+            streamOutput(task.id, result.message);
+          }
+          // Task will be marked DONE by executeTask after executor completes
+        } else {
+          // Task will be marked FAILED by executeTask after executor throws
+          throw new Error(result.message || result.error || 'Command failed');
+        }
+      });
+      
+      // Task completed successfully, return stored result
+      return commandResult || { success: true, message: 'Task completed' };
+    } catch (error) {
+      // Task execution failed - executeTask already marked task as FAILED
+      return commandResult || {
+        success: false,
+        message: error instanceof Error ? error.message : 'Command execution failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get task type name from command intent
+   */
+  private getTaskTypeName(intent: CommandIntent): string {
+    switch (intent.type) {
+      case 'NAVIGATE':
+        return 'Navigate to URL';
+      case 'SEARCH':
+        return 'Search';
+      case 'RESEARCH':
+        return 'Research';
+      case 'SUMMARIZE_PAGE':
+        return 'Summarize Page';
+      case 'ANALYZE_TEXT':
+        return 'Analyze Text';
+      case 'AI_QUERY':
+        return 'AI Query';
+      case 'TASK_RUN':
+        return `Run Task: ${intent.task}`;
+      default:
+        return 'Execute Command';
+    }
+  }
+
+  /**
+   * Get task input for display
+   */
+  private getTaskInput(intent: CommandIntent): string {
+    switch (intent.type) {
+      case 'NAVIGATE':
+        return intent.url;
+      case 'SEARCH':
+        return intent.query;
+      case 'RESEARCH':
+        return intent.query;
+      case 'SUMMARIZE_PAGE':
+        return intent.url || 'Current page';
+      case 'ANALYZE_TEXT':
+        return intent.text.substring(0, 100);
+      case 'AI_QUERY':
+        return intent.query;
+      case 'TASK_RUN':
+        return `${intent.task}${intent.params ? ` (${JSON.stringify(intent.params)})` : ''}`;
+      default:
+        return 'Unknown command';
+    }
   }
 
   /**

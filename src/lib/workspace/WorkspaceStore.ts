@@ -24,10 +24,28 @@ class WorkspaceStore {
   private storageKey = 'regen:workspace:items';
   private items: WorkspaceItem[] = [];
   private filePath: string | null = null; // For Tauri file-based persistence
+  private eventTarget: EventTarget;
 
   constructor() {
+    this.eventTarget = new EventTarget();
     this.load();
     this.initFilePersistence();
+  }
+
+  /**
+   * REAL-TIME LAUNCH: Event-driven workspace updates
+   * Subscribe to workspace change events
+   */
+  on(event: 'change', handler: () => void): () => void {
+    this.eventTarget.addEventListener(event, handler);
+    return () => this.eventTarget.removeEventListener(event, handler);
+  }
+
+  /**
+   * Emit workspace change event
+   */
+  private emitChange(): void {
+    this.eventTarget.dispatchEvent(new Event('change'));
   }
 
   /**
@@ -171,6 +189,8 @@ class WorkspaceStore {
       updatedAt: Date.now(),
     };
     this.items.push(newItem);
+    // REAL-TIME LAUNCH: Emit change event
+    this.emitChange();
     // Fire-and-forget save (async but don't await)
     this.save().catch((error) => {
       console.error('[WorkspaceStore] Failed to save after add:', error);
@@ -207,6 +227,8 @@ class WorkspaceStore {
     if (index === -1) return false;
 
     this.items.splice(index, 1);
+    // REAL-TIME LAUNCH: Emit change event
+    this.emitChange();
     // Fire-and-forget save
     this.save().catch((error) => {
       console.error('[WorkspaceStore] Failed to save after delete:', error);
@@ -220,6 +242,8 @@ class WorkspaceStore {
    */
   clear(): void {
     this.items = [];
+    // REAL-TIME LAUNCH: Emit change event
+    this.emitChange();
     // Fire-and-forget save
     this.save().catch((error) => {
       console.error('[WorkspaceStore] Failed to save after clear:', error);

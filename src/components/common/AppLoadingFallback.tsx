@@ -33,7 +33,7 @@ export function AppLoadingFallback() {
         {/* Text */}
         <div className="space-y-2 text-center">
           <h2 className="text-xl font-semibold text-white">Regen Browser</h2>
-          <p className="text-sm text-gray-400">AI-powered web automation platform</p>
+          <p className="text-sm text-gray-400">Loading...</p>
         </div>
 
         {/* Progress indicator */}

@@ -3,7 +3,8 @@ export type TaskStatus =
   | 'RUNNING'
   | 'PARTIAL'
   | 'DONE'
-  | 'FAILED';
+  | 'FAILED'
+  | 'CANCELED';
 
 export interface Task {
   id: string;
@@ -12,6 +13,9 @@ export interface Task {
   output: string[];
   logs: string[];
   createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+  cancelToken?: AbortSignal;
   meta?: Record<string, any>;
 }
 

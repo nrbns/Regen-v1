@@ -3,7 +3,7 @@
  * Applies privacy settings to iframes and the application
  */
 
-import { useSettingsStore } from '../state/settingsStore';
+import { useSettings } from '../state/settingsStore';
 
 /**
  * Get privacy-enhanced iframe sandbox attributes
@@ -51,8 +51,9 @@ export function applyPrivacyModeToIframe(iframe: HTMLIFrameElement, privacyMode:
  * Check if privacy mode is enabled
  */
 export function isPrivacyModeEnabled(): boolean {
-  const store = useSettingsStore.getState();
-  return store.privacy.trackerProtection && store.privacy.adBlockEnabled;
+  // Note: Privacy mode settings would need to be added to settingsStore
+  // For now, return false (not implemented in current settings store)
+  return false;
 }
 
 /**

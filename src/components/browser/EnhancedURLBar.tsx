@@ -38,7 +38,7 @@ export function EnhancedURLBar({
   value: controlledValue,
   onChange,
   onSubmit,
-  placeholder = 'Search or enter URL',
+  placeholder = 'Search / Enter URL / Run Command',
   className,
   isLoading: isLoadingProp = false, // SPRINT 0: Page loading state
   loadProgress: loadProgressProp, // SPRINT 0: Load progress

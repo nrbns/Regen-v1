@@ -32,7 +32,7 @@ class BrowserEventEmitter {
     }
   }
 
-  setMaxListeners(count: number) {
+  setMaxListeners(_count: number) {
     // Browser version - no-op for now
   }
 }

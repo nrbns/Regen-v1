@@ -25,14 +25,14 @@ export function ModeEmptyState({ mode }: { mode: string }) {
         'Ask a question. Omnibrowser gathers sources, analyzes them, and shows you how it thinks.',
       accent: 'text-emerald-300',
       cta: {
-        label: 'Start a research job',
+        label: 'Research available', // BATTLE 4: Changed from "Start a research job" to calm state
         helper: 'Ask about any topic',
         primary: true,
       },
       actions: [
-        { id: 'sources', label: 'Run multi-source search', helper: 'News · papers · web' },
-        { id: 'summary', label: 'Get a quick summary', helper: 'One focused paragraph' },
-        { id: 'outline', label: 'Generate an outline', helper: 'Headlines and bullets' },
+        { id: 'sources', label: 'Multi-source search', helper: 'News · papers · web' }, // BATTLE 4: Removed "Run"
+        { id: 'summary', label: 'Quick summary', helper: 'One focused paragraph' },
+        { id: 'outline', label: 'Generate outline', helper: 'Headlines and bullets' },
       ],
     },
     trade: {
@@ -42,8 +42,8 @@ export function ModeEmptyState({ mode }: { mode: string }) {
       accent: 'text-cyan-300',
       actions: [
         { id: 'watchlist', label: 'Open watchlist', helper: 'Track tickers and alerts' },
-        { id: 'paper', label: 'Start a paper trade', helper: 'Try a risk-free order' },
-        { id: 'connect', label: 'Connect a brokerage', helper: 'Sync balances securely' },
+        { id: 'paper', label: 'Paper trade', helper: 'Try a risk-free order' }, // BATTLE 4: Removed "Start a"
+        { id: 'connect', label: 'Connect brokerage', helper: 'Sync balances securely' },
       ],
     },
     browse: {
@@ -148,12 +148,13 @@ export function ModeEmptyState({ mode }: { mode: string }) {
         <h1 className="text-3xl font-semibold leading-tight text-slate-50">{config.title}</h1>
         <p className="mt-2 text-sm text-slate-400">{config.subtitle}</p>
 
-        {/* Primary CTA for Research Mode */}
+        {/* Primary CTA for Research Mode - BATTLE 4: Keep as navigation shortcut, not "Execute" */}
         {config.cta && normalized === 'research' && (
           <button
             type="button"
             onClick={() => handleAction('sources')}
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            aria-label="Open research panel"
           >
             <Brain size={18} />
             {config.cta.label}

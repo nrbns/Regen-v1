@@ -14,6 +14,7 @@ import type { ChainExecutionState } from '../core/agents/chainExecutor';
 import { YAMLEditor } from '../components/workflows/YAMLEditor';
 import { TemplateGallery } from '../components/workflows/TemplateGallery';
 import { parseWorkflowDefinition } from '../core/workflows/yamlParser';
+import { SystemBehaviorIndicator } from '../components/system/SystemBehaviorIndicator';
 
 type Playbook = { id: string; title: string; yaml: string; createdAt: number };
 
@@ -295,27 +296,25 @@ export default function PlaybookForge() {
               <pre className="max-h-40 overflow-auto rounded bg-neutral-900 p-2 text-xs">
                 {pb.yaml}
               </pre>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {/* BATTLE 4: Replace "Run" button with system behavior indicator */}
+                {currentExecution?.status === 'running' &&
+                currentExecution.playbookId === pb.id ? (
+                  <SystemBehaviorIndicator
+                    state="processing"
+                    message="Processing"
+                    size="sm"
+                  />
+                ) : (
+                  <SystemBehaviorIndicator
+                    state="ready"
+                    message="Ready"
+                    size="sm"
+                  />
+                )}
+                {/* Keep Delete button - this is user control, not "operating" Regen */}
                 <button
-                  className="flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-white disabled:opacity-50"
-                  onClick={() => runItem(pb)}
-                  disabled={currentExecution?.status === 'running'}
-                >
-                  {currentExecution?.status === 'running' &&
-                  currentExecution.playbookId === pb.id ? (
-                    <>
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3" />
-                      Run
-                    </>
-                  )}
-                </button>
-                <button
-                  className="rounded bg-neutral-800 px-2 py-1"
+                  className="rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700 transition-colors"
                   onClick={() => {
                     const next = items.filter(x => x.id !== pb.id);
                     setItems(next);

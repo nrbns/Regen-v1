@@ -22,6 +22,9 @@
 /* Phase A: Low-RAM Mode Styles - Must be before @tailwind */
 @import './low-ram-mode.css';
 
+/* Animations for new components */
+@import './animations.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

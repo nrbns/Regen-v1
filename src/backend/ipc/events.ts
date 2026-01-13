@@ -48,7 +48,7 @@ export interface DownloadPayload {
 
 // IPC Handler - UI can invoke Tauri commands, backend responds via events
 export class IPCHandler {
-  private static listeners: Map<string, Function[]> = new Map();
+  private static listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
   static async send(event: string, payload?: any) {
     try {
@@ -66,7 +66,7 @@ export class IPCHandler {
     }
   }
 
-  static on(event: string, callback: Function) {
+  static on(event: string, callback: (...args: any[]) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -45,6 +44,30 @@ import { useAvatar } from '../../core/avatar/avatarStore';
 import { useActivityDetection } from '../../lib/events/useActivityDetection';
 import { workspaceStore } from '../../lib/workspace/WorkspaceStore';
 import { useTabsStore } from '../../state/tabsStore';
+import { TaskExecutionPanel } from '../task/TaskExecutionPanel';
+import { ExplainTextButton } from '../selection/ExplainTextButton';
+import { TopBar } from './TopBar';
+import { TaskDetailView } from '../task/TaskDetailView';
+import { UnifiedSearchPanel } from '../search/UnifiedSearchPanel';
+import { SystemTruthBar } from './SystemTruthBar';
+import { AutomationStatus } from '../automation/AutomationStatus';
+import { Megan } from '../guide/Megan';
+import { Megan } from '../guide/Megan';
+import { EventQueueStatus } from '../ui/EventQueueStatus';
+import { SentinelSettingsPanel } from '../settings/SentinelSettingsPanel';
+import { VoiceStatusIndicator } from '../ui/VoiceStatusIndicator';
+import { PrivacyDashboard } from '../privacy/PrivacyDashboard';
+// BATTLE 2: Transient AI suggestions
+import { TransientSuggestion } from '../suggestions/TransientSuggestion';
+// BATTLE 3: Alive avatar
+import { AvatarStateMachine } from '../Avatar/AvatarStateMachine';
+// BATTLE 5: Automation components
+import { RuleConfirmation } from '../automation/RuleConfirmation';
+import { AutomationLog } from '../automation/AutomationLog';
+// NEW: Realtime enhancements
+import { RealtimeMetricsDashboard } from '../dev/RealtimeMetricsDashboard';
+import { AIUndoFeedback } from '../ai/AIUndoFeedback';
+import { RegenOnboardingTour } from '../onboarding/RegenOnboardingTour';
 
 interface Tab {
   id: string;
@@ -71,13 +94,22 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   const [showCommandInput, setShowCommandInput] = useState(false);
 
   // Track workspace count for activity indicator
+  // REAL-TIME LAUNCH: Event-driven (no polling)
   useEffect(() => {
     const updateWorkspaceCount = () => {
       setWorkspaceCount(workspaceStore.getCount());
     };
+    
+    // Initial count
     updateWorkspaceCount();
-    const interval = setInterval(updateWorkspaceCount, 5000);
-    return () => clearInterval(interval);
+    
+    // REAL-TIME LAUNCH: Subscribe to workspace change events
+    // Updates only when workspace items are added/removed/cleared
+    const unsubscribe = workspaceStore.on('change', updateWorkspaceCount);
+    
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Regen Core hooks - detect context and handle actions
@@ -92,9 +124,68 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
   useScrollDetection();
   useActivityDetection();
 
-  // Show command input when avatar is listening
+  // LAYER 2: Connect command invocation (avatar click + keyboard shortcuts)
   useEffect(() => {
-    setShowCommandInput(avatarState === "listening");
+    // Listen for avatar click event (from RegenCore component)
+    const handleAvatarInvoke = () => {
+      setShowCommandInput(true);
+    };
+
+    // Listen for custom event from avatar click
+    window.addEventListener('regen:invoke-avatar', handleAvatarInvoke);
+
+    // Listen for keyboard shortcut event (from regenEventBus)
+    let unsubscribeKeyboard: (() => void) | null = null;
+    try {
+      const { regenEventBus } = require('../../core/events/eventBus');
+      unsubscribeKeyboard = regenEventBus.subscribe((e: any) => {
+        if (e.type === 'AVATAR_INVOKE') {
+          setShowCommandInput(true);
+        }
+      });
+    } catch (error) {
+      console.debug('[AppShell] regenEventBus not available for keyboard shortcuts');
+    }
+
+    return () => {
+      window.removeEventListener('regen:invoke-avatar', handleAvatarInvoke);
+      if (unsubscribeKeyboard) {
+        unsubscribeKeyboard();
+      }
+    };
+  }, []);
+
+  // Listen for unified search open event
+  useEffect(() => {
+    const handleUnifiedSearchOpen = () => {
+      setShowUnifiedSearch(true);
+    };
+
+    window.addEventListener('regen:unified-search:open', handleUnifiedSearchOpen);
+
+    return () => {
+      window.removeEventListener('regen:unified-search:open', handleUnifiedSearchOpen);
+    };
+  }, []);
+
+  // Listen for privacy dashboard open event
+  useEffect(() => {
+    const handlePrivacyDashboardOpen = () => {
+      setShowPrivacyDashboard(true);
+    };
+
+    window.addEventListener('regen:privacy-dashboard:open', handlePrivacyDashboardOpen);
+
+    return () => {
+      window.removeEventListener('regen:privacy-dashboard:open', handlePrivacyDashboardOpen);
+    };
+  }, []);
+
+  // Show command input when avatar is listening (legacy support)
+  useEffect(() => {
+    if (avatarState === "listening") {
+      setShowCommandInput(true);
+    }
   }, [avatarState]);
   
   // PERFORMANCE: Passive reactions (zero-cost liveliness)
@@ -211,8 +302,11 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
     return location.pathname === path || (path === '/' && location.pathname === '/');
   };
 
+  // AppShell content is now wrapped in MainLayout
+  // This component should only render the actual browser content (tabs, webview, etc.)
+  // The MainLayout wrapper provides the 4-zone structure
   return (
-    <div className="h-screen w-screen bg-slate-900 text-white flex flex-col overflow-hidden">
+    <div className="h-full w-full bg-slate-900 text-white flex flex-col overflow-hidden">
       <ToastContainer />
       {/* Regen Core - Sentinel AI Presence (global, not in routes) */}
       <RegenCore />
@@ -221,7 +315,17 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
       <div className="fixed top-4 right-4 z-50">
         <AIStatusDot size="md" showTooltip={true} />
       </div>
-      {/* Browser Tabs */}
+      {/* Automation Status - LAYER 4: Visible automation status */}
+      <AutomationStatus />
+      {/* Event Queue Status - Shows offline/online status and queued events */}
+      <EventQueueStatus />
+      {/* Sentinel AI Settings - Configure thresholds and interventions */}
+      <SentinelSettingsPanel />
+      {/* Voice Status Indicator - Shows when voice recognition is active */}
+      <VoiceStatusIndicator />
+      {/* Browser Tabs - Note: TopBar in MainLayout handles address bar, this shows tab list */}
+      {/* Tabs are now handled by TabIframeManager in center zone */}
+      {/* Disabled tab bar - replaced by TabIframeManager
       <div className="flex items-center bg-slate-800 border-b border-slate-700 px-2 py-1 min-h-[36px]">
         <div className="flex items-center space-x-1 mr-2">
           <Sparkles className="w-4 h-4 text-blue-400" />
@@ -278,12 +382,14 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
           <Plus className="w-3 h-3 text-slate-400" />
         </button>
       </div>
+      */}
 
-      {/* Navigation Bar */}
+      {/* Navigation Bar - Note: TopBar in MainLayout replaces this */}
+      {/* Disabled navigation bar - replaced by TopBar
       <div className="flex items-center space-x-2 px-3 py-2 bg-slate-800 border-b border-slate-700">
         <div className="flex items-center space-x-1">
           <motion.button
-            onClick={() => showToast('Downloads page coming soon', 'info')}
+            onClick={() => showToast('Downloads', 'info')}
             className="p-1.5 rounded hover:bg-slate-700 transition-colors"
             title="Download"
             whileHover={{ scale: 1.1 }}
@@ -375,7 +481,7 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
             </motion.button>
           )}
           <motion.button
-            onClick={() => showToast('Screenshot feature coming soon', 'info')}
+            onClick={() => showToast('Screenshot', 'info')}
             className="p-2 rounded hover:bg-slate-700 transition-colors"
             title="Screenshot"
             whileHover={{ scale: 1.1 }}
@@ -404,9 +510,11 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
           </motion.button>
         </div>
       </div>
+      */}
 
-      {/* Main Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Layout - Note: MainLayout wrapper handles 4-zone structure */}
+      {/* Disabled main layout - replaced by MainLayout wrapper
+        <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
         <motion.nav
           className="w-64 bg-slate-800 border-r border-slate-700 p-4 flex flex-col"
@@ -595,43 +703,42 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
             </NavLink>
           </div>
         </motion.nav>
+        </div>
+      */}
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {children}
-          </div>
-          
+      {/* Main Content Area - Note: MainLayout wrapper handles layout */}
+      {/* This content is for internal routes/pages only */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {children}
         </div>
       </div>
 
-      {/* Status Bar */}
-      <div className="border-t border-slate-700 bg-slate-800 px-4 py-2 flex justify-between items-center text-xs">
-        <div className="flex items-center space-x-4">
-          <span className="text-slate-300">
-            Status: <span className={
-              status === 'idle' ? 'text-green-400' :
-              status === 'working' ? 'text-yellow-400' :
-              'text-red-400'
-            }>{status === 'idle' ? 'Idle' : status === 'working' ? 'Working' : 'Recovering'}</span>
-            {' - '}
-            <span className="text-blue-400">Local-first</span>
-            {' - '}
-            <span className="text-purple-400">Offline-ready</span>
-          </span>
-          {lastAction && (
-            <span className="flex items-center space-x-1 text-slate-400">
-              <CheckCircle className="w-3 h-3 text-green-400" />
-              <span>Last action: {lastAction}</span>
+      {/* Status Bar - Note: SystemTruthBar in MainLayout replaces this */}
+      {/* Disabled status bar - replaced by SystemTruthBar
+        <div className="border-t border-slate-700 bg-slate-800 px-4 py-2 flex justify-between items-center text-xs">
+          <div className="flex items-center space-x-4">
+            <span className="text-slate-300">
+              Status: <span className={
+                status === 'idle' ? 'text-green-400' :
+                status === 'working' ? 'text-yellow-400' :
+                'text-red-400'
+              }>{status === 'idle' ? 'Idle' : status === 'working' ? 'Working' : 'Recovering'}</span>
+              {' - '}
+              {/* Fake claims removed */}
             </span>
-          )}
+            {lastAction && (
+              <span className="flex items-center space-x-1 text-slate-400">
+                <CheckCircle className="w-3 h-3 text-green-400" />
+                <span>Last action: {lastAction}</span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-3">
+            {/* Status indicators removed - no fake claims */}
+          </div>
         </div>
-        <div className="flex items-center space-x-3">
-          {/* Status indicators */}
-          <span className="text-slate-400 text-xs">Local-first • Offline-ready</span>
-        </div>
-      </div>
+      */}
 
       {/* Regen-v1 Avatar Components */}
       <div
@@ -651,8 +758,140 @@ export function AppShell({ children }: { children: React.ReactNode }): JSX.Eleme
       />
       
       <AvatarStatusIndicator />
+      
+      {/* Explain Text Button - Shows when text is selected */}
+      <ExplainTextButton />
+      
+      {/* Unified Search Panel */}
+      <UnifiedSearchPanel
+        isOpen={showUnifiedSearch}
+        onClose={() => setShowUnifiedSearch(false)}
+        onSelect={(result) => {
+          // Navigate to result URL
+          if (result.url) {
+            const { useTabsStore } = require('../../state/tabsStore');
+            const tabsStore = useTabsStore.getState();
+            const activeTabId = tabsStore.activeTabId;
+            if (activeTabId) {
+              tabsStore.navigateTab(activeTabId, result.url);
+            } else {
+              tabsStore.addTab(result.url);
+            }
+          }
+        }}
+      />
+      
+      {/* Privacy Dashboard */}
+      <PrivacyDashboard
+        isOpen={showPrivacyDashboard}
+        onClose={() => setShowPrivacyDashboard(false)}
+      />
+      
+      {/* BATTLE 2: Transient AI Suggestions - appears on pattern detection */}
+      <TransientSuggestion />
+      
+      {/* BATTLE 3: Alive Avatar - reacts to user activity */}
+      <AvatarStateMachine size="md" showIndicator={true} />
+      
+      {/* BATTLE 5: Automation - Rule confirmation and logs */}
+      <RuleConfirmation />
+      <AutomationLog maxEntries={5} />
+      
+      {/* NEW: Realtime enhancements */}
+      {/* Dev mode metrics dashboard */}
+      <RealtimeMetricsDashboard />
+      
+      {/* AI undo/feedback system */}
+      <AIUndoFeedback />
+      
+      {/* Onboarding tour for new users */}
+      <RegenOnboardingTour />
+      
+      {/* Browser content is rendered in MainLayout center zone via TabIframeManager */}
     </div>
   );
 }
 
-export default AppShell;
+// Browser Content Component - Loads TabIframeManager with tabs from store
+function BrowserContent() {
+  const { tabs, activeId } = useTabsStore();
+  const [TabIframeManagerComponent, setTabIframeManagerComponent] = React.useState<React.ComponentType<any> | null>(null);
+
+  React.useEffect(() => {
+    // Dynamic import to avoid circular dependencies
+    import('./TabIframeManager').then((module) => {
+      setTabIframeManagerComponent(() => module.TabIframeManager);
+    }).catch((error) => {
+      console.error('[MainLayout] Failed to load TabIframeManager:', error);
+    });
+  }, []);
+
+  if (!TabIframeManagerComponent) {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-white text-gray-500">
+        <div className="text-sm">Loading browser...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full">
+      <TabIframeManagerComponent tabs={tabs} activeTabId={activeId} />
+    </div>
+  );
+}
+
+// MainLayout wraps AppShell with 4-zone layout
+function MainLayout({ children }: { children: React.ReactNode }) {
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
+
+  return (
+    <div className="fixed inset-0 flex flex-col bg-slate-950 overflow-hidden">
+      {/* Zone 0: Tab Bar - Multi-tab browser interface */}
+      <TabBar />
+      
+      {/* Zone 1: Top Bar - Address + Command */}
+      <TopBar />
+
+      {/* Zone 2-3: Main Content Area */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Zone 2: Left Panel - Tasks (Always visible, cannot be hidden) */}
+        <TaskExecutionPanel
+          onTaskClick={setSelectedTaskId}
+          selectedTaskId={selectedTaskId}
+        />
+
+        {/* Zone 3: Center - Browser Canvas (Normal web, no interference) */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0">
+          {/* Browser content: tabs + iframe/webview */}
+          <BrowserContent />
+        </div>
+
+        {/* Right Panel - Task Detail View (Transparency Zone) - Shows when task selected */}
+        {selectedTaskId && (
+          <TaskDetailView
+            taskId={selectedTaskId}
+            onClose={() => setSelectedTaskId(null)}
+          />
+        )}
+      </div>
+
+      {/* Zone 3.5: Above System Bar - Megan (System Guide) */}
+      <Megan position="bottom" />
+
+      {/* Zone 4: Bottom Bar - System Truth (Always visible) */}
+      <SystemTruthBar />
+    </div>
+  );
+}
+
+// Wrap AppShell content in MainLayout for 4-zone structure
+// MainLayout handles the 4-zone layout (TopBar, Left Panel, Center, Bottom Bar)
+// AppShell content (children/routes) renders in center zone alongside BrowserContent
+export default function AppShellWrapper(props: any) {
+  return (
+    <MainLayout>
+      <AppShell {...props} />
+    </MainLayout>
+  );
+}

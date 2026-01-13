@@ -10,7 +10,7 @@ import { useTabsStore } from '../../state/tabsStore';
 import { SAFE_IFRAME_SANDBOX } from '../../config/security';
 import { isElectronRuntime } from '../../lib/env';
 import { normalizeInputToUrlOrSearch } from '../../lib/search';
-import { useSettingsStore } from '../../state/settingsStore';
+import { useSettings } from '../../state/settingsStore';
 import { deriveTitleFromUrl } from '../../lib/ipc-typed';
 import { applyPrivacyModeToIframe } from '../../utils/privacyMode';
 import { getIframeManager, getViewRenderer, throttleViewUpdate } from '../../utils/gve-optimizer';
@@ -62,9 +62,9 @@ function getTabIframeUrl(tab: Tab, language: string): string | null {
 }
 
 export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
-  const language = useSettingsStore(state => state.language || 'auto');
-  const privacySettings = useSettingsStore(state => state.privacy);
-  const privacyMode = privacySettings.trackerProtection && privacySettings.adBlockEnabled;
+  // TODO: Settings store needs to be updated to include language and privacy settings
+  const language = 'auto'; // Default language until settings store is updated
+  const privacyMode = false; // Default to false until settings store is updated
   const isElectron = isElectronRuntime();
 
   // PR: Fix tab switch - use useRef map to store iframe refs (stable, doesn't cause re-renders)
@@ -488,7 +488,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
                         e.preventDefault(); // Prevent direct navigation
                         
                         // Route through CommandController
-                        import('../../../hooks/useCommandController').then(({ useCommandController }) => {
+                        import('../../hooks/useCommandController').then(({ useCommandController }) => {
                           const { executeCommand } = useCommandController();
                           
                           executeCommand(`navigate ${clickedUrl}`, {
@@ -724,6 +724,7 @@ export function TabIframeManager({ tabs, activeTabId }: TabIframeManagerProps) {
           </Suspense>
         );
       })}
+      <BrowserStatusOverlay />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { stream, log, complete, fail } from "../execution/taskManager";
 import { Task } from "../execution/task";
-import { Agent, AgentContext } from "./agentRouter";
+import { Agent } from "./agentRouter";
 import { getCurrentBrowserContext, buildAgentContext } from "./agentContext";
 
 /**

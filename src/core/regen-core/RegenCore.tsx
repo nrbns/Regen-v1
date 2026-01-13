@@ -14,9 +14,23 @@ import { useRegenCore } from "./regenCore.store";
 import { RegenCorePanel } from "./RegenCorePanel";
 import { AvatarCore } from "./AvatarCore";
 import { spineVariants } from "./regenCore.anim";
+// LAYER 1: Passive Interaction - Always on, zero cost
+import { useMouseMovementTracking } from "../../lib/events/passiveReactions";
+import { useScrollDirectionTracking } from "../../lib/events/passiveReactions";
+import { useTypingPauseDetection } from "../../lib/events/passiveReactions";
+import { useTabSwitchTracking } from "../../lib/events/passiveReactions";
+import { useExtendedIdleTracking } from "../../lib/events/passiveReactions";
 
 export default function RegenCore() {
   const { state } = useRegenCore();
+
+  // LAYER 1: Enable all passive reactions (README.md lines 406-430)
+  // These provide zero-cost liveliness through UI-only behavior tracking
+  useMouseMovementTracking();
+  useScrollDirectionTracking();
+  useTypingPauseDetection();
+  useTabSwitchTracking();
+  useExtendedIdleTracking();
 
   // Expanded when showing panel (noticing, executing, reporting)
   // Aware state shows avatar changes but no panel

@@ -6,7 +6,7 @@ import { systemState } from './state/SystemState';
 import { TabManager } from './browser/TabManager';
 import { NavigationController } from './browser/NavigationController';
 import { AIController } from './ai/AIController';
-import { IPCHandler, IPC_EVENTS } from './ipc/events';
+import { IPCHandler } from './ipc/events';
 
 describe('Real-time Architecture Integration', () => {
   beforeEach(() => {

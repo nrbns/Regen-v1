@@ -31,6 +31,8 @@ import { BookmarksPanel } from '../components/bookmarks/BookmarksPanel';
 import { WorkspacesPanel } from '../components/workspace/WorkspacesPanel';
 import { ShortcutsHelp } from '../components/help/ShortcutsHelp';
 import { AutomationPanel } from '../components/automation/AutomationPanel';
+// BATTLE 5: New RuleBuilder component
+import { RuleBuilder } from '../components/automation/RuleBuilder';
 // Optional components - only available in tauri-migration, removed for now
 import { EXTERNAL_APIS } from '../config/externalApis';
 // Redix components removed - not core to browser
@@ -38,6 +40,8 @@ import { LanguageSelector } from '../components/settings/LanguageSelector';
 import { ModelDownloader } from '../components/settings/ModelDownloader';
 import { SettingsPersistence } from '../components/settings/SettingsPersistence';
 import { AdblockerSettingsPanel } from '../components/adblocker';
+import { OllamaSetupWizard } from '../components/setup/OllamaSetupWizard';
+import { PerformanceBenchmarkPanel } from '../components/settings/PerformanceBenchmarkPanel';
 import { setLowDataMode, isLowDataModeEnabled } from '../services/lowDataMode';
 import { useAdaptiveLayout } from '../hooks/useAdaptiveLayout';
 import { invoke } from '@tauri-apps/api/core';
@@ -268,9 +272,9 @@ export default function SettingsRoute() {
               </div>
             </SectionCard>
             
-            {/* Automation Panel */}
+            {/* Automation Panel - BATTLE 5: Use new RuleBuilder */}
             <SectionCard title="Automation" icon={Zap} description="Create 'When X, do Y' rules for browser actions">
-              <AutomationPanel />
+              <RuleBuilder />
             </SectionCard>
             
             {!isV1ModeEnabled() && (
@@ -284,11 +288,22 @@ export default function SettingsRoute() {
               </>
             )}
             {isV1ModeEnabled() && (
-              <SectionCard title="Diagnostics" icon={Activity}>
-                <p className="text-sm text-slate-400">
-                  Advanced model and data controls are hidden in v1-mode.
-                </p>
-              </SectionCard>
+              <>
+                <SectionCard title="Local AI Setup (Ollama)" icon={Bot} description="Set up local AI models for offline, private AI features">
+                  <OllamaSetupWizard onComplete={() => {
+                    // Optionally show success message
+                    console.log('Ollama setup completed');
+                  }} />
+                </SectionCard>
+                <SectionCard title="Performance Benchmarks" icon={Activity} description="Test Regen performance on your device">
+                  <PerformanceBenchmarkPanel />
+                </SectionCard>
+                <SectionCard title="Diagnostics" icon={Activity}>
+                  <p className="text-sm text-slate-400">
+                    Advanced model and data controls are hidden in v1-mode.
+                  </p>
+                </SectionCard>
+              </>
             )}
           </div>
         )}

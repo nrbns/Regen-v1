@@ -1,8 +1,12 @@
 import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AppShell } from './components/layout/AppShell';
+// REAL-TIME LAUNCH: Use AppShellWrapper (default export) which includes MainLayout
+// AppShellWrapper provides the 4-zone layout: TopBar, TaskExecutionPanel, Browser, SystemTruthBar
+import AppShellWrapper from './components/layout/AppShell';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { initializeApp } from './lib/initialize-app';
+import { useEventBusTasks } from './hooks/useEventBusTasks';
+import { useTaskEvents } from './hooks/useTaskEvents';
 
 // Lazy load route components for better performance
 const Home = React.lazy(() => import('./routes/Home'));
@@ -21,6 +25,7 @@ const Settings = React.lazy(() => import('./routes/Settings'));
 const Video = React.lazy(() => import('./routes/Video'));
 const Watchers = React.lazy(() => import('./routes/Watchers'));
 const Workspace = React.lazy(() => import('./routes/Workspace'));
+const Beta = React.lazy(() => import('./routes/Beta'));
 
 // Loading fallback component
 function LoadingFallback() {
@@ -36,9 +41,15 @@ function LoadingFallback() {
 
 // Main App component with routing
 function AppContent() {
+  // REAL-TIME INTEGRATION: Connect eventBus to task store for real-time UI updates
+  useEventBusTasks();
+  
+  // REAL-TIME INTEGRATION: Connect IPC events to task store (for Tauri/Electron)
+  useTaskEvents();
+  
   return (
     <BrowserRouter>
-      <AppShell>
+      <AppShellWrapper>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -57,11 +68,12 @@ function AppContent() {
             <Route path="/video" element={<Video />} />
             <Route path="/watchers" element={<Watchers />} />
             <Route path="/workspace" element={<Workspace />} />
+            <Route path="/beta" element={<Beta />} />
             {/* Catch all route - redirect to home */}
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>
-      </AppShell>
+      </AppShellWrapper>
     </BrowserRouter>
   );
 }

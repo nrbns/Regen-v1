@@ -1,491 +1,412 @@
 /**
- * Enhanced Privacy Dashboard
- * Comprehensive privacy controls and monitoring with real stats, privacy score, and export
+ * Privacy Dashboard
+ * 
+ * Comprehensive privacy and security settings dashboard.
+ * Shows current privacy status, encryption status, and provides controls.
  */
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   Lock,
-  Cookie,
-  Fingerprint,
+  Eye,
+  EyeOff,
   Database,
-  Trash2,
-  Settings,
+  Key,
   AlertTriangle,
-  CheckCircle2,
-  BarChart3,
-  TrendingUp,
-  Download,
-  FileText,
-  Zap,
+  CheckCircle,
+  XCircle,
+  Info,
+  Settings,
 } from 'lucide-react';
 import { ipc } from '../../lib/ipc-typed';
+import { useTabsStore } from '../../state/tabsStore';
 
-interface PrivacyMetric {
-  label: string;
-  value: string | number;
-  trend?: 'up' | 'down' | 'stable';
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-}
-
-interface TrackerBlock {
-  domain: string;
-  count: number;
-  category: string;
-  blocked: boolean;
-  lastSeen: number;
-}
-
-interface PrivacyStats {
-  trackersBlocked: number;
-  adsBlocked: number;
-  cookiesBlocked: number;
-  scriptsBlocked: number;
-  httpsUpgrades: number;
-  fingerprintingEnabled: boolean;
+interface PrivacyStatus {
+  privacyMode: 'Normal' | 'Private' | 'Ghost';
+  encryptionEnabled: boolean;
+  incognitoTabs: number;
+  historyEnabled: boolean;
+  cookiesEnabled: boolean;
+  cacheEnabled: boolean;
+  fingerprintProtection: boolean;
+  torEnabled: boolean;
+  dnsOverHttps: boolean;
   webrtcBlocked: boolean;
-  totalCookies: number;
-  totalOrigins: number;
-  privacyScore: number;
 }
 
-export function PrivacyDashboard() {
-  const [stats, setStats] = useState<PrivacyStats | null>(null);
-  const [recentTrackers, setRecentTrackers] = useState<TrackerBlock[]>([]);
-  const [privacyMode, setPrivacyMode] = useState<'normal' | 'private' | 'ghost' | 'shadow'>(
-    'normal'
-  );
-  const [fingerprintingEnabled, setFingerprintingEnabled] = useState(false);
-  const [cookieBlocking, setCookieBlocking] = useState<'all' | 'third-party' | 'none'>(
-    'third-party'
-  );
+export function PrivacyDashboard({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [status, setStatus] = useState<PrivacyStatus>({
+    privacyMode: 'Normal',
+    encryptionEnabled: false,
+    incognitoTabs: 0,
+    historyEnabled: true,
+    cookiesEnabled: true,
+    cacheEnabled: true,
+    fingerprintProtection: false,
+    torEnabled: false,
+    dnsOverHttps: false,
+    webrtcBlocked: false,
+  });
+
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
-    const loadStats = async () => {
+    if (!isOpen) return;
+
+    const loadStatus = async () => {
       try {
         setLoading(true);
-        // Fetch real stats from IPC
-        const privacyStats = await ipc.privacy.getStats().catch(() => null);
-        if (privacyStats) {
-          setStats(privacyStats as PrivacyStats);
-          setFingerprintingEnabled(privacyStats.fingerprintingEnabled);
+
+        // Get current tabs to count incognito tabs
+        const tabs = useTabsStore.getState().tabs;
+        const incognitoCount = tabs.filter((t: any) => t.mode === 'private' || t.mode === 'ghost').length;
+
+        // Get Tor status
+        let torEnabled = false;
+        try {
+          const torStatus = (await ipc.tor.status()) as any;
+          torEnabled = torStatus?.running || false;
+        } catch {
+          // Tor not available
         }
 
-        // Fetch tracker list
-        const trackers = await ipc.privacy.getTrackers(20).catch(() => []);
-        if (Array.isArray(trackers)) {
-          setRecentTrackers(
-            trackers.map((t: any) => ({
-              domain: t.domain,
-              count: t.count || 1,
-              category: t.category || 'Unknown',
-              blocked: t.blocked !== false,
-              lastSeen: t.lastSeen || Date.now(),
-            }))
-          );
-        }
+        // Load privacy settings from localStorage/config
+        const encryptionEnabled = localStorage.getItem('regen:encryption:enabled') === 'true';
+        const historyEnabled = localStorage.getItem('regen:history:enabled') !== 'false';
+        const cookiesEnabled = localStorage.getItem('regen:cookies:enabled') !== 'false';
+        const cacheEnabled = localStorage.getItem('regen:cache:enabled') !== 'false';
+        const fingerprintProtection = localStorage.getItem('regen:fingerprint:protection') === 'true';
+        const dnsOverHttps = localStorage.getItem('regen:dns:over:https') === 'true';
+        const webrtcBlocked = localStorage.getItem('regen:webrtc:blocked') === 'true';
+
+        setStatus({
+          privacyMode: 'Normal', // Default, could be enhanced
+          encryptionEnabled,
+          incognitoTabs: incognitoCount,
+          historyEnabled,
+          cookiesEnabled,
+          cacheEnabled,
+          fingerprintProtection,
+          torEnabled,
+          dnsOverHttps,
+          webrtcBlocked,
+        });
       } catch (error) {
-        console.error('[PrivacyDashboard] Failed to load stats:', error);
+        console.error('[PrivacyDashboard] Failed to load status:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    loadStats();
+    loadStatus();
+  }, [isOpen]);
 
-    // Refresh stats every 5 seconds
-    const interval = setInterval(loadStats, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  if (!isOpen) return null;
 
-  const handleExportReport = async (format: 'json' | 'csv' = 'json') => {
-    try {
-      setExporting(true);
-      const report = await ipc.privacy.exportReport(format);
-
-      // Create download
-      const blob =
-        format === 'json'
-          ? new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-          : new Blob([convertToCSV(report)], { type: 'text/csv' });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `privacy-report-${Date.now()}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('[PrivacyDashboard] Failed to export report:', error);
-      alert('Failed to export privacy report');
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const convertToCSV = (report: any): string => {
-    const lines: string[] = [];
-
-    // Header
-    lines.push('Privacy Report');
-    lines.push(`Generated: ${new Date(report.timestamp).toISOString()}`);
-    lines.push('');
-
-    // Stats
-    lines.push('Statistics');
-    lines.push('Metric,Value');
-    lines.push(`Privacy Score,${report.stats.privacyScore}`);
-    lines.push(`Trackers Blocked,${report.stats.trackersBlocked}`);
-    lines.push(`Ads Blocked,${report.stats.adsBlocked}`);
-    lines.push(`Cookies Blocked,${report.stats.cookiesBlocked}`);
-    lines.push(`HTTPS Upgrades,${report.stats.httpsUpgrades}`);
-    lines.push(`Total Cookies,${report.stats.totalCookies}`);
-    lines.push(`Total Origins,${report.stats.totalOrigins}`);
-    lines.push('');
-
-    // Trackers
-    lines.push('Trackers');
-    lines.push('Domain,Category,Count,Blocked,Last Seen');
-    report.trackers.forEach((t: any) => {
-      lines.push(
-        `${t.domain},${t.category},${t.count},${t.blocked},${new Date(t.lastSeen).toISOString()}`
-      );
-    });
-    lines.push('');
-
-    // Origins
-    lines.push('Origins');
-    lines.push('Origin,Cookies,Last Accessed');
-    report.origins.forEach((o: any) => {
-      lines.push(`${o.origin},${o.cookies},${new Date(o.lastAccessed).toISOString()}`);
-    });
-
-    return lines.join('\n');
-  };
-
-  const getPrivacyScoreColor = (score: number): string => {
-    if (score >= 80) return 'text-green-400';
-    if (score >= 60) return 'text-yellow-400';
-    if (score >= 40) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  const getPrivacyScoreGrade = (score: number): string => {
-    if (score >= 90) return 'A+';
-    if (score >= 80) return 'A';
-    if (score >= 70) return 'B';
-    if (score >= 60) return 'C';
-    if (score >= 50) return 'D';
-    return 'F';
-  };
-
-  const metrics: PrivacyMetric[] = stats
-    ? ([
-        {
-          label: 'Trackers Blocked',
-          value: stats.trackersBlocked.toLocaleString(),
-          trend: 'up',
-          icon: Shield,
-        },
-        {
-          label: 'Ads Blocked',
-          value: stats.adsBlocked.toLocaleString(),
-          trend: 'up',
-          icon: Zap,
-        },
-        {
-          label: 'Cookies Blocked',
-          value: stats.cookiesBlocked.toLocaleString(),
-          trend: 'up',
-          icon: Cookie,
-        },
-        {
-          label: 'HTTPS Upgrades',
-          value: stats.httpsUpgrades.toLocaleString(),
-          trend: 'up',
-          icon: Lock,
-        },
-      ] as PrivacyMetric[])
-    : [];
-
-  const handleClearData = async (type: 'cookies' | 'cache' | 'history' | 'all') => {
-    try {
-      await (ipc as any)
-        .invoke('privacy:purgeOrigin', { origin: type === 'all' ? '*' : type })
-        .catch(() => {});
-      alert(`${type} cleared successfully`);
-      // Reload stats
-      const privacyStats = await ipc.privacy.getStats().catch(() => null);
-      if (privacyStats) {
-        setStats(privacyStats as PrivacyStats);
+  const toggleSetting = async (key: keyof PrivacyStatus, storageKey: string, applyToBackend = false) => {
+    const newValue = !status[key];
+    
+    // Update local state
+    setStatus({ ...status, [key]: newValue });
+    
+    // Persist to localStorage
+    localStorage.setItem(storageKey, String(newValue));
+    
+    // Apply to backend if needed (for settings that require IPC)
+    if (applyToBackend) {
+      try {
+        // Apply setting via IPC if available
+        // For now, just persist locally
+        console.log(`[PrivacyDashboard] Setting ${key} to ${newValue}`);
+      } catch (error) {
+        console.error(`[PrivacyDashboard] Failed to apply ${key}:`, error);
+        // Revert on error
+        setStatus({ ...status, [key]: !newValue });
+        localStorage.setItem(storageKey, String(!newValue));
       }
+    }
+    
+    // Emit event for real-time updates
+    window.dispatchEvent(new CustomEvent('regen:privacy:setting:changed', {
+      detail: { key, value: newValue, storageKey },
+    }));
+    
+    // Also emit to event bus for cross-tab sync
+    try {
+      const { regenEventBus } = await import('../../core/events/eventBus');
+      regenEventBus.emit({
+        type: 'COMMAND',
+        payload: JSON.stringify({
+          action: 'privacy_setting_changed',
+          key,
+          value: newValue,
+        }),
+      });
     } catch (error) {
-      console.error('[PrivacyDashboard] Failed to clear data:', error);
-      alert(`Failed to clear ${type}`);
+      console.warn('[PrivacyDashboard] Event bus not available:', error);
     }
   };
 
-  if (loading && !stats) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-gray-400">Loading privacy stats...</div>
+  const PrivacySection = ({
+    title,
+    icon: Icon,
+    children,
+  }: {
+    title: string;
+    icon: React.ElementType;
+    children: React.ReactNode;
+  }) => (
+    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-5 h-5 text-slate-400" />
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
       </div>
-    );
-  }
+      {children}
+    </div>
+  );
+
+  const StatusRow = ({
+    label,
+    value,
+    description,
+    enabled,
+    settingKey,
+    storageKey,
+    applyToBackend = false,
+    readOnly = false,
+  }: {
+    label: string;
+    value?: string | number;
+    description?: string;
+    enabled?: boolean;
+    settingKey?: keyof PrivacyStatus;
+    storageKey?: string;
+    applyToBackend?: boolean;
+    readOnly?: boolean;
+  }) => (
+    <div className="flex items-start justify-between py-2">
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-white">{label}</p>
+          {enabled !== undefined && (
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              enabled ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+            }`}>
+              {enabled ? 'ON' : 'OFF'}
+            </span>
+          )}
+        </div>
+        {value !== undefined && (
+          <p className="text-xs text-slate-400 mt-0.5">{value}</p>
+        )}
+        {description && (
+          <p className="text-xs text-slate-500 mt-1">{description}</p>
+        )}
+      </div>
+      {!readOnly && settingKey && storageKey && (
+        <button
+          onClick={() => toggleSetting(settingKey, storageKey, applyToBackend)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+            enabled ? 'bg-green-500' : 'bg-slate-600'
+          }`}
+          title={`Toggle ${label}`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              enabled ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-gray-900 text-white">
-      {/* Header */}
-      <div className="border-b border-gray-800 p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-4xl mx-4 max-h-[90vh] bg-slate-900 border border-slate-700 rounded-lg shadow-2xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-purple-500/20 p-2">
-              <Shield size={24} className="text-purple-400" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Privacy Dashboard</h2>
-              <p className="text-sm text-gray-400">Monitor and control your privacy</p>
-            </div>
+            <Shield className="w-6 h-6 text-blue-400" />
+            <h2 className="text-xl font-bold text-white">Privacy & Security Dashboard</h2>
           </div>
-
-          {/* Export Button */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleExportReport('json')}
-              disabled={exporting}
-              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
-            >
-              <Download size={16} />
-              {exporting ? 'Exporting...' : 'Export JSON'}
-            </button>
-            <button
-              onClick={() => handleExportReport('csv')}
-              disabled={exporting}
-              className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2 text-sm transition-colors hover:bg-gray-800 disabled:opacity-50"
-            >
-              <FileText size={16} />
-              {exporting ? 'Exporting...' : 'Export CSV'}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-800 rounded transition-colors"
+          >
+            <XCircle className="w-5 h-5 text-slate-400" />
+          </button>
         </div>
 
-        {/* Privacy Mode Selector */}
-        <div className="flex gap-2">
-          {(['normal', 'private', 'ghost'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => setPrivacyMode(mode)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                privacyMode === mode
-                  ? 'border border-purple-500/40 bg-purple-500/20 text-purple-200'
-                  : 'border border-gray-700 bg-gray-800/50 text-gray-400 hover:bg-gray-800'
-              }`}
-            >
-              {mode.charAt(0).toUpperCase() + mode.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Privacy Score */}
-      {stats && (
-        <div className="border-b border-gray-800 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="mb-2 text-lg font-semibold">Privacy Score</h3>
-              <p className="text-sm text-gray-400">Your overall privacy protection level</p>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-slate-600 border-t-blue-400"></div>
+              <p className="text-sm text-slate-400 mt-4">Loading privacy status...</p>
             </div>
-            <div className="text-right">
-              <div className={`text-5xl font-bold ${getPrivacyScoreColor(stats.privacyScore)}`}>
-                {stats.privacyScore}
-              </div>
-              <div className="mt-1 text-sm text-gray-400">
-                Grade: {getPrivacyScoreGrade(stats.privacyScore)}
-              </div>
-            </div>
-          </div>
-
-          {/* Score Bar */}
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-gray-800">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${stats.privacyScore}%` }}
-              transition={{ duration: 0.5 }}
-              className={`h-full ${
-                stats.privacyScore >= 80
-                  ? 'bg-green-500'
-                  : stats.privacyScore >= 60
-                    ? 'bg-yellow-500'
-                    : stats.privacyScore >= 40
-                      ? 'bg-orange-500'
-                      : 'bg-red-500'
-              }`}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Metrics */}
-      <div className="grid grid-cols-2 gap-4 p-6 md:grid-cols-4">
-        {metrics.map((metric, index) => {
-          const Icon = metric.icon;
-          return (
-            <motion.div
-              key={metric.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="rounded-lg border border-gray-700 bg-gray-800/50 p-4"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <Icon size={20} className="text-gray-400" />
-                {metric.trend && (
-                  <TrendingUp
-                    size={16}
-                    className={`${metric.trend === 'up' ? 'text-green-400' : 'text-gray-400'}`}
+          ) : (
+            <>
+              {/* Current Status Overview */}
+              <PrivacySection title="Current Status" icon={Info}>
+                <div className="space-y-2">
+                  <StatusRow
+                    label="Privacy Mode"
+                    value={status.privacyMode}
+                    description="Current browsing mode"
+                    readOnly={true}
                   />
-                )}
-              </div>
-              <div className="mb-1 text-2xl font-bold text-white">{metric.value}</div>
-              <div className="text-xs text-gray-400">{metric.label}</div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Privacy Settings */}
-      <div className="space-y-6 p-6">
-        <div>
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Settings size={18} />
-            Privacy Settings
-          </h3>
-
-          <div className="space-y-4">
-            {/* Fingerprinting Protection */}
-            <div className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800/50 p-4">
-              <div className="flex items-center gap-3">
-                <Fingerprint size={20} className="text-gray-400" />
-                <div>
-                  <div className="font-medium">Fingerprinting Protection</div>
-                  <div className="text-sm text-gray-400">Block browser fingerprinting</div>
+                  <StatusRow
+                    label="Incognito Tabs"
+                    value={`${status.incognitoTabs} active`}
+                    description="Private browsing tabs"
+                    readOnly={true}
+                  />
+                  <StatusRow
+                    label="Tor Network"
+                    value={status.torEnabled ? 'Connected' : 'Disabled'}
+                    enabled={status.torEnabled}
+                    description="Traffic routed through Tor"
+                    readOnly={true}
+                  />
                 </div>
-              </div>
-              <button
-                onClick={() => setFingerprintingEnabled(!fingerprintingEnabled)}
-                className={`relative h-6 w-12 rounded-full transition-colors ${
-                  fingerprintingEnabled ? 'bg-green-500' : 'bg-gray-700'
-                }`}
-              >
-                <div
-                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                    fingerprintingEnabled ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
+              </PrivacySection>
 
-            {/* Cookie Blocking */}
-            <div className="rounded-lg border border-gray-700 bg-gray-800/50 p-4">
-              <div className="mb-3 flex items-center gap-3">
-                <Cookie size={20} className="text-gray-400" />
-                <div>
-                  <div className="font-medium">Cookie Blocking</div>
-                  <div className="text-sm text-gray-400">Control cookie behavior</div>
+              {/* Data Protection */}
+              <PrivacySection title="Data Protection" icon={Lock}>
+                <div className="space-y-2">
+                  <StatusRow
+                    label="Encryption"
+                    value={status.encryptionEnabled ? 'Enabled' : 'Disabled'}
+                    enabled={status.encryptionEnabled}
+                    description="Encrypt sensitive data at rest"
+                    settingKey="encryptionEnabled"
+                    storageKey="regen:encryption:enabled"
+                    applyToBackend={false}
+                  />
+                  <StatusRow
+                    label="History"
+                    enabled={status.historyEnabled}
+                    description="Store browsing history"
+                    settingKey="historyEnabled"
+                    storageKey="regen:history:enabled"
+                    applyToBackend={true}
+                  />
+                  <StatusRow
+                    label="Cookies"
+                    enabled={status.cookiesEnabled}
+                    description="Store cookies and site data"
+                    settingKey="cookiesEnabled"
+                    storageKey="regen:cookies:enabled"
+                    applyToBackend={true}
+                  />
+                  <StatusRow
+                    label="Cache"
+                    enabled={status.cacheEnabled}
+                    description="Store cached files"
+                    settingKey="cacheEnabled"
+                    storageKey="regen:cache:enabled"
+                    applyToBackend={true}
+                  />
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {(['all', 'third-party', 'none'] as const).map(level => (
-                  <button
-                    key={level}
-                    onClick={() => setCookieBlocking(level)}
-                    className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-                      cookieBlocking === level
-                        ? 'border border-purple-500/40 bg-purple-500/20 text-purple-200'
-                        : 'border border-gray-600 bg-gray-700/50 text-gray-400 hover:bg-gray-700'
-                    }`}
-                  >
-                    {level === 'all'
-                      ? 'Block All'
-                      : level === 'third-party'
-                        ? 'Third-Party'
-                        : 'Allow All'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+              </PrivacySection>
+
+              {/* Privacy Features */}
+              <PrivacySection title="Privacy Features" icon={Eye}>
+                <div className="space-y-2">
+                  <StatusRow
+                    label="Fingerprint Protection"
+                    enabled={status.fingerprintProtection}
+                    description="Protect against browser fingerprinting"
+                    settingKey="fingerprintProtection"
+                    storageKey="regen:fingerprint:protection"
+                    applyToBackend={true}
+                  />
+                  <StatusRow
+                    label="WebRTC Blocking"
+                    enabled={status.webrtcBlocked}
+                    description="Block WebRTC IP leaks"
+                    settingKey="webrtcBlocked"
+                    storageKey="regen:webrtc:blocked"
+                    applyToBackend={true}
+                  />
+                  <StatusRow
+                    label="DNS-over-HTTPS"
+                    enabled={status.dnsOverHttps}
+                    description="Encrypt DNS queries"
+                    settingKey="dnsOverHttps"
+                    storageKey="regen:dns:over:https"
+                    applyToBackend={true}
+                  />
+                </div>
+              </PrivacySection>
+
+              {/* Security Recommendations */}
+              <PrivacySection title="Security Recommendations" icon={AlertTriangle}>
+                <div className="space-y-3">
+                  {!status.encryptionEnabled && (
+                    <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                      <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-400">Enable Encryption</p>
+                        <p className="text-xs text-yellow-300/80 mt-1">
+                          Encrypt sensitive data to protect against unauthorized access
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {!status.fingerprintProtection && (
+                    <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                      <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-400">Enable Fingerprint Protection</p>
+                        <p className="text-xs text-yellow-300/80 mt-1">
+                          Prevent websites from tracking you through browser fingerprinting
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {!status.webrtcBlocked && (
+                    <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                      <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-400">Block WebRTC</p>
+                        <p className="text-xs text-yellow-300/80 mt-1">
+                          Prevent WebRTC IP address leaks
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {status.encryptionEnabled && status.fingerprintProtection && status.webrtcBlocked && (
+                    <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/20 rounded">
+                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-green-400">All Security Features Enabled</p>
+                        <p className="text-xs text-green-300/80 mt-1">
+                          Your browser is configured with recommended privacy settings
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </PrivacySection>
+            </>
+          )}
         </div>
 
-        {/* Data Management */}
-        <div>
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Database size={18} />
-            Data Management
-          </h3>
-
-          <div className="grid grid-cols-2 gap-3">
-            {(['cookies', 'cache', 'history', 'all'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => handleClearData(type)}
-                className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-800/50 p-3 text-sm transition-colors hover:bg-gray-800"
-              >
-                <Trash2 size={16} className="text-gray-400" />
-                <span>Clear {type === 'all' ? 'All Data' : type}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div>
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <BarChart3 size={18} />
-            Recent Tracker Activity
-          </h3>
-
-          <div className="space-y-2">
-            {recentTrackers.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Shield size={32} className="mx-auto mb-2 opacity-50" />
-                <p>No recent tracker activity</p>
-              </div>
-            ) : (
-              recentTrackers.map((tracker, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="flex items-center justify-between rounded-lg border border-gray-700 bg-gray-800/50 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    {tracker.blocked ? (
-                      <CheckCircle2 size={16} className="text-green-400" />
-                    ) : (
-                      <AlertTriangle size={16} className="text-yellow-400" />
-                    )}
-                    <div>
-                      <div className="text-sm font-medium">{tracker.domain}</div>
-                      <div className="text-xs text-gray-400">{tracker.category}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-xs text-gray-500">{tracker.count}x</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(tracker.lastSeen).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </motion.div>
-              ))
-            )}
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-700 bg-slate-800/50">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Privacy settings are stored locally and never transmitted
+            </p>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>

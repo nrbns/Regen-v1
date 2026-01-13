@@ -8,7 +8,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Plus, Trash2, Edit2, Power, PowerOff, CheckCircle, XCircle } from 'lucide-react';
-import { automationEngine, AutomationRule } from '../../core/automation/automationEngine';
+import { automationEngine } from '../../core/automation/engine';
+import type { AutomationRule } from '../../core/automation/rules';
 
 export function AutomationPanel() {
   const [rules, setRules] = useState<AutomationRule[]>([]);
@@ -104,21 +105,16 @@ export function AutomationPanel() {
                   <div className="text-sm text-slate-400 space-y-1">
                     <p>
                       <span className="text-slate-500">Trigger:</span>{' '}
-                      {rule.trigger.event}
-                      {rule.trigger.condition && ' (with condition)'}
+                      {rule.trigger}
+                      {rule.match && ' (with condition)'}
                     </p>
                     <p>
                       <span className="text-slate-500">Action:</span>{' '}
-                      {rule.action.type === 'task' && `Run task: ${rule.action.taskId}`}
-                      {rule.action.type === 'command' && `Execute: ${rule.action.commandText}`}
-                      {rule.action.type === 'custom' && 'Custom function'}
+                      {rule.action}
                     </p>
-                    {rule.metadata.triggerCount > 0 && (
-                      <p className="text-xs text-slate-500">
-                        Triggered {rule.metadata.triggerCount} time(s)
-                        {rule.metadata.lastTriggered && (
-                          <> · Last: {new Date(rule.metadata.lastTriggered).toLocaleString()}</>
-                        )}
+                    {rule.description && (
+                      <p className="text-xs text-slate-500 italic">
+                        {rule.description}
                       </p>
                     )}
                   </div>
@@ -161,13 +157,13 @@ export function AutomationPanel() {
         </p>
       </div>
 
-      {/* Create Modal - Placeholder for now */}
+      {/* Create Modal - Hidden in v1 */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full mx-4">
             <h3 className="text-lg font-semibold text-white mb-4">Create Automation Rule</h3>
             <p className="text-sm text-slate-400 mb-6">
-              Advanced rule creation UI coming soon. For now, default rules are available above.
+              Advanced rule creation is not available in v1. Default rules are available above.
             </p>
             <button
               onClick={() => setShowCreateModal(false)}

@@ -81,10 +81,13 @@ export const useTabsStore = create<TabsState>()(
           const newTabs = [...state.tabs, newTab];
           const newActiveTabId = state.tabs.length === 0 ? newTab.id : state.activeTabId;
           
-          // Emit event for real-time AI observation
+          // Emit event for real-time AI observation (cross-tab sync handled by crossTabEventBus)
           if (typeof window !== 'undefined') {
-            import('../lib/events/EventBus').then(({ emitTabOpen }) => {
-              emitTabOpen(newTab.id, url);
+            import('../core/events/eventBus').then(({ regenEventBus }) => {
+              regenEventBus.emit({
+                type: 'TAB_OPEN',
+                payload: { tabId: newTab.id, url },
+              });
             }).catch(() => {
               // EventBus not available - graceful degradation
             });
@@ -113,10 +116,13 @@ export const useTabsStore = create<TabsState>()(
             }
           }
 
-          // Emit event for real-time AI observation
+          // Emit event for real-time AI observation (cross-tab sync handled by crossTabEventBus)
           if (typeof window !== 'undefined' && tabToClose) {
-            import('../lib/events/EventBus').then(({ emitTabClose }) => {
-              emitTabClose(tabId);
+            import('../core/events/eventBus').then(({ regenEventBus }) => {
+              regenEventBus.emit({
+                type: 'TAB_CLOSE',
+                payload: { tabId },
+              });
             }).catch(() => {
               // EventBus not available - graceful degradation
             });
@@ -131,10 +137,13 @@ export const useTabsStore = create<TabsState>()(
 
       switchTab: (tabId: string) => {
         set((state) => {
-          // Emit event for real-time AI observation
+          // Emit event for real-time AI observation (cross-tab sync handled by crossTabEventBus)
           if (typeof window !== 'undefined' && state.activeTabId !== tabId) {
-            import('../lib/events/EventBus').then(({ emitTabSwitch }) => {
-              emitTabSwitch(tabId);
+            import('../core/events/eventBus').then(({ regenEventBus }) => {
+              regenEventBus.emit({
+                type: 'TAB_SWITCH',
+                payload: { tabId },
+              });
             }).catch(() => {
               // EventBus not available - graceful degradation
             });
@@ -168,13 +177,17 @@ export const useTabsStore = create<TabsState>()(
           return;
         }
 
-        // Emit navigation event for real-time AI observation
+        // Emit navigation event for real-time AI observation (cross-tab sync handled by crossTabEventBus)
         if (typeof window !== 'undefined') {
-          import('../lib/events/EventBus').then(({ emitNavigate, emitPageLoad }) => {
-            emitNavigate(url, tabId);
+          import('../core/events/eventBus').then(({ regenEventBus }) => {
+            regenEventBus.emit({
+              type: 'URL_CHANGE',
+              payload: url,
+            });
             // Also emit page load after short delay (simulating page load)
             setTimeout(() => {
-              emitPageLoad(url);
+              // Note: PAGE_LOAD event type would need to be added to RegenEvent if needed
+              // For now, URL_CHANGE covers navigation
             }, 500);
           }).catch(() => {
             // EventBus not available - graceful degradation

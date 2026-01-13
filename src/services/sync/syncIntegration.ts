@@ -220,21 +220,16 @@ export function setupSyncListeners(): void {
   if (typeof window === 'undefined') return;
 
   // Listen for history changes
+  // REAL-TIME LAUNCH: Online event listener is OK (responds to user network event)
   window.addEventListener('online', () => {
     if (syncServiceInstance) {
       syncServiceInstance.syncAll().catch(console.error);
     }
   });
 
-  // Periodic sync
-  setInterval(
-    () => {
-      if (syncServiceInstance && syncServiceInstance.isOnline()) {
-        syncHistoryToService();
-        syncBookmarksToService();
-        syncSettingsToService();
-      }
-    },
-    5 * 60 * 1000
-  ); // Every 5 minutes
+  // REAL-TIME LAUNCH REQUIREMENT: Periodic sync REMOVED
+  // REMOVED: setInterval for periodic sync
+  // Sync must be user-initiated or triggered by explicit events (like 'online')
+  // User must explicitly call sync methods
+  console.log('[SyncIntegration] Periodic sync disabled - sync must be user-initiated');
 }

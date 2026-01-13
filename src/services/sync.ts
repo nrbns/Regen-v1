@@ -214,16 +214,24 @@ class SyncService {
 
   /**
    * Auto-sync on interval
+   * 
+   * REAL-TIME LAUNCH: Auto-execution DISABLED
+   * This method now does nothing - sync must be user-initiated
+   * Use sync() method directly for user-initiated sync
+   * 
+   * @deprecated Auto-execution removed for real-time launch requirements
+   * All execution must be user-initiated
    */
   startAutoSync(intervalMs = 5 * 60 * 1000): void {
-    // Sync every 5 minutes if enabled
-    setInterval(() => {
-      if (this.isEnabled() && !this.syncInProgress) {
-        this.sync().catch(error => {
-          log.error('[Sync] Auto-sync failed:', error);
-        });
-      }
-    }, intervalMs);
+    // REAL-TIME LAUNCH REQUIREMENT: No auto-execution
+    // All work must be user-initiated
+    // This method is kept for backward compatibility but does nothing
+    
+    console.log('[Sync] startAutoSync called but auto-execution is disabled');
+    console.log('[Sync] Use sync() method for user-initiated sync');
+    
+    // REMOVED: All setInterval auto-execution code
+    // User must explicitly call sync() method
   }
 }
 

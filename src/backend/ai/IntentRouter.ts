@@ -7,7 +7,7 @@ export interface IntentResult {
 }
 
 export class IntentRouter {
-  static async route(input: string, context?: { currentUrl?: string }): Promise<IntentResult> {
+  static async route(input: string, _context?: { currentUrl?: string }): Promise<IntentResult> {
     const trimmedInput = input.trim();
 
     // Check for URLs first (fast, no AI needed)

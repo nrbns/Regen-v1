@@ -1,15 +1,15 @@
 // Browser-compatible event emitter
 class BrowserEventEmitter {
-  private listeners: Map<string, Function[]> = new Map();
+  private listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
-  on(event: string, callback: Function) {
+  on(event: string, callback: (...args: any[]) => void) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
     this.listeners.get(event)!.push(callback);
   }
 
-  off(event: string, callback: Function) {
+  off(event: string, callback: (...args: any[]) => void) {
     const listeners = this.listeners.get(event) || [];
     const index = listeners.indexOf(callback);
     if (index > -1) {

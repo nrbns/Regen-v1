@@ -28,6 +28,9 @@ export function useTabRedundancyDetection() {
   useEffect(() => {
     // Don't check if disabled or already noticing/executing/reporting
     if (!config.enabled || coreState !== 'observing') return;
+    
+    // Check if auto-close is enabled (if not, still detect but don't auto-close)
+    const shouldAutoClose = config.autoCloseDuplicates;
 
     const checkTabs = () => {
       const now = Date.now();
@@ -98,7 +101,7 @@ export function useSearchLoopDetection() {
   const config = useMemo(() => getRegenCoreConfig(), []);
 
   useEffect(() => {
-    if (!config.enabled || coreState !== 'observing') return;
+    if (!config.enabled || !config.enableSearchLoopDetection || coreState !== 'observing') return;
 
     const handleSearch = () => {
       const now = Date.now();
@@ -156,7 +159,7 @@ export function useLongScrollDetection() {
   const config = useMemo(() => getRegenCoreConfig(), []);
 
   useEffect(() => {
-    if (!config.enabled || coreState !== 'observing' || !activeTab?.url) return;
+    if (!config.enabled || !config.enableLongScrollDetection || coreState !== 'observing' || !activeTab?.url) return;
 
     const checkScrollDepth = async () => {
       const now = Date.now();
@@ -239,7 +242,7 @@ export function useIdleDetection() {
   const config = useMemo(() => getRegenCoreConfig(), []);
 
   useEffect(() => {
-    if (!config.enabled || coreState !== 'observing' || !activeTab?.url) {
+    if (!config.enabled || !config.enableIdleDetection || coreState !== 'observing' || !activeTab?.url) {
       hasTriggeredRef.current = false;
       return;
     }
@@ -323,7 +326,7 @@ export function useErrorDetection() {
   const config = useMemo(() => getRegenCoreConfig(), []);
 
   useEffect(() => {
-    if (!config.enabled || coreState !== 'observing' || !activeTab?.url) {
+    if (!config.enabled || !config.enableErrorDetection || coreState !== 'observing' || !activeTab?.url) {
       // Clear old triggers when not observing (after cooldown)
       const now = Date.now();
       for (const [url, timestamp] of hasTriggeredRef.current.entries()) {

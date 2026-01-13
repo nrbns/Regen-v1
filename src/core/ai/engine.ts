@@ -44,11 +44,11 @@ export class AIEngine {
     import.meta.env.VITE_API_BASE_URL ||
     (typeof window !== 'undefined' ? window.__OB_API_BASE__ : '');
 
-  // WEEK 1 TASK 2: Rate limiting optimized for parallel voice queries <1.5s
-  // Max 6 concurrent AI requests - allows reasoning + summary + other tasks simultaneously
+  // BATTLE 1: One AI task at a time (non-negotiable)
+  // WINNING PLAN: One task at a time ensures browsing speed is never affected
   private readonly requestQueue = new PQueue({
-    concurrency: 6, // Increased for better parallel performance
-    timeout: 2000, // 2s timeout per task to prevent hanging
+    concurrency: 1, // ONE task at a time - critical for performance
+    timeout: 10000, // 10s hard timeout per task (increased from 2s for reliability)
   });
 
   // Provider chain: try in order, fallback to next on failure
@@ -56,6 +56,16 @@ export class AIEngine {
 
   // State persistence key
   private readonly STATE_KEY = 'regen:ai_engine_state';
+
+  // BATTLE 1: AI unload on idle (30-60s)
+  private idleTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly IDLE_TIMEOUT_MS = 45000; // 45s (between 30-60s as specified)
+  private lastActivityTime = Date.now();
+  private isUnloaded = false;
+
+  // BATTLE 1: Track active tasks for cancellation on tab close
+  private activeTasks: Map<string, { abortController: AbortController; tabId?: string }> = new Map();
+  private taskIdCounter = 0;
 
   constructor() {
     // Listen for AI task requests via eventBus
@@ -68,11 +78,34 @@ export class AIEngine {
         return;
       }
       // Wake: process one task at a time (queue)
+      this.wake(); // Wake AI from idle state
+      
+      // BATTLE 1: Create abort controller for this task
+      const taskId = `task_${++this.taskIdCounter}`;
+      const abortController = new AbortController();
+      const tabId = request.context?.tabId as string | undefined;
+      
+      // Store active task
+      this.activeTasks.set(taskId, { abortController, tabId });
+      
+      // Combine with user-provided signal if any
+      const combinedSignal = request.signal
+        ? (() => {
+            const combined = new AbortController();
+            request.signal!.addEventListener('abort', () => combined.abort());
+            abortController.signal.addEventListener('abort', () => combined.abort());
+            return combined.signal;
+          })()
+        : abortController.signal;
+      
+      // Update request with combined signal
+      const requestWithSignal = { ...request, signal: combinedSignal };
+      
       await this.requestQueue.add(async () => {
         eventBus.emit('ai:task:start', request);
         try {
           // Try backend first
-          const backendResult = await this.callBackendTask(request, event => {
+          const backendResult = await this.callBackendTask(requestWithSignal, event => {
             if (event.type === 'token') {
               eventBus.emit('ai:task:token', { request, token: event.data });
             }
@@ -83,7 +116,7 @@ export class AIEngine {
             return;
           }
           // Fallback to local LLM
-          const localResult = await this.runLocalLLMWithFallback(request, event => {
+          const localResult = await this.runLocalLLMWithFallback(requestWithSignal, event => {
             if (event.type === 'token') {
               eventBus.emit('ai:task:token', { request, token: event.data });
             }
@@ -91,14 +124,155 @@ export class AIEngine {
           this.saveState(request, localResult);
           eventBus.emit('ai:task:done', { request, result: localResult });
         } catch (error: any) {
-          eventBus.emit('ai:task:error', {
-            request,
-            error: error?.message || 'AI task failed',
-          });
+          // Check if error is due to cancellation
+          if (error?.name === 'AbortError' || combinedSignal.aborted) {
+            eventBus.emit('ai:task:cancelled', { request, reason: 'Task cancelled' });
+          } else {
+            eventBus.emit('ai:task:error', {
+              request,
+              error: error?.message || 'AI task failed',
+            });
+          }
+        } finally {
+          // Clean up task tracking
+          this.activeTasks.delete(taskId);
         }
-        // Sleep: done after task
+        // Sleep: done after task - schedule idle unload
+        this.scheduleIdleUnload();
       });
     });
+
+    // Listen for user activity to reset idle timer
+    if (typeof window !== 'undefined') {
+      const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+      activityEvents.forEach(event => {
+        window.addEventListener(event, () => this.resetIdleTimer(), { passive: true });
+      });
+    }
+
+    // BATTLE 1: Kill AI on tab close
+    eventBus.on('TAB_CLOSED', (tabId?: string) => {
+      this.killTasksForTab(tabId);
+    });
+
+    // Also listen for custom tab-closed event (used by TabContentSurface)
+    if (typeof window !== 'undefined') {
+      const handleTabClose = ((e: CustomEvent) => {
+        const tabId = e.detail?.tabId;
+        this.killTasksForTab(tabId);
+      }) as EventListener;
+      
+      window.addEventListener('tab-closed', handleTabClose);
+      
+      // Cleanup on window unload
+      window.addEventListener('beforeunload', () => {
+        window.removeEventListener('tab-closed', handleTabClose);
+      });
+    }
+  }
+
+  /**
+   * Wake AI from idle state
+   * BATTLE 1: AI wakes on event, sleeps after task
+   */
+  private wake(): void {
+    if (this.isUnloaded) {
+      this.isUnloaded = false;
+      eventBus.emit('ai:engine:wake');
+    }
+    this.resetIdleTimer();
+  }
+
+  /**
+   * Reset idle timer (called on activity or task completion)
+   * BATTLE 1: Aggressive unload after 30-60s idle
+   */
+  private resetIdleTimer(): void {
+    this.lastActivityTime = Date.now();
+    
+    if (this.idleTimeout) {
+      clearTimeout(this.idleTimeout);
+      this.idleTimeout = null;
+    }
+  }
+
+  /**
+   * Schedule AI unload after idle period
+   * BATTLE 1: AI unloads after 30-60s idle
+   */
+  private scheduleIdleUnload(): void {
+    this.resetIdleTimer();
+    
+    this.idleTimeout = setTimeout(() => {
+      this.unload();
+    }, this.IDLE_TIMEOUT_MS);
+  }
+
+  /**
+   * Unload AI engine (free memory, stop background processes)
+   * BATTLE 1: Aggressive unload to free resources
+   */
+  private unload(): void {
+    if (this.isUnloaded) return;
+    
+    // Clear any pending tasks (but don't cancel running ones)
+    // The queue will naturally drain
+    
+    this.isUnloaded = true;
+    eventBus.emit('ai:engine:unload');
+    
+    if (this.idleTimeout) {
+      clearTimeout(this.idleTimeout);
+      this.idleTimeout = null;
+    }
+    
+    console.log('[AIEngine] Unloaded after idle period');
+  }
+
+  /**
+   * Check if AI engine is currently unloaded
+   */
+  isIdle(): boolean {
+    return this.isUnloaded;
+  }
+
+  /**
+   * Kill AI tasks for a specific tab (or all tasks if no tabId)
+   * BATTLE 1: Kill AI on tab close - instant cancellation
+   */
+  private killTasksForTab(tabId?: string): void {
+    let cancelledCount = 0;
+    
+    // Cancel all active tasks for this tab (or all tasks if no tabId)
+    for (const [taskId, task] of this.activeTasks.entries()) {
+      if (!tabId || task.tabId === tabId) {
+        task.abortController.abort();
+        this.activeTasks.delete(taskId);
+        cancelledCount++;
+      }
+    }
+    
+    // Emit cancellation event
+    if (cancelledCount > 0) {
+      eventBus.emit('ai:task:cancelled', { tabId, reason: 'Tab closed', count: cancelledCount });
+    }
+    
+    // If this was the last tab or we're killing all tasks, unload AI
+    if (!tabId || this.activeTasks.size === 0) {
+      this.unload();
+    }
+    
+    if (cancelledCount > 0) {
+      console.log(`[AIEngine] Killed ${cancelledCount} AI task(s) for tab: ${tabId || 'all'}`);
+    }
+  }
+
+  /**
+   * Cancel all running and pending AI tasks
+   * BATTLE 1: Instant cancellation when needed
+   */
+  cancelAllTasks(): void {
+    this.killTasksForTab();
   }
 
   // Remove imperative runTask entrypoint (enforced event-driven)

@@ -1,6 +1,5 @@
 /* eslint-env node */
 import IORedis from 'ioredis';
-import { EventEmitter } from 'events';
 
 // Global error suppression for ioredis - must be set up before any Redis clients are created
 const suppressRedisErrors = () => {

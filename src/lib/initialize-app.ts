@@ -104,6 +104,15 @@ function verifyBrowserIntegration(): boolean {
 export async function initializeApp(): Promise<InitializationStatus> {
   console.log('[Init] Starting application initialization...');
 
+  // REAL-TIME LAUNCH: Clean up tasks from previous session (restart safety)
+  try {
+    const { cleanupTasksOnRestart } = await import('../core/execution/taskManager');
+    cleanupTasksOnRestart();
+    console.log('[Init] ✓ Task cleanup on restart completed');
+  } catch (error) {
+    console.warn('[Init] Task cleanup failed:', error);
+  }
+
   // 1. Verify browser integration
   initializationStatus.browserIntegration = verifyBrowserIntegration();
   if (!initializationStatus.browserIntegration) {
@@ -180,13 +189,31 @@ export async function initializeApp(): Promise<InitializationStatus> {
     console.warn('[Init] Context Engine failed to start:', err);
   }
 
-  // Initialize Regen-v1 core systems
+  // Initialize Regen-v1 core systems (all phases)
   try {
-    const { initRegenV1 } = await import('../core/regen-v1/init');
-    initRegenV1();
-    console.log('[Init] ✓ Regen-v1 core systems initialized');
+    const { initRegenV1Sync } = await import('../core/regen-v1/init');
+    initRegenV1Sync(); // Use sync version for compatibility
+    console.log('[Init] ✓ Regen-v1 core systems initialized (all phases)');
   } catch (err) {
     console.warn('[Init] Regen-v1 initialization failed:', err);
+  }
+
+  // BATTLE 2 & 5: Initialize pattern detection, suggestions, and automation
+  try {
+    // PatternDetector auto-initializes on import (listens to TAB_NAVIGATED)
+    const { patternDetector } = await import('../core/pattern/PatternDetector');
+    console.log('[Init] ✓ PatternDetector initialized');
+    
+    // SuggestionEngine auto-initializes on import (listens to pattern:detected)
+    const { suggestionEngine } = await import('../core/suggestions/SuggestionEngine');
+    console.log('[Init] ✓ SuggestionEngine initialized');
+    
+    // RuleEngine loads rules from localStorage on import
+    const { ruleEngine } = await import('../core/automation/RuleEngine');
+    ruleEngine.loadRules();
+    console.log('[Init] ✓ RuleEngine initialized');
+  } catch (err) {
+    console.warn('[Init] Pattern/Suggestion/Automation initialization failed:', err);
   }
 
   // Store status globally for debugging

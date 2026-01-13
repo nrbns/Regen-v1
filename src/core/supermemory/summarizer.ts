@@ -464,54 +464,25 @@ export async function runNightlySummarization(): Promise<{
 
 /**
  * Initialize nightly summarization scheduler
- * Runs automatically once per day, or can be triggered manually
+ * 
+ * REAL-TIME LAUNCH: Auto-execution DISABLED
+ * This function now does nothing - summarization must be user-initiated
+ * Use triggerSummarization() for user-initiated summarization
+ * 
+ * @deprecated Auto-execution removed for real-time launch requirements
+ * All execution must go through TaskManager and be user-initiated
  */
 export function initNightlySummarization(): void {
-  // Check if we should run summarization
-  const lastRun = localStorage.getItem('sm-last-summary-run');
-  const now = Date.now();
-  const oneDayMs = 24 * 60 * 60 * 1000;
-
-  // Run if never run before, or if last run was more than 24 hours ago
-  if (!lastRun || now - parseInt(lastRun, 10) > oneDayMs) {
-    // Run summarization asynchronously (don't block app startup)
-    setTimeout(() => {
-      runNightlySummarization()
-        .then(result => {
-          console.log('[Summarizer] Nightly summarization completed:', result);
-          localStorage.setItem('sm-last-summary-run', now.toString());
-
-          // Emit event for UI to show notification if needed
-          if (result.summariesCreated > 0) {
-            window.dispatchEvent(
-              new CustomEvent('memory-summarized', {
-                detail: {
-                  summariesCreated: result.summariesCreated,
-                  eventsCompressed: result.eventsCompressed,
-                },
-              })
-            );
-          }
-        })
-        .catch(error => {
-          console.error('[Summarizer] Nightly summarization error:', error);
-        });
-    }, 5000); // Wait 5 seconds after app startup
-
-    // Schedule next run (24 hours from now)
-    const nextRun = now + oneDayMs;
-    const delay = nextRun - now;
-    setTimeout(() => {
-      initNightlySummarization();
-    }, delay);
-  } else {
-    // Schedule next run
-    const nextRun = parseInt(lastRun, 10) + oneDayMs;
-    const delay = Math.max(0, nextRun - now);
-    setTimeout(() => {
-      initNightlySummarization();
-    }, delay);
-  }
+  // REAL-TIME LAUNCH REQUIREMENT: No auto-execution
+  // All work must be user-initiated through TaskManager
+  // This function is kept for backward compatibility but does nothing
+  
+  console.log('[Summarizer] initNightlySummarization called but auto-execution is disabled');
+  console.log('[Summarizer] Use triggerSummarization() for user-initiated summarization');
+  
+  // REMOVED: All setTimeout auto-execution code
+  // REMOVED: All automatic scheduling
+  // User must explicitly trigger summarization via triggerSummarization()
 }
 
 /**

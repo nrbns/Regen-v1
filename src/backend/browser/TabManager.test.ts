@@ -35,7 +35,7 @@ describe('TabManager', () => {
       const mockInvoke = (global as any).__TAURI__.invoke;
       mockInvoke.mockResolvedValue('tab-456');
 
-      const tabId = await TabManager.createTab();
+      const _tabId = await TabManager.createTab();
 
       expect(mockInvoke).toHaveBeenCalledWith('tabs_create', {
         url: undefined,

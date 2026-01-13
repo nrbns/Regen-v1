@@ -51,7 +51,6 @@ const TOUR_STEPS: TourStep[] = [
   },
 ];
 
-import { isMVPFeatureEnabled } from '../../../src/config/mvpFeatureFlags';
 
 export const FirstRunTour: React.FC<FirstRunTourProps> = ({ onComplete, onSkip }) => {
   // Hide onboarding tours in v1-mode

@@ -5,8 +5,8 @@
  */
 
 import { useEffect } from 'react';
-import { EventBus } from '../EventBus';
-import { useRegenCore } from '../../../core/regen-core/regenCore.store';
+import { eventBus } from './EventBus';
+import { useRegenCore } from '../../core/regen-core/regenCore.store';
 
 /**
  * Track mouse movement speed and emit awareness events
@@ -35,7 +35,7 @@ export function useMouseMovementTracking() {
         // Fast movement (scanning)
         if (movementSpeed > 2 && state === 'observing') {
           setState('aware');
-          EventBus.emit('MOUSE_MOVEMENT', { speed: 'fast', value: movementSpeed });
+          eventBus.emit('KEYPRESS', { speed: 'fast', value: movementSpeed });
         }
         // Slow/stopped (focused)
         else if (movementSpeed < 0.5 && state === 'aware') {
@@ -76,13 +76,13 @@ export function useTypingPauseDetection() {
       
       if (!isTyping) {
         isTyping = true;
-        EventBus.emit('TYPING_START', {});
+        eventBus.emit('KEYPRESS', { type: 'typing_start' });
       }
 
       // User paused typing for 1.5s = moment of consideration
       typingTimeout = setTimeout(() => {
         isTyping = false;
-        EventBus.emit('TYPING_PAUSE', {});
+        eventBus.emit('KEYPRESS', { type: 'typing_pause' });
         
         // Avatar reacts to pause (head tilt micro-animation)
         setState('aware');
@@ -105,19 +105,24 @@ export function useTypingPauseDetection() {
 /**
  * Track scroll direction to detect reading vs. scanning behavior
  * Down scroll = reading, Up scroll = re-checking, Fast = scanning
+ * Stops scrolling → Avatar looks attentive (REQUIREMENT: Layer 1)
  */
 export function useScrollDirectionTracking() {
-  const { setState } = useRegenCore();
+  const { state, setState } = useRegenCore();
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
     let scrollSpeed = 0;
     let lastTime = Date.now();
+    let scrollStopTimeout: NodeJS.Timeout;
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const now = Date.now();
       const timeDelta = now - lastTime;
+      
+      // Clear scroll stop timeout (user is scrolling)
+      clearTimeout(scrollStopTimeout);
       
       if (timeDelta > 0) {
         const distance = Math.abs(currentScrollY - lastScrollY);
@@ -125,61 +130,131 @@ export function useScrollDirectionTracking() {
         
         const direction = currentScrollY > lastScrollY ? 'down' : 'up';
         
-        EventBus.emit('SCROLL_DIRECTION', { 
+        eventBus.emit('SCROLL', { 
           direction, 
           speed: scrollSpeed > 2 ? 'fast' : 'slow',
           position: currentScrollY 
         });
         
         // Fast scrolling = scanning behavior
-        if (scrollSpeed > 3) {
+        if (scrollSpeed > 3 && state === 'observing') {
           setState('aware');
         }
       }
       
       lastScrollY = currentScrollY;
       lastTime = now;
+
+      // REQUIREMENT: Stops scrolling → Avatar looks attentive
+      // After 800ms of no scrolling, avatar becomes attentive
+      scrollStopTimeout = setTimeout(() => {
+        if (state === 'observing' || state === 'aware') {
+          setState('aware'); // Avatar looks attentive
+          eventBus.emit('SCROLL', { depth: currentScrollY / document.documentElement.scrollHeight, url: window.location.href });
+          
+          // Return to observing after 2s
+          setTimeout(() => {
+            if (useRegenCore.getState().state === 'aware') {
+              setState('observing');
+            }
+          }, 2000);
+        }
+      }, 800);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [setState]);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollStopTimeout);
+    };
+  }, [state, setState]);
 }
 
 /**
  * Track rapid tab switching (context switching behavior)
  * Rapid switching = user is comparing or searching for something
+ * REQUIREMENT: Rapid tab switching → Avatar posture tightens
  */
 export function useTabSwitchTracking() {
-  const { setState } = useRegenCore();
+  const { state, setState } = useRegenCore();
 
   useEffect(() => {
-    let switchCount = 0;
+    let switchTimes: number[] = [];
     let switchTimeout: NodeJS.Timeout;
+    let lastActiveId: string | null = null;
 
-    const handleTabSwitch = () => {
-      switchCount++;
+    const handleTabSwitch = (newActiveId: string | null) => {
+      // Skip if same tab
+      if (newActiveId === lastActiveId) return;
+      
+      const now = Date.now();
+      switchTimes.push(now);
+      lastActiveId = newActiveId;
+      
+      // Keep only switches from last 5 seconds
+      switchTimes = switchTimes.filter(time => now - time < 5000);
+      const switchCount = switchTimes.length;
+      
       clearTimeout(switchTimeout);
       
-      // 3+ switches in 5 seconds = rapid context switching
+      // REQUIREMENT: 3+ switches in 5 seconds = rapid tab switching → Avatar posture tightens
       if (switchCount >= 3) {
-        EventBus.emit('RAPID_TAB_SWITCHING', { count: switchCount });
-        setState('aware');
-        switchCount = 0;
+        eventBus.emit('TAB_SWITCH', { count: switchCount });
+        if (state === 'observing' || state === 'aware') {
+          setState('aware'); // Avatar posture tightens (aware state)
+          // Keep in aware state while rapid switching
+        }
+      } else {
+        // Not rapid - return to observing after brief delay
+        switchTimeout = setTimeout(() => {
+          if (useRegenCore.getState().state === 'aware') {
+            setState('observing');
+          }
+          switchTimes = [];
+        }, 2000);
       }
-      
-      // Reset counter after 5s
-      switchTimeout = setTimeout(() => {
-        switchCount = 0;
-      }, 5000);
     };
 
-    EventBus.on('TAB_SWITCH', handleTabSwitch);
+    // Listen for tab switch events from EventBus
+    const handleEventBusSwitch = () => {
+      // Get current active tab from store if available
+      try {
+        const { useTabsStore } = require('../../state/tabsStore');
+        const currentActiveId = useTabsStore.getState().activeId;
+        handleTabSwitch(currentActiveId);
+      } catch {
+        // Store not available, just trigger with null
+        handleTabSwitch(null);
+      }
+    };
+    
+    const unsubscribeEventBus = eventBus.on('TAB_SWITCH', handleEventBusSwitch);
+    
+    // Subscribe to tab store changes for active tab
+    let unsubscribe: (() => void) | null = null;
+    try {
+      const { useTabsStore } = require('../../state/tabsStore');
+      unsubscribe = useTabsStore.subscribe((storeState, prevState) => {
+        if (storeState.activeId && storeState.activeId !== prevState?.activeId) {
+          handleTabSwitch(storeState.activeId);
+        }
+      });
+      // Initialize with current active tab
+      const currentState = useTabsStore.getState();
+      if (currentState.activeId) {
+        lastActiveId = currentState.activeId;
+      }
+    } catch (error) {
+      // Tab store not available, use EventBus only
+      console.debug('[TabSwitchTracking] Tab store not available, using EventBus only');
+    }
+    
     return () => {
-      EventBus.off('TAB_SWITCH', handleTabSwitch);
+      unsubscribeEventBus();
+      if (unsubscribe) unsubscribe();
       clearTimeout(switchTimeout);
     };
-  }, [setState]);
+  }, [state, setState]);
 }
 
 /**
@@ -196,7 +271,7 @@ export function useExtendedIdleTracking() {
       clearTimeout(idleTimeout);
       
       idleTimeout = setTimeout(() => {
-        EventBus.emit('EXTENDED_IDLE', { duration: 20000 });
+        eventBus.emit('IDLE_TIMEOUT', { duration: 20000 });
         setState('observing'); // Avatar relaxes
       }, 20000);
     };

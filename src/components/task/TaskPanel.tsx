@@ -3,6 +3,7 @@ import { useTaskStore } from '../../state/taskStore';
 import { Task } from '../../../core/execution/task';
 import { TaskService } from '../../services/taskService';
 import { offlineAgent } from '../../../core/ai/offline/offlineAgent';
+import { SystemBehaviorIndicator } from '../system/SystemBehaviorIndicator';
 
 /**
  * Real-time Task Panel showing tasks, streaming output, logs, and resources
@@ -220,20 +221,20 @@ export function TaskPanel() {
                     </>
                   )}
                   {selectedTask.status === 'PAUSED' && (
-                    <button
-                      onClick={() => handleResumeTask(selectedTask.id)}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white text-xs py-2 rounded transition-colors"
-                    >
-                      Resume Task
-                    </button>
+                    <SystemBehaviorIndicator
+                      state="idle"
+                      message="Paused - No action needed"
+                      size="sm"
+                      className="w-full"
+                    />
                   )}
                   {(selectedTask.status === 'FAILED' || selectedTask.status === 'CANCELLED') && (
-                    <button
-                      onClick={() => handleRetryTask(selectedTask.intent)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 rounded transition-colors"
-                    >
-                      Retry Task
-                    </button>
+                    <SystemBehaviorIndicator
+                      state="idle"
+                      message="Completed - No action needed"
+                      size="sm"
+                      className="w-full"
+                    />
                   )}
                 </div>
               </div>

@@ -12,49 +12,54 @@ const IDLE_UNLOAD_MS = 60000; // 60 seconds
 
 let running = false;
 let currentTask: Promise<void> | null = null;
+let currentAbortController: AbortController | null = null;
 let lastActivity = Date.now();
 
-// Track activity (initialize once when module loads)
-if (typeof window !== 'undefined') {
-  regenEventBus.subscribe((e) => {
-    if (e.type !== "IDLE") {
-      lastActivity = Date.now();
-    }
-  });
+  // Track activity (initialize once when module loads)
+  // NOTE: Background intervals removed - only run on user action
+  if (typeof window !== 'undefined') {
+    regenEventBus.subscribe((e) => {
+      if (e.type !== "IDLE") {
+        lastActivity = Date.now();
+      }
+    });
 
-  // Check for idle unload periodically
-  setInterval(() => {
-    if (running && Date.now() - lastActivity > IDLE_UNLOAD_MS) {
-      console.log("[AIScheduler] Unloading AI due to idle");
-      cancelAI();
-    }
-  }, IDLE_UNLOAD_MS);
-}
+    // Background idle unload removed - only run when user explicitly triggers idle
+  }
 
-export async function runAI(task: () => Promise<void>): Promise<void> {
+export async function runAI(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
   if (running) {
-    console.log("[AIScheduler] Task already running, skipping");
-    return;
+    console.log("[AIScheduler] Task already running, cancelling previous");
+    cancelAI();
   }
 
   running = true;
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
   
   // Add timeout
   const timeoutId = setTimeout(() => {
-    console.warn("[AIScheduler] Task exceeded max runtime, cancelling");
-    cancelAI();
+    if (!signal.aborted) {
+      console.warn("[AIScheduler] Task exceeded max runtime, cancelling");
+      cancelAI();
+    }
   }, MAX_AI_RUNTIME_MS);
 
   // Execute task asynchronously (non-blocking)
   currentTask = (async () => {
     try {
-      await task();
+      await task(signal);
     } catch (error) {
-      console.error("[AIScheduler] Task error:", error);
+      if (signal.aborted) {
+        console.log("[AIScheduler] Task cancelled");
+      } else {
+        console.error("[AIScheduler] Task error:", error);
+      }
     } finally {
       clearTimeout(timeoutId);
       running = false;
       currentTask = null;
+      currentAbortController = null;
     }
   })();
 
@@ -71,9 +76,14 @@ export function isAIRunning(): boolean {
 }
 
 /**
- * Cancel current AI task (placeholder for future abort support)
+ * Cancel current AI task - MUST work instantly
  */
 export function cancelAI(): void {
-  // TODO: Implement abort controller for task cancellation
-  console.log("[AIScheduler] Cancel requested (not yet implemented)");
+  if (currentAbortController) {
+    currentAbortController.abort();
+    running = false;
+    currentTask = null;
+    currentAbortController = null;
+    console.log("[AIScheduler] Task cancelled");
+  }
 }

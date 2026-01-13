@@ -11,6 +11,7 @@ import { FeedbackModal } from '../../../components/common/FeedbackModal';
 import { SystemStatusPanel } from '../../../components/settings/SystemStatusPanel';
 import { LanguageSwitcher } from '../../../components/layout/LanguageSwitcher';
 import { WorkflowMarketplace } from '../../../components/workflows/WorkflowMarketplace';
+import { AIToggle } from '../../../components/ai/AIToggle';
 
 export function TopRightCluster() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -24,6 +25,9 @@ export function TopRightCluster() {
       <div className="flex items-center gap-2">
         <LanguageSwitcher />
         <SystemStatusPanel />
+        <div data-tour="ai-toggle">
+          <AIToggle />
+        </div>
         <NotificationsMenu />
         {/* Regen Sidebar Toggle - Direct UI control (hidden in v1-mode) */}
         {!v1 && (
@@ -42,7 +46,9 @@ export function TopRightCluster() {
           </button>
         )}
         {!v1 && <FeaturesMenu />}
-        <SettingsMenu />
+        <div data-tour="settings">
+          <SettingsMenu />
+        </div>
         {/* Workflow Marketplace Button */}
         <button
           type="button"

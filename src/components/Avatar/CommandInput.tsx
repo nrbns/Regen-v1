@@ -18,7 +18,7 @@ interface CommandInputProps {
 export default function CommandInput({ isOpen, onClose, className = "" }: CommandInputProps) {
   const [command, setCommand] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { state, set } = useAvatar();
+  const { } = useAvatar();
 
   useEffect(() => {
     if (isOpen && inputRef.current) {

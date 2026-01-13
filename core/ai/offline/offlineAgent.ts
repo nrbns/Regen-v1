@@ -1,5 +1,4 @@
-import { createTask, start, stream, log, complete, fail } from '../../execution/taskManager';
-import { runLocalLLM, runLocalLLMSimulation, checkLlamaCppAvailable } from './localLLM';
+import { createTask, start, log, complete, fail } from '../../execution/taskManager';
 import { AgentContext } from '../agentContext';
 
 /**
@@ -156,7 +155,7 @@ This is a simulated response using local AI processing. In a production implemen
    */
   async processPrompt(prompt: string): Promise<string> {
     const task = createTask(`offline-ai: ${prompt.substring(0, 50)}...`);
-    const taskId = task.id;
+    const _taskId = task.id;
 
     try {
       if (!this.isLoaded) {

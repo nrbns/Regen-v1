@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Zap, Globe, MessageSquare, Mic } from 'lucide-react';
+import { Search, Globe, MessageSquare, Mic } from 'lucide-react';
 import { IntentRouter } from '../backend/ai/IntentRouter';
-import { aiController } from '../core/ai/AIController';
 import { TaskService } from '../services/taskService';
 import { VoiceInput } from './voice/VoiceInput';
 
@@ -65,7 +64,7 @@ export function CommandBar({ onSubmit, placeholder = "Search / URL / Ask Regen..
         console.error('AI task creation failed:', error);
         // Still create error task through TaskService
         try {
-          const errorTask = await TaskService.processUserInput(`Error: ${error.message}`);
+          await TaskService.processUserInput(`Error: ${error.message}`);
           // TaskPanel will show the error via event bus
         } catch (taskError) {
           console.error('Failed to create error task:', taskError);
@@ -96,7 +95,7 @@ export function CommandBar({ onSubmit, placeholder = "Search / URL / Ask Regen..
     }, 100);
   };
 
-  const getIntentIcon = () => {
+  const _getIntentIcon = () => {
     if (!intent) return <Search size={16} className="text-gray-400" />;
 
     switch (intent.type) {
@@ -111,7 +110,7 @@ export function CommandBar({ onSubmit, placeholder = "Search / URL / Ask Regen..
     }
   };
 
-  const getIntentColor = () => {
+  const _getIntentColor = () => {
     if (!intent) return 'border-slate-600 focus-within:border-slate-500';
 
     switch (intent.type) {

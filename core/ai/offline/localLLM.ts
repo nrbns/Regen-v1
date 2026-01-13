@@ -49,7 +49,7 @@ export function getDefaultLLMConfig(): LLMConfig {
 export async function runLocalLLM(
   prompt: string,
   onToken: TokenCallback,
-  config: Partial<LLMConfig> = {}
+  _config: Partial<LLMConfig> = {}
 ): Promise<void> {
   console.log('[LocalLLM] Browser mode - using simulation');
 
