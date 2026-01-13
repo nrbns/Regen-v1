@@ -339,19 +339,6 @@ You create a **new category**.
 
 ---
 
-## 🚀 NEXT (STRONGLY RECOMMENDED)
-
-I can:
-
-1. Design the **exact avatar interaction state machine**
-2. Write **sample avatar responses (copy)**
-3. Define **automation UX flows**
-4. Help you decide **what NOT to automate**
-
-Say:
-
-> **“Design avatar interaction state machine”**
-
 and we’ll lock this perfectly.
 Understood. You want the **avatar to be truly interactive and “alive” like Google Assistant / Siri**, **but**:
 
@@ -633,50 +620,6 @@ AI Provider (GPT / Claude / Local)
 
 > **90% of “alive” feeling comes from UI reactions, not AI.**
 
-So:
-
-* Use animation for liveliness
-* Use AI only for thinking
-
----
-
-# 🧪 HOW USERS WILL EXPERIENCE THIS (REALISTIC)
-
-### Day 1
-
-* “Whoa, this avatar feels alive”
-* “It doesn’t annoy me”
-
-### Day 3
-
-* “I forgot it was even AI”
-* “But it helps when I need it”
-
-### Day 7
-
-* “This feels better than my old browser”
-
-That’s how favorites are made.
-
----
-
-# ✅ WHAT YOU MUST BUILD (CLEAR LIST)
-
-### MUST HAVE
-
-* Passive avatar reactions
-* Click / shortcut invocation
-* Single-command input
-* Action-first responses
-* Silent default behavior
-
-### OPTIONAL (later)
-
-* Voice
-* Full automation chains
-* Multi-agent reasoning
-
----
 
 # 🧠 FINAL TRUTH (VERY IMPORTANT)
 
@@ -705,24 +648,18 @@ I can:
 
 Say:
 
-> **“Design avatar interaction state machine”**
+> **"Design avatar interaction state machine"**
 
-and we’ll lock this perfectly.
-# 🔴 Regen v1 - LOCKED GOAL
-
-> **Regen v1 = a stable browser where nothing runs without user action, and every action is visible and stoppable.**
-
-If any code does not support this sentence → delete it.
+and we'll lock this perfectly.
 
 ---
 
-# 🌌 Regen — A Stable Browser with Task Execution
+# 🌌 Regen — A Real-Time, Presence-Based AI Browser
 
-Regen is a **stable browser** where:
-- Nothing runs without user action
-- Every action is visible and stoppable
-- Browsing works reliably
-- Tasks execute through a central manager
+> **Regen is not a chatbot browser.  
+> It is a browser with a mind.**
+
+Regen is an experimental **real-time browser platform** that observes user intent, understands context, and intervenes **only when necessary** — silently, precisely, and ethically.
 
 Unlike traditional AI browsers that rely on chat windows and manual prompts, Regen introduces a **presence-based AI system** that lives alongside the browser as a *sentinel*, not an assistant.
 
@@ -1027,72 +964,18 @@ Backend Services
 All documentation is organized in the [`docs/`](./docs/) directory:
 
 ### Quick Links
-* [Quick Start Guide](./docs/QUICK_START.md) - Get started in 5 minutes ⚡
-* [Complete Implementation Status](./docs/COMPLETE_IMPLEMENTATION_STATUS.md) - 100% Complete - Production Ready 🎉
-* [Verification Checklist](./docs/VERIFICATION_CHECKLIST.md) - Feature verification and testing ✅
-* [Testing Guide](./docs/TESTING_GUIDE.md) - E2E test suites for new features 🧪
-* [UI/UX Improvements](./docs/UI_UX_IMPROVEMENTS.md) - Design system integration and polish 🎨
 * [Documentation Index](./docs/README.md) - Complete documentation directory
+* [API Documentation](./docs/architecture/API_DOCUMENTATION.md) - Complete API reference
+* [Architecture Audit](./docs/architecture/AUDIT.md) - Technical audit and compliance checklist
+* [Regen Core Implementation](./docs/architecture/REGEN_CORE_IMPLEMENTATION.md) - Sentinel AI system details
+* [Real-Time Architecture](./docs/development/REALTIME_IMPLEMENTATION_COMPLETE.md) - Event-driven system documentation
+* [Project Vision](./docs/VISION.md) - Vision document for investors and stakeholders
 
 ### Documentation Structure
 
 * **`docs/architecture/`** - Technical architecture documentation
 * **`docs/development/`** - Development logs and progress tracking
 * **`docs/user-guides/`** - User-facing documentation and guides
-
----
-
-## 💰 Supporting Regen (Open-Source Friendly Monetization)
-
-Regen is **100% open-source** under MIT License. The core browser will **always remain free**. We believe in sustainable open-source through multiple revenue streams that don't lock users in.
-
-### How to Support
-
-1. **⭐ Star the repo** — Helps us reach more users
-2. **💬 Spread the word** — Share with friends, colleagues, on social media
-3. **🐛 Report bugs** — Help us improve
-4. **💡 Contribute** — Code, docs, design, ideas welcome
-5. **💰 Sponsor** — Support development (optional)
-
-### GitHub Sponsors
-
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/nrbns?label=Sponsor&logo=github&style=flat-square)](https://github.com/sponsors/nrbns)
-
-Support Regen development via GitHub Sponsors:
-- **Supporter ($5/month)**: GitHub badge, early access, priority support
-- **Premium ($10/month)**: Advanced AI models, cloud sync, custom patterns
-- **Enterprise ($50/month)**: Commercial license, on-premise deployment, SLA
-
-**Why sponsor?**
-- Keep Regen free and open-source forever
-- Fund development of new features
-- Support privacy-first browsing
-- Get early access to premium features
-
-[👉 Become a Sponsor](https://github.com/sponsors/nrbns)
-
-### Monetization Strategy
-
-Regen follows an **open-source friendly monetization model**:
-
-- ✅ **Core browser**: Free forever (MIT License)
-- ✅ **Basic AI features**: Free (local-first)
-- 💎 **Premium features**: Optional paid add-ons (advanced AI, cloud sync)
-- 🏢 **Enterprise**: Commercial licensing for organizations
-
-**Revenue streams:**
-1. GitHub Sponsors (community support)
-2. Premium subscriptions (freemium)
-3. Enterprise licensing (commercial deployments)
-4. Partnerships (AI model providers, integrations)
-
-**Our commitment:**
-- Core remains open-source (MIT)
-- No vendor lock-in
-- Privacy-first (local-first by default)
-- Community-driven development
-
-For investor information, see [`docs/INVESTORS.md`](./docs/INVESTORS.md).
 
 ---
 
@@ -1110,8 +993,6 @@ If you're interested in **what browsers could become** — welcome.
 ## 📜 License
 
 MIT License (see LICENSE file for details)
-
-**Note**: Core browser is MIT licensed and free forever. Premium features and enterprise licensing available separately.
 
 ---
 
