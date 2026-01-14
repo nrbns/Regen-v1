@@ -4,9 +4,70 @@
  */
 
 import { vi } from 'vitest';
+import { systemState } from '../src/backend/state/SystemState';
+
+// Provide Jest-compatible globals for legacy tests
+const jestLike = {
+  fn: vi.fn,
+  spyOn: vi.spyOn,
+  mock: vi.mock,
+  clearAllMocks: vi.clearAllMocks,
+  resetAllMocks: vi.resetAllMocks,
+  useFakeTimers: vi.useFakeTimers,
+  useRealTimers: vi.useRealTimers,
+  advanceTimersByTime: vi.advanceTimersByTime,
+};
+(globalThis as any).jest = { ...jestLike };
+
+// Basic browser API shims for tests
+if (!(globalThis as any).crypto) {
+  (globalThis as any).crypto = {
+    randomUUID: () => `uuid-${Math.random().toString(16).slice(2)}`,
+  };
+} else if (!(globalThis as any).crypto.randomUUID) {
+  (globalThis as any).crypto.randomUUID = () => `uuid-${Math.random().toString(16).slice(2)}`;
+}
+
+if (!(globalThis as any).requestAnimationFrame) {
+  (globalThis as any).requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(cb, 0) as any;
+}
+
+const makeStorage = () => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (k: string) => (k in store ? store[k] : null),
+    setItem: (k: string, v: string) => {
+      store[k] = String(v);
+    },
+    removeItem: (k: string) => {
+      delete store[k];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+};
+if (!(globalThis as any).localStorage) (globalThis as any).localStorage = makeStorage();
+if (!(globalThis as any).sessionStorage) (globalThis as any).sessionStorage = makeStorage();
+
+// Reset system state after each test to avoid cross-test bleed
+afterEach(() => {
+  if (systemState?.reset) {
+    systemState.reset();
+  }
+});
+
+// Suppress deprecated done warnings that fail legacy tests
+const originalEmitWarning = process.emitWarning;
+process.emitWarning = (warning, ...args) => {
+  if (typeof warning === 'string' && warning.includes('done() callback is deprecated')) {
+    return;
+  }
+  return originalEmitWarning.call(process, warning as any, ...(args as any));
+};
 
 // Mock MeiliSearch to prevent unhandled promise rejections during tests
-vi.mock('./src/lib/meili', () => ({
+vi.mock('../src/lib/meili', () => ({
   fetchWithTimeout: vi.fn((_resource: string) =>
     Promise.resolve({ ok: true, json: async () => ({}) })
   ),
@@ -22,7 +83,7 @@ vi.mock('./src/lib/meili', () => ({
 }));
 
 // Mock meiliIndexer service to prevent async initialization during tests
-vi.mock('./src/services/meiliIndexer', () => ({
+vi.mock('../src/services/meiliIndexer', () => ({
   indexTab: vi.fn(() => Promise.resolve()),
   indexTabs: vi.fn(() => Promise.resolve()),
   indexResearch: vi.fn(() => Promise.resolve()),
@@ -115,7 +176,7 @@ const defaultMockInvoke = vi.fn(() => Promise.resolve(false));
 // Asynchronously patch the mock to delegate to the real test stub when available
 (async () => {
   try {
-    const tauriStub = await import('./src/test-stubs/tauri-api.js');
+    const tauriStub = await import('../src/test-stubs/tauri-api.js');
     const defaultInvoke = tauriStub.invoke ?? (tauriStub.default && tauriStub.default.invoke);
     const mockInvoke = vi.fn(defaultInvoke);
 

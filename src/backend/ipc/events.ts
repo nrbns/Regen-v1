@@ -46,14 +46,57 @@ export interface DownloadPayload {
   url: string;
 }
 
+const COMMAND_MAP: Record<
+  string,
+  { cmds: string[]; payload: (p: any) => any }
+> = {
+  navigate: {
+    cmds: ['tabs_navigate', 'navigate'],
+    payload: (p) => ({ tab_id: p.tabId, url: p.url }),
+  },
+  new_tab: {
+    cmds: ['tabs_create', 'new_tab'],
+    payload: (p) => ({
+      url: p?.url,
+      privacy_mode: 'normal',
+      app_mode: 'Browse',
+    }),
+  },
+  close_tab: {
+    cmds: ['tabs_close', 'close_tab'],
+    payload: (p) => ({ tab_id: p.tabId }),
+  },
+  switch_tab: {
+    cmds: ['tabs_switch', 'switch_tab'],
+    payload: (p) => ({ tab_id: p.tabId }),
+  },
+  run_ai: {
+    cmds: ['ai_complete', 'run_ai'],
+    payload: (p) => ({ prompt: p.task, context: p.context }),
+  },
+  back: { cmds: ['tabs_back', 'back'], payload: (p) => ({ tab_id: p.tabId }) },
+  forward: { cmds: ['tabs_forward', 'forward'], payload: (p) => ({ tab_id: p.tabId }) },
+  reload: { cmds: ['tabs_reload', 'reload'], payload: (p) => ({ tab_id: p.tabId }) },
+};
+
 // IPC Handler - UI can invoke Tauri commands, backend responds via events
 export class IPCHandler {
   private static listeners: Map<string, ((...args: any[]) => void)[]> = new Map();
 
   static async send(event: string, payload?: any) {
     try {
+      const mapping = COMMAND_MAP[event];
+      const commands = mapping?.cmds || [event];
+      const mappedPayload = mapping ? mapping.payload(payload) : payload;
+      const originalPayload = payload;
+
       // Use Tauri invoke to call backend commands
-      const result = await (window as any).__TAURI__.invoke(event, payload);
+      let result: any;
+      for (let i = 0; i < commands.length; i++) {
+        const cmd = commands[i];
+        const payloadToUse = i === 0 ? mappedPayload : originalPayload;
+        result = await (window as any).__TAURI__.invoke(cmd, payloadToUse);
+      }
 
       // Dispatch to any registered listeners
       const listeners = this.listeners.get(event) || [];
@@ -84,23 +127,35 @@ export class IPCHandler {
 
   // UI-facing methods (what UI can call)
   static navigate(tabId: string, url: string) {
-    this.send(IPC_EVENTS.NAVIGATE, { tabId, url });
+    return this.send(IPC_EVENTS.NAVIGATE, { tabId, url });
+  }
+
+  static back(tabId: string) {
+    return this.send(IPC_EVENTS.BACK, { tabId });
+  }
+
+  static forward(tabId: string) {
+    return this.send(IPC_EVENTS.FORWARD, { tabId });
+  }
+
+  static reload(tabId: string) {
+    return this.send(IPC_EVENTS.RELOAD, { tabId });
   }
 
   static newTab(url?: string) {
-    this.send(IPC_EVENTS.NEW_TAB, { url });
+    return this.send(IPC_EVENTS.NEW_TAB, { url });
   }
 
   static closeTab(tabId: string) {
-    this.send(IPC_EVENTS.CLOSE_TAB, { tabId });
+    return this.send(IPC_EVENTS.CLOSE_TAB, { tabId });
   }
 
   static switchTab(tabId: string) {
-    this.send(IPC_EVENTS.SWITCH_TAB, { tabId });
+    return this.send(IPC_EVENTS.SWITCH_TAB, { tabId });
   }
 
   static runAI(task: string, context?: any) {
-    this.send(IPC_EVENTS.RUN_AI, { task, context });
+    return this.send(IPC_EVENTS.RUN_AI, { task, context });
   }
 
   static download(filename: string, url: string) {

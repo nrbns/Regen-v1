@@ -19,6 +19,9 @@ import { ModeTabs } from './ModeTabs';
 import { useTokens } from '../useTokens';
 import { Container } from '../layout';
 import { useAppStore } from '../../state/appStore';
+import { useTabsStore } from '../../state/tabsStore';
+import { ipc } from '../../lib/ipc-typed';
+import { eventBus, EVENTS } from '../../core/state/eventBus';
 
 export interface TopBarProps {
   className?: string;
@@ -35,6 +38,7 @@ export function TopBar({
 }: TopBarProps) {
   const tokens = useTokens();
   const mode = useAppStore(state => state.mode);
+  const { tabs, activeId, setActive, add } = useTabsStore();
   const [addressValue, setAddressValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,17 +58,33 @@ export function TopBar({
     try {
       if (isUrl) {
         const urlToNavigate = query.startsWith('http') ? query : `https://${query}`;
-        // Dispatch custom event for Home component to handle navigation
-        window.dispatchEvent(new CustomEvent('navigate-to-url', {
-          detail: urlToNavigate
-        }));
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, urlToNavigate);
+          eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: activeId, url: urlToNavigate });
+        } else {
+          const created = await ipc.tabs.create(urlToNavigate);
+          if (created?.id && setActive) {
+            setActive(created.id);
+          }
+          if (created?.id) {
+            eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: created.id, url: urlToNavigate });
+          }
+        }
         setAddressValue(urlToNavigate);
       } else {
         const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-        // Dispatch custom event for Home component to handle navigation
-        window.dispatchEvent(new CustomEvent('navigate-to-url', {
-          detail: searchUrl
-        }));
+        if (activeId) {
+          await ipc.tabs.navigate(activeId, searchUrl);
+          eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: activeId, url: searchUrl });
+        } else {
+          const created = await ipc.tabs.create(searchUrl);
+          if (created?.id && setActive) {
+            setActive(created.id);
+          }
+          if (created?.id) {
+            eventBus.emit(EVENTS.TAB_NAVIGATED, { tabId: created.id, url: searchUrl });
+          }
+        }
         setAddressValue(searchUrl);
       }
     } catch (error) {
@@ -165,6 +185,11 @@ export function TopBar({
           <div className="flex items-center">
             <span className="text-lg font-bold tracking-wide text-blue-600">Regen</span>
           </div>
+
+          {/* Quick actions / notifications */}
+          <button title="Notifications" aria-label="Notifications" className="hidden" />
+          <button title="Profile" aria-label="Profile" className="hidden" />
+          <div className="h-1 w-24 opacity-0" aria-hidden="true" />
 
           {/* Mode tabs removed for Phase 1 stability */}
         </div>

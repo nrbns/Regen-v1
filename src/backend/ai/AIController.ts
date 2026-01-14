@@ -6,13 +6,14 @@ export class AIController {
   static async initialize() {
     try {
       // Check if AI service is available via Tauri
-      await (window as any).__TAURI__.invoke('ai_check_status');
+      await (globalThis as any).__TAURI__.invoke('ai_check_status');
       systemState.setAIAvailable(true);
       this.isInitialized = true;
       console.log('[AIController] AI service initialized and available');
     } catch (error) {
       console.warn('[AIController] AI service not available:', error);
       systemState.setAIAvailable(false);
+      this.isInitialized = false;
       // Don't throw - AI is optional
     }
   }
@@ -26,7 +27,7 @@ export class AIController {
 
     try {
       // Call Tauri AI command for completion
-      const result = await (window as any).__TAURI__.invoke('ai_complete', {
+      const result = await (globalThis as any).__TAURI__.invoke('ai_complete', {
         prompt: task
       });
 
@@ -42,9 +43,16 @@ export class AIController {
   }
 
   static async detectIntent(query: string): Promise<string> {
+    if (!this.isInitialized) {
+      return this.fallbackIntentDetection(query);
+    }
+    const tauriInvoke = (globalThis as any).__TAURI__?.invoke;
+    if (typeof tauriInvoke !== 'function') {
+      return this.fallbackIntentDetection(query);
+    }
     try {
       // Call Tauri AI command for intent detection
-      const intent = await (window as any).__TAURI__.invoke('ai_detect_intent', {
+      const intent = await tauriInvoke('ai_detect_intent', {
         query
       });
       return intent;

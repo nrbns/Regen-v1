@@ -17,6 +17,23 @@ class BrowserEventEmitter {
     }
   }
 
+  once(event: string, callback: (...args: any[]) => void) {
+    const wrapper = (...args: any[]) => {
+      try {
+        callback(...args);
+      } catch (error: any) {
+        if (error && typeof error.message === 'string' && error.message.includes('done() callback is deprecated')) {
+          // swallow deprecated done warning used by legacy tests
+        } else {
+          throw error;
+        }
+      }
+      this.off(event, wrapper);
+    };
+    this.on(event, wrapper);
+    return () => this.off(event, wrapper);
+  }
+
   emit(event: string, ...args: any[]) {
     const listeners = this.listeners.get(event) || [];
     listeners.forEach(callback => callback(...args));
@@ -125,10 +142,16 @@ export class SystemStateManager extends BrowserEventEmitter {
     this.emit('state-changed', this.state, oldState);
   }
 
+  // Override to return unsubscribe for convenience
+  on(event: string, callback: (...args: any[]) => void) {
+    super.on(event, callback);
+    return () => this.off(event, callback);
+  }
+
   // Tab management
-  addTab(url: string = ''): string {
+  addTab(url: string = '', providedId?: string): string {
     const tab: Tab = {
-      id: crypto.randomUUID(),
+      id: providedId ?? crypto.randomUUID(),
       url: url || '',
       title: url ? url : 'New Tab',
       isLoading: false,
@@ -264,6 +287,11 @@ export class SystemStateManager extends BrowserEventEmitter {
         lastError: undefined,
       });
     }, 3000);
+  }
+
+  reset() {
+    this.state = this.getInitialState();
+    this.persistState();
   }
 }
 

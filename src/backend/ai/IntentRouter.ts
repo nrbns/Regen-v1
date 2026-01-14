@@ -74,8 +74,8 @@ export class IntentRouter {
   }
 
   private static looksLikeUrl(input: string): boolean {
-    // Check for URLs with or without protocol
-    return /^https?:\/\//i.test(input) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}/.test(input);
+    // Check for URLs with or without protocol anywhere in the string
+    return /https?:\/\/\S+/i.test(input) || /[a-zA-Z0-9-]+\.[a-zA-Z]{2,}\S*/.test(input);
   }
 
   private static looksLikeQuestion(input: string): boolean {
@@ -84,7 +84,7 @@ export class IntentRouter {
   }
 
   private static looksLikeCommand(input: string): boolean {
-    const commandWords = /^(open|go to|search|find|compare|tell me)/i;
+    const commandWords = /^(open|go to|search|find|compare|tell me|visit)/i;
     return commandWords.test(input);
   }
 }

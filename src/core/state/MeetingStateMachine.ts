@@ -47,17 +47,19 @@ class MeetingStateMachine {
       }, 10); // 10ms debounce to prevent race/flap but still respond quickly for tests
     });
     // Listen to explicit degrade events (e.g., high latency, packet loss)
-    // Only allow degrade if not already degraded or offline
     eventBus.on('connection:degraded', () => {
-      if (this.state !== 'DEGRADED' && this.state !== 'OFFLINE') {
-        this.transition('DEGRADED');
-      }
+      this.transition('DEGRADED');
     });
     // Listen to explicit recover events
-    // Only allow recover if currently degraded or offline
     eventBus.on('connection:recovered', () => {
       if (this.state === 'DEGRADED' || this.state === 'OFFLINE') {
-        this.transition('RECOVERED');
+        if (this.degradeTimeout) clearTimeout(this.degradeTimeout);
+        if (this.offlineTimeout) clearTimeout(this.offlineTimeout);
+        this.state = 'RECOVERED';
+        eventBus.emit('meeting:state', this.state);
+        setTimeout(() => {
+          this.transition('CONNECTED');
+        }, 2000);
       }
     });
   }

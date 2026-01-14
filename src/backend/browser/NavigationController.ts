@@ -1,49 +1,33 @@
-import { systemState } from '../state/SystemState';
-
 export class NavigationController {
-  static navigate(tabId: string, url: string) {
-    // IMMEDIATE: Update SystemState first - UI shows navigation immediately
-    systemState.navigate(tabId, url);
-
-    // ASYNC: Try to navigate actual WebView in backend
+  static async navigate(tabId: string, url: string) {
     try {
-      console.log(`[NavigationController] Navigating tab ${tabId} to ${url}`);
-      // In real implementation: IPCHandler.send('navigation-started', { tabId, url });
+      return await (globalThis as any).__TAURI__?.invoke('tabs_navigate', { tab_id: tabId, url });
     } catch (error) {
-      console.error('[NavigationController] Failed to navigate backend:', error);
-      // UI still shows navigation even if backend fails
+      throw error;
     }
   }
 
-  static back(tabId: string) {
-    // IMMEDIATE: UI shows back navigation immediately
-    console.log(`[NavigationController] Going back in tab ${tabId}`);
-    // In real implementation: IPCHandler.send('navigation-back', { tabId });
-  }
-
-  static forward(tabId: string) {
-    // IMMEDIATE: UI shows forward navigation immediately
-    console.log(`[NavigationController] Going forward in tab ${tabId}`);
-    // In real implementation: IPCHandler.send('navigation-forward', { tabId });
-  }
-
-  static reload(tabId: string) {
-    // IMMEDIATE: Update SystemState to show loading
-    systemState.updateTab(tabId, { isLoading: true });
-
-    // ASYNC: Try to reload actual WebView
+  static async back(tabId: string) {
     try {
-      console.log(`[NavigationController] Reloading tab ${tabId}`);
-      // In real implementation: IPCHandler.send('navigation-reload', { tabId });
-
-      // Simulate loading completion (in real app, WebView would emit load event)
-      setTimeout(() => {
-        systemState.updateTab(tabId, { isLoading: false });
-      }, 1000);
+      return await (globalThis as any).__TAURI__?.invoke('tabs_back', { tab_id: tabId });
     } catch (error) {
-      console.error('[NavigationController] Failed to reload backend:', error);
-      // Still stop loading indicator even if backend fails
-      systemState.updateTab(tabId, { isLoading: false });
+      throw error;
+    }
+  }
+
+  static async forward(tabId: string) {
+    try {
+      return await (globalThis as any).__TAURI__?.invoke('tabs_forward', { tab_id: tabId });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async reload(tabId: string) {
+    try {
+      return await (globalThis as any).__TAURI__?.invoke('tabs_reload', { tab_id: tabId });
+    } catch (error) {
+      throw error;
     }
   }
 }
