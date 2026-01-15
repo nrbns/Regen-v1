@@ -37,6 +37,8 @@ That sounds weaker. It is actually stronger.
 
 For a concise summary of why Regen exists, what to double down on, and who it serves, see [`docs/WHY_REGEN.md`](docs/WHY_REGEN.md).
 
+For a hard execution checklist to reach real-time alpha, see [`docs/REALTIME_14_DAY_PLAN.md`](docs/REALTIME_14_DAY_PLAN.md).
+
 ---
 
 ## What This Release Is
