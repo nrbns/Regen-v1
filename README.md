@@ -1,857 +1,474 @@
-Understood. You want the **avatar to be truly interactive and “alive” like Google Assistant / Siri**, **but**:
+# Regen — Experimental Real-Time Browser
 
-* ⚡ **Faster**
-* 🧠 **Lower RAM**
-* 🧘 **Non-annoying**
-* 🧩 **Automation-capable**
-* 👤 **Feels like *me* (context-aware, calm, effective)**
-
-This is **hard**, and most products fail here.
-Below is the **ONLY model that works for a browser**.
+> **Regen is a real-time, task-based browser focused on transparency, control, and stability.**
+> This is an **experimental release** intended for real usage and feedback.
 
 ---
 
-# 🧬 THE RIGHT MENTAL MODEL (VERY IMPORTANT)
+## Why Regen Exists
 
-❌ Wrong model
+> **Regen is unique NOT because of AI, agents, models, or training.  
+> Regen is unique because it enforces things other AI browsers refuse to enforce.**
 
-> “Avatar = Chatbot with a face”
+Most products **could** do this.  
+They **won't**, because it hurts growth and demos.
 
-✅ Correct model
+### The Core Truth
 
-> **Avatar = Live interface to a background intelligence**
+Most modern AI browsers feel powerful, but they hide what is actually happening:
 
-Think of the avatar as:
+* AI runs in the background
+* Tasks cannot be inspected or stopped reliably
+* Network usage is unclear
+* Failures are hidden behind "thinking…" screens
 
-* A **real-time controller**
-* A **listener**
-* A **signal interpreter**
-* A **visual state machine**
+Regen takes a different approach.
 
-Not a talking head.
+> **"Regen is a browser where AI cannot act without the user."**
 
----
+Not faster AI. Not smarter AI. Not autonomous AI.  
+**Restricted AI.**
 
-# 🎯 WHAT “INTERACTIVE & LIVE” REALLY MEANS (FOR USERS)
-
-When users say *interactive*, they don’t mean talking constantly.
-
-They mean:
-
-* It **responds immediately**
-* It **understands intent without asking**
-* It **reacts to gestures / actions**
-* It **can be invoked naturally**
-* It **does things, not chats**
-
-So we design **4 interaction layers** 👇
+That sounds weaker. It is actually stronger.
 
 ---
 
-# 1️⃣ LAYER 1 — PASSIVE INTERACTION (ALWAYS ON, ZERO COST)
+## Positioning, Targets, and What to Build
 
-This costs **almost no RAM**.
-
-### Avatar reacts to:
-
-* Mouse movement speed
-* Scroll direction
-* Typing pauses
-* Tab switching
-* Idle time
-
-### Examples
-
-| User Action         | Avatar Reaction         |
-| ------------------- | ----------------------- |
-| Stops scrolling     | Avatar looks attentive  |
-| Rapid tab switching | Avatar posture tightens |
-| Idle 20s            | Avatar relaxes          |
-| Typing pause        | Avatar slight head tilt |
-
-💡 This gives **“alive” feeling without AI calls**
-
-> This alone makes users feel the avatar is real.
+For a concise summary of why Regen exists, what to double down on, and who it serves, see [`docs/WHY_REGEN.md`](docs/WHY_REGEN.md).
 
 ---
 
-# 2️⃣ LAYER 2 — DIRECT USER INTERACTION (INSTANT)
+## What This Release Is
 
-This is how Siri / Google Assistant feel instant.
+**Regen v0.1 (Experimental)** is:
 
-### Invocation methods (ALL OPTIONAL)
+* A real, installable browser
+* Multi-tab capable
+* Usable for long sessions
+* Built around a visible task system
+* Designed for real-world testing
 
-#### A. Click avatar (primary)
-
-* Opens **minimal input**
-* Not a chat window
-
-```
-[ Avatar ]
-“Listening…”
-```
-
-#### B. Keyboard shortcut
-
-* `Cmd + Space` (Mac)
-* `Ctrl + Space` (Win)
-
-#### C. Voice (optional, later)
-
-* Push-to-talk only
-* Never hot mic
+This is **not a mock, demo, or concept UI**.
 
 ---
 
-### Input UI (VERY IMPORTANT)
+## What Regen Is (v0.1)
 
-❌ No chat bubbles
-❌ No conversation history
-
-✅ Single command strip:
-
-```
-Tell Regen what to do…
-```
-
-Examples users type/say:
-
-* “Summarize this”
-* “Save this”
-* “Compare these tabs”
-* “Why am I stuck here?”
-* “Automate this task”
+* A **Chromium-based browser** (multi-tab, full navigation)
+* A **real-time task execution system** (visible, cancelable, streamed)
+* A **control-first AI integration** (task-based, no background execution)
+* A **local-first architecture** (works offline, explicit network usage)
+* A **transparent UI** (task panel always visible, system truth bar)
+* A **layered execution system** (L0: Core, L1: Intelligence, L2: Agents, L3: Recovery)
+* A **Megan guide system** (event-driven, explains but never executes)
 
 ---
 
-# 3️⃣ LAYER 3 — REAL ACTION (THIS IS WHERE YOU WIN)
+## What Regen Is NOT (Intentionally)
 
-Most assistants **talk**.
-Regen must **act**.
+* ❌ Not an autonomous AI agent
+* ❌ Not a chatbot browser
+* ❌ Not a finished consumer product
+* ❌ Not a replacement for Chrome (yet)
 
-### Avatar can do:
+### What Does NOT Make Regen Unique (Important)
 
-* Summarize current page
-* Extract links
-* Save to workspace
-* Close redundant tabs
-* Group tabs
-* Track research
-* Automate multi-step flows
+These do NOT make Regen unique (and chasing them will kill you):
 
-### UX Rule
+* ❌ Using LLMs (everyone does)
+* ❌ Agents (everyone claims)
+* ❌ Neo4j / graphs (overused)
+* ❌ Multimodal buzzwords
+* ❌ Saying "we trained our AI"
 
-* **Avatar confirms once**
-* Then executes
-* Then reports
-* Then goes silent
+Do not fight on crowded ground.
 
-Example:
-
-```
-Observation: Repeated sources detected.
-Action available.
-
-[Proceed] [Cancel]
-```
-
-No conversation. No back-and-forth.
+Regen is designed to be **honest and inspectable**, not magical.
 
 ---
 
-# 4️⃣ LAYER 4 — AUTOMATION MODE (POWER USERS)
+## The 5 Things That Make Regen Unique (Real, Defensible)
 
-This is where Regen beats Google/Siri.
+These are not buzzwords. These are **system-level differences**.
 
-### Automation is:
+### 1️⃣ Regen Enforces a **Task Runtime** (THIS IS THE BIG ONE)
 
-* **Explicit**
-* **Short-lived**
-* **Visible**
-* **Cancelable**
+**Everyone else:**
+* AI browsers = chat + hidden execution
+* Agents run invisibly
+* No real lifecycle
 
-Example:
-User says:
+**Regen:**
+* **Nothing happens unless it becomes a task**
+* Tasks have: `CREATED → RUNNING → DONE / FAILED / CANCELED`
+* Tasks are: visible, stoppable, auditable
 
-> “When I open research papers, summarize and save them.”
+👉 This turns AI from *magic* into *machinery*.
 
-Avatar responds:
+That alone makes Regen **not a wrapper**.
 
-```
-Automation available.
-Trigger: Academic pages
-Action: Summarize + Save
+### 2️⃣ Regen Separates **Navigation, Execution, and Intelligence**
 
-[Enable] [Edit] [Cancel]
-```
+| Layer   | Other AI browsers | Regen             |
+| ------- | ----------------- | ----------------- |
+| Tabs    | Mixed with AI     | Pure navigation   |
+| AI      | Acts autonomously | Tool inside tasks |
+| UI      | Decorative        | Truthful          |
+| Control | Weak              | Absolute          |
 
-Automation runs **locally**, event-driven.
+Most products mix everything → confusion.  
+Regen separates → **clarity**.
 
----
+This is **OS thinking**, not app thinking.
 
-# 🧠 HOW TO MAKE IT “LIKE ME” (IMPORTANT)
+### 3️⃣ Regen's AI Learns **Behavior**, Not Language
 
-What makes me effective is **not answers**, it’s:
+* You are NOT training an LLM
+* You are training:
+  * how tasks should behave
+  * which prompts work
+  * when models fail
+  * how users cancel
+  * what users trust
 
-1. Understanding intent
-2. Not over-talking
-3. Acting fast
-4. Explaining just enough
-5. Remembering context briefly
+> **Regen improves by learning execution patterns, not by sounding smarter.**
 
-So the avatar must follow **these rules**:
+### 4️⃣ Megan is Not an Agent — She is a **System Interpreter**
 
----
+**Other products:**
+* AI = actor
+* User = spectator
 
-## 🧩 AVATAR BEHAVIOR RULES (NON-NEGOTIABLE)
+**Regen:**
+* User = controller
+* Tasks = actor
+* Megan = interpreter
 
-### 1️⃣ One response at a time
+Megan: explains, previews, warns, summarizes.  
+She **never acts**.
 
-No parallel thinking shown.
+This preserves: trust, safety, professionalism.
 
-### 2️⃣ No filler speech
+### 5️⃣ Regen Chooses **Trust Over Growth Hacks**
 
-❌ “Sure, I can help with that”
-❌ “Here’s what I found”
+Regen enforces:
+* no background AI
+* no silent scraping
+* no hidden retries
+* no fake "thinking"
+* cancel always works
 
-✅ Just results.
+Big companies avoid this because it slows onboarding and reduces wow factor.  
+You embrace it.
 
----
-
-### 3️⃣ Short memory, strong context
-
-* Remember last action
-* Forget old conversations
-* Focus on *current task*
-
-This saves RAM and feels sharp.
-
----
-
-### 4️⃣ Silence is default
-
-Avatar is quiet unless:
-
-* Invoked
-* Something critical detected
-* Automation triggered
-
----
-
-# ⚡ PERFORMANCE ARCHITECTURE (WHY THIS STAYS FAST)
-
-This is how you keep it **lighter than Chrome**.
+That is why Regen feels **real**, not flashy.
 
 ---
 
-## 🧠 Split the avatar into 3 systems
+## Core Principles (Enforced in Code)
 
-```
-Avatar UI (React)
-  ↓ (events only)
-Intent Engine (lightweight)
-  ↓ (only when needed)
-AI Provider (GPT / Claude / Local)
-```
+1. **Explicit Execution**
+   Nothing runs unless the user triggers it.
 
-### Avatar UI
+2. **Task-Based Runtime**
+   Every action becomes a task with a clear lifecycle:
 
-* Pure animation
-* No AI logic
-* Almost zero RAM
+   ```
+   CREATED → RUNNING → DONE / FAILED / CANCELED
+   ```
 
-### Intent Engine
+3. **Always Visible**
+   Tasks are never hidden.
 
-* Simple rules
-* Pattern detection
-* Cheap, fast
+4. **Always Stoppable**
+   Cancel works immediately.
 
-### AI Provider
-
-* Loaded on demand
-* One task at a time
-* Killed after idle
+5. **UI Never Lies**
+   If something is idle, it says idle.
+   If something fails, it shows why.
 
 ---
 
-## 🔥 KEY PERFORMANCE TRICK
+## Megan (System Guide)
 
-> **90% of “alive” feeling comes from UI reactions, not AI.**
+Regen includes **Megan**, a guided interaction layer.
 
-So:
+Megan:
 
-* Use animation for liveliness
-* Use AI only for thinking
+* Explains what actions will do
+* Reflects task state changes
+* Warns about privacy or network usage
+* Summarizes completed tasks
 
----
+Megan **does not**:
 
-# 🧪 HOW USERS WILL EXPERIENCE THIS (REALISTIC)
+* Start tasks
+* Run in the background
+* Act autonomously
 
-### Day 1
-
-* “Whoa, this avatar feels alive”
-* “It doesn’t annoy me”
-
-### Day 3
-
-* “I forgot it was even AI”
-* “But it helps when I need it”
-
-### Day 7
-
-* “This feels better than my old browser”
-
-That’s how favorites are made.
+Megan exists to **keep the user in control**, not replace them.
 
 ---
 
-# ✅ WHAT YOU MUST BUILD (CLEAR LIST)
-
-### MUST HAVE
-
-* Passive avatar reactions
-* Click / shortcut invocation
-* Single-command input
-* Action-first responses
-* Silent default behavior
-
-### OPTIONAL (later)
-
-* Voice
-* Full automation chains
-* Multi-agent reasoning
-
----
-
-# 🧠 FINAL TRUTH (VERY IMPORTANT)
-
-If you copy:
-
-* ChatGPT → you lose
-* Siri → you feel dated
-* Google Assistant → too generic
-
-If you build:
-
-> **A silent, fast, acting avatar**
-
-You create a **new category**.
-
----
-
-and we’ll lock this perfectly.
-Understood. You want the **avatar to be truly interactive and “alive” like Google Assistant / Siri**, **but**:
-
-* ⚡ **Faster**
-* 🧠 **Lower RAM**
-* 🧘 **Non-annoying**
-* 🧩 **Automation-capable**
-* 👤 **Feels like *me* (context-aware, calm, effective)**
-
-This is **hard**, and most products fail here.
-Below is the **ONLY model that works for a browser**.
-
----
-
-# 🧬 THE RIGHT MENTAL MODEL (VERY IMPORTANT)
-
-❌ Wrong model
-
-> “Avatar = Chatbot with a face”
-
-✅ Correct model
-
-> **Avatar = Live interface to a background intelligence**
-
-Think of the avatar as:
-
-* A **real-time controller**
-* A **listener**
-* A **signal interpreter**
-* A **visual state machine**
-
-Not a talking head.
-
----
-
-# 🎯 WHAT “INTERACTIVE & LIVE” REALLY MEANS (FOR USERS)
-
-When users say *interactive*, they don’t mean talking constantly.
-
-They mean:
-
-* It **responds immediately**
-* It **understands intent without asking**
-* It **reacts to gestures / actions**
-* It **can be invoked naturally**
-* It **does things, not chats**
-
-So we design **4 interaction layers** 👇
-
----
-
-# 1️⃣ LAYER 1 — PASSIVE INTERACTION (ALWAYS ON, ZERO COST)
-
-This costs **almost no RAM**.
-
-### Avatar reacts to:
-
-* Mouse movement speed
-* Scroll direction
-* Typing pauses
-* Tab switching
-* Idle time
-
-### Examples
-
-| User Action         | Avatar Reaction         |
-| ------------------- | ----------------------- |
-| Stops scrolling     | Avatar looks attentive  |
-| Rapid tab switching | Avatar posture tightens |
-| Idle 20s            | Avatar relaxes          |
-| Typing pause        | Avatar slight head tilt |
-
-💡 This gives **“alive” feeling without AI calls**
-
-> This alone makes users feel the avatar is real.
-
----
-
-# 2️⃣ LAYER 2 — DIRECT USER INTERACTION (INSTANT)
-
-This is how Siri / Google Assistant feel instant.
-
-### Invocation methods (ALL OPTIONAL)
-
-#### A. Click avatar (primary)
-
-* Opens **minimal input**
-* Not a chat window
-
-```
-[ Avatar ]
-“Listening…”
-```
-
-#### B. Keyboard shortcut
-
-* `Cmd + Space` (Mac)
-* `Ctrl + Space` (Win)
-
-#### C. Voice (optional, later)
-
-* Push-to-talk only
-* Never hot mic
-
----
-
-### Input UI (VERY IMPORTANT)
-
-❌ No chat bubbles
-❌ No conversation history
-
-✅ Single command strip:
-
-```
-Tell Regen what to do…
-```
-
-Examples users type/say:
-
-* “Summarize this”
-* “Save this”
-* “Compare these tabs”
-* “Why am I stuck here?”
-* “Automate this task”
-
----
-
-# 3️⃣ LAYER 3 — REAL ACTION (THIS IS WHERE YOU WIN)
-
-Most assistants **talk**.
-Regen must **act**.
-
-### Avatar can do:
-
-* Summarize current page
-* Extract links
-* Save to workspace
-* Close redundant tabs
-* Group tabs
-* Track research
-* Automate multi-step flows
-
-### UX Rule
-
-* **Avatar confirms once**
-* Then executes
-* Then reports
-* Then goes silent
-
-Example:
-
-```
-Observation: Repeated sources detected.
-Action available.
-
-[Proceed] [Cancel]
-```
-
-No conversation. No back-and-forth.
-
----
-
-# 4️⃣ LAYER 4 — AUTOMATION MODE (POWER USERS)
-
-This is where Regen beats Google/Siri.
-
-### Automation is:
-
-* **Explicit**
-* **Short-lived**
-* **Visible**
-* **Cancelable**
-
-Example:
-User says:
-
-> “When I open research papers, summarize and save them.”
-
-Avatar responds:
-
-```
-Automation available.
-Trigger: Academic pages
-Action: Summarize + Save
-
-[Enable] [Edit] [Cancel]
-```
-
-Automation runs **locally**, event-driven.
-
----
-
-# 🧠 HOW TO MAKE IT “LIKE ME” (IMPORTANT)
-
-What makes me effective is **not answers**, it’s:
-
-1. Understanding intent
-2. Not over-talking
-3. Acting fast
-4. Explaining just enough
-5. Remembering context briefly
-
-So the avatar must follow **these rules**:
-
----
-
-## 🧩 AVATAR BEHAVIOR RULES (NON-NEGOTIABLE)
-
-### 1️⃣ One response at a time
-
-No parallel thinking shown.
-
-### 2️⃣ No filler speech
-
-❌ “Sure, I can help with that”
-❌ “Here’s what I found”
-
-✅ Just results.
-
----
-
-### 3️⃣ Short memory, strong context
-
-* Remember last action
-* Forget old conversations
-* Focus on *current task*
-
-This saves RAM and feels sharp.
-
----
-
-### 4️⃣ Silence is default
-
-Avatar is quiet unless:
-
-* Invoked
-* Something critical detected
-* Automation triggered
-
----
-
-# ⚡ PERFORMANCE ARCHITECTURE (WHY THIS STAYS FAST)
-
-This is how you keep it **lighter than Chrome**.
-
----
-
-## 🧠 Split the avatar into 3 systems
-
-```
-Avatar UI (React)
-  ↓ (events only)
-Intent Engine (lightweight)
-  ↓ (only when needed)
-AI Provider (GPT / Claude / Local)
-```
-
-### Avatar UI
-
-* Pure animation
-* No AI logic
-* Almost zero RAM
-
-### Intent Engine
-
-* Simple rules
-* Pattern detection
-* Cheap, fast
-
-### AI Provider
-
-* Loaded on demand
-* One task at a time
-* Killed after idle
-
----
-
-## 🔥 KEY PERFORMANCE TRICK
-
-> **90% of “alive” feeling comes from UI reactions, not AI.**
-
-
-# 🧠 FINAL TRUTH (VERY IMPORTANT)
-
-If you copy:
-
-* ChatGPT → you lose
-* Siri → you feel dated
-* Google Assistant → too generic
-
-If you build:
-
-> **A silent, fast, acting avatar**
-
-You create a **new category**.
-
----
-
-## 🚀 NEXT (STRONGLY RECOMMENDED)
-
-I can:
-
-1. Design the **exact avatar interaction state machine**
-2. Write **sample avatar responses (copy)**
-3. Define **automation UX flows**
-4. Help you decide **what NOT to automate**
-
-Say:
-
-> **"Design avatar interaction state machine"**
-
-and we'll lock this perfectly.
-
----
-
-# 🌌 Regen — A Real-Time, Presence-Based AI Browser
-
-> **Regen is not a chatbot browser.  
-> It is a browser with a mind.**
-
-Regen is an experimental **real-time browser platform** that observes user intent, understands context, and intervenes **only when necessary** — silently, precisely, and ethically.
-
-Unlike traditional AI browsers that rely on chat windows and manual prompts, Regen introduces a **presence-based AI system** that lives alongside the browser as a *sentinel*, not an assistant.
-
----
-
-## 🧬 What Makes Regen Different
-
-Most browsers today fall into one of two categories:
-
-* **Traditional browsers** → fast but unaware
-* **AI browsers** → chat-heavy, interruptive, prompt-driven
-
-Regen creates a **new category**:
-
-> **A calm, observing browser that helps without interrupting.**
-
-### Core Differentiators
-
-* 🧠 **Presence-based AI (not chat-based)**
-* 👁️ **Real-time intent & context awareness**
-* 🛡️ **Local-first, privacy-respecting design**
-* ⚙️ **Event-driven architecture**
-* 🧩 **Human-kind AI behavior (silent, precise, loyal)**
-
----
-
-## 🔥 The Sentinel AI (Regen Core)
-
-At the heart of Regen is **Regen Core** — a sentinel-style AI system inspired by cinematic intelligence systems (e.g., *M3GAN-like control and restraint*), but built with ethical, user-first principles.
-
-### Regen Core does NOT:
-
-* Interrupt you
-* Spam suggestions
-* Force AI actions
-* Behave like a chatbot
-
-### Regen Core DOES:
-
-* Observe browsing patterns
-* Detect redundancy, loops, overload, and drift
-* Suggest actions *only when useful*
-* Return to silence after helping
-
-> Think of it as a **guardian system**, not a helper bot.
-
----
-
-## 🧭 How Regen Works (High Level)
-
-```
-User Action
-   ↓
-Real-Time Event Bus
-   ↓
-Context & Pattern Detection
-   ↓
-Regen Core (Sentinel AI)
-   ↓
-Optional Suggestion
-   ↓
-User Consent → Action → Report → Silence
-```
-
-Everything is **event-driven**, not request-response.
-
----
-
-## 🧩 Current Capabilities (v1)
-
-### Browser Core
-
-* Multi-tab browsing
-* Intent-first command system
-* Workspace-based navigation
-* Local session persistence
-
-### AI Capabilities
-
-* Page summarization
-* Search intelligence (manual + contextual)
-* Structured task execution
-* Audit-friendly AI interactions
-
-### System Design
-
-* Local-first architecture
-* Offline-ready foundations
-* Explicit user consent for AI actions
-* Transparent execution logs
-
-> ⚠️ Regen intentionally avoids "always-on automation" without user permission.
-
----
-
-## 🚧 What "Real-Time" Means in Regen
-
-Real-time in Regen does **not** mean faster chat replies.
-
-It means:
-
-* UI reacts instantly to user behavior
-* Context builds continuously in the background
-* AI suggestions emerge from patterns, not prompts
-* The browser feels *aware*, not reactive
-
-Examples:
-
-* Detecting redundant tabs
-* Noticing repeated searches
-* Identifying long reading loops
-* Offering summaries when attention drops
-
----
-
-## 🛡️ Privacy & Ethics
-
-Regen is built on the principle that **intelligence must be earned, not assumed**.
-
+## AI in Regen (Honest Status)
+
+* AI is used as a **tool**, not a decision-maker
+* All AI usage is **task-based**
+* No background AI execution
+* No silent context scraping
 * Local-first by default
-* No hidden background automation
-* No silent data exfiltration
-* Every AI action is visible and dismissible
-* Users can silence Regen Core anytime
 
-Regen's AI is **observational, not invasive**.
+Regen does **not** claim proprietary AI models.
+The value is **how intelligence is controlled**, not who trained it.
 
 ---
 
-## ⚡ Performance is Non-Negotiable
+## Privacy & Network Behavior
 
-AI browsers fail when they're slow.
-Regen was built with one rule:
+* No background network calls
+* Network usage only happens on explicit user action
+* Execution mode is always visible (Local / Online)
+* System status bar reflects real CPU, RAM, and network activity
 
-> **Browsing must be fast even if AI is off or slow.**
-
-How we do this:
-
-• **AI never blocks the UI thread**
-• **Event-driven, not polling** (triggers only when needed)
-• **One AI task at a time** (strict queuing)
-• **Aggressive caching** (same page = instant results)
-• **Hard timeouts** (AI tasks auto-kill after 10s)
-• **Stream responses** (progressive updates, cancelable anytime)
-
-The result:
-- Open 20 tabs → no slowdown
-- Scroll while AI works → buttery smooth
-- Close tab mid-AI → instant recovery
-
-If Regen feels slower than Chrome, we failed.
+If Regen cannot guarantee privacy for an action, it blocks it.
 
 ---
 
-## 🧪 Project Status
+## Current Limitations (Important)
 
-🚧 **Experimental / Active Development**
+This is an **experimental release**.
 
-* Core browser architecture: ✅
-* Intent & command system: ✅
-* Presence-based AI (Regen Core): ✅
-* Real-time event bus: ✅
-* Pattern detection & memory: 🚧 In progress
-* Local AI models: ⏳ Planned
+Known limitations:
 
-This is **not** a finished consumer browser — it is a **platform for next-generation browsing intelligence**.
+* No account sync
+* No extensions
+* Limited AI actions
+* Possible crashes or bugs
+* UI polish is secondary to stability
 
----
-
-## 🗺️ Roadmap (Simplified)
-
-### Phase 1 — Real-Time Foundation ✅
-
-* Event bus ✅
-* Sentinel AI presence ✅
-* Context signals ✅
-
-### Phase 2 — Intelligence Layer 🚧
-
-* Pattern detection 🚧
-* Session memory 🚧
-* Smarter suggestions 🚧
-
-### Phase 3 — Local AI ⏳
-
-* Offline intelligence ⏳
-* Model choice (local / remote) ⏳
-* User-controlled AI modes ⏳
+These limitations are **intentional** at this stage.
 
 ---
 
-## 🚀 Quick Start
+## Who This Is For
+
+Regen's real users:
+
+* **Developers** (need control, hate magic)
+* **Researchers** (need auditability)
+* **Security teams** (need transparency)
+* **Enterprise users** (need compliance)
+* **Power users** (need reliability)
+* **People burned by hallucinating AI** (need trust)
+
+These users pay for **control**, not magic.
+
+If you want AI to "just do things for you", Regen may not be for you (yet).
+
+---
+
+## How to Test Regen
+
+**Quick Test (15 minutes):**
+
+1. **Install and Start**
+   ```bash
+   git clone https://github.com/nrbns/Regen-v1.git
+   cd Regenbrowser
+   npm install
+   npm run dev:tauri
+   ```
+
+2. **Basic Functionality**
+   - Open 5-10 tabs
+   - Navigate between tabs
+   - Create a task (try summarizing a page)
+   - Cancel a task mid-execution
+   - Check the task panel (should always be visible)
+
+3. **What to Look For**
+   - Tasks appear instantly when created
+   - Cancel button works immediately
+   - Task panel shows all tasks
+   - No background network calls (check system bar)
+   - Megan explains actions but doesn't execute them
+
+**Stability Test (1-2 hours):**
+
+1. Open 20-30 tabs
+2. Browse normally for 1-2 hours
+3. Create tasks periodically
+4. Monitor memory usage (should stay stable)
+5. Report any crashes, lag, or memory growth
+
+**What to Report:**
+
+* Crashes (when, what were you doing)
+* Lag or freezing (which actions trigger it)
+* Memory leaks (RAM growing continuously)
+* Tasks not canceling
+* Network activity without user action
+* UI confusion (what's unclear)
+
+See [Alpha Testing Guide](./docs/ALPHA_TESTING_GUIDE.md) for detailed test procedures.
+
+---
+
+## How to Help
+
+We are actively looking for:
+
+* Bug reports
+* Stability feedback
+* UX clarity feedback
+* Real usage observations
+
+**What helps most:**
+
+* Using Regen for 30–60 minutes
+* Reporting where it feels confusing, slow, or fragile
+* Being honest (positive or negative)
+
+---
+
+## Experimental Disclaimer
+
+This software is provided **as-is**.
+
+* Expect bugs
+* Expect rough edges
+* Expect change
+
+But also expect **real behavior**, not demos.
+
+---
+
+## Roadmap (High Level)
+
+* Improve browser stability
+* Harden task runtime
+* Expand controlled AI actions
+* Optional online execution (explicit only)
+* Better crash recovery
+
+Features will only be added if they respect Regen's core principles.
+
+---
+
+## Philosophy
+
+> **Regen is not unique because it does more.  
+> Regen is unique because it refuses to do less safely.**
+
+That's a rare position.  
+That's a real position.  
+That's a buildable position.
+
+---
+
+> **Most AI tools optimize for magic.  
+> Regen optimizes for trust.**
+
+Magic impresses once.  
+Trust is what people rely on daily.
+
+---
+
+## Status
+
+**Regen v0.1 — Experimental Real-Time Release**
+
+This is the first step toward a controlled, transparent AI browser.
+
+**Current Implementation Status:**
+
+* ✅ Real-time task system (100% complete)
+* ✅ Multi-tab browser core (working)
+* ✅ Task enforcement (100% migrated)
+* ✅ Megan guide system (event-driven, guide-only)
+* ✅ System truth bar (CPU/RAM/Network/Mode)
+* ✅ Crash recovery (watchdog, restart safety)
+* 🚧 Stability testing (in progress)
+* ⏳ Installer packaging (guides ready)
+
+---
+
+## For Investors / Partners
+
+**What Regen Is:**
+
+A real-time browser that makes AI execution **visible, controllable, and trustworthy**.
+
+**The Problem:**
+
+Current AI browsers hide execution, making it impossible to:
+* Know what's running
+* Stop unwanted actions
+* Trust privacy guarantees
+* Debug failures
+
+**The Solution:**
+
+Regen enforces **explicit execution** — nothing runs without user action, everything is visible, everything can be stopped.
+
+**Current State:**
+
+* **Code**: Core systems 100% implemented
+* **Documentation**: Complete
+* **Testing**: Alpha phase (stability testing in progress)
+* **Packaging**: Guides ready, installer pending
+
+**What's Different:**
+
+* Not claiming proprietary AI models
+* Not promising autonomous agents
+* Not hiding limitations
+* Focused on **control architecture**, not AI capabilities
+
+**Market Position:**
+
+* Privacy-first browsing (growing market)
+* Developer tools (control over automation)
+* Early adopter segment (values transparency)
+
+**Ask:**
+
+* $50-150k seed funding for:
+  - Stability hardening (2-3 weeks)
+  - Installer & packaging (1 week)
+  - Early user outreach (ongoing)
+  - Team expansion (1-2 developers)
+
+**Traction:**
+
+* 573+ commits
+* Real-time foundation complete
+* Active development
+* Alpha-ready codebase
+
+**Next Milestones:**
+
+* Alpha release (2-3 weeks)
+* 50-200 early adopters (4-6 weeks)
+* Beta release (8-12 weeks)
+
+**Contact:**
+
+See [Project Vision](./docs/VISION.md) or reach out via GitHub.
+
+---
+
+### Final Note
+
+Regen is not trying to look finished.
+It is trying to be **real**.
+
+If you are reading this and testing it — thank you.
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
@@ -892,115 +509,31 @@ ollama pull phi3:mini
 
 ---
 
-## 🧑‍💻 Who Regen Is For
+## Documentation
 
-* Builders & developers
-* Researchers & power users
-* Founders exploring AI-first tools
-* Anyone who wants **less noise, more clarity**
+**Essential Guides:**
+* [Alpha Launch Checklist](./docs/ALPHA_LAUNCH_CHECKLIST.md) - Complete alpha readiness checklist
+* [Alpha Testing Guide](./docs/ALPHA_TESTING_GUIDE.md) - Step-by-step testing procedures
+* [Alpha Build Guide](./docs/ALPHA_BUILD_GUIDE.md) - Build and packaging instructions
+* [Alpha Launch Status](./docs/ALPHA_LAUNCH_STATUS.md) - Current alpha readiness status
 
----
+**Architecture:**
+* [Layers & Phases](./docs/LAYERS_AND_PHASES_COMPLETE.md) - Complete architecture documentation (4 interaction layers, 4 execution layers, 4 development phases)
+* [Real-Time Verification](./docs/REALTIME_VERIFICATION_FINAL.md) - Code-level verification of all 10 real-time requirements
 
-## 📚 Technical Architecture
+**Development:**
+* [Enforcement Guide](./docs/ENFORCEMENT_GUIDE.md) - Task enforcement system guide
+* [Migration Guide](./docs/MIGRATION_GUIDE.md) - Migration from direct AI calls to task-based execution
 
-### Event-Driven Real-Time System
-
-Regen uses an **event bus architecture** for real-time context awareness:
-
-**Event Types:**
-* `NAVIGATE` - Tab navigation events
-* `TAB_OPEN` / `TAB_CLOSE` / `TAB_SWITCH` - Tab lifecycle events
-* `SCROLL` - Scroll depth tracking
-* `SEARCH_SUBMIT` - Search query events
-* `TEXT_SELECT` - Text selection events
-* `IDLE_TIMEOUT` - User idle detection
-* `PAGE_LOAD` / `PAGE_ERROR` - Page lifecycle events
-* `CLICK` / `KEYPRESS` - User activity tracking
-
-**Pattern Detection:**
-* **Tab Redundancy** - Detects 3+ tabs from same domain
-* **Search Loop** - Detects repeated searches (3+ in 60s)
-* **Long Scroll** - Detects deep scrolling on articles (80%+ depth)
-* **Idle Time** - Detects 22+ minutes of inactivity
-* **Page Errors** - Detects failed page loads
-
-**AI Actions (User Permission Required):**
-* `close_duplicates` - Close redundant tabs
-* `summarize` - Summarize long article
-* `refine_search` - Suggest search refinement
-* `save_for_later` - Save page for later reading
-* `use_cache` - Use cached version on error
-
-### Technical Stack
-
-```
-Frontend (React + TypeScript)
-    ↕ EventBus (Real-Time Events)
-    ↕ Regen Core (Sentinel AI)
-    ↕ IPC (Tauri) / Events (Web)
-Backend Services
-    ├── CommandController (Intent resolution & execution)
-    ├── ToolGuard (Security & permissions)
-    ├── BackendService (API abstraction)
-    ├── WorkspaceStore (Local persistence)
-    ├── TaskRunner (Single-run tasks)
-    └── EventBus (Real-time event streaming)
-```
-
-### Key Files
-
-* `src/lib/command/CommandController.ts` - Single entry point for all commands
-* `src/lib/events/EventBus.ts` - Real-time event streaming system
-* `src/core/regen-core/` - Sentinel AI presence system (Regen Core)
-* `src/core/regen-core/regenCore.hooks.ts` - Pattern detection hooks
-* `src/lib/security/ToolGuard.ts` - Tool allowlist and permission system
-* `src/lib/backend/BackendService.ts` - Backend API abstraction
-* `src/lib/workspace/WorkspaceStore.ts` - Local data persistence
+**Strategy:**
+* [Positioning](./docs/POSITIONING.md) - Why Regen exists and what makes it unique
 
 ---
 
-## 📖 Documentation
-
-All documentation is organized in the [`docs/`](./docs/) directory:
-
-### Quick Links
-* [Documentation Index](./docs/README.md) - Complete documentation directory
-* [API Documentation](./docs/architecture/API_DOCUMENTATION.md) - Complete API reference
-* [Architecture Audit](./docs/architecture/AUDIT.md) - Technical audit and compliance checklist
-* [Regen Core Implementation](./docs/architecture/REGEN_CORE_IMPLEMENTATION.md) - Sentinel AI system details
-* [Real-Time Architecture](./docs/development/REALTIME_IMPLEMENTATION_COMPLETE.md) - Event-driven system documentation
-* [Project Vision](./docs/VISION.md) - Vision document for investors and stakeholders
-
-### Documentation Structure
-
-* **`docs/architecture/`** - Technical architecture documentation
-* **`docs/development/`** - Development logs and progress tracking
-* **`docs/user-guides/`** - User-facing documentation and guides
-
----
-
-## ⚠️ Disclaimer
-
-Regen is an **experimental research project**.  
-Expect breaking changes, refactors, and rapid evolution.
-
-If you're looking for a polished Chrome replacement — this is not it (yet).
-
-If you're interested in **what browsers could become** — welcome.
-
----
-
-## 📜 License
+## License
 
 MIT License (see LICENSE file for details)
 
 ---
 
-## 🧠 Final Note
-
-> Regen is not trying to be louder than other browsers.  
-> It's trying to be **smarter, quieter, and more respectful**.
-
----
-
-**Built with ❤️ for the future of browsing**
+**Built with discipline. Verified with code. Ready for reality.**
